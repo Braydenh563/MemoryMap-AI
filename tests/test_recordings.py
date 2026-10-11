@@ -212,3 +212,42 @@ def test_the_list_pages_and_counts(client):
     assert "X-Next-Cursor" in page.headers
     rest = client.get("/recordings?limit=2&offset=2")
     assert len(rest.json()["recordings"]) == 1 and "X-Next-Cursor" not in rest.headers
+
+
+def test_marks_carry_a_comment_and_old_markers_still_read(client):
+    """Brief 96: a mark is a time and an optional comment; a plain number is
+    a mark with no comment, so markers saved before keep working."""
+    made = _make(client)
+    _chunk(client, made["id"], WEBM_HEAD, 9000)
+    client.post(f"/recordings/{made['id']}/finish", json={"duration_ms": 9000, "markers": [2000]})
+    body = client.patch(
+        f"/recordings/{made['id']}",
+        json={"markers": [2000, {"at": 4500, "note": "  budget question  "}, {"at": 99_000, "note": "past the end"}]},
+    ).json()
+    assert body["markers"] == [2000, 4500]
+    assert body["marks"] == [{"at": 2000, "note": ""}, {"at": 4500, "note": "budget question"}]
+    # The same time twice keeps one mark, the later comment winning.
+    body = client.patch(
+        f"/recordings/{made['id']}", json={"markers": [{"at": 4500, "note": "a"}, {"at": 4500, "note": "b"}]}
+    ).json()
+    assert body["marks"] == [{"at": 4500, "note": "b"}]
+    long_note = "x" * 2000
+    body = client.patch(f"/recordings/{made['id']}", json={"markers": [{"at": 1, "note": long_note}]}).json()
+    assert len(body["marks"][0]["note"]) == recordings.MARK_NOTE_MAX
+
+
+def test_an_enhanced_copy_says_so_and_keeps_its_original(client):
+    """UI_MODERNISATION V3: the cleaned audio is a new object marked
+    `derived: "enhanced"` pointing at the original, which is kept until the
+    transcript is accepted; a trim says `trim`, and an unknown kind is refused."""
+    made = _make(client)
+    _chunk(client, made["id"], WEBM_HEAD, 1000)
+    client.post(f"/recordings/{made['id']}/finish", json={"duration_ms": 1000})
+    clean = client.post(
+        "/recordings", json={"title": "Standup", "mime": "audio/wav", "source_id": made["id"], "derived": "enhanced"}
+    ).json()
+    odd = client.post("/recordings", json={"mime": "audio/wav", "derived": "louder"})
+    plain = client.get(f"/recordings/{made['id']}").json()
+    assert clean["derived"] == "enhanced" and clean["source_id"] == made["id"]
+    assert plain["derived"] == ""
+    assert odd.status_code == 422

@@ -12,6 +12,7 @@ from __future__ import annotations
 import importlib.util
 import logging
 import threading
+from collections.abc import Iterator
 from pathlib import Path
 
 from memorymap.core.logbuffer import safe_value
@@ -57,7 +58,13 @@ def transcribe(audio_path: Path, model_size: str = "base") -> str:
 
 
 def transcribe_segments(audio_path: Path, model_size: str = "base") -> list[dict]:
-    """Turn one recorded clip into text. Raises RuntimeError with the
+    """Every segment of one clip at once (see `iter_segments`)."""
+    return list(iter_segments(audio_path, model_size))
+
+
+def iter_segments(audio_path: Path, model_size: str = "base") -> Iterator[dict]:
+    """Turn one recorded clip into text, a segment at a time, so a background
+    run can report how far it is and stop between two (UI_MODERNISATION V1). Raises RuntimeError with the
     install hint when Whisper isn't available, and RuntimeError with a
     distinct message when the model itself can't be loaded.
 
@@ -95,11 +102,9 @@ def transcribe_segments(audio_path: Path, model_size: str = "base") -> list[dict
         segments, _info = model.transcribe(_decode_samples(audio_path))
     #: Each segment with its times (28.5 row 7): a transcript line seeks the
     #: player to its moment, and SRT and VTT are written from these.
-    return [
-        {"start": round(segment.start * 1000), "end": round(segment.end * 1000), "text": segment.text.strip()}
-        for segment in segments
-        if segment.text.strip()
-    ]
+    for segment in segments:
+        if segment.text.strip():
+            yield {"start": round(segment.start * 1000), "end": round(segment.end * 1000), "text": segment.text.strip()}
 
 
 def _decode_samples(audio_path: Path, rate: int = 16000):  # noqa: ANN202

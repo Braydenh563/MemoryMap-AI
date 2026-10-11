@@ -46,24 +46,10 @@ function stepsToText(steps) {
   return (steps || []).join("\n");
 }
 
-function textToSteps(text) {
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
-
 function inputsToText(inputs) {
   return (inputs || [])
     .map((item) => (item.label && item.label !== `${item.name}?` ? `${item.name}: ${item.label}` : item.name))
     .join("\n");
-}
-
-function textToInputs(text) {
-  return textToSteps(text).map((line) => {
-    const [name, ...rest] = line.split(":");
-    return { name: name.trim(), label: rest.join(":").trim(), required: true };
-  });
 }
 
 function startEditingSkill(skill) {
@@ -1194,22 +1180,6 @@ async function saveFile(filename, blob) {
     action: { exports: true },
   });
   return { filename };
-}
-
-// Open a picker, parse the chosen file, hand the object to `apply`.
-function pickJsonFile(inputId, apply) {
-  const input = $(inputId);
-  input.onchange = async () => {
-    const file = input.files[0];
-    input.value = "";
-    if (!file) return;
-    try {
-      apply(JSON.parse(await file.text()));
-    } catch {
-      toast("That file isn't valid JSON.", "info");
-    }
-  };
-  input.click();
 }
 
 // --- Wave M: batch operations on notes ----------------------------------------------

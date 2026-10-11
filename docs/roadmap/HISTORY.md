@@ -48340,6 +48340,26 @@ Built for 776, 777, 779, 780, 782, 783 (agent uipolish-1010, 2026-10-11): the to
      firewall). Tests: `test_lan_tls.py`, `test_lan_serve.py` (real
      sockets, OpenSSL verifying the chain). Not verified: a real phone.
 
+868. **The owner, 2026-10-11, verbatim.** "Also I think there should be a time
+     stamp on each chat message in the chat tab and sessions". Fixed: the
+     server stamps `at` on every message it saves, chat-time.js (lazy) shows it
+     muted at the end of each message's line with the full date on hover, and
+     the chat list reads its time from the last message (Brief 103).
+
+871. **The owner, 2026-10-11, verbatim.** "the help search bar should be below
+     the welcome tour section at the top of the help dropdowns". Fixed: Settings,
+     Help's search field and its count sit directly under the Welcome and tours
+     group, above the topics they filter; the Tab order follows.
+897. **The owner, 2026-10-11, verbatim.** "the size of things should be
+     proportional and individual to the device, so if I change the size of
+     say the companion and the zoom on my computer, it shouldnt affect my
+     phone." Read: `ai-tools.js` mirrors LOOK_KEYS (with `zoom`,
+     `fontsize`, `density`) to the server's `ui_state`, so a size set on
+     one device arrives on every other. Placed: the devsize agent: sizes
+     (zoom, font size, density, the companion's size and spots) stay on the
+     device; colours and themes still follow you.
+     **Fixed f8597d361.** Measured (scratchpad/ui-sweeps/devsize.js, 1440 desktop + 390 phone, one server): desktop zoom 130 and companion 1.4 left the phone at zoom 1 and --nmb-scale 1; ui_state held no size key; the accent reached the phone; legacy sizes in the notebook were ignored and cleaned. Sizes are not in saved looks (looks are colours).
+
 ## Moved from the plans, 2026-10-10 (canvasdepth)
 
 INBOX 797, the owner: "I feel like the mindmap and whiteboard are still
@@ -48681,3 +48701,12 @@ the decision waits.
 > - 840: "I can still select agent when the ai isnt running, is that intentional??" Intentional (CHAT_PLAN decision 22a: with no model, Agent runs the app's own tools); not learnable, so the segment says it: "Agent, app tools only" in its tooltip and a one-line hint under the composer the first time Agent is chosen with no model.
 > - 841: "i dont think the settings button in the bottom chat doc should be a circle when everything else is a curved corner rectangle". The chat dock's settings button takes the dock's control radius.
 > - 842: "that year button in the timeline takes up a whole row on its own". The year chip ("2026 (42)") moves into the calendar bar's row as a quiet control beside the month picker, or folds into the table's Date column header; no row of its own.
+
+## Moved from the plans, 2026-10-11 (Brief 89)
+
+> ## Brief 89 (Sonnet): Add tags on lightly tagged notes (INBOX 836)
+>
+> The owner 2026-10-11, verbatim: "also should \"add tags\" show for notes with 0-2/3 tags on them?? with suggested tags as well?? and also an option for \"dont suggest tags\" for this note or smth." Measured: the "Add tags" chip (`note-cards.js` near 1801) shows only on an untagged note; suggestions live in tag-suggest.js and the capture form.
+> Decisions: (a) a note with fewer than three tags shows a quiet "+ Tag" chip after its tags; (b) opening it lists up to three suggested tags (tag-suggest.js's ranking) as one-click chips above the input; (c) its menu has "Don't suggest tags for this note", stored on the note (a property), undoable, and reversible from the same menu; the Guide and the chip's `data-help-for` say so.
+>
+> **Built** (branch agent/tags89-1011). `tagAddChipKind` (note-cards.js): the card's chip is "Add tags" on an untagged note with nothing suggested, a quiet "+ Tag" (`.chip.untagged.tag-add`) on a note with one or two tags or suggestions showing, and none from three tags (`TAG_ADD_BELOW`), on a board or draft, or on a read-only row. "+ Tag" opens `openNoteTagPopover` (tag-suggest.js, lazy): up to three suggested tags (the ones kept on the note first, then `/entries/suggest-tags`, none for a private note) as one-press chips above a field, a '?' and a `kebabMenu` with "Don't suggest tags for this note" or "Suggest tags for this note again". The flag is `Entry.tag_suggest_off` (additive column), set through `POST /entries/{id}/suggested-tags` with `mute`; while set `_open_suggestions` offers nothing and `_keep_suggestions` makes none, and what was kept returns when it is cleared. Turning it off says so with Undo. Guide: the `suggested-tags` topic. Tests: `tests/test_tags89.py`. Measured on port 8794 (Chromium): the chip on the 1- and 2-tag notes and not the 3-tag one; three suggestions in the popover; muted, the card shows none and the popover says "Suggestions are off for this note." after a reload.

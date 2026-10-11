@@ -49,7 +49,7 @@ from collections.abc import Iterator
 
 from memorymap import SUPPORT_EMAIL
 from memorymap.ai import AI_NAME
-from memorymap.ai import act_registry, presets, question_noise
+from memorymap.ai import act_registry, presets, question_noise, spelling
 from memorymap.ai.help_topics_more import HELP_GROUPS, MORE_TOPICS, TOPIC_META
 from memorymap.ai.model_manager import ModelManager
 from memorymap.ai.provider import Provider
@@ -556,9 +556,20 @@ HELP_TOPICS: list[dict] = [
             "local Whisper: nothing sent anywhere. \"Record a meeting or "
             "lecture\" (the command palette, Ctrl+Shift+R, or a meeting's Record "
             "into it) and \"Voice note\" keep the audio as a recording, saved "
-            "every 10 seconds, even with no add-on; with the Voice notes add-on "
-            "the transcript is offered to save. Library, Recordings plays them "
-            "at 0.5 to 2x, with markers (M while recording) and Trim; a "
+            "every 10 seconds, even with no add-on; closing the recorder keeps "
+            "it recording in a bar with Pause and Stop. The recorder's "
+            "Microphone fold (and Settings, General, Microphone) chooses the "
+            "input, noise suppression, echo cancellation and automatic gain, "
+            "with a three-second test; Enhance on save there cuts rumble and "
+            "evens the loudness, keeping the original until the transcript is "
+            "saved. With the captions helper the words appear as you speak. "
+            "With the Voice notes add-on it transcribes in the background (a "
+            "notification says when it is done; Stop ends it) and the "
+            "transcript is offered to save; saved, the recorder shows its "
+            "first lines with Open. "
+            "Library, Recordings plays them "
+            "at 0.5 to 2x with a playhead and the time; drag the waveform to "
+            "seek, press M to mark a moment with a comment, and Trim; a "
             "transcribed one lists its lines with their times (press one to "
             "play from it) and downloads them as SRT or VTT subtitles; with "
             "the AI on, each turn is labelled with who spoke. "
@@ -671,8 +682,9 @@ HELP_TOPICS: list[dict] = [
             "for, opens Find anything (Ctrl/Cmd+P) with the words already "
             "searched. Typed words also find every feature in Tools and "
             "features, every act Chat does (it opens Chat with the words "
-            "started) and the matching settings; a word a letter out offers "
-            "the nearest, and what you ran for the same words comes first "
+            "started) and the matching settings, by what the words mean too "
+            "(\"trash\" finds the bin, \"keybord\" the shortcuts); a word a "
+            "letter out offers the nearest, and what you ran for the same words comes first "
             "next time (hover a row to see why it is where it is). "
             "It's a different box from the popup agent "
             "(Ctrl/Cmd+Shift+A): this one runs fixed commands, that one "
@@ -726,7 +738,8 @@ HELP_TOPICS: list[dict] = [
             "Quick access (search ocr). A pinch, two fingers on a touch screen "
             "or Ctrl and the wheel zooms the page about the pointer. Where "
             "Tesseract or RapidOCR read it, drag across the words on the page "
-            "to select them; Ctrl+C copies them in reading order. Saving an "
+            "to select them; Ctrl+C copies them in reading order. Find in what "
+            "was read marks every match, and Enter or its arrows step through them. Saving an "
             "edit, deleting, cleaning up and reading again all undo with Ctrl+Z, "
             "and a deleted reading goes to the bin. The reader button in the tool row (its dot is "
             "green when it can read) picks the AI document "
@@ -1037,8 +1050,8 @@ HELP_TOPICS.extend(
                 "guide: Start the tour for all of it, or a part's row, its name over "
                 "what it covers, to start there and carry on to the "
                 "next; Back and Next move through it, and Finish ends it whenever you "
-                "like. The search box at the top of Settings, Help keeps only the "
-                "topics that hold every word you type, with the words marked; Esc "
+                "like. The search box under Welcome and tours in Settings, Help keeps "
+                "only the topics that hold every word you type, with the words marked; Esc "
                 "clears it."
             ),
             "badge": {"label": "Help", "section": "help"},
@@ -1125,7 +1138,7 @@ HELP_TOPICS.extend(
                 "A pop-up with a button (Undo, Open it, Show it) is kept here with "
                 "the same button: an opener still works after a restart, an Undo "
                 "only while it can still be undone, then its line says Undo expired. "
-                "Point at a row for its two controls beside the time: the circle "
+                "Each row has two controls at its right edge: the circle "
                 "marks it read or unread, the cross removes just that one; the bin at the bottom "
                 "clears them all. "
                 "Reminders also pop up on their own while a tab or the "
@@ -1240,7 +1253,9 @@ HELP_TOPICS.extend(
                 "Tools: V or S select, H hand, K lasso, P pen, M highlighter, E "
                 "eraser, B fill, L line, A arrow, R rectangle, O circle, G "
                 "triangle, D diamond, T text, N sticky note, F frame, C connector (Shift+C "
-                "curved), I image, X delete. Moving around: the wheel or two "
+                "curved), I image, X delete. The Shapes button's flyout also has a rounded "
+                "rectangle, ellipse, hexagon, parallelogram, star, cylinder, cloud, speech "
+                "bubble and block arrow. Moving around: the wheel or two "
                 "fingers pan, Shift+wheel pans sideways, Ctrl+wheel or a pinch "
                 "zooms, Space and drag pans, a drag to an edge pans, Ctrl+= and Ctrl+- zoom, "
                 "Ctrl+0 is 100%, Shift+1 fits all, Shift+N shows the "
@@ -1403,10 +1418,12 @@ HELP_TOPICS.extend(
                 "the Format panel on the right, with three tabs. Style: line colour, width and pattern, "
                 "fill, opacity, shadow, and for a connector its line shape (curved, straight or elbow), "
                 "its line jumps (where it crosses a line under it, it hops over with an arc, a gap or a "
-                "sharp peak), its two ends (each drawn in its list) and where its label sits along it. Text: the size, colour, weight, "
+                "sharp peak), its two ends (sixteen marks, from open and filled arrows, circles and "
+                "diamonds to a bar and a crow's foot, each drawn in its list; a plain line takes them too) and where its label sits along it. Text: the size, colour, weight, "
                 "alignment and vertical place (top, middle, bottom) of a text box or a shape's words. Arrange: X, Y, width, height and "
-                "angle as numbers, flip, and the order, align, spacing, group and lock buttons. Every "
-                "change is one undo step. Bends, connection points and imports are in Connector bends and importing."
+                "angle as numbers, flip, and the order, align, spacing, group and lock buttons. With "
+                "several items selected it shows what they all share, and a value they differ on reads Mixed. Every "
+                "change is one undo step, across the whole selection. Colours are in Fill, border and recent colours. Bends, connection points and imports are in Connector bends and importing."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -1798,16 +1815,17 @@ HELP_TOPICS.extend(
                 "from your notes", "why this source",
             ),
             "body": (
-                "Chat keys and controls. Enter sends, Shift+Enter starts a new "
+                "Chat keys and controls. Each message shows its time at the end of its "
+                "line (hover for the full date). Enter sends, Shift+Enter starts a new "
                 "line; Escape or Ctrl+. stops the answer, Ctrl+Shift+O starts a new chat, "
                 "Ctrl+Shift+G turns agent mode on or off, Ctrl+Shift+P clips a note "
                 "to your next question, and Ctrl+Shift+A opens the same agent over "
                 "any tab. Typing / in the box opens the chat menu: attach a note, a "
                 "document, a file or an image, upload one, Web search, "
-                "Plan first (the agent shows its steps before it starts), Skills, "
+                "Plan first, Skills, "
                 "and Agent or Ask mode. The note button beside the box opens Attach: "
-                "a tab each for notes, documents, files, images and mind maps, one "
-                "search, a count per tab of what is held; the arrows move, Space "
+                "a tab each for notes, documents, files, images and mind maps, with "
+                "a search; the arrows move, Space "
                 "ticks, Enter is Done. Each message's menu can copy it, edit your "
                 "question, regenerate from here, save it as a note or read it "
                 "aloud. The header can fork the conversation, compress the earlier "
@@ -1992,7 +2010,7 @@ HELP_TOPICS.extend(
                 "files and actions), and ? lists every shortcut, which Settings, "
                 "Keyboard shortcuts rebinds. Press m then a letter to jump: d (Dashboard), n "
                 "(Notes), c (Chat), g (Graph), l (Library), t (Timeline), r "
-                "(Reminders); or to act: s (Settings), q (Quick sketch), v (Record "
+                "(Reminders), o (OCR workspace); or to act: s (Settings), q (Quick sketch), v (Record "
                 "a meeting), a (Guide), p (Popup agent). A second m or Esc closes the panel. "
                 "Ctrl+Shift+A opens the agent over any tab, Ctrl+Shift+H asks Atlas "
                 "about the app, Ctrl+J writes at the cursor, Ctrl+Shift+E acts on "
@@ -2013,6 +2031,8 @@ HELP_TOPICS.extend(
 #: (INBOX 430): the second half of the reference, in its own module
 #: (help_topics_more.py) so this one stays about how an answer is found.
 HELP_TOPICS.extend(MORE_TOPICS)
+# The speller reads the help text for the app's own vocabulary (see spelling.set_topic_source).
+spelling.set_topic_source(lambda: [*HELP_TOPICS, *MORE_TOPICS])
 
 #: **Which entry answers "the keys of" a surface.** A question that names a
 #: surface and asks about its keys, controls or hidden corners is about that
@@ -2331,7 +2351,7 @@ def _matching_topics(question: str) -> list[dict]:
         if score > 0:
             scores[topic["id"]] = score
     if not scores:
-        return []
+        return _meaning_topics(question)
     #: **A surface's controls entry** (INBOX 410, see `_CONTROLS_FOR`). With
     #: a word asking for keys or controls, the named surface's controls entry
     #: goes above everything the words alone reached, the surface's own score
@@ -2360,6 +2380,29 @@ def _matching_topics(question: str) -> list[dict]:
         body = _BODY_WORDS[topic["id"]]
         score += 0.15 * sum(1 for w in words if w in body)
         scored.append((score, order, topic))
+    scored.sort(key=lambda row: (-row[0], row[1]))
+    best = scored[0][0]
+    return [topic for score, _, topic in scored[:MAX_TOPICS] if score >= best * _RUNNER_UP_SHARE]
+
+
+def _meaning_topics(question: str) -> list[dict]:
+    """**By meaning, when no keyword matched** (Brief 94, INBOX 857): the
+    words read as the things they name (`meaning.alts`: "too much moving
+    stuff" is motion, "the robot" is the companion), held by a topic's title
+    and keywords, the nearest first. A fallback only, so the question bank's
+    keyword answers are unchanged."""
+    from memorymap.ai import meaning
+
+    things = meaning.alts(question)
+    if not things or all(len(group) == 1 for group in things):
+        return []
+    scored = []
+    for order, topic in enumerate(HELP_TOPICS):
+        named = f"{topic_title(topic)} {' '.join(topic['keywords'])}"
+        if meaning.holds(things, named):
+            scored.append((meaning.closeness(things, named), order, topic))
+    if not scored:
+        return []
     scored.sort(key=lambda row: (-row[0], row[1]))
     best = scored[0][0]
     return [topic for score, _, topic in scored[:MAX_TOPICS] if score >= best * _RUNNER_UP_SHARE]

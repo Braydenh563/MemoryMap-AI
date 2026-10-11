@@ -81,3 +81,26 @@ def test_the_rows_draw_the_example_in_the_ink_and_start_is_turned_round():
     assert "#wb-prop-startcap ~ .select-opener .select-value::before" in LAZY
     fmt = (ROOT / "frontend" / "js" / "whiteboard-format.js").read_text(encoding="utf-8")
     assert "to.append(node.cloneNode(true))" in fmt, "the Format panel takes the bar's groups and drawings"
+
+
+def test_the_owner_s_ends_are_all_offered_and_a_plain_line_takes_them():
+    """2026-10-11, the owner: "can you add more shapes and more arrow options??"
+    (the screenshot showed None, Open arrow and Filled triangle). Every end in
+    the brief is a kind, a plain line shows the lists before it has an end,
+    and the Line and Arrow tools choose the mark as well as which ends."""
+    paths = _paths()
+    for kind in ("none", "arrow", "triangle", "triangle-open", "circle", "circle-filled",
+                 "diamond", "diamond-filled", "bar", "er-many"):
+        assert kind in paths, kind
+    assert paths["circle-filled"].count("Z") > 2 and paths["triangle-open"].count("Z") == 1
+    assert "Many (crow's foot)" in INDEX
+    assert '<select id="wb-arrow-head"' in INDEX and 'data-wb-tool-setting="head"' in INDEX
+    assert re.search(r'line: \["size", "ends", "head", "dash"\]', SOURCE)
+    takes = _function("wbSketchTakesCaps")
+    assert 'parsed.shape === "line"' in takes and 'parsed.shape === "arrow"' in takes
+    bar = SOURCE[SOURCE.index("function wbFillContextBar(") :]
+    assert "const isArrow = wbSketchTakesCaps(parsed);" in bar[: bar.index("\n}\n")]
+    # What the tool draws is stored by kind, so the lists read it back.
+    assert "Object.assign(blob, wbToolCaps())" in SOURCE
+    fmt = (ROOT / "frontend" / "js" / "whiteboard-format.js").read_text(encoding="utf-8")
+    assert 'arrow: ["stroke", "width", "dash", "caps"' in fmt and "wbRegenerateShapeCaps(parsed.d" in fmt

@@ -21,7 +21,7 @@ JS = JS_PATH.read_text(encoding="utf-8")
 
 HARNESS = """
 const vm = require("vm"), fs = require("fs");
-const ctx = vm.createContext({ document: {}, window: {} });
+const ctx = vm.createContext({ document: { addEventListener() {} }, window: {} });
 vm.runInContext(fs.readFileSync(process.argv[1], "utf8"), ctx);
 console.log(JSON.stringify(vm.runInContext(process.argv[2], ctx)));
 """

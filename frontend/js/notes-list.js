@@ -96,7 +96,6 @@ async function openNoteEditor(id, { focusTags = false } = {}) {
   return true;
 }
 
-
 // Category <select> shared by capture (guided mode) and the edit form.
 function fillCategoryOptions(select, selected) {
   select.replaceChildren();
@@ -2727,8 +2726,6 @@ function wireSidebarRowKeys(li) {
 //: Notes also move by ticking them in the list and choosing Move to (the
 //: batch bar), or by dragging a note's category label onto a category in
 //: the sidebar.
-
-let manageCategoriesRedraw = null;
 
 function categoryMenuItems(meta, { inPanel = false } = {}) {
   const items = [

@@ -14,12 +14,18 @@ send anyone elsewhere.
 uvicorn is given no socket of its own (`serve(sockets=[])`): it still runs
 its loop, keeps the connections this loop hands it in `server_state`, and
 closes them at shutdown, so Ctrl+C ends both listeners as before.
+
+INBOX 867 ("what if memory map is open to lan on a public network"): a
+client whose address is not private, shared or link-local is closed before
+its first byte is read (`client_allowed`): a forwarded port or a network
+that hands out public addresses never reaches the lock screen.
 """
 
 from __future__ import annotations
 
 import asyncio
 import contextlib
+import ipaddress
 import logging
 import re
 import select
@@ -41,6 +47,70 @@ HEAD_LIMIT = 8192
 #: (Proactor) has no `add_reader`; their request head is already in hand.
 _PEEKERS = ThreadPoolExecutor(max_workers=4, thread_name_prefix="lan-http")
 _SAFE_PATH = re.compile(r"^/[\x21-\x7e]*$")
+#: The addresses a device beside this computer has: private (RFC 1918 and
+#: IPv6 unique-local), carrier-grade shared space (a phone hotspot, some
+#: mesh VPNs), link-local, and this computer itself. Listed rather than
+#: `is_private`, whose meaning has moved between Python versions.
+_NEARBY = tuple(
+    ipaddress.ip_network(n)
+    for n in (
+        "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "100.64.0.0/10", "169.254.0.0/16",
+        "127.0.0.0/8", "::1/128", "fc00::/7", "fe80::/10",
+    )
+)
+
+
+#: The /64 of each of this computer's global IPv6 addresses. An iPhone on the
+#: same Wi-Fi often connects from its own global IPv6 address, which is not
+#: private, but shares the /64 the router hands this whole network (the owner's
+#: Windows machine, 2026-10-11: two 2001:8003:... addresses, one temporary).
+_own_v6_prefixes: frozenset = frozenset()
+#: How often the prefixes (and the network gate) are read again: temporary
+#: IPv6 addresses rotate, and a laptop changes networks without restarting.
+REFRESH_SECONDS = 30.0
+
+
+def own_v6_prefixes(addresses: list[str]) -> frozenset:
+    """The /64s of the global IPv6 addresses in `addresses`."""
+    found = set()
+    for text in addresses:
+        try:
+            ip = ipaddress.ip_address(text.strip("[]").split("%", 1)[0])
+        except ValueError:
+            continue
+        if ip.version == 6 and ip.is_global:
+            found.add(ipaddress.ip_network(f"{ip}/64", strict=False))
+    return frozenset(found)
+
+
+#: This computer's own addresses: a connection from one of them is from this
+#: computer, whatever range the network numbers it in.
+_own_addresses: frozenset = frozenset()
+
+
+def refresh_own_prefixes() -> None:
+    global _own_v6_prefixes, _own_addresses
+    try:
+        mine = netbind.lan_addresses(include_v6=True)
+    except OSError:
+        mine = []
+    _own_v6_prefixes = own_v6_prefixes(mine)
+    _own_addresses = frozenset(mine)
+
+
+def client_allowed(address: str | None, prefixes: frozenset | None = None) -> bool:
+    """Is this client address one on this network? Unreadable means no."""
+    if not isinstance(address, str):
+        return False
+    try:
+        ip = ipaddress.ip_address(address.split("%", 1)[0])
+    except ValueError:
+        return False
+    ip = getattr(ip, "ipv4_mapped", None) or ip
+    if any(ip.version == net.version and ip in net for net in _NEARBY) or str(ip) in _own_addresses:
+        return True
+    shared = _own_v6_prefixes if prefixes is None else prefixes
+    return ip.version == 6 and any(ip in net for net in shared)
 
 
 class _FirstByteWatcher:
@@ -192,12 +262,76 @@ async def _route(conn: socket.socket, make_protocol, context: ssl.SSLContext, po
         conn.close()
 
 
-async def serve(server, sock: socket.socket) -> None:  # noqa: ANN001  # a uvicorn.Server with ssl set
+async def _refresh_network(loop, refresh) -> None:  # noqa: ANN001
+    """Read the machine's own network again, and the caller's view of it."""
+    await loop.run_in_executor(None, refresh_own_prefixes)
+    if refresh is not None:
+        with contextlib.suppress(Exception):
+            await loop.run_in_executor(None, refresh)
+
+
+async def _port_step(sock, gate, reopen, port):  # noqa: ANN001
+    """Close the port when the gate shuts, bind it again when it opens.
+    Returns (sock, verdict): "go" to accept, "continue" to try again, "break" to stop."""
+    if gate is not None and not gate():
+        if sock is not None:
+            log.info("Other devices: this network is not allowed; the LAN port is closed.")
+            sock.close()
+            sock = None
+        await asyncio.sleep(0.5)
+        return sock, "continue"
+    if sock is None:
+        if reopen is None:
+            return sock, "break"
+        try:
+            sock = reopen()
+            sock.setblocking(False)
+            log.info("Other devices: the LAN port is open on this network.")
+        except OSError as exc:
+            log.warning("Other devices can't reach this notebook: port %s is taken (%s).", port, exc)
+            await asyncio.sleep(REFRESH_SECONDS / 3)
+            return None, "continue"
+    return sock, "go"
+
+
+async def _accept(loop, sock):  # noqa: ANN001
+    """The next allowed connection as (conn, addr), or None to look again."""
+    try:
+        conn, addr = await asyncio.wait_for(loop.sock_accept(sock), 0.5)
+    except asyncio.TimeoutError:
+        return None
+    except OSError as exc:
+        log.debug("LAN accept failed: %s", exc)
+        await asyncio.sleep(0.1)
+        return None
+    if not client_allowed(addr[0] if addr else None):
+        log.info("Refused a connection from %s: not an address on this network.", addr[0] if addr else "?")
+        with contextlib.suppress(OSError):
+            conn.close()
+        return None
+    return conn, addr
+
+
+async def serve(  # noqa: PLR0913
+    server,  # noqa: ANN001  # a uvicorn.Server with ssl set
+    sock: socket.socket | None,
+    *,
+    port: int | None = None,
+    gate=None,  # noqa: ANN001  # () -> bool: may the port be open now?
+    refresh=None,  # noqa: ANN001  # () -> None: read the network again
+    reopen=None,  # noqa: ANN001  # () -> socket: bind the port again
+) -> None:
     """Run `server` (TLS configured, `config.load()`ed) on `sock`, sniffing
-    each connection's first byte. Returns once the server has exited."""
+    each connection's first byte. Returns once the server has exited.
+
+    With `gate` (INBOX 867), the port is open only while the gate says so:
+    the socket is closed when it shuts (the computer moved to a network
+    nobody allowed) and bound again with `reopen` when it opens, read every
+    `REFRESH_SECONDS` with `refresh` and at once after "Allow on this
+    network". `sock` may then start as None."""
     config = server.config
     context = config.ssl
-    port = sock.getsockname()[1]
+    port = sock.getsockname()[1] if sock is not None else port
     running = asyncio.ensure_future(server.serve(sockets=[]))
     while not server.started and not running.done():
         await asyncio.sleep(0.02)
@@ -208,23 +342,30 @@ async def serve(server, sock: socket.socket) -> None:  # noqa: ANN001  # a uvico
         )
 
     loop = asyncio.get_running_loop()
-    sock.setblocking(False)
+    if sock is not None:
+        sock.setblocking(False)
     pending: set[asyncio.Task] = set()
+    refreshed = 0.0
     try:
         while not running.done() and not server.should_exit:
-            try:
-                conn, _addr = await asyncio.wait_for(loop.sock_accept(sock), 0.5)
-            except asyncio.TimeoutError:
+            if loop.time() - refreshed >= REFRESH_SECONDS:
+                refreshed = loop.time()
+                await _refresh_network(loop, refresh)
+            sock, verdict = await _port_step(sock, gate, reopen, port)
+            if verdict == "break":
+                break
+            if verdict == "continue":
                 continue
-            except OSError as exc:
-                log.debug("LAN accept failed: %s", exc)
-                await asyncio.sleep(0.1)
+            accepted = await _accept(loop, sock)
+            if accepted is None:
                 continue
+            conn, addr = accepted
             task = asyncio.ensure_future(_route(conn, make_protocol, context, port))
             pending.add(task)
             task.add_done_callback(pending.discard)
     finally:
-        sock.close()
+        if sock is not None:
+            sock.close()
         server.should_exit = True
         for task in list(pending):
             task.cancel()

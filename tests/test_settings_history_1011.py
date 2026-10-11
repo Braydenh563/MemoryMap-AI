@@ -216,7 +216,7 @@ def test_the_suggestion_list_is_as_wide_as_its_box_and_never_narrower_than_its_d
     """INBOX 849: width = max(the box's width, the list's default 288px), left
     on the box, inside the viewport with the 16px gutter."""
     source = (JS / "search-suggest.js").read_text(encoding="utf-8")
-    place = source[source.index("function placeSearchSuggest") : source.index("function watchSearchSuggest")]
+    place = source[source.index("function placeSearchSuggest") : source.index("function placeSearchSuggestSoon")]
     assert "Math.max(field.width, 288)" in place
     assert "window.innerWidth - 32" in place, "16px gutter either side"
     assert "16" in place.split("box.style.left")[1].split("\n")[0]

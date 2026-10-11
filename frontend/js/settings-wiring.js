@@ -1116,6 +1116,10 @@ const CHORD_ACTIONS = {
   //: the same word the status bar's button uses. The key stays `a`.
   a: { label: "Guide", icon: "ph:compass", run: () => askAtlasAbout("") },
   p: { label: "Popup agent", icon: "ph:strategy", run: () => toggleAgentPalette() },
+  //: A place, not an act (the owner: "add the ocr workspace to the 'm' quick
+  //: nav"): `group: "go"` draws it under "Go to", and it opens the way the
+  //: Library's own door does, through the reveal target.
+  o: { label: "OCR workspace", icon: "ph:scan", group: "go", run: () => revealFeature("page-reader") },
 };
 let tabJumpArmedAt = 0;
 
@@ -1733,14 +1737,6 @@ $("mic-chat").addEventListener("click", () =>
   toggleDictation($("mic-chat"), $("chat-input"))
 );
 $("speak-btn").addEventListener("click", () => speakText($("ai-answer").textContent));
-
-// Meeting notes (§17).
-$("meeting-close").addEventListener("click", closeMeetingRecorder);
-wireBackdropClose($("meeting-overlay"), () => closeMeetingRecorder());
-$("meeting-record").addEventListener("click", toggleMeetingRecording);
-$("meeting-save").addEventListener("click", saveMeetingNote);
-$("meeting-discard").addEventListener("click", resetMeetingUI);
-//: Copy and the transcript box grow with the sheet (and Pause and Save as document: meetings.js wires them: the overlay opens only once it is in).
 
 // PWA (WORLD_CLASS_PLAN decision 49): sw.js caches stamped files, vendored
 // libraries and icons, and shows offline.html when the server is not

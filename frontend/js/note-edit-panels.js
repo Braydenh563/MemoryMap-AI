@@ -223,6 +223,7 @@ function renderEditForm(li, entry) {
   titleInput.type = "text";
   titleInput.maxLength = 200;
   titleInput.className = "note-edit-title";
+  titleInput.dataset.autocorrect = ""; // autocorrect.js serves it
   titleInput.placeholder = "Title";
   titleInput.setAttribute("aria-label", "Title: becomes the note's leading heading");
   titleInput.value = draft ? draft.title : parts.title;
@@ -238,6 +239,7 @@ function renderEditForm(li, entry) {
   //: per-note id: `editingId` allows exactly one open edit form at a time.
   textarea.id = "entry-edit-content";
   textarea.className = "note-edit-box";
+  textarea.dataset.autocorrect = "";
   //: Ctrl+B/Ctrl+I/Ctrl+Shift+S, same as the capture box (documents.js:
   //: `wireMdFormatShortcuts`). Passed the element itself, not its id: this
   //: textarea is not in the document yet, and a fresh one exists every
@@ -622,12 +624,12 @@ function forgetNoteEditLocally() {
 //: edit away (found by tests-e2e/specs/draft-recovery.spec.js). A locked
 //: or unreachable server keeps the copy; a lock waits for the unlock, which
 //: runs `startApp` again.
-let keptEditAwaitsUnlock = false;
+const keptEdit = { awaitsUnlock: false };
 const startAppBeforeKeptEdit = window.startApp;
 window.startApp = async function () {
   const opened = startAppBeforeKeptEdit ? await startAppBeforeKeptEdit.apply(this, arguments) : undefined;
-  if (keptEditAwaitsUnlock) {
-    keptEditAwaitsUnlock = false;
+  if (keptEdit.awaitsUnlock) {
+    keptEdit.awaitsUnlock = false;
     offerKeptNoteEdit();
   }
   return opened;
@@ -640,7 +642,7 @@ async function offerKeptNoteEdit() {
   try {
     note = await apiJson(`/entries/${kept.id}`, { silent: true });
   } catch (error) {
-    if (error.isLockout) keptEditAwaitsUnlock = true;
+    if (error.isLockout) keptEdit.awaitsUnlock = true;
     if (error.isLockout || error.status !== 404) return;
   }
   const keptText = withTitle(String(kept.content || "").trim(), kept.title);

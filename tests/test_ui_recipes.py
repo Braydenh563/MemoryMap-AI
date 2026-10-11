@@ -735,6 +735,11 @@ def test_every_board_tool_names_its_own_cursor() -> None:
     assert len(tools) >= 18, tools
     body = js[js.index("function wbCursorForTool(") : js.index("// The visible half of Select")]
     brushes = set(re.findall(r'"([a-z]+)"', js[js.index("const WB_BRUSH_TOOLS"):js.index("const WB_HIGHLIGHTER_ALPHA")]))
+    # The flyout's further shapes are brushes by the spread of their table's
+    # keys; the keys are read off the table, so a new one is still checked.
+    if "...Object.keys(WB_MORE_SHAPES)" in js[js.index("const WB_BRUSH_TOOLS"):js.index("const WB_HIGHLIGHTER_ALPHA")]:
+        more = js[js.index("const WB_MORE_SHAPES"):js.index("const WB_BRUSH_TOOLS")]
+        brushes |= set(re.findall(r'^  "(shape-[a-z-]+)": \{', more, re.M))
     # Pan is the one tool that deliberately returns "": the container's own
     # grab/grabbing pair is its cursor, and the comment on that line says so.
     assert 'return ""; // pan' in body
@@ -4017,7 +4022,8 @@ def test_an_assistant_head_asks_one_function_for_its_face() -> None:
     assert re.search(r'class="answer-title msg-role msg-role-assistant">\s*<span class="msg-avatar" data-assistant-head', index_html)
     assert re.search(r'<label for="draft-text"[^>]*>.{0,80}msg-avatar" data-assistant-head', index_html)
     assert "paintAssistantAvatar(holder, 20)" in chat[chat.index("function paintAssistantHeads") :][:200]
-    assert "paintAssistantAvatar(avatar, 20)" in chat[chat.index("function assistantHeadRow") :][:600]
+    #: `assistantHeadRow` moved to help-chat.js (lazy) with its only callers (Brief 101a).
+    assert "paintAssistantAvatar(avatar, 20)" in js["help-chat.js"][js["help-chat.js"].index("function assistantHeadRow") :][:600]
     assert "paintAssistantHeads()" in js["navigation.js"], "a section change fills the static heads"
     guide = js["help-chat.js"]
     assert guide.count("assistantHeadRow(GUIDE_NAME)") == 4, "a guide row, its pending row, the streamed one and the revealed one each open with the head"
@@ -4907,6 +4913,7 @@ SEG_BUILT_IN_SCRIPT = {
     ("whiteboard.js", "seg seg-compact wb-export-seg"): "Export this board: the format, a value",
     ("selection.js", "seg"): "PLACED: pickLibraryItemDialog's sources, a kind switch",
     ("timeline-calendar.js", "seg seg-compact timeline-cal-span"): "not a popup: the calendar head's view mode (Month, Week, Day)",
+    ("dashboard.js", "seg focus-presets-seg"): "not a popup: the focus timer's length, a value (UI_MODERNISATION V8)",
 }
 
 
@@ -5537,3 +5544,56 @@ def test_a_menu_has_no_gap_at_its_ends() -> None:
     assert re.search(r"\.dock-menu-list > \.dock-menu-section:last-child \{\s*padding-bottom: 0;", css)
     sweep = (ROOT / "scratchpad" / "ui-sweeps" / "menus.js").read_text(encoding="utf-8")
     assert "inset top" in sweep and ".dock-menu-check" in sweep
+
+
+def test_an_address_for_another_device_is_one_block_drawn_by_one_renderer() -> None:
+    """INBOX 867, the owner of the receipt's run-on list of four addresses:
+    "can this be better styled and easier to read??". Settings, Other
+    devices and the privacy receipt draw one block, from one function: the
+    first address large with Copy, the rest behind a disclosure row."""
+    js = ROOT / "frontend" / "js"
+    controls = (js / "settings-controls.js").read_text(encoding="utf-8")
+    body = controls.split("function renderLanAddresses(", 1)[1].split("\n}\n", 1)[0]
+    assert '"lan-address"' in body and "copyToClipboard(" in body
+    assert "disclosure-row" in body and "aria-expanded" in body
+    assert 'renderLanAddresses($("account-lan-addresses")' in controls
+    assert 'renderLanAddresses(where' in (js / "settings-data.js").read_text(encoding="utf-8")
+    for name in ("settings-controls.js", "settings-data.js"):
+        text = (js / name).read_text(encoding="utf-8")
+        assert 'addresses.join(" or ")' not in text and '.join(", ") || listening.host' not in text, name
+def test_note_card_show_more_hugs_its_label():
+    """INBOX 901: a `display: block` button spans the card, so "Show more"
+    sat centred far from the text with a card-wide focus ring."""
+    css = (ROOT / "frontend" / "css" / "03-dashboard-widgets.css").read_text()
+    m = re.search(r"#entry-list:not\(\.is-rows\) \.entry-more \{([^}]*)\}", css)
+    assert m, "card-view .entry-more rule missing"
+    body = m.group(1)
+    assert "width: fit-content" in body
+    assert "text-align: start" in body
+    assert "width: 100%" not in body
+
+
+def test_assistant_tools_are_an_even_grid():
+    """The owner: the code assistant's four tool buttons wrapped 3+1."""
+    css = (ROOT / "frontend" / "css" / "library-lazy.css").read_text()
+    assert re.search(r"\.doc-assist-tools \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)", css)
+    assert not re.search(r"\.doc-assist-tools,\s*\.doc-assist-apply", css)
+
+
+def test_no_model_notice_action_keeps_its_border():
+    """The owner: the Connect a model action must read as a button. A card
+    quiets its ghost buttons to edgeless, so the notice restores the edge."""
+    css = (ROOT / "frontend" / "css" / "03-dashboard-widgets.css").read_text()
+    m = re.search(r"\.ai-offline-note > button\.ghost:not\(\.icon-only\) \{([^}]*)\}", css)
+    assert m, "no-model notice action rule missing"
+    assert "border-color: var(--ghost-btn-border)" in m.group(1)
+    assert "transparent" not in m.group(1)
+
+
+def test_file_reading_text_fits_up_to_a_page():
+    """The owner: the extracted text in a Files row was quite short."""
+    css = (ROOT / "frontend" / "css" / "library-lazy.css").read_text()
+    m = re.search(r"\.library-file-reading-text \{([^}]*)\}", css)
+    assert m and "max-height: min(28rem, 55vh)" in m.group(1)
+    shell = (ROOT / "frontend" / "css" / "00-tokens-shell.css").read_text()
+    assert re.search(r"\.library-image-card-fold > \.library-image-reading-body \{\s*max-height: 11rem", shell)

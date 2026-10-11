@@ -10,6 +10,13 @@
 // already returned, so the picker appears a moment late on the first use of a
 // session and on time after that.
 
+//: A picture by its name, for the one store (`/media`) that also holds PDFs.
+const NOTE_PICKER_IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic|heif)$/i;
+
+// The picker's value for "one that doesn't exist yet". A string, so it can
+// never collide with a document id.
+const NEW_DOCUMENT = "new";
+
 //: **Put this note on a whiteboard or a mind map** (INBOX 246). The note goes
 //: on the board as a card: a `WhiteboardNode` row written from the note's
 //: side, the reference a board already stores, so "Referenced by" reads it

@@ -116,11 +116,36 @@ def phrase_filter(
 
 @router.get("/read/words")
 def setting_words() -> dict:
-    """The groups of words that mean one thing in Settings ("dark", "night",
-    "theme"), for its search (settings-find.js)."""
-    from memorymap.ai import filters
+    """The groups of words that mean one thing ("dark", "night", "theme") and
+    the words of a request that name nothing, for every search box's meaning
+    layer (meaning.js, Brief 94)."""
+    from memorymap.ai import meaning
 
-    return {"groups": filters.setting_words(), "filler": sorted(filters.SETTING_FILLER)}
+    return meaning.table()
+
+
+class NearRequest(BaseModel):
+    q: str = Field(min_length=1, max_length=200)
+    texts: list[str] = Field(max_length=600)
+
+
+@router.post("/read/near")
+def near_rows(req: NearRequest) -> dict:
+    """Close in meaning (Brief 94): which of a search box's own rows are
+    nearest the query, when an embedding model is on. Without one, says so
+    (`available: false`) and the box keeps its word matches."""
+    from memorymap.ai import meaning
+    from memorymap.core import deps
+
+    try:
+        embeddings = deps.get_embeddings()
+        ready = embeddings is not None and embeddings.is_ready()
+    except Exception:  # noqa: BLE001  # no backend is a state, not an error
+        ready = False
+    if not ready:
+        return {"available": False, "near": []}
+    texts = [text[:300] for text in req.texts]
+    return {"available": True, "near": meaning.near(req.q, texts, embeddings.embed_many)}
 
 
 @router.get("/read/acts")

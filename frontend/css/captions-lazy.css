@@ -9,7 +9,11 @@
    panel radius. A new floating surface joins the opaque shell list in
    07-whiteboard-misc.css; this one declares only its place. */
 
-.captions-dock {
+/* The recording dock (meetings.js, UI_MODERNISATION V1) floats on the same
+   ground; the meetings bundle loads this sheet too, so the two share one
+   layer and one place. */
+.captions-dock,
+.recording-dock {
   position: fixed;
   left: var(--page-gutter);
   right: var(--page-gutter);
@@ -64,7 +68,8 @@
 }
 
 @media (max-width: 599.98px) {
-  .captions-dock {
+  .captions-dock,
+  .recording-dock {
     bottom: calc(var(--status-bar-h) + var(--bottom-tabs-h) + var(--space-4) + env(safe-area-inset-bottom, 0px));
     gap: var(--space-3);
   }

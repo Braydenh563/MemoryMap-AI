@@ -130,6 +130,19 @@ def test_first_run_surfaces_take_turns():
     )
 
 
+def test_a_first_run_surface_waits_for_settings_to_close():
+    """Scan 2026-10-11: the welcome's "Connect a model" opens Settings, and the
+    recovery-key offer then drew over it (measured on a fresh data dir). The
+    queue's "is something open" test names the Settings modal."""
+    body = frontend_text("onboarding.js").split("function firstRunSurfaceOpen()")[1].split("\n}\n")[0]
+    assert 'shown("settings-modal")' in body
+    # ...and the welcome's button opens Settings before it closes the welcome,
+    # because Settings loads lazily and the queue would otherwise see a clear
+    # screen in between.
+    offers = frontend_text("onboarding.js").split("Connect a model")[1][:700]
+    assert offers.index('openSettingsModal("models")') < offers.index("closeOnboarding()")
+
+
 def test_the_tour_card_is_hidden_until_placed():
     """INBOX 745 (d): a blank tour card showed in the top left for a couple of
     seconds while the first step's tab loaded."""

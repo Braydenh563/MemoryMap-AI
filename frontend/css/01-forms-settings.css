@@ -2108,6 +2108,20 @@ button:not(.ghost) > .spinner {
     min-height: 44px;
   }
 }
+/* The lock card over the network (INBOX 867): the certificate link and its
+   '?' on one centred row; nowhere else and in no other mode. */
+.lock-lan-cert {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.lock-lan-cert .lock-forgot {
+  margin: 0;
+}
+:root:not([data-lan]) .lock-lan-cert,
+#lock-overlay:not([data-mode="unlock"]) .lock-lan-cert {
+  display: none;
+}
 /* On the unlock only: setup has nothing to forget, and a prompt for one
    action has "Not now". The card, while open, takes the lock card's place
    (account-recovery.js opens and closes it), and never shows in another
@@ -3992,20 +4006,77 @@ html.modal-open body {
 #reminder-magic {
   flex: 1;
 }
-/* Focus timer widget */
-.focus-timer-display {
-  font-size: 2.4rem;
+/* Focus timer widget (V8): a ring that empties as the time runs, the time
+   large inside it, then the lengths, the one filled Start, and today. */
+.focus-ring {
+  position: relative;
+  width: min(10rem, 70%);
+  aspect-ratio: 1;
+  margin: var(--space-2) auto var(--space-3);
+}
+.focus-ring-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+.focus-ring-track,
+.focus-ring-fill {
+  fill: none;
+  stroke-width: 8;
+}
+.focus-ring-track {
+  stroke: var(--border);
+}
+.focus-ring-fill {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  transition: stroke-dashoffset var(--ui-base) linear;
+}
+.focus-ring.is-break .focus-ring-fill {
+  stroke: var(--ok);
+}
+.focus-ring-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+}
+.focus-ring-mode {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.focus-ring-time {
+  font-size: calc(var(--text-h1) * 1.35);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  text-align: center;
-  margin: 0.25rem 0 0.4rem;
+  line-height: 1;
 }
-.focus-presets {
+.focus-presets,
+.focus-controls {
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
 }
-.focus-custom {
-  width: 4.5rem;
+.focus-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.focus-step-value {
+  min-width: 3.5em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  font-size: var(--text-sm);
+}
+.focus-today {
+  margin: var(--space-2) 0 0;
+  text-align: center;
+  font-size: var(--text-sm);
 }
 /* In-chat toggles that are ON. Plan joins Web here rather than getting its own
    look: they are the same kind of control, a mode that stays armed across
@@ -5650,6 +5721,11 @@ select {
   color: var(--muted);
   font-size: var(--text-xs);
 }
+/* "Close in meaning" (Brief 94): the head over the rows an embedding model
+   found that the words did not, aligned with the rows' text. */
+.settings-result-head {
+  padding: var(--space-2) var(--space-4) 0;
+}
 /* The pane's dock is sticky at the top of the pane (INBOX 599). The ground
    is the dialog's opaque ground, never a tint alone: a translucent bar reads
    right at rest and turns into a window once the pane scrolls under it (the
@@ -5744,10 +5820,14 @@ select {
   }
 }
 /* The strip is a row below 820 (the nav is one), so the results would sit in
-   it as one more cell. They get the width of the pane instead. */
+   it as one more cell. They get the width of the pane instead, and no more:
+   a flex item's floor is its longest row's one line, so "Auto-clear binned
+   notes, documents, reminders and OCR readings after" made the list 496px in
+   a 308px strip at 390 (Brief 94, measured) until `min-width: 0`. */
 @media (max-width: 819.98px) {
   .modal-nav .settings-results {
     flex: 0 0 100%;
+    min-width: 0;
   }
 }
 /* --- model cards: the Models screen's suggested downloads (INBOX 444) -------

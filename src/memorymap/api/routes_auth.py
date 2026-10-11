@@ -18,16 +18,28 @@ import ipaddress
 import logging
 import os
 import secrets
+import threading
 import time
 from pathlib import Path
 
 import bcrypt
 from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Request, Response
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from memorymap.core import crypto, desktop_dialog, diskspace, netbind, password_reset, reminder_token, security, vault
+from memorymap.core import (
+    crypto,
+    desktop_dialog,
+    diskspace,
+    lantrust,
+    netbind,
+    password_reset,
+    reminder_token,
+    security,
+    vault,
+)
 from memorymap.core.config import ConfigManager
 from memorymap.core.deps import get_config, get_session, register_cache_reset
 from memorymap.core.database import Entry, User, Vault
@@ -633,12 +645,88 @@ def setup(body: PasswordBody, request: Request, response: Response, session: Ses
     return {"token": token, "warning": password_warning(body.password)}
 
 
+# --- new devices wait for this computer (INBOX 867, core/lantrust.py) --------------
+
+#: How long one sign-in from a new device waits for Allow before answering.
+#: Long enough for the person holding the phone to reach the computer;
+#: pressing Unlock again waits once more.
+DEVICE_WAIT_SECONDS = 45.0
+#: Waiting holds a worker thread, so only this many wait at once; any more
+#: are told to press Unlock again.
+_device_waits = threading.BoundedSemaphore(4)
+#: Which device each LAN session belongs to, so Remove signs it out.
+_device_tokens: dict[str, str] = {}
+
+
+def _device_cookie(request: Request) -> str:
+    raw = request.cookies.get(lantrust.DEVICE_COOKIE, "")
+    return raw if 20 <= len(raw) <= 100 and raw.replace("-", "").replace("_", "").isalnum() else ""
+
+
+def _set_device_cookie(response: Response, raw: str) -> None:
+    #: Only the LAN port is https, and only a device on the network has one.
+    response.set_cookie(
+        lantrust.DEVICE_COOKIE, raw, max_age=400 * 24 * 3600, path="/auth",
+        httponly=True, secure=True, samesite="strict",
+    )
+
+
+def _from_the_network(request: Request) -> bool:
+    """A numeric client address off loopback: a phone or another computer.
+    A name (the test client's `testclient`) is nothing to judge."""
+    host = request.client.host if request.client else ""
+    try:
+        ipaddress.ip_address((host or "").split("%", 1)[0])
+    except ValueError:
+        return False
+    return not _is_loopback_address(host)
+
+
+def _device_must_wait(request: Request, config: ConfigManager) -> bool:
+    """Loopback never waits, nor a container's published port (Brief 40: no
+    window there to answer), nor anyone once "Ask before a new device signs
+    in" is off."""
+    if not _from_the_network(request) or netbind.explicit_bind():
+        return False
+    if not lantrust.load(config.data_dir)["ask_new_devices"]:
+        return False
+    return not lantrust.device_known(config.data_dir, _device_cookie(request))
+
+
+def _hold_new_device(request: Request, device: str, config: ConfigManager) -> JSONResponse | None:
+    """Hold this sign-in until this computer answers; None once allowed."""
+    raw = device or secrets.token_urlsafe(32)
+    lantrust.hold(raw, lantrust.device_name(request.headers.get("user-agent")), _client_key(request))
+    decision = None
+    if _device_waits.acquire(blocking=False):
+        try:
+            decision = lantrust.wait_decision(raw, DEVICE_WAIT_SECONDS)
+        finally:
+            _device_waits.release()
+    if decision == "allowed":
+        lantrust.settle(raw)
+        request.cookies[lantrust.DEVICE_COOKIE] = raw  # this unlock goes on as that device
+        return None
+    if decision == "denied":
+        lantrust.settle(raw)
+        detail = "The computer this notebook is on said no to this device."
+    else:
+        detail = (
+            "This device is new, so the computer this notebook is on has to allow it first. "
+            "Choose Allow in the notice there, then press Unlock again."
+        )
+    refused = JSONResponse(status_code=403, content={"detail": detail, "device_pending": decision is None})
+    _set_device_cookie(refused, raw)
+    return refused
+
+
 @router.post("/unlock")
 def unlock(
     body: PasswordBody,
     request: Request,
     response: Response,
     session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
 ) -> dict:
     client = _client_key(request)
     _refuse_if_throttled(client)
@@ -649,6 +737,11 @@ def unlock(
         _unlock_failed(client)
         raise HTTPException(status_code=401, detail="That password is wrong.")
     _unlock_succeeded(client)
+    device = _device_cookie(request)
+    if _device_must_wait(request, config):
+        refused = _hold_new_device(request, device, config)
+        if refused is not None:
+            return refused
     # Unwrap the data key so private notes are readable for this session.
     vault_open = vault.open_with(session, body.password)
     #: **A full disk must not lock you out of your own notebook.** Measured
@@ -686,6 +779,11 @@ def unlock(
     if vault_open:
         vault.grant(token)
     _grant_media(request, response, token)
+    if device:
+        lantrust.settle(device)
+        _device_tokens[token] = lantrust.device_hash(device)
+        _set_device_cookie(response, device)
+        lantrust.touch_device(config.data_dir, device, _client_key(request))
     return {"token": token, "vault_open": vault_open}
 
 
@@ -838,10 +936,21 @@ def _lan_state(config: ConfigManager, request: Request) -> dict:
     from memorymap.core import lancert
 
     info = lancert.read(config.data_dir)
+    trust = lantrust.load(config.data_dir)
+    here = _from_this_computer(request)
     return {
         "allow_lan": netbind.lan_enabled(config),
         **netbind.describe(config, request.url.port),
         "certificate": info.public() if info else None,
+        #: INBOX 867: the overrides, the remembered networks and devices, and
+        #: who is waiting. Devices and requests are this computer's to see.
+        "any_network": trust["any_network"],
+        "ask_new_devices": trust["ask_new_devices"],
+        "networks": [
+            {k: n.get(k, "") for k in ("key", "label", "gateway", "subnet", "added")} for n in trust["networks"]
+        ],
+        "devices": lantrust.devices(config.data_dir) if here else [],
+        "pending": lantrust.pending() if here else [],
     }
 
 
@@ -891,6 +1000,139 @@ def regenerate_lan_certificate(
     return _lan_state(config, request)
 
 
+def _check_password_for_lan(request: Request, session: Session, password: str | None) -> User:
+    """Every loosening of LAN mode asks for the password, like the switch."""
+    user = _get_user(session)
+    if user is None:
+        raise HTTPException(status_code=400, detail="Set a password first.")
+    client = _client_key(request)
+    _refuse_if_throttled(client)
+    if not password or not _password_matches(password, user.password_hash):
+        if password:
+            _unlock_failed(client)
+        raise HTTPException(status_code=401, detail="That isn't your current password.")
+    _unlock_succeeded(client)
+    return user
+
+
+class LanPasswordBody(BaseModel):
+    current_password: str | None = Field(default=None, max_length=MAX_PASSWORD_CHARS)
+
+
+class LanOptionBody(BaseModel):
+    name: str = Field(pattern="^(any_network|ask_new_devices)$")
+    enabled: bool
+    current_password: str | None = Field(default=None, max_length=MAX_PASSWORD_CHARS)
+
+
+def _require_this_computer(request: Request) -> None:
+    if not _from_this_computer(request):
+        raise HTTPException(status_code=403, detail="Only the computer this notebook is on can do that.")
+
+
+@router.post("/lan-networks/allow", dependencies=[Depends(require_unlock)])
+def allow_this_network(
+    body: LanPasswordBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
+) -> dict:
+    """"Allow on this network": remembered, and the LAN port opens now."""
+    user = _check_password_for_lan(request, session, body.current_password)
+    trust = lantrust.allow_current(config.data_dir)
+    label = (trust.get("network") or {}).get("label") or "an unknown network"
+    log_action(session, "edited", "user", user.id, f"allowed other devices on {label}")
+    session.commit()
+    return _lan_state(config, request)
+
+
+@router.delete("/lan-networks/{key}", dependencies=[Depends(require_unlock)])
+def forget_network(key: str, request: Request, config: ConfigManager = Depends(get_config)) -> dict:
+    """Forget an allowed network: only ever lets fewer in, so no password."""
+    if not lantrust.forget_network(config.data_dir, key):
+        raise HTTPException(status_code=404, detail="That network is not on the list.")
+    return _lan_state(config, request)
+
+
+@router.post("/lan-options", dependencies=[Depends(require_unlock)])
+def set_lan_option(
+    body: LanOptionBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
+) -> dict:
+    """"Allow on any network" and "Ask before a new device signs in". The
+    looser setting of each asks for the password; the safer needs nothing."""
+    looser = body.enabled if body.name == "any_network" else not body.enabled
+    if looser:
+        user = _check_password_for_lan(request, session, body.current_password)
+        log_action(session, "edited", "user", user.id, f"other devices: {body.name.replace('_', ' ')} {'on' if body.enabled else 'off'}")
+        session.commit()
+    lantrust.set_flag(config.data_dir, body.name, body.enabled)
+    return _lan_state(config, request)
+
+
+@router.post("/lan-devices/{device_id}/{verdict}", dependencies=[Depends(require_unlock)])
+def answer_device(
+    device_id: str,
+    verdict: str,
+    request: Request,
+    session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
+) -> dict:
+    """Allow or Deny a device waiting to sign in: this computer only, since
+    the point is that someone here says yes."""
+    _require_this_computer(request)
+    if verdict not in ("allow", "deny"):
+        raise HTTPException(status_code=404, detail="Allow or deny.")
+    held = {p["id"]: p for p in lantrust.pending()}.get(device_id)
+    if held is None or not lantrust.decide(config.data_dir, device_id, verdict == "allow"):
+        raise HTTPException(status_code=404, detail="That device is no longer waiting.")
+    log_action(session, "edited", "user", None, f"{'allowed' if verdict == 'allow' else 'refused'} {held['name']} at {held['address']}")
+    session.commit()
+    return _lan_state(config, request)
+
+
+@router.delete("/lan-devices/{device_id}", dependencies=[Depends(require_unlock)])
+def forget_device(device_id: str, request: Request, config: ConfigManager = Depends(get_config)) -> dict:
+    """Remove an allowed device: it asks again next time, and its open
+    sessions end now."""
+    if not lantrust.forget_device(config.data_dir, device_id):
+        raise HTTPException(status_code=404, detail="That device is not on the list.")
+    for token in [t for t, owner in _device_tokens.items() if owner == device_id]:
+        _device_tokens.pop(token, None)
+        _active_tokens.pop(token, None)
+        vault.revoke([token])
+    _forget_dead_tickets()
+    return _lan_state(config, request)
+
+
+WATCH_SECONDS = 25.0
+
+
+@router.get("/lan-watch", dependencies=[Depends(require_unlock)])
+async def lan_watch(request: Request, since: int = -1) -> dict:
+    """This computer's window waits here for a device to ask, or the network
+    to change, so its notice comes at once rather than at the next poll. No
+    thread is held while it waits."""
+    import asyncio
+
+    _require_this_computer(request)
+    deadline = time.monotonic() + WATCH_SECONDS
+    while lantrust.version() == since and time.monotonic() < deadline:
+        if await request.is_disconnected():
+            break
+        await asyncio.sleep(0.5)
+    trust = lantrust.status()
+    serving = not netbind.is_loopback_bind() and trust["reason"] != "off"
+    return {
+        "version": lantrust.version(),
+        "serving": serving,
+        "held": None if trust["open"] or not serving else trust,
+        "pending": lantrust.pending(),
+    }
+
+
 @router.post("/lan-access", dependencies=[Depends(require_unlock)])
 def set_lan_access(
     body: LanAccessBody,
@@ -927,6 +1169,8 @@ def set_lan_access(
         from memorymap.core import lancert
 
         lancert.ensure(config.data_dir)
+        # INBOX 867: the network it was turned on in is the one it opens on.
+        lantrust.remember_current(config.data_dir)
     log_action(
         session, "edited", "user", user.id,
         f"allow other devices on this network: {'on' if body.enabled else 'off'} (from the next launch)",

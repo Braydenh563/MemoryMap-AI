@@ -249,6 +249,8 @@ class EntryOut(BaseModel):
     suggested_tag_reasons: dict[str, str] = {}
     #: Suggestions turned down on this note, which `restore` offers again.
     discarded_tags: list[str] = []
+    #: "Don't suggest tags for this note" is on (brief 89).
+    tag_suggest_off: bool = False
     access_count: int = 0
     last_opened_at: datetime | None = None
     #: When a person last changed the text, title, tags or category; null if

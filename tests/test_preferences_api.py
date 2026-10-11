@@ -218,10 +218,10 @@ def test_console_mode_route_does_not_restart_when_nothing_actually_changed(
     assert restarted == [True]  # hidden=True, since show_console_on_startup is now False
 
 
-def test_restart_route_is_a_no_op_off_the_desktop_app(client):
+def test_restart_route_is_a_no_op_without_the_launcher(client):
     """ROADMAP item C's "second caller", not tied to any preference
-    changing. Same platform gate as /system/console-mode: nothing to
-    restart into off the desktop app, so it says so rather than pretending."""
+    changing. A bare `uvicorn --factory` (and the tests) has no launcher to
+    start a new copy, so it says so rather than pretending."""
     body = client.post("/system/restart").json()
     assert body == {"restarting": False}
 

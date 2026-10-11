@@ -96,7 +96,7 @@ function semanticInstallNotice(task) {
     SEMANTIC_NOTICE.note = null;
     semanticDecline(task);
   });
-  note.append(text, decline, toastCloseButton(note, null));
+  note.append(text, toastActions(decline), toastCloseButton(note, null));
   const host = toastHost();
   toastStack(host, () => host.appendChild(note));
   SEMANTIC_NOTICE.note = note;

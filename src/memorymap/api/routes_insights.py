@@ -158,6 +158,17 @@ def _sentence_case(text: str) -> str:
     return text[0].upper() + text[1:] if text else text
 
 
+def _composed_greeting(session, config, block: str) -> tuple[str, str, str]:  # noqa: ANN001
+    """(phrase, mark, source). Without a model the composer writes it (INBOX 876):
+    seven times of day, the weekday and the notebook's own numbers."""
+    try:
+        now = user_now(config)
+        phrase, mark = greeting_compose.compose(now, greeting_compose.gather(session, now))
+        return phrase, mark, "composed"
+    except Exception:  # noqa: BLE001  # the banner never fails over a count
+        return random.choice(GREETING_FALLBACKS.get(block) or GREETING_FALLBACKS["morning"]), ".", "fallback"
+
+
 @router.get("/greeting")
 def greeting(block: str = "morning", session: Session = Depends(get_session)) -> dict:
     """A short greeting phrase for the dashboard banner.
@@ -167,15 +178,7 @@ def greeting(block: str = "morning", session: Session = Depends(get_session)) ->
     contains a name; the frontend adds one from preferences.
     """
     config = deps.get_config()
-    #: Without a model the composer writes it (INBOX 876): seven times of
-    #: day, the weekday and the notebook's own numbers, never a fixed four.
-    try:
-        now = user_now(config)
-        phrase, mark = greeting_compose.compose(now, greeting_compose.gather(session, now))
-        source = "composed"
-    except Exception:  # noqa: BLE001  # the banner never fails over a count
-        phrase, mark = random.choice(GREETING_FALLBACKS.get(block) or GREETING_FALLBACKS["morning"]), "."
-        source = "fallback"
+    phrase, mark, source = _composed_greeting(session, config, block)
     fallback = {
         "greeting": phrase,
         "punctuation": mark,

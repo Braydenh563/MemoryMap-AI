@@ -15,7 +15,7 @@ from __future__ import annotations
 
 WORDS: frozenset[str] = frozenset(
     """
-a able about above accept access account across act action active actual add address admin after afternoon again
+a able about insane above accept access account across act action active actual add address admin after afternoon again
 against age ago agree ahead air alarm all allow almost alone along already also always among amount an and angle
 animal another answer any anyone anything anyway appear apple apply approach area argue arm around arrange arrive
 art as ask asleep assume at attach attack attempt audio australia author auto available average avoid away

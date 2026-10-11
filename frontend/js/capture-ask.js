@@ -282,10 +282,6 @@ async function loadCaptureDocuments() {
   renderCaptureDocuments(documents);
 }
 
-// The picker's value for "one that doesn't exist yet". A string, so it can
-// never collide with a document id.
-const NEW_DOCUMENT = "new";
-
 // Ask for a title and start an empty document. Shared by the capture box and
 // the note card's "Add to a document", so both offer the same thing.
 async function createDocumentNamed(suggestion = "") {
@@ -606,7 +602,7 @@ async function saveEntry() {
   // continuing in the backend with a popup notification so I dont have to
   // wait twiddling my thumbs". Choosing a category yourself skips it
   // either way: there is nothing to wait for.
-  const deferFiling = !category && (prefsCache.background_filing ?? true);
+  const deferFiling = !category && (prefsCache?.background_filing ?? true);
 
   button.disabled = true;
   status.classList.remove("error");
@@ -736,6 +732,7 @@ async function saveEntryAsDraft() {
         document_ids: [...captureDocuments],
         is_draft: true,
         inline_tags: true,
+        defer_filing: true,
       }),
     });
     clearStagedImages();
@@ -2187,8 +2184,6 @@ function askNotesOnTheRight() {
   return new Set([...rows].map((row) => row.dataset.id));
 }
 
-
-
 //: **A follow-up is a question that keeps the answer above it** (decision 8:
 //: "'Ask again' chips become follow-ups that carry the previous answer as
 //: context"). The chips themselves are `/chat/followups`, the same second
@@ -3290,9 +3285,6 @@ async function loadSuggestions() {
 // this is read, search, pin, delete and "reopen" only. ---------------------
 
 let askHistoryOpen = false;
-let askHistoryOffset = 0;
-let askHistoryTotal = 0;
-const ASK_HISTORY_PAGE = 20;
 
 async function loadAskHistoryBadge() {
   const badge = $("ask-history-badge");
@@ -3326,11 +3318,6 @@ for (const type of ["focusin", "input", "click"]) {
 //: questions-view.js, lazy (INBOX 688 moved it to make room for the Ask box's
 //: answer switch). The Ask scope it sets stays here: `askQuestion` reads it.
 let askScope = null;
-
-function setAskScope(scope) {
-  askScope = scope || null;
-  $("ask-scope")?.classList.toggle("hidden", !askScope);
-}
 
 //: Time travel on Ask (WORLD_CLASS_PLAN I5, row 23): the day the next answer
 //: reads the notebook as of, or null. Only while the line is showing, so
@@ -3367,7 +3354,6 @@ const BUILTIN_TEMPLATES = [
   { name: "Contact", content: "Contact: \nPhone/email: \nWhere we met: \nNotes: " },
   { name: "Meeting", content: "---\ntype: Meeting\n---\n## Agenda\n\n1. {{cursor}}\n\n## Notes\n\n## Decisions\n\n- \n\n## Action items\n\n- [ ] \n" },
 ];
-
 
 async function loadTemplates() {
   // Built-ins + the user's own (kept in preferences). Shared with the two

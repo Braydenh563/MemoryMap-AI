@@ -342,6 +342,11 @@ class PreferencesBody(BaseModel):
     #: changes what was typed without being asked is the thing people turn off
     #: first, so this one asks.
     smart_punctuation: bool | None = None
+    #: Autocorrect in the note boxes, the chat and Ask composers and the
+    #: titles (Brief 94, autocorrect.js). On by default, unlike the line above:
+    #: it changes only strings that are not words, says so, and puts each back
+    #: with one key.
+    autocorrect: bool | None = None
     # Display name for the dashboard greeting (empty string clears it).
     display_name: str | None = Field(default=None, max_length=60)
     # Optional context about the user for the librarian.
@@ -753,6 +758,7 @@ def _preferences_from(config) -> dict:
         "spelling_variant": config.get_preference("spelling_variant", "off"),
         "grammar_check": config.get_preference("grammar_check", True),
         "smart_punctuation": config.get_preference("smart_punctuation", False),
+        "autocorrect": config.get_preference("autocorrect", True),
         "display_name": config.get_preference("display_name", ""),
         #: Echoed so Settings can draw the boxes with what is in them rather
         #: than empty, which is the bug this file's other comments keep
@@ -1208,18 +1214,15 @@ def restart_app(background_tasks: BackgroundTasks) -> dict:
     caller. This is the second: same mechanism, current console visibility
     preserved rather than flipped.
 
-    Same platform gate as /system/console-mode, for the same reason, this
-    can only ever work in the packaged desktop app on Windows (the one
-    platform `_spawn_desktop` knows how to relaunch). Everywhere else,
-    "restart" means the user's own means of doing that (Ctrl+C and rerun,
-    close and reopen the browser tab), which this app cannot do for them.
+    `restart_app` in `__main__.py` starts a new copy that waits for this
+    one to exit, then this one exits; the page waits for it and reloads.
     """
-    if os.getenv("MEMORYMAP_DESKTOP") != "1" or sys.platform != "win32":
+    #: Every launch the launcher made (INBOX 872: browser or desktop, any
+    #: system, source or packaged), not only the desktop app on Windows. A bare
+    #: `uvicorn --factory` or the tests have no launcher to start a new copy.
+    if os.getenv("MEMORYMAP_LAUNCHED") != "1" and os.getenv("MEMORYMAP_DESKTOP") != "1":
         return {"restarting": False}
-    restart_in_console_mode = _desktop_entry().restart_in_console_mode  # same cycle break
-
-    show_console = bool(deps.get_config().get_preference("show_console_on_startup", True))
-    background_tasks.add_task(restart_in_console_mode, not show_console)
+    background_tasks.add_task(_desktop_entry().restart_app)  # same cycle break
     return {"restarting": True}
 
 

@@ -38,8 +38,9 @@ MORE_TOPICS: list[dict] = [
             "You, The chat's persona, Atlas, or Your own character (a name and "
             "parts of its own). Companion size is Small, Medium or Large, or "
             "drag the handle at its corner (double-click or double-tap the handle "
-            "for Medium again). Drag it onto a panel and that page "
-            "keeps it there. Move the pointer back and forth over it to rub it "
+            "for Medium again); the size is marked On this device, so a phone "
+            "keeps its own. Drag it onto a panel and that page "
+            "keeps it there on this device. Move the pointer back and forth over it to rub it "
             "and it leans into your hand; shake it up and down while you carry "
             "it and it turns upside down, then lands a little dizzy (each has a "
             "switch in Appearance, under What it does on its own). Right-click it, or press Shift+F10 on it, for its "
@@ -436,9 +437,11 @@ MORE_TOPICS: list[dict] = [
             "A setting changed from its default shows a bar at its left edge and "
             "a reset button at the end of its row, which puts that one setting "
             "back; Reset N changes, in the section's title bar, puts back every "
-            "changed setting in that section. Performance mode, marked This "
-            "browser, is kept only in the browser you set it in; the rest, your "
-            "look included, are kept in your notebook and follow you to every "
+            "changed setting in that section. Performance mode, Text size, "
+            "Density, Zoom and the companion's size, marked On this device, are "
+            "kept only on the device you set them on (a phone and a computer "
+            "each have their own zoom); the rest, your colours and fonts "
+            "included, are kept in your notebook and follow you to every "
             "browser you sign in from. Settings, "
             "Import & export, Your settings: Export settings saves every setting "
             "as one .json file (no notes in it); Import settings reads one back, "
@@ -487,14 +490,17 @@ MORE_TOPICS: list[dict] = [
         "id": "background-art",
         "keywords": (
             "animated background", "background animation", "moving background",
-            "wallpaper", "background style", "constellation",
+            "wallpaper", "background style", "constellation", "fireflies",
+            "rain background", "lightest background", "background cost",
         ),
         "body": (
-            "Settings, Appearance, Animated background: Style picks the art, "
-            "Movement how much it moves and Intensity how strong it is. Page "
-            "background in Theme & colour sets the colour under it. Performance "
-            "mode and Battery-efficient mode both stop it, and so does Reduce "
-            "motion."
+            "Settings, Appearance, Animated background: Style is a card per "
+            "art, lightest first, each with a preview and its cost, Light, "
+            "Medium or Heavy, from what one frame takes; picking a card turns "
+            "the background on. Movement sets how much it moves and Intensity "
+            "how strong it is. Page background in Theme & colour sets the "
+            "colour under it. Performance mode and Battery-efficient mode both "
+            "stop it, and so does Reduce motion."
         ),
         "badge": {"label": "Animated background", "section": "appearance", "target": "bg-style-row"},
     },
@@ -508,9 +514,13 @@ MORE_TOPICS: list[dict] = [
         "body": (
             "Settings, Appearance. Themes: save and switch your own. Theme & "
             "colour: Palette, Mode (light, dark or system), Accent colour or a "
-            "custom one, Page background, and Build a scheme from one colour. "
+            "custom one (a colour a button's words cannot be read on is "
+            "offered at the nearest shade that can), Page background, and "
+            "Build a scheme from one colour. "
             "Typography & layout: Text size, Font, Density, Corner rounding, "
-            "Zoom, Border style and Shadow intensity. Effects & accessibility: "
+            "Zoom, Border style and Shadow intensity (Text size, Density and Zoom "
+            "are marked On this device: a phone and a computer each keep their "
+            "own, while colours and fonts follow you). Effects & accessibility: "
             "Performance mode, the glass's sheen, blur and opacity, Progress "
             "indicators, Reduce motion (stills Atlas, the background art, the "
             "graph and the whiteboard) and Interface animations (on by default: "
@@ -536,7 +546,7 @@ MORE_TOPICS: list[dict] = [
             "everything else in one place. Timeline: everything by date. "
             "Reminders: what is due. Settings (the gear, or Ctrl+,) holds the "
             "rest, and Atlas the guide (this chat) answers how-to questions "
-            "from any tab. Press m then a letter to jump between tabs, and "
+            "from any tab. Press m then a letter to jump between tabs (o opens the OCR workspace), and "
             "Settings, Help starts the guided tour."
         ),
         "badge": {"label": "Help", "section": "help"},
@@ -545,7 +555,8 @@ MORE_TOPICS: list[dict] = [
         "id": "settings-overview",
         "keywords": (
             "settings", "where are the settings", "open settings", "find a setting",
-            "search settings", "preferences",
+            "search settings", "preferences", "cant remember what its called",
+            "find by meaning",
         ),
         "body": (
             "Settings opens from the gear in the top bar or Ctrl+,. Its sections "
@@ -557,8 +568,12 @@ MORE_TOPICS: list[dict] = [
             "Logs) and Help and About. The search box at the top of the list "
             "finds a setting by any word in it or by what it does, with words "
             "that mean the same (\"night\" or \"darker\" finds the theme, "
-            "\"battery\" the battery-efficient mode, \"back up\" Backups), and "
-            "lists the matching settings under it, each opening where it sits. A long section lists its "
+            "\"battery\" the battery-efficient mode, \"back up\" Backups, "
+            "\"the little guy in the corner\" the companion, and a slip such as "
+            "\"chnage pasword\" the password), and "
+            "lists the matching settings under it, each opening where it sits; with "
+            "an embedding model on (Settings, Search and index), up to three more found by "
+            "meaning follow under Close in meaning. A long section lists its "
             "groups under its own name in that list: press one to go to it, and "
             "the one you are reading is marked as you scroll. On a phone the "
             "section picker holds the same groups under the section you are in."
@@ -577,7 +592,11 @@ MORE_TOPICS: list[dict] = [
             "Settings, Account & security. Signing in: ask for a password when "
             "the app opens (private notes and other devices always ask). Other "
             "devices: let a phone or computer on your network open the app, "
-            "always with your password, over https on port 8443. The first "
+            "always with your password, over https on port 8443, and only on "
+            "networks you allowed (Allow on this network, or Allow on any network). "
+            "Ask before a new device signs in holds one until you Allow; "
+            "Allowed devices and Allowed networks have Remove. Loosening "
+            "needs your password. The first "
             "visit warns that the certificate is not trusted: compare its "
             "SHA-256 fingerprint with the one under the switch before you "
             "continue, and Regenerate certificate makes a new one. Under the fingerprint are the names the certificate carries and when it expires; Trust this certificate on your phone downloads it, and its ? says how to install it on iPhone and Android. If this computer's address changes, the app makes a new certificate at the next start. Change your password or PIN (private "
@@ -767,8 +786,11 @@ MORE_TOPICS: list[dict] = [
             "on the status bar (on a phone the bar comes back while it runs); "
             "press that timer chip in the status bar to stop it. When a timer "
             "runs out it says so in a message and a notification. The "
-            "Dashboard's Focus timer widget is a separate timer with its own "
-            "Start and Reset."
+            "Dashboard's Focus timer widget is a separate timer: a ring with "
+            "the time, lengths of 5, 15, 25 or 50 minutes (or minus and plus "
+            "for any other), one Start that becomes Pause, a chime and a "
+            "notification at the end, Breaks for a five-minute break after "
+            "each session, and the minutes focused today."
         ),
         "badge": {"label": "Dashboard", "tab": "dashboard"},
     },
@@ -804,7 +826,9 @@ MORE_TOPICS: list[dict] = [
             "The manual is every topic Atlas answers from, on one page: Settings, "
             "Help, Open the manual, or Open the manual in the Guide's ... menu. "
             "The contents on the left jump to a group, the search box keeps only "
-            "the topics that hold every word you type, and the printer button "
+            "the topics that hold every word you type or what the words mean "
+            "(\"trash\" keeps the bin's topic), those whose name holds them "
+            "first, and the printer button "
             "prints what is shown (or saves it as a PDF). It is made from the "
             "Guide's own topics, so the two never disagree. What changed in each "
             "version is under Settings, About, What's new."
@@ -816,16 +840,21 @@ MORE_TOPICS: list[dict] = [
         "keywords": (
             "live captions", "captions", "subtitles", "live transcription", "transcribe live",
             "write what i say", "speech to text live", "stop the captions",
+            "how do i get live captions", "where are live captions", "open live captions",
         ),
         "body": (
-            "Type captions in the command palette (Ctrl+K) for Live captions: a "
-            "bar appears over whatever you are looking at and writes what the "
-            "microphone hears, on this computer, never over the internet. The "
-            "bottom line is still being written; the three above it are done. "
-            "Copy takes everything said so far, and Stop (or the palette row "
-            "again) saves it as a note tagged captions. Captions need a local "
-            "speech helper; its row in Settings, Packages says what is "
-            "missing, and without one the row says so and nothing is recorded."
+            "Press Captions in Library, Recordings, or Live captions in a Voice "
+            "note before you record; it is also in Tools and features, Audio, "
+            "and in the command palette (Ctrl+K, type captions). A bar appears "
+            "over whatever you are looking at and writes what the microphone "
+            "hears, on this computer, never over the internet. The bottom line "
+            "is still being written; the three above it are done. Copy takes "
+            "everything said so far, and Stop (or the palette row again) saves "
+            "it as a note tagged captions. While a voice note records, the same "
+            "captions write its words into the dialog as you speak, and the "
+            "full transcript replaces them after. Captions need a local speech "
+            "helper; its row in Settings, Packages says what is missing, and "
+            "without one the row says so and nothing is recorded."
         ),
         "badge": {"label": "Notes", "tab": "notes"},
     },
@@ -1088,7 +1117,7 @@ MORE_TOPICS.extend(
             "id": "suggested-tags",
             "keywords": (
                 "suggested tag", "suggested tags", "plus tag", "plus tags", "+ tag",
-                "tag suggestion", "stop suggesting", "dismiss a tag", "tag with atlas",
+                "tag suggestion", "stop suggesting", "don't suggest tags", "dont suggest tags", "add tag chip", "dismiss a tag", "tag with atlas",
                 "why is this tag suggested", "why this tag", "turned down", "offer again",
             ),
             "body": (
@@ -1103,7 +1132,12 @@ MORE_TOPICS.extend(
                 "only when the note has a word for it, at most three, and "
                 "pointing at one says which word. A tag turned down on three notes is offered "
                 "less everywhere; Manage tags lists it under Turned down, with Offer again. "
-                "Tag and file with Atlas and Capture, while you type, suggest the same way."
+                "Tag and file with Atlas and Capture, while you type, suggest the same way. "
+                "A note with fewer than three tags shows a quiet \"+ Tag\" after them: it opens up to "
+                "three suggested tags as one-press chips above a field for your own. Its ... menu "
+                "has \"Don't suggest tags for this note\", which stops the suggestions on that "
+                "note alone (Undo in the notice brings them back, as does \"Suggest tags for this "
+                "note again\" in the same menu)."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -1803,7 +1837,7 @@ TOPIC_META: dict[str, dict] = {
     "timer": {"title": "Timer and stopwatch", "path": "Command palette, timer"},
     "manual": {"title": "The manual", "path": "Settings, Help, Open the manual"},
     "first-steps": {"title": "First steps and the sample notebook", "path": "Dashboard, Start in three steps"},
-    "live-captions": {"title": "Live captions", "path": "Command palette, Live captions"},
+    "live-captions": {"title": "How do I get live captions", "path": "Library, Recordings, Captions"},
     "count-words": {"title": "Count words", "path": "Command palette, Count words"},
     "translate-offline": {"title": "Translate this, offline", "path": "Command palette, Translate this"},
     "insert-template": {"title": "Insert a template", "path": "Command palette, insert template"},
@@ -1949,7 +1983,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "command-palette", "find-anything", "search", "addresses", "settings-overview", "settings-reset", "install-app",
     )),
     ("Writing notes", (
-        "capture", "quick-note", "quick-add", "editor-offers", "share-note", "capture-anywhere", "note-outbox", "attachments", "notes-controls",
+        "capture", "quick-note", "quick-add", "editor-offers", "autocorrect", "share-note", "capture-anywhere", "note-outbox", "attachments", "notes-controls",
         "notes-list", "note-history", "links", "favourites", "templates",
         "write-with-atlas", "translate", "translate-offline", "extract-notes", "voice", "live-captions", "meetings",
     )),
@@ -1967,7 +2001,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     ("Boards and maps", (
         "whiteboard", "whiteboard-controls", "whiteboard-selection", "board-history", "board-library", "board-library-saving", "board-templates", "board-format", "board-connectors", "mind-maps", "mind-map-controls", "mind-map-features", "mind-map-import-export", "mind-map-study", "mind-map-look", "emoji-and-icons",
         "board-comments", "sticky-notes",
-        "mind-map-structure", "mind-map-callouts", "board-current-layer", "board-hand-drawn", "board-tables", "board-edit-data",
+        "mind-map-structure", "mind-map-callouts", "board-current-layer", "board-hand-drawn", "board-tables", "board-edit-data", "board-colours",
     )),
     ("Library and files", (
         "library", "library-controls", "bookmarks", "web-clipper-bookmark", "contents", "library-skills",
@@ -2008,15 +2042,21 @@ MORE_TOPICS.extend([
     {
         "id": "phone",
         "keywords": ("phone", "on my phone", "mobile", "iphone", "android", "tablet", "ipad", "use it on my phone",
-                     "open it on my phone", "install on my phone", "phone storage", "runs on my phone"),
+                     "open it on my phone", "install on my phone", "phone storage", "runs on my phone",
+                     "public wifi", "public network", "allow a device", "new device"),
         "body": (
             "Your phone opens this computer's notebook over your own network: turn "
             "on Allow other devices on this network (Settings, Account & security, "
-            "Other devices), then open the address it shows on the phone (https, "
-            "port 8443) and sign in with your password. The first visit warns that "
-            "the certificate is not trusted: compare the fingerprint shown under the "
-            "switch, or use Trust this certificate on your phone, whose ? has the "
-            "iPhone and Android steps. Typing the address without https still "
+            "Other devices), then open the large address it shows (Copy is beside "
+            "it; Other addresses folds the rest) on the phone and sign in with your "
+            "password. On an iPhone, press Install the certificate on the lock "
+            "screen, then, in the iPhone's own Settings app, General, VPN and Device "
+            "Management to install it and About, Certificate Trust Settings to trust it; its ? has the "
+            "steps. The phone's first sign-in waits until you choose Allow on this "
+            "computer (a notice with Allow and Deny); allowed devices are listed "
+            "with Remove. On a network you have not allowed (a cafe, an airport) "
+            "nothing can reach the notebook until you choose Allow on this network. "
+            "Typing the address without https still "
             "works: the app sends the phone on to https. If the phone cannot connect, "
             "both must be on the same Wi-Fi (not a guest one) and this computer's "
             "firewall must let the app in. The phone reads and writes the same "
@@ -2201,9 +2241,33 @@ MORE_TOPICS.extend([
         ),
         "badge": {"label": "Library", "tab": "library"},
     },
+    {
+        "id": "board-colours",
+        "keywords": (
+            "border colour", "border color", "fill colour", "fill color", "same colour",
+            "same colour as the fill", "match the border", "swap colours", "recent colours",
+            "eyedropper", "eye dropper", "pick a colour from the board", "colour picker",
+            "change the colour of a shape", "outline colour",
+        ),
+        "body": (
+            "Colours on a board: every colour button (a shape's Fill and Border on its "
+            "bar and in the Format panel, text, and the draw colour) opens one menu. "
+            "For a shape it names both, Fill and Border, with a dot of each: press "
+            "the other to set it instead. Same as fill (or Same as border) makes "
+            "them one colour and Swap trades them, each one Undo step. Recent "
+            "holds your last eight picks on this device, above the board's colours; "
+            "More colours opens any colour by number. Pick from the board is the "
+            "eyedropper: the next click takes a colour instead of doing what it "
+            "would, from a shape (its fill, or its border with Alt or Take a shape's border), "
+            "a line, a text box or any colour button, and Escape stops it. A fill "
+            "that is off shows dimmed; picking a colour turns it on."
+        ),
+        "badge": {"label": "Library", "tab": "library"},
+    },
 ])
 TOPIC_META.update({
     "board-edit-data": {"title": "Edit data on a board item", "path": "A board's Format panel, Data"},
+    "board-colours": {"title": "Fill, border and recent colours on a board", "path": "A shape's bar, Fill or Border"},
     "board-tables": {"title": "Tables on a board", "path": "A board's Insert menu, Table"},
     "board-hand-drawn": {"title": "The hand-drawn look", "path": "A board's View menu, Hand-drawn look"},
     "board-current-layer": {"title": "The current layer", "path": "A board's sidebar, Layers"},
@@ -2220,3 +2284,27 @@ def _act_topic() -> dict:
 
 MORE_TOPICS.append(_act_topic())
 TOPIC_META["chat-acts"] = {"title": "Things Chat does for you", "path": "Chat tab"}
+
+
+#: Autocorrect outside the editor (Brief 94, INBOX 850): autocorrect.js.
+MORE_TOPICS.append({
+    "id": "autocorrect",
+    "keywords": (
+        "autocorrect", "auto correct", "autocorrection", "turn off autocorrect",
+        "fix my typos", "it changed my word", "undo a correction", "corrected my word",
+    ),
+    "body": (
+        "Autocorrect fixes a clear typo, such as teh, as you finish the "
+        "word, in the note boxes, the chat and Ask composers and the titles. "
+        "The corrected word is underlined for five seconds: click it to put "
+        "back what you typed, or press Backspace or Ctrl+Z straight after, and "
+        "the toast carries Undo too. A word you put back is left alone for the "
+        "rest of the session, and a word in your dictionary never changes. It "
+        "never runs in code, links, tags or search boxes. Turn it off in "
+        "Settings, General, Writing; a document has its own switch in the "
+        "editor's ... menu."
+    ),
+    "badge": {"label": "General", "section": "general", "target": "pref-autocorrect"},
+})
+TOPIC_META["autocorrect"] = {"title": "Autocorrect", "path": "Settings, General, Writing", "target": "pref-autocorrect"}
+

@@ -111,6 +111,7 @@ from memorymap.core import (
     jobruns,
     jobs,
     logbuffer,
+    netbind,
     passes,
     security,
     startup_status,
@@ -377,6 +378,10 @@ class RevalidatedStatic(StaticFiles):
             raise StarletteHTTPException(status_code=405)
         if path in self._INDEX_PATHS:
             body = await run_in_threadpool(served_index_html)
+            #: INBOX 867: a page reached over the network says so, and the
+            #: lock card shows "Install the certificate" by CSS alone.
+            if not netbind.arrived_on_loopback(scope.get("server")):
+                body = body.replace(b"<html ", b'<html data-lan="1" ', 1)
             response = HTMLResponse(content=body)
             response.headers["Cache-Control"] = "no-cache"
             return response

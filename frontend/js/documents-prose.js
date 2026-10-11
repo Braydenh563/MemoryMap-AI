@@ -84,12 +84,12 @@ async function docGrammarWhy() {
   if (typeof WebAssembly !== "object") found.push("this browser has no WebAssembly");
   for (const file of DOC_GRAMMAR_FILES) {
     try {
-      const response = await fetch(file, { cache: "no-store" });
+      //: `api()` throws on a refusal and carries its status, so a 404 here reads as one.
+      const response = await api(file, { cache: "no-store", silent: true });
       const type = (response.headers.get("content-type") || "").split(";")[0].trim();
-      if (!response.ok) found.push(`${file} answered ${response.status}`);
-      else if (!/javascript/i.test(type)) found.push(`${file} came as ${type || "no type"}, not JavaScript`);
+      if (!/javascript/i.test(type)) found.push(`${file} came as ${type || "no type"}, not JavaScript`);
     } catch (error) {
-      found.push(`${file} did not load: ${error && error.message ? error.message : error}`);
+      found.push(error && error.status ? `${file} answered ${error.status}` : `${file} did not load: ${error && error.message ? error.message : error}`);
     }
   }
   return found.join("; ") || "every file it loads answered as JavaScript";

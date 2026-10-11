@@ -132,6 +132,7 @@ def _to_out(
         ai_confidence=filing_certainty.shown(
             entry.ai_confidence, user_filed=bool(getattr(entry, "user_filed", False))
         ),
+        tag_suggest_off=bool(getattr(entry, "tag_suggest_off", False)),
         suggested_tags=(offered := _open_suggestions(entry)),
         suggested_tag_reasons=_tag_reasons(content, offered),
         #: Never a private note's: derived from its text, as its suggestions
@@ -211,7 +212,11 @@ def _json_tags(raw: str | None) -> list[str]:
 
 def _open_suggestions(entry) -> list[str]:  # noqa: ANN001
     """The kept suggestions still worth showing: not on the note already and
-    not discarded (a tag added by hand since filing drops out by itself)."""
+    not discarded (a tag added by hand since filing drops out by itself).
+    None while the note is set to "Don't suggest tags" (brief 89); what was
+    kept is still on the row and comes back when that is cleared."""
+    if getattr(entry, "tag_suggest_off", False):
+        return []
     have = {tag.casefold() for tag in manager.entry_tags(entry)}
     gone = {tag.casefold() for tag in _json_tags(getattr(entry, "discarded_tags", "[]"))}
     return [
@@ -242,7 +247,7 @@ def _keep_suggestions(session: Session, entry, filed_by: str | None) -> None:  #
     from ciphertext or the locked placeholder when the vault is shut. What it
     already holds (a note made private after filing) is handled like its
     tags: kept, shown where they are, nowhere else."""
-    if getattr(entry, "is_private", False):
+    if getattr(entry, "is_private", False) or getattr(entry, "tag_suggest_off", False):
         return
     have = manager.entry_tags(entry)
     discarded = {tag.casefold() for tag in _json_tags(getattr(entry, "discarded_tags", "[]"))}
@@ -575,6 +580,14 @@ def _file_entry_in_background(entry_id: int, workspace_id: str) -> None:
                     session.commit()
         except Exception:
             logger.warning("couldn't mark entry %s as failed", entry_id, exc_info=True)
+
+
+def stand_ins_waiting() -> int:
+    """How many notes are stand-ins (the model's answer was still coming when
+    the app last closed). A count only: the launch asks it before queueing
+    the retry, so a notebook with none shows no "Filing a note" row."""
+    with deps.get_db().session() as session:
+        return session.query(Entry).filter(Entry.filing_state == manager.STAND_IN).count()
 
 
 def retry_stand_ins() -> int:
@@ -1309,6 +1322,20 @@ class SuggestedTagsBody(BaseModel):
     #: way to undo it or see the list"): off `discarded_tags`, back into the
     #: suggestions.
     restore: list[str] = Field(default_factory=list, max_length=20)
+    #: True stops suggesting tags for this note, False starts again (brief 89).
+    mute: bool | None = None
+
+
+def _discard_tags(entry, body) -> dict[str, str]:  # noqa: ANN001
+    """Remember the tags turned down on this note (the last 200), and return the
+    ones taken back, keyed by their folded form."""
+    gone = _json_tags(entry.discarded_tags)
+    gone_folded = {tag.casefold() for tag in gone}
+    gone += [tag.strip() for tag in body.discard if tag.strip() and tag.strip().casefold() not in gone_folded]
+    restored = {tag.strip().casefold(): tag.strip() for tag in body.restore if tag.strip()}
+    gone = [tag for tag in gone if tag.casefold() not in restored]
+    entry.discarded_tags = json.dumps(gone[-200:])
+    return restored
 
 
 @router.post("/{entry_id}/suggested-tags", response_model=EntryOut)
@@ -1319,18 +1346,15 @@ def answer_suggested_tags(
     added like one typed by hand; a discarded one is remembered so no later
     filing pass offers it on this note again."""
     entry = _existing_entry(session, entry_id)
+    if body.mute is not None:
+        entry.tag_suggest_off = body.mute
     offered = {tag.casefold(): tag for tag in _json_tags(entry.suggested_tags)}
     take = [offered.get(tag.casefold(), tag.strip()) for tag in body.take if tag.strip()]
     if take:
         have = manager.entry_tags(entry)
         folded = {tag.casefold() for tag in have}
         manager.update_entry(session, entry, tags=have + [tag for tag in take if tag.casefold() not in folded])
-    gone = _json_tags(entry.discarded_tags)
-    gone_folded = {tag.casefold() for tag in gone}
-    gone += [tag.strip() for tag in body.discard if tag.strip() and tag.strip().casefold() not in gone_folded]
-    restored = {tag.strip().casefold(): tag.strip() for tag in body.restore if tag.strip()}
-    gone = [tag for tag in gone if tag.casefold() not in restored]
-    entry.discarded_tags = json.dumps(gone[-200:])
+    restored = _discard_tags(entry, body)
     answered = {tag.casefold() for tag in [*take, *body.discard]}
     kept = [tag for tag in _json_tags(entry.suggested_tags) if tag.casefold() not in answered]
     kept_folded = {tag.casefold() for tag in kept}

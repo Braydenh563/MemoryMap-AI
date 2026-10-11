@@ -323,6 +323,10 @@ class Entry(Base, WorkspaceMixin):
     #: JSON string arrays like `tags`; additive, so old rows backfill to [].
     suggested_tags: Mapped[str] = mapped_column(Text, default="[]")
     discarded_tags: Mapped[str] = mapped_column(Text, default="[]")
+    #: "Don't suggest tags for this note" (brief 89): no suggestion is made,
+    #: kept or shown while it is set, and what was kept comes back when it is
+    #: cleared. Additive scalar, so old rows backfill to false.
+    tag_suggest_off: Mapped[bool] = mapped_column(Boolean, default=False)
     #: Where this note is in the filing queue: `done` (the only state a note
     #: filed synchronously is ever in), `pending` (saved, category not
     #: decided yet), or `failed` (the background pass raised and gave up, 
@@ -1683,6 +1687,11 @@ class Recording(Base, WorkspaceMixin):
     #: note may be binned and purged while the recording is kept).
     entry_id: Mapped[int | None] = mapped_column(Integer, default=None, index=True)
     source_id: Mapped[int | None] = mapped_column(Integer, default=None)
+    #: What a row made from `source_id` is: "trim", or "enhanced" (the
+    #: high-pass and loudness normalise on save, UI_MODERNISATION V3); "" for
+    #: a recording as it was made. A scalar default, so the additive
+    #: auto-migrator backfills old rows.
+    derived: Mapped[str] = mapped_column(String(16), default="")
     state: Mapped[str] = mapped_column(String(16), default="recording")
     #: Set when a stale recording was finished by recovery, so the app can
     #: say "Recording recovered" once.

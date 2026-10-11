@@ -1091,7 +1091,6 @@ function initOcrPhonePage() {
 
 initOcrPhonePage();
 
-
 // --- the chat composer on a phone: attachments and mode in one row -----------
 // UI_MODERNISATION_PLAN Phase 11 item 3, "the composer above the keyboard
 // with the attachments and mode in one row". Measured at 390: the composer
@@ -1390,14 +1389,35 @@ function openSheet({ label, sub = "", name, build, variant = "", returnFocus = d
   initHelpToggles(card);
   //: Focus starts in a field, else on the current row, else the first row: on
   //: the X, Enter closed a fresh chooser.
-  const field = card.querySelector("input:not([type=hidden]), select, textarea");
-  const first =
-    field ||
-    card.querySelector('.sheet-row[aria-current="true"]') ||
-    card.querySelector(".sheet-row") ||
-    card.querySelector("button, [href]") ||
-    card;
-  first.focus?.();
+  //: **Never a `select`, where there is no hover** (INBOX 885, the owner:
+  //: "clicking the graph settings button on my phone auto opens the graph
+  //: layout dropdown menu"). The map-controls sheet's first field is the
+  //: Layout select, and a script focus on a select under a finger opens the
+  //: picker (measured: `document.activeElement` was `#graph-layout` 100ms
+  //: after the tap). A tap that opened a sheet asked for the sheet, not for
+  //: its first choice (nor a slider or a tickbox, which a script focus helps
+  //: nobody with); the pointer and the keyboard keep the old landing.
+  const touchOnly = window.matchMedia("(hover: none), (pointer: coarse)").matches;
+  const field = touchOnly
+    ? [...card.querySelectorAll("input:not([type=hidden], [type=range], [type=checkbox], [type=radio]), textarea")].find(
+        (el) => el.offsetParent !== null
+      )
+    : card.querySelector("input:not([type=hidden]), select, textarea");
+  //: The first of these that actually takes focus: a field inside a closed
+  //: fold is `offsetParent`-visible to nobody and refuses the call, and
+  //: leaving the focus on the opener behind the sheet is the other failure.
+  if (!card.hasAttribute("tabindex")) card.tabIndex = -1;
+  for (const target of [
+    field,
+    card.querySelector('.sheet-row[aria-current="true"]'),
+    card.querySelector(".sheet-row"),
+    card.querySelector("button, [href]"),
+    card,
+  ]) {
+    if (!target) continue;
+    target.focus?.();
+    if (document.activeElement === target) break;
+  }
   return close;
 }
 
@@ -1576,21 +1596,51 @@ function syncPhoneMoreButton(activeTabName) {
 // keyboard, so what is tested here is that the property is written, that it
 // is 0 with no keyboard, and that the two docks read it. The behaviour with
 // a real keyboard on a real phone is reasoned, not observed.
+// `scratchpad/ui-sweeps/kbinset.js` stubs the visual viewport (height and
+// offsetTop, three pan states) and measures the composer's bottom against the
+// visible bottom.
 function initKeyboardInset() {
   const viewport = window.visualViewport;
   if (!viewport) return;
+  const root = document.documentElement;
   const write = () => {
-    const covered = window.innerHeight - viewport.height - viewport.offsetTop;
+    // A pinch zoom shrinks the visual viewport exactly as a keyboard does
+    // (height is innerHeight over the scale), so a zoomed page is not a
+    // covered one: only a page at rest scale can have a keyboard on it.
+    const zoomed = (viewport.scale || 1) > 1.05;
+    const covered = zoomed ? 0 : window.innerHeight - viewport.height - viewport.offsetTop;
     // Clamped at zero: `offsetTop` is negative while a page is rubber-banding
     // on iOS, which would otherwise write a negative padding.
-    document.documentElement.style.setProperty(
-      "--keyboard-inset",
-      `${Math.max(0, Math.round(covered))}px`
-    );
+    const inset = Math.max(0, Math.round(covered));
+    root.style.setProperty("--keyboard-inset", `${inset}px`);
+    // The class is what a bulky strip keys off to step aside (the no-model
+    // notice above the composer, 10-responsive.css): a threshold, because a
+    // few pixels of covered strip is a toolbar settling, not a keyboard.
+    root.classList.toggle("keyboard-open", inset > 120);
   };
   viewport.addEventListener("resize", write);
   viewport.addEventListener("scroll", write);
   write();
+  // iOS animates the keyboard in over about a quarter of a second and does
+  // not always fire a resize at the end of it, so the covered strip written
+  // at the start can be stale for the whole time the person is typing (the
+  // owner: "opening up the phone keyboard actually covers the text box").
+  // Reading again as a field takes focus, and a few times while the
+  // animation settles, closes that; and when the field is left, the page is
+  // put back to the top, because iOS scrolls the document to show a focused
+  // field and leaves it scrolled.
+  const fieldSelector = "input, textarea, select, [contenteditable]";
+  const settle = () => [0, 120, 320, 700].forEach((delay) => setTimeout(write, delay));
+  document.addEventListener("focusin", (event) => {
+    if (event.target.closest?.(fieldSelector)) settle();
+  });
+  document.addEventListener("focusout", (event) => {
+    if (!event.target.closest?.(fieldSelector)) return;
+    settle();
+    setTimeout(() => {
+      if (!document.activeElement?.closest?.(fieldSelector) && window.scrollY) window.scrollTo(0, 0);
+    }, 350);
+  });
 }
 
 initKeyboardInset();
@@ -2013,20 +2063,6 @@ async function clearAppCache() {
 async function forceReloadApp() {
   await clearAppCache();
   location.reload();
-}
-
-//: **Where an export lands, from a notification.** On the desktop the OS file
-//: manager opens on the folder; a browser tab has no file manager to hand
-//: this to, so it gets the Settings list below, where every export has a
-//: download link of its own.
-async function openExportsFromNotification() {
-  if (await desktopShell()) {
-    apiJson("/files/open-exports-folder", { method: "POST" }).catch((error) => {
-      toast(error.message || "Couldn't open the exports folder.", true);
-    });
-    return;
-  }
-  openSettingsModal("data", "exports-recent");
 }
 
 //: **The exports folder, as a list in Settings** (INBOX 159: "an area

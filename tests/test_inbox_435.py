@@ -70,7 +70,8 @@ def test_the_tags_field_has_the_apps_own_list_not_a_datalist():
     code = app_js_text()
     assert 'tagSuggest: ["/js/tag-suggest.js"]' in code and 'tagSuggest: ["openTagSuggest"]' in code
     # The edit form's tags are chips with one input since INBOX 606.
-    assert 'event.target.matches?.("#entry-tags, .note-edit-tags > input")' in code
+    #: One listener now serves the tags fields and every search box (Brief 86), so it reads the target once.
+    assert 'box.matches?.("#entry-tags, .note-edit-tags > input")) openTagSuggest(box)' in code
     suggest = (ROOT / "frontend" / "js" / "tag-suggest.js").read_text(encoding="utf-8")
     # Sized and placed to the field, a combobox, one open at a time.
     assert "box.style.width = `${Math.min(field.width" in suggest

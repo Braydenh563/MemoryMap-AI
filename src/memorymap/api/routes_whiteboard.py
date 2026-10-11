@@ -1329,6 +1329,11 @@ def _on_current_layer(db: Session, board_id: int | None, data: dict) -> dict:
     """`data` with the current layer, unless it already names one (or says
     `""`, none on purpose): every way onto a board, hand, paste, import or
     the library, goes through a create here, so this is the one place."""
+    if data.get("layer") == "":
+        # None on purpose is stored as no key, the shape an item that never
+        # had a layer has, so an undo that re-creates one restores the board
+        # identically (wbtrash660: `"layer":""` appeared after Undo).
+        return {k: v for k, v in data.items() if k != "layer"}
     if "layer" in data:
         return data
     layer = current_layer(db, board_id)

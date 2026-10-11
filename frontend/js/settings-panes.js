@@ -551,7 +551,6 @@ async function renderAccount() {
 // since the ledger on disk began. Nothing here can change a setting: the
 // switches listed at the bottom are facts, each set where it lives.
 
-let privacyReceipt = null;
 let privacyRange = "launch";
 
 for (const button of document.querySelectorAll("#privacy-range [data-range]")) {
@@ -725,6 +724,7 @@ async function renderPrefs() {
     prefsCache.notifications_muted_except_reminders
   );
   $("pref-smart-punctuation").checked = prefsCache.smart_punctuation === true;
+  $("pref-autocorrect").checked = prefsCache.autocorrect !== false;
   $("prefs-status").textContent = "";
   //: The fields now hold what the server holds, so nothing is unsaved: this
   //: also covers the reopen, since `showSettingsSection` re-renders.
@@ -843,7 +843,6 @@ async function checkForSourceUpdateNotice() {
   showSourceUpdatedDialog(result);
 }
 
-
 //: Which checkbox in Settings mirrors which one elsewhere in the app. Two
 //: controls for one preference is a reasonable convenience and a reliable way
 //: to get them out of step; this is the list that keeps them honest.
@@ -909,6 +908,7 @@ async function savePrefs(options = {}) {
       notifications_muted_except_reminders:
         $("pref-notif-mute-except-reminders").checked,
       smart_punctuation: $("pref-smart-punctuation").checked,
+      autocorrect: $("pref-autocorrect").checked,
     };
     // INBOX 73: "'Mute notifications except reminders' toggle disables
     // itself when the settings close." Reproduced two ways with Playwright
@@ -1014,7 +1014,7 @@ const PREFS_FIELD_IDS = [
   "pref-display-name", "pref-bin-days", "pref-chat-retention",
   "pref-search-min-sim", "pref-search-z-margin", "pref-style",
   "pref-profile", "pref-profile-enabled", "pref-notif-mute-except-reminders",
-  "pref-smart-punctuation",
+  "pref-smart-punctuation", "pref-autocorrect",
 ];
 
 function wirePrefsDirtyMarks() {
@@ -1066,7 +1066,6 @@ async function downloadExport(kind) {
 // --- Wave F: backups UI -------------------------------------------------------------
 
 // --- Wave F: command palette (Ctrl/Cmd-K) -------------------------------------------
-
 
 // Static commands; note search results are appended live as you type.
 //: Interface zoom, in one place so the slider, the +/- buttons, the keyboard
@@ -1484,7 +1483,6 @@ function paletteCommands() {
     { label: "ph:lock Lock MemoryMap", about: "Close the notebook until the password is typed again.", act: lockNow },
   ].map(catalogueRun);
 }
-
 
 //: **A row's keycap: the way to run it without the palette.** A chord the
 //: row declares by its registry name (`chord`, read from the live

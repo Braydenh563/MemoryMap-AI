@@ -51,8 +51,7 @@ const SEARCH_SUGGEST_PREF = "searchSuggest";
 
 let searchSuggest = null;
 //: The pool of note words, rebuilt when the list of notes changes.
-let searchSuggestPoolFor = null;
-let searchSuggestPool = { titles: [], tags: new Map(), categories: new Map() };
+const searchSuggestCache = { poolFor: null, pool: { titles: [], tags: new Map(), categories: new Map() }, measure: null };
 
 function searchSuggestEnabled() {
   return prefs.get(SEARCH_SUGGEST_PREF, "on") !== "off";
@@ -66,7 +65,7 @@ function searchSuggestScopeOf(input) {
 //: archive, not a private note (they are kept out of search on purpose).
 function searchSuggestWords() {
   const entries = typeof allEntries !== "undefined" && Array.isArray(allEntries) ? allEntries : [];
-  if (searchSuggestPoolFor === entries && searchSuggestPool.size === entries.length) return searchSuggestPool;
+  if (searchSuggestCache.poolFor === entries && searchSuggestCache.pool.size === entries.length) return searchSuggestCache.pool;
   const titles = [];
   const tags = new Map();
   const categories = new Map();
@@ -76,9 +75,9 @@ function searchSuggestWords() {
     for (const tag of entry.tags || []) tags.set(tag, (tags.get(tag) || 0) + 1);
     if (entry.category) categories.set(entry.category, (categories.get(entry.category) || 0) + 1);
   }
-  searchSuggestPool = { titles: [...new Set(titles.filter(Boolean))], tags, categories, size: entries.length };
-  searchSuggestPoolFor = entries;
-  return searchSuggestPool;
+  searchSuggestCache.pool = { titles: [...new Set(titles.filter(Boolean))], tags, categories, size: entries.length };
+  searchSuggestCache.poolFor = entries;
+  return searchSuggestCache.pool;
 }
 
 //: Starts with the words (rank 0), or has a word that does (rank 1), or not (-1).
@@ -199,7 +198,6 @@ function placeSearchSuggest() {
   placeSearchGhost();
 }
 
-let searchSuggestMeasure = null;
 
 //: The grey remainder of the best completion, laid over the box's own text
 //: line: where the typed text ends, measured with the box's own font.
@@ -213,10 +211,10 @@ function placeSearchGhost() {
   }
   const rest = ghostItem.value.slice(typed.length);
   const style = getComputedStyle(input);
-  searchSuggestMeasure = searchSuggestMeasure || document.createElement("canvas").getContext("2d");
-  searchSuggestMeasure.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+  searchSuggestCache.measure = searchSuggestCache.measure || document.createElement("canvas").getContext("2d");
+  searchSuggestCache.measure.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
   const rect = input.getBoundingClientRect();
-  const left = rect.left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft) + searchSuggestMeasure.measureText(typed).width - input.scrollLeft;
+  const left = rect.left + parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft) + searchSuggestCache.measure.measureText(typed).width - input.scrollLeft;
   const right = rect.right - parseFloat(style.borderRightWidth) - parseFloat(style.paddingRight);
   if (left >= right - 4) {
     ghost.classList.add("hidden");
@@ -305,21 +303,13 @@ function fillSearchSuggest() {
 //: **The box can move after the list opens**: a dock re-flowing as a tab
 //: arrives, or as the list of notes it filters changes length (measured: the
 //: ghost text stood 60px right of the caret after a filter shortened the label
-//: beside the field). So while the list is open the box's own position is
-//: watched each frame, and the list and the ghost are placed again whenever it
-//: moved or resized.
-function watchSearchSuggest() {
+//: beside the field). The list and the ghost are placed again shortly after
+//: it opens and after each keystroke, which is when that happens, and on a
+//: resize or scroll. No frame loop: the app counts every one it runs
+//: (tests/test_frontend_wake_sources.py), and an open list is idle.
+function placeSearchSuggestSoon() {
   const state = searchSuggest;
-  const tick = () => {
-    if (searchSuggest !== state) return;
-    const r = state.input.getBoundingClientRect();
-    if (r.left !== state.seen.left || r.top !== state.seen.top || r.width !== state.seen.width || r.height !== state.seen.height) {
-      state.seen = { left: r.left, top: r.top, width: r.width, height: r.height };
-      placeSearchSuggest();
-    }
-    requestAnimationFrame(tick);
-  };
-  requestAnimationFrame(tick);
+  for (const ms of [120, 400]) setTimeout(() => searchSuggest === state && placeSearchSuggest(), ms);
 }
 
 //: Put a suggestion in the box. `commit` is a press: the box's own search
@@ -433,6 +423,7 @@ function openSearchSuggest(input) {
     if (!searchSuggest || searchSuggest.accepting) return;
     searchSuggest.quiet = false;
     fillSearchSuggest();
+    placeSearchSuggestSoon();
   };
   const onKey = (event) => {
     const state = searchSuggest;
@@ -471,9 +462,9 @@ function openSearchSuggest(input) {
   input.addEventListener("blur", onBlur);
   window.addEventListener("resize", onWindow);
   window.addEventListener("scroll", onWindow, true);
-  searchSuggest = { input, box, list, foot, ghost, items: [], rows: [], active: -1, moved: false, quiet: false, accepting: false, ghostItem: null, announced: 0, seen: {}, onInput, onKey, onBlur, onWindow };
+  searchSuggest = { input, box, list, foot, ghost, items: [], rows: [], active: -1, moved: false, quiet: false, accepting: false, ghostItem: null, announced: 0, onInput, onKey, onBlur, onWindow };
   fillSearchSuggest();
-  watchSearchSuggest();
+  placeSearchSuggestSoon();
 }
 
 //: Escape closes the list before it closes anything behind it (Find anything

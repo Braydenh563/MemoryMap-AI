@@ -273,6 +273,10 @@ def _kind_of(question: str) -> str | None:
     text = _clean(question)
     if not text:
         return None
+    return _calculation_kind(question, text) or _date_kind(text) or _other_kind(text)
+
+
+def _calculation_kind(question: str, text: str) -> str | None:
     if _sum_of(question, text):
         return "sum"
     if _PERCENT.match(text):
@@ -283,6 +287,10 @@ def _kind_of(question: str) -> str | None:
         return "units"
     if any(p.match(text) for p in _patterns("money")):
         return "currency"
+    return None
+
+
+def _date_kind(text: str) -> str | None:
     asked = recognise.days_question(text)
     if asked:
         #: "how many days until the dentist": the date is in a note, which
@@ -290,6 +298,10 @@ def _kind_of(question: str) -> str | None:
         return "dates" if when_words.span(asked[1], now_day(), asked[0]) else "until_note"
     if recognise.offset_question(text) or (_WEEKDAY_OF.match(text) and when_words.span(_WEEKDAY_OF.match(text).group(1), now_day(), "future")):
         return "dates"
+    return None
+
+
+def _other_kind(text: str) -> str | None:
     if _DIE.match(text) or _COIN.match(text) or _PICK.match(text):
         return "chance"
     if _TRANSLATE.match(text):

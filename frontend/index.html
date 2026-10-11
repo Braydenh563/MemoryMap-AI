@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
   <title>MemoryMap AI</title>
   <!-- The SVG is the icon; the PNG is the fallback for the handful of places
        that still won't take one: Safari's touch icon in particular, which
@@ -336,6 +336,39 @@
            (account-recovery.js, lazy). -->
       <button id="lock-forgot" type="button" class="link-button lock-forgot">Forgot your password?</button>
       <p id="lock-error" class="status error" role="alert"></p>
+      <!-- INBOX 867, "I use an Apple phone": over the network the lock card
+           offers the certificate, so the phone trusts this address once and
+           never warns again. A plain link (iOS installs a profile only from
+           a navigation); shown by CSS when the page did not arrive on this
+           computer (`data-lan`, set as app.py serves the page). -->
+      <div class="lock-lan-cert">
+        <a id="lock-lan-cert" class="link-button lock-forgot" href="/auth/lan-certificate.pem">Install the certificate</a>
+        <button type="button" class="icon-only ghost small graph-help-toggle"
+          data-help-for="lock-lan-cert-help" aria-controls="lock-lan-cert-help" aria-expanded="false"
+          title="How to trust this notebook on a phone" aria-label="How to trust this notebook on a phone">
+          <i class="ph ph-question" aria-hidden="true"></i>
+        </button>
+        <div class="help-body hidden" id="lock-lan-cert-help" role="dialog" aria-label="How to trust this notebook on a phone">
+          <p>
+            Do this once per phone, so this address is trusted and never warns again.
+          </p>
+          <p>
+            iPhone: press Install the certificate in Safari and choose Allow.
+            Then, in the iPhone's own Settings app, General, VPN and Device
+            Management, MemoryMap, Install. Then General, About, Certificate
+            Trust Settings, and switch it on.
+          </p>
+          <p>
+            Android: open the downloaded file from the phone's own system
+            settings app: Security, Encryption and credentials, Install a certificate, CA
+            certificate.
+          </p>
+          <p>
+            The first time this phone signs in, the computer the notebook is
+            on asks whether to let it in: choose Allow there.
+          </p>
+        </div>
+      </div>
     </div>
     <!-- **Forgot your password?** (INBOX 663; the owner: "it needs to be
          robust and secure"). The lock card's twin, shown in its place: one
@@ -1095,7 +1128,7 @@
         category, files or a template.</p>
     </div>
     <p class="muted">Saved where you are, filed in the background.</p>
-    <textarea id="quick-note-text" rows="5" aria-label="Quick note"
+    <textarea id="quick-note-text" data-autocorrect rows="5" aria-label="Quick note"
       placeholder="A thought, a link, a #tag. Ctrl+Enter saves."></textarea>
     <p id="quick-note-status" class="status" role="status"></p>
     <div class="row right space-dialog-actions">
@@ -1537,7 +1570,7 @@
                  typed as the note's own first line ("# Recipe") work exactly
                  the same way. Starting a note with a single # already becomes
                  a title without touching this box at all. -->
-            <input id="entry-title" type="text" maxlength="200"
+            <input id="entry-title" data-autocorrect type="text" maxlength="200"
               placeholder="Optional title"
               aria-label="Optional title: becomes the note's leading heading">
             <!-- Asked for directly: "can you add like a toolbar like in the
@@ -1590,7 +1623,7 @@
                 <i class="ph ph-code ph-lead" aria-hidden="true"></i> <span class="toolbar-word">Source</span>
               </button>
             </div>
-            <textarea id="entry-content" rows="3" class="autogrow" aria-label="New note"
+            <textarea id="entry-content" data-autocorrect rows="3" class="autogrow" aria-label="New note"
               placeholder="Type anything: a joke, a shopping list, a race result…
 Link to another note with [[its first few words]]."></textarea>
             <!-- The box's own foot: Clear (field-clear.js, INBOX 466) at the left, the count at the right. -->
@@ -1847,7 +1880,7 @@ Link to another note with [[its first few words]]."></textarea>
                   <span id="draft-thoughts-count" class="muted"></span>
                 </span>
               </div>
-              <textarea id="draft-thoughts" rows="7"
+              <textarea id="draft-thoughts" data-autocorrect rows="7"
                 placeholder="Just get it down, order doesn't matter…"></textarea>
               <!-- **What to write, in what voice, at what length, from what.**
                    Three selects and an adder, the same shapes the chat dock's
@@ -1930,7 +1963,7 @@ Link to another note with [[its first few words]]."></textarea>
                    one box at 189.2px and the other at 330.3px on a phone. On
                    a desktop neither number is what decides, the flex stretch
                    inside a stretched column is. -->
-              <textarea id="draft-text" rows="7"
+              <textarea id="draft-text" data-autocorrect rows="7"
                 placeholder="Your draft will appear here as Atlas writes it. You can edit it directly."></textarea>
               <!-- Every draft this session produced, newest last, on the
                    `.library-chip` recipe. Undo steps back one pass; these are
@@ -2064,7 +2097,7 @@ Link to another note with [[its first few words]]."></textarea>
             <i class="ph ph-sparkle ask-composer-icon" aria-hidden="true"></i>
             <!-- `data-no-selection-popup`: a question, not writing, so the
                  selection menu leaves it alone (`fieldSelection`, selection.js). -->
-            <input id="question" type="text" data-no-selection-popup
+            <input id="question" data-autocorrect type="text" data-no-selection-popup
               placeholder="e.g. What jokes have I saved?"
               aria-label="Ask your notebook a question">
             <button type="button" id="ask-clear" class="ghost icon-only small field-clear hidden" title="Clear" aria-label="Clear"><i class="ph ph-eraser" aria-hidden="true"></i></button>
@@ -3021,7 +3054,7 @@ Link to another note with [[its first few words]]."></textarea>
             <!-- A textarea, not an input: a three-sentence question used to
                  scroll sideways inside one line. Enter still sends; Shift+Enter
                  is a newline, which an <input> could not offer at all. -->
-            <textarea id="chat-input" rows="1" class="autogrow chat-input"
+            <textarea id="chat-input" data-autocorrect rows="1" class="autogrow chat-input"
               aria-label="Message" placeholder="Ask your notebook anything…"></textarea>
             <button type="button" id="chat-clear" class="ghost icon-only small field-clear hidden" title="Clear" aria-label="Clear"><i class="ph ph-eraser" aria-hidden="true"></i></button>
             <button id="mic-chat" class="ghost icon-only" title="Dictate your question (local Whisper)" aria-label="Dictate your question"><i class="ph ph-microphone" aria-hidden="true"></i></button>
@@ -4375,7 +4408,7 @@ Link to another note with [[its first few words]]."></textarea>
                the graph entirely (user-reported: "sketches don't open from
                the graph"). Any image attachment previews here. -->
           <div id="graph-popup-media" class="graph-popup-media hidden"></div>
-          <textarea id="graph-popup-content" class="autogrow" rows="4" aria-label="Note content"></textarea>
+          <textarea id="graph-popup-content" data-autocorrect class="autogrow" rows="4" aria-label="Note content"></textarea>
           <input id="graph-popup-tags" type="text" placeholder="Tags, comma separated"
             aria-label="Tags">
           <!-- The button is hidden until the note is actually edited: a Save
@@ -4400,9 +4433,9 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="graph-new-close" class="icon-only ghost small dialog-head-btn" type="button" aria-label="Close" title="Close (Esc)"><i class="ph ph-x" aria-hidden="true"></i></button>
           </div>
           <p class="muted" id="graph-new-hint"></p>
-          <input id="graph-new-note-title" type="text" maxlength="200"
+          <input id="graph-new-note-title" data-autocorrect type="text" maxlength="200"
             placeholder="Optional title" aria-label="Optional title">
-          <textarea id="graph-new-content" rows="3"
+          <textarea id="graph-new-content" data-autocorrect rows="3"
             placeholder="Type the thought: Atlas will file it…" aria-label="Note content"></textarea>
           <input id="graph-new-tags" type="text" placeholder="Tags, comma separated"
             aria-label="Tags">
@@ -4593,14 +4626,14 @@ Link to another note with [[its first few words]]."></textarea>
                connected to"), and the sidebar already has two tabs too many
                for the space it has. -->
           <div id="doc-backlinks-wrap" class="doc-outline-wrap hidden">
-            <h3>Linked from</h3>
+            <h3 class="doc-outline-title">Linked from</h3>
             <ul id="doc-backlinks" class="doc-outline"></ul>
           </div>
 
           <!-- The notes this document draws on. A document is something you
                sit down and write; the notes are what you wrote it from. -->
           <div id="doc-notes-wrap" class="doc-outline-wrap hidden">
-            <h3>Notes it draws on</h3>
+            <h3 class="doc-outline-title">Notes it draws on</h3>
             <ul id="doc-notes" class="doc-outline"></ul>
           </div>
 
@@ -4608,7 +4641,7 @@ Link to another note with [[its first few words]]."></textarea>
                in documents... as well?"): saved links attached to this
                document, same concept as a note's own References. -->
           <div id="doc-bookmarks-wrap" class="doc-outline-wrap">
-            <h3>References</h3>
+            <h3 class="doc-outline-title">References</h3>
             <ul id="doc-bookmarks" class="doc-outline"></ul>
             <button id="doc-attach-bookmark" class="ghost small" type="button"><i class="ph ph-link ph-lead" aria-hidden="true"></i> Attach a bookmark</button>
           </div>
@@ -4658,7 +4691,7 @@ Link to another note with [[its first few words]]."></textarea>
                  from, as a breadcrumb does. -->
             <button type="button" id="doc-back" class="ghost small doc-back" title="Back to your documents in the Library"
               aria-label="Back to your documents in the Library"><i class="ph ph-caret-left ph-lead" aria-hidden="true"></i><span class="doc-back-label">Documents</span></button>
-            <input id="doc-title" type="text" maxlength="200" placeholder="Untitled"
+            <input id="doc-title" data-autocorrect type="text" maxlength="200" placeholder="Untitled"
               aria-label="Document title" class="doc-title-input">
             <!-- What kind of file this document is. Asked for directly: the
                  editor should handle code as well as prose, the type should
@@ -6952,7 +6985,7 @@ Link to another note with [[its first few words]]."></textarea>
       <div class="wb-tool-section" data-wb-surface="board" role="group" aria-label="Shapes">
         <span class="wb-tool-section-label" title="Lines, arrows and boxes, with their fill and stroke">Shapes</span>
         <div class="wb-tool-section-row">
-        <!-- Six shape tools (line/arrow/rect/circle/triangle/diamond) collapsed
+        <!-- The shape tools (line/arrow, the four boxes, and the more shapes) collapsed
              into one dropdown: asked for directly ("the tool bar is getting
              quite long"). Still plain `data-tool` buttons underneath, so the
              existing delegated click handler on #wb-tool-group (which reads
@@ -6992,6 +7025,39 @@ Link to another note with [[its first few words]]."></textarea>
               </button>
               <button class="ghost icon-button" data-tool="diamond" title="Diamond (D)" aria-label="Diamond (D)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 L21 12 L12 21 L3 12 Z"></path></svg>
+              </button>
+            </div>
+            <div class="wb-shape-menu-divider" role="separator"></div>
+            <!-- More shapes (the owner, 2026-10-11: "can you add more shapes"),
+                 drawn by dragging like the four above; `WB_MORE_SHAPES` in
+                 whiteboard.js holds their outlines. -->
+            <div class="wb-shape-menu-group wb-shape-menu-more">
+              <button class="ghost icon-button" data-tool="shape-rounded" title="Rounded rectangle" aria-label="Rounded rectangle">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M 6.5 5 L 17.5 5 A 3.5 3.5 0 0 1 21 8.5 L 21 15.5 A 3.5 3.5 0 0 1 17.5 19 L 6.5 19 A 3.5 3.5 0 0 1 3 15.5 L 3 8.5 A 3.5 3.5 0 0 1 6.5 5 Z"></path></svg>
+              </button>
+              <button class="ghost icon-button" data-tool="shape-ellipse" title="Ellipse" aria-label="Ellipse">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M 2 12 A 10 7 0 1 1 22 12 A 10 7 0 1 1 2 12 Z"></path></svg>
+              </button>
+              <button class="ghost icon-button" data-tool="shape-hexagon" title="Hexagon" aria-label="Hexagon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M 5.8 4 L 18.3 4 L 22 12 L 18.3 20 L 5.8 20 L 2 12 Z"></path></svg>
+              </button>
+              <button class="ghost icon-button" data-tool="shape-parallelogram" title="Parallelogram" aria-label="Parallelogram">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M 5.5 5 L 22 5 L 18.5 19 L 2 19 Z"></path></svg>
+              </button>
+              <button class="ghost icon-button" data-tool="shape-star" title="Star" aria-label="Star">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M 12 2 L 14.5 9.2 L 21.5 9.7 L 16.1 14.5 L 17.9 22 L 12 17.9 L 6.1 22 L 7.9 14.5 L 2.5 9.7 L 9.5 9.2 Z"></path></svg>
+              </button>
+              <button class="ghost icon-button" data-tool="shape-cylinder" title="Cylinder" aria-label="Cylinder">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M 4 4.7 A 8 2.7 0 0 1 20 4.7 L 20 19.3 A 8 2.7 0 0 1 4 19.3 Z M 4 4.7 A 8 2.7 0 0 0 20 4.7"></path></svg>
+              </button>
+              <button class="ghost icon-button" data-tool="shape-cloud" title="Cloud" aria-label="Cloud">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M 6.2 18.6 C 2.5 18.6 2 12.9 5.2 11.8 C 4.9 7.2 9.6 5.7 11.5 9.3 C 13.1 5 18.8 6.1 18.6 11.5 C 22 12.2 21.7 19 17.8 18.6 Z"></path></svg>
+              </button>
+              <button class="ghost icon-button" data-tool="shape-callout" title="Speech bubble" aria-label="Speech bubble">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M 3 3 L 21 3 L 21 16.7 L 10.2 16.7 L 7 21 L 7.5 16.7 L 3 16.7 Z"></path></svg>
+              </button>
+              <button class="ghost icon-button" data-tool="shape-block-arrow" title="Block arrow" aria-label="Block arrow">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M 2 8 L 15.3 8 L 15.3 4 L 22 12 L 15.3 20 L 15.3 16 L 2 16 Z"></path></svg>
               </button>
             </div>
           </div>
@@ -7171,6 +7237,10 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="both">Both ends</option>
           <option value="none">Plain</option>
         </select>
+        <!-- Which mark those ends wear (the owner, 2026-10-11: "more arrow
+             options"): the selection's own end list, copied in at start
+             (`wbInitToolHead`), so the two can never offer different ends. -->
+        <select id="wb-arrow-head" aria-label="Arrowhead" title="Arrowhead: the mark the Line and Arrow tools put on their ends" data-wb-tool-setting="head"></select>
         <select id="wb-stroke-style" aria-label="Line style" title="Line style" data-wb-tool-setting="dash">
           <option value="solid">Solid</option>
           <option value="dashed">Dashed</option>
@@ -7181,9 +7251,27 @@ Link to another note with [[its first few words]]."></textarea>
           <label class="wb-snap-label" title="Fill the shape, instead of just its outline"><input type="checkbox" id="wb-fill-on"><span>Fill</span></label>
         </span>
       </div>
-      <!-- A drawn line, arrow or shape, and a text box's own ink. -->
+      <!-- **Fill, then Border, side by side and named** (the owner, 2026-10-11:
+           "I didnt know how to select the border to change the colour"). The
+           fill group comes first so a shape's two colours sit together; each
+           swatch opens the colour well (whiteboard-format.js), which has the
+           other one, Same as and Swap. -->
+      <div class="wb-context-group hidden" data-wb-ctx="fill">
+        <label class="wb-context-field" title="The colour inside the shape">
+          <span class="wb-context-label">Fill</span>
+          <input type="color" id="wb-prop-shapefill" class="wb-color-picker" aria-label="Fill colour" title="Fill colour">
+        </label>
+        <label class="wb-snap-label" title="Fill the shape with the colour beside it, instead of just its outline">
+          <input type="checkbox" id="wb-prop-shapefill-on" aria-label="Filled"><span>Filled</span>
+        </label>
+      </div>
+      <!-- A drawn line, arrow or shape, and a text box's own ink: its word
+           says which (Border, Line or Text, `wbFillContextBar`). -->
       <div class="wb-context-group hidden" data-wb-ctx="ink">
-        <input type="color" id="wb-prop-color" class="wb-color-picker" aria-label="Colour" title="Colour">
+        <label class="wb-context-field" title="Its colour">
+          <span class="wb-context-label" id="wb-prop-color-word">Border</span>
+          <input type="color" id="wb-prop-color" class="wb-color-picker" aria-label="Colour" title="Colour">
+        </label>
         <label class="wb-context-field" title="Line thickness">
           <span class="wb-context-label">Width</span>
           <input type="number" id="wb-prop-width" aria-label="Line thickness" title="Line thickness" min="1" max="40" step="1">
@@ -7209,10 +7297,12 @@ Link to another note with [[its first few words]]."></textarea>
             <option value="none" data-menu-class="wb-cap wb-cap-none wb-cap-start">None</option>
             <option value="arrow" data-menu-class="wb-cap wb-cap-arrow wb-cap-start">Open arrow</option>
             <option value="triangle" data-menu-class="wb-cap wb-cap-triangle wb-cap-start">Filled triangle</option>
+            <option value="triangle-open" data-menu-class="wb-cap wb-cap-triangle-open wb-cap-start">Open triangle</option>
             <option value="diamond" data-menu-class="wb-cap wb-cap-diamond wb-cap-start">Diamond</option>
             <option value="diamond-filled" data-menu-class="wb-cap wb-cap-diamond-filled wb-cap-start">Filled diamond</option>
             <option value="bar" data-menu-class="wb-cap wb-cap-bar wb-cap-start">Bar</option>
             <option value="circle" data-menu-class="wb-cap wb-cap-circle wb-cap-start">Circle</option>
+            <option value="circle-filled" data-menu-class="wb-cap wb-cap-circle-filled wb-cap-start">Filled circle</option>
             <option value="square" data-menu-class="wb-cap wb-cap-square wb-cap-start">Square</option>
             <option value="multiline" data-menu-class="wb-cap wb-cap-multiline wb-cap-start">Multi-line</option>
           </optgroup>
@@ -7220,7 +7310,7 @@ Link to another note with [[its first few words]]."></textarea>
             <option value="er-one" data-menu-class="wb-cap wb-cap-er-one wb-cap-start">One</option>
             <option value="er-one-only" data-menu-class="wb-cap wb-cap-er-one-only wb-cap-start">One and only one</option>
             <option value="er-zero-one" data-menu-class="wb-cap wb-cap-er-zero-one wb-cap-start">Zero or one</option>
-            <option value="er-many" data-menu-class="wb-cap wb-cap-er-many wb-cap-start">Many</option>
+            <option value="er-many" data-menu-class="wb-cap wb-cap-er-many wb-cap-start">Many (crow's foot)</option>
             <option value="er-one-many" data-menu-class="wb-cap wb-cap-er-one-many wb-cap-start">One or many</option>
             <option value="er-zero-many" data-menu-class="wb-cap wb-cap-er-zero-many wb-cap-start">Zero or many</option>
           </optgroup>
@@ -7230,10 +7320,12 @@ Link to another note with [[its first few words]]."></textarea>
             <option value="none" data-menu-class="wb-cap wb-cap-none">None</option>
             <option value="arrow" data-menu-class="wb-cap wb-cap-arrow">Open arrow</option>
             <option value="triangle" data-menu-class="wb-cap wb-cap-triangle">Filled triangle</option>
+            <option value="triangle-open" data-menu-class="wb-cap wb-cap-triangle-open">Open triangle</option>
             <option value="diamond" data-menu-class="wb-cap wb-cap-diamond">Diamond</option>
             <option value="diamond-filled" data-menu-class="wb-cap wb-cap-diamond-filled">Filled diamond</option>
             <option value="bar" data-menu-class="wb-cap wb-cap-bar">Bar</option>
             <option value="circle" data-menu-class="wb-cap wb-cap-circle">Circle</option>
+            <option value="circle-filled" data-menu-class="wb-cap wb-cap-circle-filled">Filled circle</option>
             <option value="square" data-menu-class="wb-cap wb-cap-square">Square</option>
             <option value="multiline" data-menu-class="wb-cap wb-cap-multiline">Multi-line</option>
           </optgroup>
@@ -7241,7 +7333,7 @@ Link to another note with [[its first few words]]."></textarea>
             <option value="er-one" data-menu-class="wb-cap wb-cap-er-one">One</option>
             <option value="er-one-only" data-menu-class="wb-cap wb-cap-er-one-only">One and only one</option>
             <option value="er-zero-one" data-menu-class="wb-cap wb-cap-er-zero-one">Zero or one</option>
-            <option value="er-many" data-menu-class="wb-cap wb-cap-er-many">Many</option>
+            <option value="er-many" data-menu-class="wb-cap wb-cap-er-many">Many (crow's foot)</option>
             <option value="er-one-many" data-menu-class="wb-cap wb-cap-er-one-many">One or many</option>
             <option value="er-zero-many" data-menu-class="wb-cap wb-cap-er-zero-many">Zero or many</option>
           </optgroup>
@@ -7253,12 +7345,6 @@ Link to another note with [[its first few words]]."></textarea>
           <option value="dashed">Dashed</option>
           <option value="dotted">Dotted</option>
         </select>
-      </div>
-      <div class="wb-context-group hidden" data-wb-ctx="fill">
-        <input type="color" id="wb-prop-shapefill" class="wb-color-picker" aria-label="Shape fill" title="Shape fill">
-        <label class="wb-snap-label" title="Fill the shape with the colour beside it, instead of just its outline">
-          <input type="checkbox" id="wb-prop-shapefill-on" aria-label="Filled"><span>Filled</span>
-        </label>
       </div>
       <!-- A sticky note's paper: one swatch per colour, filled by
            `wbFillPaperSwatches` (the owner, 2026-10-10: "note appearances
@@ -7766,7 +7852,10 @@ Link to another note with [[its first few words]]."></textarea>
         <p id="wb-format-empty" class="muted empty-line">Select something on the board to format it.</p>
         <p id="wb-format-none" class="muted wb-lib-keys" hidden>Nothing on this tab for what is selected.</p>
         <section class="wb-fmt-section" data-format-panel="style" aria-label="Style">
-          <label class="wb-fmt-row" data-fmt="stroke"><span class="wb-fmt-label">Line</span><input type="color" id="wb-fmt-stroke" class="wb-color-picker" aria-label="Line colour" title="Line colour"></label>
+          <div class="wb-fmt-row" data-fmt="fill"><span class="wb-fmt-label">Fill</span>
+            <span class="wb-fmt-buttons"><label class="wb-snap-label" title="Filled"><input type="checkbox" id="wb-fmt-fill-on" aria-label="Filled"></label><input type="color" id="wb-fmt-fill" class="wb-color-picker" aria-label="Fill colour" title="Fill colour"></span>
+          </div>
+          <label class="wb-fmt-row" data-fmt="stroke"><span class="wb-fmt-label" id="wb-fmt-stroke-word">Line</span><input type="color" id="wb-fmt-stroke" class="wb-color-picker" aria-label="Line colour" title="Line colour"></label>
           <label class="wb-fmt-row" data-fmt="width"><span class="wb-fmt-label">Width</span><input type="number" id="wb-fmt-width" min="1" max="40" step="1" aria-label="Line width" title="Line width"></label>
           <label class="wb-fmt-row" data-fmt="dash"><span class="wb-fmt-label">Pattern</span>
             <select id="wb-fmt-dash" aria-label="Line pattern" title="Line pattern">
@@ -7775,9 +7864,6 @@ Link to another note with [[its first few words]]."></textarea>
               <option value="dotted">Dotted</option>
             </select>
           </label>
-          <div class="wb-fmt-row" data-fmt="fill"><span class="wb-fmt-label">Fill</span>
-            <span class="wb-fmt-buttons"><label class="wb-snap-label" title="Filled"><input type="checkbox" id="wb-fmt-fill-on" aria-label="Filled"></label><input type="color" id="wb-fmt-fill" class="wb-color-picker" aria-label="Fill colour" title="Fill colour"></span>
-          </div>
           <label class="wb-fmt-row" data-fmt="alpha"><span class="wb-fmt-label">Opacity</span>
             <span class="wb-fmt-buttons"><input type="range" id="wb-fmt-alpha" min="10" max="100" step="5" aria-label="Opacity" title="Opacity"><output id="wb-fmt-alpha-out" for="wb-fmt-alpha" class="wb-fmt-out">100%</output></span>
           </label>
@@ -8160,12 +8246,15 @@ Link to another note with [[its first few words]]."></textarea>
           </div>
         </div>
         <div class="dock-actions">
+          <!-- Live captions' door where a person looks for audio (V6). -->
+          <button id="recordings-captions" class="small ghost" type="button" title="Live captions: what the microphone hears, written as it is said">
+            <i class="ph ph-closed-captioning ph-lead" aria-hidden="true"></i> Captions</button>
           <button type="button" class="icon-only ghost small graph-help-toggle"
             data-help-for="recordings-help" aria-controls="recordings-help" aria-expanded="false"
             title="About recordings" aria-label="About recordings"><i class="ph ph-question" aria-hidden="true"></i></button>
           <div class="help-body hidden" id="recordings-help" role="dialog" aria-label="About recordings">
             <p>Everything recorded in the app: meetings, lectures and voice notes. The audio is saved every 10 seconds while it records, so closing the tab keeps all but the last few seconds, and the next start says "Recording recovered".</p>
-            <p>Play at 0.5 to 2x, press the waveform to jump, and press M or Marker while recording to mark a moment. Trim keeps a part as a new recording; the original stays until you empty the bin. Delete puts a recording in the bin. Once transcribed, Transcript lists its lines with their times: press one to play from that moment, and the ⋯ menu downloads them as subtitles (SRT or VTT). With the local AI on, each turn is labelled with who spoke, read from what was said (Name the speakers does it again). Kept as the browser recorded it (webm or ogg), or wav after a trim.</p>
+            <p>Play at 0.5 to 2x; press or drag the waveform to jump, the line on it and the time beside it say where you are. Press M or the pin to mark the playhead with an optional comment (M or Marker while recording marks the moment too); each mark under the player plays from its time and opens the transcript at that line. Trim keeps a part as a new recording; the original stays until you empty the bin. Delete puts a recording in the bin. Transcribe in the ⋯ runs in the background: the card shows how far it is with a Stop, and a notification says when it is done. Once transcribed, Transcript lists its lines with their times: press one to play from that moment, and the ⋯ menu downloads them as subtitles (SRT or VTT). With the local AI on, each turn is labelled with who spoke, read from what was said (Name the speakers does it again). Kept as the browser recorded it (webm or ogg), or wav after a trim.</p>
           </div>
           <button id="recordings-record" class="small" type="button" title="Record a voice note">
             <i class="ph ph-microphone ph-lead" aria-hidden="true"></i> Record</button>
@@ -8308,6 +8397,22 @@ Link to another note with [[its first few words]]."></textarea>
          at this size and what Phase 11 specifies. -->
     <button type="button" id="phone-more-btn" class="phone-tab-more"
       aria-haspopup="dialog" aria-expanded="false" aria-label="More"><i class="ph ph-dots-three tab-icon" aria-hidden="true"></i><span class="tab-label">More</span></button>
+  </div>
+
+  <!-- A recording that outlives its dialog (meetings.js `syncRecordingDock`,
+       UI_MODERNISATION V1): the captions dock's recipe, shown only while
+       recording with the dialog closed. -->
+  <div id="recording-dock" class="dock recording-dock hidden" data-dock-name="recording" role="region" aria-label="Recording in progress">
+    <div class="dock-identity">
+      <span class="recording-dock-dot" aria-hidden="true"></span>
+      <h2 id="recording-dock-title">Recording</h2>
+      <span id="recording-dock-time" class="dock-chip" role="timer">0:00</span>
+    </div>
+    <div class="dock-actions">
+      <button type="button" id="recording-dock-open" class="ghost small" title="Show the recorder"><i class="ph ph-arrows-out-simple ph-lead" aria-hidden="true"></i> Open</button>
+      <button type="button" id="recording-dock-pause" class="ghost small" title="Pause the recording"><i class="ph ph-pause ph-lead" aria-hidden="true"></i> Pause</button>
+      <button type="button" id="recording-dock-stop" class="small" title="Stop and save the recording"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
+    </div>
   </div>
 
   <!-- Live captions (captions.js, lazy; Brief 82): the dock recipe floated
@@ -8760,6 +8865,8 @@ Link to another note with [[its first few words]]."></textarea>
             <input id="ocr-find" type="search" class="ocr-find-input"
               placeholder="Find in what was read" autocomplete="off">
             <span id="ocr-find-count" class="muted text-sm ocr-find-count" role="status"></span>
+            <button id="ocr-find-prev" type="button" class="ghost small icon-only hidden" title="Previous match" aria-label="Previous match"><i class="ph ph-caret-up" aria-hidden="true"></i></button>
+            <button id="ocr-find-next" type="button" class="ghost small icon-only hidden" title="Next match (Enter)" aria-label="Next match"><i class="ph ph-caret-down" aria-hidden="true"></i></button>
           </div>
           <p id="ocr-caption" class="ocr-caption hidden"></p>
           <p id="ocr-message" class="muted ocr-message" role="status"></p>
@@ -8957,8 +9064,9 @@ Link to another note with [[its first few words]]."></textarea>
         reads for meaning.
       </p>
       <p>
-        Autocorrect as you type and word suggestions are per document, in the
-        editor's ⋯ menu. Import takes a .txt file with one word per line and
+        In a document, autocorrect and word suggestions are per document, in
+        the editor's ⋯ menu; in notes, chat and titles autocorrect is one
+        switch in Settings, General, Writing. Import takes a .txt file with one word per line and
         adds to the list; it never removes a word.
       </p>
     </div>
@@ -10596,14 +10704,25 @@ Link to another note with [[its first few words]]."></textarea>
                 <div id="accent-swatches" class="accent-swatches"></div>
               </div>
 
-              <div class="setting-row">
+              <div class="setting-row setting-row-stack">
                 <div class="setting-label">
                   <span>Custom accent</span>
-                  <small class="muted">Pick any colour you like.</small>
+                  <small class="muted">Pick any colour; one that a button's words cannot be read on is offered at the nearest shade that can.</small>
                 </div>
-                <div class="row setting-control">
-                  <input id="accent-custom" type="color" aria-label="Custom accent colour">
-                  <button id="accent-custom-clear" class="ghost small quiet" type="button">Clear</button>
+                <div class="accent-custom-block">
+                  <div class="row setting-control">
+                    <input id="accent-custom" type="color" aria-label="Custom accent colour">
+                    <button id="accent-custom-clear" class="ghost small quiet" type="button">Clear</button>
+                    <span class="accent-preview" id="accent-preview" aria-hidden="true">
+                      <span class="accent-preview-fill">Button</span>
+                      <span class="accent-preview-soft">Selected</span>
+                      <span class="accent-preview-text">Link</span>
+                    </span>
+                  </div>
+                  <div class="row accent-offer hidden" id="accent-offer" role="status">
+                    <span class="muted" id="accent-offer-text"></span>
+                    <button id="accent-offer-use" class="ghost small" type="button"><span class="accent-offer-dot" id="accent-offer-dot"></span><span id="accent-offer-label">Use it</span></button>
+                  </div>
                 </div>
               </div>
 
@@ -10650,7 +10769,7 @@ Link to another note with [[its first few words]]."></textarea>
               <summary><h3 class="inline-h3">Typography &amp; layout</h3></summary>
 
               <div class="setting-row">
-                <div class="setting-label"><span>Text size</span></div>
+                <div class="setting-label"><span>Text size <span class="chip setting-scope" title="Kept on this device only: another browser, computer or phone has its own"><span class="ph-text">On this device</span></span></span></div>
                 <div class="seg" id="fontsize-seg" role="group" aria-label="Text size">
                   <button data-fontsize="small">Small</button>
                   <button data-fontsize="normal">Normal</button>
@@ -10679,7 +10798,7 @@ Link to another note with [[its first few words]]."></textarea>
 
               <div class="setting-row">
                 <div class="setting-label">
-                  <span>Density</span>
+                  <span>Density <span class="chip setting-scope" title="Kept on this device only: another browser, computer or phone has its own"><span class="ph-text">On this device</span></span></span>
                   <small class="muted">How much breathing room between elements.</small>
                 </div>
                 <select id="density-seg" class="small-select setting-control" aria-label="Density">
@@ -10712,7 +10831,7 @@ Link to another note with [[its first few words]]."></textarea>
                    approach works for this codebase. -->
               <div class="setting-row">
                 <div class="setting-label">
-                  <span>Zoom</span>
+                  <span>Zoom <span class="chip setting-scope" title="Kept on this device only: another browser, computer or phone has its own"><span class="ph-text">On this device</span></span></span>
                   <small class="muted">Scales the whole interface, like a browser zoom that stays set. Combines with Text size above.</small>
                 </div>
                 <div class="row setting-control">
@@ -10975,7 +11094,7 @@ Link to another note with [[its first few words]]."></textarea>
                    the size its corner handle gave it (`nameMarkBuddySizeSelect`). -->
               <div class="setting-row" id="avatar-buddy-size-row">
                 <div class="setting-label">
-                  <span>Companion size</span>
+                  <span>Companion size <span class="chip setting-scope" title="Kept on this device only: another browser, computer or phone has its own"><span class="ph-text">On this device</span></span></span>
                   <small class="muted">Or drag the handle at its corner; double-click it for Medium again.</small>
                 </div>
                 <select id="avatar-buddy-size" class="small-select setting-control" aria-label="Companion size">
@@ -11124,27 +11243,18 @@ Link to another note with [[its first few words]]."></textarea>
                 </span>
               </label>
 
-              <div class="setting-row" id="bg-style-row">
+              <div class="setting-row setting-row-stack" id="bg-style-row">
                 <div class="setting-label">
                   <span>Style</span>
+                  <small class="muted">Lightest first. Each card says what one frame costs: Light, Medium or Heavy. Picking one turns the background on.</small>
                   <!-- Filled by renderBgStyleHint (settings.js) for the two
                        styles seeded from the display name. -->
                   <small class="muted hint-inline hidden" id="bg-style-hint"></small>
                 </div>
-                <!-- These values MUST match BG_ART_BUILDERS in app.js. They
-                     didn't: the list offered "constellations", "blobs" and
-                     "particles" while the code implements "constellation",
-                     "bubbles", "waves" and "mesh", so every option except
-                     Aurora failed the name check and silently fell back. -->
-                <select id="bg-art-style" aria-label="Background artwork style" title="Background artwork style" class="small-select setting-control">
-                  <option value="aurora">Aurora: curtains of light</option>
-                  <option value="constellation">Constellation: stars at three depths</option>
-                  <option value="waves">Waves: rolling lines</option>
-                  <option value="bubbles">Floating orbs: rising glass bubbles</option>
-                  <option value="mesh">Mesh gradient: slow colour fields</option>
-                  <option value="microbes">Microbes: an ecosystem grown from your name</option>
-                  <option value="mycelium">Mycelium: a network grown from your name</option>
-                </select>
+                <!-- The cards are built by renderBgStyleGrid (settings.js)
+                     from BG_ART_STYLES, which must match BG_ART_BUILDERS in
+                     bg-art.js (tests/test_bg_art_styles.py). -->
+                <div class="theme-grid bg-style-grid" id="bg-art-style" role="group" aria-label="Background artwork style"></div>
               </div>
 
               <div class="setting-row" id="bg-motion-row">
@@ -11637,6 +11747,11 @@ Link to another note with [[its first few words]]."></textarea>
                 <span>Smart quotes and dashes in documents</span>
               </label>
               <p class="muted">Curly quotes as you type, and two hyphens become a dash; never inside code.</p>
+              <label class="check-row">
+                <input type="checkbox" id="pref-autocorrect" checked>
+                <span>Autocorrect as I type</span>
+              </label>
+              <p class="muted">Fixes a clear typo in notes, chat and titles as you finish the word; Backspace puts it back. Never in code, links, tags or search.</p>
             </div>
             <!-- Search (Brief 86, CHAT_PLAN decision 69): the one switch for
                  every box's suggestions; kept on this device like simple mode. -->
@@ -11667,6 +11782,14 @@ Link to another note with [[its first few words]]."></textarea>
                   every box at once.
                 </p>
               </div>
+            </div>
+            <!-- The microphone (UI_MODERNISATION V2): the same controls as the
+                 recorder's Microphone fold, drawn by meetings.js
+                 `micControlsInto` when this section first opens. -->
+            <div class="settings-group" id="mic-settings">
+              <h3>Microphone</h3>
+              <p class="muted">Which input records and how it is cleaned up, for dictation, voice notes, meetings and live captions.</p>
+              <div id="mic-settings-controls"></div>
             </div>
             <!-- Simple mode and the usage ledger (WORLD_CLASS_PLAN H9, row 27):
                  usage-ledger.js (lazy) wires both; theme-boot.js applies
@@ -12033,10 +12156,10 @@ Link to another note with [[its first few words]]."></textarea>
                    categories. -->
               <div class="setting-row">
                 <div class="setting-label">
-                  <label for="pref-filing-style">Filing style</label>
+                  <span id="pref-filing-style-name">Filing style</span>
                   <small class="muted">How Atlas names and picks categories for new notes.</small>
                 </div>
-                <select id="pref-filing-style" class="setting-control">
+                <select id="pref-filing-style" class="setting-control" aria-labelledby="pref-filing-style-name">
                   <option value="topic">By topic</option>
                   <option value="project">By project</option>
                   <option value="time">By time</option>
@@ -12801,6 +12924,21 @@ Link to another note with [[its first few words]]."></textarea>
                   Turning it on asks for your current password, and resetting
                   the password turns it off.
                 </p>
+                <p>
+                  On a network you have not allowed, such as a cafe or an
+                  airport, nothing can reach the notebook: turning this on
+                  remembers the network you are on (by its router, read on
+                  this computer), and anywhere else Settings and the bell
+                  offer Allow on this network. A network Windows calls public
+                  always asks. Allow on any network stops asking.
+                </p>
+                <p>
+                  The first time a phone or computer signs in, it waits until
+                  you choose Allow on this computer; allowed devices are
+                  listed here with Remove, which also signs them out. Devices
+                  outside your own network (a forwarded port) are never let
+                  in. Loosening any of these asks for your password.
+                </p>
               </div>
               <label class="setting-check">
                 <input type="checkbox" id="account-allow-lan">
@@ -12810,6 +12948,44 @@ Link to another note with [[its first few words]]."></textarea>
                 </span>
               </label>
               <p id="account-lan-state" class="notice hidden" role="status"></p>
+              <!-- INBOX 867: on a network nobody allowed, the LAN port stays
+                   closed (core/lantrust.py) and this says so, with the one
+                   action that opens it (password-gated). -->
+              <div id="account-lan-held" class="hidden">
+                <p id="account-lan-held-text" class="notice notice-warn flush" role="status"></p>
+                <div class="row button-row">
+                  <button id="account-lan-allow-here" class="ghost small" type="button">Allow on this network</button>
+                </div>
+              </div>
+              <!-- The address a phone types, one large line with Copy, the
+                   rest folded (renderLanAddresses, settings-controls.js; the
+                   privacy receipt draws the same block). -->
+              <div id="account-lan-addresses" class="lan-addresses hidden"></div>
+              <div id="account-lan-trust" class="hidden">
+                <label class="setting-check">
+                  <input type="checkbox" id="account-lan-ask" checked>
+                  <span>
+                    Ask before a new device signs in
+                    <small class="muted">A phone's first sign-in waits until you choose Allow on this computer.</small>
+                  </span>
+                </label>
+                <label class="setting-check">
+                  <input type="checkbox" id="account-lan-any">
+                  <span>
+                    Allow on any network
+                    <small class="muted">Off, other devices get in only on networks you allowed.</small>
+                  </span>
+                </label>
+                <div id="account-lan-pending-wrap" class="hidden">
+                  <h4 class="setting-subhead">Waiting to sign in</h4>
+                  <ul id="account-lan-pending" class="entry-list"></ul>
+                </div>
+                <h4 class="setting-subhead">Allowed devices</h4>
+                <ul id="account-lan-devices" class="entry-list"></ul>
+                <h4 class="setting-subhead">Allowed networks</h4>
+                <ul id="account-lan-networks" class="entry-list"></ul>
+              </div>
+              <button id="account-lan-restart" class="ghost small hidden" type="button">Restart now</button>
               <!-- The certificate LAN mode serves (core/lancert.py; SEC-08, the
                    owner's "Yes, self-signed HTTPS"): its fingerprint, to
                    compare with a phone's one-time warning, and a way to make
@@ -12836,10 +13012,12 @@ Link to another note with [[its first few words]]."></textarea>
                     certificate on your phone to download the certificate.
                   </p>
                   <p>
-                    iPhone: open the downloaded file, choose Allow, then
-                    Settings, Profile Downloaded, Install. Then Settings,
-                    General, About, Certificate Trust Settings, and switch the
-                    certificate on for full trust.
+                    iPhone: open the address in Safari, press Install the
+                    certificate on the lock screen (or the button here once
+                    signed in), and choose Allow. Then, in the iPhone's own Settings
+                    app, General, VPN and Device Management, MemoryMap,
+                    Install. Then General, About, Certificate Trust Settings,
+                    and switch the certificate on for full trust.
                   </p>
                   <p>
                     Android: in the phone's own settings, open Security, then
@@ -13080,6 +13258,7 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="settings-group">
               <h3>Who can open this app</h3>
               <p id="privacy-listening"></p>
+              <div id="privacy-lan-addresses" class="lan-addresses hidden"></div>
             </div>
 
             <div class="settings-group">
@@ -13237,16 +13416,6 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- About -->
           <!-- Help guide (learnability): a feature reference + re-run the tour -->
           <section class="settings-section hidden" id="settings-help">
-            <!-- INBOX 520: Help is searchable. Every word of the query must
-                 appear in a topic's title, keywords, text or place; the rest
-                 hide and the matches open with the words marked
-                 (settings-find.js, `helpApplySearch`). Escape clears. -->
-            <div class="search-field help-search">
-              <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
-              <input id="help-search" type="search" class="search-field-input"
-                placeholder="Search help…" aria-label="Search help" autocomplete="off">
-            </div>
-            <p id="help-search-status" class="muted text-sm hidden" role="status" aria-live="polite"></p>
             <!-- Redesigned (the owner, with a screenshot of this head: "areas
                  like this in the settings need a redesign"). The section's
                  own title already says Help, and under it sat a second head,
@@ -13268,6 +13437,17 @@ Link to another note with [[its first few words]]."></textarea>
                    (INBOX 804: it was a wall of fourteen bordered buttons). -->
               <ul id="tour-replay-buttons" class="tour-replay-buttons" aria-label="Tour one part of the app"></ul>
             </div>
+            <!-- INBOX 520: Help is searchable; the field sits under the welcome and
+                 tours group and above the topics it filters (INBOX 871). Every word of the query must
+                 appear in a topic's title, keywords, text or place; the rest
+                 hide and the matches open with the words marked
+                 (settings-find.js, `helpApplySearch`). Escape clears. -->
+            <div class="search-field help-search">
+              <i class="ph ph-magnifying-glass search-field-icon" aria-hidden="true"></i>
+              <input id="help-search" type="search" class="search-field-input"
+                placeholder="Search help…" aria-label="Search help" autocomplete="off">
+            </div>
+            <p id="help-search-status" class="muted text-sm hidden" role="status" aria-live="polite"></p>
             <!-- **Every help topic, drawn from the Guide's own table** (INBOX
                  448 (1), the owner: "the help settings as well as the help
                  info available to the agents needs more expansion for all the
@@ -14129,8 +14309,20 @@ Link to another note with [[its first few words]]."></textarea>
           it the recording is kept and the sheet says how long it is.
         </p>
         <p>
-          The transcript comes back for you to read and trim before anything is
-          saved. Saved, it is a meeting note with the transcript under Notes, or,
+          Microphone, under the name, chooses the input and switches the
+          browser's noise suppression, echo cancellation and automatic gain;
+          Test records three seconds and plays them back (the same controls
+          are in Settings, General), and Enhance on save cuts low rumble and
+          evens the loudness of the kept audio, keeping the original until the
+          transcript is saved. With the captions helper the words appear under
+          the level line as you speak; the full transcript replaces them after.
+          Live captions, before you record, writes what is said without
+          recording it. Close this while recording and it keeps recording in a small bar at
+          the bottom with the clock, Pause, Stop and Open; Discard throws the
+          take away. Transcribing runs in the background: close this and a
+          notification says when it is done, with Open; Stop transcribing ends
+          it. The transcript comes back for you to read and trim before anything is
+          saved. Saved, this shows its first lines with Open. It is a meeting note with the transcript under Notes, or,
           opened from a meeting's Record into it, it goes under that meeting's
           Notes. An hour of talking can be a document instead.
         </p>
@@ -14139,6 +14331,12 @@ Link to another note with [[its first few words]]."></textarea>
       <input type="text" id="meeting-title" maxlength="120" class="meeting-title"
         placeholder="e.g. Tuesday standup, Lecture 4, thermodynamics"
         aria-label="A name for this recording">
+      <!-- The microphone in use, and its controls folded under it (V2): the
+           same set as Settings, General, Microphone. -->
+      <details class="settings-fold meeting-mic" id="meeting-mic">
+        <summary><i class="ph ph-microphone ph-lead" aria-hidden="true"></i> <span id="meeting-mic-name">Microphone: the system default</span></summary>
+        <div id="meeting-mic-controls"></div>
+      </details>
       <!-- **The recorder is one object, not three loose ones.** The button, the
            clock and the line that moves while you talk were three siblings of
            the dialog with nothing to join them, so the clock read as a number
@@ -14153,6 +14351,11 @@ Link to another note with [[its first few words]]."></textarea>
           <!-- A moment marked while recording (28.5 row 6): the button, or M. -->
           <button id="meeting-marker" type="button" class="ghost hidden" title="Mark this moment (M)"><i class="ph ph-push-pin ph-lead" aria-hidden="true"></i> Marker</button>
           <span id="meeting-timer" class="meeting-timer hidden" role="timer">0:00</span>
+          <!-- Captions without recording (V6): the floating bar, this closed. -->
+          <button id="meeting-captions" type="button" class="ghost meeting-captions" title="Live captions without recording: the words on screen as they are said"><i class="ph ph-closed-captioning ph-lead" aria-hidden="true"></i> Live captions</button>
+          <!-- Throws the take away (to the bin); closing the dialog keeps it
+               recording in the dock (V1). -->
+          <button id="meeting-discard-take" type="button" class="ghost hidden meeting-discard" title="Stop and put this recording in the bin">Discard</button>
         </div>
         <!-- The line that moves while you talk. Reported twice: "there is still
              no line animation that visually picks up the user's voice when
@@ -14171,10 +14374,16 @@ Link to another note with [[its first few words]]."></textarea>
              bar meter's own comment already warns about. -->
         <canvas id="meeting-wave" class="meeting-wave hidden" width="960" height="120"
           aria-hidden="true"></canvas>
+        <!-- The words as they are spoken (V5): the captions pipeline on the
+             recorder's own stream; the full pass after Stop replaces them. -->
+        <p id="meeting-live" class="meeting-live hidden" aria-live="polite"></p>
         <!-- Transcribing: no way to know how far along the engine is, so the
              bar is the browser's own indeterminate one (a `progress` with no
              value), under a status line that says how much audio is in it. -->
         <progress id="meeting-progress" class="meeting-progress hidden" aria-label="Transcribing"></progress>
+        <!-- The run is the server's (V1): closing the dialog leaves it going;
+             this ends it and keeps nothing. -->
+        <button id="meeting-stop-transcribe" type="button" class="ghost small hidden" title="Stop transcribing; the audio is kept"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop transcribing</button>
       </div>
       <p id="meeting-status" class="status" role="status"></p>
       <!-- Editable, not saved straight away: a raw transcript carries every
@@ -14208,6 +14417,14 @@ Link to another note with [[its first few words]]."></textarea>
         <div class="meeting-actions-more">
         <button id="meeting-copy" class="ghost" title="Copy the transcript">Copy</button>
         <button id="meeting-discard" class="ghost meeting-discard">Discard</button>
+        </div>
+      </div>
+      <!-- After saving (V7): what was kept, its first lines, and Open. -->
+      <div id="meeting-done" class="meeting-done hidden">
+        <p id="meeting-done-lines" class="meeting-done-lines"></p>
+        <div class="row">
+          <button id="meeting-done-open" type="button"><i class="ph ph-arrow-square-out ph-lead" aria-hidden="true"></i> Open</button>
+          <button id="meeting-done-again" type="button" class="ghost"><i class="ph ph-record ph-lead" aria-hidden="true"></i> Record another</button>
         </div>
       </div>
     </div>

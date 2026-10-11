@@ -106,3 +106,25 @@ def test_a_shapes_text_takes_size_weight_and_alignment() -> None:
     paint = paint[: paint.index("\n}\n")]
     for field in ("label_size", "label_bold", "label_italic", "label_align", "label_color"):
         assert f"parsed.{field}" in paint, field
+
+
+def test_a_multi_selection_shows_what_it_shares_and_says_mixed() -> None:
+    """The owner, 2026-10-11: "if I highlight and select multiple objects, cna
+    I cnahge the properties they share which are available in the properties
+    side panel??" The rows are the fields every selected kind takes (not the
+    union, which showed a fill for a shape and a line together), and a value
+    the items differ on reads Mixed instead of the first item's value. The
+    browser half (one edit, one Undo, across the selection) is
+    `scratchpad/ui-sweeps/wbcolour-mixed.js`."""
+    sync = FORMAT[FORMAT.index("function wbFormatSync(") :]
+    sync = sync[: sync.index("\n}\n")]
+    assert "fieldSets.every((s) => s.has(f))" in sync
+    assert "for (const k of kinds) for (const f of WB_FMT_FIELDS[k]" not in sync
+    shown = FORMAT[FORMAT.index("function wbFmtShowMixed(") :]
+    shown = shown[: shown.index("\n}\n")]
+    for part in ('"wb-mixed"', 'option.hidden = true', '"Mixed"', 'el.placeholder'):
+        assert part in shown, part
+    assert "indeterminate = mixed(" in sync
+    assert '"mixed"' in sync and '? "Mixed"' in sync
+    # Every edit still goes through the one-gesture writer.
+    assert "await wbRecordGesture(async () => {" in FORMAT[FORMAT.index("async function wbFmtApply(") :][:400]

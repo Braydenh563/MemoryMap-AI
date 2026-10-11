@@ -49,10 +49,8 @@ function recordBrowserLog(level, parts) {
   // own startup would take, and it already degrades to "skip the live
   // push" rather than throwing, same as before the split.
   if (typeof logRecords !== "undefined" && typeof logScreenOpen !== "undefined") {
-    const liveRecord = { ...record, source: "browser", logger: "browser",
-      key: `b-live-${Date.now()}-${Math.random()}` };
-    logRecords.push(liveRecord);
-    //: These four are settings.js's own, like the two names tested above.
+    logRecords.push({ ...record, source: "browser", logger: "browser", key: `b-live-${Math.random()}` });
+    //: The four are settings.js's, beside `logRecords`.
     sortLogRecords();
     if (logScreenOpen) {
       renderActiveLogView();
@@ -1814,7 +1812,7 @@ const LAZY_MODULES = {
   //: Notes, Questions (questions-view.js), behind two stand-ins.
   questionsView: ["/css/questions-lazy.css", "/js/questions-view.js"],
   settingsData: ["/js/settings-data.js"],
-  settingsUi: ["/js/settings-find.js", "/js/settings-models.js"],
+  settingsUi: ["/js/meaning.js", "/js/settings-find.js", "/js/settings-models.js"],
   tagSuggest: ["/js/tag-suggest.js"],
   searchSuggest: ["/js/search-suggest.js"],
   //: The writing desk's model passes (compose, title, save as note); see writing-desk.js.
@@ -1843,7 +1841,7 @@ const LAZY_MODULES = {
   tour: ["/js/tour.js"],
   updates: ["/js/update-dialogs.js"],
   //: With the feature rows it lists (app-features.js).
-  appPalette: ["/js/app-features.js", "/js/app-palette.js"],
+  appPalette: ["/js/meaning.js", "/js/app-features.js", "/js/app-palette.js"],
   notePanels: ["/js/note-panels.js", "/js/note-edit-panels.js", "/js/note-pick-preview.js"],
   //: Every listener inside the Settings window, awaited on first open: settings-controls.js.
   settingsControls: ["/js/settings-controls.js"],
@@ -1856,11 +1854,8 @@ const LAZY_MODULES = {
   webClip: ["/js/web-clip.js"],
   appImport: ["/js/app-import.js"],
   usageLedger: ["/css/usage-lazy.css", "/js/usage-ledger.js"],
-  //: The Library tab's list without the editors (audit FE-03(c)): one click
-  //: on Library fetched both editors, d3 and the whiteboard, about 900 KB
-  //: gzipped, to draw a list. `library` below still holds library.js, so
-  //: a document or a board brings the whole surface; `lazyScript` fetches
-  //: library.js once whichever asks first.
+  //: The Library list without the editors (audit FE-03(c)): they were about
+  //: 900 KB gzipped. A document or a board brings the whole `library` surface.
   libraryList: ["/css/library-lazy.css", "/js/library.js"],
   //: The Capture box's template picker (note-templates.js's header).
   noteTemplates: ["/js/note-templates.js"],
@@ -1900,6 +1895,8 @@ const LAZY_MODULES = {
   navHistory: ["/css/nav-history-lazy.css", "/js/nav-history.js"],
   //: "Forgot your password?" and the recovery key (INBOX 663): account-recovery.js.
   accountRecovery: ["/css/recovery-lazy.css", "/js/account-recovery.js"],
+  //: The bell's panel and what a row's action does (notifications.js's header).
+  notifications: ["/js/notifications.js"],
   //: Tidy, the reviews with no AI (INBOX 691): tidy.js's header.
   tidy: ["/css/tidy-lazy.css", "/js/tidy.js"],
   semanticNotice: ["/js/semantic-notice.js"],
@@ -2181,6 +2178,7 @@ const LAZY_ENTRY_POINTS = {
   //: Opened, asked or drawn for their effect; `openHelpChat`'s close is read by no caller.
   helpChat: ["openHelpChat", "askAtlas", "renderAtlasStarters"],
   batchSpace: ["batchMoveToSpace"],
+  notifications: ["openNotifications"],
   tidy: ["openTidySheet"],
   semanticNotice: ["semanticInstallNotice", "semanticOnboardingOffer"],
   questionsView: ["initQuestionsView", "loadQuestions"],
@@ -2199,7 +2197,7 @@ const LAZY_ENTRY_POINTS = {
   //: Opened by a gesture; the closers are called only once it is open.
   search: ["openFinder"],
   statistics: ["openStatistics", "renderWeekWidget"],
-  meetings: ["openNewMeeting", "openMeetingSheet", "openMeetingRecorder", "closeMeetingRecorder", "toggleMeetingRecording", "saveMeetingNote", "resetMeetingUI"],
+  meetings: ["openNewMeeting", "openMeetingSheet", "openMeetingRecorder"],
   askHistory: [
     "toggleAskHistoryPanel",
     "loadAskHistoryPage",

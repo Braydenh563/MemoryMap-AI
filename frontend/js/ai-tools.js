@@ -1459,6 +1459,26 @@ function clearEmbeddingBackendLatch() {
 // localStorage on load when the local one is empty, so a shell that loses it
 // gets it back, and a browser that keeps it never notices.
 
+//: Sizes and places on the screen belong to the device they were chosen on
+//: (INBOX 897: "if I change the size of say the companion and the zoom on my
+//: computer, it shouldnt affect my phone"). Never written to `ui_state`, and a
+//: notebook that still holds them from an older version is not applied:
+//: `mirroredUiKeys()` leaves them out, so the save, the seed and the settings
+//: file all skip them. Colours, themes, fonts and motion still follow the
+//: person. A saved look leaves them out too: a look is colours (`LOOK_KEYS`).
+const DEVICE_ONLY_KEYS = [
+  "zoom",
+  "fontsize",
+  "density",
+  "avatar-buddy-size",
+  "nm-buddy-spots",
+  "chat-composer-height",
+  "wb-panel-pos-board",
+  "wb-panel-pos-library",
+  "wb-panel-pos-tools",
+  "wb-panel-pos-zoom",
+];
+
 //: The keys worth surviving a restart. Explicit rather than "everything in
 //: localStorage": this is written to the notebook's own preferences file, and
 //: scroll positions and one-visit UI state have no business in there.
@@ -1512,12 +1532,7 @@ const MIRRORED_UI_EXTRAS = [
   "graph-fold-graph-groups-section",
   "graph-fold-graph-minimap-section",
   "graph-fold-graph-display",
-  "chat-composer-height",
   "wb-bg-color",
-  "wb-panel-pos-board",
-  "wb-panel-pos-library",
-  "wb-panel-pos-tools",
-  "wb-panel-pos-zoom",
 ];
 
 // A function rather than a `const` array, because `LOOK_KEYS` is declared
@@ -1525,7 +1540,7 @@ const MIRRORED_UI_EXTRAS = [
 // read before its initialiser had run, a temporal-dead-zone error at load,
 // which in a file with no bundler means a blank app.
 function mirroredUiKeys() {
-  return [...LOOK_KEYS, ...MIRRORED_UI_EXTRAS];
+  return [...LOOK_KEYS, ...MIRRORED_UI_EXTRAS].filter((key) => !DEVICE_ONLY_KEYS.includes(key));
 }
 
 let uiStateSaveTimer = null;
@@ -1680,6 +1695,13 @@ function seedUiStateFromServer(state) {
   //: have still differs here, and still writes.
   uiStateOnServer = uiStateFingerprint(state);
   uiStateRememberSynced(state);
+  //: A notebook written by an older version still holds this device's sizes.
+  //: They are ignored above; one save replaces the map without them, so the
+  //: copy does not carry a stale zoom for a phone to be tempted by.
+  if (DEVICE_ONLY_KEYS.some((key) => state[key] != null)) {
+    uiStateOnServer = null;
+    saveUiState();
+  }
   return restored > 0;
 }
 
@@ -1707,7 +1729,7 @@ const OVERRIDABLE_KEYS = [
 // reason (LOOK_KEYS is built from it). settings.js's saveCurrentLook() and
 // friends read both across the file boundary, which is safe: they only ever
 // run from a user's own click, long after every script has loaded.
-const LOOK_KEYS = [...OVERRIDABLE_KEYS, "bgArt"];
+const LOOK_KEYS = [...OVERRIDABLE_KEYS, "bgArt"].filter((key) => !DEVICE_ONLY_KEYS.includes(key));
 
 function applyPalette(id, remember = true) {
   const root = document.documentElement;

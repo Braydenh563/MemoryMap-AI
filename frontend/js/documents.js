@@ -1159,6 +1159,7 @@ function docMentionsHost(create = false) {
     host = document.createElement("div");
     host.className = "doc-outline-wrap doc-mentions-wrap";
     const heading = document.createElement("h3");
+    heading.className = "doc-outline-title";
     heading.append(
       document.createTextNode("Unlinked mentions "),
       docSectionCount("doc-mentions-count")
@@ -13273,6 +13274,11 @@ function noteSurfaceUpdate(host, update) {
   //: never raises for a typed character (the same call `docCmUpdate` makes
   //: for the document, and for the same reason).
   if (typeof editorHandleInput === "function") editorHandleInput(surface);
+  //: Autocorrect (autocorrect.js, Brief 94) hears a typed change as an event,
+  //: a microtask later: it may dispatch, which an update in progress refuses.
+  if (update.transactions.some((tr) => tr.isUserEvent("input.type"))) {
+    queueMicrotask(() => host.dispatchEvent(new CustomEvent("note-typed", { bubbles: true, detail: surface })));
+  }
 }
 
 function noteSurfaceMirror(host, view) {

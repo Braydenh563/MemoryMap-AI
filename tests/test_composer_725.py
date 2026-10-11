@@ -309,7 +309,7 @@ def test_with_no_model_chat_stays_open_and_agent_mode_says_what_it_needs(client)
     from pathlib import Path
 
     markup = Path("frontend/index.html").read_text(encoding="utf-8")
-    assert '<textarea id="chat-input" rows="1"' in markup and '<button id="chat-send">' in markup
+    assert '<textarea id="chat-input"' in markup and '<button id="chat-send">' in markup
     status_js = Path("frontend/js/status.js").read_text(encoding="utf-8")
     #: The gate is one helper since the 2026-10-10 chat list: no model and no Needle.
     assert "return modelStatus?.model_ready === true || !!modelStatus?.tools_engine;" in status_js and "const gated = !agentModeAvailable();" in status_js

@@ -12,9 +12,11 @@
   display: none;
 }
 
-/* A recording is a row on the row recipe (DESIGN.md, "A row in a list"):
-   mark (play), content (name, facts, waveform, markers), one actions cell
-   (speed, the menu). */
+/* A recording is a card (Brief 96, INBOX 859): a group on --surface-2 with
+   no edge of its own (DESIGN.md, "Surface tiers"). The head is the name and
+   its facts on one line with the actions at its end; under it the player
+   (play, the waveform, the time, the pin that marks the playhead); then the
+   marks and the transcript fold. */
 .recordings-list {
   display: flex;
   flex-direction: column;
@@ -25,29 +27,30 @@
 }
 
 .recording-row {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
   min-height: var(--row-h);
   padding: var(--space-3);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
+  background: var(--surface-2);
 }
 
-.recording-row:hover,
 .recording-row:is(:focus-visible, :has(:focus-visible)) {
   border-color: var(--border);
 }
 
-.recording-main {
+.recording-head {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+  align-items: baseline;
+  gap: var(--space-2);
   min-width: 0;
 }
 
 .recording-title {
+  flex: 0 1 auto;
+  min-width: 0;
   overflow: hidden;
   font-weight: 600;
   text-overflow: ellipsis;
@@ -55,7 +58,19 @@
 }
 
 .recording-facts {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
   font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recording-player {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .recording-wave {
@@ -66,16 +81,74 @@
   border-radius: var(--radius-sm);
   background: var(--inner);
   cursor: pointer;
+  touch-action: none;
 }
 
-.recording-markers {
+.recording-time {
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.recording-marks {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.recording-marks:empty {
+  display: none;
+}
+
+.recording-mark {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
 }
 
-.recording-markers:empty {
-  display: none;
+.recording-mark-go {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+  min-height: var(--target-min);
+  padding: var(--space-1) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.recording-mark-go:hover,
+.recording-mark-go:focus-visible {
+  background: var(--hover-veil);
+}
+
+.recording-mark-at {
+  flex: none;
+  min-width: 5ch;
+  color: var(--accent-text);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.recording-mark .row-actions {
+  flex: none;
+  flex-wrap: nowrap;
+}
+
+.recording-mark-note {
+  min-width: 0;
+  font-weight: 400;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* The transcript (28.5 row 7): a line per segment, each a button that
@@ -139,8 +212,10 @@
 
 .recording-act {
   display: flex;
+  flex: none;
   align-items: center;
   gap: var(--space-2);
+  margin-left: auto;
 }
 
 .recording-row audio {
@@ -166,14 +241,237 @@
   text-align: right;
 }
 
-/* A phone: the actions go under the content rather than squeezing it. */
+/* A phone: the facts go under the name, and the pin under the time. */
 @media (max-width: 599.98px) {
-  .recording-row {
-    grid-template-columns: auto minmax(0, 1fr);
+  .recording-head {
+    flex-wrap: wrap;
   }
 
-  .recording-act {
-    grid-column: 2;
-    justify-content: flex-end;
+  .recording-facts {
+    order: 3;
+    flex-basis: 100%;
   }
+
+  .recording-player {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .recording-time {
+    grid-column: 2;
+  }
+
+  .recording-mark-add {
+    grid-column: 3;
+    grid-row: 1;
+  }
+}
+
+/* A recording outlives its dialog (UI_MODERNISATION V1): the captions dock's
+   recipe floated over every surface while recording with the dialog
+   closed, one filled Stop. */
+/* Its place and layer are the captions dock's (captions-lazy.css); here
+   only what differs: narrower, and tighter round its three buttons. */
+.recording-dock {
+  max-width: 36rem;
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+}
+
+/* (0,3,0), past the phone band's `.dock:not(:has(.dock-find)) .dock-identity`. */
+.dock.recording-dock .dock-identity {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.recording-dock h2 {
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-md);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The clock never gives way: it is the one fact the dock is for. */
+#recording-dock-time {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The one sign it is listening: a dot in the error ink that breathes, still
+   when paused or when motion is reduced. */
+.recording-dock-dot {
+  flex: none;
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--error);
+  animation: recording-dot 1.6s ease-in-out infinite;
+}
+
+.recording-dock.is-paused .recording-dock-dot {
+  background: var(--muted);
+  animation: none;
+}
+
+@keyframes recording-dot {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recording-dock-dot {
+    animation: none;
+  }
+}
+
+/* A background transcription on its card: the bar and a quiet Stop. */
+.recording-run {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.recording-run-bar {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+@media (max-width: 599.98px) {
+  /* Two rows on a phone: what is recording and for how long, then the
+     three controls at the trailing edge. */
+  .dock.recording-dock {
+    flex-wrap: wrap;
+    row-gap: var(--space-2);
+  }
+
+  .dock.recording-dock .dock-identity {
+    flex-basis: 100%;
+  }
+
+  .recording-dock .dock-actions {
+    margin-left: auto;
+  }
+}
+
+/* Stop transcribing sits under the bar at its own width (V1). */
+#meeting-stop-transcribe {
+  align-self: flex-start;
+}
+
+/* The microphone's controls (V2), in the recorder's fold and in Settings:
+   the device select, three switches, then Test beside the live level (the
+   evidence track's recipe: a 4px track on --border, an --accent fill whose
+   width is set from the analyser). */
+.mic-controls {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.mic-controls .setting-row {
+  gap: var(--space-3);
+}
+
+.mic-controls .setting-row select {
+  min-width: 0;
+  max-width: min(22rem, 100%);
+}
+
+.mic-test {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.mic-level {
+  flex: 1 1 auto;
+  height: var(--space-1);
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+}
+
+.mic-level-fill {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: var(--accent);
+}
+
+.mic-test-status {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+/* **The device as a chip** (V7): the microphone in use, pressed to fold
+   out its controls, rather than a line of grey text. By id: the fold
+   recipe's own summary rule (08-consistency.css) is three classes deep. */
+#meeting-mic > summary {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--chip-bg);
+  color: var(--text);
+  font-size: var(--text-sm);
+}
+
+.meeting-mic[open] > summary {
+  margin-bottom: var(--space-2);
+}
+
+/* The words as they are spoken (V5): the last lines, held to three so the
+   dialog does not grow while you talk. */
+.meeting-live {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-md);
+  line-height: 1.5;
+  max-height: 4.5em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+/* **One large control** (V7): Record, then Stop, the size of the moment it
+   is for, with the clock large beside it; Pause, Marker and Discard stay
+   ghost buttons at the dialog's control height. */
+#meeting-controls {
+  align-items: center;
+  gap: var(--space-3);
+}
+#meeting-controls > #meeting-record {
+  height: calc(var(--control-h-lg) * 1.4);
+  min-width: calc(var(--control-h-lg) * 3);
+  padding-inline: var(--space-5);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-lg);
+}
+#meeting-overlay .meeting-timer {
+  font-size: var(--text-h2);
+  font-weight: 600;
+  margin-left: 0;
+}
+#meeting-controls > .meeting-discard {
+  margin-left: auto;
+}
+
+/* After saving (V7): the first lines on the card tier, then Open. */
+.meeting-done {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.meeting-done-lines {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  background: var(--surface-2);
+  line-height: 1.5;
+}
+#meeting-done button {
+  height: var(--control-h-lg);
+  padding-block: 0;
 }

@@ -287,40 +287,59 @@ class StreamNarrator:
         if not isinstance(event, dict):
             return ""
         kind = event.get("type")
-        if kind == "status":
-            stage = str(event.get("stage") or "")
-            return "Searching your notes." if stage == "searching" else stage.replace("_", " ").capitalize()
-        if kind == "meta":
-            found = len(event.get("raw_results") or [])
-            mode = event.get("search_mode") or "search"
-            lines = [f"Found {found} note{'' if found == 1 else 's'} ({mode})."]
-            if event.get("composed"):
-                lines.append("Composing the answer from your notes, no model.")
-            elif event.get("answered_by"):
-                lines.append(f"Answering with {event['answered_by']}.")
-            return " ".join(lines)
-        if kind == "tool":
-            self.tools += 1
-            name = event.get("tool") or _no_icon(event.get("label")) or "a tool"
-            if event.get("ok") is False:
-                self.failed += 1
-                return f"{name} did not run: {event.get('error') or 'no reason given'}."
-            return f"Called {name}: {tool_arguments_in_words(event.get('arguments'))}."
-        if kind in ("plan", "step"):
-            return str(event.get("text") or "")
-        if kind == "web_sources":
-            pages = len(event.get("sources") or [])
-            return f"Read {pages} web page{'' if pages == 1 else 's'}."
-        if kind == "answer":
-            delta = str(event.get("delta") or "")
-            first = self.chars == 0 and bool(delta)
-            self.chars += len(delta)
-            if len(self.text) < 20000:
-                self.text += delta
-            return "Writing the answer." if first else ""
-        if kind == "done":
-            return f"Done: {self.summary()}."
-        return ""
+        handler = self._HANDLERS.get(kind) if isinstance(kind, str) else None
+        return handler(self, event) if handler else ""
+
+    def _status_line(self, event: dict) -> str:
+        stage = str(event.get("stage") or "")
+        return "Searching your notes." if stage == "searching" else stage.replace("_", " ").capitalize()
+
+    def _text_line(self, event: dict) -> str:
+        return str(event.get("text") or "")
+
+    def _web_line(self, event: dict) -> str:
+        pages = len(event.get("sources") or [])
+        return f"Read {pages} web page{'' if pages == 1 else 's'}."
+
+    def _done_line(self, event: dict) -> str:
+        return f"Done: {self.summary()}."
+
+    def _found_line(self, event: dict) -> str:
+        found = len(event.get("raw_results") or [])
+        mode = event.get("search_mode") or "search"
+        lines = [f"Found {found} note{'' if found == 1 else 's'} ({mode})."]
+        if event.get("composed"):
+            lines.append("Composing the answer from your notes, no model.")
+        elif event.get("answered_by"):
+            lines.append(f"Answering with {event['answered_by']}.")
+        return " ".join(lines)
+
+    def _tool_line(self, event: dict) -> str:
+        self.tools += 1
+        name = event.get("tool") or _no_icon(event.get("label")) or "a tool"
+        if event.get("ok") is False:
+            self.failed += 1
+            return f"{name} did not run: {event.get('error') or 'no reason given'}."
+        return f"Called {name}: {tool_arguments_in_words(event.get('arguments'))}."
+
+    def _answer_line(self, event: dict) -> str:
+        delta = str(event.get("delta") or "")
+        first = self.chars == 0 and bool(delta)
+        self.chars += len(delta)
+        if len(self.text) < 20000:
+            self.text += delta
+        return "Writing the answer." if first else ""
+
+    _HANDLERS = {
+        "status": _status_line,
+        "meta": _found_line,
+        "tool": _tool_line,
+        "plan": _text_line,
+        "step": _text_line,
+        "web_sources": _web_line,
+        "answer": _answer_line,
+        "done": _done_line,
+    }
 
     def summary(self) -> str:
         words = len(self.text.split())
@@ -361,6 +380,9 @@ def snapshot() -> list[dict]:
 
 def clear() -> None:
     """Tests only: the registry is process-global, like `taskhistory`."""
+    from memorymap.core import jobruns
+
     with _lock:
         _jobs.clear()
         _recent.clear()
+    jobruns.clear_live()

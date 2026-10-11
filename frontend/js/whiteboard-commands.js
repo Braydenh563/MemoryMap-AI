@@ -185,6 +185,9 @@ const WB_COMMANDS = [
   { id: "tool-circle", group: "Tools", icon: "ph:circle", label: "Circle", keys: "O", surface: "board", run: wbTool("circle") },
   { id: "tool-triangle", group: "Tools", icon: "ph:triangle", label: "Triangle", keys: "G", surface: "board", run: wbTool("triangle") },
   { id: "tool-diamond", group: "Tools", icon: "ph:diamond", label: "Diamond", keys: "D", surface: "board", run: wbTool("diamond") },
+  //: The more shapes (2026-10-11), from their own table, so a shape added
+  //: there is in the palette and the phone's sheet with no second list.
+  ...Object.entries(WB_MORE_SHAPES).map(([tool, shape]) => ({ id: `tool-${tool}`, group: "Tools", icon: shape.icon, label: shape.label, keys: "", surface: "board", run: wbTool(tool) })),
   { id: "tool-connector", group: "Tools", icon: "ph:line-segment", label: "Connector", keys: "C", surface: "both", run: wbTool("link-straight") },
   { id: "tool-connector-curved", group: "Tools", icon: "ph:bezier-curve", label: "Curved connector", keys: "Shift+C", surface: "both", run: wbTool("link-curved") },
   { id: "tool-delete", group: "Tools", icon: "ph:trash", label: "Delete tool", keys: "X", surface: "board", run: wbTool("delete") },

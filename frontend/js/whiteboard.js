@@ -1235,7 +1235,75 @@ function wbCursorUrl(inner, { size = 26, hx = 3, hy = size - 3 } = {}) {
 // eraser; highlighter and arrow were the two genuinely missing ones (a
 // third, text, needs its own SVG element type, a `<path>` can't render
 // text: and is scoped separately rather than force-fit into this list).
-const WB_BRUSH_TOOLS = new Set(["draw", "line", "rect", "circle", "highlighter", "arrow", "triangle", "diamond"]);
+//: **More shapes in the flyout** (the owner, 2026-10-11: "can you add more
+//: shapes"). Each is drawn in the dragged box, Shift for equal sides, and
+//: stored as the library's own `custom` shape (decision 25): closed,
+//: fillable, its words in `area` (fractions of its box). The outlines are the
+//: General set's (board-library/general.json), so a hexagon drawn here and
+//: one placed from the library are the same shape.
+const wbShapeAt = (x, y, w, h) => (fx, fy) => `${+(x + fx * w).toFixed(1)} ${+(y + fy * h).toFixed(1)}`;
+const wbShapePoly = (pts) => (x, y, w, h) => {
+  const at = wbShapeAt(x, y, w, h);
+  return `M ${pts.map(([fx, fy]) => at(fx, fy)).join(" L ")} Z`;
+};
+const WB_MORE_SHAPES = {
+  "shape-rounded": {
+    label: "Rounded rectangle", icon: "ph:rectangle",
+    d: (x, y, w, h) => {
+      //: Corners as curves, not arcs: the box a path is measured by
+      //: (`wbItemBBox`) reads an arc's radii as a point and grew by one.
+      const r = Math.min(16, w / 4, h / 4), k = r * 0.45;
+      const at = wbShapeAt(x, y, 1, 1);
+      return `M ${at(r, 0)} L ${at(w - r, 0)} C ${at(w - k, 0)} ${at(w, k)} ${at(w, r)} L ${at(w, h - r)} C ${at(w, h - k)} ${at(w - k, h)} ${at(w - r, h)} L ${at(r, h)} C ${at(k, h)} ${at(0, h - k)} ${at(0, h - r)} L ${at(0, r)} C ${at(0, k)} ${at(k, 0)} ${at(r, 0)} Z`;
+    },
+  },
+  "shape-ellipse": {
+    label: "Ellipse", icon: "ph:circle", area: { x: 0.15, y: 0.15, w: 0.7, h: 0.7 },
+    d: (x, y, w, h) => {
+      const rx = +(w / 2).toFixed(1), ry = +(h / 2).toFixed(1), at = wbShapeAt(x, y, w, h);
+      return `M ${at(0, 0.5)} A ${rx} ${ry} 0 1 1 ${at(1, 0.5)} A ${rx} ${ry} 0 1 1 ${at(0, 0.5)} Z`;
+    },
+  },
+  "shape-hexagon": {
+    label: "Hexagon", icon: "ph:hexagon", area: { x: 0.15, y: 0, w: 0.7, h: 1 },
+    d: wbShapePoly([[0.1875, 0], [0.8125, 0], [1, 0.5], [0.8125, 1], [0.1875, 1], [0, 0.5]]),
+  },
+  "shape-parallelogram": {
+    label: "Parallelogram", icon: "ph:parallelogram", area: { x: 0.15, y: 0, w: 0.7, h: 1 },
+    d: wbShapePoly([[0.175, 0], [1, 0], [0.825, 1], [0, 1]]),
+  },
+  "shape-star": {
+    label: "Star", icon: "ph:star", area: { x: 0.3, y: 0.35, w: 0.4, h: 0.35 },
+    d: wbShapePoly([[0.5, 0], [0.627, 0.325], [0.976, 0.346], [0.706, 0.567], [0.794, 0.904], [0.5, 0.717], [0.206, 0.904], [0.294, 0.567], [0.024, 0.346], [0.373, 0.325]].map(([fx, fy]) => [(fx - 0.024) / 0.952, fy / 0.904])),
+  },
+  "shape-cylinder": {
+    label: "Cylinder", icon: "ph:database", area: { x: 0, y: 0.25, w: 1, h: 0.65 },
+    d: (x, y, w, h) => {
+      const rx = +(w / 2).toFixed(1), ry = +Math.max(2, h * 0.133).toFixed(1), at = wbShapeAt(x, y, 1, 1);
+      return `M ${at(0, ry)} A ${rx} ${ry} 0 0 1 ${at(w, ry)} L ${at(w, h - ry)} A ${rx} ${ry} 0 0 1 ${at(0, h - ry)} Z M ${at(0, ry)} A ${rx} ${ry} 0 0 0 ${at(w, ry)}`;
+    },
+  },
+  "shape-cloud": {
+    label: "Cloud", icon: "ph:cloud", area: { x: 0.2, y: 0.35, w: 0.6, h: 0.5 },
+    d: (x, y, w, h) => {
+      //: The library's cloud, its control points read to its own bounds (8 to
+      //: 160 across, 14 to 92 down) so it fills the dragged box.
+      const at = wbShapeAt(x, y, w, h);
+      const p = (px, py) => at((px - 8) / 152, (py - 14) / 78);
+      return `M ${p(40, 90)} C ${p(12, 90)} ${p(8, 58)} ${p(32, 52)} C ${p(30, 26)} ${p(66, 18)} ${p(80, 38)} C ${p(92, 14)} ${p(136, 20)} ${p(134, 50)} C ${p(160, 54)} ${p(158, 92)} ${p(128, 90)} Z`;
+    },
+  },
+  "shape-callout": {
+    label: "Speech bubble", icon: "ph:chat-teardrop", area: { x: 0, y: 0, w: 1, h: 0.76 },
+    d: wbShapePoly([[0, 0], [1, 0], [1, 0.76], [0.4, 0.76], [0.225, 1], [0.25, 0.76], [0, 0.76]]),
+  },
+  "shape-block-arrow": {
+    label: "Block arrow", icon: "ph:arrow-fat-right", area: { x: 0, y: 0.25, w: 0.7, h: 0.5 },
+    d: wbShapePoly([[0, 0.25], [0.667, 0.25], [0.667, 0], [1, 0.5], [0.667, 1], [0.667, 0.75], [0, 0.75]]),
+  },
+};
+
+const WB_BRUSH_TOOLS = new Set(["draw", "line", "rect", "circle", "highlighter", "arrow", "triangle", "diamond", ...Object.keys(WB_MORE_SHAPES)]);
 //: **The highlighter is a marker that multiplies** (WHITEBOARD_PLAN.md
 //: decision 7: "marker with `mix-blend-mode: multiply` at 40% opacity, width
 //: 12 to 24, Shift for straight"), which is what FigJam and Apple Freeform
@@ -1360,7 +1428,11 @@ function wbArrowHeadPath(tipX, tipY, approachAngle, headLen) {
 //: width apart: the end stays one more subpath of the shaft's own `d`, so a
 //: line with a solid head is still one stroked path (hit-testing, move,
 //: resize and every export read it as before) and no end needs a fill.
-const WB_CAP_KINDS = ["none", "arrow", "triangle", "diamond", "diamond-filled", "bar", "circle", "square", "multiline", "er-one", "er-one-only", "er-zero-one", "er-many", "er-one-many", "er-zero-many"];
+//: `triangle-open` (UML's inheritance mark) and `circle-filled` were added for
+//: the owner's "more arrow options" (2026-10-11): the hollow triangle stops the
+//: shaft at its base like the other hollow ends; the filled circle is rings
+//: stepping in by a stroke width, the solid ends' own trick.
+const WB_CAP_KINDS = ["none", "arrow", "triangle", "triangle-open", "diamond", "diamond-filled", "bar", "circle", "circle-filled", "square", "multiline", "er-one", "er-one-only", "er-zero-one", "er-many", "er-one-many", "er-zero-many"];
 const WB_SOLID_CAPS = new Set(["triangle", "diamond-filled"]);
 
 //: The entity-relationship ends (the features audit W4): what is nearest the
@@ -1379,7 +1451,7 @@ const WB_ER_CAPS = {
 //: owner: the shaft shows through the shape). How far back from the tip the
 //: shape reaches along the line is the inset: the diamond's rear point, the
 //: circle's and the square's diameter. Solid ends and open marks need none.
-const WB_HOLLOW_INSET = { diamond: (h) => h * 1.1, circle: (h) => (h * 2) / 3, square: (h) => (h * 2) / 2.6 };
+const WB_HOLLOW_INSET = { diamond: (h) => h * 1.1, "triangle-open": (h) => h, circle: (h) => (h * 2) / 3, square: (h) => (h * 2) / 2.6 };
 function wbHollowInset(kind, headLen) {
   return WB_HOLLOW_INSET[kind]?.(headLen) || 0;
 }
@@ -1429,10 +1501,10 @@ function wbCapPath(kind, tipX, tipY, approachAngle, headLen) {
     const half = headLen * 0.5;
     return `M ${tipX - sin * half} ${tipY + cos * half} L ${tipX + sin * half} ${tipY - cos * half}`;
   }
-  if (kind === "triangle" || kind === "diamond" || kind === "diamond-filled") {
+  if (kind === "triangle" || kind === "triangle-open" || kind === "diamond" || kind === "diamond-filled") {
     const cos = Math.cos(approachAngle), sin = Math.sin(approachAngle);
     //: Points in the line's own frame: along (back from the tip) and across.
-    const shape = kind === "triangle"
+    const shape = kind === "triangle" || kind === "triangle-open"
       ? [[0, 0], [headLen, headLen * 0.4], [headLen, -headLen * 0.4]]
       : [[0, 0], [headLen * 0.55, headLen * 0.34], [headLen * 1.1, 0], [headLen * 0.55, -headLen * 0.34]];
     const mid = [shape.reduce((n, p) => n + p[0], 0) / shape.length, 0];
@@ -1453,12 +1525,18 @@ function wbCapPath(kind, tipX, tipY, approachAngle, headLen) {
     for (let scale = 1; scale > step * 0.5; scale -= step) out.push(draw(scale));
     return out.join(" ");
   }
-  if (kind === "circle") {
+  if (kind === "circle" || kind === "circle-filled") {
     const r = headLen / 3;
     // Centred a radius back from the tip along the shaft, so the circle
     // sits *at* the end rather than half hanging past it.
     const cx = tipX - r * Math.cos(approachAngle), cy = tipY - r * Math.sin(approachAngle);
-    return `M ${cx - r} ${cy} A ${r} ${r} 0 1 0 ${cx + r} ${cy} A ${r} ${r} 0 1 0 ${cx - r} ${cy} Z`;
+    const ring = (q) => `M ${+(cx - q).toFixed(2)} ${+cy.toFixed(2)} A ${+q.toFixed(2)} ${+q.toFixed(2)} 0 1 0 ${+(cx + q).toFixed(2)} ${+cy.toFixed(2)} A ${+q.toFixed(2)} ${+q.toFixed(2)} 0 1 0 ${+(cx - q).toFixed(2)} ${+cy.toFixed(2)} Z`;
+    if (kind === "circle") return `M ${cx - r} ${cy} A ${r} ${r} 0 1 0 ${cx + r} ${cy} A ${r} ${r} 0 1 0 ${cx - r} ${cy} Z`;
+    //: Filled: rings a stroke's width apart down to the centre.
+    const step = Math.max(0.8, ((headLen - 6) / 4) * 0.8);
+    const out = [];
+    for (let q = r; q > step * 0.25; q -= step) out.push(ring(q));
+    return out.join(" ");
   }
   if (kind === "square") {
     const s = headLen / 2.6;
@@ -4006,12 +4084,13 @@ function wbNudgeSelection(dx, dy) {
 const WB_TOOL_SETTINGS = {
   draw: ["size", "dash"],
   highlighter: ["size"],
-  line: ["size", "ends", "dash"],
-  arrow: ["size", "ends", "dash"],
+  line: ["size", "ends", "head", "dash"],
+  arrow: ["size", "ends", "head", "dash"],
   rect: ["size", "dash", "fill"],
   circle: ["size", "dash", "fill"],
   triangle: ["size", "dash", "fill"],
   diamond: ["size", "dash", "fill"],
+  ...Object.fromEntries(Object.keys(WB_MORE_SHAPES).map((tool) => [tool, ["size", "dash", "fill"]])),
 };
 
 function wbShowToolSettings(tool) {
@@ -4343,6 +4422,11 @@ function wbFillContextBar() {
   wbApplyContextRow(which ? WB_CONTEXT_CONTROLS[which] : null);
   if (!which) return;
 
+  //: The ink swatch's word says what it colours (the owner, 2026-10-11).
+  const inkWord = { link: "Line", line: "Line", shape: "Border", text: "Text" }[which];
+  const inkWordEl = document.getElementById("wb-prop-color-word");
+  if (inkWordEl && inkWord) inkWordEl.textContent = inkWord;
+  document.getElementById("wb-prop-color")?.setAttribute("aria-label", `${inkWord || "Line"} colour`);
   if (which === "link") {
     const parsed = JSON.parse(item.data);
     document.getElementById("wb-prop-color").value = parsed.color || "#ffffff";
@@ -4373,7 +4457,7 @@ function wbFillContextBar() {
     // plan's section 2 item 4, and a live report before it): a drawn line
     // reported "Arrow" at both ends because the control was showing
     // `window.currentArrowStyle` rather than what was on the shape.
-    const isArrow = wbSketchIsArrow(parsed.d);
+    const isArrow = wbSketchTakesCaps(parsed);
     document.querySelector('#wb-context [data-wb-ctx="caps"]')?.classList.toggle("hidden", !isArrow);
     if (isArrow) {
       const caps = wbSketchCaps(parsed);
@@ -4383,7 +4467,8 @@ function wbFillContextBar() {
     if (which === "shape") {
       document.getElementById("wb-prop-shapefill").value = parsed.fill || "#3355ff";
       document.getElementById("wb-prop-shapefill-on").checked = Boolean(parsed.fill);
-      document.getElementById("wb-prop-shapefill").disabled = !parsed.fill;
+      //: Dimmed, not disabled: a fill picked from its well turns it on.
+      document.getElementById("wb-prop-shapefill").classList.toggle("wb-colour-off", !parsed.fill);
     }
     return;
   }
@@ -4571,7 +4656,7 @@ function wbMindMapEnsureMap(fromId) {
 //: `parentId`, the one operation both Tab and Enter reduce to, differing
 //: only in which card counts as the parent.
 async function wbMindMapAddCard(parentId, x, y) {
-  const entry = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: "New branch", map_topic: true }) });
+  const entry = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: "New branch", map_topic: true, defer_filing: true }) });
   wbPushUndo({ action: "noteMade", entryId: entry.id });
   const nodeRes = await apiJson("/whiteboard/nodes", {
     method: "POST",
@@ -6044,6 +6129,51 @@ function wbCancelGesture() {
     wbTrashHide();
   }
   return true;
+}
+
+//: **A finger carries nothing until it has travelled, and a second finger
+//: carries nothing at all** (INBOX 888, the owner: "I tried pinching to zoom
+//: out on my phone when on the whiteboard and instead I accidentally started
+//: moving a note"). Measured at 390x844 with real two-finger touch events
+//: (`scratchpad/ui-sweeps/wbpinch.js`): the first finger of a pinch landed on
+//: a note, the card's drag began on the touch-start and followed it, and the
+//: second finger either started a second drag (on the same note, so the pinch
+//: never reached the zoom: scale 1 to 1) or went to the zoom while the first
+//: finger kept dragging (a note moved 12px and 61px, a text box 206px and
+//: 373px away). Three parts:
+//:   1. `wbTouchSlopStep`: a touch drag only starts to move its item once the
+//:      finger has travelled `WB_TOUCH_SLOP` screen pixels, and then moves it
+//:      by the whole distance so far, so nothing is lost. A mouse and a pen
+//:      keep their instant drag.
+//:   2. `wbIsSecondTouch`, in the three item drags' filters: a touch-start
+//:      with two fingers down is never a drag, so the event reaches d3-zoom
+//:      (which registers every finger on the screen, not only the new one).
+//:   3. The window's touch-start listener in `initWhiteboard`: a second finger
+//:      puts any drag in flight back (`wbCancelGesture`, the same restore
+//:      Escape uses), so the first finger's travel before the second landed
+//:      leaves no trace.
+const WB_TOUCH_SLOP = 8;
+
+//: `gesture` is `d._gesture`, the object `wbBeginGesture` made for this drag, so
+//: the running total starts at zero with every drag. `unit` is how many screen
+//: pixels one of the event's units is: 1 for a card (screen pixels), the zoom
+//: scale for a shape (its drag measures in board units). Returns the movement
+//: to apply, or null while the finger is still inside the slop.
+function wbTouchSlopStep(gesture, event, unit = 1, slop = WB_TOUCH_SLOP) {
+  const { dx, dy } = event;
+  const touch = String(event.sourceEvent?.type || "").startsWith("touch");
+  if (!gesture || !touch || gesture.slopDone) return { dx, dy };
+  gesture.slopX = (gesture.slopX || 0) + dx;
+  gesture.slopY = (gesture.slopY || 0) + dy;
+  if (Math.hypot(gesture.slopX, gesture.slopY) * unit < slop) return null;
+  gesture.slopDone = true;
+  return { dx: gesture.slopX, dy: gesture.slopY };
+}
+
+//: True for the touch-start of a second finger (or a third). d3-drag's filter
+//: gets the touch-start itself as `event`.
+function wbIsSecondTouch(event) {
+  return String(event?.type || "").startsWith("touch") && (event.touches?.length || 0) > 1;
 }
 
 //: **Drag to delete** (INBOX 660, the owner: "I want to be able to drag
@@ -11543,6 +11673,31 @@ async function initWhiteboard() {
   //: paste. A hand tool drag says "grabbing" the whole time; this now says the
   //: same thing through the same class the held-space pan uses, so the three
   //: ways to pan look identical while they run.
+  //: A second finger on the board puts any drag in flight back and leaves the
+  //: gesture to the zoom (INBOX 888; `wbIsSecondTouch` above). Capture, on the
+  //: window, for the reason the middle-button listener below gives.
+  //: **And the zoom has to be able to hear the first finger.** d3-drag listens
+  //: for a touch's moves and ends on the element the touch began on, and ends
+  //: each with `stopImmediatePropagation`, so with the first finger on a card
+  //: its moves never reach d3-zoom on the container: measured, a pinch from a
+  //: note moved the scale 1 to 1 (`wbpinch.js`) because the zoom only ever
+  //: heard the second finger. For as long as two fingers are down the events
+  //: are told not to stop, which leaves d3-drag's own bookkeeping to run its
+  //: course (it ends its gesture on the finger's lift, and its handlers read
+  //: the cancelled gesture and save nothing).
+  let wbPinching = false;
+  window.addEventListener("touchstart", (event) => {
+    if (event.touches.length < 2 || !event.target?.closest?.("#library-view-whiteboard")) return;
+    wbPinching = true;
+    wbCancelGesture();
+  }, { capture: true, passive: true });
+  for (const type of ["touchmove", "touchend", "touchcancel"]) {
+    window.addEventListener(type, (event) => {
+      if (!wbPinching) return;
+      Object.defineProperty(event, "stopImmediatePropagation", { value() {}, configurable: true });
+      if (type !== "touchmove" && event.touches.length === 0) wbPinching = false;
+    }, { capture: true, passive: true });
+  }
   const midPanClass = (on) => {
     wbMidPanHeld = on;
     document.getElementById("whiteboard-container")?.classList.toggle("wb-mid-pan", on);
@@ -12458,6 +12613,23 @@ async function initWhiteboard() {
     arrowStyleSelect.value = wbCurrentEndStyle();
     arrowStyleSelect.addEventListener("change", (e) => wbSetCurrentEndStyle(e.target.value));
   }
+  //: **The mark those ends wear** (the owner, 2026-10-11: "more arrow
+  //: options"): any of the selection's end kinds, one remembered choice for
+  //: both tools; the ends list above says where it goes.
+  const arrowHeadSelect = document.getElementById("wb-arrow-head");
+  const endList = document.getElementById("wb-prop-endcap");
+  if (arrowHeadSelect && endList && !arrowHeadSelect.options.length) {
+    for (const node of endList.children) arrowHeadSelect.append(node.cloneNode(true));
+    arrowHeadSelect.querySelector('option[value="none"]')?.remove();
+  }
+  window.currentArrowHead = WB_CAP_KINDS.includes(prefs.get("wb-arrow-head", null)) ? prefs.get("wb-arrow-head", null) : "arrow";
+  if (arrowHeadSelect) {
+    arrowHeadSelect.value = window.currentArrowHead;
+    arrowHeadSelect.addEventListener("change", (e) => {
+      window.currentArrowHead = WB_CAP_KINDS.includes(e.target.value) ? e.target.value : "arrow";
+      localStorage.setItem("wb-arrow-head", window.currentArrowHead);
+    });
+  }
 
   // Fill/stroke-style controls for the shape tools, asked for directly
   // ("stroke width, style, and colour... fill colour/transparency...
@@ -12644,7 +12816,7 @@ async function initWhiteboard() {
       return;
     }
     const parsed = wbSketchParsedData(sketch);
-    if (!parsed || !wbSketchIsArrow(parsed.d)) return;
+    if (!wbSketchTakesCaps(parsed)) return;
     const current = wbSketchCaps(parsed);
     current[which] = value;
     const headLen = (parsed.width || WB_STROKE_WIDTH) * 4 + 6;
@@ -12723,7 +12895,7 @@ async function initWhiteboard() {
     const before = WB_KIND_INFO.sketch.payload(sketch);
     wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
     document.getElementById("wb-prop-shapefill-on").checked = true;
-    document.getElementById("wb-prop-shapefill").disabled = false;
+    document.getElementById("wb-prop-shapefill").classList.remove("wb-colour-off");
     await wbSaveSketchProps(sketch, { fill: e.target.value, fillOpacity: 1 });
     wbScheduleRender();
   });
@@ -12732,7 +12904,7 @@ async function initWhiteboard() {
     if (!sketch) return;
     const before = WB_KIND_INFO.sketch.payload(sketch);
     wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
-    document.getElementById("wb-prop-shapefill").disabled = !e.target.checked;
+    document.getElementById("wb-prop-shapefill").classList.toggle("wb-colour-off", !e.target.checked);
     await wbSaveSketchProps(sketch, { fill: e.target.checked ? document.getElementById("wb-prop-shapefill").value : undefined });
     wbScheduleRender();
   });
@@ -12778,7 +12950,7 @@ async function initWhiteboard() {
   // directly ("the tool bar is getting quite long"). Kept as one list so
   // the toggle button's own icon/active-state and the arrow-style control's
   // relevance can both key off it without drifting apart.
-  const WB_SHAPE_TOOLS = new Set(["line", "arrow", "rect", "circle", "triangle", "diamond"]);
+  const WB_SHAPE_TOOLS = new Set(["line", "arrow", "rect", "circle", "triangle", "diamond", ...Object.keys(WB_MORE_SHAPES)]);
   let lastShapeTool = "line"; // what a plain click on the toggle (not the caret) selects
   const shapeToggle = document.getElementById("wb-shape-toggle");
   const shapeToggleIcon = document.getElementById("wb-shape-toggle-icon");
@@ -15100,7 +15272,7 @@ async function initWhiteboard() {
     // Fill only applies to the four closed shapes, and only when "no fill"
     // isn't checked: asked for directly ("fill colour/transparency...
     // options for no border/stroke or background").
-    if (WB_FILLABLE_SHAPES.has(window.currentTool) && !window.currentFillNone) {
+    if ((WB_FILLABLE_SHAPES.has(window.currentTool) || WB_MORE_SHAPES[window.currentTool]) && !window.currentFillNone) {
       currentDrawPath.setAttribute("fill", window.currentFillColor);
       currentDrawPath.setAttribute("fill-opacity", String(window.currentFillOpacity / 100));
     } else {
@@ -15169,13 +15341,8 @@ async function initWhiteboard() {
         // *can* carry an arrowhead, but each tool keeps its own remembered
         // default (Line: none, Arrow: end): see the live-reported bug fix
         // on `currentLineEndStyle`/`currentArrowEndStyle` in `initWhiteboard`.
-        const angle = Math.atan2(y - sy, x - sx);
-        const headLen = WB_STROKE_WIDTH * 4 + 6;
-        let d = `M ${sx} ${sy} L ${x} ${y}`;
-        const style = (window.currentTool === "line" ? window.currentLineEndStyle : window.currentArrowEndStyle) || "none";
-        if (style === "end" || style === "both") d += " " + wbArrowHeadPath(x, y, angle, headLen);
-        if (style === "start" || style === "both") d += " " + wbArrowHeadPath(sx, sy, angle + Math.PI, headLen);
-        currentDrawPath.setAttribute("d", d);
+        const caps = wbToolCaps();
+        currentDrawPath.setAttribute("d", wbRegenerateShapeCaps(`M ${sx} ${sy} L ${x} ${y}`, caps.startCap, caps.endCap, WB_STROKE_WIDTH * 4 + 6));
       } else if (window.currentTool === "rect") {
         const mx = Math.min(sx, x), my = Math.min(sy, y);
         const { w, h } = wbShapeDims(x - sx, y - sy, e.shiftKey);
@@ -15200,6 +15367,10 @@ async function initWhiteboard() {
           "d",
           `M ${mx + w / 2} ${my} L ${mx + w} ${my + h / 2} L ${mx + w / 2} ${my + h} L ${mx} ${my + h / 2} Z`
         );
+      } else if (WB_MORE_SHAPES[window.currentTool]) {
+        const mx = Math.min(sx, x), my = Math.min(sy, y);
+        const { w, h } = wbShapeDims(x - sx, y - sy, e.shiftKey);
+        currentDrawPath.setAttribute("d", WB_MORE_SHAPES[window.currentTool].d(mx, my, Math.max(w, 1), Math.max(h, 1)));
       }
     }
   });
@@ -15240,13 +15411,18 @@ async function initWhiteboard() {
     // whatever size it was actually drawn at the moment the page reloaded).
     const d = currentDrawPath.getAttribute("d");
     const isHighlighter = window.currentTool === "highlighter";
-    const isFillable = WB_FILLABLE_SHAPES.has(window.currentTool);
+    const more = WB_MORE_SHAPES[window.currentTool];
+    const isFillable = WB_FILLABLE_SHAPES.has(window.currentTool) || Boolean(more);
     const blob = {
       d,
       color: currentStrokeColor,
       width: isHighlighter ? wbHighlighterWidth(WB_STROKE_WIDTH) : WB_STROKE_WIDTH,
-      shape: window.currentTool,
+      shape: more ? "custom" : window.currentTool,
     };
+    if (more?.area) blob.label_area = more.area;
+    //: The ends are stored by kind, so the bar and the Format panel read
+    //: what was drawn rather than sniffing it out of the path.
+    if (window.currentTool === "line" || window.currentTool === "arrow") Object.assign(blob, wbToolCaps());
     if (isHighlighter) {
       blob.opacity = WB_HIGHLIGHTER_ALPHA;
     } else {
@@ -16526,6 +16702,26 @@ async function wbBucketFillSketch(sketch) {
 //: stroke without a dedicated `kind` field on every sketch.
 function wbSketchIsArrow(d) {
   return (d.match(/M/g) || []).length > 1;
+}
+
+//: **A straight line takes ends whether or not it has one yet** (the owner,
+//: 2026-10-11: a plain line offered no arrowheads, because the bar showed the
+//: end lists only for a path that already carried one).
+function wbSketchTakesCaps(parsed) {
+  if (!parsed || typeof parsed.d !== "string") return false;
+  if (!/^M\s*-?[\d.]+(?:e-?\d+)?\s+-?[\d.]+(?:e-?\d+)?\s+L\s*-?[\d.]+(?:e-?\d+)?\s+-?[\d.]+(?:e-?\d+)?(?:\s+M|\s*$)/.test(parsed.d)) return false;
+  return parsed.shape === "line" || parsed.shape === "arrow" || wbSketchIsArrow(parsed.d);
+}
+
+//: What the Line or Arrow tool puts on its two ends: which ends (`End`,
+//: `Start`, `Both`, `Plain`) and the mark (`window.currentArrowHead`).
+function wbToolCaps() {
+  const style = (window.currentTool === "line" ? window.currentLineEndStyle : window.currentArrowEndStyle) || "none";
+  const head = WB_CAP_KINDS.includes(window.currentArrowHead) ? window.currentArrowHead : "arrow";
+  return {
+    startCap: style === "start" || style === "both" ? head : "none",
+    endCap: style === "end" || style === "both" ? head : "none",
+  };
 }
 
 //: Rebuilds a line/arrow's own two end caps from its shaft, the shaft is
@@ -17880,7 +18076,7 @@ function renderWhiteboard() {
   // pan in particular, since the canvas's own zoom/pan drag needs an
   // unclaimed pointerdown to reach it.
   const sketchDrag = d3.drag()
-    .filter((event) => !event.button && (window.currentTool === "select" || Boolean(window.currentTool?.startsWith("link-"))))
+    .filter((event) => !wbIsSecondTouch(event) && !event.button && (window.currentTool === "select" || Boolean(window.currentTool?.startsWith("link-"))))
     .on("start", function (event, d) {
       event.sourceEvent.stopPropagation();
       // A link tool drags a *link* out of the shape, not the shape, the same
@@ -17917,6 +18113,8 @@ function renderWhiteboard() {
     .on("drag", function (event, d) {
       if (d._linkKind === "sketch") return dragging.call(this, event, d);
       if (d._dragOriginalD == null || d._gesture?.cancelled) return;
+      const step = wbTouchSlopStep(d._gesture, event, d3.zoomTransform(document.getElementById("whiteboard-container")).k);
+      if (!step) return;
       // First real movement of this gesture, decide once whether this is
       // a solo move or a bulk move of the whole multi-selection. Deferred
       // to here rather than "start" (see its own comment) specifically so
@@ -17931,8 +18129,8 @@ function renderWhiteboard() {
       // endpoint handle's own note). A shape dragged at 2x followed the
       // pointer at half speed until this was measured: 30px of travel for a
       // 60px drag, against the card beside it, which moved the full 60.
-      d._dragRawDX += event.dx;
-      d._dragRawDY += event.dy;
+      d._dragRawDX += step.dx;
+      d._dragRawDY += step.dy;
       const bypassSnap = event.sourceEvent?.altKey;
       const lock = wbAxisLock(d._dragRawDX, d._dragRawDY, event.sourceEvent?.shiftKey);
       let dx = lock === "y" ? 0 : wbSnap(d._dragRawDX, bypassSnap);
@@ -18455,7 +18653,7 @@ function renderWhiteboard() {
       // exclusion its pointerdown started a card drag the same way a resize
       // handle's did before it was excluded (see that comment above), so the
       // click never registered and the toggle silently did nothing.
-      .filter((event) => !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso" && !event.ctrlKey && !event.button && !event.target.closest(".wb-resize-handle, .wb-rotate-handle, .wb-card-more"))
+      .filter((event) => !wbIsSecondTouch(event) && !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso" && !event.ctrlKey && !event.button && !event.target.closest(".wb-resize-handle, .wb-rotate-handle, .wb-card-more"))
       .on("start", dragStart)
       .on("drag", dragging)
       .on("end", dragEndNode))
@@ -19098,6 +19296,8 @@ function renderWbObjects(canvas) {
     if (window.currentTool === "eraser" || window.currentTool === "delete" || window.currentTool === "bucket") return;
     if (window.currentTool?.startsWith("link-")) return dragging.call(this, event, d);
     if (d._gesture?.cancelled) return;
+    const step = wbTouchSlopStep(d._gesture, event);
+    if (!step) return;
     if (d._bulkOrigin === undefined) {
       //: **A map node drags its branch with it** (MINDMAP_PLAN.md §12.1 item
       //: 8). Decided on the first real drag frame, like the marquee case
@@ -19124,8 +19324,8 @@ function renderWbObjects(canvas) {
     // this reason; a plain drag has to as well, or a card/object moves
     // faster than the cursor when zoomed out and slower when zoomed in.
     const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-    d._rawX = (d._rawX ?? d.x) + event.dx / transform.k;
-    d._rawY = (d._rawY ?? d.y) + event.dy / transform.k;
+    d._rawX = (d._rawX ?? d.x) + step.dx / transform.k;
+    d._rawY = (d._rawY ?? d.y) + step.dy / transform.k;
     const bypassSnap = event.sourceEvent?.altKey;
     //: **Snapped by how far it moved, not by where it is** (the owner:
     //: "dragging a objects doesnt stay on the mouse and goes off to the side
@@ -19280,7 +19480,7 @@ function renderWbObjects(canvas) {
       //: saw it (measured, `midpanwheel.js`: a 200px middle drag started on
       //: the root moved the board 0px). The middle button is the pan from
       //: anywhere, which is what `wbZoomFilter` promises.
-      if (event.button) return false;
+      if (event.button || wbIsSecondTouch(event)) return false;
       if (WB_BRUSH_TOOLS.has(window.currentTool) || window.currentTool === "lasso") return false;
       if (event.target.closest(
         ".wb-resize-handle, .wb-rotate-handle, .wb-object-grip"
@@ -19318,7 +19518,7 @@ function renderWbObjects(canvas) {
   const gripDrag = d3.drag()
     // The grip sits inside the box it moves, see `wbStableDragContainer`.
     .container(wbStableDragContainer(".wb-object"))
-    .filter((event) => !event.button && !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso")
+    .filter((event) => !wbIsSecondTouch(event) && !event.button && !WB_BRUSH_TOOLS.has(window.currentTool) && window.currentTool !== "lasso")
     .on("start", function (event, d) {
       event.sourceEvent.stopPropagation();
       objDragStart.call(this, event, d);
@@ -20079,6 +20279,8 @@ function dragging(event, d) {
     // the same reason. Without it, a card dragged while zoomed moved faster
     // than the cursor when zoomed out and slower when zoomed in, and snap
     // would round a wrongly-scaled delta.
+    const step = wbTouchSlopStep(d._gesture, event);
+    if (!step) return;
     if (d._bulkOrigin === undefined) {
       d._bulkOrigin = wbDragIsBulkMove("node", d.id)
         ? wbCaptureBulkMoveOrigin(wbMultiKey("node", d.id))
@@ -20104,8 +20306,8 @@ function dragging(event, d) {
       d._raised = true;
     }
     const transform = d3.zoomTransform(document.getElementById("whiteboard-container"));
-    d._rawX = (d._rawX ?? d.x) + event.dx / transform.k;
-    d._rawY = (d._rawY ?? d.y) + event.dy / transform.k;
+    d._rawX = (d._rawX ?? d.x) + step.dx / transform.k;
+    d._rawY = (d._rawY ?? d.y) + step.dy / transform.k;
     // Asked for directly: Alt held during a drag temporarily releases the
     // grid lock, the same convention Figma/Illustrator use, a per-call
     // bypass rather than touching the snap toggle itself.

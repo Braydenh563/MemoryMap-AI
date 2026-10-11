@@ -1703,7 +1703,7 @@ async function loadConversationList() {
     setLabel(name, `${conversation.pinned ? "ph:push-pin " : ""}${conversation.title}`);
     const meta = document.createElement("span");
     meta.className = "conv-meta muted";
-    const bits = [relativeTime(conversation.updated_at)];
+    const bits = [relativeTime(conversation.last_at)];
     if (conversation.turns) {
       bits.push(`${conversation.turns} ${conversation.turns === 1 ? "turn" : "turns"}`);
     }
@@ -2101,6 +2101,7 @@ async function openConversation(id) {
     renderChatEmptyState();
   }
   if (lastQuestionText) lastChatQuestion = lastQuestionText;
+  lazyScript("/js/chat-time.js").then(() => stampChatTimes(full.messages));
   loadConversationList();
   //: Where it was left, not always its end (Placed 2026-09-09 item 99 (b)).
   if (isStreamingConversation(full.id)) chatScrollToEnd();

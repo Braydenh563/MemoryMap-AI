@@ -73,7 +73,10 @@ def test_without_intro_nothing_is_played_back():
 
 
 def test_less_motion_does_not_ask_for_the_playback():
-    assert 'intro: !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches,' in CANVAS
+    # Brief 100: `gcStill` asks the system and the app's own Reduce motion.
+    assert "intro: !gcStill()," in CANVAS
+    still = CANVAS[CANVAS.index("\nfunction gcStill(") : CANVAS.index("\n}\n", CANVAS.index("\nfunction gcStill("))]
+    assert "prefers-reduced-motion: reduce" in still and 'dataset?.motion === "reduced"' in still
 
 
 def test_the_frame_is_fitted_before_the_playback_and_the_fits_wait_for_it():
@@ -159,9 +162,12 @@ TWEEN = "\n".join(
         re.search(r"\nconst GC_BORN_MS = [^;]+;", CANVAS).group(0),
         CANVAS[CANVAS.index("\nfunction gcTweenFromPrior(") : CANVAS.index("\n}\n", CANVAS.index("\nfunction gcTweenFromPrior(")) + 3],
         CANVAS[CANVAS.index("\nfunction gcBornAlpha(") : CANVAS.index("\n}\n", CANVAS.index("\nfunction gcBornAlpha(")) + 3],
+        CANVAS[CANVAS.index("\nfunction gcStill(") : CANVAS.index("\n}\n", CANVAS.index("\nfunction gcStill(")) + 3],
+        GRAPH[GRAPH.index("\nfunction graphGlideMs(") : GRAPH.index("\n}\n", GRAPH.index("\nfunction graphGlideMs(")) + 3],
         """
 let still = false;
 const window = { matchMedia: () => ({ matches: still }) };
+const document = { documentElement: { dataset: {} } };
 const performance = { now: () => 1000 };
 const run = (move) => {
   const s = {};

@@ -84,9 +84,31 @@ def test_one_spacing_token_between_the_blocks_of_the_sheet():
     css = CSS.read_text(encoding="utf-8")
     assert "gap: var(--space-5)" in _rule(css, ".sheet-card.tidy-card")
     assert "margin: 0" in _rule(css, ".tidy-card .inbox-desc")
-    history = _rule(css, ".tidy-history")
-    assert "padding-inline: var(--space-4)" in history and "border:" in history
     assert "padding-block: var(--space-2)" in _rule(css, ".tidy-history-row")
+
+
+def test_recent_runs_is_a_quiet_disclosure_row():
+    """T2 (INBOX 830): Recent runs is DESIGN's disclosure row, a
+    `button.ghost.disclosure-row` with the one caret, not a full-width
+    bordered box; the list under it folds by `aria-expanded`."""
+    tidy = _read("tidy.js")
+    block = tidy.split("async function tidyHistory(")[1].split("\n}\n")[0]
+    assert 'head.className = "ghost small disclosure-row tidy-history-head";' in block
+    assert 'head.setAttribute("aria-expanded", "false")' in block and "list.hidden = true;" in block
+    css = CSS.read_text(encoding="utf-8")
+    assert "border:" not in _rule(css, ".tidy-history")
+
+
+def test_a_review_opens_in_place_with_a_back_link_and_no_bar_when_empty():
+    """T1 (INBOX 830): the back is a quiet link over the review's name, not a
+    bordered button beside a small title; an empty review is one line, with
+    no All, None or disabled action."""
+    tidy = _read("tidy.js")
+    assert 'back.classList.add("quiet", "tidy-back-link");' in tidy
+    foot = tidy.split("function tidyFoot(")[1].split("\n}\n")[0]
+    assert "state.foot.hidden = !state.rows.length;" in foot
+    css = CSS.read_text(encoding="utf-8")
+    assert "flex-direction: column" in _rule(css, ".tidy-nav")
 
 
 def _apply_table() -> dict[str, list[str]]:

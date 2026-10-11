@@ -321,7 +321,7 @@
       <h2 id="lock-title">Unlock Tessellate</h2>
       <p id="lock-message" class="muted"></p>
       <div class="lock-password-wrap">
-        <input id="lock-password" type="password" placeholder="Password or PIN"
+        <input id="lock-password" type="password" placeholder="Password"
           aria-label="Password" autocomplete="current-password">
         <button type="button" id="lock-password-show" class="ghost icon-only lock-password-show" aria-pressed="false"
           aria-label="Show password" title="Show password"><i class="ph ph-eye" aria-hidden="true"></i></button>
@@ -13243,7 +13243,7 @@ Link to another note with [[its first few words]]."></textarea>
 
             <div class="settings-group">
               <div class="row help-head">
-                <h3>Change your password or PIN</h3>
+                <h3>Change your password</h3>
                 <button type="button" class="icon-only ghost small graph-help-toggle"
                   data-help-for="change-password-help" aria-controls="change-password-help" aria-expanded="false"
                   title="Why your current password is asked for" aria-label="Why your current password is asked for">
@@ -13261,7 +13261,7 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
               <label class="stacked-label" for="account-current">Current password</label>
               <input id="account-current" type="password" autocomplete="current-password"
-                placeholder="Your current password or PIN">
+                placeholder="Your current password">
               <label class="stacked-label" for="account-new">New password</label>
               <input id="account-new" type="password" autocomplete="new-password"
                 placeholder="At least 8 characters">
@@ -13271,6 +13271,49 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="row">
                 <button id="account-change">Change password</button>
                 <span id="account-status" class="status" role="status"></span>
+              </div>
+            </div>
+
+            <!-- Owner, 2026-10-12: an optional PIN for this computer only, kept
+                 by the OS (core/pinstore.py), never in the notebook. Wired in
+                 settings-controls.js; drawn by `renderPinSettings`. -->
+            <div class="settings-group" id="account-pin-group">
+              <div class="row help-head">
+                <h3>PIN for this computer</h3>
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="pin-help" aria-controls="pin-help" aria-expanded="false"
+                  title="About the PIN" aria-label="About the PIN">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </div>
+              <p class="muted" id="account-pin-state">Unlock on this computer with a few digits instead of your password.</p>
+              <div class="help-body hidden" id="pin-help" role="dialog" aria-label="About the PIN">
+                <p>
+                  A PIN of 4 to 12 digits unlocks the app on this computer
+                  only, like Windows Hello. Phones and other devices always
+                  need your password, and so do changing the password,
+                  changing or forgetting the PIN, and letting other devices in.
+                </p>
+                <p>
+                  The PIN is kept by this computer's own protected store
+                  (Windows, the macOS Keychain, or the Linux keyring), never
+                  in your notebook or its backups, so a copied notebook is no
+                  easier to open. Five wrong PINs remove it. Changing your
+                  password or re-encrypting private notes removes it too.
+                </p>
+              </div>
+              <div id="account-pin-fields">
+                <label class="stacked-label" for="account-pin-new">New PIN</label>
+                <input id="account-pin-new" type="password" inputmode="numeric" autocomplete="off"
+                  maxlength="12" placeholder="4 to 12 digits">
+                <label class="stacked-label" for="account-pin-confirm">Confirm PIN</label>
+                <input id="account-pin-confirm" type="password" inputmode="numeric" autocomplete="off"
+                  maxlength="12" placeholder="Type it again">
+              </div>
+              <div class="row">
+                <button id="account-pin-set" class="ghost" type="button">Set up a PIN for this computer</button>
+                <button id="account-pin-forget" class="ghost hidden" type="button">Forget PIN</button>
+                <span id="account-pin-status" class="status" role="status"></span>
               </div>
             </div>
 

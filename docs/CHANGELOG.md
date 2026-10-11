@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Added: an optional PIN of 4 to 12 digits that unlocks this computer only (Settings, Account & security, PIN for this computer). The OS protected store keeps it (Windows DPAPI, macOS Keychain, Linux Secret Service), never the notebook or a backup; the lock screen says "PIN or password" only where one is set; five wrong PINs, a password change or Forget PIN remove it.
 - Fixed: a wrong password on the lock screen now says "That password is wrong." under the field (it said "Locked"), and pressing Read in the OCR workspace with no reader installed now leaves the reader menu open on the installs (a document-level handler closed it the moment it opened).
 - Fixed: closing a board card's editor while the text editor was still loading no longer throws.
 - Chat: "what is there about X" and "what have I got on X" answer as the topic overview with no model; a pasted wall of brackets no longer stalls a document read aloud or the plain-text strip (linear link stripping); a panel frame's hint takes a double-click again.

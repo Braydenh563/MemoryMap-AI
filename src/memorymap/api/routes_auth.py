@@ -1,6 +1,8 @@
 """Single-user unlock.
 
-One password (or PIN), bcrypt-hashed in the `users` table. Unlocking
+One password, bcrypt-hashed in the `users` table, and an optional PIN that
+unlocks this computer only (`core/pinstore.py`, kept by the OS, never in the
+notebook). Unlocking
 issues a random token the frontend sends back as X-Auth-Token; tokens
 live in memory only, so restarting the app locks it again, and they
 expire on their own after a spell unused, see _SESSION_IDLE_TTL.
@@ -37,6 +39,7 @@ from memorymap.core import (
     lantrust,
     netbind,
     password_reset,
+    pinstore,
     reminder_token,
     security,
     vault,
@@ -492,7 +495,9 @@ def password_warning(password: str) -> str | None:
 
 class PasswordBody(BaseModel):
     password: str = Field(
-        min_length=4, max_length=MAX_PASSWORD_CHARS, description="Password or PIN, 4+ characters"
+        min_length=4,
+        max_length=MAX_PASSWORD_CHARS,
+        description="Your password, or on this computer only, the PIN set up here",
     )
 
 
@@ -618,6 +623,10 @@ def end_every_session() -> int:
     _owner_seen.clear()
     vault.revoke_all()
     vault.close()
+    # The PIN is bound to the vault row being replaced (`pinstore.binding`):
+    # it could open nothing now, so it goes rather than lingering as five
+    # strikes' worth of guesses at a record that is already dead.
+    pinstore.forget(get_config().data_dir)
     return ended
 
 
@@ -649,6 +658,9 @@ def status(
         "setup_required": _get_user(session) is None,
         "auto_session": _auto_session_allowed(request, session, config),
         "reset_here": _from_this_computer(request),
+        # Whether this caller may type a PIN: set, and this computer. Any
+        # other device is told False whether or not there is one.
+        "pin_here": _from_this_computer(request) and pinstore.is_set(config.data_dir),
     }
 
 
@@ -767,6 +779,45 @@ def _hold_new_device(request: Request, device: str, config: ConfigManager) -> JS
     return refused
 
 
+def _pin_binding(session: Session, user: User) -> bytes | None:
+    row = session.scalar(select(Vault))
+    if row is None:
+        return None
+    return pinstore.binding(user.password_hash, bytes(row.kdf_salt), bytes(row.wrapped_dek))
+
+
+def _unlock_with_pin(
+    request: Request, session: Session, user: User, typed: str, config: ConfigManager
+) -> bytes | None:
+    """The data key a right PIN unwraps, or None after counting the failure.
+
+    Only after the password has already failed, and only from this computer
+    (`_from_this_computer`: loopback, no forwarding header, a loopback Host).
+    From anywhere else a PIN is just a wrong password and costs no strike,
+    so a device on the network can neither use it nor wipe it. A wrong PIN
+    is also a wrong guess for the address's waits, like any other.
+    """
+    client = _client_key(request)
+    if not _from_this_computer(request) or not pinstore.valid_pin(typed):
+        _unlock_failed(client)
+        return None
+    bound = _pin_binding(session, user)
+    outcome, dek = pinstore.unlock(config.data_dir, typed, bound) if bound else ("none", None)
+    if outcome == "ok":
+        return dek
+    _unlock_failed(client)
+    if outcome == "wiped":
+        log_action(session, "edited", "user", user.id, "PIN removed after five wrong tries")
+        session.commit()
+        raise HTTPException(
+            status_code=401,
+            detail="That PIN was wrong five times, so it has been removed. Use your password.",
+        )
+    if outcome == "wrong":
+        raise HTTPException(status_code=401, detail="That PIN or password is wrong.")
+    return None
+
+
 @router.post("/unlock")
 def unlock(
     body: PasswordBody,
@@ -780,17 +831,23 @@ def unlock(
     user = _get_user(session)
     if user is None:
         raise HTTPException(status_code=400, detail="No password is set yet. Set one up first.")
+    pin_dek = None
     if not _password_matches(body.password, user.password_hash):
-        _unlock_failed(client)
-        raise HTTPException(status_code=401, detail="That password is wrong.")
+        pin_dek = _unlock_with_pin(request, session, user, body.password, config)
+        if pin_dek is None:
+            raise HTTPException(status_code=401, detail="That password is wrong.")
     _unlock_succeeded(client)
     device = _device_cookie(request)
-    if _device_must_wait(request, config):
+    if pin_dek is None and _device_must_wait(request, config):
         refused = _hold_new_device(request, device, config)
         if refused is not None:
             return refused
     # Unwrap the data key so private notes are readable for this session.
-    vault_open = vault.open_with(session, body.password)
+    if pin_dek is not None:
+        vault.set_key(pin_dek)  # bound to this very vault row (`_pin_binding`)
+        vault_open = True
+    else:
+        vault_open = vault.open_with(session, body.password)
     #: **A full disk must not lock you out of your own notebook.** Measured
     #: (INBOX 266, item 6) on a data dir filled to 100%: this route answered
     #: 507 and the app became unopenable, while every read endpoint behind it
@@ -1366,12 +1423,13 @@ def lock(
 class ChangePasswordBody(BaseModel):
     current_password: str = Field(min_length=1, max_length=MAX_PASSWORD_CHARS)
     new_password: str = Field(
-        min_length=4, max_length=MAX_PASSWORD_CHARS, description="Password or PIN, 4+ characters"
+        min_length=4, max_length=MAX_PASSWORD_CHARS, description="The new password, 8+ characters"
     )
 
 
 @router.get("/account", dependencies=[Depends(require_unlock)])
 def account(
+    request: Request,
     session: Session = Depends(get_session),
     config: ConfigManager = Depends(get_config),
 ) -> dict:
@@ -1395,6 +1453,13 @@ def account(
         # When the recovery key was made, or None: Settings says which button
         # to show (INBOX 663). Behind the lock, unlike `/auth/status`.
         "recovery_key_created_at": _iso(vault.recovery_created_at(session)),
+        # Settings > Security: whether this computer can keep a PIN, whether
+        # one is set, and whether the caller is this computer (only it may).
+        "pin": {
+            "available": pinstore.available(config.data_dir),
+            "set": pinstore.is_set(config.data_dir),
+            "here": _from_this_computer(request),
+        },
     }
 
 
@@ -1460,6 +1525,9 @@ def change_password(
     user.password_hash = _hash_password(body.new_password)
     log_action(session, "edited", "user", user.id, "password changed")
     session.commit()
+    # The PIN record is bound to the old hash, so it could open nothing now;
+    # it is cleared rather than re-wrapped, since re-wrapping needs the PIN.
+    pin_cleared = pinstore.forget(get_config().data_dir)
 
     # Every other session is invalidated: a password change is exactly when
     # you want anything already open elsewhere to stop working. The caller
@@ -1477,7 +1545,93 @@ def change_password(
         "token": token,
         "other_sessions_ended": signed_out,
         "warning": password_warning(body.new_password),
+        "pin_cleared": pin_cleared,
     }
+
+
+# --- the PIN for this computer (owner, 2026-10-12; core/pinstore.py) ---------------
+
+
+class PinBody(BaseModel):
+    current_password: str = Field(min_length=1, max_length=MAX_PASSWORD_CHARS)
+    pin: str = Field(min_length=4, max_length=12, description="4 to 12 digits")
+
+
+class ForgetPinBody(BaseModel):
+    current_password: str = Field(min_length=1, max_length=MAX_PASSWORD_CHARS)
+
+
+def _check_current_password(request: Request, session: Session, typed: str) -> User:
+    """The password, never the PIN: throttled and counted like an unlock."""
+    user = _get_user(session)
+    if user is None:
+        raise HTTPException(status_code=400, detail="No password is set yet. Set one up first.")
+    client = _client_key(request)
+    _refuse_if_throttled(client)
+    if not _password_matches(typed, user.password_hash):
+        _unlock_failed(client)
+        raise HTTPException(status_code=401, detail="That isn't your current password.")
+    _unlock_succeeded(client)
+    return user
+
+
+@router.post("/pin", dependencies=[Depends(require_unlock), Depends(this_computer_only)])
+def set_pin(
+    body: PinBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
+    x_auth_token: str | None = Header(default=None),
+) -> dict:
+    """Set up or replace the PIN for this computer, behind the password.
+
+    `this_computer_only` refuses other devices; `_from_this_computer` also
+    refuses a tunnel on this machine, since a PIN set there is one only a
+    tunnel could use, and a tunnel never may.
+    """
+    if not _from_this_computer(request):
+        raise HTTPException(status_code=403, detail=REFUSAL)
+    if not pinstore.valid_pin(body.pin):
+        raise HTTPException(status_code=400, detail="A PIN is 4 to 12 digits.")
+    user = _check_current_password(request, session, body.current_password)
+    if not pinstore.available(config.data_dir):
+        raise HTTPException(
+            status_code=409,
+            detail="This computer has no protected store for a PIN, so the password is the only way in here.",
+        )
+    if vault.key() is None:
+        vault.open_with(session, body.current_password)
+        session.commit()  # the vault row, when open_with had to create one
+        vault.grant(x_auth_token)
+    dek, bound = vault.key(), _pin_binding(session, user)
+    if dek is None or bound is None:
+        raise HTTPException(status_code=409, detail="Unlock your private notes before setting up a PIN.")
+    try:
+        pinstore.save(config.data_dir, body.pin, dek, bound)
+    except pinstore.StoreError:
+        raise HTTPException(
+            status_code=409,
+            detail="This computer's protected store did not keep the PIN. The password still works.",
+        ) from None
+    log_action(session, "edited", "user", user.id, "PIN set up on this computer")
+    session.commit()
+    return {"set": True}
+
+
+@router.post("/pin/forget", dependencies=[Depends(require_unlock), Depends(this_computer_only)])
+def forget_pin(
+    body: ForgetPinBody,
+    request: Request,
+    session: Session = Depends(get_session),
+    config: ConfigManager = Depends(get_config),
+) -> dict:
+    """Settings > Security, "Forget PIN": the password, then it is gone."""
+    user = _check_current_password(request, session, body.current_password)
+    forgotten = pinstore.forget(config.data_dir)
+    if forgotten:
+        log_action(session, "edited", "user", user.id, "PIN removed from this computer")
+        session.commit()
+    return {"forgotten": forgotten}
 
 
 class RotateVaultKeyBody(BaseModel):
@@ -1607,6 +1761,8 @@ def rotate_vault_key(
 
     # Only now, after the commit that made it real, does memory follow.
     vault.set_key(new_key)
+    # The PIN wraps the old key, which is what a re-key exists to retire.
+    pinstore.forget(get_config().data_dir)
 
     # Same reasoning as change-password: rotating a key you suspect is
     # compromised should not leave anything already open still trusted on
@@ -1807,6 +1963,7 @@ def recover(
     log_action(session, "edited", "user", user.id, "password reset with the recovery key")
     session.commit()
     vault.set_key(dek)  # only after the commit, as `rotate_vault_key` does
+    pinstore.forget(get_config().data_dir)  # bound to the old password hash
     _owner_seen.clear()
     token = _end_sessions_and_issue(request, response)
     return {

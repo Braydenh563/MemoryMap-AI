@@ -171,6 +171,61 @@ $("embedding-error-fix").addEventListener("click", runEmbeddingFallback);
 
 $("account-change").addEventListener("click", changePassword);
 
+//: "Set up a PIN for this computer" / "Change PIN": the PIN typed twice
+//: here, then the password on the lock card in prompt mode, like the
+//: recovery key. The server checks the digits again and keeps the PIN in the
+//: OS store (core/pinstore.py).
+$("account-pin-set").addEventListener("click", async () => {
+  const status = $("account-pin-status");
+  status.classList.remove("error");
+  const pin = $("account-pin-new").value;
+  const fail = (text) => {
+    status.classList.add("error");
+    status.textContent = text;
+  };
+  if (!/^[0-9]{4,12}$/.test(pin)) return fail("A PIN is 4 to 12 digits.");
+  if (pin !== $("account-pin-confirm").value) return fail("The two PINs don't match.");
+  status.textContent = "";
+  const done = await askPasswordPrompt({
+    title: "Set up a PIN",
+    message: "Enter your password to let a PIN unlock this computer.",
+    submitLabel: "Set PIN",
+    submit: (password) =>
+      apiJson("/auth/pin", {
+        method: "POST",
+        body: JSON.stringify({ current_password: password, pin }),
+        ownsAuthErrors: true,
+      }),
+  });
+  if (!done) return;
+  $("account-pin-new").value = "";
+  $("account-pin-confirm").value = "";
+  status.textContent = "PIN set for this computer.";
+  renderAccount().catch(() => {});
+});
+
+//: "Forget PIN": the password too (removing it is a change to how this
+//: computer opens the notebook).
+$("account-pin-forget").addEventListener("click", async () => {
+  const status = $("account-pin-status");
+  status.classList.remove("error");
+  status.textContent = "";
+  const done = await askPasswordPrompt({
+    title: "Forget PIN",
+    message: "Enter your password to remove the PIN from this computer.",
+    submitLabel: "Forget PIN",
+    submit: (password) =>
+      apiJson("/auth/pin/forget", {
+        method: "POST",
+        body: JSON.stringify({ current_password: password }),
+        ownsAuthErrors: true,
+      }),
+  });
+  if (!done) return;
+  status.textContent = "PIN removed. The lock screen asks for your password.";
+  renderAccount().catch(() => {});
+});
+
 //: Re-encrypt private notes (WORLD_CLASS_PLAN, Placed 2026-09-09, 261's
 //: vault re-key, `POST /auth/rotate-vault-key`): a new key for every private
 //: note. Like Change password it ends every other session and hands this tab
@@ -186,7 +241,7 @@ $("account-rekey").addEventListener("click", async () => {
   let result = null;
   const done = await askPasswordPrompt({
     title: "Re-encrypt private notes",
-    message: "Enter your current password or PIN to give every private note a new key.",
+    message: "Enter your current password to give every private note a new key.",
     submitLabel: "Re-encrypt",
     submit: async (password) => {
       // 401 here is "wrong password", said beside the field.

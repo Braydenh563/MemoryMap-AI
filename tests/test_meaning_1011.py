@@ -42,7 +42,7 @@ def test_the_eval_table_is_sixty_owner_style_queries():
         ("bin", "Open the bin"),
         ("trash", "Open the bin"),
         ("get my deleted stuff back", "Undo and the bin"),
-        ("chnage pasword", "Change your password or PIN"),
+        ("chnage pasword", "Change your password"),
         ("forgot my password", "If you forget your password"),
         ("too much moving stuff", "Reduce motion"),
         ("battery drain", "Battery-efficient mode"),

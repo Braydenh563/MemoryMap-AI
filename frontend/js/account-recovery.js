@@ -352,7 +352,7 @@ async function makeRecoveryKey() {
   let key = null;
   const done = await askPasswordPrompt({
     title: replacing ? "Replace your recovery key" : "Make a recovery key",
-    message: "Enter your current password or PIN.",
+    message: "Enter your current password.",
     submitLabel: replacing ? "Replace" : "Make key",
     submit: async (password) => {
       const body = await apiJson("/auth/recovery-key", {

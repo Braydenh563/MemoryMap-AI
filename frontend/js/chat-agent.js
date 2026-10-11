@@ -1474,10 +1474,7 @@ const CARD_KINDS = {
         : [
             smallButton("ph:check-circle Mark done", "Complete this reminder", async () => {
               try {
-                await apiJson(`/reminders/${item.id}`, {
-                  method: "PUT",
-                  body: JSON.stringify({ done: true }),
-                });
+                await reminderPutUndoably(item.id, "Completed a reminder", { done: false }, { done: true });
                 item.done = true;
                 toast("Reminder marked done.");
                 //: Only when the tab is actually showing them, `loadReminders`
@@ -1868,6 +1865,7 @@ function renderMemoryProposal(holder, proposal) {
         method: "POST",
         body: JSON.stringify({ accept }),
       });
+      pushRequestUndo(accept ? "Remembered a preference" : "Declined a preference", `/memory/${proposal.id}`, "PATCH", { proposed: true, active: false }, { proposed: false, active: accept }, () => renderMemorySettings());
     } catch (error) {
       answered = false;
       toast(error.message, true);

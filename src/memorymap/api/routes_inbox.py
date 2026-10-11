@@ -149,9 +149,9 @@ def accept_merge(body: MergeAccept, session: Session = Depends(get_session)) -> 
     if keep.id == gone.id:
         raise HTTPException(status_code=400, detail="That is one name already.")
     moved, undo_id = merge_with_undo(session, keep, gone)
-    learning.record(session, kind="accept_merge", subject={"a": keep.id, "b": gone.id, "signals": body.signals})
+    made = learning.record(session, kind="accept_merge", subject={"a": keep.id, "b": gone.id, "signals": body.signals})
     session.commit()
-    return {"kept": keep.id, "name": keep.name, "aliases": keep.aliases or [], "moved": moved, "undo_id": undo_id}
+    return {"kept": keep.id, "name": keep.name, "aliases": keep.aliases or [], "moved": moved, "undo_id": undo_id, "correction_id": made.id}
 
 
 @router.post("/merges/dismiss")
@@ -174,13 +174,13 @@ def accept_type(body: TypeDecision, session: Session = Depends(get_session)) -> 
         raise HTTPException(status_code=404, detail="That link could not be found. Refresh the list.")
     if body.link_type not in LINK_TYPES:
         raise HTTPException(status_code=422, detail="That isn't a kind of link this notebook knows.")
-    learning.record(
+    made = learning.record(
         session,
         kind="accept_link_type",
         subject={"link_id": link.id, "link_type": body.link_type, "signals": [body.link_type]},
     )
     manager.set_link_type(session, link, body.link_type)
-    return {"link_id": link.id, "link_type": link.link_type}
+    return {"link_id": link.id, "link_type": link.link_type, "correction_id": made.id}
 
 
 @router.post("/types/dismiss")

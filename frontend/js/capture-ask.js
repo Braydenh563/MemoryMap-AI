@@ -292,6 +292,7 @@ async function createDocumentNamed(suggestion = "") {
       method: "POST",
       body: JSON.stringify({ title, content: `# ${title}\n\n` }),
     });
+    offerCreateUndo(doc);
     return doc; // the documents tab refetches on switch, so nothing to sync
   } catch (error) {
     toast(error.message, true);
@@ -744,6 +745,7 @@ async function saveEntryAsDraft() {
     // keeps that function from having to know which of its two callers has
     // already taken the list, see its own comment.
     uploadStagedFiles(saved.id);
+    pushEntryCreateUndo(saved, "Saved a draft note");
     await refreshEntries([saved.id]);
   } catch (error) {
     if (await heldOffline(error, { content, tags, document_ids: [...captureDocuments], is_draft: true }, contentBox, titleBox)) return;

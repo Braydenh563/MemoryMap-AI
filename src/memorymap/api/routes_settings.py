@@ -19,7 +19,7 @@ import tempfile
 import zipfile
 from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request, Response, UploadFile
@@ -299,6 +299,9 @@ class SkillItem(BaseModel):
 
 
 class PreferencesBody(BaseModel):
+    #: Settings to put back to "never set" (their default), which a value cannot
+    #: say: Settings, Recent changes uses it to undo a first change (INBOX 898).
+    unset: list[Annotated[str, Field(min_length=1, max_length=80)]] | None = Field(default=None, max_length=64)
     recycle_bin_days: int | None = Field(default=None, ge=1, le=365)
     # 0 means "keep everything", which is the default, see
     # `autonomous.purge_old_conversations` for why this is opt-in rather than
@@ -1043,7 +1046,13 @@ def update_preferences(
     if any(_refused_elsewhere(request, k, v, current) for k, v in body.model_dump(exclude_none=True).items()):
         raise HTTPException(status_code=403, detail=REFUSAL)
     changed_keys = set()
-    for key, value in body.model_dump(exclude_none=True).items():
+    values = body.model_dump(exclude_none=True)
+    for key in values.pop("unset", None) or []:
+        if key in values:
+            continue
+        config.unset_preference(key)
+        changed_keys.add(key)
+    for key, value in values.items():
         value = _validated_preference(key, value)
         config.set_preference(key, value)
         changed_keys.add(key)
@@ -1427,6 +1436,9 @@ def list_skills() -> dict:
 class PreferenceBody(BaseModel):
     content: str | None = Field(default=None, max_length=200)
     active: bool | None = None
+    #: Undo of answering a proposal (INBOX 898) puts the question back; Redo
+    #: answers it again by sending `proposed: false` with the verdict.
+    proposed: bool | None = None
 
 
 class ProposalAnswer(BaseModel):
@@ -1588,6 +1600,8 @@ def update_memory(
         row.content = text_
     if body.active is not None:
         row.active = body.active
+    if body.proposed is not None and hasattr(row, "proposed"):
+        row.proposed = body.proposed
     session.commit()
     session.refresh(row)
     return _preference_out(row)

@@ -223,14 +223,26 @@ async function openTagSuggest(input) {
 //: "Not suggested" line (note-edit-panels.js).
 async function answerSuggestedTags(entry, body) {
   try {
+    const wasTags = [...(entry.tags || [])];
     await apiJson(`/entries/${entry.id}/suggested-tags`, { method: "POST", body: JSON.stringify(body) });
     await refreshEntries([entry.id]);
     const tag = (body.take || body.discard || body.restore || [])[0];
-    if (body.mute === true) toastAction("Won't suggest tags for this note.", "Undo", () => answerSuggestedTags(entry, { mute: false }), { record: false });
-    else if (body.mute === false) toast("Tags can be suggested for this note again.");
-    else if (body.take) toast(`Tagged ${body.take.map((t) => `#${t}`).join(", ")}.`);
-    else if (body.restore) toast(`#${tag} can be suggested for this note again.`);
-    else toastAction(`Won't suggest #${tag} for this note again.`, "Undo", () => answerSuggestedTags(entry, { restore: [tag] }), { record: false });
+    //: Each answer is a step on the stack (INBOX 898); its undo and redo post
+    //: the opposite answer directly, so they do not push steps of their own.
+    const post = (answer) => () => apiJson(`/entries/${entry.id}/suggested-tags`, { method: "POST", body: JSON.stringify(answer) }).then(() => refreshEntries([entry.id]));
+    if (body.mute === true) {
+      offerUndo("Turned off tag suggestions for a note", "Won't suggest tags for this note.", post({ mute: false }), post(body), { record: false });
+    } else if (body.mute === false) {
+      toast("Tags can be suggested for this note again.");
+    } else if (body.take) {
+      pushEntryPutUndo(entry.id, `Tagged a note #${tag}`, { tags: wasTags }, { tags: [...new Set([...wasTags, ...body.take])] });
+      toast(`Tagged #${tag}.`);
+    } else if (body.restore) {
+      pushUndo(`Allowed #${tag} to be suggested again`, post({ discard: body.restore }), post(body));
+      toast(`#${tag} can be suggested for this note again.`);
+    } else {
+      offerUndo(`Turned down #${tag}`, `Won't suggest #${tag} for this note again.`, post({ restore: [tag] }), post(body), { record: false });
+    }
   } catch (error) {
     toast(error.message || "Couldn't change the tags.", true);
   }

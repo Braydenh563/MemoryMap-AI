@@ -1178,6 +1178,11 @@ async function toggleEntryPrivacy(entry) {
       method: "POST",
       body: JSON.stringify({ private: makingPrivate }),
     });
+    const setPrivacy = (value) => async () => {
+      await apiJson(`/entries/${entry.id}/privacy`, { method: "POST", body: JSON.stringify({ private: value }) });
+      await refreshEntries([entry.id]);
+    };
+    pushUndo(makingPrivate ? "Made a note private" : "Made a note readable", setPrivacy(!makingPrivate), setPrivacy(makingPrivate));
     toast(makingPrivate ? "Note encrypted." : "Note is readable again.");
     await refreshEntries([entry.id]);
   } catch (error) {
@@ -1773,6 +1778,7 @@ function entryOverflowMenu(entry) {
               }),
             });
             await loadEntries();
+            pushEntryCreateUndo(copy, "Duplicated a note");
             // Open the new note in edit mode straight away.
             if (copy && copy.id) {
               flashEntry(copy.id);
@@ -1790,7 +1796,14 @@ function entryOverflowMenu(entry) {
           label: "ph:check-circle Accept the filing",
           title: `Keep it in ${entry.category}; it leaves the review queue`,
           run: async () => {
-            await apiJson(`/review-queue/${entry.id}/accept`, { method: "POST" }).catch((e) => toast(e.message, true));
+            const accepted = await apiJson(`/review-queue/${entry.id}/accept`, { method: "POST" }).catch((e) => toast(e.message, true));
+            if (accepted !== undefined) {
+              const settle = (value) => async () => {
+                await apiJson(`/entries/${entry.id}/filing`, { method: "POST", body: JSON.stringify({ accepted: value }) });
+                await refreshEntries([entry.id]);
+              };
+              pushUndo(`Kept a note in ${entry.category}`, settle(false), settle(true));
+            }
             await refreshEntries([entry.id]);
             toast(`Kept in ${entry.category}.`);
           },
@@ -1835,6 +1848,7 @@ function entryOverflowMenu(entry) {
           title: "Bring this note back into your notebook",
           run: async () => {
             await apiJson(`/entries/${entry.id}/unarchive`, { method: "POST" });
+            pushRoutePairUndo("Unarchived a note", [`/entries/${entry.id}/archive`, "POST"], [`/entries/${entry.id}/unarchive`, "POST"], () => refreshEntries([entry.id]));
             await refreshEntries([entry.id]);
             toast("Unarchived.");
           },

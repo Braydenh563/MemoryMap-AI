@@ -505,6 +505,7 @@ async function saveSketch() {
       }),
     });
     if (!entry?.id) throw new Error("Couldn't save the sketch note.");
+    pushEntryCreateUndo(entry, "Saved a sketch");
     sketchDirty = false;
     $("sketch-overlay").classList.add("hidden");
     $("sketch-caption").value = "";

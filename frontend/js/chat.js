@@ -1257,6 +1257,17 @@ async function bookmarkWebResult(result) {
         note: (result.snippet || "").slice(0, 2000),
       }),
     });
+    if (saved && !saved.duplicate_of && saved.id != null) {
+      let liveId = saved.id;
+      pushUndo(
+        `Bookmarked “${clipText(saved.title || saved.url, 40)}”`,
+        () => apiJson(`/bookmarks/${liveId}`, { method: "DELETE" }),
+        async () => {
+          const again = await apiJson("/bookmarks", { method: "POST", body: JSON.stringify({ url: saved.url, title: saved.title || "", note: saved.note || "" }) });
+          liveId = again.id ?? liveId;
+        }
+      );
+    }
     toast(
       saved && saved.duplicate_of
         ? "Already in your bookmarks."

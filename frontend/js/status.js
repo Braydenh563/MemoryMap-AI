@@ -1332,7 +1332,11 @@ function pushEntryPutUndo(entryId, label, beforeBody, afterBody) {
 function boardHistoryActive() {
   const board = document.getElementById("library-view-whiteboard");
   const canvas = document.getElementById("wb-canvas-view");
-  return Boolean(board && !board.classList.contains("hidden") && canvas && !canvas.classList.contains("hidden") && window.wbUndo);
+  //: Showing, not merely un-hidden (INBOX 898, found by the live check): the
+  //: board's view keeps no `hidden` class when another main tab covers it, so
+  //: Ctrl+Z on Notes walked the last board's history and the app's own steps
+  //: could not be reached.
+  return Boolean(board && !board.classList.contains("hidden") && canvas && !canvas.classList.contains("hidden") && window.wbUndo && board.getClientRects().length);
 }
 
 //: **Which history a press walks** (the owner, 2026-10-05: "local undos and

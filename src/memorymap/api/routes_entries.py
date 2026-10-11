@@ -2021,6 +2021,42 @@ def dismiss_tension(body: TensionPair, session: Session = Depends(get_session)) 
     return {"dismissed": key}
 
 
+class TensionReopen(TensionPair):
+    #: The accept made the `contradicts` link (it was not there before), so
+    #: Undo takes it away; a link the person already had is left alone.
+    remove_link: bool = False
+
+
+@router.post("/tensions/reopen")
+def reopen_tension(body: TensionReopen, session: Session = Depends(get_session)) -> dict:
+    """Undo of accepting or dismissing a tension: the pair is offered again (INBOX 898).
+
+    The event log is a history, so this writes a `tension_reopened` event
+    rather than editing the earlier one, and drops the correction the
+    decision taught the learning loop (it was a slip, not a lesson).
+    """
+    pair = {body.earlier_id, body.later_id}
+    config = deps.get_config()
+    stored = [k for k in (config.get_preference(TENSION_DISMISSED_KEY, []) or []) if k != _tension_key(body.earlier_id, body.later_id)]
+    config.set_preference(TENSION_DISMISSED_KEY, stored)
+    removed_link = False
+    if body.remove_link:
+        for link in session.scalars(select(EntryLink).where(EntryLink.link_type == "contradicts")).all():
+            if {link.source_entry_id, link.target_entry_id} == pair:
+                manager.delete_link(session, link)
+                removed_link = True
+    for kind in ("accept_tension", "dismiss_tension"):
+        for item in reversed(learning.corrections(session, kind=kind)):
+            if {item.subject.get("a"), item.subject.get("b")} == pair:
+                row = session.get(AuditLog, item.id)
+                if row is not None:
+                    session.delete(row)
+                break
+    tensions_module.record_event(session, tensions_module.REOPENED, body.earlier_id, body.later_id)
+    session.commit()
+    return {"reopened": _tension_key(body.earlier_id, body.later_id), "removed_link": removed_link}
+
+
 class LinkSuggestionReasonPair(BaseModel):
     source_id: int
     target_id: int
@@ -2713,7 +2749,9 @@ def wiki_rename(entry_id: int, body: WikiRenameIn, session: Session = Depends(ge
     new_name = re.sub(r"^\s{0,3}#{1,6}\s+", "", first).strip()
     if not new_name or len(new_name) > 120 or "]" in new_name or "[" in new_name:
         raise HTTPException(status_code=422, detail="This note's first line can't be a [[name]].")
-    return {"rewritten": manager.rewrite_wiki_name(session, entry, body.old, new_name)}
+    notes: list[dict] = []
+    rewritten = manager.rewrite_wiki_name(session, entry, body.old, new_name, notes)
+    return {"rewritten": rewritten, "notes": notes}
 
 
 @router.delete("/{entry_id}", response_model=EntryOut)

@@ -360,6 +360,12 @@ class ConfigManager:
         self._preferences.update(values)
         atomic_write_json(self.preferences_path, self._preferences)
 
+    def unset_preference(self, key: str) -> None:
+        """Put a setting back to never set, so its default applies again."""
+        if key in self._preferences:
+            del self._preferences[key]
+            atomic_write_json(self.preferences_path, self._preferences)
+
     def set_preference(self, key: str, value: Any) -> None:
         """Change a preference and persist it to disk immediately,
         so a crash never loses a settings change.

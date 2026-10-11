@@ -104,6 +104,7 @@ function flushNoteOutbox() {
         const saved = await apiJson("/entries", { method: "POST", body: JSON.stringify(payload), silent: true });
         writeNoteOutbox(noteOutbox().filter((held) => held.client_key !== item.client_key));
         sent += 1;
+        pushEntryCreateUndo(saved, "Saved a note kept on this device");
         if (saved.filing_state === "pending") watchFiling(saved, { quiet: true });
       } catch (error) {
         if (noteServerGone(error) || error.isLockout || !error.status || error.status >= 500 || error.status === 429) break;
@@ -316,6 +317,7 @@ async function quickNoteReminder(entryId, slots) {
       body: JSON.stringify({ text, due_at: slots.due.toISOString(), entry_id: entryId, priority: "normal", recurring: slots.recurring || "none" }),
     });
     loadReminders();
+    reminderMadeUndo(reminder);
     return ` Reminder set: ${relativeWhen(reminder.due_at)}.`;
   } catch (error) {
     return ` The reminder was not set: ${error.message}`;
@@ -350,6 +352,7 @@ async function clipPastedLink(url) {
   const progress = toastProgress("Reading the page…");
   try {
     const note = await apiJson("/links/clip", { method: "POST", body: JSON.stringify({ url }) });
+    pushEntryCreateUndo(note, "Clipped a page as a note");
     progress.done(`Saved “${note.source_title || url}” as a note, filing it now.`, {
       actionLabel: "Open",
       onAction: () => flashEntry(note.id),
@@ -452,10 +455,11 @@ async function pasteClipboardAsNote() {
 async function saveChatAnswerAsNote(question, answer) {
   try {
     const content = question ? `${question}\n\n${answer}` : answer;
-    await apiJson("/entries", {
+    const made = await apiJson("/entries", {
       method: "POST",
       body: JSON.stringify({ content, tags: ["chat"], is_draft: true, defer_filing: true }),
     });
+    pushEntryCreateUndo(made, "Saved a chat answer as a note");
     toast("Saved as a draft note.");
     // Unconditional, not gated on the Notes tab being the one currently
     // open. Reported: a note saved from Chat "didn't show up in the
@@ -493,6 +497,7 @@ async function reminderFromChatAnswer(answer) {
     });
     askNotificationPermission();
     loadReminders();
+    reminderMadeUndo(reminder);
     toastAction("Reminder set for tomorrow, 9am.", "Edit", () => {
       editingReminderId = reminder.id;
       return flashReminder(reminder.id);
@@ -500,4 +505,19 @@ async function reminderFromChatAnswer(answer) {
   } catch (error) {
     toast(error.message || "Couldn't set a reminder.", true);
   }
+}
+
+//: A note saved in a stand-alone window (capture.html, clip.html) lands on this
+//: window's Undo stack and Redo list (INBOX 898); the reply tells that window
+//: it need not offer an Undo of its own (standalone-undo.js).
+try {
+  const standaloneNotes = new BroadcastChannel("memorymap-undo");
+  standaloneNotes.onmessage = (event) => {
+    if (event.data?.type !== "note-made" || event.data.id == null) return;
+    pushEntryCreateUndo({ id: event.data.id }, event.data.label || "Saved a note");
+    loadEntries().catch(() => {});
+    standaloneNotes.postMessage({ type: "note-made-ack", id: event.data.id });
+  };
+} catch {
+  // No BroadcastChannel: the stand-alone window offers its own Undo.
 }

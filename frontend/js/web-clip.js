@@ -136,10 +136,11 @@ async function saveWebPageAsNote() {
   const excerpt = (readable || webReaderPage.text || "").slice(0, 1200);
   const content = `${webReaderPage.title}\n${webReaderPage.url}\n\n${excerpt}`;
   try {
-    await apiJson("/entries", {
+    const made = await apiJson("/entries", {
       method: "POST",
       body: JSON.stringify({ content, tags: ["web"], defer_filing: true }),
     });
+    pushEntryCreateUndo(made, "Saved a web page as a note");
     toast("Saved as a note.");
     loadEntries().catch(() => {});
   } catch (error) {

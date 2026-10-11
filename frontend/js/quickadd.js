@@ -720,10 +720,11 @@ async function noteOfferTake(state, offer, el) {
     const before = select.value;
     select.value = offer.value.category;
     select.dispatchEvent(new Event("change"));
-    pushUndo(`Filed in ${offer.value.category}`, () => {
-      select.value = before;
+    const setTo = (value) => () => {
+      select.value = value;
       select.dispatchEvent(new Event("change"));
-    });
+    };
+    pushUndo(`Filed in ${offer.value.category}`, setTo(before), setTo(offer.value.category));
     return;
   }
   if (offer.kind === "reminder") {
@@ -734,10 +735,7 @@ async function noteOfferTake(state, offer, el) {
       });
       loadReminders();
       toast(`Reminder set: ${relativeWhen(reminder.due_at)}.`);
-      pushUndo("Reminder set", async () => {
-        await apiJson(`/reminders/${reminder.id}`, { method: "DELETE" });
-        loadReminders();
-      });
+      pushBinPairUndo("Reminder set", `/reminders/${reminder.id}`, `/reminders/${reminder.id}/restore`, true, loadReminders);
     } catch (error) {
       state.done.delete(noteOfferKey(offer));
       toast(`The reminder was not set: ${error.message}`, true);

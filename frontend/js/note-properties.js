@@ -148,6 +148,9 @@ async function openNotePropertiesSheet(entry) {
         });
         save.disabled = false;
         if (!done) return;
+        if (typeof done.content === "string" && typeof entry.content === "string" && done.content !== entry.content) {
+          pushEntryPutUndo(entry.id, "Changed a note's properties", { content: entry.content }, { content: done.content });
+        }
         close();
         toast("Properties saved.");
         loadEntries().catch(() => {});
@@ -196,6 +199,7 @@ async function openNoteTypesSheet() {
               return null;
             });
             if (!made) return;
+            pushEntryCreateUndo(made, `Made a ${t.name} note`);
             close();
             await loadEntries().catch(() => {});
             await switchTab("notes");
@@ -209,6 +213,7 @@ async function openNoteTypesSheet() {
               return null;
             });
             if (!ok) return;
+            pushRequestUndo(`Changed the fields of ${t.name}`, `/note-types/${t.id}`, "PATCH", { fields: (t.fields || []).map((f) => ({ name: f.name, kind: f.kind })) }, { fields: noteTypeFieldsParse(text) });
             close();
             openNoteTypesSheet();
           } },
@@ -239,7 +244,21 @@ async function openNoteTypesSheet() {
           toast(e.message, true);
           return null;
         });
-        if (made) openNoteTypesSheet();
+        if (made) {
+          const body = { name: name.trim(), fields: noteTypeFieldsParse(text) };
+          let liveId = made.id;
+          pushUndo(
+            `Added the note type “${body.name}”`,
+            async () => {
+              await apiJson(`/note-types/${liveId}`, { method: "DELETE" });
+            },
+            async () => {
+              const again = await apiJson("/note-types", { method: "POST", body: JSON.stringify(body) });
+              liveId = again?.id ?? liveId;
+            }
+          );
+          openNoteTypesSheet();
+        }
       }));
       card.appendChild(list);
     },

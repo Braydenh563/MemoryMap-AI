@@ -1599,7 +1599,22 @@ async function addMemoryByHand() {
   status.classList.remove("error");
   if (!text) return;
   try {
-    await apiJson("/memory", { method: "POST", body: JSON.stringify({ content: text }) });
+    const made = await apiJson("/memory", { method: "POST", body: JSON.stringify({ content: text }) });
+    if (made?.id != null) {
+      let liveId = made.id;
+      pushUndo(
+        "Added a memory",
+        async () => {
+          await api(`/memory/${liveId}`, { method: "DELETE" });
+          renderMemorySettings();
+        },
+        async () => {
+          const again = await apiJson("/memory", { method: "POST", body: JSON.stringify({ content: text }) });
+          liveId = again?.id ?? liveId;
+          renderMemorySettings();
+        }
+      );
+    }
     input.value = "";
     renderMemorySettings();
   } catch (error) {
@@ -2353,3 +2368,151 @@ function textToInputs(text) {
 ensureModule("meetings").then((ok) => {
   if (ok && $("mic-settings-controls")) micControlsInto($("mic-settings-controls"));
 });
+
+//: Moved from navigation.js (boot) on 2026-10-11 for the boot scripts' gzip
+//: ratchet: Settings is its only door, and `renderMemorySettings` is a stand-in
+//: (app.js `LAZY_ENTRY_POINTS.settingsControls`) until this file is in.
+// --- what the AI remembers (ROADMAP §39B) ------------------------------------------
+//
+// The list `save_user_preference` writes into, and the only place the user can
+// see it. Worth the screen: this tool's output becomes part of the model's own
+// system prompt on every later turn, so without this the assistant's behaviour
+// could change permanently for a reason nobody could look up, edit or undo.
+//
+// The budget line is not decoration. Only active preferences reach the model,
+// newest first, and only until the character budget runs out, so a long list
+// quietly stops including its oldest entries. Saying so beats letting someone
+// wonder why the rule they saved first is being ignored.
+async function renderMemorySettings() {
+  const list = $("memory-list");
+  const empty = $("memory-empty");
+  const budget = $("memory-budget");
+  if (!list) return;
+
+  //: Placeholders while the first answer is on its way, so a slow disk never
+  //: reads as "nothing saved yet" (DESIGN.md's list recipe; only into an
+  //: empty list, so a refresh never covers rows already there).
+  showSkeletons(list, 3);
+  const data = await apiJson("/memory").catch(() => null);
+  clearSkeletons(list);
+  if (!data) {
+    list.replaceChildren();
+    budget.textContent = "Couldn't load what Atlas has remembered.";
+    return;
+  }
+
+  const active = data.preferences.filter((p) => p.active).length;
+  budget.textContent = active
+    ? `${active} in use, about ${data.in_prompt} of ${data.budget_chars} characters. ` +
+      "The newest are kept when this runs out."
+    : "";
+  empty.classList.toggle("hidden", data.preferences.length > 0);
+
+  // Pending suggestions first. They are the only rows that need an answer,
+  // and a proposal buried below thirty settled ones is a proposal nobody
+  // sees: which was the whole complaint about the silent version of this
+  // feature. Order is otherwise unchanged (newest first, from the API).
+  const ordered = [
+    ...data.preferences.filter((p) => p.proposed),
+    ...data.preferences.filter((p) => !p.proposed),
+  ];
+
+  list.replaceChildren(
+    ...ordered.map((pref) => {
+      const row = document.createElement("div");
+      row.className =
+        "memory-row" + (pref.proposed ? " is-proposed" : pref.active ? "" : " is-off");
+
+      const text = document.createElement("span");
+      text.className = "memory-text";
+      text.textContent = pref.content;
+      text.title = pref.created_at
+        ? `Saved ${new Date(pref.created_at).toLocaleString()}`
+        : "";
+
+      // A suggestion is a question, not a switch someone flipped: it gets
+      // yes/no rather than on/off, and it is not in the prompt either way
+      // until it is answered.
+      if (pref.proposed) {
+        const tag = document.createElement("span");
+        tag.className = "memory-proposed-tag";
+        setLabel(tag, "ph:sparkle Suggested by Atlas");
+
+        const answer = async (accept) => {
+          await apiJson(`/memory/${pref.id}/answer`, {
+            method: "POST",
+            body: JSON.stringify({ accept }),
+          }).catch((error) => toast(error.message || "Couldn't save that answer.", true));
+          renderMemorySettings();
+        };
+        const yes = document.createElement("button");
+        yes.type = "button";
+        yes.className = "small";
+        yes.textContent = "Remember it";
+        yes.addEventListener("click", () => answer(true));
+
+        const no = document.createElement("button");
+        no.type = "button";
+        no.className = "ghost small";
+        no.textContent = "No thanks";
+        no.addEventListener("click", () => answer(false));
+
+        row.append(text, tag, yes, no);
+        return row;
+      }
+
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "ghost small";
+      toggle.textContent = pref.active ? "Turn off" : "Turn on";
+      toggle.addEventListener("click", async () => {
+        toggle.disabled = true;
+        const flipped = await apiJson(`/memory/${pref.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ active: !pref.active }),
+        }).catch((error) => toast(error.message || "Couldn't change that.", true));
+        if (flipped) {
+          pushRequestUndo(pref.active ? "Turned a memory off" : "Turned a memory on", `/memory/${pref.id}`, "PATCH", { active: pref.active }, { active: !pref.active }, () => renderMemorySettings());
+        }
+        renderMemorySettings();
+      });
+
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "ghost small danger";
+      remove.textContent = "Forget";
+      remove.addEventListener("click", async () => {
+        const ok = await confirmDialog(
+          `Forget this?\n\n“${pref.content}”\n\nThe AI will stop applying it.`,
+          { confirmLabel: "Forget it" }
+        );
+        if (!ok) return;
+        //: Said when it fails (audit 2026-10-05, FE-12): a silent catch
+        //: redrew the list with the memory still in it and no reason why.
+        try {
+          await apiJson(`/memory/${pref.id}`, { method: "DELETE" });
+          let liveId = null;
+          pushUndo(
+            "Forgot a memory",
+            async () => {
+              const again = await apiJson("/memory", { method: "POST", body: JSON.stringify({ content: pref.content }) });
+              liveId = again?.id ?? null;
+              if (liveId != null && !pref.active) await apiJson(`/memory/${liveId}`, { method: "PATCH", body: JSON.stringify({ active: false }) });
+              renderMemorySettings();
+            },
+            async () => {
+              if (liveId != null) await apiJson(`/memory/${liveId}`, { method: "DELETE" });
+              renderMemorySettings();
+            }
+          );
+        } catch (error) {
+          toast(error.message || "Couldn't forget that.", true);
+        }
+        renderMemorySettings();
+      });
+
+      row.append(text, toggle, remove);
+      return row;
+    })
+  );
+}

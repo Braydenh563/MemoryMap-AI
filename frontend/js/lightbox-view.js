@@ -126,14 +126,35 @@ function openLightbox(items, startIndex = 0, opts = {}) {
       if (!(await confirmDialog(`Delete ${whose} reading of this image? You can read it again any time.`))) return;
       self.disabled = true;
       try {
-        const updated = await apiJson(`/media/${id}/${source === "vision" ? "vision-ocr" : "ocr"}`, {
-          method: "POST",
-          body: JSON.stringify({ text: "" }),
-        });
-        Object.assign(item, lightboxReadingsFor(updated));
-        if (overlay.isConnected) renderInfo(item, true);
-        if (typeof loadLibrary === "function") loadLibrary();
+        //: To the reading bin, not away (the OCR workspace's own route): Undo
+        //: restores that row, Redo bins the reading again. The panel is
+        //: redrawn from the fields it held, as they were and as they become.
+        const bin = () => apiJson(`/media/${id}/readings/${source}`, { method: "DELETE" });
+        const fields = ["text", "byline", "altText", "altByline", "textSource", "altSource"];
+        const was = Object.fromEntries(fields.map((key) => [key, item[key]]));
+        const now =
+          source === item.textSource
+            ? { text: item.altText || "", byline: item.altText ? "Text read with Tesseract OCR" : "", altText: "", altByline: "", textSource: item.altSource || "", altSource: "" }
+            : { altText: "", altByline: "", altSource: "" };
+        const repaint = (values) => {
+          Object.assign(item, values);
+          if (overlay.isConnected) renderInfo(item, true);
+          if (typeof loadLibrary === "function") loadLibrary();
+        };
+        let held = (await bin())?.binned_id;
+        repaint(now);
         toast("Reading deleted.");
+        pushUndo(
+          "Deleted a reading",
+          async () => {
+            if (held) await apiJson(`/reading-bin/${held}/restore`, { method: "POST" });
+            repaint(was);
+          },
+          async () => {
+            held = (await bin())?.binned_id;
+            repaint(now);
+          }
+        );
       } catch (err) {
         toast(err.message || "Could not delete that reading.", true);
       } finally {
@@ -843,10 +864,12 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     if (!lightboxEditTarget) return;
     button.disabled = true;
     try {
+      const wasText = lightboxEditTarget.text;
       const saved = await apiJson(lightboxEditTarget.url, {
         method: "PUT",
         body: JSON.stringify({ text: docEdit.value }),
       });
+      pushRequestUndo("Edited a file's text", lightboxEditTarget.url, "PUT", { text: wasText }, { text: saved.text ?? docEdit.value }, () => lightboxLoadExtractedText?.());
       //: Re-rendered from what the server wrote back, not from what was
       //: typed. They are the same today; if they ever differ, a normalised
       //: line ending, a file the OS rewrote, the reader should be looking at
@@ -1112,6 +1135,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
                 method: "PUT",
                 body: JSON.stringify({ original_name: next.trim() }),
               });
+              pushRequestUndo("Renamed an image", `/media/${item.id}`, "PUT", { original_name: item.filename || "" }, { original_name: updated.original_name });
               item.filename = updated.original_name;
               renderInfo(item, true);
             } catch (err) {
@@ -1125,7 +1149,8 @@ function openLightbox(items, startIndex = 0, opts = {}) {
           run: async () => {
             if (!(await confirmDialog(`Delete "${item.filename || "this image"}"?`))) return;
             try {
-              await apiJson(`/media/${item.id}`, { method: "DELETE" });
+              const gone = await apiJson(`/media/${item.id}`, { method: "DELETE" });
+              pushTokenUndo(`Deleted “${item.filename || "an image"}”`, [{ del: [`/media/${item.id}`, "DELETE"], restore: "/media/restore", token: gone.undo_token }], () => (typeof renderLibraryImagesGallery === "function" ? renderLibraryImagesGallery() : null));
               items.splice(index, 1);
               if (!items.length) {
                 close();

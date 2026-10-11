@@ -1264,6 +1264,15 @@ async function docLinkMention(row, button) {
       return;
     }
     const next = content.slice(0, row.start) + `[[${title}]]` + content.slice(row.end);
+    const mentionUndo = () =>
+      pushRequestUndo(
+        `Linked a mention in ${row.title}`,
+        row.kind === "note" ? `/entries/${row.id}` : `/documents/${row.id}`,
+        "PUT",
+        { content },
+        { content: next },
+        () => (row.kind === "note" ? loadEntries() : loadDocuments(currentDoc?.id))
+      );
     if (row.kind === "note") {
       await apiJson(`/entries/${row.id}`, {
         method: "PUT",
@@ -1277,6 +1286,7 @@ async function docLinkMention(row, button) {
       });
       await loadDocuments(currentDoc?.id);
     }
+    mentionUndo();
     toast(`Linked from ${row.title}.`);
   } catch (error) {
     toast(error.message, true);
@@ -2109,6 +2119,7 @@ async function expandNoteIntoDocument(entry) {
         content: `${body}\n\n---\n\nExpanded from note #${entry.id}.\n`,
       }),
     });
+    offerCreateUndo(doc);
     switchTab("documents");
     await loadDocuments(doc.id);
     toast(`Started a document from this note, the note itself is untouched.`);
@@ -11152,6 +11163,20 @@ function offerCreateUndo(doc) {
       await loadDocuments(doc.id);
     }
   );
+}
+
+//: Several documents made by one act (an import): one step that bins them all
+//: and, on redo, brings the same ones back.
+function offerCreatedDocsUndo(docs) {
+  if (docs.length === 1) return offerCreateUndo(docs[0]);
+  const each = (verb) => async () => {
+    for (const doc of docs) {
+      if (verb === "bin") await apiJson(`/documents/${doc.id}`, { method: "DELETE" });
+      else await apiJson(`/documents/${doc.id}/restore`, { method: "POST" });
+    }
+    await loadDocuments(currentDoc?.id);
+  };
+  return pushUndo(`Imported ${docs.length} documents`, each("bin"), each("restore"));
 }
 
 //: A note's link to this document, either way round. The server answers with

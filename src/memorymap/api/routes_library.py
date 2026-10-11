@@ -816,6 +816,8 @@ _ACTION_WORDS = {
     #: The Ask again row's own marks (routes_chat `_recent_questions`).
     "forgot": "Forgot a question asked in",
     "cleared": "Cleared the questions asked in",
+    #: Undo of either: the mark no longer counts (INBOX 898).
+    "remembered": "Brought back a question asked in",
 }
 
 #: What the log's *nouns* are called, article included.

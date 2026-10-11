@@ -291,6 +291,8 @@ EVENT_TYPE = "tension"
 FOUND = "tension_found"
 ACCEPTED = "tension_accepted"
 DISMISSED = "tension_dismissed"
+#: Undo of an accept or a dismissal (INBOX 898): the pair is offered again.
+REOPENED = "tension_reopened"
 
 #: The order a pair's findings are ranked in when two sources found it: the
 #: earliest finding wins, and on the same instant a scan (which a person ran)
@@ -418,6 +420,9 @@ def derive(session) -> list[dict]:  # noqa: ANN001, C901
                 dismissed.discard(key)
             elif event.action == DISMISSED:
                 dismissed.add(key)
+            elif event.action == REOPENED:
+                accepted_events.discard(key)
+                dismissed.discard(key)
 
         # 2. The night shift's tension facts (a tombstone is a dismissal).
         for fact in session.scalars(

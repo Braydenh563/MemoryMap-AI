@@ -1339,6 +1339,7 @@ async function publishDraft(entry) {
   try {
     await apiJson(`/entries/${entry.id}`, { method: "PUT", body: JSON.stringify({ is_draft: false }) });
     entry.is_draft = false;
+    pushEntryPutUndo(entry.id, "Published a draft", { is_draft: true }, { is_draft: false });
     await refreshEntries([entry.id]);
     toast("Published.");
   } catch (error) {
@@ -1570,9 +1571,11 @@ function entryItem(entry, options = {}) {
   content.addEventListener("remove-inline-image", async (e) => {
     e.stopPropagation();
     if (!(await confirmDialog("Remove this image from the note?"))) return;
+    const contentBefore = entry.content;
     entry.content = entry.content.replace(e.detail.originalText, "").replace(/\n{3,}/g, "\n\n").trim();
     try {
       await apiJson(`/entries/${entry.id}`, { method: "PUT", body: JSON.stringify({ content: entry.content }) });
+      pushEntryPutUndo(entry.id, "Removed an image from a note", { content: contentBefore }, { content: entry.content });
       await refreshEntries([entry.id]);
       flashEntry(entry.id);
       toast("Image removed.");
@@ -1916,6 +1919,7 @@ function entryItem(entry, options = {}) {
       unlink.addEventListener("click", async (event) => {
         event.stopPropagation(); // the chip itself opens the document
         await api(`/documents/${doc.id}/notes/${entry.id}`, { method: "DELETE" });
+        pushRoutePairUndo(`Detached from “${doc.title}”`, [`/documents/${doc.id}/notes`, "POST", { entry_id: entry.id }], [`/documents/${doc.id}/notes/${entry.id}`, "DELETE"], () => loadEntries());
         await loadEntries();
         toast(`Detached from “${doc.title}”.`);
       });
@@ -2236,21 +2240,24 @@ function entryItem(entry, options = {}) {
       //: circles with the labels reading as captions between them. They are
       //: the `kebabMenu` recipe now (DESIGN.md, standing order 11), which also
       //: gives the label the width the buttons took.
-      const editReason = async () => {
-        const next = await promptDialog("Why are these notes connected?", link.reason || "");
-        if (!next) return;
+      const putReason = async (reason) => {
         await api(`/entries/${entry.id}/links/${link.link_id}/reason`, {
           method: "PUT",
-          body: JSON.stringify({ reason: next }),
+          body: JSON.stringify({ reason }),
         });
         await refreshEntries([entry.id, link.entry_id]);
       };
+      const editReason = async () => {
+        const next = await promptDialog("Why are these notes connected?", link.reason || "");
+        if (!next) return;
+        const was = link.reason || null;
+        await putReason(next);
+        pushUndo("Edited why two notes are connected", () => putReason(was), () => putReason(next));
+      };
       const clearReason = async () => {
-        await api(`/entries/${entry.id}/links/${link.link_id}/reason`, {
-          method: "PUT",
-          body: JSON.stringify({ reason: null }),
-        });
-        await refreshEntries([entry.id, link.entry_id]);
+        const was = link.reason || null;
+        await putReason(null);
+        pushUndo("Cleared why two notes are connected", () => putReason(was), () => putReason(null));
       };
       const unlink = async () => {
         const otherId = link.entry_id;

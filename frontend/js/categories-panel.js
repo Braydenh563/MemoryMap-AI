@@ -309,8 +309,15 @@ function drawCategoryTidy(box, state) {
     merge.setAttribute("aria-label", `Merge ${text}`);
     const no = smallButton("Not these", "Never suggest this pair again", async () => {
       //: The person's own choice: a refusal says so and keeps the row.
-      const ok = await apiJson("/tidy-proposals/dismiss", { method: "POST", body: JSON.stringify({ a: m.keep.name, b: m.merge.name }) }).then(
-        () => true,
+      const pair = { a: m.keep.name, b: m.merge.name };
+      const ok = await apiJson("/tidy-proposals/dismiss", { method: "POST", body: JSON.stringify(pair) }).then(
+        () => {
+          pushRoutePairUndo("Dismissed a merge suggestion", ["/tidy-proposals/undismiss", "POST", pair], ["/tidy-proposals/dismiss", "POST", pair], async () => {
+            state.tidy = (await apiJson("/tidy-proposals", { silent: true }).catch(() => null)) || state.tidy;
+            drawCategoryTidy(box, state);
+          });
+          return true;
+        },
         (error) => {
           toast(error.message, true);
           return false;
@@ -546,6 +553,19 @@ async function createCategoryFromPanel() {
   if (!name || !name.trim()) return;
   try {
     const made = await apiJson("/categories", { method: "POST", body: JSON.stringify({ name: name.trim() }) });
+    if (made.created) {
+      pushUndo(
+        `Made the category “${made.name}”`,
+        async () => {
+          await dropEmptyCategory(made.name);
+          await refreshAfterCategoryChange();
+        },
+        async () => {
+          await apiJson("/categories", { method: "POST", body: JSON.stringify({ name: made.name }) });
+          await refreshAfterCategoryChange();
+        }
+      );
+    }
     toast(made.created ? `Made "${made.name}".` : `"${made.name}" already exists.`);
     await refreshAfterCategoryChange();
   } catch (error) {

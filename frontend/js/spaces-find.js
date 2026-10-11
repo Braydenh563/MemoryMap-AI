@@ -337,6 +337,18 @@ async function toggleSpaceHidden(id, hidden) {
       method: "PUT",
       body: JSON.stringify({ hidden_from_all: hidden }),
     });
+    pushRequestUndo(
+      hidden ? "Hid a space from All spaces" : "Showed a space in All spaces",
+      `/spaces/${id}`,
+      "PUT",
+      { hidden_from_all: !hidden },
+      { hidden_from_all: hidden },
+      async () => {
+        await loadSpaces();
+        renderSpaceMenu();
+        if (activeSpaceId() === SPACE_ALL) await loadEntries();
+      }
+    );
     await loadSpaces();
     renderSpaceMenu();
     toast(
@@ -430,6 +442,7 @@ function openSpaceEdit(id, name, icon) {
   $("space-edit-id").value = id;
   $("space-edit-name").value = name;
   $("space-edit-icon").value = icon;
+  $("space-edit-dialog").dataset.was = JSON.stringify({ name, icon });
   $("space-edit-error").textContent = "";
   spaceIconPicker($("space-edit-icon-picker"), $("space-edit-icon"));
   $("space-edit-dialog").showModal();
@@ -546,7 +559,25 @@ function initSpaceSwitcher() {
         body: JSON.stringify({ name, icon: $("space-create-icon").value }),
       });
       $("space-create-dialog").close();
-      setActiveSpace(space.id);
+      //: Made in place, with no reload: a reload empties the session's Undo.
+      //: Undo moves anything put in it meanwhile to the default space, then
+      //: removes it; Redo makes it again under the id the server gives next.
+      const made = { name, icon: $("space-create-icon").value };
+      let live = space;
+      pushUndo(
+        `Made the space “${name}”`,
+        async () => {
+          await api(`/spaces/${encodeURIComponent(live.id)}?move_to=default`, { method: "DELETE" });
+          if (activeSpaceId() === live.id) setActiveSpace("all");
+          else await loadSpaces();
+        },
+        async () => {
+          live = await apiJson("/spaces", { method: "POST", body: JSON.stringify(made) });
+          await loadSpaces();
+        }
+      );
+      await loadSpaces();
+      toastAction(`Made the space “${name}”.`, "Open it", () => setActiveSpace(live.id));
     } catch (err) {
       error.textContent = err.message;
     }
@@ -562,10 +593,12 @@ function initSpaceSwitcher() {
       return;
     }
     try {
+      const now = { name, icon: $("space-edit-icon").value };
       await apiJson(`/spaces/${encodeURIComponent(id)}`, {
         method: "PUT",
-        body: JSON.stringify({ name, icon: $("space-edit-icon").value }),
+        body: JSON.stringify(now),
       });
+      pushRequestUndo(`Renamed the space to “${name}”`, `/spaces/${encodeURIComponent(id)}`, "PUT", JSON.parse($("space-edit-dialog").dataset.was || "{}"), now, loadSpaces);
       $("space-edit-dialog").close();
       await loadSpaces();
       toast(`Renamed to “${name}”.`);

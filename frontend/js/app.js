@@ -970,52 +970,6 @@ async function initAuth() {
   curtainShell(opening);
 }
 
-// --- a share from the phone's share sheet lands in Capture -------------------
-// UI_MODERNISATION_PLAN Phase 11 item 5, "upload from the share sheet". The
-// installed app is a Web Share Target (manifest.webmanifest): a page, a
-// link or a selection shared to Tessellate opens the app at `/` with
-// `share_title`, `share_text` and `share_url` in the query, the GET form,
-// which needs no service worker and works on a locked notebook because the
-// query survives the lock screen (this runs once the entries have loaded,
-// which is after the unlock). The pieces become one capture: the title as
-// a heading, the text, the link on its own line, so the link stays a link.
-// The query is then cleared from the address bar, or a reload would share
-// it again. Files (an image shared from the camera roll) need the POST form
-// and a service worker and are not taken here.
-const SHARE_PARAMS = ["share_title", "share_text", "share_url"];
-
-function sharedCaptureText(params) {
-  const title = (params.get("share_title") || "").trim();
-  const text = (params.get("share_text") || "").trim();
-  const url = (params.get("share_url") || "").trim();
-  const lines = [];
-  if (title && title !== text) lines.push(`# ${title}`);
-  if (text) lines.push(text);
-  if (url && !text.includes(url)) lines.push(url);
-  return lines.join("\n\n");
-}
-
-function takeSharedIntake() {
-  const params = new URLSearchParams(window.location.search);
-  if (!SHARE_PARAMS.some((key) => params.has(key))) return;
-  const content = sharedCaptureText(params);
-  for (const key of SHARE_PARAMS) params.delete(key);
-  const rest = params.toString();
-  history.replaceState(null, "", `${location.pathname}${rest ? `?${rest}` : ""}${location.hash}`);
-  if (!content) return;
-  const box = $("entry-content");
-  if (!box) return;
-  switchTab("notes");
-  showNotesSection("capture");
-  box.value = box.value ? `${box.value}\n\n${content}` : content;
-  box.dispatchEvent(new Event("input", { bubbles: true }));
-  box.focus();
-  const mounted =
-    typeof mountNoteSurface === "function" ? mountNoteSurface(box) : Promise.resolve(null);
-  mounted.then((surface) => surface?.focus()).catch(() => {});
-  toast("Shared to your notebook. Save it when it reads right.");
-}
-
 function startApp() {
   // Whatever the shell was last saying about being unable to reach the server
   // is now provably false, we are about to talk to it. Left uncleared, the
@@ -1144,7 +1098,9 @@ function startApp() {
   // session, on every fresh start. This is the same shape as the comment
   // below about switchTab painting from a pile of 401s.
   step("load spaces", loadSpaces);
-  entriesReady.then(() => step("take what was shared to it", takeSharedIntake));
+  //: Only a page opened from the share sheet carries `share_*`; the rest of the
+  //: intake is a lazy file (shared-intake.js).
+  entriesReady.then(() => step("take what was shared to it", () => /[?&]share_/.test(location.search) && takeSharedIntake()));
   step("tell the server your timezone", reportTimezone);
   // Fires only if the user opted in (Settings -> About); the endpoint itself
   // also checks the preference server-side, but skipping the call here means
@@ -1879,6 +1835,8 @@ const LAZY_MODULES = {
   atlasFaces: ["/css/atlas-lazy.css"],
   //: A selection's Move to space (batch-space.js's header).
   batchSpace: ["/js/batch-space.js"],
+  undoKit: ["/js/undo-kit.js"],
+  sharedIntake: ["/js/shared-intake.js"],
   //: Settings, Packages: the extras, their bundles and bulk actions (INBOX 595).
   packages: ["/js/settings-packages.js"],
   //: Settings, Search and index's embedding models (INBOX 700, embed-choices.js).
@@ -2159,7 +2117,7 @@ const LAZY_ENTRY_POINTS = {
   //: The icon and emoji picker: reached through `pickIconOrEmoji` (editor.js).
   iconPicker: ["openIconPicker"],
   //: Async, and reached from a Settings pane drawn before the window's own await.
-  settingsControls: ["refreshSearxngHost", "renderStatusBarSettings", "renderMcpSnippet", "renderLanAccess"],
+  settingsControls: ["refreshSearxngHost", "renderStatusBarSettings", "renderMcpSnippet", "renderLanAccess", "renderMemorySettings"],
   settingsData: [
     "renderPrivacyRange",
     "renderPrivacyReceipt",
@@ -2179,6 +2137,8 @@ const LAZY_ENTRY_POINTS = {
   helpChat: ["openHelpChat", "askAtlas", "renderAtlasStarters"],
   batchSpace: ["batchMoveToSpace"],
   notifications: ["openNotifications"],
+  sharedIntake: ["takeSharedIntake"],
+  undoKit: ["pushEntryCreateUndo", "pushLinkCreateUndo", "pushRequestUndo", "pushEntriesPutUndo", "pushBinPairUndo", "pushRoutePairUndo", "pushTensionLinkUndo", "pushTokenUndo", "pushUploadUndo", "pushCorrectionUndo", "pushMadeUndo", "pushTextUndo", "pushWikiRenameUndo"],
   tidy: ["openTidySheet"],
   semanticNotice: ["semanticInstallNotice", "semanticOnboardingOffer"],
   questionsView: ["initQuestionsView", "loadQuestions"],
@@ -2275,6 +2235,9 @@ const LAZY_ENTRY_POINTS = {
     "wireMdFormatShortcuts",
     "openWhiteboardBoard",
     "deleteDocumentWithUndo",
+    "offerCreateUndo",
+    "offerCreatedDocsUndo",
+    "renameDocumentWithUndo",
     "jumpToDocLine",
     "renderLibraryBoardsGallery",
   ],

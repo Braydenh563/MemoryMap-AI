@@ -731,6 +731,23 @@ async function wbLibPlace(entry, at = null, { connect = false, onto = null, grab
   wbLibState.lib = null; // Recent moved.
 }
 
+//: A whole library made, imported or deleted, as one step (INBOX 898): the
+//: server keeps what a delete took (core/undo_bin.py) and answers with a token.
+//: `created` is the direction of the act; `withItems` takes an import's items
+//: with it, which a plain delete would have moved to Yours.
+function wbLibPairStep(label, libraryId, token, { created = false, withItems = false } = {}) {
+  let held = token;
+  const del = async () => {
+    held = (await apiJson(`/board-library/libraries/${libraryId}${withItems ? "?with_items=true" : ""}`, { method: "DELETE" })).undo_token;
+    await wbLoadLibrary({ force: true });
+  };
+  const restore = async () => {
+    libraryId = (await apiJson("/board-library/libraries/restore", { method: "POST", body: JSON.stringify({ token: held }) })).id;
+    await wbLoadLibrary({ force: true });
+  };
+  return created ? wbPushCall(label, del, restore) : wbPushCall(label, restore, del);
+}
+
 async function wbLibNewBoardFrom(entry) {
   const name = await promptDialog("Name the new board", entry.name, { confirmLabel: "Create" });
   if (!name || !name.trim()) return;
@@ -740,6 +757,7 @@ async function wbLibNewBoardFrom(entry) {
       body: JSON.stringify({ ...wbLibRefBody(entry.ref), name: name.trim(), ink: wbLibInk() }),
     });
     await openWhiteboardBoard(board.id);
+    wbBoardMadeStep(board);
     toast(`Started "${board.title}" from ${entry.name}.`);
   } catch (err) {
     toast(err.message || "Couldn't start a board from that.", true);
@@ -844,11 +862,17 @@ function wbLibOpenMenu(tile, x = null, y = null) {
 
 async function wbLibToggleFavourite(entry) {
   try {
-    if (entry.ref.startsWith("item:")) {
-      await apiJson(`/board-library/${entry.ref.slice(5)}`, { method: "PUT", body: JSON.stringify({ favourite: !entry.favourite }) });
-    } else {
-      await apiJson("/board-library/marks", { method: "POST", body: JSON.stringify({ key: entry.ref.slice(8), favourite: !entry.favourite }) });
-    }
+    //: Item or built-in mark: the same request with the flag as it was.
+    const send = (favourite) => async () => {
+      if (entry.ref.startsWith("item:")) {
+        await apiJson(`/board-library/${entry.ref.slice(5)}`, { method: "PUT", body: JSON.stringify({ favourite }) });
+      } else {
+        await apiJson("/board-library/marks", { method: "POST", body: JSON.stringify({ key: entry.ref.slice(8), favourite }) });
+      }
+      await wbLoadLibrary({ force: true });
+    };
+    await send(!entry.favourite)();
+    wbPushCall(entry.favourite ? "Removed a library item from favourites" : "Made a library item a favourite", send(Boolean(entry.favourite)), send(!entry.favourite));
     wbAnnounce(entry.favourite ? `${entry.name} removed from favourites.` : `${entry.name} added to favourites.`);
     await wbLoadLibrary({ force: true });
   } catch (err) {
@@ -859,46 +883,75 @@ async function wbLibToggleFavourite(entry) {
 async function wbLibRename(entry) {
   const name = await promptDialog("Rename this library item", entry.name, { confirmLabel: "Rename" });
   if (!name || !name.trim() || name.trim() === entry.name) return;
-  await apiJson(`/board-library/${entry.ref.slice(5)}`, { method: "PUT", body: JSON.stringify({ name: name.trim() }) });
-  await wbLoadLibrary({ force: true });
+  const put = (body) => async () => {
+    await apiJson(`/board-library/${entry.ref.slice(5)}`, { method: "PUT", body: JSON.stringify(body) });
+    await wbLoadLibrary({ force: true });
+  };
+  await put({ name: name.trim() })();
+  wbPushCall("Renamed a library item", put({ name: entry.name }), put({ name: name.trim() }));
 }
 
 async function wbLibTags(entry) {
   const tags = await promptDialog("Tags, separated by commas", (entry.tags || []).join(", "), { confirmLabel: "Save" });
   if (tags === null || tags === undefined) return;
-  await apiJson(`/board-library/${entry.ref.slice(5)}`, {
-    method: "PUT",
-    body: JSON.stringify({ tags: String(tags).split(",").map((t) => t.trim()).filter(Boolean) }),
-  });
-  await wbLoadLibrary({ force: true });
+  const nextTags = String(tags).split(",").map((t) => t.trim()).filter(Boolean);
+  const put = (list) => async () => {
+    await apiJson(`/board-library/${entry.ref.slice(5)}`, { method: "PUT", body: JSON.stringify({ tags: list }) });
+    await wbLoadLibrary({ force: true });
+  };
+  await put(nextTags)();
+  wbPushCall("Changed a library item's tags", put(entry.tags || []), put(nextTags));
 }
 
 async function wbLibDuplicate(entry) {
-  await apiJson(`/board-library/${entry.ref.slice(5)}/duplicate`, { method: "POST" });
+  const copy = await apiJson(`/board-library/${entry.ref.slice(5)}/duplicate`, { method: "POST" });
+  if (copy?.id != null) {
+    const bin = (verb) => async () => {
+      if (verb === "bin") await apiJson(`/board-library/${copy.id}`, { method: "DELETE" });
+      else await apiJson(`/board-library/${copy.id}/restore`, { method: "POST" });
+      await wbLoadLibrary({ force: true });
+    };
+    wbPushCall("Duplicated a library item", bin("bin"), bin("restore"));
+  }
   await wbLoadLibrary({ force: true });
   wbAnnounce(`${entry.name} duplicated.`);
 }
 
 async function wbLibMove(entry, libraryId) {
-  await apiJson(`/board-library/${entry.ref.slice(5)}`, { method: "PUT", body: JSON.stringify({ library_id: libraryId }) });
-  await wbLoadLibrary({ force: true });
+  const put = (id) => async () => {
+    await apiJson(`/board-library/${entry.ref.slice(5)}`, { method: "PUT", body: JSON.stringify({ library_id: id }) });
+    await wbLoadLibrary({ force: true });
+  };
+  await put(libraryId)();
+  wbPushCall("Moved a library item", put(entry.item?.library_id ?? null), put(libraryId));
 }
 
 async function wbLibDelete(entry) {
   const id = entry.ref.slice(5);
   await apiJson(`/board-library/${id}`, { method: "DELETE" });
   await wbLoadLibrary({ force: true });
-  toastAction(`Deleted ${entry.name} from the library.`, "Undo", async () => {
-    await apiJson(`/board-library/${id}/restore`, { method: "POST" });
+  const bring = (verb) => async () => {
+    if (verb === "restore") await apiJson(`/board-library/${id}/restore`, { method: "POST" });
+    else await apiJson(`/board-library/${id}`, { method: "DELETE" });
     await wbLoadLibrary({ force: true });
+  };
+  const step = wbPushCall(`Deleted “${entry.name}” from the library`, bring("restore"), bring("bin"));
+  toastAction(`Deleted ${entry.name} from the library.`, "Undo", async () => {
+    wbDropUndoEntry(step);
+    await bring("restore")();
   });
 }
 
 async function wbLibReplace(entry) {
   const payload = wbLibSelectionPayload();
   if (!payload) return;
-  await apiJson(`/board-library/${entry.ref.slice(5)}`, { method: "PUT", body: JSON.stringify({ payload }) });
-  await wbLoadLibrary({ force: true });
+  const was = entry.payload || entry.item?.payload || null;
+  const put = (body) => async () => {
+    await apiJson(`/board-library/${entry.ref.slice(5)}`, { method: "PUT", body: JSON.stringify({ payload: body }) });
+    await wbLoadLibrary({ force: true });
+  };
+  await put(payload)();
+  if (was) wbPushCall(`Replaced “${entry.name}” in the library`, put(was), put(payload));
   toast(`${entry.name} now holds the selection. Copies already on boards keep their look.`);
 }
 
@@ -974,6 +1027,14 @@ function wbLibSelectionPayload({ quiet = false } = {}) {
 async function wbLibCreate(kind, name, payload, tags = []) {
   try {
     const made = await apiJson("/board-library", { method: "POST", body: JSON.stringify({ kind, name, payload, tags }) });
+    if (made?.id != null) {
+      const bin = (verb) => async () => {
+        if (verb === "bin") await apiJson(`/board-library/${made.id}`, { method: "DELETE" });
+        else await apiJson(`/board-library/${made.id}/restore`, { method: "POST" });
+        await wbLoadLibrary({ force: true });
+      };
+      wbPushCall(`Saved “${made.name}” to the library`, bin("bin"), bin("restore"));
+    }
     wbLibState.lib = null;
     toastAction(`Saved "${made.name}" to your library.`, "Show", () => wbOpenSidebar("library"));
     if (!document.getElementById("wb-sidebar-panel")?.classList.contains("hidden")) await wbLoadLibrary({ force: true });
@@ -1176,6 +1237,7 @@ async function wbLibImportFile(file) {
   }
   try {
     const out = await apiJson("/board-library/import", { method: "POST", body: JSON.stringify(body) });
+    wbLibPairStep(`Imported the library “${out.library.name}”`, out.library.id, null, { created: true, withItems: true });
     await wbLoadLibrary({ force: true });
     const extra = [out.skipped ? `${out.skipped} skipped` : "", out.dropped_media ? `${out.dropped_media} picture${out.dropped_media === 1 ? "" : "s"} not in this notebook left out` : ""].filter(Boolean).join(", ");
     toast(`Imported ${out.items} into "${out.library.name}"${extra ? ` (${extra})` : ""}.`);
@@ -1187,7 +1249,8 @@ async function wbLibImportFile(file) {
 async function wbLibNewLibrary() {
   const name = await promptDialog("Name the new library", "My library", { confirmLabel: "Create" });
   if (!name || !name.trim()) return;
-  await apiJson("/board-library/libraries", { method: "POST", body: JSON.stringify({ name: name.trim() }) });
+  const made = await apiJson("/board-library/libraries", { method: "POST", body: JSON.stringify({ name: name.trim() }) });
+  wbLibPairStep(`Made the library “${made.name}”`, made.id, null, { created: true });
   await wbLoadLibrary({ force: true });
 }
 
@@ -1204,7 +1267,8 @@ function wbLibPanelMenu() {
     items.push({
       label: `ph:trash Delete the ${lib.name} library`, title: "What it holds moves to Yours", group: "delete",
       run: async () => {
-        await apiJson(`/board-library/libraries/${lib.id}`, { method: "DELETE" });
+        const gone = await apiJson(`/board-library/libraries/${lib.id}`, { method: "DELETE" });
+        wbLibPairStep(`Deleted the library “${lib.name}”`, lib.id, gone.undo_token);
         await wbLoadLibrary({ force: true });
       },
     });

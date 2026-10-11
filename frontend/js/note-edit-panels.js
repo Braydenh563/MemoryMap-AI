@@ -181,6 +181,18 @@ async function openBookmarkAttachPicker(entry, done) {
       method: "POST",
       body: JSON.stringify({ bookmark_id: Number(id) }),
     });
+    const repaint = () => (editingId === entry.id ? done() : null);
+    pushUndo(
+      "Attached a link to a note",
+      async () => {
+        await apiJson(`/entries/${entry.id}/bookmarks/${Number(id)}`, { method: "DELETE" });
+        repaint();
+      },
+      async () => {
+        await apiJson(`/entries/${entry.id}/bookmarks`, { method: "POST", body: JSON.stringify({ bookmark_id: Number(id) }) });
+        repaint();
+      }
+    );
   } catch (error) {
     toast(error.message, true);
     return;

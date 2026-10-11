@@ -258,6 +258,16 @@ def dismiss_tidy(body: DismissBody) -> dict:
     return {"dismissed": key}
 
 
+@router.post("/tidy-proposals/undismiss")
+def undismiss_tidy(body: DismissBody) -> dict:
+    """Undo of "Not these" (INBOX 898): the pair may be proposed again."""
+    config = deps.get_config()
+    key = _pair_key(body.a, body.b)
+    dismissed = [k for k in (config.get_preference(TIDY_DISMISSED_PREF, []) or []) if k != key]
+    config.set_preference(TIDY_DISMISSED_PREF, dismissed)
+    return {"undismissed": key}
+
+
 # --- charts from questions -------------------------------------------------------------
 
 _COUNTING = re.compile(r"\b(how many|number of|count|trend|chart|graph|plot|over time|per|each)\b")

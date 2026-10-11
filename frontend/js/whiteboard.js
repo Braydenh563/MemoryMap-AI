@@ -8057,22 +8057,57 @@ function wbPushUndo(entry) {
 //: instead: the create route assigns them.
 //: Cards and shapes too (INBOX 537): a link names a card or a shape by id as
 //: well, and a card brought back by Undo is a new row like any other.
+//: **Each id is translated once per Undo or Redo** (INBOX 898, found by the
+//: live check: Ctrl+Z, Ctrl+Shift+Z, Ctrl+Z on a Mermaid import left a shape
+//: behind). Items brought back are new rows, and the table hands out the ids it
+//: has free, which are often the very ids that were just deleted: topic 9 comes
+//: back as 8 and topic 8 as 9. Applied one item at a time, a step that named 9
+//: was changed to 8 and then, by the next item, to 9 again. Every field that
+//: has been translated is remembered here until the history step is over, and
+//: is not translated a second time.
+let wbRemapSeen = new WeakMap();
+
 function wbRemapUndoIds(objects, sketches = new Map(), nodes = new Map()) {
   if (!objects.size && !sketches.size && !nodes.size) return;
+  //: A single translation outside a batch has nothing to collide with.
+  if (!wbHistoryInFlight.length) wbRemapSeen = new WeakMap();
   const obj = (id) => (objects.has(id) ? objects.get(id) : id);
   const sketch = (id) => (sketches.has(id) ? sketches.get(id) : id);
   const node = (id) => (nodes.has(id) ? nodes.get(id) : id);
   const byKind = { object: obj, sketch, node };
-  const linkText = (text) => {
-    if (typeof text !== "string" || !text.includes("link-")) return text;
+  const once = (holder, key, map) => {
+    let keys = wbRemapSeen.get(holder);
+    if (!keys) wbRemapSeen.set(holder, (keys = new Set()));
+    if (keys.has(key)) return;
+    const was = holder[key];
+    holder[key] = map(was);
+    if (holder[key] !== was) keys.add(key);
+  };
+  //: A link names its two topics, cards or shapes inside its JSON.
+  const linkEnds = (holder) => {
+    const text = holder.data;
+    if (typeof text !== "string" || !text.includes("link-")) return;
     try {
       const data = JSON.parse(text);
-      if (!data || typeof data !== "object" || !String(data.type || "").startsWith("link-")) return text;
-      data.sourceId = byKind[data.sourceKind || "node"]?.(data.sourceId) ?? data.sourceId;
-      data.targetId = byKind[data.targetKind || "node"]?.(data.targetId) ?? data.targetId;
-      return JSON.stringify(data);
+      if (!data || typeof data !== "object" || !String(data.type || "").startsWith("link-")) return;
+      const ends = { sourceId: data.sourceKind, targetId: data.targetKind };
+      const done = wbRemapSeen.get(holder) || new Set();
+      let changed = false;
+      for (const [field, kind] of Object.entries(ends)) {
+        if (done.has(`data.${field}`)) continue;
+        const mapped = byKind[kind || "node"]?.(data[field]) ?? data[field];
+        if (mapped !== data[field]) {
+          data[field] = mapped;
+          done.add(`data.${field}`);
+          changed = true;
+        }
+      }
+      if (changed) {
+        holder.data = JSON.stringify(data);
+        wbRemapSeen.set(holder, done);
+      }
     } catch {
-      return text;
+      // Not JSON: nothing to translate.
     }
   };
   const walk = (entry) => {
@@ -8082,24 +8117,22 @@ function wbRemapUndoIds(objects, sketches = new Map(), nodes = new Map()) {
       return;
     }
     if (entry.kind === "object") {
-      if (entry.id != null) entry.id = obj(entry.id);
-      if (entry.parentId != null) entry.parentId = obj(entry.parentId);
-      if (Array.isArray(entry.ids)) entry.ids = entry.ids.map(obj);
+      if (entry.id != null) once(entry, "id", obj);
+      if (entry.parentId != null) once(entry, "parentId", obj);
+      if (Array.isArray(entry.ids)) entry.ids.forEach((_, at) => once(entry.ids, at, obj));
       for (const row of entry.rows || []) {
-        row.id = obj(row.id);
-        if (row.parent_id != null) row.parent_id = obj(row.parent_id);
+        once(row, "id", obj);
+        if (row.parent_id != null) once(row, "parent_id", obj);
       }
     }
-    if (entry.kind === "sketch" && entry.id != null) entry.id = sketch(entry.id);
-    if (entry.kind === "node" && entry.id != null) entry.id = node(entry.id);
+    if (entry.kind === "sketch" && entry.id != null) once(entry, "id", sketch);
+    if (entry.kind === "node" && entry.id != null) once(entry, "id", node);
     for (const key of ["payload", "before"]) {
-      if (entry.kind === "sketch" && entry[key] && typeof entry[key].data === "string") {
-        entry[key].data = linkText(entry[key].data);
-      }
+      if (entry.kind === "sketch" && entry[key]) linkEnds(entry[key]);
     }
     for (const link of entry.links || []) {
-      link.id = sketch(link.id);
-      link.data = linkText(link.data);
+      once(link, "id", sketch);
+      linkEnds(link);
     }
   };
   wbUndoStack.forEach(walk);
@@ -8684,9 +8717,41 @@ function wbAngleFromCenterDeg(cx, cy, px, py, shiftSnap) {
   return Math.round(deg);
 }
 
+//: A board made by this act (INBOX 898): Undo bins it and Redo brings it back,
+//: kept on that board's own history, so call it once the board is open.
+function wbBoardMadeStep(board) {
+  if (!board?.id) return;
+  wbPushCall(`Made the board “${board.title || "Untitled"}”`, () => wbBinBoard(board.id, true), () => wbBinBoard(board.id, false));
+}
+
+//: A board's own fields changed by `PUT /whiteboard/boards/{id}` (its name, its
+//: kind; INBOX 898): the step writes `before` or `after` and repaints the
+//: board list, and reopens the board when the change redraws it (a kind).
+function wbBoardPutStep(label, boardId, before, after, reopen = false) {
+  const put = (body) => async () => {
+    const board = await apiJson(`/whiteboard/boards/${boardId}`, { method: "PUT", body: JSON.stringify(body) });
+    await refreshBoardList(board);
+    if (reopen && window.currentBoardId === boardId) await openWhiteboardBoard(boardId);
+  };
+  return wbPushCall(label, put(before), put(after));
+}
+
+//: A step that is a pair of calls rather than a board edit (the library
+//: panel's acts, INBOX 898): the history swaps the two on every press.
+function wbPushCall(label, undo, redo) {
+  const step = { action: "call", label, run: undo, back: redo };
+  wbPushUndo(step);
+  return step;
+}
+
 async function wbApplyHistoryEntry(from, to) {
   const entry = from.pop();
   if (!entry) return false;
+  if (entry.action === "call") {
+    await entry.run();
+    to.push({ action: "call", label: entry.label, run: entry.back, back: entry.run });
+    return true;
+  }
   if (entry.action === "batch") {
     // A single user gesture that touched several items at once, an
     // arrow-key nudge on a multi-selection, or an alignment/distribute pass
@@ -8701,6 +8766,7 @@ async function wbApplyHistoryEntry(from, to) {
     //: re-made mid-batch with a new id is followed by the steps that name it.
     const reverse = [];
     const pending = [...entry.entries];
+    if (!wbHistoryInFlight.length) wbRemapSeen = new WeakMap();
     wbHistoryInFlight.push(pending, reverse);
     try {
       while (pending.length) {
@@ -8833,7 +8899,10 @@ async function wbApplyHistoryEntry(from, to) {
       const none = new Map();
       wbRemapUndoIds(entry.kind === "object" ? ids : none, entry.kind === "sketch" ? new Map([...ids, ...linkIds]) : linkIds, entry.kind === "node" ? ids : none);
     }
-    to.push({ action: "create", kind: entry.kind, id: restored.id });
+    //: Already in the new id space: a later item's translation must not touch it.
+    const made = { action: "create", kind: entry.kind, id: restored.id };
+    wbRemapSeen.set(made, new Set(["id"]));
+    to.push(made);
   } else if (entry.action === "move") {
     // A drag, resize, or nudge's own undo: asked for directly ("account
     // for resizes, rotates, positional movement"). `before` is the item's
@@ -10935,6 +11004,7 @@ async function wbGenerateMapFromNotes() {
     // imported: landing back on an unchanged-looking list is how a thing that
     // worked reads as a thing that did not.
     await openWhiteboardBoard(board.id);
+    wbBoardMadeStep(board);
     await wbMapTidyFresh();
   } catch (error) {
     toast(error.message || voiceLine("failed", { what: "create that map" }), true);
@@ -11111,6 +11181,7 @@ async function wbImportOutlineFile(event) {
       `Imported “${board.title}”: ${board.object_count} node${board.object_count === 1 ? "" : "s"}.`
     );
     await openWhiteboardBoard(board.id);
+    wbBoardMadeStep(board);
     await wbMapTidyFresh();
   } catch (error) {
     // The server's own message, not a generic one: it names the actual
@@ -13472,6 +13543,7 @@ async function initWhiteboard() {
     //: chrome, different tools and a different renderer, and a half-switched
     //: board is the shape of bug this file has had before.
     await openWhiteboardBoard(boardId);
+    wbBoardPutStep(becomingMap ? "Made the board a mind map" : "Made the map a whiteboard", boardId, { type: becomingMap ? "board" : "map" }, { type: becomingMap ? "map" : "board" }, true);
     toast(becomingMap ? "Now a mind map." : "Now a whiteboard.");
   });
 
@@ -15802,6 +15874,7 @@ async function renameCurrentBoard() {
           body: JSON.stringify({ title: name }),
         });
         await refreshBoardList(board);
+        wbBoardPutStep(`Renamed the board to “${board.title}”`, boardId, { title: current }, { title: board.title });
         resolve(board.title);
       } catch (err) {
         toast(err.message || voiceLine("failed", { what: "rename that board" }), true);
@@ -15862,6 +15935,7 @@ async function wbNewUntitledBoard(kind = "board") {
       try {
         const board = await apiJson(`/whiteboard/boards/${boardId}`, { method: "PUT", body: JSON.stringify({ title: typed.slice(0, 100) }) });
         await refreshBoardList(board);
+        wbBoardPutStep(`Named the map “${board.title}”`, boardId, { title: name }, { title: board.title });
       } catch (err) { /* the map keeps its number; the topic kept its words */ }
     }), { once: true });
   });
@@ -15926,6 +16000,7 @@ async function createNewBoard(preset = null, { reveal = false } = {}) {
       });
       window.wbLastCreatedBoard = board;
       await openWhiteboardBoard(board.id);
+      wbBoardMadeStep(board);
       wbZoomToFit({ animate: false });
       toast(`"${board.title}" started from a template.`);
     } catch (err) {
@@ -16009,6 +16084,7 @@ async function wbCreateBlankBoard(name, kind) {
     // whiteboard until the next board switch, the node was there, the Map
     // chip was not, and none of the keys worked.
     await fetchWhiteboardState();
+    wbBoardMadeStep(board);
     wbScheduleRender();
     if (kind === "map") {
       // Selected, so Tab works on the very first keystroke. A map whose root
@@ -19200,10 +19276,7 @@ async function wbStickyRemind(d, day) {
     });
     loadReminders();
     toast(`Reminder set: ${relativeWhen(reminder.due_at)}.`);
-    pushUndo("Reminder set", async () => {
-      await apiJson(`/reminders/${reminder.id}`, { method: "DELETE" });
-      loadReminders();
-    });
+    pushBinPairUndo("Reminder set", `/reminders/${reminder.id}`, `/reminders/${reminder.id}/restore`, true, loadReminders);
   } catch (error) {
     toast(`The reminder was not set: ${error.message}`, true);
   }
@@ -21116,6 +21189,7 @@ async function createConceptMap() {
     // `allEntries`, and this note is newer than the last fetch.
     await loadEntries();
     await openWhiteboardBoard(board.id);
+    wbBoardMadeStep(board);
     // Selected, because `Tab`/`Enter` act on the selection and an unselected
     // root leaves the map's whole point one undiscoverable click away.
     const placed = wbState.nodes.find((n) => n.entry_id === root.id);

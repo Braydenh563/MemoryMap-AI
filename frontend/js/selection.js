@@ -692,6 +692,7 @@ async function remindFromSelection(text) {
       // can see rather than the server's UTC: same as magicAddReminder.
       body: JSON.stringify({ text, tz_offset_minutes: -new Date().getTimezoneOffset() }),
     });
+    reminderMadeUndo(reminder);
     toast(`Reminder set: ${relativeWhen(reminder.due_at)}.`);
     askNotificationPermission();
     // Same fix as saveChatAnswerAsNote()/saveSelectionAsNote(): unconditional,

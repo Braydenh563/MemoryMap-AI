@@ -711,16 +711,43 @@ def truncate_conversation(
         return {**_summary(conversation), "removed": 0}
 
     removed = (len(messages) - len(keep)) // 2
+    #: What Undo sends back (INBOX 898): the cut-off messages, or the whole row
+    #: when the cut took the chat with it.
+    cut = messages[len(keep):]
     if not keep:
+        kept = _restore_row(conversation)
         log_action(session, "deleted", "conversation", conversation.id)
         session.delete(conversation)
         session.commit()
-        return {"removed": removed, "conversation_deleted": True, "turns": 0}
+        return {"removed": removed, "conversation_deleted": True, "turns": 0, "restore": kept}
 
     conversation.messages = json.dumps(keep)
     conversation.updated_at = utcnow()
     session.commit()
-    return {**_summary(conversation), "removed": removed, "conversation_deleted": False}
+    return {**_summary(conversation), "removed": removed, "conversation_deleted": False, "removed_messages": cut}
+
+
+class TruncateRestoreBody(BaseModel):
+    from_turn: int = Field(ge=0)
+    messages: list[dict] = Field(min_length=1, max_length=2000)
+
+
+@router.post("/{conversation_id}/truncate/restore")
+def restore_truncated(
+    conversation_id: int, body: TruncateRestoreBody, session: Session = Depends(get_session)
+) -> dict:
+    """Undo of `truncate`: the cut-off messages put back from `from_turn` on (INBOX 898)."""
+    conversation = _existing(session, conversation_id)
+    messages = json.loads(conversation.messages)
+    start = body.from_turn * 2
+    if start != len(messages):
+        raise HTTPException(status_code=409, detail="That chat has moved on since, so the messages can't go back.")
+    if any(m.get("role") not in ("user", "assistant") for m in body.messages):
+        raise HTTPException(status_code=422, detail="Only questions and answers can be put back.")
+    conversation.messages = json.dumps(messages + body.messages)
+    conversation.updated_at = utcnow()
+    session.commit()
+    return _summary(conversation)
 
 
 class ForkBody(BaseModel):

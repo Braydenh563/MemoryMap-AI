@@ -12,12 +12,13 @@ from __future__ import annotations
 import json
 
 from fastapi import APIRouter, Depends, Query, Response
+from pydantic import BaseModel, Field
 
 from memorymap.api import paging
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from memorymap.core import deps
+from memorymap.core import deps, undo_bin
 from memorymap.core.database import LIKE_ESCAPE, AskTurn, Entry, like_escape
 from memorymap.core.deps import get_session
 from memorymap.ai.grounding import support as grounding_support
@@ -172,10 +173,17 @@ def pin_ask_turn(turn_id: int, pinned: bool, session: Session = Depends(get_sess
 def delete_ask_turn(turn_id: int, session: Session = Depends(get_session)) -> dict:
     turn = deps.get_or_404(session, AskTurn, turn_id, "That question is not in your history.")
     #: And off the Ask again row, as `forget_recent_question` does.
-    manager.log_action(session, "forgot", "chat", detail=turn.question)
+    marker = manager.log_action(session, "forgot", "chat", detail=turn.question)
+    session.flush()
+    #: Kept for Undo (INBOX 898): the turn and the marker that hid its chip.
+    token = undo_bin.stash(
+        deps.get_config().data_dir,
+        "ask-turns",
+        {"turns": [undo_bin.row_dict(turn)], "marker_ids": [marker.id] if marker else []},
+    )
     session.delete(turn)
     session.commit()
-    return {"deleted": True}
+    return {"deleted": True, "undo_token": token}
 
 
 @router.delete("")
@@ -189,10 +197,48 @@ def clear_ask_history(
     if keep_pinned:
         query = query.where(AskTurn.pinned == False)  # noqa: E712
     rows = session.scalars(query).all()
+    snapshot = [undo_bin.row_dict(row) for row in rows]
     for row in rows:
         session.delete(row)
     #: The Ask again row under the box is these questions too, read from the
     #: audit log (routes_chat `_recent_questions`); a marker ends it there.
-    manager.log_action(session, "cleared", "chat")
+    marker = manager.log_action(session, "cleared", "chat")
+    session.flush()
+    token = undo_bin.stash(
+        deps.get_config().data_dir,
+        "ask-turns",
+        {"turns": snapshot, "marker_ids": [marker.id] if marker else []},
+    )
     session.commit()
-    return {"deleted": len(rows)}
+    return {"deleted": len(rows), "undo_token": token}
+
+
+class RestoreBody(BaseModel):
+    token: str = Field(min_length=1, max_length=64)
+
+
+def restore_ask_markers(session: Session, ids: list[int]) -> None:
+    """Write the `remembered` row that lifts each `forgot` or `cleared` marker.
+
+    The audit log is a history, so a marker is never edited out: a later row
+    says it no longer counts (`routes_chat._recent_questions` reads these).
+    """
+    for marker_id in ids:
+        manager.log_action(session, "remembered", "chat", detail=str(marker_id))
+
+
+@router.post("/restore")
+def restore_ask_turns(body: RestoreBody, session: Session = Depends(get_session)) -> dict:
+    """Put back what `DELETE /ask-history[/{id}]` removed (INBOX 898)."""
+    config = deps.get_config()
+    payload, _ = undo_bin.take(config.data_dir, "ask-turns", body.token)
+    put = 0
+    for data in payload["turns"]:
+        taken = session.get(AskTurn, data["id"]) is not None
+        session.add(undo_bin.row_from(AskTurn, data, keep_id=not taken))
+        put += 1
+    session.flush()
+    restore_ask_markers(session, payload.get("marker_ids", []))
+    session.commit()
+    undo_bin.finish(config.data_dir, body.token)
+    return {"restored": put}

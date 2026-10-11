@@ -59,7 +59,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from memorymap.core import jobruns, model_gate
+from memorymap.core import jobruns, model_gate, undo_bin
 from memorymap.core.database import DerivedFact, Entry, utcnow
 from memorymap.core.logbuffer import safe_value
 
@@ -1281,6 +1281,81 @@ def remove(session: Session, row: DerivedFact, at: datetime | None = None) -> No
     """Tombstone a fact so no later run brings it back."""
     row.deleted_at = at or utcnow()
     session.flush()
+
+
+def tombstoned(session: Session, fact_id: int) -> DerivedFact | None:
+    """A deleted fact the person could have opened before it went (Undo's way back)."""
+    return session.scalars(
+        select(DerivedFact)
+        .join(Entry, Entry.id == DerivedFact.entry_id)
+        .where(
+            DerivedFact.id == fact_id,
+            DerivedFact.deleted_at.is_not(None),
+            Entry.is_deleted.is_(False),
+            Entry.is_private.is_(False),
+        )
+    ).first()
+
+
+def restore(session: Session, row: DerivedFact) -> None:
+    """Undo of `remove`: the fact is live again, and the next run may keep it."""
+    row.deleted_at = None
+    session.flush()
+
+
+def _forgotten_event_type() -> str:
+    import sys
+
+    tensions = sys.modules.get("memorymap.ai.tensions")
+    return tensions.EVENT_TYPE if tensions is not None else "tension"
+
+
+def snapshot(session: Session) -> dict[str, list[dict]]:
+    """Every row `forget` is about to delete, as plain dicts (INBOX 898), so
+    `unforget` can put them back. Taken before, in the same transaction."""
+    from sqlalchemy import or_
+
+    from memorymap.core.database import AuditLog, DerivedTension, NightRun, NoteScore
+
+    def rows(model, *where):  # noqa: ANN001, ANN202
+        return [undo_bin.row_dict(row) for row in session.scalars(select(model).where(*where))]
+
+    return {
+        "facts": rows(DerivedFact),
+        "runs": rows(NightRun),
+        "scores": rows(NoteScore),
+        "tensions": rows(DerivedTension),
+        "events": rows(
+            AuditLog, or_(AuditLog.action == "correction", AuditLog.entity_type == _forgotten_event_type())
+        ),
+    }
+
+
+def unforget(session: Session, saved: dict[str, list[dict]]) -> dict[str, int]:
+    """Put back what `snapshot` took. A row whose id is taken again is left alone."""
+    import sys
+
+    from memorymap.core.database import AuditLog, DerivedTension, NightRun, NoteScore
+
+    put: dict[str, int] = {}
+    for key, model in (
+        ("runs", NightRun),
+        ("facts", DerivedFact),
+        ("scores", NoteScore),
+        ("events", AuditLog),
+        ("tensions", DerivedTension),
+    ):
+        count = 0
+        for data in saved.get(key, []):
+            if session.get(model, data["id"]) is None:
+                session.add(undo_bin.row_from(model, data))
+                count += 1
+        session.flush()
+        put[key] = count
+    tensions = sys.modules.get("memorymap.ai.tensions")
+    if tensions is not None:
+        tensions._built.clear()
+    return put
 
 
 def forget(session: Session) -> dict[str, int]:

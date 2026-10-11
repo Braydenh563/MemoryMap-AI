@@ -84,7 +84,8 @@ function marginCard(card) {
     button("Make a reminder", async (event) => {
       event.currentTarget.disabled = true;
       try {
-        await apiJson("/reminders", { method: "POST", body: JSON.stringify({ text: marginState.paragraph.slice(0, 200), due_at: card.when }) });
+        const made = await apiJson("/reminders", { method: "POST", body: JSON.stringify({ text: marginState.paragraph.slice(0, 200), due_at: card.when }) });
+        reminderMadeUndo(made);
         toast(`Reminder set for ${card.phrase}.`);
       } catch (error) {
         toast(error.message || "Couldn't make that reminder.", true);

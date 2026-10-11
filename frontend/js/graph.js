@@ -50,6 +50,39 @@ let graphSvg = null;
 let graphZoom = null;
 let graphCanvas = null;
 let graphNodesRef = null;
+
+//: **A pin as a step on the undo stack** (INBOX 898). `before` and `after` are
+//: `{ x, y }` or null for "not pinned". Undo and Redo write the pin through
+//: `PUT /graph/pin/{id}` and set it on the live node of whichever renderer is
+//: drawn, so the map shows it without a reload.
+async function graphSetPin(id, point) {
+  const x = point ? point.x : null;
+  const y = point ? point.y : null;
+  await apiJson(`/graph/pin/${id}`, { method: "PUT", body: JSON.stringify({ x, y }) });
+  const live = (typeof gcTab !== "undefined" && gcTab?.byId?.get(id)) || (graphNodesRef || []).find((n) => n.id === id);
+  if (!live) return;
+  live.graph_pin_x = x;
+  live.graph_pin_y = y;
+  live.fx = x;
+  live.fy = y;
+  if (point) {
+    live.x = x;
+    live.y = y;
+  }
+  if (typeof gcTab !== "undefined" && gcTab?.byId?.get(id)) {
+    gcPost(point ? { type: "pin", id, x, y } : { type: "unpin", id }, gcTab);
+    gcRequestDraw(gcTab);
+  } else {
+    renderGraph();
+  }
+}
+
+function graphPinStep(label, changes) {
+  const each = (key) => async () => {
+    for (const change of changes) await graphSetPin(change.id, change[key]);
+  };
+  if (changes.length) pushUndo(label, each("before"), each("after"));
+}
 // A saved view's node positions (GRAPH_PLAN Phase 5, INBOX 275's neighbour
 // row), one render's worth. `graphApplyView` stashes `view.positions` here;
 // the next `renderGraphCanvas()` (graph-canvas.js, the default renderer)
@@ -1487,15 +1520,20 @@ async function linkByDrop(from, to) {
   // The new link's own id, so Undo removes *this* link rather than whatever
   // link happens to join them, they may have been linked twice by different
   // routes, and guessing is how an undo deletes the wrong thing.
-  const made = (updated.links || []).find((link) => link.entry_id === to.id);
+  const action = await pushLinkCreateUndo(
+    from.id,
+    to.id,
+    updated,
+    { target_id: to.id, reason: details.reason, link_type: details.link_type },
+    "Linked two notes",
+    renderGraph
+  );
   toastAction(
     `Linked "${from.preview}" to "${to.preview}".`,
     "Undo",
     async () => {
-      if (!made) return;
-      await api(`/entries/${from.id}/links/${made.link_id}`, { method: "DELETE" });
-      await refreshEntries([from.id, to.id]).catch(() => {});
-      renderGraph();
+      settleUndoFromToast(action);
+      await action.undo();
       toast("Link removed.");
     }
   );
@@ -2556,6 +2594,11 @@ async function renderGraphSvg() {
             d3.select(this).classed("graph-held", true);
             d.graph_pin_x = d.fx;
             d.graph_pin_y = d.fy;
+            graphPinStep("Moved a pinned note", [{
+              id: d.id,
+              before: d.wasPinnedBeforeThisDrag ? { x: d.dragStartX, y: d.dragStartY } : null,
+              after: { x: d.fx, y: d.fy },
+            }]);
             apiJson(`/graph/pin/${d.id}`, {
               method: "PUT",
               body: JSON.stringify({ x: d.graph_pin_x, y: d.graph_pin_y }),
@@ -2625,6 +2668,8 @@ async function renderGraphSvg() {
       if (d.isGroup) return;
       d.graph_pin_x = wasPinned ? null : d.fx;
       d.graph_pin_y = wasPinned ? null : d.fy;
+      const was = wasPinned ? { x: d.fx ?? d.x, y: d.fy ?? d.y } : null;
+      graphPinStep(wasPinned ? "Unpinned a note" : "Pinned a note", [{ id: d.id, before: was, after: d.graph_pin_x == null ? null : { x: d.graph_pin_x, y: d.graph_pin_y } }]);
       apiJson(`/graph/pin/${d.id}`, {
         method: "PUT",
         body: JSON.stringify({ x: d.graph_pin_x, y: d.graph_pin_y }),
@@ -3797,6 +3842,14 @@ function openGraphLinkPeek(edge, event, nodes) {
         toast(error.message || "Couldn't change the link's direction.", true);
         return;
       }
+      pushRequestUndo(
+        next ? "Made a link two-way" : "Made a link one-way",
+        `/entries/${sourceId}/links/${edge.id}`,
+        "PATCH",
+        { two_way: !next },
+        { two_way: next },
+        () => renderGraph()
+      );
       for (const drawn of gcTab.edges) if (drawn.id === edge.id && drawn.kind === "link") drawn.two_way = next;
       edge.two_way = next;
       direction.setAttribute("aria-pressed", String(next));
@@ -4422,10 +4475,12 @@ function graphPopupActionList(entry) {
       title: entry.pinned ? "Remove from Favourites" : "Add to Favourites",
       pressed: Boolean(entry.pinned),
       run: async () => {
-        await apiJson(`/entries/${entry.id}`, {
+        const was = Boolean(entry.pinned);
+        const flipped = await apiJson(`/entries/${entry.id}`, {
           method: "PUT",
-          body: JSON.stringify({ pinned: !entry.pinned }),
+          body: JSON.stringify({ pinned: !was }),
         }).catch((e) => toast(e.message, true));
+        if (flipped) pushEntryPutUndo(entry.id, was ? "Removed from Favourites" : "Added to Favourites", { pinned: was }, { pinned: !was });
         toast(entry.pinned ? "Removed from Favourites." : "Added to Favourites.");
         closeGraphPopup();
         await loadEntries().catch(() => {});
@@ -4441,18 +4496,13 @@ function graphPopupActionList(entry) {
       danger: true,
       run: async () => {
         if (!(await confirmDialog("Move this note to the bin?"))) return;
-        await api(`/entries/${entry.id}`, { method: "DELETE" }).catch((e) =>
-          toast(e.message, true)
-        );
         closeGraphPopup();
-        await refreshEntries([entry.id]).catch(() => {});
+        try {
+          await binNoteWithUndo(entry);
+        } catch (e) {
+          toast(e.message, true);
+        }
         renderGraph();
-        toastAction("Moved to the bin.", "Undo", async () => {
-          await api(`/entries/${entry.id}/restore`, { method: "POST" });
-          await refreshEntries([entry.id]);
-          renderGraph();
-          toast("Note restored.");
-        }, { also: GO_TO_BIN });
       },
     }
   );
@@ -4578,10 +4628,12 @@ async function saveGraphPopup() {
   status.classList.remove("error");
   status.textContent = "Saving…";
   try {
+    const wasTags = String(graphPopupClean.tags || "").split(",").map((t) => t.trim()).filter(Boolean);
     const saved = await apiJson(`/entries/${graphPopupId}`, {
       method: "PUT",
       body: JSON.stringify({ content: $("graph-popup-content").value, tags }),
     });
+    pushEntryPutUndo(graphPopupId, "Edited a note on the map", { content: graphPopupClean.content, tags: wasTags }, { content: $("graph-popup-content").value, tags });
     status.textContent = "Saved.";
     if (typeof offerWikiRename === "function") offerWikiRename(graphPopupId, saved);
     //: What was just written is the new clean state, so the button puts
@@ -4665,6 +4717,7 @@ async function saveGraphNewNote() {
       body: JSON.stringify({ content, tags, defer_filing: true, inline_tags: true }),
     });
     if (created.filing_state === "pending") watchFiling(created);
+    pushEntryCreateUndo(created, "Added a note to the map");
     if (graphNewLinkFrom !== null) {
       await apiJson(`/entries/${graphNewLinkFrom}/links`, {
         method: "POST",
@@ -6015,10 +6068,15 @@ function graphResetToDefaults() {
     return;
   }
   graphApplySettings(GRAPH_DEFAULTS);
-  toastAction("Map settings reset to defaults.", "Undo", () => {
-    graphApplySettings(before);
-    toast("Map settings restored.");
-  });
+  offerUndo(
+    "Reset the map's settings",
+    "Map settings reset to defaults.",
+    () => {
+      graphApplySettings(before);
+      toast("Map settings restored.");
+    },
+    () => graphApplySettings(GRAPH_DEFAULTS)
+  );
 }
 
 document.getElementById("graph-options-reset")?.addEventListener("click", graphResetToDefaults);

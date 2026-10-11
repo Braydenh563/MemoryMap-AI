@@ -823,6 +823,8 @@ const SETTINGS_HISTORY_MAX = 20;
 //: The largest stored entry; past it the way back is dropped and the row says so.
 const SETTINGS_HISTORY_ENTRY_BYTES = 12000;
 
+const settingsHistoryBigKept = new Map();
+
 function settingsHistoryLoad() {
   return prefs.json(SETTINGS_HISTORY_KEY, []).filter((entry) => entry && typeof entry === "object" && entry.id);
 }
@@ -836,10 +838,15 @@ function settingsHistorySave(list) {
 //: that would fail.
 function settingsHistoryEntry(change) {
   const entry = { ...change, id: change.id || `${change.at}-${Math.random().toString(36).slice(2, 6)}` };
-  const unknown = (entry.changes || []).some((c) => c.old === undefined);
+  //: A setting that was never set has no old value to send back: Undo asks the
+  //: notebook to unset it (`unset` on PUT /preferences), so every row can undo.
+  if (entry.kind === "prefs") entry.changes = (entry.changes || []).map((c) => (c.old === undefined ? { ...c, old: null, unset: true } : c));
   const big = JSON.stringify(entry).length > SETTINGS_HISTORY_ENTRY_BYTES;
-  if (unknown || big) {
-    entry.noUndo = true;
+  if (big) {
+    //: Too big for the browser's store: the way back is held in memory, so it
+    //: undoes until the page reloads, and the row says so after that.
+    settingsHistoryBigKept.set(entry.id, { changes: entry.changes, data: entry.data });
+    entry.big = true;
     entry.changes = (entry.changes || []).map((c) => ({ key: c.key }));
     entry.data = null;
   }
@@ -866,12 +873,19 @@ function settingsHistoryFind(change) {
 //: Reapply one side of a change: "old" is Undo, "new" is Redo.
 async function settingsHistoryApply(change, side) {
   const kept = settingsHistoryFind(change) || change;
-  if (kept.noUndo || change.noUndo) throw new Error("That change can't be undone: its old value was not kept.");
+  const held = kept.big ? settingsHistoryBigKept.get(kept.id) : null;
+  if (held) Object.assign(kept, held);
+  if (kept.noUndo || change.noUndo || (kept.big && !held)) throw new Error("That change can't be undone: its old value was not kept.");
   settingsHistoryBusy = true;
   try {
     if (kept.kind === "prefs") {
       const body = {};
-      for (const c of kept.changes) body[c.key] = c[side];
+      const unset = [];
+      for (const c of kept.changes) {
+        if (side === "old" && c.unset) unset.push(c.key);
+        else body[c.key] = c[side];
+      }
+      if (unset.length) body.unset = unset;
       prefsCache = await apiJson("/preferences", { method: "PUT", body: JSON.stringify(body) });
     } else if (kept.kind === "look") {
       for (const c of kept.changes) {
@@ -905,6 +919,11 @@ async function settingsHistoryApply(change, side) {
     else settingsHistoryBusy = false;
   }
   kept.undone = side === "old";
+  if (held) {
+    settingsHistoryBigKept.set(kept.id, { changes: kept.changes, data: kept.data });
+    kept.changes = kept.changes.map((c) => ({ key: c.key }));
+    kept.data = null;
+  }
   const list = settingsHistoryLoad().map((entry) => (entry.id === kept.id ? kept : entry));
   settingsHistorySave(list);
   change.undone = kept.undone;
@@ -952,10 +971,11 @@ function settingsHistoryRow(entry) {
   const when = document.createElement("small");
   when.className = "muted";
   const ago = typeof relativeTime === "function" ? relativeTime(new Date(entry.at).toISOString()) : new Date(entry.at).toLocaleString();
-  when.textContent = entry.undone ? `${ago} · undone` : entry.noUndo ? `${ago} · can't be undone` : ago;
+  const gone = entry.noUndo || (entry.big && !settingsHistoryBigKept.has(entry.id));
+  when.textContent = entry.undone ? `${ago} · undone` : gone ? `${ago} · can't be undone` : ago;
   words.append(label, when);
   li.appendChild(words);
-  if (!entry.noUndo) {
+  if (!gone) {
     //: The row-actions recipe (DESIGN.md): a quiet text action, not a bordered
     //: tonal button (INBOX 848).
     const again = entry.undone;

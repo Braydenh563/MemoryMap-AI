@@ -168,23 +168,25 @@ console.log(JSON.stringify({ removed: removed.length, toasts: toasts.map((t) => 
     assert got["toasts"] == [["A b: 1 to 2", "Undo", 10000]], "a quiet change (its caller raised an Undo) raises none"
 
 
-def test_the_list_keeps_twenty_newest_first_and_drops_the_way_back_it_cannot_keep() -> None:
+def test_the_list_keeps_twenty_newest_first_and_every_row_can_undo() -> None:
     out = _run(
         f"""
 globalThis.settingsModalOpen = () => false;
 globalThis.$ = () => null;
-eval({json.dumps(LISTED)} + "; globalThis.settingsHistoryAdd = settingsHistoryAdd; globalThis.settingsHistoryLoad = settingsHistoryLoad;");
+eval({json.dumps(LISTED)} + "; globalThis.settingsHistoryAdd = settingsHistoryAdd; globalThis.settingsHistoryLoad = settingsHistoryLoad; globalThis.settingsHistoryBigKept = settingsHistoryBigKept;");
 for (let i = 0; i < 25; i++) settingsHistoryAdd({{ kind: "prefs", at: 100000 + i * 10000, sig: "prefs:k" + i, label: "L" + i, changes: [{{ key: "k" + i, old: i, new: i + 1 }}] }});
 settingsHistoryAdd({{ kind: "prefs", at: 900000, sig: "prefs:x", label: "unknown", changes: [{{ key: "x", old: undefined, new: 1 }}] }});
 settingsHistoryAdd({{ kind: "prefs", at: 910000, sig: "prefs:y", label: "huge", changes: [{{ key: "y", old: "a".repeat(20000), new: "b" }}] }});
 const list = settingsHistoryLoad();
-console.log(JSON.stringify({{ n: list.length, newest: list[0].label, second: list[1].label, noUndo: list.slice(0, 2).map((e) => e.noUndo), kept: list[2].label }}));
+console.log(JSON.stringify({{ n: list.length, newest: list[0].label, second: list[1].label, noUndo: list.slice(0, 2).map((e) => Boolean(e.noUndo)), unset: list[1].changes[0].unset === true, big: list[0].big === true, held: settingsHistoryBigKept.has(list[0].id), kept: list[2].label }}));
 """
     )
     got = json.loads(out)
     assert got["n"] == 20
     assert got["newest"] == "huge" and got["second"] == "unknown"
-    assert got["noUndo"] == [True, True], "a value never set, or too big to keep, is listed without an Undo"
+    assert got["noUndo"] == [False, False], "no row is listed without an Undo"
+    assert got["unset"], "a setting never set is undone by unsetting it"
+    assert got["big"] and got["held"], "a value too big for the browser's store is held in memory"
     assert got["kept"] == "L24"
 
 
@@ -224,3 +226,14 @@ def test_the_suggestion_list_is_as_wide_as_its_box_and_never_narrower_than_its_d
     foot = css[css.index(".search-suggest-foot {") :].split("}")[0]
     assert "white-space: nowrap" in foot
     assert "flex: none" in css[css.index(".search-suggest-clear {") :].split("}")[0], "the Clear link keeps its one line"
+
+
+def test_put_preferences_can_unset_a_setting_back_to_its_default(client) -> None:
+    from memorymap.core import deps
+
+    assert client.put("/preferences", json={"recycle_bin_days": 9}).status_code == 200
+    assert deps.get_config().get_preference("recycle_bin_days", None) == 9
+    done = client.put("/preferences", json={"unset": ["recycle_bin_days"]})
+    assert done.status_code == 200, done.text
+    assert deps.get_config().get_preference("recycle_bin_days", None) is None
+    assert client.get("/preferences").json()["recycle_bin_days"] == 30

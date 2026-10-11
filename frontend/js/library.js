@@ -759,10 +759,11 @@ function libraryActions(item) {
         item.pinned ? "ph:push-pin-slash Unpin" : "ph:push-pin Pin",
         item.pinned ? "Let this chat sort by date again" : "Keep this chat at the top",
         async () => {
-          await apiJson(`/conversations/${item.id}/pin`, {
+          const pinned = await apiJson(`/conversations/${item.id}/pin`, {
             method: "PUT",
             body: JSON.stringify({ pinned: !item.pinned }),
           }).catch((e) => toast(e.message, true));
+          if (pinned) chatWriteRecord("chatPinUndo", item.id, !item.pinned);
           reload();
         }
       ),
@@ -805,10 +806,7 @@ function libraryActions(item) {
       makeMenuItem("ph:pencil-simple Rename", "Rename this document", async () => {
         const next = await promptDialog("Rename this document:", item.title);
         if (!next) return;
-        await apiJson(`/documents/${item.id}`, {
-          method: "PUT",
-          body: JSON.stringify({ title: next }),
-        }).catch((e) => toast(e.message, true));
+        await renameDocumentWithUndo(item, next).catch((e) => toast(e.message, true));
         reload();
       }),
       makeMenuItem("ph:download-simple Download .md", "Save a copy as a markdown file", () => {
@@ -828,10 +826,7 @@ function libraryActions(item) {
         remindAbout({ title: item.title, documentId: item.id })
       ),
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not deleted", async () => {
-        await apiJson(`/documents/${item.id}/archive`, { method: "PUT" }).catch((e) =>
-          toast(e.message, true)
-        );
-        toast("Archived.");
+        await archiveDocumentWithUndo(item).catch((e) => toast(e.message, true));
         reload();
       }),
       makeMenuItem("ph:trash Delete", "Delete this document", async () => {
@@ -852,7 +847,10 @@ function libraryActions(item) {
     const bin = binRoutes(item);
     return [
       makeMenuItem("ph:arrow-u-up-left Restore", `Put this ${bin.noun} back`, async () => {
-        await apiJson(bin.restore, { method: "POST" }).catch((e) => toast(e.message, true));
+        const back = await apiJson(bin.restore, { method: "POST" }).catch((e) => toast(e.message, true));
+        if (back && item.subtype !== "reading") {
+          pushBinPairUndo(`Restored “${item.title}” from the bin`, bin.restore.replace(/\/restore$/, ""), bin.restore, true, () => Promise.all([loadLibrary(), bin.reload()]));
+        }
         toast("Restored.");
         reload();
         bin.reload();
@@ -882,7 +880,11 @@ function libraryActions(item) {
         "ph:arrow-u-up-left Unarchive",
         `Bring this ${target.noun} back into your notebook`,
         async () => {
-          await apiJson(target.url, { method: target.method }).catch((e) => toast(e.message, true));
+          const done = await apiJson(target.url, { method: target.method }).catch((e) => toast(e.message, true));
+          if (done !== undefined) {
+            const archive = target.url.replace(/unarchive$/, "archive");
+            pushRoutePairUndo(`Unarchived a ${target.noun}`, [archive, target.method], [target.url, target.method], () => Promise.all([loadLibrary(), target.reload()]));
+          }
           toast("Unarchived.");
           reload();
           target.reload();
@@ -914,9 +916,12 @@ function libraryActions(item) {
         downloadFromApi(`/entries/${item.id}/export.md`, "note.md");
       }),
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not the bin", async () => {
-        await apiJson(`/entries/${item.id}/archive`, { method: "POST" }).catch((e) =>
+        const archived = await apiJson(`/entries/${item.id}/archive`, { method: "POST" }).catch((e) =>
           toast(e.message, true)
         );
+        if (archived !== undefined) {
+          pushRoutePairUndo("Archived a note", [`/entries/${item.id}/unarchive`, "POST"], [`/entries/${item.id}/archive`, "POST"], () => Promise.all([loadLibrary(), refreshEntries([item.id])]));
+        }
         toast("Archived.");
         reload();
         loadEntries();
@@ -957,23 +962,14 @@ function libraryActions(item) {
       makeMenuItem("ph:pencil-simple Rename", "Rename this tag everywhere (merge if it exists)", async () => {
         const next = await promptDialog(`Rename tag “${item.title}” to:`, item.title);
         if (!next || next === item.title) return;
-        const result = await apiJson("/tags/rename", {
-          method: "POST",
-          body: JSON.stringify({ old: item.title, new: next }),
-        }).catch((e) => {
-          toast(e.message, true);
-          return null;
-        });
-        if (result) toast(`Renamed on ${result.changed} note${result.changed === 1 ? "" : "s"}.`);
+        if (!(await ensureModule("tagManager"))) return;
+        await runTagEdit(`Renamed “${item.title}” to “${next}”`, "/tags/rename", { old: item.title, new: next }, { [item.title]: next });
         reload();
         loadEntries();
       }),
       makeMenuItem("ph:trash Remove everywhere", "Take this tag off every note", async () => {
-        if (!(await confirmDialog(`Remove the tag “${item.title}” from every note?\n\nThe notes are untouched.`))) return;
-        await apiJson("/tags/delete", {
-          method: "POST",
-          body: JSON.stringify({ name: item.title }),
-        }).catch((e) => toast(e.message, true));
+        if (!(await ensureModule("tagManager"))) return;
+        await removeTagsEverywhere([item.title]);
         reload();
         loadEntries();
       }),
@@ -1008,8 +1004,9 @@ function libraryActions(item) {
       // (`library-bulk-delete` already has a `file` branch), but nothing
       // offered it from the one place someone looks first.
       makeMenuItem("ph:trash Delete", "Remove this file permanently", async () => {
-        if (!(await confirmDialog(`Delete "${item.title}"?\n\nThis cannot be undone.`))) return;
-        await apiJson(`/files/${item.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
+        if (!(await confirmDialog(`Delete "${item.title}"?\n\nIt moves out of the Library; Undo brings it back.`))) return;
+        const gone = await apiJson(`/files/${item.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
+        if (gone) pushTokenUndo(`Deleted “${item.title}”`, [{ del: [`/files/${item.id}`, "DELETE"], restore: "/files/restore", token: gone.undo_token }], reload);
         toast("Deleted.");
         reload();
       }),
@@ -1050,7 +1047,8 @@ async function linkNoteFromLibrary(item) {
     return;
   }
   try {
-    await apiJson(`/entries/${item.id}/links`, { method: "POST", body: JSON.stringify({ target_id: other.id }) });
+    const made = await apiJson(`/entries/${item.id}/links`, { method: "POST", body: JSON.stringify({ target_id: other.id }) });
+    pushLinkCreateUndo(item.id, other.id, made, { target_id: other.id });
   } catch (error) {
     toast(error.message, true);
     return;
@@ -1561,7 +1559,10 @@ function openLibraryItem(item) {
       const bin = binRoutes(item);
       confirmDialog(`“${item.title}” is in the bin. Restore it?`, { confirmLabel: "Restore" }).then(async (yes) => {
         if (!yes) return;
-        await apiJson(bin.restore, { method: "POST" }).catch((e) => toast(e.message, true));
+        const back = await apiJson(bin.restore, { method: "POST" }).catch((e) => toast(e.message, true));
+        if (back && item.subtype !== "reading") {
+          pushBinPairUndo(`Restored “${item.title}” from the bin`, bin.restore.replace(/\/restore$/, ""), bin.restore, true, () => Promise.all([loadLibrary(), bin.reload()]));
+        }
         loadLibrary();
         bin.reload();
         if (item.subtype === "document") openDocumentFromNote(item.id);
@@ -1624,6 +1625,7 @@ $("binned-restore").addEventListener("click", async () => {
   if (!id) return;
   try {
     await apiJson(`/entries/${id}/restore`, { method: "POST" });
+    pushBinPairUndo("Restored a note from the bin", `/entries/${id}`, `/entries/${id}/restore`, true, () => Promise.all([refreshEntries([id]), loadLibrary()]));
     toast("Restored.");
   } catch (error) {
     toast(voiceLine("failed", { what: "restore that note", why: error.message }), true);
@@ -1865,13 +1867,23 @@ $("library-bulk-restore").addEventListener("click", async () => {
   // every item *attempted*: a per-item 404/500 was silently swallowed and
   // still counted as a success. Track real outcomes instead.
   let restored = 0;
+  const back = [];
   for (const item of chosen) {
     try {
       await apiJson(binRoutes(item).restore, { method: "POST" });
       restored++;
+      if (item.subtype !== "reading") back.push(item);
     } catch {
       // counted below
     }
+  }
+  if (back.length) {
+    pushRoutePairUndo(
+      `Restored ${back.length} item${back.length === 1 ? "" : "s"} from the bin`,
+      back.map((item) => [binRoutes(item).restore.replace(/\/restore$/, ""), "DELETE"]),
+      back.map((item) => [binRoutes(item).restore, "POST"]),
+      () => Promise.all([loadLibrary(), loadEntries(), loadReminders()])
+    );
   }
   if (restored) toast(`Restored ${restored} item${restored === 1 ? "" : "s"}.`);
   const failed = chosen.length - restored;
@@ -1898,6 +1910,9 @@ $("library-bulk-delete").addEventListener("click", async () => {
   // be swallowed by `.catch(() => {})` and still counted toward the
   // unconditional "Deleted N items." toast. Track what actually succeeded.
   let deleted = 0;
+  //: What each recoverable delete needs to come back (INBOX 898): a note or a
+  //: document its bin's restore, a chat the row its DELETE answered with.
+  const comeBack = [];
   for (const item of chosen) {
     const route =
       item.kind === "archived"
@@ -1913,11 +1928,34 @@ $("library-bulk-delete").addEventListener("click", async () => {
                 : null;
     if (!route) continue;
     try {
-      await apiJson(route[0], { method: route[1] });
+      const answer = await apiJson(route[0], { method: route[1] });
       deleted++;
+      if (item.kind === "note") comeBack.push({ route, back: [`/entries/${item.id}/restore`, "POST"] });
+      else if (item.kind === "document") comeBack.push({ route, back: [`/documents/${item.id}/restore`, "POST"] });
+      else if (item.kind === "chat" && answer?.restore) comeBack.push({ route, chat: answer.restore });
     } catch {
       // counted below
     }
+  }
+  if (comeBack.length) {
+    const live = comeBack.map((c) => ({ ...c }));
+    pushUndo(
+      `Deleted ${comeBack.length} item${comeBack.length === 1 ? "" : "s"} from the Library`,
+      async () => {
+        for (const c of live) {
+          if (c.chat) await apiJson("/conversations/restore", { method: "POST", body: JSON.stringify(c.chat) });
+          else await apiJson(c.back[0], { method: c.back[1] });
+        }
+        await Promise.all([loadLibrary(), loadEntries()]);
+      },
+      async () => {
+        for (const c of live) {
+          const answer = await apiJson(c.route[0], { method: c.route[1] });
+          if (c.chat && answer?.restore) c.chat = answer.restore;
+        }
+        await Promise.all([loadLibrary(), loadEntries()]);
+      }
+    );
   }
   if (deleted) toast(`Deleted ${deleted} item${deleted === 1 ? "" : "s"}.`);
   const failed = chosen.length - deleted;
@@ -3094,6 +3132,7 @@ async function importLibraryDocuments(files) {
     }
   }
   if (!made.length) return;
+  offerCreatedDocsUndo(made);
   await renderLibraryDocuments();
   // The list is already on screen and redrawn, so "Show them" would be a
   // button that does nothing; only a single import has somewhere to go.
@@ -3321,10 +3360,7 @@ async function renderLibraryDocuments() {
         makeMenuItem("ph:pencil-simple Rename", "Rename this document", async () => {
           const next = await promptDialog("Rename this document:", doc.title || "");
           if (!next) return;
-          await apiJson(`/documents/${doc.id}`, {
-            method: "PUT",
-            body: JSON.stringify({ title: next }),
-          }).catch((e) => toast(e.message, true));
+          await renameDocumentWithUndo(doc, next).catch((e) => toast(e.message, true));
           renderLibraryDocuments();
         }),
         makeMenuItem("ph:download-simple Download .md", "Save a copy as a markdown file", () => {
@@ -3390,13 +3426,23 @@ $("library-docs-bulk-delete")?.addEventListener("click", async () => {
   );
   if (!ok) return;
   let deleted = 0;
+  const gone = [];
   for (const id of ids) {
     try {
       await apiJson(`/documents/${id}`, { method: "DELETE" });
       deleted++;
+      gone.push(id);
     } catch {
       // counted below, same as the "All" view's own bulk delete
     }
+  }
+  if (gone.length) {
+    pushRoutePairUndo(
+      `Deleted ${gone.length} document${gone.length === 1 ? "" : "s"}`,
+      gone.map((id) => [`/documents/${id}/restore`, "POST"]),
+      gone.map((id) => [`/documents/${id}`, "DELETE"]),
+      () => renderLibraryDocuments()
+    );
   }
   libraryDocsSelection.clear();
   if (deleted) toast(`Deleted ${deleted} document${deleted === 1 ? "" : "s"}.`);
@@ -7748,6 +7794,7 @@ onDomReady(() => {
         method: "POST",
         body: JSON.stringify({ content: body, defer_filing: true }),
       });
+      pushEntryCreateUndo(created, "Saved a picture's text as a note");
       toast("Saved as a note.");
       $("ocr-workspace").classList.add("hidden");
       flashEntry(created.id);
@@ -8118,6 +8165,18 @@ function mediaRowDeleteEndpoint(image) {
   return `/media/${image.id}`;
 }
 
+//: A deleted Library file in the undo kit's shape (INBOX 898): the server kept
+//: its row and bytes under `gone.undo_token`.
+function libraryMediaBinItem(image, endpoint, gone) {
+  return { del: [endpoint, "DELETE"], restore: `${image._isAttachment ? "/files" : "/media"}/restore`, token: gone.undo_token };
+}
+
+//: What shows the Library's files, drawn again after a delete's Undo or Redo.
+const libraryMediaRepaint = (notesToo) => async () => {
+  await renderLibraryImagesGallery();
+  if (notesToo) loadEntries().catch(() => {});
+};
+
 function syncLibraryMediaSelectbar() {
   const bar = document.getElementById("library-media-selectbar");
   const count = document.getElementById("library-media-selected-count");
@@ -8148,14 +8207,17 @@ async function bulkDeleteLibraryMedia() {
     },
   );
   if (!answer.ok) return;
+  const kept = [];
   for (const image of rows) {
     const endpoint = `${mediaRowDeleteEndpoint(image)}${answer.checked ? "?strip_references=true" : ""}`;
-    await apiJson(endpoint, { method: "DELETE" }).catch((err) =>
+    const gone = await apiJson(endpoint, { method: "DELETE" }).catch((err) =>
       toast(err.message, true)
     );
+    if (gone) kept.push(libraryMediaBinItem(image, endpoint, gone));
     const idx = libraryImagesCache.indexOf(image);
     if (idx !== -1) libraryImagesCache.splice(idx, 1);
   }
+  pushTokenUndo(rows.length === 1 ? `Deleted “${rows[0].original_name}”` : `Deleted ${rows.length} files`, kept, libraryMediaRepaint(answer.checked));
   libraryMediaSelection.clear();
   syncLibraryMediaSelectbar();
   filterLibraryImagesGallery();
@@ -8604,9 +8666,10 @@ function filterLibraryImagesGallery() {
       // would either 404 or, worse, delete an unrelated MediaUpload row
       // that happened to share the same numeric id.
       const endpoint = `${mediaRowDeleteEndpoint(image)}${answer.checked ? "?strip_references=true" : ""}`;
-      await apiJson(endpoint, { method: "DELETE" }).catch((err) =>
+      const gone = await apiJson(endpoint, { method: "DELETE" }).catch((err) =>
         toast(err.message, true)
       );
+      if (gone) pushTokenUndo(`Deleted “${image.original_name}”`, [libraryMediaBinItem(image, endpoint, gone)], libraryMediaRepaint(answer.checked));
       //: The notes on screen are now out of date by exactly the edit the
       //: server just made, so they are refetched rather than left showing a
       //: picture that is gone from both the disk and the note.
@@ -8703,6 +8766,17 @@ function filterLibraryImagesGallery() {
           const savedName = image._isAttachment
             ? (saved.attachments || []).find((a) => a.id === image.id)?.filename || next
             : saved.original_name;
+          const wasName = image.original_name;
+          if (savedName !== wasName) {
+            pushRequestUndo(
+              "Renamed a file",
+              image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`,
+              "PUT",
+              image._isAttachment ? { filename: wasName } : { original_name: wasName },
+              image._isAttachment ? { filename: savedName } : { original_name: savedName },
+              () => renderLibraryImagesGallery()
+            );
+          }
           image.original_name = savedName;
           cap.replaceChildren(document.createTextNode(savedName));
           img.alt = savedName;
@@ -10153,7 +10227,8 @@ onDomReady(() => {
         //: decoration: a new row takes its space from it, and this upload,
         //: hand-rolled without it, once landed in "default" rather than the
         //: space being worked in. A refusal throws the server's sentence.
-        await api.upload("/media/upload", form);
+        const made = await (await api.upload("/media/upload", form)).json().catch(() => null);
+        pushUploadUndo(`Uploaded “${file.name}”`, "/media", made, renderLibraryImagesGallery);
         uploaded++;
       } catch (error) {
         toast(`${file.name}: ${error.message}`, true);
@@ -10186,6 +10261,22 @@ onDomReady(() => {
       groupInput.value = "";
       if ($("bookmark-note-input")) $("bookmark-note-input").value = "";
       urlInput.focus();
+      if (!created.duplicate_of && created.id != null) {
+        let liveId = created.id;
+        const body = { url, title: created.title || "", group_name: created.group_name || "", note: created.note || "" };
+        pushUndo(
+          `Added the bookmark “${clipText(created.title || url, 40)}”`,
+          async () => {
+            await apiJson(`/bookmarks/${liveId}`, { method: "DELETE" });
+            await renderBookmarks();
+          },
+          async () => {
+            const again = await apiJson("/bookmarks", { method: "POST", body: JSON.stringify(body) });
+            liveId = again.id ?? liveId;
+            await renderBookmarks();
+          }
+        );
+      }
       if (created.duplicate_of) {
         toast(`Saved: you already had this bookmark (${created.title || created.url}).`);
       }
@@ -10647,20 +10738,41 @@ async function bulkDeleteLibraryLinks() {
 //: body of a `PUT /bookmarks/{id}`; the selection survives (it is pruned by
 //: `renderBookmarks`), so "Move to group" then "Mark read" is two presses, not
 //: a re-select.
+//: Bookmarks written in bulk are one step on the stack (INBOX 898): Undo puts
+//: each one's old fields back, Redo writes the new ones again.
+function pushBookmarksPutUndo(label, items) {
+  const putEach = async (key) => {
+    for (const item of items) {
+      await apiJson(`/bookmarks/${item.id}`, { method: "PUT", body: JSON.stringify(item[key]) }).catch((e) => toast(e.message, true));
+    }
+    await renderBookmarks();
+  };
+  return pushUndo(label, () => putEach("before"), () => putEach("after"));
+}
+
 async function bulkUpdateLibraryLinks(changes, done) {
   const links = [...libraryLinksSelection.values()];
   if (!links.length) return;
   let changed = 0;
+  const written = [];
   for (const bookmark of links) {
     try {
       await apiJson(`/bookmarks/${bookmark.id}`, { method: "PUT", body: JSON.stringify(changes) });
+      written.push({
+        id: bookmark.id,
+        before: Object.fromEntries(Object.keys(changes).map((key) => [key, bookmark[key] ?? (typeof changes[key] === "boolean" ? false : "")])),
+        after: changes,
+      });
       changed++;
     } catch (err) {
       toast(err.message, true);
     }
   }
   libraryLinksSelection.clear();
-  if (changed) toast(done(changed));
+  if (changed) {
+    toast(done(changed));
+    pushBookmarksPutUndo(`Changed ${changed} bookmark${changed === 1 ? "" : "s"}`, written);
+  }
   await renderBookmarks();
 }
 
@@ -10734,12 +10846,14 @@ function allBookmarkGroups() {
 //: a rename is rare and a moment of latency is cheaper than a thundering herd.
 async function renameBookmarkGroup(from, to) {
   let moved = 0;
+  const written = [];
   for (const bookmark of bookmarksCache.filter((b) => b.group_name === from)) {
     try {
       await apiJson(`/bookmarks/${bookmark.id}`, {
         method: "PUT",
         body: JSON.stringify({ group_name: to }),
       });
+      written.push({ id: bookmark.id, before: { group_name: from }, after: { group_name: to } });
       moved++;
     } catch (error) {
       toast(error.message || voiceLine("failed", { what: "move that bookmark" }), true);
@@ -10749,6 +10863,7 @@ async function renameBookmarkGroup(from, to) {
   if (to) empties.push(to);
   setEmptyBookmarkGroups(empties);
   if (bookmarkGroupFilter === from) bookmarkGroupFilter = to || null;
+  if (written.length) pushBookmarksPutUndo(to ? `Renamed the group “${from}”` : `Deleted the group “${from}”`, written);
   return moved;
 }
 
@@ -11303,15 +11418,15 @@ function bookmarkRow(bookmark) {
       }
       save.disabled = true;
       try {
-        await apiJson(`/bookmarks/${bookmark.id}`, {
-          method: "PUT",
-          body: JSON.stringify({
-            title: titleInput.value.trim(),
-            url,
-            group_name: groupInput.value.trim(),
-            note: noteInput.value.trim(),
-          }),
-        });
+        const edited = {
+          title: titleInput.value.trim(),
+          url,
+          group_name: groupInput.value.trim(),
+          note: noteInput.value.trim(),
+        };
+        const wasFields = { title: bookmark.title || "", url: bookmark.url, group_name: bookmark.group_name || "", note: bookmark.note || "" };
+        await apiJson(`/bookmarks/${bookmark.id}`, { method: "PUT", body: JSON.stringify(edited) });
+        pushBookmarksPutUndo("Edited a bookmark", [{ id: bookmark.id, before: wasFields, after: edited }]);
         renderBookmarks();
       } catch (error) {
         save.disabled = false;
@@ -11341,6 +11456,7 @@ function bookmarkRow(bookmark) {
       method: "PUT",
       body: JSON.stringify({ group_name: value }),
     });
+    pushBookmarksPutUndo("Moved a bookmark to another group", [{ id: bookmark.id, before: { group_name: bookmark.group_name || "" }, after: { group_name: value } }]);
     renderBookmarks();
   };
 
@@ -11351,6 +11467,7 @@ function bookmarkRow(bookmark) {
       method: "PUT",
       body: JSON.stringify({ is_read: !bookmark.is_read }),
     });
+    pushBookmarksPutUndo(bookmark.is_read ? "Marked a bookmark unread" : "Marked a bookmark read", [{ id: bookmark.id, before: { is_read: Boolean(bookmark.is_read) }, after: { is_read: !bookmark.is_read } }]);
     renderBookmarks();
   };
 
@@ -11932,8 +12049,12 @@ function contentsRenameTopic(heading, topic) {
     const row = await rename()
       .catch((e) => { toast(`The topic was not renamed: ${e?.message || e}.`, true, { action: ["Try again", rename] }); return null; });
     if (!row) return;
-    if (typeof noteTopicsCache !== "undefined") noteTopicsCache.clear();
-    renderContents();
+    const repaint = () => {
+      if (typeof noteTopicsCache !== "undefined") noteTopicsCache.clear();
+      return renderContents();
+    };
+    pushRequestUndo(`Renamed the topic “${topic.name}”`, "/graph/topics/name", "PUT", { ids: topic.ids, name: topic.name }, { ids: topic.ids, name: wanted }, repaint);
+    repaint();
   };
   field.addEventListener("keydown", (event) => {
     event.stopPropagation();

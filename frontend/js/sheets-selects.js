@@ -1764,6 +1764,7 @@ async function loadConversationList() {
           return null;
         });
         if (!named) return;
+        if (named.title !== conversation.title) chatWriteRecord("chatTitleUndo", conversation.id, conversation.title, named.title);
         if (chatConv.id === conversation.id) $("chat-title").textContent = named.title;
         toast(named.ai_named ? `Named “${named.title}”.` : "Kept the first question as the title.");
         //: The AI naming a conversation is activity, not something the user
@@ -1847,6 +1848,8 @@ function editChatAnswer(handles, turnIndex, current) {
       return;
     }
     if (chatConv.id) {
+      const priorAnswer = chatConv.turns[turnIndex]?.answer;
+      const chatId = chatConv.id;
       try {
         await apiJson(`/conversations/${chatConv.id}/turns/${turnIndex}/answer`, {
           method: "PUT",
@@ -1855,6 +1858,16 @@ function editChatAnswer(handles, turnIndex, current) {
       } catch (error) {
         toast(error.message, true);
         return; // leave the editor open rather than losing the edit
+      }
+      if (priorAnswer != null) {
+        pushRequestUndo(
+          "Edited an answer",
+          `/conversations/${chatId}/turns/${turnIndex}/answer`,
+          "PUT",
+          { content: priorAnswer },
+          { content: next },
+          () => (chatConv?.id === chatId ? openConversation(chatId) : null)
+        );
       }
     }
     if (chatConv.turns[turnIndex]) chatConv.turns[turnIndex].answer = next;

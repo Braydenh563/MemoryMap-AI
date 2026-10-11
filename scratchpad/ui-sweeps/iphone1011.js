@@ -128,8 +128,10 @@ const PROBE = `(() => {
       const out = { small: [], tinyText: [], unsafe: [], wide: [], pageWide: document.documentElement.scrollWidth - W };
       for (const el of I.controls(root)) {
         // A search field's input is the text inside the well; the well
-        // (.search-field) is what a finger aims at.
-        const b = (el.closest('.search-field') || el).getBoundingClientRect();
+        // (.search-field) is what a finger aims at. A Library card's title
+        // is its keyboard stop; a tap anywhere on the card opens it
+        // (library.js, the card's click), so the card is the target.
+        const b = (el.closest('.search-field') || (el.matches('.card-open') && el.closest('.library-card')) || el).getBoundingClientRect();
         // Inline links in running text are text, not targets.
         const inline = el.tagName === 'A' && getComputedStyle(el).display === 'inline';
         if (!inline && (b.width + 0.5 < min || b.height + 0.5 < min) && !I.reaches(el, b, min)) out.small.push(I.name(el) + ' ' + Math.round(b.width) + 'x' + Math.round(b.height));

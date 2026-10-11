@@ -64,7 +64,7 @@ logger = logging.getLogger("memorymap.jobstore")
 #: kind -> "module:function". The handler must be idempotent: a resumed job
 #: may repeat work a killed process had half done. Each of these checks its
 #: stored result first (the "once per picture" guards), which is why these
-#: six and not every kind the pool runs.
+#: and not every kind the pool runs.
 HANDLERS: dict[str, str] = {
     "ocr": "memorymap.core.ocr:extract_and_store",
     "caption": "memorymap.ai.captioning:caption_and_store",
@@ -77,6 +77,15 @@ HANDLERS: dict[str, str] = {
     #: Tidy's link reason pass (INBOX 691): idempotent, a named link no
     #: longer matches, so a resumed pass repeats nothing.
     "tidy-link-reasons": "memorymap.entry.tidy:respecify_all",
+    #: Brief 9, the rest of B2. Each looks up the app's own state when it
+    #: runs and is safe to repeat: a re-index replaces each vector, a pull
+    #: keeps the layers Ollama already has, a scheduled pass (a backup, the
+    #: embedding backfill, the scores, housekeeping) does its whole job
+    #: again, and an autonomous pass re-reads its master switch first.
+    "reindex": "memorymap.ai.model_manager:reindex_notebook",
+    "pull": "memorymap.ai.model_manager:pull_model",
+    "pass": "memorymap.core.passes:run_pass",
+    "autonomous": "memorymap.ai.autonomous:run_pass",
 }
 
 #: A lease lasts this long without a heartbeat. Long enough that a busy

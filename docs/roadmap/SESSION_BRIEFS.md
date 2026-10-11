@@ -86,7 +86,8 @@ use `el.style.x =` or a class).
 ## Brief 9 (Opus): the job runtime, the rest (B2)
 
 Built 2026-10-04 (WORLD_CLASS_PLAN B2, `core/jobstore.py`, `tests/test_jobstore.py`): the `jobs` table, leases with a heartbeat, resume after a real SIGKILL, `GET /jobs`, `GET /jobs/stream`, cancel, for the pool's kinds; the `THREAD_SITES` ratchet in `tests/test_activity.py` holds the thread count.
-Left (WORLD_CLASS_PLAN 805 row 3): the other kinds onto it (re-index, embed backfill, auto-file loop as an enqueuer, skill run, import, backup, model pull), and the "Running now" panel reading `/jobs/stream` with one row recipe.
+State (briefs-1011): the rest is built except one kind; the Built note is in HISTORY.md ("Moved from the plans, 2026-10-11", Brief 9 rest).
+Left: the folder import (`routes_settings.import_directory`, a request task) onto the pool as kind `import`. Its runner is already idempotent (`_already_imported` skips a file by path and text hash), so it can be durable; five test files read its result straight after the POST (`test_import_idempotent`, `test_import_directory_roots`, `test_markdown_export_import`, `test_job_runs`, `test_lan_mode`) and need a wait for the job.
 
 ### Brief 10: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)")
 

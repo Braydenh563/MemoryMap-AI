@@ -580,6 +580,9 @@ def cancel_job(job_id: int) -> dict:
 _STREAM_POLL_SECONDS = 0.5
 _STREAM_PING_SECONDS = 15.0
 _STREAM_MAX_SECONDS = 60.0
+#: The panel's rows are looked at every second (two polls of the counter),
+#: the rate the status bar's own poll had while the panel was open.
+_STREAM_TASKS_EVERY = 2
 
 
 @router.get("/jobs/stream")
@@ -604,15 +607,34 @@ async def jobs_stream(
         body = {"running": jobruns.live(), "now": time.time()}
         return f"event: runs\ndata: {json.dumps(body)}\n\n"
 
+    def tasks_body() -> tuple[str, str]:
+        """The running-now panel's rows, the `/tasks` body (Brief 9): the
+        panel paints from the stream while it is open instead of a poll.
+        Compared without `now`, so an idle list is not resent each look."""
+        body = list_tasks()
+        key = json.dumps({"tasks": body["tasks"], "history": body["history"]}, sort_keys=True, default=str)
+        return key, f"event: tasks\ndata: {json.dumps(body, default=str)}\n\n"
+
     async def events():
         seen = jobstore.version()
         seen_runs = jobruns.version()
-        yield "retry: 3000\n\n" + await asyncio.to_thread(snapshot) + runs()
+        seen_tasks, first_tasks = await asyncio.to_thread(tasks_body)
+        yield "retry: 3000\n\n" + await asyncio.to_thread(snapshot) + runs() + first_tasks
         started = last_sent = time.monotonic()
+        ticks = 0
         while time.monotonic() - started < seconds:
             await asyncio.sleep(_STREAM_POLL_SECONDS)
             if await request.is_disconnected():
                 return
+            ticks += 1
+            #: Every `_STREAM_TASKS_EVERY` looks: the rows are built from
+            #: every kind's own state, so there is no one counter to watch.
+            if ticks % _STREAM_TASKS_EVERY == 0:
+                key, message = await asyncio.to_thread(tasks_body)
+                if key != seen_tasks:
+                    seen_tasks = key
+                    last_sent = time.monotonic()
+                    yield message
             now_version = jobstore.version()
             if now_version != seen:
                 seen = now_version

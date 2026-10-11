@@ -202,11 +202,20 @@ RUNNERS: dict[str, Callable[[], object]] = {
 }
 
 
-def _run(kind: str) -> None:
+def run_pass(kind: str) -> None:
     """The pool job: the pass, with its running mark around it. Only Run
-    now queues it, so its run says the person started it."""
+    now queues it, so its run says the person started it.
+
+    Durable (Brief 9, `jobstore.HANDLERS["pass"]`): a launch after a quit
+    mid-pass runs it again, which every runner here tolerates (a backup is
+    a fresh copy, the scores and the backfill recompute, housekeeping
+    re-checks). A name no longer in `RUNNERS` ends the row with a reason."""
     from memorymap.core import jobruns
 
+    if kind not in RUNNERS:
+        raise LookupError(f"No pass named {kind!r} in this version of the app.")
+    with _lock:
+        _running.add(kind)
     try:
         with jobruns.started_by("you"):
             RUNNERS[kind]()
@@ -237,7 +246,7 @@ def run_now(kind: str) -> tuple[bool, str]:
             return False, f"{_label(kind)} is already running."
         _running.add(kind)
         _stop.discard(kind)
-    if not pool.enqueue("pass", _run, kind, name=_label(kind), dedupe_key=("pass", kind)):
+    if not pool.enqueue("pass", run_pass, kind, name=_label(kind), dedupe_key=("pass", kind)):
         with _lock:
             _running.discard(kind)
         return False, "MemoryMap is shutting down, so nothing was started."

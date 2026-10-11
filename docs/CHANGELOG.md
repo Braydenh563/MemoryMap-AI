@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Background work: a model download, a re-index, a pass you started and an autonomous pass now pick up again after the app is closed part way, and Settings, Running now updates as jobs change instead of on a timer.
 - Help text: nineteen long explanations across the app are now one or two short lines, and the long hints beside Settings menus fold behind their '?' like the others.
 - Settings kept in this browser: every saved choice is now written through one place that never throws, so a private window or a full browser storage no longer breaks the control that saved it; the quick note outbox and the notification list still say when a save was refused.
 - Launcher: `doctor`, `reinstall` and `tools` are one double-click each, as `.sh` and `.bat`: the machine check, a rebuild of the Python environment that asks first and leaves notes alone, and a menu of every launcher action.

@@ -49869,3 +49869,15 @@ Built (triage 2026-10-11): the Settings two-pane shell (`#settings-nav`, back an
 Left: `python3 scratchpad/help-audit/count.py frontend/index.html` prints TOTAL 28 (and `countjs.py` 1 each in `dashboard.js` and `library.js`). Each keeps one line of 70 characters or fewer; the rest moves verbatim into a `.help-body` behind a `data-help-for` button (standing order 6). Done when both counters print 0 and `help-popovers.js` keeps every popover inside the viewport at 1440 and 390.
 
 **Built 2026-10-11 (briefs-1011).** count.py TOTAL 28 to 3 (the three left are Settings, About, owned by the aboutkit agent); countjs 1+1 to 0. Fifteen paragraphs rewritten to one or two lines of 120 characters or fewer rather than moved behind a '?': a '?' per short paragraph would be more chrome than text (the reasoning `SETTINGS_HINT_INLINE_CHARS` records in settings.js). Three long Settings hints beside a select (`.setting-label small.muted`) now collapse behind their '?' like the label hints. count.py stopped counting containers (a dialog, a details, any element holding a block or control) as paragraphs.
+
+### Brief 9, the rest of B2 (briefs-1011)
+
+**Built 2026-10-11 (briefs-1011).** The other kinds onto the durable pool (`core/jobstore.py` HANDLERS, `tests/test_jobs_durable_kinds.py`, 17 tests):
+
+- **Model pull**: `model_manager.start_pull` queues `pull_model(name)` on a new `download` lane (two wide) instead of a thread; durable when the client is the app's own, so a launch after a quit mid-download pulls again and Ollama keeps the layers it has.
+- **Re-index**: `reindex_notebook()` (no arguments, the app's notebook and embedder looked up when it runs) is durable; a test's stand-in pair still runs unremembered.
+- **Scheduled passes run by hand** (backup, embedding backfill, scores, night shift, housekeeping): `passes.run_pass(kind)` is the named handler; an unknown name ends its row with a reason.
+- **The autonomous loop is an enqueuer**: the loop schedules, the pool runs the pass on a new `agent` lane (one wide, so a re-index someone asked for never waits behind it); `trigger_now` queues too. A row resumed after a kill re-reads the master switch first. Thread ratchets lowered: `ai/model_manager.py` 1 to 0, `ai/autonomous.py` 2 to 1, two seeds gone from `test_background_registry`.
+- **The panel on the stream**: `/jobs/stream` carries a `tasks` event (the `/tasks` body, resent only when its rows change, looked at each second); Settings, Running now repaints from it (`renderTasks`, the one row recipe) and the status poll stops painting the panel while the stream is open.
+
+Decisions taken (standing order 3): a **skill run** stays on its chat request, not a pool job: it is a turn streamed to the person, and replaying it after a kill would repeat its tool calls. The **startup embedding backfill** stays at the end of the warm-up thread (the A3 reason recorded there); its Run now is durable through `pass`.

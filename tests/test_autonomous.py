@@ -71,6 +71,10 @@ def test_wake_interrupts_the_sleep_instead_of_waiting_out_the_interval(
 
     ran = threading.Event()
     monkeypatch.setattr(autonomous, "_run_optimization", ran.set)
+    #: The pass runs on the pool (Brief 9): a fresh one, as below.
+    from memorymap.core import jobs
+
+    jobs.shutdown(deadline=0.5)
 
     autonomous.start()
     try:
@@ -99,6 +103,11 @@ def test_a_second_run_is_refused_while_one_is_going(app_state, monkeypatch):
         autonomous._working.clear()
 
     monkeypatch.setattr(autonomous, "_run_optimization", slow_pass)
+    #: Run now queues the pass on the pool (Brief 9); a fresh one, since an
+    #: earlier test's app may have left a pass on the lane.
+    from memorymap.core import jobs
+
+    jobs.shutdown(deadline=0.5)
 
     assert autonomous.trigger_now() is True
     assert running.wait(timeout=5)

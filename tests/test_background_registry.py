@@ -40,11 +40,9 @@ __main__.py::_serve_with_lan.serve_both::task::1
 __main__.py::_serve_with_lan.serve_both::task::2
 __main__.py::_start_tray::thread::1
 ai/autonomous.py::start::thread::1
-ai/autonomous.py::trigger_now::thread::1
 ai/embeddings.py::EmbeddingService._maybe_auto_install_missing_package::thread::1
 ai/embeddings.py::start_warmup::thread::1
 ai/janitor.py::_chat_within_deadline::thread::1
-ai/model_manager.py::start_pull::thread::1
 ai/tools/__init__.py::prefetch_web::executor::1
 api/app.py::_start_searxng_if_asked::thread::1
 api/routes_backups.py::export_bundle::request-task::1

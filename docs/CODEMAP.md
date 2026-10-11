@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5655, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4774, test files 1086, tests 9954, plan headings 953.
+Counts: frontend functions 5655, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4771, test files 1086, tests 9954, plan headings 953.
 
 ## Frontend functions (5655)
 
@@ -9921,7 +9921,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4774)
+## Backend modules (4771)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -10274,140 +10274,139 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `run` | src/memorymap/ai/commands.py:951 |
 | `summarise_done` | src/memorymap/ai/commands.py:682 |
 
-### src/memorymap/ai/composer.py (130)
+### src/memorymap/ai/composer.py (129)
 
 | Name | File:line |
 |---|---|
-| `Dialogue` | src/memorymap/ai/composer.py:2705 |
-| `FollowOn` | src/memorymap/ai/composer.py:2523 |
-| `NoteView` | src/memorymap/ai/composer.py:704 |
-| `Plan` | src/memorymap/ai/composer.py:3186 |
-| `Sentence` | src/memorymap/ai/composer.py:678 |
-| `_Answer` | src/memorymap/ai/composer.py:1281 |
-| `_Meaning` | src/memorymap/ai/composer.py:1172 |
-| `_WORDED_PHRASES` | src/memorymap/ai/composer.py:2766 |
-| `_absent` | src/memorymap/ai/composer.py:3654 |
-| `_acknowledged` | src/memorymap/ai/composer.py:3805 |
-| `_alternatives` | src/memorymap/ai/composer.py:605 |
-| `_answer_turn` | src/memorymap/ai/composer.py:3822 |
-| `_as_typed` | src/memorymap/ai/composer.py:3664 |
-| `_asked_span` | src/memorymap/ai/composer.py:2190 |
-| `_body` | src/memorymap/ai/composer.py:2327 |
-| `_brief_text` | src/memorymap/ai/composer.py:4101 |
-| `_broad_pool` | src/memorymap/ai/composer.py:2306 |
-| `_build_synonyms` | src/memorymap/ai/composer.py:596 |
-| `_clarify` | src/memorymap/ai/composer.py:2844 |
-| `_clusters` | src/memorymap/ai/composer.py:1927 |
-| `_compare` | src/memorymap/ai/composer.py:2120 |
-| `_compose` | src/memorymap/ai/composer.py:3831 |
-| `_confirmed_lead` | src/memorymap/ai/composer.py:2224 |
-| `_count_word` | src/memorymap/ai/composer.py:1535 |
-| `_cue` | src/memorymap/ai/composer.py:1002 |
-| `_did_you_mean` | src/memorymap/ai/composer.py:3646 |
-| `_disagreement` | src/memorymap/ai/composer.py:2052 |
-| `_disagreements` | src/memorymap/ai/composer.py:2060 |
-| `_distinct_ids` | src/memorymap/ai/composer.py:891 |
-| `_due` | src/memorymap/ai/composer.py:1521 |
-| `_earlier` | src/memorymap/ai/composer.py:2032 |
-| `_filtered` | src/memorymap/ai/composer.py:3629 |
-| `_fit_terms` | src/memorymap/ai/composer.py:2904 |
-| `_follow_one` | src/memorymap/ai/composer.py:2591 |
-| `_fusable` | src/memorymap/ai/composer.py:1703 |
-| `_help_answer` | src/memorymap/ai/composer.py:3258 |
-| `_help_result` | src/memorymap/ai/composer.py:3765 |
-| `_holds` | src/memorymap/ai/composer.py:610 |
-| `_in_window` | src/memorymap/ai/composer.py:3351 |
-| `_insight_close` | src/memorymap/ai/composer.py:2243 |
-| `_insight_lead` | src/memorymap/ai/composer.py:2262 |
-| `_insights_for` | src/memorymap/ai/composer.py:2203 |
-| `_jaccard` | src/memorymap/ai/composer.py:1092 |
-| `_joined` | src/memorymap/ai/composer.py:1721 |
-| `_lead_block` | src/memorymap/ai/composer.py:1876 |
-| `_list_block` | src/memorymap/ai/composer.py:1749 |
-| `_list_sentence` | src/memorymap/ai/composer.py:1738 |
-| `_lowered` | src/memorymap/ai/composer.py:1577 |
-| `_mentions` | src/memorymap/ai/composer.py:2274 |
-| `_missing` | src/memorymap/ai/composer.py:2089 |
-| `_month` | src/memorymap/ai/composer.py:3425 |
-| `_multi` | src/memorymap/ai/composer.py:2804 |
-| `_named_notes` | src/memorymap/ai/composer.py:2537 |
-| `_newest` | src/memorymap/ai/composer.py:2400 |
-| `_next_questions` | src/memorymap/ai/composer.py:2428 |
-| `_note_words` | src/memorymap/ai/composer.py:3797 |
-| `_nothing` | src/memorymap/ai/composer.py:3670 |
-| `_one_syllable_cvc` | src/memorymap/ai/composer.py:526 |
-| `_opening` | src/memorymap/ai/composer.py:1811 |
-| `_others` | src/memorymap/ai/composer.py:1951 |
-| `_overview_answer` | src/memorymap/ai/composer.py:3392 |
-| `_overview_bullets` | src/memorymap/ai/composer.py:3515 |
-| `_overview_groups` | src/memorymap/ai/composer.py:3499 |
-| `_overview_lead` | src/memorymap/ai/composer.py:3476 |
-| `_overview_line` | src/memorymap/ai/composer.py:3531 |
-| `_overview_links` | src/memorymap/ai/composer.py:3567 |
-| `_overview_list` | src/memorymap/ai/composer.py:3552 |
-| `_overview_name_chip` | src/memorymap/ai/composer.py:3593 |
-| `_overview_next` | src/memorymap/ai/composer.py:3579 |
-| `_overview_over_broad` | src/memorymap/ai/composer.py:3450 |
-| `_overview_subject` | src/memorymap/ai/composer.py:3432 |
-| `_overview_tag_chip` | src/memorymap/ai/composer.py:3605 |
-| `_pick` | src/memorymap/ai/composer.py:1553 |
-| `_picture_run` | src/memorymap/ai/composer.py:1675 |
-| `_picture_said` | src/memorymap/ai/composer.py:1647 |
-| `_picture_spans` | src/memorymap/ai/composer.py:850 |
-| `_picture_units` | src/memorymap/ai/composer.py:868 |
-| `_quoted_lines` | src/memorymap/ai/composer.py:1667 |
-| `_quotes` | src/memorymap/ai/composer.py:1609 |
-| `_raw` | src/memorymap/ai/composer.py:4001 |
-| `_read_in_dialogue` | src/memorymap/ai/composer.py:3779 |
-| `_readings` | src/memorymap/ai/composer.py:2883 |
-| `_recall` | src/memorymap/ai/composer.py:3359 |
-| `_recall_next` | src/memorymap/ai/composer.py:3617 |
-| `_relation` | src/memorymap/ai/composer.py:1910 |
+| `Dialogue` | src/memorymap/ai/composer.py:2700 |
+| `FollowOn` | src/memorymap/ai/composer.py:2518 |
+| `NoteView` | src/memorymap/ai/composer.py:699 |
+| `Plan` | src/memorymap/ai/composer.py:3181 |
+| `Sentence` | src/memorymap/ai/composer.py:673 |
+| `_Answer` | src/memorymap/ai/composer.py:1276 |
+| `_Meaning` | src/memorymap/ai/composer.py:1167 |
+| `_WORDED_PHRASES` | src/memorymap/ai/composer.py:2761 |
+| `_absent` | src/memorymap/ai/composer.py:3649 |
+| `_acknowledged` | src/memorymap/ai/composer.py:3800 |
+| `_alternatives` | src/memorymap/ai/composer.py:600 |
+| `_answer_turn` | src/memorymap/ai/composer.py:3817 |
+| `_as_typed` | src/memorymap/ai/composer.py:3659 |
+| `_asked_span` | src/memorymap/ai/composer.py:2185 |
+| `_body` | src/memorymap/ai/composer.py:2322 |
+| `_brief_text` | src/memorymap/ai/composer.py:4096 |
+| `_broad_pool` | src/memorymap/ai/composer.py:2301 |
+| `_build_synonyms` | src/memorymap/ai/composer.py:591 |
+| `_clarify` | src/memorymap/ai/composer.py:2839 |
+| `_clusters` | src/memorymap/ai/composer.py:1922 |
+| `_compare` | src/memorymap/ai/composer.py:2115 |
+| `_compose` | src/memorymap/ai/composer.py:3826 |
+| `_confirmed_lead` | src/memorymap/ai/composer.py:2219 |
+| `_count_word` | src/memorymap/ai/composer.py:1530 |
+| `_cue` | src/memorymap/ai/composer.py:997 |
+| `_did_you_mean` | src/memorymap/ai/composer.py:3641 |
+| `_disagreement` | src/memorymap/ai/composer.py:2047 |
+| `_disagreements` | src/memorymap/ai/composer.py:2055 |
+| `_distinct_ids` | src/memorymap/ai/composer.py:886 |
+| `_due` | src/memorymap/ai/composer.py:1516 |
+| `_earlier` | src/memorymap/ai/composer.py:2027 |
+| `_filtered` | src/memorymap/ai/composer.py:3624 |
+| `_fit_terms` | src/memorymap/ai/composer.py:2899 |
+| `_follow_one` | src/memorymap/ai/composer.py:2586 |
+| `_fusable` | src/memorymap/ai/composer.py:1698 |
+| `_help_answer` | src/memorymap/ai/composer.py:3253 |
+| `_help_result` | src/memorymap/ai/composer.py:3760 |
+| `_holds` | src/memorymap/ai/composer.py:605 |
+| `_in_window` | src/memorymap/ai/composer.py:3346 |
+| `_insight_close` | src/memorymap/ai/composer.py:2238 |
+| `_insight_lead` | src/memorymap/ai/composer.py:2257 |
+| `_insights_for` | src/memorymap/ai/composer.py:2198 |
+| `_jaccard` | src/memorymap/ai/composer.py:1087 |
+| `_joined` | src/memorymap/ai/composer.py:1716 |
+| `_lead_block` | src/memorymap/ai/composer.py:1871 |
+| `_list_block` | src/memorymap/ai/composer.py:1744 |
+| `_list_sentence` | src/memorymap/ai/composer.py:1733 |
+| `_lowered` | src/memorymap/ai/composer.py:1572 |
+| `_mentions` | src/memorymap/ai/composer.py:2269 |
+| `_missing` | src/memorymap/ai/composer.py:2084 |
+| `_month` | src/memorymap/ai/composer.py:3420 |
+| `_multi` | src/memorymap/ai/composer.py:2799 |
+| `_named_notes` | src/memorymap/ai/composer.py:2532 |
+| `_newest` | src/memorymap/ai/composer.py:2395 |
+| `_next_questions` | src/memorymap/ai/composer.py:2423 |
+| `_note_words` | src/memorymap/ai/composer.py:3792 |
+| `_nothing` | src/memorymap/ai/composer.py:3665 |
+| `_one_syllable_cvc` | src/memorymap/ai/composer.py:521 |
+| `_opening` | src/memorymap/ai/composer.py:1806 |
+| `_others` | src/memorymap/ai/composer.py:1946 |
+| `_overview_answer` | src/memorymap/ai/composer.py:3387 |
+| `_overview_bullets` | src/memorymap/ai/composer.py:3510 |
+| `_overview_groups` | src/memorymap/ai/composer.py:3494 |
+| `_overview_lead` | src/memorymap/ai/composer.py:3471 |
+| `_overview_line` | src/memorymap/ai/composer.py:3526 |
+| `_overview_links` | src/memorymap/ai/composer.py:3562 |
+| `_overview_list` | src/memorymap/ai/composer.py:3547 |
+| `_overview_name_chip` | src/memorymap/ai/composer.py:3588 |
+| `_overview_next` | src/memorymap/ai/composer.py:3574 |
+| `_overview_over_broad` | src/memorymap/ai/composer.py:3445 |
+| `_overview_subject` | src/memorymap/ai/composer.py:3427 |
+| `_overview_tag_chip` | src/memorymap/ai/composer.py:3600 |
+| `_pick` | src/memorymap/ai/composer.py:1548 |
+| `_picture_run` | src/memorymap/ai/composer.py:1670 |
+| `_picture_said` | src/memorymap/ai/composer.py:1642 |
+| `_picture_spans` | src/memorymap/ai/composer.py:845 |
+| `_picture_units` | src/memorymap/ai/composer.py:863 |
+| `_quoted_lines` | src/memorymap/ai/composer.py:1662 |
+| `_quotes` | src/memorymap/ai/composer.py:1604 |
+| `_raw` | src/memorymap/ai/composer.py:3996 |
+| `_read_in_dialogue` | src/memorymap/ai/composer.py:3774 |
+| `_readings` | src/memorymap/ai/composer.py:2878 |
+| `_recall` | src/memorymap/ai/composer.py:3354 |
+| `_recall_next` | src/memorymap/ai/composer.py:3612 |
+| `_relation` | src/memorymap/ai/composer.py:1905 |
 | `_respell` | src/memorymap/ai/composer.py:461 |
-| `_result` | src/memorymap/ai/composer.py:3325 |
-| `_said_before` | src/memorymap/ai/composer.py:1802 |
-| `_said_insight` | src/memorymap/ai/composer.py:2217 |
-| `_said_with_before` | src/memorymap/ai/composer.py:1641 |
-| `_score` | src/memorymap/ai/composer.py:1024 |
-| `_sentence_case` | src/memorymap/ai/composer.py:1713 |
-| `_span` | src/memorymap/ai/composer.py:1858 |
-| `_span_of` | src/memorymap/ai/composer.py:3463 |
-| `_standing` | src/memorymap/ai/composer.py:2578 |
-| `_stem` | src/memorymap/ai/composer.py:536 |
-| `_subject_stems` | src/memorymap/ai/composer.py:3444 |
-| `_summary` | src/memorymap/ai/composer.py:2293 |
-| `_templates_in` | src/memorymap/ai/composer.py:2756 |
-| `_time_phrase` | src/memorymap/ai/composer.py:3204 |
-| `_timeline` | src/memorymap/ai/composer.py:2010 |
-| `_title` | src/memorymap/ai/composer.py:784 |
-| `_unit` | src/memorymap/ai/composer.py:802 |
-| `_unlike_before` | src/memorymap/ai/composer.py:1795 |
-| `_utility` | src/memorymap/ai/composer.py:3341 |
-| `_was_said` | src/memorymap/ai/composer.py:1083 |
-| `_with_context` | src/memorymap/ai/composer.py:1593 |
-| `_without_length` | src/memorymap/ai/composer.py:2515 |
-| `_words` | src/memorymap/ai/composer.py:619 |
-| `_written` | src/memorymap/ai/composer.py:766 |
-| `_yes_no_wrapped` | src/memorymap/ai/composer.py:490 |
-| `brief` | src/memorymap/ai/composer.py:4007 |
-| `centrality` | src/memorymap/ai/composer.py:1229 |
-| `classify` | src/memorymap/ai/composer.py:495 |
-| `compare_sides` | src/memorymap/ai/composer.py:663 |
-| `compose` | src/memorymap/ai/composer.py:3695 |
-| `disagree` | src/memorymap/ai/composer.py:1260 |
-| `follow_on` | src/memorymap/ai/composer.py:2548 |
-| `help_line` | src/memorymap/ai/composer.py:3291 |
-| `length_wish` | src/memorymap/ai/composer.py:2176 |
+| `_result` | src/memorymap/ai/composer.py:3320 |
+| `_said_before` | src/memorymap/ai/composer.py:1797 |
+| `_said_insight` | src/memorymap/ai/composer.py:2212 |
+| `_said_with_before` | src/memorymap/ai/composer.py:1636 |
+| `_score` | src/memorymap/ai/composer.py:1019 |
+| `_sentence_case` | src/memorymap/ai/composer.py:1708 |
+| `_span` | src/memorymap/ai/composer.py:1853 |
+| `_span_of` | src/memorymap/ai/composer.py:3458 |
+| `_standing` | src/memorymap/ai/composer.py:2573 |
+| `_stem` | src/memorymap/ai/composer.py:531 |
+| `_subject_stems` | src/memorymap/ai/composer.py:3439 |
+| `_summary` | src/memorymap/ai/composer.py:2288 |
+| `_templates_in` | src/memorymap/ai/composer.py:2751 |
+| `_time_phrase` | src/memorymap/ai/composer.py:3199 |
+| `_timeline` | src/memorymap/ai/composer.py:2005 |
+| `_title` | src/memorymap/ai/composer.py:779 |
+| `_unit` | src/memorymap/ai/composer.py:797 |
+| `_unlike_before` | src/memorymap/ai/composer.py:1790 |
+| `_utility` | src/memorymap/ai/composer.py:3336 |
+| `_was_said` | src/memorymap/ai/composer.py:1078 |
+| `_with_context` | src/memorymap/ai/composer.py:1588 |
+| `_without_length` | src/memorymap/ai/composer.py:2510 |
+| `_words` | src/memorymap/ai/composer.py:614 |
+| `_written` | src/memorymap/ai/composer.py:761 |
+| `brief` | src/memorymap/ai/composer.py:4002 |
+| `centrality` | src/memorymap/ai/composer.py:1224 |
+| `classify` | src/memorymap/ai/composer.py:490 |
+| `compare_sides` | src/memorymap/ai/composer.py:658 |
+| `compose` | src/memorymap/ai/composer.py:3690 |
+| `disagree` | src/memorymap/ai/composer.py:1255 |
+| `follow_on` | src/memorymap/ai/composer.py:2543 |
+| `help_line` | src/memorymap/ai/composer.py:3286 |
+| `length_wish` | src/memorymap/ai/composer.py:2171 |
 | `phrase_options` | src/memorymap/ai/composer.py:320 |
-| `plan` | src/memorymap/ai/composer.py:3209 |
-| `read_note` | src/memorymap/ai/composer.py:912 |
+| `plan` | src/memorymap/ai/composer.py:3204 |
+| `read_note` | src/memorymap/ai/composer.py:907 |
 | `rephrase` | src/memorymap/ai/composer.py:468 |
-| `select` | src/memorymap/ai/composer.py:1097 |
-| `social` | src/memorymap/ai/composer.py:3131 |
-| `social_kind` | src/memorymap/ai/composer.py:3122 |
-| `source_kind` | src/memorymap/ai/composer.py:904 |
-| `split_parts` | src/memorymap/ai/composer.py:2787 |
-| `subject_terms` | src/memorymap/ai/composer.py:626 |
+| `select` | src/memorymap/ai/composer.py:1092 |
+| `social` | src/memorymap/ai/composer.py:3126 |
+| `social_kind` | src/memorymap/ai/composer.py:3117 |
+| `source_kind` | src/memorymap/ai/composer.py:899 |
+| `split_parts` | src/memorymap/ai/composer.py:2782 |
+| `subject_terms` | src/memorymap/ai/composer.py:621 |
 
 ### src/memorymap/ai/composer_ack.py (3)
 
@@ -11748,24 +11747,23 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `refresh` | src/memorymap/ai/tensions.py:521 |
 | `sources_version` | src/memorymap/ai/tensions.py:342 |
 
-### src/memorymap/ai/timetravel.py (14)
+### src/memorymap/ai/timetravel.py (13)
 
 | Name | File:line |
 |---|---|
 | `Then` | src/memorymap/ai/timetravel.py:41 |
 | `_aware` | src/memorymap/ai/timetravel.py:52 |
-| `_overlap` | src/memorymap/ai/timetravel.py:177 |
+| `_overlap` | src/memorymap/ai/timetravel.py:172 |
 | `_revisions` | src/memorymap/ai/timetravel.py:58 |
 | `_terms` | src/memorymap/ai/timetravel.py:93 |
 | `_then` | src/memorymap/ai/timetravel.py:73 |
-| `claims` | src/memorymap/ai/timetravel.py:171 |
+| `claims` | src/memorymap/ai/timetravel.py:166 |
 | `day_words` | src/memorymap/ai/timetravel.py:148 |
 | `end_of_day` | src/memorymap/ai/timetravel.py:140 |
-| `notebook_began` | src/memorymap/ai/timetravel.py:154 |
 | `revision_candidates` | src/memorymap/ai/timetravel.py:99 |
 | `rewind` | src/memorymap/ai/timetravel.py:117 |
 | `text_as_of` | src/memorymap/ai/timetravel.py:86 |
-| `then_and_now` | src/memorymap/ai/timetravel.py:184 |
+| `then_and_now` | src/memorymap/ai/timetravel.py:179 |
 
 ### src/memorymap/ai/tool_fallback.py (1)
 
@@ -15127,7 +15125,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `record` | src/memorymap/core/usage.py:50 |
 | `summary` | src/memorymap/core/usage.py:70 |
 
-### src/memorymap/core/vault.py (20)
+### src/memorymap/core/vault.py (19)
 
 | Name | File:line |
 |---|---|
@@ -15137,19 +15135,18 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `create` | src/memorymap/core/vault.py:152 |
 | `exists` | src/memorymap/core/vault.py:148 |
 | `grant` | src/memorymap/core/vault.py:101 |
-| `has_recovery` | src/memorymap/core/vault.py:235 |
 | `is_granted` | src/memorymap/core/vault.py:107 |
 | `is_open` | src/memorymap/core/vault.py:68 |
-| `issue_recovery` | src/memorymap/core/vault.py:245 |
+| `issue_recovery` | src/memorymap/core/vault.py:240 |
 | `key` | src/memorymap/core/vault.py:74 |
 | `open_with` | src/memorymap/core/vault.py:170 |
-| `open_with_recovery` | src/memorymap/core/vault.py:262 |
-| `recovery_created_at` | src/memorymap/core/vault.py:240 |
+| `open_with_recovery` | src/memorymap/core/vault.py:257 |
+| `recovery_created_at` | src/memorymap/core/vault.py:235 |
 | `request_scope` | src/memorymap/core/vault.py:128 |
 | `revoke` | src/memorymap/core/vault.py:111 |
 | `revoke_all` | src/memorymap/core/vault.py:121 |
 | `rewrap` | src/memorymap/core/vault.py:204 |
-| `rewrap_with` | src/memorymap/core/vault.py:276 |
+| `rewrap_with` | src/memorymap/core/vault.py:271 |
 | `set_key` | src/memorymap/core/vault.py:191 |
 
 ### src/memorymap/core/webclip.py (17)
@@ -17117,7 +17114,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 0. Performance and "not device heavy" (cross-cutting, first) | docs/roadmap/PLAN.md:26 |
 | 0. The diagnosis in one page | docs/roadmap/WORLD_CLASS_PLAN.md:25 |
 | 0. The operating protocol (read every session, it is short) | docs/roadmap/SESSION_BRIEFS.md:17 |
-| 1. Decisions made (do not remake) | docs/roadmap/SESSION_BRIEFS.md:172 |
+| 1. Decisions made (do not remake) | docs/roadmap/SESSION_BRIEFS.md:173 |
 | 1. Format panel, Style tab | docs/roadmap/WHITEBOARD_PLAN.md:977 |
 | 1. Live log console (started, not finished) | docs/roadmap/BACKLOG.md:32 |
 | 1. Research read, 2026-10-10, and what each changes here | docs/roadmap/CHAT_PLAN.md:1582 |
@@ -17265,7 +17262,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 19.5 What the review has not covered yet | docs/roadmap/WORLD_CLASS_PLAN.md:2057 |
 | 2. Competitors: what they have that MemoryMap does not (checked, not | docs/roadmap/WORLD_CLASS_PLAN.md:225 |
 | 2. Documents: to the level of Obsidian / Typora / iA Writer | docs/roadmap/PLAN.md:61 |
-| 2. Done when | docs/roadmap/SESSION_BRIEFS.md:202 |
+| 2. Done when | docs/roadmap/SESSION_BRIEFS.md:203 |
 | 2. Format panel, Text tab, and the Arrange tab | docs/roadmap/WHITEBOARD_PLAN.md:1010 |
 | 2. Packaging and distribution | docs/roadmap/ANALYSIS.md:4195 |
 | 2. Quick wins | docs/roadmap/BACKLOG.md:85 |
@@ -17342,7 +17339,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 3. Backend: fix and redesign | docs/roadmap/PLAN.md:81 |
 | 3. Chat page: Chat / Agent / Browse sub-tabs | docs/roadmap/BACKLOG.md:118 |
 | 3. Edit style, Edit data, placeholders, tooltips | docs/roadmap/WHITEBOARD_PLAN.md:1054 |
-| 3. Files | docs/roadmap/SESSION_BRIEFS.md:229 |
+| 3. Files | docs/roadmap/SESSION_BRIEFS.md:230 |
 | 3. Frontend dossiers (one per surface, each a hand-off brief) | docs/roadmap/WORLD_CLASS_PLAN.md:289 |
 | 3. Metadata and dependencies | docs/roadmap/ANALYSIS.md:4222 |
 | 3. Research: what the field actually offers | docs/roadmap/MINDMAP_PLAN.md:79 |
@@ -17371,7 +17368,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 34. Where I'd take this: an outside read | docs/roadmap/ANALYSIS.md:494 |
 | 34b. Judging another agent's branch: what was kept, and on what grounds | docs/roadmap/ANALYSIS.md:625 |
 | 4. Agent harness: "the ultimate agent harness" | docs/roadmap/PLAN.md:99 |
-| 4. Agents | docs/roadmap/SESSION_BRIEFS.md:238 |
+| 4. Agents | docs/roadmap/SESSION_BRIEFS.md:239 |
 | 4. Connectors: edge styles, waypoints, jumps, arrowheads, labels | docs/roadmap/WHITEBOARD_PLAN.md:1068 |
 | 4. Decisions made (do not re-decide) | docs/roadmap/CHAT_PLAN.md:74 |
 | 4. Decisions made (do not re-decide) | docs/roadmap/TIMELINE_PLAN.md:58 |
@@ -17400,7 +17397,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 5. Ship order (suggested sprints, each ends green + measured) | docs/roadmap/PLAN.md:114 |
 | 5. The feature set, in build order | docs/roadmap/MINDMAP_PLAN.md:156 |
 | 5. The phases | docs/roadmap/DOCUMENTS_PLAN.md:160 |
-| 5. Traps | docs/roadmap/SESSION_BRIEFS.md:249 |
+| 5. Traps | docs/roadmap/SESSION_BRIEFS.md:250 |
 | 5. Warnings: bug classes, not features to copy | docs/roadmap/ANALYSIS.md:2529 |
 | 59. Three sibling repos, read and triaged, claude-obsidian, cognee, graphify | docs/roadmap/ANALYSIS.md:682 |
 | 6. Competitor matrix (what the plan takes from whom) | docs/roadmap/DOCUMENTS_PLAN.md:482 |
@@ -17413,7 +17410,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 6. Measuring "professional" without telemetry | docs/roadmap/WORLD_CLASS_PLAN.md:713 |
 | 6. Not verified | docs/roadmap/CHAT_PLAN.md:1654 |
 | 6. OpenAI-compatible backends: **done** | docs/roadmap/BACKLOG.md:389 |
-| 6. Rows added after this brief (the owner's later asks land here) | docs/roadmap/SESSION_BRIEFS.md:259 |
+| 6. Rows added after this brief (the owner's later asks land here) | docs/roadmap/SESSION_BRIEFS.md:260 |
 | 6. Semantic search and the knowledge graph, "the ultimate upgrade" | docs/roadmap/PLAN.md:128 |
 | 6. The companion and device pairing | docs/roadmap/ANALYSIS.md:4295 |
 | 60. Odysseus, re-read: the repo tripled in size, and this time the question was answered from its own words | docs/roadmap/ANALYSIS.md:792 |
@@ -17498,83 +17495,83 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | B6 · Designed states: Medium | docs/roadmap/MODERNISATION_AUDIT.md:454 |
 | B7 The API contract | docs/roadmap/WORLD_CLASS_PLAN.md:642 |
 | B8 Extensions | docs/roadmap/WORLD_CLASS_PLAN.md:654 |
-| Brief 100: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:572 |
-| Brief 101 (Sonnet, three agents): the found-not-fixed ledger, placed (the owner: "make sure you cover all bugs and issues found and not fixed as well") | docs/roadmap/SESSION_BRIEFS.md:574 |
-| Brief 102 (Opus, lansafe): LAN safe by default on any network (INBOX 867) | docs/roadmap/SESSION_BRIEFS.md:583 |
-| Brief 103: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:592 |
-| Brief 104 (Opus, after atlas): typos read in context, not as slang (INBOX 869) | docs/roadmap/SESSION_BRIEFS.md:594 |
-| Brief 10: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:91 |
-| Brief 11: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:93 |
-| Brief 12: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:95 |
-| Brief 13: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:97 |
-| Brief 14: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:99 |
-| Brief 15: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:101 |
-| Brief 16: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:115 |
-| Brief 17: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:117 |
-| Brief 18: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:119 |
-| Brief 19: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:121 |
+| Brief 100: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:573 |
+| Brief 101 (Sonnet, three agents): the found-not-fixed ledger, placed (the owner: "make sure you cover all bugs and issues found and not fixed as well") | docs/roadmap/SESSION_BRIEFS.md:575 |
+| Brief 102 (Opus, lansafe): LAN safe by default on any network (INBOX 867) | docs/roadmap/SESSION_BRIEFS.md:584 |
+| Brief 103: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:593 |
+| Brief 104 (Opus, after atlas): typos read in context, not as slang (INBOX 869) | docs/roadmap/SESSION_BRIEFS.md:595 |
+| Brief 10: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:92 |
+| Brief 11: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:94 |
+| Brief 12: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:96 |
+| Brief 13: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:98 |
+| Brief 14: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:100 |
+| Brief 15: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:102 |
+| Brief 16: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:116 |
+| Brief 17: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:118 |
+| Brief 18: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:120 |
+| Brief 19: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:122 |
 | Brief 1: W3-1: one visibility-aware scheduler (PLAN P1) | docs/roadmap/MODERNISATION_AUDIT.md:1111 |
 | Brief 1: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:70 |
-| Brief 20: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:123 |
-| Brief 21: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:125 |
-| Brief 22: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:127 |
-| Brief 23: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:129 |
-| Brief 24: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:131 |
-| Brief 27 (Opus): UI Phase 11, the phone | docs/roadmap/SESSION_BRIEFS.md:135 |
+| Brief 20: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:124 |
+| Brief 21: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:126 |
+| Brief 22: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:128 |
+| Brief 23: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:130 |
+| Brief 24: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:132 |
+| Brief 27 (Opus): UI Phase 11, the phone | docs/roadmap/SESSION_BRIEFS.md:136 |
 | Brief 2: W2-1: collapse the Notes chrome stack | docs/roadmap/MODERNISATION_AUDIT.md:1157 |
 | Brief 2: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:72 |
-| Brief 32: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:147 |
-| Brief 33: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:145 |
-| Brief 34 (Opus, two agents): characters, the faces, the companion and Atlas, to the end | docs/roadmap/SESSION_BRIEFS.md:149 |
-| Brief 34 continues (Opus, high): Atlas and the companion | docs/roadmap/SESSION_BRIEFS.md:437 |
+| Brief 32: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:148 |
+| Brief 33: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:146 |
+| Brief 34 (Opus, two agents): characters, the faces, the companion and Atlas, to the end | docs/roadmap/SESSION_BRIEFS.md:150 |
+| Brief 34 continues (Opus, high): Atlas and the companion | docs/roadmap/SESSION_BRIEFS.md:438 |
 | Brief 3: W4-1: the error contract (PLAN B3) | docs/roadmap/MODERNISATION_AUDIT.md:1199 |
 | Brief 3: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:74 |
-| Brief 43: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:452 |
-| Brief 44: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)"); part 2 is WHITEBOARD_PLAN's expansion row 5 and `agent-remaining/drawio-1010.md` | docs/roadmap/SESSION_BRIEFS.md:454 |
-| Brief 45 part 2 (Opus, high): structure and complexity, acted on | docs/roadmap/SESSION_BRIEFS.md:456 |
+| Brief 43: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:453 |
+| Brief 44: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)"); part 2 is WHITEBOARD_PLAN's expansion row 5 and `agent-remaining/drawio-1010.md` | docs/roadmap/SESSION_BRIEFS.md:455 |
+| Brief 45 part 2 (Opus, high): structure and complexity, acted on | docs/roadmap/SESSION_BRIEFS.md:457 |
 | Brief 4: W1-3: glass as shell furniture, with an O(1) invariant | docs/roadmap/MODERNISATION_AUDIT.md:1243 |
 | Brief 4: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:76 |
-| Brief 56: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:467 |
-| Brief 57: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:469 |
-| Brief 58 (Opus, high): the stylesheet's structure (13b) | docs/roadmap/SESSION_BRIEFS.md:471 |
-| Brief 59 (Opus, high): the surfaces (13c) | docs/roadmap/SESSION_BRIEFS.md:475 |
+| Brief 56: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:468 |
+| Brief 57: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:470 |
+| Brief 58 (Opus, high): the stylesheet's structure (13b) | docs/roadmap/SESSION_BRIEFS.md:472 |
+| Brief 59 (Opus, high): the surfaces (13c) | docs/roadmap/SESSION_BRIEFS.md:476 |
 | Brief 5: W2-3: the note card's actions stop covering its text on touch | docs/roadmap/MODERNISATION_AUDIT.md:1281 |
 | Brief 5: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:78 |
-| Brief 60: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:485 |
-| Brief 61 (Opus, high): services for whiteboard and files (26b) | docs/roadmap/SESSION_BRIEFS.md:487 |
-| Brief 62 (Opus, high): data out of code (26c) | docs/roadmap/SESSION_BRIEFS.md:491 |
-| Brief 63 (Opus, high): the runners and the embedder (26d) | docs/roadmap/SESSION_BRIEFS.md:496 |
+| Brief 60: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:486 |
+| Brief 61 (Opus, high): services for whiteboard and files (26b) | docs/roadmap/SESSION_BRIEFS.md:488 |
+| Brief 62 (Opus, high): data out of code (26c) | docs/roadmap/SESSION_BRIEFS.md:492 |
+| Brief 63 (Opus, high): the runners and the embedder (26d) | docs/roadmap/SESSION_BRIEFS.md:497 |
 | Brief 6: W8-1: the audit scripts become the e2e suite | docs/roadmap/MODERNISATION_AUDIT.md:1310 |
 | Brief 6: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:80 |
 | Brief 7: W5-4: `ai/scheduler.py`, one gate in front of every model call | docs/roadmap/MODERNISATION_AUDIT.md:1347 |
 | Brief 7: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:82 |
-| Brief 85 (Opus): the launch splash, reimagined (INBOX 834) | docs/roadmap/SESSION_BRIEFS.md:509 |
-| Brief 86: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (Brief 86)") | docs/roadmap/SESSION_BRIEFS.md:514 |
-| Brief 87 step 2 (Opus): build the top two vendor candidates (INBOX 833) | docs/roadmap/SESSION_BRIEFS.md:516 |
-| Brief 88 (Opus): Atlas and the companions, alive (INBOX 835) | docs/roadmap/SESSION_BRIEFS.md:520 |
-| Brief 89 (Sonnet): Add tags on lightly tagged notes (INBOX 836) | docs/roadmap/SESSION_BRIEFS.md:525 |
+| Brief 85 (Opus): the launch splash, reimagined (INBOX 834) | docs/roadmap/SESSION_BRIEFS.md:510 |
+| Brief 86: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (Brief 86)") | docs/roadmap/SESSION_BRIEFS.md:515 |
+| Brief 87 step 2 (Opus): build the top two vendor candidates (INBOX 833) | docs/roadmap/SESSION_BRIEFS.md:517 |
+| Brief 88 (Opus): Atlas and the companions, alive (INBOX 835) | docs/roadmap/SESSION_BRIEFS.md:521 |
+| Brief 89 (Sonnet): Add tags on lightly tagged notes (INBOX 836) | docs/roadmap/SESSION_BRIEFS.md:526 |
 | Brief 8: W1-4: the three 18.4px switches, and making DESIGN.md true | docs/roadmap/MODERNISATION_AUDIT.md:1392 |
 | Brief 8: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:84 |
 | Brief 9 (Opus): the job runtime, the rest (B2) | docs/roadmap/SESSION_BRIEFS.md:86 |
-| Brief 90 (Sonnet, standing): the owner's own typos as composer fixtures (INBOX 837) | docs/roadmap/SESSION_BRIEFS.md:529 |
-| Brief 91 (Sonnet, ownerfix2): the owner's small UI reports, 2026-10-11 afternoon (INBOX 838 to 842) | docs/roadmap/SESSION_BRIEFS.md:534 |
-| Brief 92 (Opus, after the queue): the whole-app pass the owner asked for (INBOX 843) | docs/roadmap/SESSION_BRIEFS.md:538 |
-| Brief 93: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:545 |
-| Brief 94: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:547 |
-| Brief 95 (Opus): themes, dug deep (INBOX 858) | docs/roadmap/SESSION_BRIEFS.md:549 |
-| Brief 96: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:554 |
-| Brief 97 (Opus, after Atlas): the composer as the place to go, the graph maker (INBOX 860) | docs/roadmap/SESSION_BRIEFS.md:556 |
-| Brief 98 (Opus): goals and lists (INBOX 861) | docs/roadmap/SESSION_BRIEFS.md:564 |
-| Brief 99: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:570 |
-| Briefs 25 to 31: 25, 26 and 28 to 31 built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:133 |
-| Briefs 35 to 42: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:435 |
-| Briefs 46 to 55: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:460 |
-| Briefs 56 to 59 (2026-10-10, Fable): the design review | docs/roadmap/SESSION_BRIEFS.md:462 |
-| Briefs 60 to 63 (2026-10-10, Fable): the backend review | docs/roadmap/SESSION_BRIEFS.md:480 |
-| Briefs 64 to 68: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:501 |
-| Briefs 69 to 71: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:503 |
-| Briefs 72 to 75: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:505 |
-| Briefs 76 to 84 (from 72a and 72b): built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:507 |
+| Brief 90 (Sonnet, standing): the owner's own typos as composer fixtures (INBOX 837) | docs/roadmap/SESSION_BRIEFS.md:530 |
+| Brief 91 (Sonnet, ownerfix2): the owner's small UI reports, 2026-10-11 afternoon (INBOX 838 to 842) | docs/roadmap/SESSION_BRIEFS.md:535 |
+| Brief 92 (Opus, after the queue): the whole-app pass the owner asked for (INBOX 843) | docs/roadmap/SESSION_BRIEFS.md:539 |
+| Brief 93: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:546 |
+| Brief 94: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:548 |
+| Brief 95 (Opus): themes, dug deep (INBOX 858) | docs/roadmap/SESSION_BRIEFS.md:550 |
+| Brief 96: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:555 |
+| Brief 97 (Opus, after Atlas): the composer as the place to go, the graph maker (INBOX 860) | docs/roadmap/SESSION_BRIEFS.md:557 |
+| Brief 98 (Opus): goals and lists (INBOX 861) | docs/roadmap/SESSION_BRIEFS.md:565 |
+| Brief 99: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:571 |
+| Briefs 25 to 31: 25, 26 and 28 to 31 built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:134 |
+| Briefs 35 to 42: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:436 |
+| Briefs 46 to 55: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:461 |
+| Briefs 56 to 59 (2026-10-10, Fable): the design review | docs/roadmap/SESSION_BRIEFS.md:463 |
+| Briefs 60 to 63 (2026-10-10, Fable): the backend review | docs/roadmap/SESSION_BRIEFS.md:481 |
+| Briefs 64 to 68: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:502 |
+| Briefs 69 to 71: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:504 |
+| Briefs 72 to 75: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:506 |
+| Briefs 76 to 84 (from 72a and 72b): built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:508 |
 | Bugs | docs/roadmap/CHAT_PLAN.md:845 |
 | Bugs | docs/roadmap/DOCUMENTS_PLAN.md:1534 |
 | Bugs | docs/roadmap/TIMELINE_PLAN.md:202 |
@@ -17980,7 +17977,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | The owner's brainstorm, 2026-10-11 (after INBOX 812) | docs/roadmap/CHAT_PLAN.md:1847 |
 | The peer apps: fourteen triaged, five read properly | docs/roadmap/ANALYSIS.md:3250 |
 | The plan documents, in one list (read this before opening any of them) | docs/ROADMAP.md:268 |
-| The quarter's briefs: each item is a row in its plan; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:103 |
+| The quarter's briefs: each item is a row in its plan; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:104 |
 | The reform, in phases | docs/roadmap/AGENT_SKILLS_REFORM.md:52 |
 | The road to 1.0: milestones with exit criteria (the owner, 2026-10-10: "still very much a demo and beta") | docs/ROADMAP.md:171 |
 | The scripts, and what each produced | docs/roadmap/MODERNISATION_AUDIT.md:40 |
@@ -18017,7 +18014,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | W7: The table-stakes backlog (owner: BE + FE) | docs/roadmap/MODERNISATION_AUDIT.md:1003 |
 | W8: Reliability, testing and observability (owner: QA) | docs/roadmap/MODERNISATION_AUDIT.md:1013 |
 | What "fake / vibe coded / performative" means here, concretely | docs/roadmap/UI_MODERNISATION_PLAN.md:26 |
-| What "quality" means for a smaller model here, in one paragraph | docs/roadmap/SESSION_BRIEFS.md:105 |
+| What "quality" means for a smaller model here, in one paragraph | docs/roadmap/SESSION_BRIEFS.md:106 |
 | What Coggle specifically does that the phases below must keep | docs/roadmap/MINDMAP_PLAN.md:132 |
 | What exists (checked) | docs/roadmap/WORLD_CLASS_PLAN.md:1480 |
 | What is actually open, 2026-09-14 | docs/roadmap/INBOX.md:24 |

@@ -2806,8 +2806,11 @@ async function refreshBackgroundTasks() {
   renderStatusBar();
   // One fetch, not two: the panel renders from this payload rather than asking
   // again a few milliseconds later.
-  if (settingsModalOpen() && currentSettingsSection === "tasks") renderTasks(body);
-  else renderTaskHistory((body && body.history) || []);
+  //: While the panel's stream is open it paints the rows (ai-tools.js
+  //: `followTaskLines`); the poll then only keeps the bar current.
+  if (settingsModalOpen() && currentSettingsSection === "tasks") {
+    if (!taskLineStream.controller) renderTasks(body);
+  } else renderTaskHistory((body && body.history) || []);
 }
 
 // --- a background job starting and finishing, said out loud --------------------

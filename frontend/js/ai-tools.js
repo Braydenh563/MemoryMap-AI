@@ -1369,6 +1369,21 @@ const MIRRORED_UI_EXTRAS = [
   "ui-motion",
   "custom-css",
   "onboardingDone",
+  //: Appearance that follows the person to a second browser (WORLD_CLASS 25f).
+  //: Not `perf`: performance mode is a property of the machine.
+  "contrast",
+  "progress-motion",
+  "show-thinking-words",
+  "border-style",
+  "shadow-intensity",
+  "avatar-motion",
+  "avatar-follow",
+  "avatar-buddy",
+  "atlas-style",
+  "assistant-avatar",
+  "atlas-look",
+  "face-look",
+  "dash-mark",
   // The guided tour's own flag, for the same reason `onboardingDone` is here:
   // both were reported as "onboarding shows every time" when the desktop
   // shell lost its profile, and a tour that reintroduces the app to somebody
@@ -1485,6 +1500,7 @@ function saveUiState() {
     })
       .then(() => {
         uiStateOnServer = sending;
+        uiStateRememberSynced(state);
       })
       .catch(() => {});
   }, 800);
@@ -1522,19 +1538,29 @@ function watchMirroredUiKeys() {
   };
 }
 
-// Seed localStorage from the server's copy, for keys the browser has lost.
-// Called once, before the look is applied, so the app paints in the remembered
-// theme rather than flashing the default and correcting itself.
+// Seed localStorage from the server's copy. Called once, before the look is
+// applied, so the app paints in the remembered theme rather than flashing the
+// default and correcting itself.
 //
-// **Local wins.** If a key exists in both, the local one is newer by
-// definition, it is what the person set in this browser, and overwriting it
-// with a copy saved from another window would make two open windows fight.
+// **The notebook's copy wins unless this browser has a change it has not yet
+// sent.** A key is taken from the server when this browser has none, or when
+// its value is still the one the two last agreed on (`ui-synced`): then the
+// difference is another browser's newer change, which is how a theme set on
+// one computer reaches the next. A value that differs from what was agreed is
+// this browser's own unsent change (a reload inside the 800 ms save delay, a
+// server that was down) and keeps winning, so two windows never overwrite
+// each other's last word with an old copy.
 function seedUiStateFromServer(state) {
   if (!state || typeof state !== "object") return false;
+  const synced = prefs.json("ui-synced", {});
   let restored = 0;
   for (const key of mirroredUiKeys()) {
-    if (prefs.get(key, null) == null && state[key] != null) {
-      localStorage.setItem(key, String(state[key]));
+    if (state[key] == null) continue;
+    const remote = String(state[key]);
+    const local = prefs.has(key) ? prefs.get(key, "") : null;
+    if (local === remote) continue;
+    if (local == null || local === synced[key]) {
+      localStorage.setItem(key, remote);
       restored += 1;
     }
   }
@@ -1543,10 +1569,18 @@ function seedUiStateFromServer(state) {
   //: been given them back" from "the person changed something" (A2). Set after
   //: the loop and before the 800 ms debounce fires, so the first save of the
   //: session compares against it. A browser that kept a key the server does not
-  //: have still differs here, and still writes: local wins, as the comment
-  //: above says, and that is the case this must not swallow.
+  //: have still differs here, and still writes.
   uiStateOnServer = uiStateFingerprint(state);
+  uiStateRememberSynced(state);
   return restored > 0;
+}
+
+//: The values this browser and the notebook last agreed on, kept beside the
+//: settings (not in the mirrored list, so writing it saves nothing).
+function uiStateRememberSynced(state) {
+  const agreed = {};
+  for (const key of mirroredUiKeys()) if (state[key] != null) agreed[key] = String(state[key]);
+  prefs.setJSON("ui-synced", agreed);
 }
 
 // Which manual overrides are currently sitting on top of the theme. Shown in

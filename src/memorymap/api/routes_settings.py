@@ -567,7 +567,7 @@ class PreferencesBody(BaseModel):
         a disk."""
         if value is None:
             return value
-        if len(value) > 60:
+        if len(value) > 80:
             raise ValueError("Too many interface settings")
         for key, item in value.items():
             if len(str(key)) > 40 or len(str(item)) > 400:

@@ -10,6 +10,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Skills: every change a skill or the agent makes to a document, a board, a map or a saved skill is read back before it is reported as done, as notes, tags and reminders already were.
 - Skills: a skill can cap its own tool calls and steps; a run that passes a cap stops, says which, and keeps its changes for Undo.
 - Skills: with small model mode on, a skill measured as unreliable on small models is shown as needing a larger model, with the reason.
+- Settings: your look follows you. Contrast, border style, shadow, avatar and Atlas looks, dashboard mark and the other appearance settings that were kept only in one browser are now kept in your notebook, so a second browser (or a desktop window that lost its storage) opens in the same look, and a theme or density changed in one shows in the other after a reload. Only performance mode stays with the machine, still marked This browser.
 - Reminder notifications: Done and Snooze now work with a token scoped to that one reminder and those two actions (24 hours, signed by the server), instead of your whole session token sitting in the browser's notification store.
 - The Guide's whiteboard keys, board library, board format and mind map features topics are each two shorter topics, so a question lands on the half it is about.
 - Renaming a topic from the Library's Contents list or a note's panel in the graph has Save and Cancel beside the field (Enter saves, Escape cancels).

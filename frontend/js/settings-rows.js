@@ -11,6 +11,7 @@
 //    the control already makes: there is no second way to write a setting.
 // 2. **Where it is kept, said so.** A look setting the notebook does not keep
 //    (it is not in `mirroredUiKeys`, ai-tools.js) is marked "This browser".
+//    Only `perf` is: performance mode is the machine's, the rest follow the person.
 // 3. **The settings as a file**: Settings, Import and export, Your settings.
 //
 // The registries are walked by tests/test_settings_rows.py against every key
@@ -69,8 +70,8 @@ const SETTING_ROWS = [
   { key: "status_bar_clock", id: "status-bar-clock-toggle" },
 ];
 
-//: Appearance, kept in `localStorage` (the notebook keeps the ones in
-//: `mirroredUiKeys`). The default is the active theme's value, else
+//: Appearance, kept in `localStorage` and mirrored to the notebook (every key
+//: in `mirroredUiKeys`; `perf` alone stays in this browser). The default is the active theme's value, else
 //: APPEARANCE_DEFAULTS (settings.js), else `base`. `seg` names a segmented
 //: group's data attribute. Zoom, the accent and the palette are left out:
 //: each already has its own reset beside it.

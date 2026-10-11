@@ -55,7 +55,7 @@ def test_ui_state_does_not_disturb_other_preferences(client):
 @pytest.mark.parametrize(
     "bad",
     [
-        {f"key{n}": "x" for n in range(61)},        # too many keys
+        {f"key{n}": "x" for n in range(81)},        # too many keys
         {"theme": "x" * 401},                        # one value too long
         {"k" * 41: "dark"},                          # one key too long
     ],

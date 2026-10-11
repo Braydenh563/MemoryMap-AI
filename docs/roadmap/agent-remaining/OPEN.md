@@ -333,6 +333,13 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the appsync agent (WORLD_CLASS 25f, merged 2026-10-11)
+
+Full list: [archive/agent-remaining/appsync-1011.md](../archive/agent-remaining/appsync-1011.md).
+- No live sync between two open windows; a change shows in the other after a reload.
+- The first load after the upgrade has no `ui-synced` mark, so a stale second browser pushes its look to the notebook once.
+- Not checked in the desktop webview profile or on a second machine.
+
 ## Left by the skills54 agent (Brief 54, merged 2026-10-11)
 
 Full list: [archive/agent-remaining/skills54-1011.md](../archive/agent-remaining/skills54-1011.md).

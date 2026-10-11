@@ -35,6 +35,7 @@ import re
 from collections import Counter
 
 from memorymap.ai import spelling
+from memorymap.ai.spelling import distance  # noqa: F401 - re-exported: the speller owns it, so the two modules do not import each other
 
 # --- 1. slang and text-speak ----------------------------------------------------
 
@@ -1981,49 +1982,6 @@ REAL_WORDS = frozenset(
     loan load lord lard list lost dentist""".split()
 )
 
-#: QWERTY neighbours: a slip to the next key is a cheaper edit than any other.
-_ROWS = ("qwertyuiop", "asdfghjkl", "zxcvbnm")
-_NEAR: dict[str, set[str]] = {}
-for _r, _row in enumerate(_ROWS):
-    for _c, _key in enumerate(_row):
-        near = _NEAR.setdefault(_key, set())
-        for dr in (-1, 0, 1):
-            rr = _r + dr
-            if 0 <= rr < len(_ROWS):
-                for dc in (-1, 0, 1):
-                    cc = _c + dc
-                    if (dr or dc) and 0 <= cc < len(_ROWS[rr]):
-                        near.add(_ROWS[rr][cc])
-
-
-def _sub_cost(a: str, b: str) -> float:
-    if a == b:
-        return 0.0
-    return 0.5 if b in _NEAR.get(a, ()) else 1.0
-
-
-def distance(a: str, b: str) -> float:
-    """Weighted edit distance: a neighbouring key 0.5, a swap of two letters
-    0.6, a doubled letter added or dropped 0.4, a vowel 0.5, anything else 1."""
-    a, b = a.lower(), b.lower()
-    rows = [[0.0] * (len(b) + 1) for _ in range(len(a) + 1)]
-    for i in range(1, len(a) + 1):
-        rows[i][0] = i * 1.0
-    for j in range(1, len(b) + 1):
-        rows[0][j] = j * 1.0
-    for i in range(1, len(a) + 1):
-        for j in range(1, len(b) + 1):
-            #: A doubled letter, or a vowel dropped as people do when they
-            #: type fast ("lng", "whn", "mny"), is cheaper than other edits.
-            drop = 0.4 if i > 1 and a[i - 1] == a[i - 2] else 0.5 if a[i - 1] in "aeiou" else 1.0
-            add = 0.4 if j > 1 and b[j - 1] == b[j - 2] else 0.5 if b[j - 1] in "aeiou" else 1.0
-            best = min(rows[i - 1][j] + drop, rows[i][j - 1] + add, rows[i - 1][j - 1] + _sub_cost(a[i - 1], b[j - 1]))
-            if i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
-                best = min(best, rows[i - 2][j - 2] + 0.6)
-            rows[i][j] = best
-    return rows[-1][-1]
-
-
 def allowance(word: str) -> float:
     """How far a word may be from the one it is read as, by its length: a
     three-letter word one slip, a long word two edits."""
@@ -2116,69 +2074,100 @@ def repair(text: str, report: list | None = None, known=frozenset(), fixed: list
     out: list[str] = []
     i = 0
     while i < len(tokens):
-        token = tokens[i]
-        #: str.rstrip, not `(.*?)([?!.,:;]*)$`: that was quadratic on "!!!!" (CodeQL).
-        word = token.rstrip("?!.,:;")
-        tail = token[len(word):]
-        low = word.lower()
-        nxt = tokens[i + 1] if i + 1 < len(tokens) else ""
-        #: Two pieces of one asking word ("wh en", "ho w"): joined.
-        joined = (low + nxt.rstrip("?!.,:;").lower()) if nxt else ""
-        if joined in ASKING and low not in VOCABULARY and len(low) <= 3:
-            out.append(joined + nxt[len(nxt.rstrip("?!.,:;")):])
-            i += 2
-            continue
-        if low in spelling.CONTRACTION_STEMS and word.islower() and nxt and low not in known:
-            out.append(spelling.CONTRACTION_STEMS[low] + tail)
-        elif low in SLANG and not (low in ("r", "y") and not _at_asking_place(out)):
-            out.append(SLANG[low] + tail)
-            #: The table holds misspellings ("wehn") beside slang ("pls"): a
-            #: word one slip from its reading is a typo, and is said.
-            if fixed is not None and len(low) >= 3 and " " not in SLANG[low] and distance(low, SLANG[low]) <= 1.0:
-                fixed.append((word, SLANG[low]))
-        elif _split(low):
-            out.append(_split(low) + tail)
-            if fixed is not None:
-                fixed.append((word, _split(low)))
-        else:
-            after = nxt
-            while after and not (after[-1].isalnum() or after[-1] == "_"):
-                after = after[:-1]
-            #: A word the speller knows ("weird") is not a typo of "were".
-            spelt = (len(low) >= 4 and spelling.is_word(low, known, strict=True)) or (len(word) > 1 and word.isupper() and not text.isupper())
-            chosen = nearest(low, ASKING, after) if _at_asking_place(out) and not spelt else None
-            #: Past the opening words only the long words that name a kind
-            #: of question are repaired ("diffrence", "lastest"): a subject
-            #: word near a small word ("slow", "show") is the subject.
-            pool = ASKING
-            if not chosen and len(low) >= 6 and not spelt:
-                chosen, pool = nearest(low, KIND_WORDS, after), KIND_WORDS
-            if chosen and report is not None:
-                other = alternative(low, chosen, pool)
-                #: "hwo many" is how and "hwo asked" is who: the next word
-                #: settles it, and nothing is offered.
-                if {chosen, other} == {"how", "who"} and (after.lower() in _HOW_NEXT or after.lower().endswith("ed")):
-                    other = None
-                if other:
-                    report.append({"typed": word, "chosen": chosen, "alternative": other})
-            if not chosen and word.isalpha() and not word.isupper() and (word.islower() or not out):
-                read = spelling.fix(
-                    low, after=after.lower(), before=out[-1].strip("?!.,:;") if out else "", known=known, distance=distance,
-                )
-                if read:
-                    chosen = read[0].capitalize() if word[0].isupper() else read[0]
-                    if report is not None and read[1]:
-                        report.append({"typed": word, "chosen": chosen, "alternative": read[1]})
-                    out.append(chosen + tail)
-                    if fixed is not None:
-                        fixed.append((word, chosen))
-                    i += 1
-                    continue
-            if chosen and fixed is not None and chosen.lower() != low:
-                fixed.append((word, chosen))
-            out.append((chosen + tail) if chosen else token)
-        i += 1
+        i += _repair_token(tokens, i, out, text, report, known, fixed)
     return " ".join(w for w in out if w)
+
+
+def _repair_token(tokens: list[str], i: int, out: list[str], text: str, report, known, fixed) -> int:  # noqa: ANN001
+    """Puts the repaired reading of `tokens[i]` on `out`; returns how many
+    tokens it used (two when the pieces of one asking word were joined)."""
+    token = tokens[i]
+    #: str.rstrip, not `(.*?)([?!.,:;]*)$`: that was quadratic on "!!!!" (CodeQL).
+    word = token.rstrip("?!.,:;")
+    tail = token[len(word):]
+    low = word.lower()
+    nxt = tokens[i + 1] if i + 1 < len(tokens) else ""
+    #: Two pieces of one asking word ("wh en", "ho w"): joined.
+    joined = (low + nxt.rstrip("?!.,:;").lower()) if nxt else ""
+    if joined in ASKING and low not in VOCABULARY and len(low) <= 3:
+        out.append(joined + nxt[len(nxt.rstrip("?!.,:;")):])
+        return 2
+    if low in spelling.CONTRACTION_STEMS and word.islower() and nxt and low not in known:
+        out.append(spelling.CONTRACTION_STEMS[low] + tail)
+    elif low in SLANG and not (low in ("r", "y") and not _at_asking_place(out)):
+        _repair_slang(low, word, tail, out, fixed)
+    elif _split(low):
+        out.append(_split(low) + tail)
+        if fixed is not None:
+            fixed.append((word, _split(low)))
+    else:
+        _repair_misspelt(token, word, tail, nxt, text, out, report, known, fixed)
+    return 1
+
+
+def _repair_slang(low: str, word: str, tail: str, out: list[str], fixed) -> None:  # noqa: ANN001
+    out.append(SLANG[low] + tail)
+    #: The table holds misspellings ("wehn") beside slang ("pls"): a
+    #: word one slip from its reading is a typo, and is said.
+    if fixed is not None and len(low) >= 3 and " " not in SLANG[low] and distance(low, SLANG[low]) <= 1.0:
+        fixed.append((word, SLANG[low]))
+
+
+def _asking_reading(low: str, word: str, after: str, text: str, out: list[str], report, known) -> str | None:  # noqa: ANN001
+    """An asking word or a question-kind word `word` is a slip of, or None."""
+    #: A word the speller knows ("weird") is not a typo of "were".
+    spelt = (len(low) >= 4 and spelling.is_word(low, known, strict=True)) or (len(word) > 1 and word.isupper() and not text.isupper())
+    chosen = nearest(low, ASKING, after) if _at_asking_place(out) and not spelt else None
+    #: Past the opening words only the long words that name a kind
+    #: of question are repaired ("diffrence", "lastest"): a subject
+    #: word near a small word ("slow", "show") is the subject.
+    pool = ASKING
+    if not chosen and len(low) >= 6 and not spelt:
+        chosen, pool = nearest(low, KIND_WORDS, after), KIND_WORDS
+    if chosen and report is not None:
+        _report_alternative(low, word, chosen, pool, after, report)
+    return chosen
+
+
+def _report_alternative(low: str, word: str, chosen: str, pool, after: str, report: list) -> None:  # noqa: ANN001
+    other = alternative(low, chosen, pool)
+    #: "hwo many" is how and "hwo asked" is who: the next word
+    #: settles it, and nothing is offered.
+    if {chosen, other} == {"how", "who"} and (after.lower() in _HOW_NEXT or after.lower().endswith("ed")):
+        other = None
+    if other:
+        report.append({"typed": word, "chosen": chosen, "alternative": other})
+
+
+def _repair_misspelt(token: str, word: str, tail: str, nxt: str, text: str, out: list[str], report, known, fixed) -> None:  # noqa: ANN001
+    low = word.lower()
+    after = nxt
+    while after and not (after[-1].isalnum() or after[-1] == "_"):
+        after = after[:-1]
+    chosen = _asking_reading(low, word, after, text, out, report, known)
+    if not chosen and word.isalpha() and not word.isupper() and (word.islower() or not out):
+        if _repair_by_speller(word, tail, after, out, report, known, fixed):
+            return
+    if chosen and fixed is not None and chosen.lower() != low:
+        fixed.append((word, chosen))
+    out.append((chosen + tail) if chosen else token)
+
+
+def _repair_by_speller(word: str, tail: str, after: str, out: list[str], report, known, fixed) -> bool:  # noqa: ANN001
+    """Reads a misspelt word as the word it is near (`spelling.fix`); True
+    when it did and `out` has the reading."""
+    read = spelling.fix(
+        word.lower(), after=after.lower(), before=out[-1].strip("?!.,:;") if out else "", known=known, distance=distance,
+    )
+    if not read:
+        return False
+    chosen = read[0].capitalize() if word[0].isupper() else read[0]
+    if report is not None and read[1]:
+        report.append({"typed": word, "chosen": chosen, "alternative": read[1]})
+    out.append(chosen + tail)
+    if fixed is not None:
+        fixed.append((word, chosen))
+    return True
 
 
 def _at_asking_place(before: list[str]) -> bool:

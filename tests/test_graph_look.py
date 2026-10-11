@@ -211,4 +211,4 @@ def test_label_backgrounds_are_a_switch_and_off_is_the_old_halo():
     assert "ctx.strokeText(draw.spot.text, x, y);" in draw and "ctx.lineWidth = 3 / k;" in draw
     graph = (JS / "graph.js").read_text(encoding="utf-8")
     assert '"graph-label-plates": true,' in graph
-    assert 'localStorage.setItem("graph-label-plates"' in graph
+    assert 'prefs.set("graph-label-plates"' in graph

@@ -461,7 +461,7 @@ function wbMapPerspective() {
 
 function wbMapSetPerspective(key) {
   try {
-    localStorage.setItem("wbMapPerspective", key);
+    prefs.set("wbMapPerspective", key);
   } catch {
     // A browser with storage switched off still gets the view it asked for
     // for this session; it just will not be remembered.
@@ -1347,7 +1347,7 @@ function wbSyncMapFirstHint(index) {
   if (!done && index && index.nodes.length > 1) {
     done = true;
     try {
-      localStorage.setItem(WB_MAP_FIRST_HINT_KEY, "1");
+      prefs.set(WB_MAP_FIRST_HINT_KEY, "1");
     } catch {
       // Same reason as above.
     }
@@ -1358,7 +1358,7 @@ function wbSyncMapFirstHint(index) {
 function wbDismissMapTemplates() {
   try {
     if (window.currentBoardId) {
-      localStorage.setItem(wbMapTemplatesDismissedKey(window.currentBoardId), "1");
+      prefs.set(wbMapTemplatesDismissedKey(window.currentBoardId), "1");
     }
   } catch {
     // Not remembering the dismissal is a smaller failure than refusing to
@@ -8806,7 +8806,7 @@ function wbMapStudyLoad() {
 
 function wbMapStudySave() {
   try {
-    localStorage.setItem(wbMapStudyKey(), JSON.stringify(wbStudy.marks));
+    prefs.set(wbMapStudyKey(), JSON.stringify(wbStudy.marks));
   } catch {
     // storage blocked (a private window): the run still works, unremembered
   }

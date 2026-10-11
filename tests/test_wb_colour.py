@@ -41,7 +41,7 @@ def test_the_recent_row_is_eight_per_device_and_sits_over_the_palette() -> None:
     assert re.search(r"WB_RECENT_COLOURS_MAX\s*=\s*8\b", FORMAT)
     for name in ("wbRecentColours", "wbRememberColour"):
         body = _body(FORMAT, name)
-        assert "localStorage" in body and "try" in body and "catch" in body, name
+        assert "prefs." in body and "try" in body and "catch" in body, name
     menu = _body(FORMAT, "wbOpenColourMenu")
     assert menu.index('wbColourHeading("Recent")') < menu.index('wbColourHeading("Colours")')
 

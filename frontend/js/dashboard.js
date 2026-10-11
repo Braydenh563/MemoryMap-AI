@@ -311,7 +311,7 @@ async function refreshAiGreeting(forced = false) {
   if (!phrase) return false;
   const punctuation = (body && body.punctuation) || ".";
   const appendName = !(body && body.append_name === false);
-  localStorage.setItem(
+  prefs.set(
     "greetingCache",
     JSON.stringify({ slot: greetingCacheSlot(now), phrase, punctuation, appendName })
   );
@@ -759,7 +759,7 @@ function renderNameNudge(greetingEl) {
   dismiss.title = "Don't ask again";
   dismiss.setAttribute("aria-label", "Dismiss the name suggestion");
   dismiss.addEventListener("click", () => {
-    localStorage.setItem("nameNudgeDismissed", "1");
+    prefs.set("nameNudgeDismissed", "1");
     wrap.remove();
   });
   wrap.append(add, dismiss);
@@ -979,7 +979,7 @@ function noteSkillRun(name) {
     recent = [];
   }
   recent = [name, ...recent.filter((n) => n !== name)].slice(0, 8);
-  localStorage.setItem(RECENT_SKILLS_KEY, JSON.stringify(recent));
+  prefs.set(RECENT_SKILLS_KEY, JSON.stringify(recent));
   // The time goes in beside it, pruned to the names still on the list so the
   // map cannot grow forever in a profile that tries a lot of skills.
   const times = skillRunTimes();
@@ -987,7 +987,7 @@ function noteSkillRun(name) {
   for (const key of Object.keys(times)) {
     if (!recent.includes(key)) delete times[key];
   }
-  localStorage.setItem(SKILL_RUN_TIMES_KEY, JSON.stringify(times));
+  prefs.set(SKILL_RUN_TIMES_KEY, JSON.stringify(times));
 }
 
 //: A skill's name usually starts with its own emoji, "stethoscope Notebook health
@@ -1032,7 +1032,7 @@ function recentSkillLinks() {
   // one load repairs the profile permanently.
   const clean = recent.filter((n) => typeof n === "string" && n);
   if (clean.length !== recent.length) {
-    localStorage.setItem(RECENT_SKILLS_KEY, JSON.stringify(clean));
+    prefs.set(RECENT_SKILLS_KEY, JSON.stringify(clean));
   }
   const times = skillRunTimes();
   return clean.slice(0, QUICK_SKILL_SLOTS).map((name) => ({
@@ -1161,7 +1161,7 @@ function dashMarkMenu(x, y) {
     title: `Show ${label.toLowerCase()} here`,
     run: () => {
       try {
-        localStorage.setItem("dash-mark", value);
+        prefs.set("dash-mark", value);
       } catch {
         // This session only.
       }
@@ -1190,7 +1190,7 @@ function applyDashDensity(value, { persist = true } = {}) {
   const density = DASH_DENSITIES.includes(value) ? value : "full";
   //: Stored only when chosen: the wiring's own first call used to write
   //: "full" for every install, which made the default look like a choice.
-  if (persist) localStorage.setItem(DASH_DENSITY_KEY, density);
+  if (persist) prefs.set(DASH_DENSITY_KEY, density);
   const page = document.getElementById("tab-dashboard");
   //: A data attribute on the page, and every rule keyed off it in CSS. The
   //: alternative, adding and removing classes on six elements from here, is
@@ -3085,7 +3085,7 @@ function generateDigest(onDelta) {
     digestPromise = streamDigest(onDelta)
       .then((result) => {
         if (result.cacheable !== false) {
-          localStorage.setItem(
+          prefs.set(
             DIGEST_KEY,
             JSON.stringify({ text: result.text, date: todayStamp() })
           );
@@ -3211,7 +3211,7 @@ async function renderDigestWidget(outer) {
     controls.className = "row";
     controls.appendChild(
       smallButton("ph:arrows-clockwise Regenerate", "Rebuild this week's digest now", () => {
-        localStorage.removeItem(DIGEST_KEY);
+        prefs.remove(DIGEST_KEY);
         runGeneration();
       })
     );

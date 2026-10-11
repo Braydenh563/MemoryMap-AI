@@ -179,7 +179,7 @@ function showUpdateAvailableDialog(result) {
     dismissed = true;
     document.removeEventListener("keydown", onKey, true);
     overlay.remove();
-    localStorage.setItem(UPDATE_SEEN_KEY, result.latest);
+    prefs.set(UPDATE_SEEN_KEY, result.latest);
   };
   const onKey = (event) => {
     if (event.key === "Escape") {

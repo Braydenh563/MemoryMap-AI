@@ -338,7 +338,7 @@ def test_the_shape_control_is_saved_and_reaches_the_worker():
     options = options[: options.index("</select>")]
     assert [part.split('"')[0] for part in options.split('value="')[1:]] == ["organic", "clusters", "galaxy"]
     graph = (JS / "graph.js").read_text(encoding="utf-8")
-    assert 'localStorage.setItem("graph-shape", shape.value)' in graph
+    assert 'prefs.set("graph-shape", shape.value)' in graph
     canvas = (JS / "graph-canvas.js").read_text(encoding="utf-8")
     assert "shape: gcShape(s)," in canvas
     assert 'const SHAPES = new Set(["organic", "clusters", "galaxy"]);' in WORKER

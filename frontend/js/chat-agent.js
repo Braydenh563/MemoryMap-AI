@@ -112,7 +112,7 @@ function noteChatPosition(element, atEnd) {
     const keys = Object.keys(map).sort((a, b) => map[b].at - map[a].at);
     for (const stale of keys.slice(40)) delete map[stale];
     try {
-      localStorage.setItem(CHAT_POSITIONS_KEY, JSON.stringify(map));
+      prefs.set(CHAT_POSITIONS_KEY, JSON.stringify(map));
     } catch {
       // Storage full or refused: the thread opens at its end, as before.
     }
@@ -2428,7 +2428,7 @@ const DRAFT_MAX_SOURCES = 6;
 
 function saveDraftLocally() {
   try {
-    localStorage.setItem(
+    prefs.set(
       DRAFT_STORE,
       JSON.stringify({
         thoughts: $("draft-thoughts").value,

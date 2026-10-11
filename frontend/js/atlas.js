@@ -3702,7 +3702,7 @@ function atlasStreak(days) {
   const today = new Date().toDateString();
   try {
     if (prefs.get("atlas-streak-seen", null) === today) return;
-    localStorage.setItem("atlas-streak-seen", today);
+    prefs.set("atlas-streak-seen", today);
   } catch (e) {
     // Celebrated this once without remembering it.
   }

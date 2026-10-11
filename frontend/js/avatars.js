@@ -365,7 +365,7 @@ function nameMarkBuddyCustom() {
 function nameMarkBuddyKeepCustom(custom) {
   nameMarkBuddyCustomCache = null;
   try {
-    localStorage.setItem("avatar-buddy-custom", JSON.stringify({ name: custom.name, style: custom.style }));
+    prefs.set("avatar-buddy-custom", JSON.stringify({ name: custom.name, style: custom.style }));
   } catch (e) {
     // Kept for this visit only.
   }
@@ -3515,7 +3515,7 @@ function nameMarkBuddyPresets() {
 }
 function nameMarkBuddyKeepPresets(list) {
   try {
-    localStorage.setItem("avatar-buddy-presets", JSON.stringify(list));
+    prefs.set("avatar-buddy-presets", JSON.stringify(list));
   } catch (e) {
     // Not kept this time.
   }
@@ -3546,8 +3546,8 @@ function nameMarkBuddySavePreset() {
 }
 function nameMarkBuddyApplyPreset(preset) {
   for (const key of NMB_PRESET_KEYS) {
-    if (preset.values?.[key] !== undefined) localStorage.setItem(key, preset.values[key]);
-    else localStorage.removeItem(key);
+    if (preset.values?.[key] !== undefined) prefs.set(key, preset.values[key]);
+    else prefs.remove(key);
   }
   nameMarkBuddyCustomCache = null;
   const acts = document.getElementById("avatar-buddy-activities");
@@ -3640,7 +3640,7 @@ function mountBuddyActivities() {
     if (input.checked) now.delete(input.dataset.activity);
     else now.add(input.dataset.activity);
     try {
-      localStorage.setItem("avatar-buddy-acts-off", [...now].join(","));
+      prefs.set("avatar-buddy-acts-off", [...now].join(","));
     } catch (e) {
       // Kept for this visit only.
     }
@@ -4022,7 +4022,7 @@ function nameMarkBuddySetSize(scale, keep = true) {
   document.getElementById("nm-buddy")?.style.setProperty("--nmb-scale", String(size));
   if (!keep) return;
   try {
-    localStorage.setItem("avatar-buddy-size", String(size));
+    prefs.set("avatar-buddy-size", String(size));
   } catch (e) {
     // This session only.
   }
@@ -4620,7 +4620,7 @@ function nameMarkBuddySpots() {
 
 function nameMarkBuddyKeepSpots(spots) {
   try {
-    localStorage.setItem("nm-buddy-spots", JSON.stringify(spots));
+    prefs.set("nm-buddy-spots", JSON.stringify(spots));
   } catch (e) {
     // Remembered for this visit only; the companion stays where it is.
   }
@@ -7624,7 +7624,7 @@ function nameMarkBuddyStreak(days) {
   let seen = 0;
   try {
     seen = Number(prefs.get("nm-buddy-streak", null)) || 0;
-    localStorage.setItem("nm-buddy-streak", String(days));
+    prefs.set("nm-buddy-streak", String(days));
   } catch (e) {
     return;
   }
@@ -8639,8 +8639,8 @@ function nameMarkBuddyHide(buddy) {
   try {
     //: Which companion it was, so the hotkey brings the same one back.
     was = prefs.get("avatar-buddy", null);
-    if (was && was !== "off") localStorage.setItem("nm-buddy-last", was);
-    localStorage.setItem("avatar-buddy", "off");
+    if (was && was !== "off") prefs.set("nm-buddy-last", was);
+    prefs.set("avatar-buddy", "off");
   } catch (e) {
     // Hidden for this session at least.
   }
@@ -8664,7 +8664,7 @@ function nameMarkBuddyHide(buddy) {
     "Show it",
     () => {
       try {
-        localStorage.setItem("avatar-buddy", back);
+        prefs.set("avatar-buddy", back);
       } catch (e) {
         // Back for this visit.
       }
@@ -8700,7 +8700,7 @@ function nameMarkBuddyToggle() {
   let back = "atlas";
   try {
     back = prefs.get("nm-buddy-last", null) || "atlas";
-    localStorage.setItem("avatar-buddy", back);
+    prefs.set("avatar-buddy", back);
   } catch (e) {
     // Shown for this session at least.
   }
@@ -9180,8 +9180,8 @@ function nameMarkBuddyBuild() {
   //: The one-place and four-corner choices this replaces: a place kept for
   //: every page is the annoyance the perches exist to end.
   try {
-    localStorage.removeItem("nm-buddy-pos");
-    localStorage.removeItem("nm-buddy-corner");
+    prefs.remove("nm-buddy-pos");
+    prefs.remove("nm-buddy-corner");
   } catch (e) {
     // Nothing to tidy.
   }
@@ -9287,7 +9287,7 @@ function nameMarkBuddyHint(fromAppearance = false) {
     since = Number(prefs.get("nm-buddy-first-seen", null)) || 0;
     if (!since) {
       since = Date.now();
-      localStorage.setItem("nm-buddy-first-seen", String(since));
+      prefs.set("nm-buddy-first-seen", String(since));
     }
   } catch (e) {
     return;
@@ -9297,7 +9297,7 @@ function nameMarkBuddyHint(fromAppearance = false) {
   const lock = document.getElementById("lock-overlay");
   if (lock && !lock.classList.contains("hidden")) return;
   try {
-    localStorage.setItem("nm-buddy-hint", "done");
+    prefs.set("nm-buddy-hint", "done");
   } catch (e) {
     // Shown this once at least.
   }
@@ -9305,7 +9305,7 @@ function nameMarkBuddyHint(fromAppearance = false) {
   //: 384px wide before; INBOX 743 "poorly shown").
   toastAction("Want a companion on screen? It reacts to what you do.", "Turn on", () => {
     try {
-      localStorage.setItem("avatar-buddy", "me");
+      prefs.set("avatar-buddy", "me");
     } catch (e) {
       // On for this visit.
     }

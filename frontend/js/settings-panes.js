@@ -369,7 +369,7 @@ function initComposerResize() {
   //: automatic size and a drag is remembered only until the box is emptied
   //: (see autoGrow). The key is still cleared here for profiles that have
   //: one from before.
-  try { localStorage.removeItem(COMPOSER_HEIGHT_KEY); } catch { /* storage may be unavailable */ }
+  try { prefs.remove(COMPOSER_HEIGHT_KEY); } catch { /* storage may be unavailable */ }
 
   //: **Double-tap the grabber to put it back.** Asked for directly: "allow
   //: double tapping the bottom expansion corner of the chat text box to reset
@@ -392,7 +392,7 @@ function initComposerResize() {
     event.preventDefault();
     delete box.dataset.maxPx;
     try {
-      localStorage.removeItem(COMPOSER_HEIGHT_KEY);
+      prefs.remove(COMPOSER_HEIGHT_KEY);
     } catch {
       /* private mode: there was nothing stored to remove */
     }
@@ -417,7 +417,7 @@ function initComposerResize() {
     const automatic = Number(box.dataset.autoHeight || 0);
     if (!height || Math.abs(height - automatic) <= 2) return;
     box.dataset.maxPx = String(height);
-    try { localStorage.setItem(COMPOSER_HEIGHT_KEY, String(height)); } catch { /* private mode */ }
+    try { prefs.set(COMPOSER_HEIGHT_KEY, String(height)); } catch { /* private mode */ }
     requestAnimationFrame(() => autoGrow(box));
   };
   box.addEventListener("pointerdown", (event) => {
@@ -596,7 +596,7 @@ async function changePassword() {
     // Changing the password invalidates every token, including this tab's.
     // The server hands back a fresh one so the change doesn't log you out of
     // the screen you just used to make it. Key must match authToken().
-    localStorage.setItem("token", result.token);
+    prefs.set("token", result.token);
     $("account-current").value = "";
     $("account-new").value = "";
     $("account-confirm").value = "";
@@ -1085,7 +1085,7 @@ function currentZoom() {
 
 function setZoom(percent) {
   const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(percent / ZOOM_STEP) * ZOOM_STEP));
-  localStorage.setItem("zoom", String(next));
+  prefs.set("zoom", String(next));
   const slider = $("zoom-slider");
   if (slider) slider.value = next;
   const readout = $("zoom-value");

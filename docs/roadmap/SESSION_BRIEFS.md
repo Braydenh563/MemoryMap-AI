@@ -71,10 +71,7 @@ use `el.style.x =` or a class).
 
 ### Brief 2: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)")
 
-## Brief 3 (Sonnet): the `localStorage` writes through `prefs` (what is left)
-
-Built (triage 2026-10-11, briefs-1011): `frontend/js/prefs.js` with `get`, `has`, `json`, `number`, `bool`, `set`, `remove`; every read through it (`tests/test_prefs_module.py`); `api.upload`/`api.stream` and `tests/test_no_bare_fetch.py`; `tests/test_no_innerhtml_interpolation.py`.
-Left: 283 direct `localStorage.setItem`/`removeItem` calls in 49 files outside `prefs.js` (`grep -o 'localStorage\.\(setItem\|removeItem\)' frontend/js/*.js`). Move them onto `prefs.set`/`prefs.remove` file by file, then extend `tests/test_prefs_module.py` to writes with the same allowlist shape (app.js, theme-boot.js, boot-guard.js and the two standalone pages keep theirs). Trap: `prefs.set` must keep a write that throws in private mode silent, as the raw calls are today.
+### Brief 3: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)")
 
 ## Brief 4 (Sonnet): the last long paragraphs behind '?' (what is left)
 

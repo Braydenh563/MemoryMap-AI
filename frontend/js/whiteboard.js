@@ -270,7 +270,7 @@ function wbSaveExpandedNodes() {
       wbExpandedNodes.clear();
       for (const id of ids) wbExpandedNodes.add(id);
     }
-    localStorage.setItem(WB_EXPANDED_KEY, JSON.stringify(ids));
+    prefs.set(WB_EXPANDED_KEY, JSON.stringify(ids));
   } catch {
     //: Storage full or blocked. The board still works; it just forgets.
   }
@@ -1206,8 +1206,8 @@ async function wbMigrateBackground() {
   if (color && !have.color && /^#[0-9a-f]{6}$/i.test(color)) patch.color = color;
   if (Object.keys(patch).length && !(await wbSetBackground(patch, { undo: false }))) return;
   try {
-    localStorage.removeItem(`wb-bg-image-${id}`);
-    localStorage.setItem(`wb-bg-moved-${id}`, "1");
+    prefs.remove(`wb-bg-image-${id}`);
+    prefs.set(`wb-bg-moved-${id}`, "1");
   } catch {
     // Private mode: it is on the board now either way.
   }
@@ -2388,7 +2388,7 @@ function wbToggleNavigator(force) {
   panel.classList.toggle("hidden", !open);
   if (button) button.setAttribute("aria-expanded", open ? "true" : "false");
   try {
-    localStorage.setItem("wb-navigator-open", open ? "1" : "0");
+    prefs.set("wb-navigator-open", open ? "1" : "0");
   } catch {
     /* private mode: the navigator just won't be remembered */
   }
@@ -11180,9 +11180,9 @@ function wbExportPngPrefs() {
   };
 }
 
-function wbSetExportPngPrefs(prefs) {
+function wbSetExportPngPrefs(choice) {
   try {
-    localStorage.setItem("wb-export-png", JSON.stringify(prefs));
+    prefs.set("wb-export-png", JSON.stringify(choice));
   } catch {
     // Private mode: the choice holds for this export.
   }
@@ -12241,7 +12241,7 @@ async function initWhiteboard() {
     $("wb-empty-hint")?.classList.add("hidden");
   });
   $("wb-empty-hint-dismiss")?.addEventListener("click", () => {
-    localStorage.setItem("wbEmptyHintDismissed", "1");
+    prefs.set("wbEmptyHintDismissed", "1");
     wbHintForcedOpen = false;
     $("wb-empty-hint")?.classList.add("hidden");
   });
@@ -12358,7 +12358,7 @@ async function initWhiteboard() {
       dragging = false;
       grip.classList.remove("is-dragging");
       if (e?.pointerId != null) grip.releasePointerCapture?.(e.pointerId);
-      localStorage.setItem(
+      prefs.set(
         storageKey,
         JSON.stringify({ left: parseFloat(panel.style.left) || 0, top: parseFloat(panel.style.top) || 0 })
       );
@@ -12451,7 +12451,7 @@ async function initWhiteboard() {
   if (resetPanelsBtn) {
     resetPanelsBtn.addEventListener("click", () => {
       document.querySelectorAll(".whiteboard-floating-panel[data-panel-id]").forEach((panel) => {
-        localStorage.removeItem(`wb-panel-pos-${panel.dataset.panelId}`);
+        prefs.remove(`wb-panel-pos-${panel.dataset.panelId}`);
         panel.style.left = "";
         panel.style.top = "";
         panel.style.right = "";
@@ -12470,7 +12470,7 @@ async function initWhiteboard() {
   if (gridSelect) {
     gridSelect.value = wbGridType();
     gridSelect.addEventListener("change", (e) => {
-      localStorage.setItem("wb-grid", e.target.value);
+      prefs.set("wb-grid", e.target.value);
       wbApplyGrid();
       // Snap only bites while a grid is visible, so the checkbox has to
       // follow the grid going away rather than silently staying "on".
@@ -12484,7 +12484,7 @@ async function initWhiteboard() {
     snapToggle.checked = prefs.get("wb-snap", null) === "on";
     snapToggle.disabled = wbGridType() === "none";
     snapToggle.addEventListener("change", (e) => {
-      localStorage.setItem("wb-snap", e.target.checked ? "on" : "off");
+      prefs.set("wb-snap", e.target.checked ? "on" : "off");
     });
   }
   const bgImageInput = $("wb-bg-image-input");
@@ -12572,7 +12572,7 @@ async function initWhiteboard() {
     strokeWidthInput.value = String(WB_STROKE_WIDTH);
     strokeWidthInput.addEventListener("input", (e) => {
       WB_STROKE_WIDTH = Number(e.target.value) || 3;
-      localStorage.setItem("wb-stroke-width", String(WB_STROKE_WIDTH));
+      prefs.set("wb-stroke-width", String(WB_STROKE_WIDTH));
       updateWbCursor();
       showStrokeWidthBadge();
     });
@@ -12600,10 +12600,10 @@ async function initWhiteboard() {
   function wbSetCurrentEndStyle(value) {
     if (wbCurrentEndStyleKind() === "line") {
       window.currentLineEndStyle = value;
-      localStorage.setItem("wb-line-end-style", value);
+      prefs.set("wb-line-end-style", value);
     } else {
       window.currentArrowEndStyle = value;
-      localStorage.setItem("wb-arrow-style", value);
+      prefs.set("wb-arrow-style", value);
     }
   }
   wbRefreshArrowStyleControlRef = () => {
@@ -12627,7 +12627,7 @@ async function initWhiteboard() {
     arrowHeadSelect.value = window.currentArrowHead;
     arrowHeadSelect.addEventListener("change", (e) => {
       window.currentArrowHead = WB_CAP_KINDS.includes(e.target.value) ? e.target.value : "arrow";
-      localStorage.setItem("wb-arrow-head", window.currentArrowHead);
+      prefs.set("wb-arrow-head", window.currentArrowHead);
     });
   }
 
@@ -12652,14 +12652,14 @@ async function initWhiteboard() {
     fillColorInput.value = window.currentFillColor;
     fillColorInput.addEventListener("input", (e) => {
       window.currentFillColor = e.target.value;
-      localStorage.setItem("wb-fill-color", e.target.value);
+      prefs.set("wb-fill-color", e.target.value);
     });
   }
   if (fillOpacityInput) {
     fillOpacityInput.value = String(window.currentFillOpacity);
     fillOpacityInput.addEventListener("input", (e) => {
       window.currentFillOpacity = Number(e.target.value);
-      localStorage.setItem("wb-fill-opacity", e.target.value);
+      prefs.set("wb-fill-opacity", e.target.value);
     });
   }
   //: **The switch says Fill, so on means filled** (INBOX 445). It was the
@@ -12671,21 +12671,21 @@ async function initWhiteboard() {
     fillOnInput.checked = !window.currentFillNone;
     fillOnInput.addEventListener("change", (e) => {
       window.currentFillNone = !e.target.checked;
-      localStorage.setItem("wb-fill-none", e.target.checked ? "off" : "on");
+      prefs.set("wb-fill-none", e.target.checked ? "off" : "on");
     });
   }
   if (strokeStyleSelect) {
     strokeStyleSelect.value = window.currentDashStyle;
     strokeStyleSelect.addEventListener("change", (e) => {
       window.currentDashStyle = e.target.value;
-      localStorage.setItem("wb-stroke-style", e.target.value);
+      prefs.set("wb-stroke-style", e.target.value);
     });
   }
   if (strokeNoneInput) {
     strokeNoneInput.checked = window.currentStrokeNone;
     strokeNoneInput.addEventListener("change", (e) => {
       window.currentStrokeNone = e.target.checked;
-      localStorage.setItem("wb-stroke-none", e.target.checked ? "on" : "off");
+      prefs.set("wb-stroke-none", e.target.checked ? "on" : "off");
     });
   }
 
@@ -12698,7 +12698,7 @@ async function initWhiteboard() {
     if (!input) continue;
     input.value = wbAlignGuideColor(kind);
     input.addEventListener("input", (e) => {
-      localStorage.setItem(`wb-guide-color-${kind}`, e.target.value);
+      prefs.set(`wb-guide-color-${kind}`, e.target.value);
     });
   }
 
@@ -13503,7 +13503,7 @@ async function initWhiteboard() {
   };
   applyPropsPref(prefs.get("wb-panel-props", null) !== "off");
   propsPref?.addEventListener("change", () => {
-    localStorage.setItem("wb-panel-props", propsPref.checked ? "on" : "off");
+    prefs.set("wb-panel-props", propsPref.checked ? "on" : "off");
     applyPropsPref(propsPref.checked);
   });
   const panelSwitches = [
@@ -13542,7 +13542,7 @@ async function initWhiteboard() {
     applyDock(prefs.get("wb-toolbar-dock", null) || "bottom");
     dockToggle.addEventListener("click", () => {
       const next = toolsPanel.dataset.dock === "bottom" ? "side" : "bottom";
-      localStorage.setItem("wb-toolbar-dock", next);
+      prefs.set("wb-toolbar-dock", next);
       applyDock(next);
     });
   }
@@ -13562,7 +13562,7 @@ async function initWhiteboard() {
     for (const type of ["input", "change"]) {
       railInk.addEventListener(type, (e) => {
         window.currentStrokeColor = e.target.value;
-        localStorage.setItem("wb-stroke-color", e.target.value);
+        prefs.set("wb-stroke-color", e.target.value);
         updateWbCursor();
       });
     }
@@ -15842,7 +15842,7 @@ async function wbNewUntitledBoard(kind = "board") {
   await new Promise((resolve) => setTimeout(resolve, 60));
   const name = (await names)[kind];
   try {
-    localStorage.setItem(WB_LAST_BOARD_KIND, kind);
+    prefs.set(WB_LAST_BOARD_KIND, kind);
   } catch (err) { /* see wbRememberedBoardKind */ }
   await wbCreateBlankBoard(name, kind);
   const boardId = window.currentBoardId;
@@ -15916,7 +15916,7 @@ async function createNewBoard(preset = null, { reveal = false } = {}) {
     if (!picked) return;
     await showCanvas();
     try {
-      localStorage.setItem(WB_LAST_BOARD_KIND, picked.kind);
+      prefs.set(WB_LAST_BOARD_KIND, picked.kind);
     } catch (err) { /* see wbRememberedBoardKind */ }
     if (!picked.ref) return wbCreateBlankBoard(picked.name, picked.kind);
     try {
@@ -15965,7 +15965,7 @@ async function createNewBoard(preset = null, { reveal = false } = {}) {
   //: Remembered on the way out, not on the click: a dialog someone dismissed
   //: said nothing about what they want next time.
   try {
-    localStorage.setItem(WB_LAST_BOARD_KIND, kind);
+    prefs.set(WB_LAST_BOARD_KIND, kind);
   } catch (err) { /* see wbRememberedBoardKind */ }
   return wbCreateBlankBoard(name, kind);
 }
@@ -20624,7 +20624,7 @@ onDomReady(() => {
   if (!select) return;
   select.value = boardSort();
   select.addEventListener("change", () => {
-    localStorage.setItem(BOARD_SORT_KEY, select.value);
+    prefs.set(BOARD_SORT_KEY, select.value);
     redrawLibraryBoardsGallery();
   });
 });
@@ -20685,7 +20685,7 @@ function renderBoardTypeFilter(counts) {
       button.appendChild(badge);
     }
     button.addEventListener("click", () => {
-      localStorage.setItem(BOARD_FILTER_KEY, filter.key);
+      prefs.set(BOARD_FILTER_KEY, filter.key);
       redrawLibraryBoardsGallery();
     });
     box.appendChild(button);
@@ -21039,7 +21039,7 @@ window.renderWbGestureHints = renderWbGestureHints;
 
 document.getElementById("wb-gestures-dismiss")?.addEventListener("click", () => {
   try {
-    localStorage.setItem(WB_GESTURES_DISMISSED, "1");
+    prefs.set(WB_GESTURES_DISMISSED, "1");
   } catch {
     /* nothing to persist to, hiding it for this session is still correct */
   }

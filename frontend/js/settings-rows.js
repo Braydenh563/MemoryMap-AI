@@ -425,10 +425,10 @@ function applyLookSettings(file) {
   const fromNotebook = file.preferences?.ui_state || {};
   const fromBrowser = file.this_browser || {};
   for (const [key, value] of Object.entries(fromNotebook)) {
-    if (mirrored.has(key) && typeof value === "string") localStorage.setItem(key, value);
+    if (mirrored.has(key) && typeof value === "string") prefs.set(key, value);
   }
   for (const [key, value] of Object.entries(fromBrowser)) {
-    if (local.has(key) && !DEVICE_ONLY_KEYS.includes(key) && typeof value === "string") localStorage.setItem(key, value);
+    if (local.has(key) && !DEVICE_ONLY_KEYS.includes(key) && typeof value === "string") prefs.set(key, value);
   }
   applyAppearance();
   if (currentSettingsSection === "appearance") renderAppearance();

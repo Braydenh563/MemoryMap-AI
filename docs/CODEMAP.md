@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5655, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4768, test files 1085, tests 9938, plan headings 953.
+Counts: frontend functions 5655, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4768, test files 1085, tests 9940, plan headings 953.
 
 ## Frontend functions (5655)
 
@@ -1017,113 +1017,113 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `agentActivityNotice` | frontend/js/status.js:635 |
-| `agentActivityQuiet` | frontend/js/status.js:627 |
-| `agentModeAvailable` | frontend/js/status.js:2561 |
-| `aiIsOff` | frontend/js/status.js:1809 |
-| `aiOffGlyph` | frontend/js/status.js:2178 |
-| `aiOfflineDismissed` | frontend/js/status.js:1984 |
-| `aiStatusState` | frontend/js/status.js:2065 |
+| `agentActivityNotice` | frontend/js/status.js:629 |
+| `agentActivityQuiet` | frontend/js/status.js:621 |
+| `agentModeAvailable` | frontend/js/status.js:2555 |
+| `aiIsOff` | frontend/js/status.js:1803 |
+| `aiOffGlyph` | frontend/js/status.js:2172 |
+| `aiOfflineDismissed` | frontend/js/status.js:1978 |
+| `aiStatusState` | frontend/js/status.js:2059 |
 | `announcedReminders` | frontend/js/status.js:42 |
-| `appStackIsNewer` | frontend/js/status.js:1355 |
-| `armReminderTimer` | frontend/js/status.js:510 |
-| `askNotificationPermission` | frontend/js/status.js:380 |
-| `backendLabel` | frontend/js/status.js:2624 |
-| `boardHistoryActive` | frontend/js/status.js:1324 |
-| `checkDueReminders` | frontend/js/status.js:526 |
-| `closeModelGate` | frontend/js/status.js:1826 |
-| `closeNotifications` | frontend/js/status.js:360 |
-| `dismissAiOffline` | frontend/js/status.js:1993 |
-| `dismissToast` | frontend/js/status.js:738 |
-| `dismissedNotificationIds` | frontend/js/status.js:234 |
-| `emailSupportReport` | frontend/js/status.js:781 |
-| `forcedReadIds` | frontend/js/status.js:202 |
-| `forcedUnreadIds` | frontend/js/status.js:171 |
-| `insightLine` | frontend/js/status.js:1251 |
-| `insightSend` | frontend/js/status.js:1224 |
-| `insightVerdicts` | frontend/js/status.js:1228 |
-| `integrityWords` | frontend/js/status.js:1063 |
-| `isNotificationUnread` | frontend/js/status.js:220 |
-| `jobsRunning` | frontend/js/status.js:1673 |
-| `keepToastAction` | frontend/js/status.js:339 |
-| `lastAnswerLine` | frontend/js/status.js:2200 |
-| `loadMostUsed` | frontend/js/status.js:1559 |
-| `loadRecentQuestions` | frontend/js/status.js:1532 |
-| `noteDamagedNotebook` | frontend/js/status.js:1067 |
-| `noteServerDown` | frontend/js/status.js:1123 |
-| `noteServerUp` | frontend/js/status.js:1132 |
-| `noticeTaskTransitions` | frontend/js/status.js:2870 |
-| `noticeUnwatchedAnswer` | frontend/js/status.js:670 |
-| `notificationsMuted` | frontend/js/status.js:612 |
-| `notificationsReadAt` | frontend/js/status.js:153 |
-| `notify` | frontend/js/status.js:454 |
-| `nudgeEmbeddingProblem` | frontend/js/status.js:2243 |
-| `offerUndo` | frontend/js/status.js:1266 |
-| `openModelGate` | frontend/js/status.js:1836 |
-| `openModelOffer` | frontend/js/status.js:1843 |
-| `openUndoHistoryMenu` | frontend/js/status.js:1473 |
-| `paintStatusItem` | frontend/js/status.js:2297 |
-| `paintTitle` | frontend/js/status.js:487 |
-| `paintUndoDoor` | frontend/js/status.js:1433 |
-| `performRedo` | frontend/js/status.js:1387 |
-| `performUndo` | frontend/js/status.js:1364 |
-| `plainHttpError` | frontend/js/status.js:854 |
-| `playReminderChime` | frontend/js/status.js:420 |
-| `pollServerHealth` | frontend/js/status.js:1160 |
-| `primeReminderAudio` | frontend/js/status.js:395 |
-| `pushEntryPutUndo` | frontend/js/status.js:1299 |
-| `pushUndo` | frontend/js/status.js:1197 |
+| `appStackIsNewer` | frontend/js/status.js:1349 |
+| `armReminderTimer` | frontend/js/status.js:504 |
+| `askNotificationPermission` | frontend/js/status.js:374 |
+| `backendLabel` | frontend/js/status.js:2618 |
+| `boardHistoryActive` | frontend/js/status.js:1318 |
+| `checkDueReminders` | frontend/js/status.js:520 |
+| `closeModelGate` | frontend/js/status.js:1820 |
+| `closeNotifications` | frontend/js/status.js:354 |
+| `dismissAiOffline` | frontend/js/status.js:1987 |
+| `dismissToast` | frontend/js/status.js:732 |
+| `dismissedNotificationIds` | frontend/js/status.js:228 |
+| `emailSupportReport` | frontend/js/status.js:775 |
+| `forcedReadIds` | frontend/js/status.js:196 |
+| `forcedUnreadIds` | frontend/js/status.js:165 |
+| `insightLine` | frontend/js/status.js:1245 |
+| `insightSend` | frontend/js/status.js:1218 |
+| `insightVerdicts` | frontend/js/status.js:1222 |
+| `integrityWords` | frontend/js/status.js:1057 |
+| `isNotificationUnread` | frontend/js/status.js:214 |
+| `jobsRunning` | frontend/js/status.js:1667 |
+| `keepToastAction` | frontend/js/status.js:333 |
+| `lastAnswerLine` | frontend/js/status.js:2194 |
+| `loadMostUsed` | frontend/js/status.js:1553 |
+| `loadRecentQuestions` | frontend/js/status.js:1526 |
+| `noteDamagedNotebook` | frontend/js/status.js:1061 |
+| `noteServerDown` | frontend/js/status.js:1117 |
+| `noteServerUp` | frontend/js/status.js:1126 |
+| `noticeTaskTransitions` | frontend/js/status.js:2864 |
+| `noticeUnwatchedAnswer` | frontend/js/status.js:664 |
+| `notificationsMuted` | frontend/js/status.js:606 |
+| `notificationsReadAt` | frontend/js/status.js:147 |
+| `notify` | frontend/js/status.js:448 |
+| `nudgeEmbeddingProblem` | frontend/js/status.js:2237 |
+| `offerUndo` | frontend/js/status.js:1260 |
+| `openModelGate` | frontend/js/status.js:1830 |
+| `openModelOffer` | frontend/js/status.js:1837 |
+| `openUndoHistoryMenu` | frontend/js/status.js:1467 |
+| `paintStatusItem` | frontend/js/status.js:2291 |
+| `paintTitle` | frontend/js/status.js:481 |
+| `paintUndoDoor` | frontend/js/status.js:1427 |
+| `performRedo` | frontend/js/status.js:1381 |
+| `performUndo` | frontend/js/status.js:1358 |
+| `plainHttpError` | frontend/js/status.js:848 |
+| `playReminderChime` | frontend/js/status.js:414 |
+| `pollServerHealth` | frontend/js/status.js:1154 |
+| `primeReminderAudio` | frontend/js/status.js:389 |
+| `pushEntryPutUndo` | frontend/js/status.js:1293 |
+| `pushUndo` | frontend/js/status.js:1191 |
 | `recordNotification` | frontend/js/status.js:97 |
-| `refreshBackgroundTasks` | frontend/js/status.js:2799 |
-| `refreshModelStatus` | frontend/js/status.js:1701 |
+| `refreshBackgroundTasks` | frontend/js/status.js:2793 |
+| `refreshModelStatus` | frontend/js/status.js:1695 |
 | `rememberAnnounced` | frontend/js/status.js:50 |
-| `renderAgentActivityMode` | frontend/js/status.js:706 |
-| `renderAiOfflineNotice` | frontend/js/status.js:2008 |
-| `renderAiPill` | frontend/js/status.js:2208 |
-| `renderBackendPicker` | frontend/js/status.js:2634 |
-| `renderChatModeSeg` | frontend/js/status.js:2565 |
-| `renderNotifMuteToggle` | frontend/js/status.js:269 |
-| `renderNotificationBadge` | frontend/js/status.js:249 |
-| `renderSearchEngineHealth` | frontend/js/status.js:2490 |
-| `renderSettings` | frontend/js/status.js:2667 |
-| `renderStatusBar` | frontend/js/status.js:2333 |
-| `renderUndoBar` | frontend/js/status.js:1418 |
-| `reopenAnswerPanel` | frontend/js/status.js:685 |
-| `resetStatusCadence` | frontend/js/status.js:1623 |
-| `retryServerNow` | frontend/js/status.js:1173 |
-| `scheduleServerDownRetry` | frontend/js/status.js:1147 |
-| `scheduleUndoBar` | frontend/js/status.js:1410 |
-| `setChatMode` | frontend/js/status.js:2608 |
-| `setForcedReadIds` | frontend/js/status.js:211 |
-| `setForcedUnreadIds` | frontend/js/status.js:180 |
-| `setTitleCount` | frontend/js/status.js:492 |
-| `setTitleView` | frontend/js/status.js:497 |
-| `settingsOpen` | frontend/js/status.js:1640 |
-| `settleNotification` | frontend/js/status.js:118 |
-| `settleStartedNotification` | frontend/js/status.js:138 |
-| `settleUndoFromToast` | frontend/js/status.js:1287 |
-| `showAgentNoModelHint` | frontend/js/status.js:2603 |
-| `showServerDownBanner` | frontend/js/status.js:1106 |
-| `startReminderWatch` | frontend/js/status.js:589 |
+| `renderAgentActivityMode` | frontend/js/status.js:700 |
+| `renderAiOfflineNotice` | frontend/js/status.js:2002 |
+| `renderAiPill` | frontend/js/status.js:2202 |
+| `renderBackendPicker` | frontend/js/status.js:2628 |
+| `renderChatModeSeg` | frontend/js/status.js:2559 |
+| `renderNotifMuteToggle` | frontend/js/status.js:263 |
+| `renderNotificationBadge` | frontend/js/status.js:243 |
+| `renderSearchEngineHealth` | frontend/js/status.js:2484 |
+| `renderSettings` | frontend/js/status.js:2661 |
+| `renderStatusBar` | frontend/js/status.js:2327 |
+| `renderUndoBar` | frontend/js/status.js:1412 |
+| `reopenAnswerPanel` | frontend/js/status.js:679 |
+| `resetStatusCadence` | frontend/js/status.js:1617 |
+| `retryServerNow` | frontend/js/status.js:1167 |
+| `scheduleServerDownRetry` | frontend/js/status.js:1141 |
+| `scheduleUndoBar` | frontend/js/status.js:1404 |
+| `setChatMode` | frontend/js/status.js:2602 |
+| `setForcedReadIds` | frontend/js/status.js:205 |
+| `setForcedUnreadIds` | frontend/js/status.js:174 |
+| `setTitleCount` | frontend/js/status.js:486 |
+| `setTitleView` | frontend/js/status.js:491 |
+| `settingsOpen` | frontend/js/status.js:1634 |
+| `settleNotification` | frontend/js/status.js:116 |
+| `settleStartedNotification` | frontend/js/status.js:132 |
+| `settleUndoFromToast` | frontend/js/status.js:1281 |
+| `showAgentNoModelHint` | frontend/js/status.js:2597 |
+| `showServerDownBanner` | frontend/js/status.js:1100 |
+| `startReminderWatch` | frontend/js/status.js:583 |
 | `storedNotifications` | frontend/js/status.js:84 |
-| `surfaceHistory` | frontend/js/status.js:1337 |
-| `syncAgentPaletteAvailability` | frontend/js/status.js:2047 |
-| `syncModelGatedControls` | frontend/js/status.js:1890 |
-| `syncNotifBlocked` | frontend/js/status.js:375 |
-| `taskEndingWords` | frontend/js/status.js:145 |
-| `taskKey` | frontend/js/status.js:2851 |
-| `toast` | frontend/js/status.js:909 |
-| `toastAction` | frontend/js/status.js:1043 |
-| `toastActionButton` | frontend/js/status.js:1023 |
-| `toastActions` | frontend/js/status.js:1014 |
-| `toastCloseButton` | frontend/js/status.js:746 |
-| `toastHost` | frontend/js/status.js:823 |
-| `toastProgress` | frontend/js/status.js:979 |
-| `toastStack` | frontend/js/status.js:722 |
-| `toggleAiStatusPopup` | frontend/js/status.js:2475 |
-| `toggleNotificationMute` | frontend/js/status.js:285 |
-| `unreadNotifications` | frontend/js/status.js:243 |
-| `voiceLine` | frontend/js/status.js:903 |
+| `surfaceHistory` | frontend/js/status.js:1331 |
+| `syncAgentPaletteAvailability` | frontend/js/status.js:2041 |
+| `syncModelGatedControls` | frontend/js/status.js:1884 |
+| `syncNotifBlocked` | frontend/js/status.js:369 |
+| `taskEndingWords` | frontend/js/status.js:139 |
+| `taskKey` | frontend/js/status.js:2845 |
+| `toast` | frontend/js/status.js:903 |
+| `toastAction` | frontend/js/status.js:1037 |
+| `toastActionButton` | frontend/js/status.js:1017 |
+| `toastActions` | frontend/js/status.js:1008 |
+| `toastCloseButton` | frontend/js/status.js:740 |
+| `toastHost` | frontend/js/status.js:817 |
+| `toastProgress` | frontend/js/status.js:973 |
+| `toastStack` | frontend/js/status.js:716 |
+| `toggleAiStatusPopup` | frontend/js/status.js:2469 |
+| `toggleNotificationMute` | frontend/js/status.js:279 |
+| `unreadNotifications` | frontend/js/status.js:237 |
+| `voiceLine` | frontend/js/status.js:897 |
 
 ### frontend/js/ai-tools.js (50)
 
@@ -3952,11 +3952,11 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `lanAnswerDevice` | frontend/js/lan-watch.js:53 |
-| `lanNoticeDevice` | frontend/js/lan-watch.js:63 |
-| `lanNoticeHeld` | frontend/js/lan-watch.js:87 |
-| `lanWatch` | frontend/js/lan-watch.js:32 |
-| `lanWatchOnce` | frontend/js/lan-watch.js:16 |
+| `lanAnswerDevice` | frontend/js/lan-watch.js:61 |
+| `lanNoticeDevice` | frontend/js/lan-watch.js:71 |
+| `lanNoticeHeld` | frontend/js/lan-watch.js:95 |
+| `lanWatch` | frontend/js/lan-watch.js:40 |
+| `lanWatchOnce` | frontend/js/lan-watch.js:20 |
 
 ### frontend/js/library.js (245)
 
@@ -4572,28 +4572,28 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `clearQuickNote` | frontend/js/quick-note.js:248 |
-| `clipPastedLink` | frontend/js/quick-note.js:349 |
-| `createNoteSafely` | frontend/js/quick-note.js:74 |
-| `flushNoteOutbox` | frontend/js/quick-note.js:96 |
-| `keepQuickNoteDraft` | frontend/js/quick-note.js:238 |
-| `newNoteClientKey` | frontend/js/quick-note.js:54 |
+| `clearQuickNote` | frontend/js/quick-note.js:245 |
+| `clipPastedLink` | frontend/js/quick-note.js:346 |
+| `createNoteSafely` | frontend/js/quick-note.js:71 |
+| `flushNoteOutbox` | frontend/js/quick-note.js:93 |
+| `keepQuickNoteDraft` | frontend/js/quick-note.js:235 |
+| `newNoteClientKey` | frontend/js/quick-note.js:51 |
 | `noteOutbox` | frontend/js/quick-note.js:30 |
-| `noteOutboxAdd` | frontend/js/quick-note.js:64 |
-| `noteServerGone` | frontend/js/quick-note.js:59 |
-| `openQuickNote` | frontend/js/quick-note.js:208 |
-| `pasteClipboardAsNote` | frontend/js/quick-note.js:413 |
-| `quickNoteBox` | frontend/js/quick-note.js:198 |
-| `quickNoteReminder` | frontend/js/quick-note.js:311 |
-| `quickNoteStatus` | frontend/js/quick-note.js:202 |
-| `quickNoteToCapture` | frontend/js/quick-note.js:327 |
-| `reminderFromChatAnswer` | frontend/js/quick-note.js:479 |
-| `renderNoteOutbox` | frontend/js/quick-note.js:139 |
-| `renderPendingNoteRows` | frontend/js/quick-note.js:157 |
-| `returnNoteToCapture` | frontend/js/quick-note.js:129 |
-| `saveChatAnswerAsNote` | frontend/js/quick-note.js:452 |
-| `saveQuickNote` | frontend/js/quick-note.js:256 |
-| `scheduleNoteOutboxFlush` | frontend/js/quick-note.js:88 |
+| `noteOutboxAdd` | frontend/js/quick-note.js:61 |
+| `noteServerGone` | frontend/js/quick-note.js:56 |
+| `openQuickNote` | frontend/js/quick-note.js:205 |
+| `pasteClipboardAsNote` | frontend/js/quick-note.js:410 |
+| `quickNoteBox` | frontend/js/quick-note.js:195 |
+| `quickNoteReminder` | frontend/js/quick-note.js:308 |
+| `quickNoteStatus` | frontend/js/quick-note.js:199 |
+| `quickNoteToCapture` | frontend/js/quick-note.js:324 |
+| `reminderFromChatAnswer` | frontend/js/quick-note.js:476 |
+| `renderNoteOutbox` | frontend/js/quick-note.js:136 |
+| `renderPendingNoteRows` | frontend/js/quick-note.js:154 |
+| `returnNoteToCapture` | frontend/js/quick-note.js:126 |
+| `saveChatAnswerAsNote` | frontend/js/quick-note.js:449 |
+| `saveQuickNote` | frontend/js/quick-note.js:253 |
+| `scheduleNoteOutboxFlush` | frontend/js/quick-note.js:85 |
 | `writeNoteOutbox` | frontend/js/quick-note.js:42 |
 
 ### frontend/js/quickadd.js (38)
@@ -16008,7 +16008,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9938)
+## Tests (9940)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16759,7 +16759,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_portable_strftime.py | 1 |
 | tests/test_preferences_api.py | 26 |
 | tests/test_preferences_roundtrip.py | 4 |
-| tests/test_prefs_module.py | 4 |
+| tests/test_prefs_module.py | 6 |
 | tests/test_prefs_pending_save_survives_pane_switch.py | 3 |
 | tests/test_presets.py | 24 |
 | tests/test_privacy_receipt.py | 18 |
@@ -17110,7 +17110,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 0. Performance and "not device heavy" (cross-cutting, first) | docs/roadmap/PLAN.md:26 |
 | 0. The diagnosis in one page | docs/roadmap/WORLD_CLASS_PLAN.md:25 |
 | 0. The operating protocol (read every session, it is short) | docs/roadmap/SESSION_BRIEFS.md:17 |
-| 1. Decisions made (do not remake) | docs/roadmap/SESSION_BRIEFS.md:178 |
+| 1. Decisions made (do not remake) | docs/roadmap/SESSION_BRIEFS.md:175 |
 | 1. Format panel, Style tab | docs/roadmap/WHITEBOARD_PLAN.md:977 |
 | 1. Live log console (started, not finished) | docs/roadmap/BACKLOG.md:32 |
 | 1. Research read, 2026-10-10, and what each changes here | docs/roadmap/CHAT_PLAN.md:1582 |
@@ -17258,7 +17258,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 19.5 What the review has not covered yet | docs/roadmap/WORLD_CLASS_PLAN.md:2057 |
 | 2. Competitors: what they have that MemoryMap does not (checked, not | docs/roadmap/WORLD_CLASS_PLAN.md:225 |
 | 2. Documents: to the level of Obsidian / Typora / iA Writer | docs/roadmap/PLAN.md:61 |
-| 2. Done when | docs/roadmap/SESSION_BRIEFS.md:208 |
+| 2. Done when | docs/roadmap/SESSION_BRIEFS.md:205 |
 | 2. Format panel, Text tab, and the Arrange tab | docs/roadmap/WHITEBOARD_PLAN.md:1010 |
 | 2. Packaging and distribution | docs/roadmap/ANALYSIS.md:4195 |
 | 2. Quick wins | docs/roadmap/BACKLOG.md:85 |
@@ -17335,7 +17335,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 3. Backend: fix and redesign | docs/roadmap/PLAN.md:81 |
 | 3. Chat page: Chat / Agent / Browse sub-tabs | docs/roadmap/BACKLOG.md:118 |
 | 3. Edit style, Edit data, placeholders, tooltips | docs/roadmap/WHITEBOARD_PLAN.md:1054 |
-| 3. Files | docs/roadmap/SESSION_BRIEFS.md:235 |
+| 3. Files | docs/roadmap/SESSION_BRIEFS.md:232 |
 | 3. Frontend dossiers (one per surface, each a hand-off brief) | docs/roadmap/WORLD_CLASS_PLAN.md:289 |
 | 3. Metadata and dependencies | docs/roadmap/ANALYSIS.md:4222 |
 | 3. Research: what the field actually offers | docs/roadmap/MINDMAP_PLAN.md:79 |
@@ -17364,7 +17364,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 34. Where I'd take this: an outside read | docs/roadmap/ANALYSIS.md:494 |
 | 34b. Judging another agent's branch: what was kept, and on what grounds | docs/roadmap/ANALYSIS.md:625 |
 | 4. Agent harness: "the ultimate agent harness" | docs/roadmap/PLAN.md:99 |
-| 4. Agents | docs/roadmap/SESSION_BRIEFS.md:244 |
+| 4. Agents | docs/roadmap/SESSION_BRIEFS.md:241 |
 | 4. Connectors: edge styles, waypoints, jumps, arrowheads, labels | docs/roadmap/WHITEBOARD_PLAN.md:1068 |
 | 4. Decisions made (do not re-decide) | docs/roadmap/CHAT_PLAN.md:74 |
 | 4. Decisions made (do not re-decide) | docs/roadmap/TIMELINE_PLAN.md:58 |
@@ -17393,7 +17393,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 5. Ship order (suggested sprints, each ends green + measured) | docs/roadmap/PLAN.md:114 |
 | 5. The feature set, in build order | docs/roadmap/MINDMAP_PLAN.md:156 |
 | 5. The phases | docs/roadmap/DOCUMENTS_PLAN.md:160 |
-| 5. Traps | docs/roadmap/SESSION_BRIEFS.md:255 |
+| 5. Traps | docs/roadmap/SESSION_BRIEFS.md:252 |
 | 5. Warnings: bug classes, not features to copy | docs/roadmap/ANALYSIS.md:2529 |
 | 59. Three sibling repos, read and triaged, claude-obsidian, cognee, graphify | docs/roadmap/ANALYSIS.md:682 |
 | 6. Competitor matrix (what the plan takes from whom) | docs/roadmap/DOCUMENTS_PLAN.md:482 |
@@ -17406,7 +17406,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 6. Measuring "professional" without telemetry | docs/roadmap/WORLD_CLASS_PLAN.md:713 |
 | 6. Not verified | docs/roadmap/CHAT_PLAN.md:1654 |
 | 6. OpenAI-compatible backends: **done** | docs/roadmap/BACKLOG.md:389 |
-| 6. Rows added after this brief (the owner's later asks land here) | docs/roadmap/SESSION_BRIEFS.md:265 |
+| 6. Rows added after this brief (the owner's later asks land here) | docs/roadmap/SESSION_BRIEFS.md:262 |
 | 6. Semantic search and the knowledge graph, "the ultimate upgrade" | docs/roadmap/PLAN.md:128 |
 | 6. The companion and device pairing | docs/roadmap/ANALYSIS.md:4295 |
 | 60. Odysseus, re-read: the repo tripled in size, and this time the question was answered from its own words | docs/roadmap/ANALYSIS.md:792 |
@@ -17491,83 +17491,83 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | B6 · Designed states: Medium | docs/roadmap/MODERNISATION_AUDIT.md:454 |
 | B7 The API contract | docs/roadmap/WORLD_CLASS_PLAN.md:642 |
 | B8 Extensions | docs/roadmap/WORLD_CLASS_PLAN.md:654 |
-| Brief 100: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:578 |
-| Brief 101 (Sonnet, three agents): the found-not-fixed ledger, placed (the owner: "make sure you cover all bugs and issues found and not fixed as well") | docs/roadmap/SESSION_BRIEFS.md:580 |
-| Brief 102 (Opus, lansafe): LAN safe by default on any network (INBOX 867) | docs/roadmap/SESSION_BRIEFS.md:589 |
-| Brief 103: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:598 |
-| Brief 104 (Opus, after atlas): typos read in context, not as slang (INBOX 869) | docs/roadmap/SESSION_BRIEFS.md:600 |
-| Brief 10: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:97 |
-| Brief 11: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:99 |
-| Brief 12: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:101 |
-| Brief 13: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:103 |
-| Brief 14: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:105 |
-| Brief 15: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:107 |
-| Brief 16: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:121 |
-| Brief 17: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:123 |
-| Brief 18: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:125 |
-| Brief 19: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:127 |
+| Brief 100: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:575 |
+| Brief 101 (Sonnet, three agents): the found-not-fixed ledger, placed (the owner: "make sure you cover all bugs and issues found and not fixed as well") | docs/roadmap/SESSION_BRIEFS.md:577 |
+| Brief 102 (Opus, lansafe): LAN safe by default on any network (INBOX 867) | docs/roadmap/SESSION_BRIEFS.md:586 |
+| Brief 103: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:595 |
+| Brief 104 (Opus, after atlas): typos read in context, not as slang (INBOX 869) | docs/roadmap/SESSION_BRIEFS.md:597 |
+| Brief 10: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:94 |
+| Brief 11: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:96 |
+| Brief 12: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:98 |
+| Brief 13: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:100 |
+| Brief 14: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:102 |
+| Brief 15: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:104 |
+| Brief 16: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:118 |
+| Brief 17: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:120 |
+| Brief 18: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:122 |
+| Brief 19: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:124 |
 | Brief 1: W3-1: one visibility-aware scheduler (PLAN P1) | docs/roadmap/MODERNISATION_AUDIT.md:1111 |
 | Brief 1: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:70 |
-| Brief 20: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:129 |
-| Brief 21: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:131 |
-| Brief 22: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:133 |
-| Brief 23: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:135 |
-| Brief 24: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:137 |
-| Brief 27 (Opus): UI Phase 11, the phone | docs/roadmap/SESSION_BRIEFS.md:141 |
+| Brief 20: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:126 |
+| Brief 21: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:128 |
+| Brief 22: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:130 |
+| Brief 23: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:132 |
+| Brief 24: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:134 |
+| Brief 27 (Opus): UI Phase 11, the phone | docs/roadmap/SESSION_BRIEFS.md:138 |
 | Brief 2: W2-1: collapse the Notes chrome stack | docs/roadmap/MODERNISATION_AUDIT.md:1157 |
 | Brief 2: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:72 |
-| Brief 3 (Sonnet): the `localStorage` writes through `prefs` (what is left) | docs/roadmap/SESSION_BRIEFS.md:74 |
-| Brief 32: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:153 |
-| Brief 33: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:151 |
-| Brief 34 (Opus, two agents): characters, the faces, the companion and Atlas, to the end | docs/roadmap/SESSION_BRIEFS.md:155 |
-| Brief 34 continues (Opus, high): Atlas and the companion | docs/roadmap/SESSION_BRIEFS.md:443 |
+| Brief 32: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:150 |
+| Brief 33: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:148 |
+| Brief 34 (Opus, two agents): characters, the faces, the companion and Atlas, to the end | docs/roadmap/SESSION_BRIEFS.md:152 |
+| Brief 34 continues (Opus, high): Atlas and the companion | docs/roadmap/SESSION_BRIEFS.md:440 |
 | Brief 3: W4-1: the error contract (PLAN B3) | docs/roadmap/MODERNISATION_AUDIT.md:1199 |
-| Brief 4 (Sonnet): the last long paragraphs behind '?' (what is left) | docs/roadmap/SESSION_BRIEFS.md:79 |
-| Brief 43: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:458 |
-| Brief 44: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)"); part 2 is WHITEBOARD_PLAN's expansion row 5 and `agent-remaining/drawio-1010.md` | docs/roadmap/SESSION_BRIEFS.md:460 |
-| Brief 45 part 2 (Opus, high): structure and complexity, acted on | docs/roadmap/SESSION_BRIEFS.md:462 |
+| Brief 3: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:74 |
+| Brief 4 (Sonnet): the last long paragraphs behind '?' (what is left) | docs/roadmap/SESSION_BRIEFS.md:76 |
+| Brief 43: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:455 |
+| Brief 44: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)"); part 2 is WHITEBOARD_PLAN's expansion row 5 and `agent-remaining/drawio-1010.md` | docs/roadmap/SESSION_BRIEFS.md:457 |
+| Brief 45 part 2 (Opus, high): structure and complexity, acted on | docs/roadmap/SESSION_BRIEFS.md:459 |
 | Brief 4: W1-3: glass as shell furniture, with an O(1) invariant | docs/roadmap/MODERNISATION_AUDIT.md:1243 |
-| Brief 56: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:473 |
-| Brief 57: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:475 |
-| Brief 58 (Opus, high): the stylesheet's structure (13b) | docs/roadmap/SESSION_BRIEFS.md:477 |
-| Brief 59 (Opus, high): the surfaces (13c) | docs/roadmap/SESSION_BRIEFS.md:481 |
+| Brief 56: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:470 |
+| Brief 57: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:472 |
+| Brief 58 (Opus, high): the stylesheet's structure (13b) | docs/roadmap/SESSION_BRIEFS.md:474 |
+| Brief 59 (Opus, high): the surfaces (13c) | docs/roadmap/SESSION_BRIEFS.md:478 |
 | Brief 5: W2-3: the note card's actions stop covering its text on touch | docs/roadmap/MODERNISATION_AUDIT.md:1281 |
-| Brief 5: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:84 |
-| Brief 60: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:491 |
-| Brief 61 (Opus, high): services for whiteboard and files (26b) | docs/roadmap/SESSION_BRIEFS.md:493 |
-| Brief 62 (Opus, high): data out of code (26c) | docs/roadmap/SESSION_BRIEFS.md:497 |
-| Brief 63 (Opus, high): the runners and the embedder (26d) | docs/roadmap/SESSION_BRIEFS.md:502 |
+| Brief 5: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:81 |
+| Brief 60: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:488 |
+| Brief 61 (Opus, high): services for whiteboard and files (26b) | docs/roadmap/SESSION_BRIEFS.md:490 |
+| Brief 62 (Opus, high): data out of code (26c) | docs/roadmap/SESSION_BRIEFS.md:494 |
+| Brief 63 (Opus, high): the runners and the embedder (26d) | docs/roadmap/SESSION_BRIEFS.md:499 |
 | Brief 6: W8-1: the audit scripts become the e2e suite | docs/roadmap/MODERNISATION_AUDIT.md:1310 |
-| Brief 6: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:86 |
+| Brief 6: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:83 |
 | Brief 7: W5-4: `ai/scheduler.py`, one gate in front of every model call | docs/roadmap/MODERNISATION_AUDIT.md:1347 |
-| Brief 7: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:88 |
-| Brief 85 (Opus): the launch splash, reimagined (INBOX 834) | docs/roadmap/SESSION_BRIEFS.md:515 |
-| Brief 86: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (Brief 86)") | docs/roadmap/SESSION_BRIEFS.md:520 |
-| Brief 87 step 2 (Opus): build the top two vendor candidates (INBOX 833) | docs/roadmap/SESSION_BRIEFS.md:522 |
-| Brief 88 (Opus): Atlas and the companions, alive (INBOX 835) | docs/roadmap/SESSION_BRIEFS.md:526 |
-| Brief 89 (Sonnet): Add tags on lightly tagged notes (INBOX 836) | docs/roadmap/SESSION_BRIEFS.md:531 |
+| Brief 7: built; moved to HISTORY.md ("Moved from the plans, 2026-10-10 (SESSION_BRIEFS Briefs 1 to 33)") | docs/roadmap/SESSION_BRIEFS.md:85 |
+| Brief 85 (Opus): the launch splash, reimagined (INBOX 834) | docs/roadmap/SESSION_BRIEFS.md:512 |
+| Brief 86: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (Brief 86)") | docs/roadmap/SESSION_BRIEFS.md:517 |
+| Brief 87 step 2 (Opus): build the top two vendor candidates (INBOX 833) | docs/roadmap/SESSION_BRIEFS.md:519 |
+| Brief 88 (Opus): Atlas and the companions, alive (INBOX 835) | docs/roadmap/SESSION_BRIEFS.md:523 |
+| Brief 89 (Sonnet): Add tags on lightly tagged notes (INBOX 836) | docs/roadmap/SESSION_BRIEFS.md:528 |
 | Brief 8: W1-4: the three 18.4px switches, and making DESIGN.md true | docs/roadmap/MODERNISATION_AUDIT.md:1392 |
-| Brief 8: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:90 |
-| Brief 9 (Opus): the job runtime, the rest (B2) | docs/roadmap/SESSION_BRIEFS.md:92 |
-| Brief 90 (Sonnet, standing): the owner's own typos as composer fixtures (INBOX 837) | docs/roadmap/SESSION_BRIEFS.md:535 |
-| Brief 91 (Sonnet, ownerfix2): the owner's small UI reports, 2026-10-11 afternoon (INBOX 838 to 842) | docs/roadmap/SESSION_BRIEFS.md:540 |
-| Brief 92 (Opus, after the queue): the whole-app pass the owner asked for (INBOX 843) | docs/roadmap/SESSION_BRIEFS.md:544 |
-| Brief 93: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:551 |
-| Brief 94: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:553 |
-| Brief 95 (Opus): themes, dug deep (INBOX 858) | docs/roadmap/SESSION_BRIEFS.md:555 |
-| Brief 96: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:560 |
-| Brief 97 (Opus, after Atlas): the composer as the place to go, the graph maker (INBOX 860) | docs/roadmap/SESSION_BRIEFS.md:562 |
-| Brief 98 (Opus): goals and lists (INBOX 861) | docs/roadmap/SESSION_BRIEFS.md:570 |
-| Brief 99: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:576 |
-| Briefs 25 to 31: 25, 26 and 28 to 31 built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:139 |
-| Briefs 35 to 42: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:441 |
-| Briefs 46 to 55: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:466 |
-| Briefs 56 to 59 (2026-10-10, Fable): the design review | docs/roadmap/SESSION_BRIEFS.md:468 |
-| Briefs 60 to 63 (2026-10-10, Fable): the backend review | docs/roadmap/SESSION_BRIEFS.md:486 |
-| Briefs 64 to 68: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:507 |
-| Briefs 69 to 71: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:509 |
-| Briefs 72 to 75: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:511 |
-| Briefs 76 to 84 (from 72a and 72b): built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:513 |
+| Brief 8: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:87 |
+| Brief 9 (Opus): the job runtime, the rest (B2) | docs/roadmap/SESSION_BRIEFS.md:89 |
+| Brief 90 (Sonnet, standing): the owner's own typos as composer fixtures (INBOX 837) | docs/roadmap/SESSION_BRIEFS.md:532 |
+| Brief 91 (Sonnet, ownerfix2): the owner's small UI reports, 2026-10-11 afternoon (INBOX 838 to 842) | docs/roadmap/SESSION_BRIEFS.md:537 |
+| Brief 92 (Opus, after the queue): the whole-app pass the owner asked for (INBOX 843) | docs/roadmap/SESSION_BRIEFS.md:541 |
+| Brief 93: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:548 |
+| Brief 94: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:550 |
+| Brief 95 (Opus): themes, dug deep (INBOX 858) | docs/roadmap/SESSION_BRIEFS.md:552 |
+| Brief 96: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:557 |
+| Brief 97 (Opus, after Atlas): the composer as the place to go, the graph maker (INBOX 860) | docs/roadmap/SESSION_BRIEFS.md:559 |
+| Brief 98 (Opus): goals and lists (INBOX 861) | docs/roadmap/SESSION_BRIEFS.md:567 |
+| Brief 99: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:573 |
+| Briefs 25 to 31: 25, 26 and 28 to 31 built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:136 |
+| Briefs 35 to 42: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:438 |
+| Briefs 46 to 55: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:463 |
+| Briefs 56 to 59 (2026-10-10, Fable): the design review | docs/roadmap/SESSION_BRIEFS.md:465 |
+| Briefs 60 to 63 (2026-10-10, Fable): the backend review | docs/roadmap/SESSION_BRIEFS.md:483 |
+| Briefs 64 to 68: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:504 |
+| Briefs 69 to 71: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:506 |
+| Briefs 72 to 75: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:508 |
+| Briefs 76 to 84 (from 72a and 72b): built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:510 |
 | Bugs | docs/roadmap/CHAT_PLAN.md:845 |
 | Bugs | docs/roadmap/DOCUMENTS_PLAN.md:1534 |
 | Bugs | docs/roadmap/TIMELINE_PLAN.md:202 |
@@ -17973,7 +17973,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | The owner's brainstorm, 2026-10-11 (after INBOX 812) | docs/roadmap/CHAT_PLAN.md:1847 |
 | The peer apps: fourteen triaged, five read properly | docs/roadmap/ANALYSIS.md:3250 |
 | The plan documents, in one list (read this before opening any of them) | docs/ROADMAP.md:268 |
-| The quarter's briefs: each item is a row in its plan; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:109 |
+| The quarter's briefs: each item is a row in its plan; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)") | docs/roadmap/SESSION_BRIEFS.md:106 |
 | The reform, in phases | docs/roadmap/AGENT_SKILLS_REFORM.md:52 |
 | The road to 1.0: milestones with exit criteria (the owner, 2026-10-10: "still very much a demo and beta") | docs/ROADMAP.md:171 |
 | The scripts, and what each produced | docs/roadmap/MODERNISATION_AUDIT.md:40 |
@@ -18010,7 +18010,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | W7: The table-stakes backlog (owner: BE + FE) | docs/roadmap/MODERNISATION_AUDIT.md:1003 |
 | W8: Reliability, testing and observability (owner: QA) | docs/roadmap/MODERNISATION_AUDIT.md:1013 |
 | What "fake / vibe coded / performative" means here, concretely | docs/roadmap/UI_MODERNISATION_PLAN.md:26 |
-| What "quality" means for a smaller model here, in one paragraph | docs/roadmap/SESSION_BRIEFS.md:111 |
+| What "quality" means for a smaller model here, in one paragraph | docs/roadmap/SESSION_BRIEFS.md:108 |
 | What Coggle specifically does that the phases below must keep | docs/roadmap/MINDMAP_PLAN.md:132 |
 | What exists (checked) | docs/roadmap/WORLD_CLASS_PLAN.md:1480 |
 | What is actually open, 2026-09-14 | docs/roadmap/INBOX.md:24 |

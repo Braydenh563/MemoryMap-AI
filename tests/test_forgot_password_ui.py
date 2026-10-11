@@ -71,7 +71,7 @@ def test_the_code_is_lazy():
 def test_setup_offers_a_key_and_the_reset_goes_to_setup():
     assert 'if (mode === "setup") offerRecoveryKey(password);' in _function(app_js_text(), "submitLockForm")
     reset = _function(RECOVERY_JS, "submitPasswordReset")
-    assert 'localStorage.removeItem("token")' in reset and "showLockScreen(true)" in reset
+    assert 'prefs.remove("token")' in reset and "showLockScreen(true)" in reset
     assert '"/auth/reset"' in reset
     recover = _function(RECOVERY_JS, "submitRecovery")
     assert '"/auth/recover"' in recover and "ownsAuthErrors: true" in recover
@@ -90,7 +90,7 @@ def test_the_key_is_put_nowhere_else():
     from memorymap.api.asset_strip import strip_js
 
     code = strip_js(RECOVERY_JS)
-    for forbidden in ("localStorage.setItem(\"recovery", "sessionStorage", "console.", "setAttribute(\"title\"", ".title =", "aria-label"):
+    for forbidden in ("localStorage.setItem(\"recovery", "prefs.set(\"recovery", "sessionStorage", "console.", "setAttribute(\"title\"", ".title =", "aria-label"):
         assert forbidden not in code, forbidden
     dialog = INDEX[INDEX.index('<dialog id="recovery-key-dialog"') : INDEX.index("</dialog>", INDEX.index('<dialog id="recovery-key-dialog"'))]
     value = re.search(r'<p class="recovery-key-value" id="recovery-key-value"[^>]*></p>', dialog)

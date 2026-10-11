@@ -1780,7 +1780,7 @@ const LIBRARY_SORT_KEY = "library-sort";
   if (stored && [...select.options].some((o) => o.value === stored)) select.value = stored;
 })();
 $("library-sort").addEventListener("change", (event) => {
-  try { localStorage.setItem(LIBRARY_SORT_KEY, event.target.value); } catch { /* a private window */ }
+  try { prefs.set(LIBRARY_SORT_KEY, event.target.value); } catch { /* a private window */ }
   libraryCurrentPage = 1;
   renderLibrary();
 });
@@ -1799,7 +1799,7 @@ $("library-show-binned").addEventListener("change", () => {
 });
 for (const button of document.querySelectorAll("#library-view button, #library-boards-view button")) {
   button.addEventListener("click", () => {
-    localStorage.setItem(LIBRARY_VIEW_KEY, button.dataset.libraryView);
+    prefs.set(LIBRARY_VIEW_KEY, button.dataset.libraryView);
     renderLibraryView();
     renderLibrary();
     //: The boards gallery lives in whiteboard.js and renders from its own
@@ -2610,7 +2610,7 @@ onDomReady(() => {
     sort.value = skillSort();
     sort.addEventListener("change", () => {
       try {
-        localStorage.setItem(SKILL_SORT_KEY, sort.value);
+        prefs.set(SKILL_SORT_KEY, sort.value);
       } catch {
         // Kept for this visit only.
       }
@@ -3055,7 +3055,7 @@ onDomReady(() => {
   if (!select) return;
   select.value = libraryDocSort();
   select.addEventListener("change", () => {
-    localStorage.setItem(LIBRARY_DOC_SORT_KEY, select.value);
+    prefs.set(LIBRARY_DOC_SORT_KEY, select.value);
     //: Back to page one: staying on page four of a list that has just been
     //: reordered shows a slice of rows nobody asked to look at.
     libraryDocsCurrentPage = 1;
@@ -3555,7 +3555,7 @@ function applyLibraryMediaView() {
 
 function setLibraryMediaView(mode) {
   libraryMediaView = mode === "type" ? "type" : "preview";
-  localStorage.setItem(LIBRARY_MEDIA_VIEW_KEY, libraryMediaView);
+  prefs.set(LIBRARY_MEDIA_VIEW_KEY, libraryMediaView);
   applyLibraryMediaView();
 }
 
@@ -5985,7 +5985,7 @@ function ocrSyncViewButtons(effective = ocrViewMode) {
 function ocrSetViewMode(mode, image, opts = {}) {
   ocrViewMode = mode === "scroll" ? "scroll" : "page";
   try {
-    localStorage.setItem(OCR_VIEW_KEY, ocrViewMode);
+    prefs.set(OCR_VIEW_KEY, ocrViewMode);
   } catch {
     //: See ocrStoredViewMode: not remembering is not a failure worth showing.
   }
@@ -8290,7 +8290,7 @@ onDomReady(() => {
   if (select) {
     select.value = libraryMediaSort();
     select.addEventListener("change", () => {
-      localStorage.setItem(LIBRARY_MEDIA_SORT_KEY, select.value);
+      prefs.set(LIBRARY_MEDIA_SORT_KEY, select.value);
       filterLibraryImagesGallery();
     });
   }
@@ -10097,7 +10097,7 @@ onDomReady(() => {
     docsPageSizeSelect.value = libraryDocsPageSize;
     docsPageSizeSelect.addEventListener("change", (e) => {
       libraryDocsPageSize = e.target.value;
-      localStorage.setItem("library-docs-page-size", libraryDocsPageSize);
+      prefs.set("library-docs-page-size", libraryDocsPageSize);
       libraryDocsCurrentPage = 1;
       renderLibraryDocuments();
     });
@@ -10116,7 +10116,7 @@ onDomReady(() => {
     libraryPageSizeSelect.value = libraryPageSize;
     libraryPageSizeSelect.addEventListener("change", (e) => {
       libraryPageSize = e.target.value;
-      localStorage.setItem("library-page-size", libraryPageSize);
+      prefs.set("library-page-size", libraryPageSize);
       libraryCurrentPage = 1;
       renderLibrary();
     });
@@ -10245,7 +10245,7 @@ onDomReady(() => {
     contentsGroup.addEventListener("change", () => {
       contentsMode = CONTENTS_GROUPS.includes(contentsGroup.value) ? contentsGroup.value : "category";
       try {
-        localStorage.setItem(CONTENTS_GROUP_KEY, contentsMode);
+        prefs.set(CONTENTS_GROUP_KEY, contentsMode);
       } catch {
         // A blocked storage only forgets the choice.
       }
@@ -10710,7 +10710,7 @@ function emptyBookmarkGroups() {
 
 function setEmptyBookmarkGroups(groups) {
   try {
-    localStorage.setItem(BOOKMARK_EMPTY_GROUPS_KEY, JSON.stringify([...new Set(groups)].sort()));
+    prefs.set(BOOKMARK_EMPTY_GROUPS_KEY, JSON.stringify([...new Set(groups)].sort()));
   } catch {
     /* storage full or blocked: the group just won't survive a reload. */
   }
@@ -10989,7 +10989,7 @@ onDomReady(() => {
   if (!select) return;
   select.value = bookmarkSort();
   select.addEventListener("change", () => {
-    localStorage.setItem(BOOKMARK_SORT_KEY, select.value);
+    prefs.set(BOOKMARK_SORT_KEY, select.value);
     filterBookmarks();
   });
 });

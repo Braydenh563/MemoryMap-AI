@@ -872,8 +872,8 @@ async function settingsHistoryApply(change, side) {
       prefsCache = await apiJson("/preferences", { method: "PUT", body: JSON.stringify(body) });
     } else if (kept.kind === "look") {
       for (const c of kept.changes) {
-        if (c[side] == null) localStorage.removeItem(c.key);
-        else localStorage.setItem(c.key, c[side]);
+        if (c[side] == null) prefs.remove(c.key);
+        else prefs.set(c.key, c[side]);
       }
       //: The path a fresh load applies the look by (the saved themes' own Apply).
       applyThemeChoice(prefs.get("theme", "system"), false);

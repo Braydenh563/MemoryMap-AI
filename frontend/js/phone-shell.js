@@ -310,8 +310,8 @@ $("notif-close").addEventListener("click", () => {
   $("notif-btn").setAttribute("aria-expanded", "false");
 });
 $("notif-clear").addEventListener("click", () => {
-  localStorage.removeItem(NOTIFICATIONS_KEY);
-  localStorage.setItem(NOTIFICATIONS_READ_KEY, String(Date.now()));
+  prefs.remove(NOTIFICATIONS_KEY);
+  prefs.set(NOTIFICATIONS_READ_KEY, String(Date.now()));
   openNotifications(); // redraw in place: the panel stays open, now empty
 });
 // Asked for directly: the mute toggle reachable from the panel it affects,

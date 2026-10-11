@@ -60,6 +60,39 @@ def test_no_direct_storage_read_outside_the_door() -> None:
     assert not extra, f"read saved settings through prefs.get/json/number, not localStorage: {extra}"
 
 
+#: file -> direct `localStorage.setItem`/`removeItem` calls it may make. The
+#: writes followed the reads through the door on 2026-10-11 (SESSION_BRIEFS
+#: Brief 3): 281 calls in 48 files, each a `try` around a write that can throw
+#: in a private window, now `prefs.set` (which answers false instead) and
+#: `prefs.remove`. What stays is what runs before prefs.js: app.js writes and
+#: clears the session token.
+WRITES_ALLOWED = {"app.js": 2}
+
+WRITE = re.compile(r"localStorage\.(?:setItem|removeItem)\(")
+
+
+def test_no_direct_storage_write_outside_the_door() -> None:
+    found = {}
+    for path in sorted(JS.glob("*.js")):
+        if path.name == "prefs.js":
+            continue
+        n = len(WRITE.findall(_code(path.read_text(encoding="utf-8"))))
+        if n:
+            found[path.name] = n
+    extra = {name: n for name, n in found.items() if n > WRITES_ALLOWED.get(name, 0)}
+    assert not extra, f"write saved settings through prefs.set/remove, not localStorage: {extra}"
+
+
+def test_a_refused_write_still_reaches_the_callers_that_act_on_it() -> None:
+    """Three writes act on a refusal: the quick note outbox keeps the words on
+    screen, and a notification row is not counted as kept. With the raw call
+    they did it in a `catch`; through `prefs.set` they read its answer."""
+    outbox = (JS / "quick-note.js").read_text(encoding="utf-8")
+    assert "if (!prefs.set(NOTE_OUTBOX_KEY" in outbox
+    status = (JS / "status.js").read_text(encoding="utf-8")
+    assert status.count("if (!prefs.set(NOTIFICATIONS_KEY") >= 2
+
+
 def test_prefs_loads_right_after_app_js() -> None:
     names = [path.name for path in app_js_files()]
     assert names[:3] == ["app.js", "prefs.js", "store.js"], names[:4]

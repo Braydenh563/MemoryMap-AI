@@ -452,7 +452,7 @@ function fillQueryRollups(cells, rollups) {
     };
     select.addEventListener("change", () => {
       try {
-        localStorage.setItem(storeKey, select.value);
+        prefs.set(storeKey, select.value);
       } catch {
         /* this device only; nothing lost */
       }

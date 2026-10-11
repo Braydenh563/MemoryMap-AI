@@ -221,7 +221,7 @@ function authHeaders() {
 }
 
 function setActiveSpace(id) {
-  localStorage.setItem("spaceId", id);
+  prefs.set("spaceId", id);
   // A full reload rather than a re-fetch of everything on the page. Every list,
   // count, graph and sidebar in the app is scoped by the header, so a partial
   // refresh would leave whichever one we forgot showing the old space, and a
@@ -758,7 +758,7 @@ $("chat-jump-latest")?.addEventListener("click", () => {
 //: The panel-wide half of "mark as unread": one gesture that puts every row
 //: back to read, overrides included. See `forcedUnreadIds`.
 $("notif-mark-all-read")?.addEventListener("click", () => {
-  localStorage.setItem(NOTIFICATIONS_READ_KEY, String(Date.now()));
+  prefs.set(NOTIFICATIONS_READ_KEY, String(Date.now()));
   setForcedUnreadIds(new Set());
   setForcedReadIds(new Set());
   openNotifications();

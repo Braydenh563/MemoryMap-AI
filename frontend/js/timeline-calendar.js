@@ -453,7 +453,7 @@ function timelineCalWeekHead(key, day) {
 
 function timelineCalSetSpan(span) {
   timelineCal.span = span;
-  try { localStorage.setItem(TIMELINE_CAL_SPAN_STORE, span); } catch { /* a private window */ }
+  try { prefs.set(TIMELINE_CAL_SPAN_STORE, span); } catch { /* a private window */ }
   $("timeline-calendar").dataset.refocus = "1";
   paintTimelineCalendar();
 }
@@ -475,7 +475,7 @@ function timelineCalOpenRow(row) {
 //: The feed is scrolled to the day when its range holds it; otherwise the
 //: range becomes that one day, said in the Options menu like any custom range.
 function timelineCalOpenDay(key) {
-  localStorage.setItem("timeline-view", "feed");
+  prefs.set("timeline-view", "feed");
   syncTimelineViewSeg();
   paintTimeline();
   const feed = $("timeline-feed");
@@ -522,7 +522,7 @@ function timelineCalendarToday() {
 function timelineCalendarReminders() {
   timelineCal.only = "reminder";
   timelineCal.focus = timelineBucketKey(new Date(), "day");
-  localStorage.setItem("timeline-view", "calendar");
+  prefs.set("timeline-view", "calendar");
   syncTimelineViewSeg();
   paintTimeline();
 }

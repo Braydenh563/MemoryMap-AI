@@ -743,7 +743,7 @@ function editorRememberBlock(id) {
   if (!id) return;
   try {
     const ids = [id, ...editorRecentIds().filter((other) => other !== id)].slice(0, EDITOR_RECENT_KEPT);
-    localStorage.setItem(EDITOR_RECENT_KEY, JSON.stringify(ids));
+    prefs.set(EDITOR_RECENT_KEY, JSON.stringify(ids));
   } catch {
     // Storage blocked: the menu simply has no Recent group.
   }

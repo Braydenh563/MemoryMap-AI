@@ -1300,13 +1300,13 @@ function toggleTheme() {
     root.dataset.theme ||
     (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
   const next = current === "dark" ? "light" : "dark";
-  localStorage.setItem("theme", next); // remembered across restarts
+  prefs.set("theme", next); // remembered across restarts
 
   repaintThemeAtOnce(() => {
     root.dataset.theme = next;
     // Clear any custom background colour that would otherwise override the new theme
-    localStorage.removeItem("page-bg");
-    localStorage.removeItem("page-bg-dark");
+    prefs.remove("page-bg");
+    prefs.remove("page-bg-dark");
     applyPageBackground(null);
     if (document.getElementById("page-bg-custom")) {
       document.getElementById("page-bg-custom").value = "#f5f7fb";
@@ -1378,7 +1378,7 @@ function applyAccent(name, remember = true) {
   // applyThemePreset re-applies the theme's accent without recording it as a
   // manual choice: otherwise merely picking a theme would pin its colour as
   // an override and the next theme couldn't change it.
-  if (remember) localStorage.setItem("accent", name);
+  if (remember) prefs.set("accent", name);
   applyEffectiveAccent();
   if (bgArtOn()) startBgArt(); // repaint the background in the new accent
   refreshArtForTheme(); // its wash is painted from the accent as well
@@ -1429,7 +1429,7 @@ function contrastOn() {
 function applyContrast(on) {
   if (on) document.documentElement.dataset.contrast = "on";
   else delete document.documentElement.dataset.contrast;
-  localStorage.setItem("contrast", on ? "on" : "off");
+  prefs.set("contrast", on ? "on" : "off");
 }
 
 // --- Wave O: expanded appearance controls -------------------------------------------
@@ -1727,22 +1727,22 @@ function applyThemePreset(name, chosenByUser = false) {
   // Lagoon should not also throw away a font size it says nothing about.
   if (chosenByUser && THEME_PRESETS[name]) {
     for (const key of Object.keys(THEME_PRESETS[name].values)) {
-      localStorage.removeItem(key);
+      prefs.remove(key);
     }
     // The accent and page background are painted from stored values rather
     // than read through `appearancePref`, so they need clearing by hand or a
     // custom accent outlives the palette it was picked against.
     if (THEME_PRESETS[name].values.palette) {
-      localStorage.removeItem("accent");
-      localStorage.removeItem("accent-custom");
-      localStorage.removeItem("page-bg");
-      localStorage.removeItem("page-bg-dark");
+      prefs.remove("accent");
+      prefs.remove("accent-custom");
+      prefs.remove("page-bg");
+      prefs.remove("page-bg-dark");
       applyCustomAccent(null);
       applyPageBackground(null);
     }
   }
-  if (THEME_PRESETS[name]) localStorage.setItem("themePreset", name);
-  else localStorage.removeItem("themePreset");
+  if (THEME_PRESETS[name]) prefs.set("themePreset", name);
+  else prefs.remove("themePreset");
   applyAppearance();
   // `false` on both: re-applying what the theme says must not record it as a
   // manual choice, or merely picking a theme would pin its values as
@@ -1760,7 +1760,7 @@ function manualOverrides() {
 // Drop the manual layer, keeping the chosen theme, the counterpart to
 // "reset the theme" below.
 function clearManualOverrides() {
-  for (const key of manualOverrides()) localStorage.removeItem(key);
+  for (const key of manualOverrides()) prefs.remove(key);
   applyCustomAccent(null);
   applyPageBackground(null);
   applyThemePreset(activeThemePreset());
@@ -1772,7 +1772,7 @@ function clearManualOverrides() {
 // default because I want my own colours instead" does exactly that, rather
 // than wiping the colours too (user request).
 function resetThemeOnly() {
-  localStorage.removeItem("themePreset");
+  prefs.remove("themePreset");
   applyThemePreset("");
   renderAppearance();
   toast("Theme reset to the app default. Your own changes are still applied.");
@@ -1868,7 +1868,7 @@ function applyHarmony() {
     note.textContent = "That colour didn't parse: try picking it again.";
     return;
   }
-  localStorage.setItem("accent-custom", scheme.accent);
+  prefs.set("accent-custom", scheme.accent);
   // A scheme's background is worked out *for a mode*, the same accent wants a
   // near-white page in light and a near-black one in dark. Storing only the one
   // for whichever mode happened to be on is what made the light/dark toggle
@@ -1879,8 +1879,8 @@ function applyHarmony() {
   // picks the right one whenever the mode changes.
   const dark = harmonyScheme(base, kind, true);
   const light = harmonyScheme(base, kind, false);
-  localStorage.setItem("page-bg", light ? light.page : scheme.page);
-  localStorage.setItem("page-bg-dark", dark ? dark.page : scheme.page);
+  prefs.set("page-bg", light ? light.page : scheme.page);
+  prefs.set("page-bg-dark", dark ? dark.page : scheme.page);
   applyCustomAccent(scheme.accent);
   applyPageBackground(currentPageBackground());
   renderAppearance();
@@ -1970,10 +1970,10 @@ function applySavedTheme(theme) {
   for (const [key, value] of Object.entries(theme.values || {})) {
     // A look saved before sizes became the device's own may still carry them.
     if (DEVICE_ONLY_KEYS.includes(key)) continue;
-    localStorage.setItem(key, value);
+    prefs.set(key, value);
   }
-  if (theme.preset) localStorage.setItem("themePreset", theme.preset);
-  else localStorage.removeItem("themePreset");
+  if (theme.preset) prefs.set("themePreset", theme.preset);
+  else prefs.remove("themePreset");
   // The same function startup uses, so a restored look is applied by exactly
   // the path that would have applied it on a fresh load.
   applyThemeChoice(theme.values?.theme || "system", false);
@@ -2450,8 +2450,8 @@ window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () 
 
 function applyThemeChoice(choice, remember = true) {
   if (remember) {
-    if (choice === "system") localStorage.removeItem("theme");
-    else localStorage.setItem("theme", choice);
+    if (choice === "system") prefs.remove("theme");
+    else prefs.set("theme", choice);
   }
   //: The attribute that changes every colour in the app is set INSIDE the
   //: repaint (INBOX 202), not before it: set outside, the transitions it
@@ -2463,8 +2463,8 @@ function applyThemeChoice(choice, remember = true) {
     // otherwise the user thinks the theme toggle is broken because the custom
     // colour is overriding the new theme's native background.
     if (remember) {
-      localStorage.removeItem("page-bg");
-      localStorage.removeItem("page-bg-dark");
+      prefs.remove("page-bg");
+      prefs.remove("page-bg-dark");
       applyPageBackground(null);
       if ($("page-bg-custom")) $("page-bg-custom").value = "#f5f7fb";
     }
@@ -2548,7 +2548,7 @@ function renderAppearance() {
     const customSet = Boolean(prefs.get("accent-custom", null));
     button.classList.toggle("active", !customSet && accent.name === activeAccent());
     button.addEventListener("click", () => {
-      localStorage.removeItem("accent-custom"); // presets clear a custom colour
+      prefs.remove("accent-custom"); // presets clear a custom colour
       applyAccent(accent.name); // re-derives the inline colour from scratch
       renderAppearance();
     });
@@ -2842,7 +2842,7 @@ function renderPaletteGrid() {
       // below is still there to deviate from the palette afterwards.
       const hadAccent =
         activeAccent() !== "indigo" || prefs.get("accent-custom", null);
-      localStorage.removeItem("accent-custom");
+      prefs.remove("accent-custom");
       applyCustomAccent(null);
       applyAccent("indigo");
       applyPalette(palette.id);
@@ -2864,7 +2864,7 @@ function resetAppearance() {
     "glass-sheen", "glass-sheen-strength", "page-wash", "bg-style", "bg-motion", "palette", "themePreset",
     "accent-custom", "page-bg", "custom-css", "zoom",
   ]) {
-    localStorage.removeItem(key);
+    prefs.remove(key);
   }
   delete document.documentElement.dataset.accent;
   delete document.documentElement.dataset.contrast;
@@ -2957,7 +2957,7 @@ function renderBgStyleGrid() {
       line.textContent = note;
       card.append(preview, title, facts, line);
       card.addEventListener("click", () => {
-        localStorage.setItem("bg-style", name);
+        prefs.set("bg-style", name);
         if (!bgArtOn()) toggleBgArt(true);
         else startBgArt();
         renderAppearance();
@@ -3070,7 +3070,7 @@ function startBgArt() {
 }
 
 function toggleBgArt(on) {
-  localStorage.setItem("bgArt", on ? "on" : "off");
+  prefs.set("bgArt", on ? "on" : "off");
   applyAppearance(); // updates data-bg-art so the cards adjust with it
   if (on) startBgArt();
   else stopBgArt();
@@ -3098,25 +3098,25 @@ for (const b of document.querySelectorAll("#theme-seg button")) {
 }
 for (const b of document.querySelectorAll("#fontsize-seg button")) {
   b.addEventListener("click", () => {
-    localStorage.setItem("fontsize", b.dataset.fontsize);
+    prefs.set("fontsize", b.dataset.fontsize);
     applyAppearance();
     renderAppearance();
   });
 }
 $("font-seg").addEventListener("change", (e) => {
-  localStorage.setItem("font", e.target.value);
+  prefs.set("font", e.target.value);
   applyAppearance();
   renderAppearance();
 });
 $("density-seg").addEventListener("change", (e) => {
   //: Auto is no choice at all: the window's height decides.
-  if (e.target.value === "auto") localStorage.removeItem("density");
-  else localStorage.setItem("density", e.target.value);
+  if (e.target.value === "auto") prefs.remove("density");
+  else prefs.set("density", e.target.value);
   applyAppearance();
   renderAppearance();
 });
 $("perf-mode").addEventListener("change", (e) => {
-  localStorage.setItem("perf", e.target.value);
+  prefs.set("perf", e.target.value);
   applyAppearance();
   renderAppearance();
 });
@@ -3127,30 +3127,30 @@ window.matchMedia("(prefers-reduced-transparency: reduce)").addEventListener("ch
 });
 $("glass-toggle").addEventListener("change", (e) => {
   const turningOn = e.target.checked && appearancePref("glass") !== "on";
-  localStorage.setItem("glass", e.target.checked ? "on" : "off");
+  prefs.set("glass", e.target.checked ? "on" : "off");
   // Asked for directly: switching glassmorphism on from off also turns the
   // sheen on, so the full look shows up in one action, the sheen's own
   // checkbox can still turn it back off afterward without touching this.
-  if (turningOn) localStorage.setItem("glass-sheen", "on");
+  if (turningOn) prefs.set("glass-sheen", "on");
   applyAppearance();
   renderAppearance();
 });
 $("page-wash-toggle")?.addEventListener("change", (e) => {
-  localStorage.setItem("page-wash", e.target.checked ? "on" : "off");
+  prefs.set("page-wash", e.target.checked ? "on" : "off");
   applyAppearance();
 });
 $("glass-sheen-toggle").addEventListener("change", (e) => {
-  localStorage.setItem("glass-sheen", e.target.checked ? "on" : "off");
+  prefs.set("glass-sheen", e.target.checked ? "on" : "off");
   applyAppearance();
   $("glass-sheen-strength-row")?.classList.toggle("disabled-row", !e.target.checked);
 });
 $("glass-sheen-strength").addEventListener("input", (e) => {
-  localStorage.setItem("glass-sheen-strength", e.target.value);
+  prefs.set("glass-sheen-strength", e.target.value);
   $("glass-sheen-strength-value").textContent = `${e.target.value}%`;
   applyAppearance();
 });
 $("reduce-motion-toggle").addEventListener("change", (e) => {
-  localStorage.setItem("motion", e.target.checked ? "reduced" : "auto");
+  prefs.set("motion", e.target.checked ? "reduced" : "auto");
   // The background-art picker has its own "Moving" override so someone can
   // ask for motion despite the OS-level reduced-motion hint (see
   // startBgArt()'s comment: that fix was reported missing once already).
@@ -3160,9 +3160,9 @@ $("reduce-motion-toggle").addEventListener("change", (e) => {
   // clears that if we're the ones who set it, so an independent "Moving"
   // choice made before or after isn't clobbered.
   if (e.target.checked) {
-    localStorage.setItem("bg-motion", "still");
+    prefs.set("bg-motion", "still");
   } else if (appearancePref("bg-motion") === "still") {
-    localStorage.setItem("bg-motion", "auto");
+    prefs.set("bg-motion", "auto");
   }
   if ($("bg-motion")) $("bg-motion").value = appearancePref("bg-motion");
   renderBgMotionHint();
@@ -3172,28 +3172,28 @@ $("reduce-motion-toggle").addEventListener("change", (e) => {
   renderBrandLogo(); // start/stop the emblem's rotation to match
 });
 $("ui-motion-toggle").addEventListener("change", (e) => {
-  localStorage.setItem("ui-motion", e.target.checked ? "on" : "off");
+  prefs.set("ui-motion", e.target.checked ? "on" : "off");
   applyAppearance();
 });
 $("bg-intensity").addEventListener("input", (e) => {
-  localStorage.setItem("bg-intensity", e.target.value);
+  prefs.set("bg-intensity", e.target.value);
   $("bg-intensity-value").textContent = `${e.target.value}%`;
   applyAppearance();
   if (bgArtOn()) startBgArt(); // intensity also drives particle density
 });
 // Corner rounding + glass blur: live sliders over CSS custom properties.
 $("radius-slider").addEventListener("input", (e) => {
-  localStorage.setItem("radius", e.target.value);
+  prefs.set("radius", e.target.value);
   $("radius-value").textContent = `${e.target.value}px`;
   applyAppearance();
 });
 $("glass-blur").addEventListener("input", (e) => {
-  localStorage.setItem("glass-blur", e.target.value);
+  prefs.set("glass-blur", e.target.value);
   $("glass-blur-value").textContent = `${e.target.value}px`;
   applyAppearance();
 });
 $("glass-opacity").addEventListener("input", (e) => {
-  localStorage.setItem("glass-opacity", e.target.value);
+  prefs.set("glass-opacity", e.target.value);
   $("glass-opacity-value").textContent = `${e.target.value}%`;
   applyAppearance();
 });
@@ -3206,13 +3206,13 @@ $("zoom-out")?.addEventListener("click", () => nudgeZoom(-1));
 $("zoom-reset")?.addEventListener("click", () => setZoom(100));
 for (const btn of document.querySelectorAll("#border-style-seg button")) {
   btn.addEventListener("click", () => {
-    localStorage.setItem("border-style", btn.dataset.borderChoice);
+    prefs.set("border-style", btn.dataset.borderChoice);
     applyAppearance();
     renderAppearance();
   });
 }
 $("shadow-intensity").addEventListener("input", (e) => {
-  localStorage.setItem("shadow-intensity", e.target.value);
+  prefs.set("shadow-intensity", e.target.value);
   $("shadow-intensity-value").textContent = `${e.target.value}%`;
   applyAppearance();
 });
@@ -3222,7 +3222,7 @@ $("shadow-intensity").addEventListener("input", (e) => {
 // nearest shade that reads, one press to take it (Brief 95).
 function setCustomAccent(hex) {
   $("accent-offer").classList.add("hidden");
-  localStorage.setItem("accent-custom", hex);
+  prefs.set("accent-custom", hex);
   applyCustomAccent(hex);
   renderAppearance();
   if (bgArtOn()) startBgArt();
@@ -3249,19 +3249,19 @@ $("accent-offer-use").addEventListener("click", (e) => {
 });
 $("accent-custom-clear").addEventListener("click", () => {
   $("accent-offer").classList.add("hidden");
-  localStorage.removeItem("accent-custom");
+  prefs.remove("accent-custom");
   applyCustomAccent(null);
   renderAppearance();
   if (bgArtOn()) startBgArt();
   renderBrandLogo();
 });
 $("page-bg-custom").addEventListener("input", (e) => {
-  localStorage.setItem("page-bg", e.target.value);
+  prefs.set("page-bg", e.target.value);
   applyPageBackground(e.target.value);
 });
 $("page-bg-clear").addEventListener("click", () => {
-  localStorage.removeItem("page-bg");
-  localStorage.removeItem("page-bg-dark");
+  prefs.remove("page-bg");
+  prefs.remove("page-bg-dark");
   applyPageBackground(null);
   renderAppearance();
 });
@@ -3269,11 +3269,11 @@ $("page-bg-clear").addEventListener("click", () => {
 $("bg-art-style").closest("details")?.addEventListener("toggle", renderBgStyleGrid);
 $("avatar-follow").addEventListener("change", (e) => {
   const value = e.target.checked ? "on" : "off";
-  localStorage.setItem("avatar-follow", value);
+  prefs.set("avatar-follow", value);
   document.documentElement.dataset.avatarFollow = value;
 });
 $("avatar-buddy").addEventListener("change", (e) => {
-  localStorage.setItem("avatar-buddy", e.target.value);
+  prefs.set("avatar-buddy", e.target.value);
   mountBuddyCustom();
   syncNameMarkBuddy();
   nameMarkBuddySizeSelect();
@@ -3281,7 +3281,7 @@ $("avatar-buddy").addEventListener("change", (e) => {
 $("avatar-buddy-size").addEventListener("change", (e) => nameMarkBuddySetSize(Number(e.target.value)));
 $("avatar-buddy-motion").addEventListener("change", (e) => {
   try {
-    localStorage.setItem("avatar-buddy-motion", e.target.value);
+    prefs.set("avatar-buddy-motion", e.target.value);
   } catch (err) {
     // For this visit only.
   }
@@ -3289,7 +3289,7 @@ $("avatar-buddy-motion").addEventListener("change", (e) => {
 });
 $("avatar-buddy-actions").addEventListener("change", (e) => {
   try {
-    localStorage.setItem("avatar-buddy-actions", e.target.value);
+    prefs.set("avatar-buddy-actions", e.target.value);
   } catch (err) {
     // This visit only.
   }
@@ -3301,54 +3301,54 @@ try {
 }
 $("avatar-buddy-recall").addEventListener("click", () => nameMarkBuddyCallBack());
 $("atlas-style").addEventListener("change", (e) => {
-  localStorage.setItem("atlas-style", e.target.value);
+  prefs.set("atlas-style", e.target.value);
   atlasRepaint();
 });
 $("assistant-avatar").addEventListener("change", (e) => {
-  localStorage.setItem("assistant-avatar", e.target.value);
+  prefs.set("assistant-avatar", e.target.value);
   repaintAssistantAvatars();
 });
 $("atlas-look").addEventListener("change", (e) => {
-  localStorage.setItem("atlas-look", e.target.value);
+  prefs.set("atlas-look", e.target.value);
   atlasRepaint();
 });
 $("face-look").addEventListener("change", (e) => {
-  localStorage.setItem("face-look", e.target.value);
+  prefs.set("face-look", e.target.value);
   nameMarkRepaintAll();
   //: An Atlas on Auto takes its look from here (`atlasLook`).
   atlasRepaint();
 });
 $("dash-mark").addEventListener("change", (e) => {
-  localStorage.setItem("dash-mark", e.target.value);
+  prefs.set("dash-mark", e.target.value);
   paintDashEmblem();
 });
 $("avatar-motion").addEventListener("change", (e) => {
-  localStorage.setItem("avatar-motion", e.target.value);
+  prefs.set("avatar-motion", e.target.value);
   document.documentElement.dataset.avatarMotion = e.target.value;
 });
 $("progress-motion").addEventListener("change", (e) => {
-  localStorage.setItem("progress-motion", e.target.value);
+  prefs.set("progress-motion", e.target.value);
   document.documentElement.dataset.progressMotion = e.target.value;
   document.documentElement.toggleAttribute("data-progress-chosen", e.target.value === "always");
   renderProgressMotionHint();
 });
 $("pref-show-thinking-words")?.addEventListener("change", (e) => {
-  localStorage.setItem("show-thinking-words", e.target.checked ? "on" : "off");
+  prefs.set("show-thinking-words", e.target.checked ? "on" : "off");
 });
 $("bg-motion").addEventListener("change", (e) => {
-  localStorage.setItem("bg-motion", e.target.value);
+  prefs.set("bg-motion", e.target.value);
   // Still vs moving is decided in setup, so the sketch has to be rebuilt.
   if (bgArtOn()) startBgArt();
 });
 // Custom CSS (advanced).
 $("custom-css-apply").addEventListener("click", () => {
   const css = $("custom-css").value;
-  localStorage.setItem("custom-css", css);
+  prefs.set("custom-css", css);
   applyCustomCss(css);
   $("custom-css-status").textContent = "Applied.";
 });
 $("custom-css-clear").addEventListener("click", () => {
-  localStorage.removeItem("custom-css");
+  prefs.remove("custom-css");
   $("custom-css").value = "";
   applyCustomCss("");
   $("custom-css-status").textContent = "Cleared.";
@@ -3531,7 +3531,7 @@ for (const id of ["log-list", "log-terminal"]) {
 for (const button of document.querySelectorAll("#log-view-toggle button")) {
   button.addEventListener("click", () => {
     logView = button.dataset.view;
-    localStorage.setItem("logView", logView);
+    prefs.set("logView", logView);
     for (const b of document.querySelectorAll("#log-view-toggle button")) {
       b.classList.toggle("active", b === button);
     }
@@ -3567,7 +3567,7 @@ function noticePerfMode() {
   if (appearancePref("perf") !== "auto" || !perfModeOn()) return;
   if (prefs.get("perf-noticed", null) === "yes") return;
   if (typeof toastAction !== "function") return;
-  localStorage.setItem("perf-noticed", "yes");
+  prefs.set("perf-noticed", "yes");
   toastAction(
     "Performance mode is on for this machine: flat panels, no animations.",
     "Change",
@@ -4530,7 +4530,7 @@ function wireSettingsFolds() {
       const now = settingsFoldState();
       now[key] = fold.open;
       try {
-        localStorage.setItem(SETTINGS_FOLDS_KEY, JSON.stringify(now));
+        prefs.set(SETTINGS_FOLDS_KEY, JSON.stringify(now));
       } catch {
         // A private window: the fold still works, it just is not remembered.
       }

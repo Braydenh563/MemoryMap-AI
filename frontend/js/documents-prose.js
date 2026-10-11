@@ -754,7 +754,7 @@ function setDocSuggestMode(on) {
   if (on) modes[currentDoc.id] = true;
   else delete modes[currentDoc.id];
   try {
-    localStorage.setItem(DOC_SUGGEST_KEY, JSON.stringify(modes));
+    prefs.set(DOC_SUGGEST_KEY, JSON.stringify(modes));
   } catch {
     /* the mode still holds for this session through the checkbox */
   }

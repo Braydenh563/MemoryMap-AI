@@ -804,7 +804,7 @@ function revealTab(name) {
   revealActiveTab?.();
   // And on a phone three of the seven are not in the strip at all.
   syncPhoneMoreButton?.(activeTabName);
-  localStorage.setItem("activeTab", name); // reopen where you left off
+  prefs.set("activeTab", name); // reopen where you left off
   // A new tab starts at its own top, and the back-to-top button re-evaluates
   // (it stays off the graph). Each page keeps its own scroll position now, so
   // this is a deliberate reset rather than a side effect of one shared one.
@@ -2141,7 +2141,7 @@ function stripMarkdownPreview(text) {
 // Layout picker (§9). Stored, because which shape suits a notebook is a
 // property of the notebook rather than of one visit.
 $("graph-layout").addEventListener("change", async (event) => {
-  localStorage.setItem("graph-layout", event.target.value);
+  prefs.set("graph-layout", event.target.value);
   //: The picker is drawn at boot and graph.js is not (`switchTab`'s `inert`
   //: covers a person's press; this covers a change made from script, a saved
   //: view or the palette, before the first visit). `setGraphPhysicsEnabled`
@@ -2207,7 +2207,7 @@ function resetNavigationForNewSession() {
     // behaviour rather than resetting on every single navigation.
     return false;
   }
-  for (const key of NAVIGATION_KEYS) localStorage.removeItem(key);
+  for (const key of NAVIGATION_KEYS) prefs.remove(key);
   return true;
 }
 
@@ -2217,7 +2217,7 @@ function resetNavigationForNewSession() {
 resetNavigationForNewSession();
 
 function resetNavigationToDefaults() {
-  for (const key of NAVIGATION_KEYS) localStorage.removeItem(key);
+  for (const key of NAVIGATION_KEYS) prefs.remove(key);
   // The Library's switcher keeps its state in the DOM (which button carries
   // `.active`), not in storage, so clearing a key cannot reach it. Clicking
   // its default button reuses the real handler, which also shows the right
@@ -2281,7 +2281,7 @@ function showNotesSection(name, { focus = false } = {}) {
     button.tabIndex = active ? 0 : -1;
     if (active && focus) button.focus();
   }
-  localStorage.setItem(NOTES_SECTION_STORE, wanted);
+  prefs.set(NOTES_SECTION_STORE, wanted);
   //: Ask's answer and the draft carry static assistant heads (INBOX 471).
   paintAssistantHeads();
   //: The connections rail belongs to the list (notes-list.js): it leaves with

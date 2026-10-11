@@ -415,7 +415,7 @@ async function toggleTimelineKind(key) {
   const next = chosen.includes(key) ? chosen.filter((k) => k !== key) : [...chosen, key];
   if (!next.length) return;
   try {
-    localStorage.setItem(TIMELINE_KINDS_STORE, JSON.stringify(next));
+    prefs.set(TIMELINE_KINDS_STORE, JSON.stringify(next));
   } catch {
     /* a browser refusing storage still gets the filter for this visit */
   }
@@ -2413,7 +2413,7 @@ $("timeline-view-seg").addEventListener("click", (event) => {
   if (!button) return;
   const mode = button.dataset.timelineView;
   if (mode === timelineViewMode()) return;
-  localStorage.setItem("timeline-view", mode);
+  prefs.set("timeline-view", mode);
   syncTimelineViewSeg();
   // A repaint, not a reload: `timelineRows` is already in memory and both
   // views render from it.
@@ -2435,7 +2435,7 @@ function syncTimelineViewSeg() {
 //: any other choice, so a notebook that grows past the day threshold re-cuts
 //: its own headers without anyone touching the control.
 $("timeline-scale").addEventListener("change", (event) => {
-  localStorage.setItem("timeline-scale", event.target.value);
+  prefs.set("timeline-scale", event.target.value);
   paintTimeline();
 });
 
@@ -2456,7 +2456,7 @@ const TIMELINE_GROUP_KEY = "timeline-group";
   if (stored && [...select.options].some((o) => o.value === stored)) select.value = stored;
 })();
 $("timeline-group").addEventListener("change", (event) => {
-  try { localStorage.setItem(TIMELINE_GROUP_KEY, event.target.value); } catch { /* a private window */ }
+  try { prefs.set(TIMELINE_GROUP_KEY, event.target.value); } catch { /* a private window */ }
   timelineFilter = null;
   fillTimelineBandOptions();
   paintTimeline();

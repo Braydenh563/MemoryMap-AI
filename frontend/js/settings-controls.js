@@ -191,7 +191,7 @@ $("account-rekey").addEventListener("click", async () => {
     },
   });
   if (!done || !result) return;
-  localStorage.setItem("token", result.token);
+  prefs.set("token", result.token);
   const n = result.notes_reencrypted;
   status.textContent = `Done: ${n} private note${n === 1 ? "" : "s"} on a new key.`;
   //: Sealed by a reset without the recovery key: left as they were (INBOX 663).
@@ -260,7 +260,7 @@ $("account-lock-all").addEventListener("click", async () => {
     : "You'll need your password to get back in.";
   if (!(await confirmDialog(`End every session, including this one? ${back}`))) return;
   await apiJson("/auth/lock-all", { method: "POST" }).catch(() => {});
-  localStorage.removeItem("token");
+  prefs.remove("token");
   location.reload();
 });
 
@@ -950,7 +950,7 @@ $("backup-now").addEventListener("click", backupNow);
 
 $("pref-single-keys").addEventListener("change", (event) => {
   try {
-    localStorage.setItem("singleKeys", event.target.checked ? "on" : "off");
+    prefs.set("singleKeys", event.target.checked ? "on" : "off");
   } catch {
     // Storage blocked: the switch holds for this session only.
   }

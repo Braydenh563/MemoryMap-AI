@@ -49855,3 +49855,10 @@ Decisions: (a) appearing: the graph fades and settles in from its last positions
 ### Brief 103 (Sonnet, chattime): a time on every chat message (INBOX 868)
 
 Each message in Chat (and each turn in a saved session) shows when it was sent: a muted time beside the message meta, the full date on hover, "Yesterday 14:05" past today, the date past a week. Messages are a JSON list on `conversations.messages`: stamp `at` on write, read old ones without it as the conversation's own time. Sessions list rows show their last message's time. Help moves with the UI. Measure at 1440 and 390, light and dark.
+
+### Brief 3 (Sonnet): the `localStorage` writes through `prefs` (what is left)
+
+Built (triage 2026-10-11, briefs-1011): `frontend/js/prefs.js` with `get`, `has`, `json`, `number`, `bool`, `set`, `remove`; every read through it (`tests/test_prefs_module.py`); `api.upload`/`api.stream` and `tests/test_no_bare_fetch.py`; `tests/test_no_innerhtml_interpolation.py`.
+Left: 283 direct `localStorage.setItem`/`removeItem` calls in 49 files outside `prefs.js` (`grep -o 'localStorage\.\(setItem\|removeItem\)' frontend/js/*.js`). Move them onto `prefs.set`/`prefs.remove` file by file, then extend `tests/test_prefs_module.py` to writes with the same allowlist shape (app.js, theme-boot.js, boot-guard.js and the two standalone pages keep theirs). Trap: `prefs.set` must keep a write that throws in private mode silent, as the raw calls are today.
+
+**Built 2026-10-11 (briefs-1011).** 281 writes in 48 files moved onto `prefs.set`/`prefs.remove`; the quick note outbox and the two notification writes read `prefs.set`'s false where they used to catch; `tests/test_prefs_module.py` now holds writes too (app.js 2, the token). Three raw reads left by recent merges (graph-canvas.js, whiteboard-format.js, lan-watch.js) went through `prefs`, and lan-watch.js's long poll through `api()` (silent). errors.js at 1440, 1024, 820: 0 errors, 0 layout findings.

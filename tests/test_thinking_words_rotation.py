@@ -215,7 +215,7 @@ def test_the_checkbox_renders_from_and_saves_to_local_storage_not_the_server() -
     assert '$("pref-show-thinking-words").checked = appearancePref("show-thinking-words") !== "off";' in SETTINGS_JS
     change = SETTINGS_JS[SETTINGS_JS.index('$("pref-show-thinking-words")?.addEventListener("change"') :]
     change = change[: change.index("});") + 3]
-    assert 'localStorage.setItem("show-thinking-words"' in change
+    assert 'prefs.set("show-thinking-words"' in change
     assert "apiJson" not in change, "this is a localStorage setting, not a /preferences field"
 
 

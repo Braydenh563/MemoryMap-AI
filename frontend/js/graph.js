@@ -644,7 +644,7 @@ function setTracePanelOpen(open) {
   // difference between a tool and a glitch: the cursor becomes a crosshair
   // over the nodes and the graph card picks up a tinted edge.
   $("graph-card")?.classList.toggle("is-tracing", open);
-  localStorage.setItem("graph-trace-open", open ? "1" : "0");
+  prefs.set("graph-trace-open", open ? "1" : "0");
   if (open) {
     renderTraceState();
     // Re-opening the panel: most commonly by coming back to the Graph tab
@@ -1591,7 +1591,7 @@ function graphGroups() {
 }
 
 function graphSetGroups(groups) {
-  localStorage.setItem(GRAPH_GROUPS_KEY, JSON.stringify(groups));
+  prefs.set(GRAPH_GROUPS_KEY, JSON.stringify(groups));
   graphRenderGroups();
   renderGraph();
 }
@@ -5402,7 +5402,7 @@ function initGraphMinimap() {
 
   document.getElementById("graph-minimap-corner")?.addEventListener("change", (event) => {
     const choice = event.target.value;
-    localStorage.setItem(GRAPH_MINIMAP_CORNER_KEY, choice);
+    prefs.set(GRAPH_MINIMAP_CORNER_KEY, choice);
     applyMinimapPosition(choice);
   });
 
@@ -5430,7 +5430,7 @@ function initGraphMinimap() {
   applyMinimapSize(prefs.get(GRAPH_MINIMAP_SIZE_KEY, null));
   document.getElementById("graph-minimap-size")?.addEventListener("change", (event) => {
     const choice = event.target.value;
-    localStorage.setItem(GRAPH_MINIMAP_SIZE_KEY, choice);
+    prefs.set(GRAPH_MINIMAP_SIZE_KEY, choice);
     applyMinimapSize(choice);
   });
 }
@@ -5503,7 +5503,7 @@ async function graphSaveCurrentView() {
   if (!name) return;
   const views = graphSavedViews().filter((v) => v.name !== name); // same name replaces
   views.push({ name, ...graphCaptureView() });
-  localStorage.setItem(GRAPH_VIEWS_KEY, JSON.stringify(views));
+  prefs.set(GRAPH_VIEWS_KEY, JSON.stringify(views));
   renderGraphViews();
   toast(`Saved the view “${name}”.`);
 }
@@ -5527,8 +5527,8 @@ function graphApplyView(view) {
   // without this function needing to know which `set()` call that will be.
   graphPendingViewPositions =
     view.positions && Object.keys(view.positions).length ? view.positions : null;
-  localStorage.setItem("graph-layout", view.layout);
-  if (view.colour) localStorage.setItem("graph-colour", view.colour);
+  prefs.set("graph-layout", view.layout);
+  if (view.colour) prefs.set("graph-colour", view.colour);
   //: The layout is a list (INBOX 670; it was a radio group, which `set()` on
   //: its `<div>` wrote a `value` expando on and fired "change" from, so the
   //: map was right and the View menu still showed the old layout). The list
@@ -5554,7 +5554,7 @@ function graphApplyView(view) {
   graphHiddenCategories = new Set(view.hiddenCategories || []);
   graphHiddenKeys = new Set(view.hiddenKeys || []);
   if (Array.isArray(view.groups)) {
-    localStorage.setItem(GRAPH_GROUPS_KEY, JSON.stringify(view.groups));
+    prefs.set(GRAPH_GROUPS_KEY, JSON.stringify(view.groups));
     graphRenderGroups();
   }
 
@@ -5619,7 +5619,7 @@ function initGraphViews() {
       return;
     }
     if (!(await confirmDialog(`Delete the saved view “${name}”?`))) return;
-    localStorage.setItem(
+    prefs.set(
       GRAPH_VIEWS_KEY,
       JSON.stringify(graphSavedViews().filter((v) => v.name !== name))
     );
@@ -5663,13 +5663,13 @@ graphRestoreSwitches();
 //: their own surface.
 for (const id of ["graph-tags", "graph-attachments", "graph-unresolved"]) $(id)?.addEventListener("change", renderGraph);
 $("graph-arrows")?.addEventListener("change", (event) => {
-  localStorage.setItem("graph-arrows", event.target.checked ? "1" : "0");
+  prefs.set("graph-arrows", event.target.checked ? "1" : "0");
   gcRequestDraw();
 });
 for (const id of ["graph-label-fade", "graph-link-width"]) {
   $(id)?.addEventListener("input", () => gcRequestDraw());
   $(id)?.addEventListener("change", (event) => {
-    localStorage.setItem(id, event.target.value);
+    prefs.set(id, event.target.value);
     gcRequestDraw();
   });
 }
@@ -5677,7 +5677,7 @@ for (const prefix of ["focus", "pane"]) {
   for (const id of ["depth", "in", "out", "neighbours"]) {
     $(`graph-${prefix}-${id}`)?.addEventListener("change", (event) => {
       const box = event.target;
-      localStorage.setItem(box.id, box.type === "checkbox" ? (box.checked ? "1" : "0") : box.value);
+      prefs.set(box.id, box.type === "checkbox" ? (box.checked ? "1" : "0") : box.value);
       if (prefix === "focus") {
         if (graphFocusModeId) renderGraph();
       } else if (typeof renderGraphPane === "function" && graphPaneShownId != null) {
@@ -5688,7 +5688,7 @@ for (const prefix of ["focus", "pane"]) {
 }
 
 $("graph-label-plates")?.addEventListener("change", (event) => {
-  localStorage.setItem("graph-label-plates", event.target.checked ? "1" : "0");
+  prefs.set("graph-label-plates", event.target.checked ? "1" : "0");
   gcRequestDraw();
 });
 
@@ -5810,14 +5810,14 @@ $("graph-fullscreen")?.addEventListener("click", toggleGraphFullscreen);
   shape.value = prefs.get("graph-shape", null) || "organic";
   if (!shape.value) shape.value = "organic";
   shape.addEventListener("change", () => {
-    localStorage.setItem("graph-shape", shape.value);
+    prefs.set("graph-shape", shape.value);
     graphHighlightIds = null;
     renderGraph();
   });
 })();
 
 $("graph-curved")?.addEventListener("change", (event) => {
-  localStorage.setItem("graph-curved", event.target.checked ? "1" : "0");
+  prefs.set("graph-curved", event.target.checked ? "1" : "0");
   //: The layout keeps dots clear of the lines as drawn (the worker's
   //: `clearanceForce`, INBOX 693), and a curve and a straight line pass
   //: different dots, so the forces hear about it and the map eases round.
@@ -5828,19 +5828,19 @@ $("graph-curved")?.addEventListener("change", (event) => {
 //: The cluster wash is on by default and remembered off (the owner: "the
 //: nebulae could be a togglable feature??"); like Curved links it is a redraw.
 $("graph-nebula")?.addEventListener("change", (event) => {
-  localStorage.setItem("graph-nebula", event.target.checked ? "1" : "0");
+  prefs.set("graph-nebula", event.target.checked ? "1" : "0");
   gcRequestDraw();
 });
 
 //: Link length by similarity changes the forces, so it is a relayout rather
 //: than a redraw (the owner: "distance based on similarity score or smth??").
 $("graph-length-score")?.addEventListener("change", (event) => {
-  localStorage.setItem("graph-length-score", event.target.checked ? "1" : "0");
+  prefs.set("graph-length-score", event.target.checked ? "1" : "0");
   renderGraph();
 });
 //: Group by category changes the forces too (graph-worker.js `applyGrouping`).
 $("graph-group")?.addEventListener("change", (event) => {
-  localStorage.setItem("graph-group", event.target.checked ? "1" : "0");
+  prefs.set("graph-group", event.target.checked ? "1" : "0");
   renderGraph();
 });
 
@@ -5875,7 +5875,7 @@ function graphSyncSimilarityRow() {
   slider.addEventListener("input", graphSyncSimilarityRow);
   slider.addEventListener("change", () => {
     try {
-      localStorage.setItem("graph-similarity-min", slider.value);
+      prefs.set("graph-similarity-min", slider.value);
     } catch (error) {
       /* A browser with storage refused still filters, it just forgets. */
     }

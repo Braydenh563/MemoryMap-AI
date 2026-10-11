@@ -1683,7 +1683,7 @@ function seedUiStateFromServer(state) {
     const local = prefs.has(key) ? prefs.get(key, "") : null;
     if (local === remote) continue;
     if (local == null || local === synced[key]) {
-      localStorage.setItem(key, remote);
+      prefs.set(key, remote);
       restored += 1;
     }
   }
@@ -1737,7 +1737,7 @@ function applyPalette(id, remember = true) {
   // than shipping a block that restates the base :root values.
   if (id && id !== "default") root.dataset.palette = id;
   else delete root.dataset.palette;
-  if (remember) localStorage.setItem("palette", id || "default");
+  if (remember) prefs.set("palette", id || "default");
   // The generative background paints from the accent, so it has to be rebuilt, 
   // and so does the dashboard constellation, for the same reason.
   if (bgArtOn()) startBgArt();

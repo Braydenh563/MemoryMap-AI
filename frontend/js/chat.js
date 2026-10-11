@@ -1296,7 +1296,7 @@ function pushWebSearchHistory(query) {
     WEB_SEARCH_HISTORY_MAX
   );
   try {
-    localStorage.setItem(WEB_SEARCH_HISTORY_KEY, JSON.stringify(history));
+    prefs.set(WEB_SEARCH_HISTORY_KEY, JSON.stringify(history));
   } catch {
     /* storage full or blocked, the search itself still worked */
   }

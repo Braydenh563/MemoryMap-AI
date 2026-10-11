@@ -292,7 +292,7 @@ def test_light_and_dark_and_its_size() -> None:
     # handle; kept; scaled about the point it touches its perch, and its
     # shape and sampled points with it (companionlife.js measures it).
     assert "const NMB_SIZES = { small: 0.8, medium: 1, large: 1.3 };" in AV
-    assert 'localStorage.setItem("avatar-buddy-size"' in _fn("nameMarkBuddySetSize")
+    assert 'prefs.set("avatar-buddy-size"' in _fn("nameMarkBuddySetSize")
     assert "nameMarkBuddyScaled(nameMarkBuddyShapeAt1(" in _fn("nameMarkBuddyShape")
     assert "ox + (qx - ox) * size" in _fn("nameMarkBuddyCovers")
     assert 'label: "ph:resize Size",' in _fn("nameMarkBuddyMenu")  # a flyout since round 7
@@ -517,7 +517,7 @@ def test_the_companion_shows_and_hides_from_anywhere() -> None:
     assert "Show companion\", chord: \"toggleCompanion\", act: () => nameMarkBuddyToggle()" in panes
     toggle = _fn("nameMarkBuddyToggle")
     assert 'prefs.get("nm-buddy-last", null)' in toggle
-    assert 'localStorage.setItem("nm-buddy-last", was)' in _fn("nameMarkBuddyHide")
+    assert 'prefs.set("nm-buddy-last", was)' in _fn("nameMarkBuddyHide")
 
 
 def test_it_gets_out_of_a_popups_way() -> None:

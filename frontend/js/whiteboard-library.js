@@ -52,7 +52,7 @@ function wbSideState() {
 
 function wbSaveSideState(state) {
   try {
-    localStorage.setItem(WB_SIDE_KEY, JSON.stringify(state));
+    prefs.set(WB_SIDE_KEY, JSON.stringify(state));
   } catch {
     // Private mode: the panel opens closed next time.
   }

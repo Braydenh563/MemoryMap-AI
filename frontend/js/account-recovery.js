@@ -142,7 +142,7 @@ async function submitRecovery() {
     setBusy(button, false);
   }
   closeForgotPassword();
-  localStorage.setItem("token", body.token);
+  prefs.set("token", body.token);
   vaultOpen = true;
   lockedByHand = false;
   $("lock-password").blur();
@@ -178,7 +178,7 @@ async function submitPasswordReset() {
     setBusy(button, false);
   }
   closeForgotPassword();
-  localStorage.removeItem("token");
+  prefs.remove("token");
   vaultOpen = false;
   purgeLockedContent();
   $("lock-btn").classList.add("hidden");

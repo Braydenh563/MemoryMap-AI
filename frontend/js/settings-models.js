@@ -576,7 +576,7 @@ function renderSuggested(status) {
       section.open = modelGroupOpen(group.kind, group.shown, status);
       section.addEventListener("toggle", () => {
         try {
-          localStorage.setItem(`modelGroup:${group.kind}`, section.open ? "1" : "0");
+          prefs.set(`modelGroup:${group.kind}`, section.open ? "1" : "0");
         } catch (error) {
           /* the choice just does not persist */
         }
@@ -711,7 +711,7 @@ $("custom-model-name")?.addEventListener("input", () => {
 });
 $("suggested-hide-big")?.addEventListener("change", (event) => {
   try {
-    localStorage.setItem("hideBigModels", event.target.checked ? "1" : "0");
+    prefs.set("hideBigModels", event.target.checked ? "1" : "0");
   } catch (error) {
     /* the choice just does not persist */
   }

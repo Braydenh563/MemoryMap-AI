@@ -46,3 +46,5 @@ Port 8789, data dir `/home/user/.mmscratch/briefs-data`. Left out (owned elsewhe
 3, 4, 9, 34 (skipped, 88's files), 45, 58, 59, 61, 62, 63, 85, 87, 92, 98.
 
 ## Log
+- done: b569ca38f triage.
+- done: Brief 3 (writes through prefs; see next commit). next: Brief 4, index.html paragraphs (help-audit count.py TOTAL 28).

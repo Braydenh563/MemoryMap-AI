@@ -246,7 +246,7 @@ function wbFormatOpen(tab = null, { focus = true } = {}) {
   if (tab && WB_FMT_TABS.includes(tab)) wbFmtState.fmtTab = tab;
   panel.classList.remove("hidden");
   try {
-    localStorage.setItem(WB_FMT_KEY, "1");
+    prefs.set(WB_FMT_KEY, "1");
   } catch {
     /* a private window: the panel still opens, it is just not remembered */
   }
@@ -260,7 +260,7 @@ function wbFormatClose({ restoreFocus = true } = {}) {
   const hadFocus = panel.contains(document.activeElement);
   panel.classList.add("hidden");
   try {
-    localStorage.removeItem(WB_FMT_KEY);
+    prefs.remove(WB_FMT_KEY);
   } catch {
     /* nothing to forget */
   }
@@ -1008,7 +1008,7 @@ const wbColourState = { menu: null, input: null, eyedrop: false, swallowClick: f
 
 function wbRecentColours() {
   try {
-    const list = JSON.parse(localStorage.getItem(WB_RECENT_COLOURS_KEY) || "[]");
+    const list = prefs.json(WB_RECENT_COLOURS_KEY, []);
     return Array.isArray(list) ? list.filter((c) => /^#[0-9a-f]{6}$/.test(c)).slice(0, WB_RECENT_COLOURS_MAX) : [];
   } catch {
     return [];
@@ -1020,7 +1020,7 @@ function wbRememberColour(colour) {
   if (!hex) return;
   const list = [hex, ...wbRecentColours().filter((c) => c !== hex)].slice(0, WB_RECENT_COLOURS_MAX);
   try {
-    localStorage.setItem(WB_RECENT_COLOURS_KEY, JSON.stringify(list));
+    prefs.set(WB_RECENT_COLOURS_KEY, JSON.stringify(list));
   } catch {
     /* a private window: the row starts empty next time */
   }

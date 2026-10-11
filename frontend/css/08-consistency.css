@@ -1800,6 +1800,17 @@ summary > .ph-lead,
   justify-content: flex-end;
   padding: 0;
 }
+/* A modeless sheet (`openSheet({modal: false})`, the Guide above 600) has no
+   scrim and lets presses through to the app around its card. */
+.sheet-overlay.sheet-modeless {
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  pointer-events: none;
+}
+.sheet-modeless > .sheet-card {
+  pointer-events: auto;
+}
 .sheet-card.sheet-card-corner {
   width: min(28rem, 100%);
   max-width: min(28rem, 100%);

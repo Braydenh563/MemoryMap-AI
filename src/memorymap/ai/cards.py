@@ -304,6 +304,7 @@ PROJECTIONS: dict[str, tuple[_Where, ...]] = {
     "generate_diagram": (_B(), _N("cards", "note_id")),
     "read_mindmap": (_B(),),
     "create_mindmap": (_B(),),
+    "map_from_note": (_B(),),
     "add_map_node": (_B(),),
     "link_map_nodes": (_B(),),
     # The board-editing tools (FEAT-12) name an item on a board by its kind

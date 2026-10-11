@@ -754,6 +754,35 @@ def _create_mindmap(session: Session, args: dict) -> dict:
     }
 
 
+def _map_from_note(session: Session, args: dict) -> dict:
+    """A mind map made from one note in one call: its title the centre topic
+    (which opens the note), its headings and lists the branches.
+
+    One tool rather than `create_mindmap` and a call per node, because a
+    small model asked for "a map of this note" stalls after the third node
+    (WHITEBOARD_PLAN row 9). The same build as the note menu's Make a mind
+    map (`routes_map_from_notes.map_from_note_entry`), so it is the same map
+    with or without a model."""
+    from memorymap.api.routes_map_from_notes import map_from_note_entry
+
+    if args.get("note_id") is None:
+        raise ToolError("note_id is required: which note should the map be made from?")
+    entry = _require_note(session, args)
+    if entry.is_board:
+        raise ToolError(f"#{entry.id} is already a board; read it with read_whiteboard or read_mindmap.")
+    try:
+        board, count = map_from_note_entry(session, entry, str(args.get("title") or ""))
+    except ValueError as exc:
+        raise ToolError(str(exc)) from exc
+    name = board.content[2:]
+    return {
+        "board_id": board.id,
+        "title": name,
+        "nodes": count,
+        "label": f"ph:tree-structure Made the mind map “{_clip(name, 40)}” from the note",
+    }
+
+
 def _add_map_node(session: Session, args: dict) -> dict:
     """One node, under one parent, per call.
 

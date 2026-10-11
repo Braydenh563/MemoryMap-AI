@@ -1195,11 +1195,14 @@ HELP_TOPICS.extend(
                 "mind map", "mindmap", "mind-map", "branch", "child topic", "brainstorm",
                 "branch colours", "branch colors", "map font", "map theme", "palette",
                 "from the library", "point a topic at a note", "link a note to a topic", "reference node",
+                "make a mind map", "map from a note",
             ),
             "body": (
                 "Mind maps live in the Library, under Boards & maps; New, then Mind "
                 "map, opens Untitled map N with its central topic ready to type over "
-                "(what you type names the map too). Tab adds a child, Enter a sibling, and dragging a topic "
+                "(what you type names the map too). A note's ⋮ menu, Make a mind map, "
+                "builds one from that note: its title in the centre, its headings and "
+                "lists as branches. Tab adds a child, Enter a sibling, and dragging a topic "
                 "onto another moves its whole branch (onto Drop here to delete, at "
                 "the foot, deletes the topic and its branch). Right-click a topic for the "
                 "ring of actions, where Cross-link joins any two topics. View, How this "
@@ -1296,7 +1299,7 @@ HELP_TOPICS.extend(
                 "thread; its count reopens it. View, Present frames: one frame "
                 "at a time; L, a laser. ? shows every key; Ctrl+K finds any board action by name. "
                 "Menus: Insert, Edit, Arrange (align, distribute, size, order, group, "
-                "lock), View (background, grid, snap, zoom, full screen) and Board "
+                "lock), View (panels, background, grid, snap, zoom; full screen on a phone) and Board "
                 "(rename, new, export, kind, clear, delete, keys). On a phone, "
                 "More has the rest, a map's too."
             ),

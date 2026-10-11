@@ -414,10 +414,14 @@ function renderChatModelPicker(status) {
   //: was the one place it went back to naming the machinery. Both halves are
   //: here on purpose, "which model" is the question this line exists to
   //: answer and the name alone would not answer it.
+  //: Never chosen (a fresh install's default) is not "was running" (the
+  //: owner, 2026-10-07); a start-up choice says why, once more, here.
   $("chat-model-note").textContent =
     status.chat_model_installed === false
-      ? `${aiNameNow()} was running “${status.chat_model}”, which is not installed any more. Pick another or download it below.`
-      : `${aiNameNow()}, running ${status.chat_model}`;
+      ? status.chat_model_chosen === false
+        ? "No chat model is chosen yet. Pick one you have, or download one below."
+        : `${aiNameNow()} was running “${status.chat_model}”, which is not installed any more. Pick another or download it below.`
+      : `${aiNameNow()}, running ${status.chat_model}${status.chat_model_chosen_why ? ` (chosen at start: ${status.chat_model_chosen_why})` : ""}`;
   //: Whether it is in memory now, beside its Stop (rule 5).
   apiJson("/activity", { silent: true })
     .then((body) => {

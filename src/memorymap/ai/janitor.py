@@ -760,9 +760,17 @@ def warm_filing_model(model_manager: ModelManager, ollama: OllamaClient) -> None
     try:
         if not ollama.is_running():
             return
+        model = model_manager.utility_model()
+        #: Only a model that is installed (the owner, 2026-10-07: it warmed a
+        #: default "llama3.2" nobody had pulled and the log said "Chat with
+        #: 'llama3.2' failed"). Nothing chosen and nothing installed is quiet.
+        names = {m.get("name") for m in ollama.list_models()}
+        if model not in names and f"{model}:latest" not in names:
+            logger.info("janitor: no filing model to warm (%s is not installed)", safe_value(model, 80))
+            return
         _chat_within_deadline(
             ollama,
-            model_manager.utility_model(),
+            model,
             [{"role": "user", "content": "Reply with OK."}],
             deadline=BLOCKING_MODEL_DEADLINE_SECONDS,
         )

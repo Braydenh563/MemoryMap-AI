@@ -668,6 +668,12 @@ def _choose_chat_model_if_missing() -> None:
     chosen = mm.choose_installed_chat_model(installed)
     if chosen:
         config.set_preference("chat_model", chosen)
+        #: Said once in the app, with Change (the owner, 2026-10-07: "Say once
+        #: what was chosen and why"): `/models/status` carries it until a
+        #: model is picked by hand.
+        config.set_preference(
+            "chat_model_chosen_why", f"{current} is not installed, and it is the largest chat model you have"
+        )
         logging.getLogger("memorymap.startup").info("chat model %s is not installed; using %s", current, chosen)
 
 

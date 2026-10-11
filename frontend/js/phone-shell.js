@@ -1091,6 +1091,24 @@ function initOcrPhonePage() {
 
 initOcrPhonePage();
 
+//: The dialogs a phone shows as bottom sheets (UI_MODERNISATION 13c, OPEN row
+//: 567): each fits two thirds of a 390 window (97 to 294 px measured), so a
+//: centred card only floated it away from the thumb. The recipe's two classes
+//: on the dialog it already is; the larger ones stay pages, confirm a dialog.
+const PHONE_SHEET_DIALOGS = ["extract-panel", "history-overlay", "connections-overlay", "binned-overlay",
+  "skill-run-overlay", "wb-help-overlay", "meeting-overlay", "features-overlay"];
+
+function phoneSheetDialogs(phone) {
+  for (const id of PHONE_SHEET_DIALOGS) {
+    const overlay = document.getElementById(id);
+    overlay?.classList.toggle("sheet-overlay", phone);
+    overlay?.querySelector(":scope > .modal-card")?.classList.toggle("sheet-card", phone);
+  }
+}
+
+phoneSheetDialogs(window.matchMedia(PHONE_TABS).matches);
+window.matchMedia(PHONE_TABS).addEventListener("change", (event) => phoneSheetDialogs(event.matches));
+
 // --- the chat composer on a phone: attachments and mode in one row -----------
 // UI_MODERNISATION_PLAN Phase 11 item 3, "the composer above the keyboard
 // with the attachments and mode in one row". Measured at 390: the composer
@@ -1254,13 +1272,23 @@ initPhoneChatRow();
 //: is a class rather than a second recipe so everything else about a sheet,
 //: the scrim, the tier, the head with its X, Escape and the backdrop press,
 //: stays the one thing it already is.
-function openSheet({ label, sub = "", name, build, variant = "", returnFocus = document.activeElement, onClose = null, onGone = null }) {
+function openSheet({ label, sub = "", name, build, variant = "", modal = true, returnFocus = document.activeElement, onClose = null, onGone = null }) {
   const overlay = document.createElement("div");
   overlay.className = `modal-overlay sheet-overlay${variant ? ` sheet-${variant}` : ""}`;
   overlay.dataset.sheet = name || "";
   overlay.setAttribute("role", "dialog");
   overlay.setAttribute("aria-modal", "true");
   overlay.setAttribute("aria-label", label);
+  //: **Modeless above 600** (`modal: false`, the Guide; guideia): no scrim,
+  //: and presses pass through to the app, because the Guide's own answer is
+  //: "Open the Reminders tab" and a dimmed app cannot be read against it.
+  //: Escape still closes it, from inside it only. Below 600 the sheet is the
+  //: window, so it stays modal there.
+  const modeless = modal === false && window.matchMedia("(min-width: 600px)").matches;
+  if (modeless) {
+    overlay.classList.add("sheet-modeless");
+    overlay.removeAttribute("aria-modal");
+  }
   //: **Above whatever it was opened from.** A sheet is a `.modal-overlay`
   //: (1010), and a surface drawn higher than that opened its sheet behind
   //: itself: the lightbox (1020) on a phone, whose ⋯ "does nothing (no
@@ -1352,6 +1380,8 @@ function openSheet({ label, sub = "", name, build, variant = "", returnFocus = d
       return;
     }
     if (event.key !== "Escape") return;
+    //: A modeless sheet leaves an Escape pressed in the app to the app.
+    if (modeless && !card.contains(document.activeElement)) return;
     //: **One Escape, one sheet.** A sheet can open over a sheet (a ⋯ action
     //: sheet over the note page, INBOX 392), and every sheet's listener is
     //: on the document, so one Escape closed both. Only the topmost answers.
@@ -1888,8 +1918,31 @@ function foldSiblingsIntoMenu(dock, menu, fold) {
   }
 }
 
-function foldDockArrange(fold) {
+//: **Fold by count as well as by width** (UI_MODERNISATION 13.1 row 2, OPEN
+//: row 568): a dock folds past seven items. At 1440 six docks showed eight to
+//: ten (Notes 10, Graph 9, Library 9, Chat 8, Timeline 8, Boards 8) while the
+//: phone folded every one by width; one rule now, the same move.
+const DOCK_FOLD_PAST = 7;
+
+const dockShown = (el) => !el.hidden && !el.matches(".hidden, .dock-native-hidden, .visually-hidden, .dock-arrange-slot, .dock-action-slot")
+  && getComputedStyle(el).display !== "none";
+
+//: Every item the dock has, wherever a fold put it, so the decision does not
+//: change because it was taken. Without `arrange`, what is left in the row
+//: once sort and view have folded: the second fold's question.
+function dockItemCount(dock, arrange = true) {
+  let count = dock.querySelectorAll(".dock-menu-list > .dock-folded-action").length;
+  for (const zone of ["dock-identity", "dock-find", "dock-arrange", "dock-actions"]) {
+    if (zone === "dock-arrange" && !arrange) continue;
+    const el = dock.querySelector(`:scope > .${zone}`) || (zone === "dock-arrange" ? dock.querySelector(".dock-menu-list > .dock-arrange") : null);
+    if (el) count += [...el.children].filter(dockShown).length;
+  }
+  return count + (arrange ? dock.querySelectorAll(".dock-menu-list > [data-folded-from]").length : 0);
+}
+
+function foldDockArrange(narrow) {
   for (const dock of document.querySelectorAll(".dock[data-dock-name]")) {
+    const fold = narrow || dockItemCount(dock) > DOCK_FOLD_PAST;
     const menu = dock.querySelector(":scope > .dock-actions > .dock-more > .dock-menu-list");
     if (menu) {
       foldZoneIntoMenu(dock, menu, fold);
@@ -1932,10 +1985,13 @@ initDockFolding();
 //: bare icons in a list is a row of guesses.
 const DOCK_ACTIONS_FOLD_BELOW = "(max-width: 599.98px)";
 
-function foldDockActions(fold) {
+function foldDockActions(narrow) {
   for (const dock of document.querySelectorAll(".dock[data-dock-name]")) {
     const menu = dock.querySelector(":scope > .dock-actions > .dock-more > .dock-menu-list");
     if (!menu) continue;
+    //: Still past seven once sort and view have gone: the same second fold
+    //: at any width (OPEN row 568).
+    const fold = narrow || dockItemCount(dock, false) > DOCK_FOLD_PAST;
     if (fold) {
       const moving = [...dock.querySelectorAll(":scope > .dock-actions > [data-fold-narrow]")];
       let after = null;

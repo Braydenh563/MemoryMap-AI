@@ -21,10 +21,12 @@ function check(label, ok, detail) {
 const CEILING = 450;
 
 (async () => {
-  const { browser, page } = await boot({});
-  await page.click('[data-tab="library"]');
+  //: W=390 checks the phone: one column, inside the window (it may scroll).
+  const W = Number(process.env.W || 1440);
+  const { browser, page } = await boot(W === 1440 ? {} : { viewport: { width: W, height: 844 } });
+  await page.evaluate(() => switchTab("library"));
   await page.waitForTimeout(700);
-  await page.click('#library-subtabs [data-target="library-view-whiteboard"]');
+  await page.evaluate(() => document.querySelector('#library-subtabs [data-target="library-view-whiteboard"]')?.click());
   await page.waitForFunction(() => typeof window.initWhiteboard === "function", null, { timeout: 30000 });
   await page.evaluate(async () => {
     const v = document.getElementById("library-view-whiteboard");
@@ -43,15 +45,20 @@ const CEILING = 450;
       const headings = [...menu.querySelectorAll(".wb-panel-group-label")].filter(shown).length;
       const rows = [...menu.querySelectorAll(".wb-menu-item, .wb-menu-row")].filter(shown);
       const sections = [...menu.querySelectorAll(".wb-menu-section")].filter(shown);
-      // The group at the head of the second column (Panels) starts a column,
-      // not a run, so it carries no rule; every other group after the first does.
-      const ruled = sections.slice(1).filter((s) => s.getAttribute("aria-label") !== "Panels");
+      // A group at the head of a column starts it, so it carries no rule;
+      // every other group does (the menu is two `.wb-menu-col`s).
+      const ruled = sections.filter((s) => [...s.parentElement.children].filter(shown).filter((c) => c.matches(".wb-menu-section"))[0] !== s);
       const hairlines = ruled.filter((s) => parseFloat(getComputedStyle(s).borderTopWidth) > 0).length;
       const expected = ruled.length;
       return {
+        inView: b.left >= 0 && b.top >= 0 && b.right <= innerWidth && b.bottom <= innerHeight,
         height: Math.round(b.height), scroll: menu.scrollHeight > menu.clientHeight + 1,
         headings, rows: rows.length, sections: sections.length, hairlines, expected,
         texts: rows.map((r) => r.textContent.trim().replace(/\s+/g, " ")),
+        // Each column's height and its rows' heights, to rebalance by.
+        cols: [...menu.querySelectorAll(":scope > .wb-menu-col")].map((c) => Math.round(c.getBoundingClientRect().height)),
+        rowH: rows.map((r) => Math.round(r.getBoundingClientRect().height)),
+        pad: getComputedStyle(menu).padding,
       };
     });
     if (process.env.SHOT) {
@@ -93,7 +100,8 @@ const CEILING = 450;
 
   const map = await measure();
   console.log("    " + JSON.stringify(map));
-  check(`the map's View menu is under ${CEILING}px`, map.height > 0 && map.height <= CEILING && !map.scroll, `${map.height}px, ${map.rows} rows`);
+  if (W >= 600) check(`the map's View menu is under ${CEILING}px`, map.height > 0 && map.height <= CEILING && !map.scroll, `${map.height}px, ${map.rows} rows`);
+  else check("the map's View menu is inside the window", map.height > 0 && map.inView, `${map.height}px, ${map.rows} rows`);
   check("its groups are hairlines, not printed headings", map.headings === 0 && map.hairlines === map.expected,
     `${map.headings} headings, ${map.hairlines} hairlines over ${map.sections} groups`);
   check("no zoom row that the zoom bar already shows", !map.texts.some((t) => /^Zoom in|^Zoom out/.test(t)), map.texts.filter((t) => /Zoom/.test(t)).join(" | "));
@@ -129,7 +137,8 @@ const CEILING = 450;
 
   const board = await measure();
   console.log("    " + JSON.stringify(board));
-  check(`a board's View menu is under ${CEILING}px too`, board.height > 0 && board.height <= CEILING && !board.scroll, `${board.height}px, ${board.rows} rows`);
+  if (W >= 600) check(`a board's View menu is under ${CEILING}px too`, board.height > 0 && board.height <= CEILING && !board.scroll, `${board.height}px, ${board.rows} rows`);
+  else check("a board's View menu is inside the window too", board.height > 0 && board.inView, `${board.height}px, ${board.rows} rows`);
 
   const failed = results.filter((r) => !r.ok).length;
   console.log(`\n${results.length - failed}/${results.length} passed`);

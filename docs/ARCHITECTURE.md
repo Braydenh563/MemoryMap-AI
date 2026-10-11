@@ -553,7 +553,8 @@ library and place from it; `edit_board_item` ⚠️ (words, line colour, fill) �
 
 *Mind maps* (a board that is a tree, `ai/tools/whiteboard.py` alongside the
 whiteboard tools above): `create_mindmap` · `read_mindmap` ·
-`add_map_node` · `link_map_nodes`
+`add_map_node` · `link_map_nodes` · `map_from_note` (a whole map from one
+note's headings and lists, in one call)
 
 *Planning and structure:* `make_plan`: a ticked-step plan shown in the chat
 timeline; `notebook_structure` and `path_between`: the same graph traversal

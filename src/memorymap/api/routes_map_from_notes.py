@@ -32,6 +32,7 @@ the map opens readable even before the client's tidy refines it on Open.
 from __future__ import annotations
 
 import json
+import re
 from collections import Counter, deque
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -41,6 +42,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.core.database import Category, Entry
 from memorymap.core.deps import get_session
+from memorymap.entry.properties import strip as strip_properties
 
 router = APIRouter(prefix="/whiteboard", tags=["whiteboard"])
 
@@ -323,4 +325,118 @@ def map_from_notes(body: MapFromNotes, db: Session = Depends(get_session)):
     )
 
 
-__all__ = ["MAX_FANOUT", "build_tree", "layout_both_sides", "router"]
+#: The most topics one `map_from_note` places: a map is meant to fit a screen,
+#: and a note longer than this is read by its headings, not every line.
+MAX_NOTE_MAP_NODES = 60
+
+#: One quantifier each, and the rest trimmed in Python: nothing here can
+#: backtrack over a long line of spaces.
+_NOTE_LIST = re.compile(r"^(\s*)(?:[-*+]|\d{1,9}[.)])\s(.*)$")
+_NOTE_HEADING = re.compile(r"^(#{1,6})\s(.*)$")
+_NOTE_TICK = re.compile(r"^\[[ xX]\]\s")
+
+
+def _clip(text: str, length: int) -> str:
+    return text if len(text) <= length else text[: length - 1] + "…"
+
+
+def _topic_text(text: str) -> str:
+    """A line of Markdown as a topic's words: no emphasis, code, link or
+    task marks, nor a heading's closing hashes."""
+    text = _NOTE_TICK.sub("", text.strip()).rstrip("#").strip()
+    text = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", text)
+    text = re.sub(r"[*_`~]+", "", text).strip()
+    return _clip(text, 120)
+
+
+def note_outline(content: str) -> tuple[str, list[dict]]:
+    """A note as a map's outline: (title, the topics under it). Headings are
+    branches by level, list items hang under the heading above them by
+    indent; a note with neither gives one topic per paragraph."""
+    lines = strip_properties(content or "").splitlines()
+    title, roots, fenced, count = "", [], False, 0
+    #: (level, node): headings down the current path; list items sit below
+    #: the deepest heading at 10 + indent so they never outrank one.
+    stack: list[tuple[int, dict]] = []
+    paragraphs: list[str] = []
+    for raw in lines:
+        if raw.lstrip().startswith("```"):
+            fenced = not fenced
+            continue
+        if fenced or not raw.strip():
+            continue
+        heading = _NOTE_HEADING.match(raw.strip())
+        item = None if heading else _NOTE_LIST.match(raw)
+        if heading and not title and not roots:
+            title = _topic_text(heading.group(2))
+            continue
+        if not heading and not item:
+            paragraphs.append(raw.strip())
+            continue
+        if count >= MAX_NOTE_MAP_NODES:
+            break
+        level = len(heading.group(1)) if heading else 10 + len(item.group(1).expandtabs(4))
+        node = {"text": _topic_text((heading or item).group(2)), "children": []}
+        if not node["text"]:
+            continue
+        while stack and stack[-1][0] >= level:
+            stack.pop()
+        (stack[-1][1]["children"] if stack else roots).append(node)
+        stack.append((level, node))
+        count += 1
+    if not roots:
+        for para in paragraphs[:MAX_NOTE_MAP_NODES]:
+            first = re.split(r"(?<=[.!?])\s", para, maxsplit=1)[0]
+            if _topic_text(first) and _topic_text(first) != title:
+                roots.append({"text": _topic_text(first), "children": []})
+    if not title:
+        title = _topic_text(paragraphs[0]) if paragraphs else ""
+        roots = [r for r in roots if r["text"] != title]
+    return title, roots
+
+
+def map_from_note_entry(db: Session, entry: Entry, name: str = "") -> tuple[Entry, int]:
+    """One note as a mind map (OPEN row 566): its title the centre, a topic
+    that opens the note, its headings and lists the branches. Shared by the
+    note menu's Make a mind map and the agent's `map_from_note`. Raises
+    ValueError when the note has nothing to map."""
+    from memorymap.api import routes_whiteboard as wb
+
+    title, branches = note_outline(entry.content or "")
+    if not branches:
+        raise ValueError(f"Note #{entry.id} has no headings, list or paragraphs to make a map from.")
+    name = _clip(name.strip() or title or f"Note {entry.id}", 100)
+    board = Entry(content=f"# {name}", is_board=True)
+    wb._store_board_settings(board, "map", "tree-right")
+    db.add(board)
+    db.flush()
+    created = wb._place_map_nodes(db, board.id, [{"text": title or name, "note": entry.id, "children": branches}])
+    wb._record_map_creation(db, board.id, name, f"map from note #{entry.id}, {len(created)} nodes", {"note_id": entry.id}, created)
+    db.commit()
+    db.refresh(board)
+    return board, len(created)
+
+
+@router.post("/maps/from-note/{note_id}", status_code=201)
+def map_from_note(note_id: int, db: Session = Depends(get_session)):
+    """The note menu's Make a mind map."""
+    from memorymap.api import routes_whiteboard as wb
+
+    entry = db.get(Entry, note_id)
+    if entry is None or entry.is_deleted or entry.is_board:
+        raise HTTPException(status_code=404, detail="No note with that id.")
+    if entry.is_private:
+        #: A map's topics are plain text on a board anyone with the notebook
+        #: reads; a private note's words stay in the note.
+        raise HTTPException(status_code=422, detail="A private note's words stay in the note: make it public to map it.")
+    try:
+        board, count = map_from_note_entry(db, entry)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return wb.BoardOut(
+        id=board.id, title=board.content[2:], node_count=0, sketch_count=0, object_count=count,
+        type="map", layout="tree-right", **wb._preview_fields(db, board.id),
+    )
+
+
+__all__ = ["MAX_FANOUT", "build_tree", "layout_both_sides", "map_from_note_entry", "note_outline", "router"]

@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Docks: past seven items a dock's sort and view controls fold into its ⋯ at every width, and Notes' Select and the graph's Refresh go there below 600.
+- Mind maps and boards: the View menu is two columns with its groups parted by hairlines, no printed headings (a map's measured 785px tall, now under 450), and Full screen is a row there only on a phone, where the top bar's own button is hidden.
+- Phone: eight dialogs (extract, history, connections, binned, run a skill, board keys, meeting notes, features) open as bottom sheets below 600px instead of floating centred cards.
+- Notes: a note's ⋮ menu has Make a mind map, which builds a map from the note (its title in the centre, its headings and lists as branches) with no model; the agent does the same in one call with its new map_from_note tool.
 - Chat with no model: "delete the other one" after an answer that named two notes acts on the note it did not name; each answer now carries its notes' titles back on the conversation.
 - Code documents: Debug on a Python file of tests runs its tests, so a breakpoint inside a test stops there and the Tests tab lists each result with the totals; Stop ends the run without the tests after it.
 - Chat with no model: the other tabs' starters now do what they say (suggest tags for the open note, save the last answer as a note, what links to the open note, what is on the open board, summarise or list the key points of the open document) rather than quoting notes.

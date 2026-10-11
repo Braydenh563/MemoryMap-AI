@@ -71,7 +71,8 @@
     "delete_category": "remove the category Garden",
     "web_search": "search the web for boiler pressure",
     "read_url": "read this page https://example.com/boiler",
-    "delete_tag": "remove the tag urgent from every note"
+    "delete_tag": "remove the tag urgent from every note",
+    "map_from_note": "turn the garden note into a mind map"
   },
   "acts": {
     "reminder": "remind me to call mum on Friday at 9",

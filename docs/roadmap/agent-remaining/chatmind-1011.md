@@ -25,6 +25,11 @@ No real model in this sandbox: `scratchpad/llama-dev.sh check` finds neither lla
 | 563 | done | Python: _mm_debug runs _mm_tests under the debugger (runcall), test rows and totals; tests/test_run_debugger.py. JavaScript: deferred-next-PR (L: the harness is async with spread, both refused by the ES5 stepper; needs an ES5 harness inside JS-Interpreter) |
 | 564 | done | chat-attach.js chatTurnObjects puts each answer's note titles on its turn; ChatTurn.objects; reading._follow_other matches a title holding the named subject; tests/test_spoken_followups.py |
 | 565 | blocked | needs the Guide run against a real model to read the fallback's log line (none here) |
+| 566 | done | routes_map_from_notes.map_from_note_entry and POST /whiteboard/maps/from-note/{id}; tool map_from_note (registered, verified, cued); a note's ⋮ menu, Make a mind map; tests/test_ai_mindmap_tools.py. "Summarise this board" was already read_whiteboard |
+| 567 | done | phone-shell.js phoneSheetDialogs stamps the eight as sheets below 600. Measured (sheets567.js, 390): all eight left 0, width 390, bottom 844, radius 0 (history and connections were 359 wide, 16px in); 1440 unchanged (centred, 8px) |
+| 568 | done | phone-shell.js dockItemCount, DOCK_FOLD_PAST 7: arrange folds past seven at every width; Select and Refresh marked data-fold-narrow; DESIGN dock recipe. Measured (docks568.js): DOCKS |
+| 546 | done-already | Phase 4 built 2026-09-12 and its harness items closed 2026-09-20 (HISTORY) |
+| 548 | blocked | the Phase D claim needs a model to stall and be fixed (none here) |
 | 569 | blocked | the chat screenshot needs a real model's answer (none here) |
 | 573 | blocked | #chat-model-panel opens only with a model connected (none here) |
 | 599 | done-already | mcp_server.CHAT_ONLY plus ends_turn withheld from offered_tools |
@@ -36,3 +41,9 @@ No real model in this sandbox: `scratchpad/llama-dev.sh check` finds neither lla
 | 605 | done-already | Settings, Tools MCP snippet (#mcp-config-snippet, settings-controls.js) |
 
 done: f0f9d97 rows 555 to 557; 5fffcea rows 552 to 554, 558; 99b27e7 row 562. next: rows 559 to 573 (B27).
+
+## Mind map (700 to 791)
+
+| id | status | evidence or commit |
+| --- | --- | --- |
+| view-menu | done | coordinator item: #wb-view-menu two `.wb-menu-col` columns (Panels, Zoom; Canvas, Map), no printed heads, one column below 600; Full screen a row only below 820 (the top bar's button is beside View above). Supersedes INBOX 793's one column (the 450px ceiling is the sweep's). Measured (mapviewmenu.js): VIEWNUM |

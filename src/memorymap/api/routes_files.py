@@ -1197,29 +1197,36 @@ def open_exports_folder() -> dict:
             status_code=409, detail="Only the desktop app can open a file manager window."
         )
     exports = _exports_dir()
-    exports.mkdir(parents=True, exist_ok=True)
+    reveal_folder(exports, "the exports folder")
+    return {"path": str(exports)}
+
+
+def reveal_folder(folder: Path, what: str) -> None:
+    """Open `folder` in the OS file manager, creating it first; a 500 that
+    names the path when the OS refuses. Shared with Settings, About,
+    Maintenance's launcher logs (routes_maintenance.py)."""
+    folder.mkdir(parents=True, exist_ok=True)
     try:
         if sys.platform == "win32":
             # Safe even though the path can now be user-configured: passed as
             # a single argument, never through a shell, and _validated_export_dir
             # already refused anything that isn't a real, writable directory.
-            os.startfile(exports)
+            os.startfile(folder)
         elif sys.platform == "darwin":
             # Popen, not run(): the launcher forks its own file-manager window
             # and normally returns at once, but this request must not hang
             # waiting on a GUI process either way, same reasoning as
             # `restart_in_console_mode` being fire-and-forget rather than
             # something this response waits on.
-            subprocess.Popen(["open", str(exports)])
+            subprocess.Popen(["open", str(folder)])
         else:
-            subprocess.Popen(["xdg-open", str(exports)])
+            subprocess.Popen(["xdg-open", str(folder)])
     except OSError as exc:
-        logger.warning("couldn't open the exports folder", exc_info=True)
+        logger.warning("couldn't open %s", what, exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Couldn't open the exports folder. You can find it at {exports}.",
+            detail=f"Couldn't open {what}. You can find it at {folder}.",
         ) from exc
-    return {"path": str(exports)}
 
 
 #: What `/media/` will accept and, more to the point, what it will serve.

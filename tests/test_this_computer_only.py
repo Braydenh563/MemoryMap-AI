@@ -17,6 +17,8 @@ from memorymap.api.this_computer import is_another_device, this_computer_only
 HOST_ONLY = {
     "routes_backups": {"/backups/restore", "/backups/bundle/restore"},
     "routes_files": {"/files/open-exports-folder"},
+    "routes_maintenance": {"/system/maintenance", "/system/doctor", "/system/reinstall-on-start",
+                           "/system/open-logs-folder", "/system/desktop-shortcut"},
     "routes_models": {"/provider"},
     "routes_settings": {"/system/console-mode", "/system/restart", "/extras/bulk", "/extras/{extra_id}/install",
                         "/extras/{extra_id}/uninstall", "/import/directory"},

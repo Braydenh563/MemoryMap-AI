@@ -332,6 +332,8 @@ REVIEWED_COMPUTED: dict[tuple[str, str], str] = {
     ("routes_voice.py", "str(exc)"): "RuntimeError from ai/voice.py transcribe",
     ("routes_webclip.py", "WEB_OFF"): "a constant in routes_webclip.py, checked below",
     ("routes_webclip.py", "str(exc)"): "ClipRefused from core/webclip.py",
+    ("routes_maintenance.py", "refusal"): "core/maintenance.py SHORTCUT_REFUSALS, fixed sentences keyed by reason",
+    ("this_computer.py", "REFUSAL"): "a constant in api/this_computer.py",
     ("routes_websearch.py", "str(exc)"): "WebSearchError (search/websearch.py) and SearxngError (search/searxng_*.py)",
 }
 

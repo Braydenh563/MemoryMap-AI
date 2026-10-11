@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5511, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4625, test files 1065, tests 9759, plan headings 996.
+Counts: frontend functions 5511, frontend ids 2375, CSS sections 488, backend routes 558, backend modules 4654, test files 1066, tests 9778, plan headings 996.
 
 ## Frontend functions (5511)
 
@@ -9132,7 +9132,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/usage-lazy.css | 34 |
 | frontend/css/utilities-lazy.css | 116 |
 
-## Backend routes (553)
+## Backend routes (558)
 
 `@router.<method>(` and `@app.<method>(` decorators in `src/memorymap/api/*.py`, sorted by path. The line is the decorator's.
 
@@ -9227,7 +9227,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/bulk` | POST | `bulk_edit_tags` | src/memorymap/api/routes_tags.py:104 |
 | `/capabilities` | GET | `capabilities` | src/memorymap/api/routes_capabilities.py:75 |
 | `/change-password` | POST | `change_password` | src/memorymap/api/routes_auth.py:1008 |
-| `/changelog` | GET | `changelog` | src/memorymap/api/app.py:1421 |
+| `/changelog` | GET | `changelog` | src/memorymap/api/app.py:1423 |
 | `/charts/question` | POST | `chart_for_question` | src/memorymap/api/routes_vision.py:380 |
 | `/chat-model` | POST | `set_chat_model` | src/memorymap/api/routes_models.py:692 |
 | `/check` | GET | `check_for_update` | src/memorymap/api/routes_update.py:428 |
@@ -9308,16 +9308,16 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/files/{attachment_id}` | DELETE | `delete_file` | src/memorymap/api/routes_files.py:906 |
 | `/files/{attachment_id}` | PUT | `rename_file` | src/memorymap/api/routes_files.py:928 |
 | `/files/{attachment_id}/analyse` | POST | `analyse_attachment` | src/memorymap/api/routes_files.py:449 |
-| `/files/{attachment_id}/ocr-clean-loops` | POST | `clean_attachment_reading_loops` | src/memorymap/api/routes_files.py:3857 |
-| `/files/{attachment_id}/ocr-page-read` | POST | `attachment_ocr_page_read` | src/memorymap/api/routes_files.py:3435 |
-| `/files/{attachment_id}/ocr-range-read` | POST | `attachment_ocr_range_read` | src/memorymap/api/routes_files.py:3399 |
-| `/files/{attachment_id}/ocr-regions` | GET | `attachment_ocr_regions` | src/memorymap/api/routes_files.py:2531 |
-| `/files/{attachment_id}/page-caption` | POST | `attachment_page_caption` | src/memorymap/api/routes_files.py:3640 |
-| `/files/{attachment_id}/page-reads` | GET | `attachment_page_reads` | src/memorymap/api/routes_files.py:3678 |
-| `/files/{attachment_id}/page-reads/{page}` | DELETE | `delete_attachment_page_read` | src/memorymap/api/routes_files.py:3735 |
+| `/files/{attachment_id}/ocr-clean-loops` | POST | `clean_attachment_reading_loops` | src/memorymap/api/routes_files.py:3864 |
+| `/files/{attachment_id}/ocr-page-read` | POST | `attachment_ocr_page_read` | src/memorymap/api/routes_files.py:3442 |
+| `/files/{attachment_id}/ocr-range-read` | POST | `attachment_ocr_range_read` | src/memorymap/api/routes_files.py:3406 |
+| `/files/{attachment_id}/ocr-regions` | GET | `attachment_ocr_regions` | src/memorymap/api/routes_files.py:2538 |
+| `/files/{attachment_id}/page-caption` | POST | `attachment_page_caption` | src/memorymap/api/routes_files.py:3647 |
+| `/files/{attachment_id}/page-reads` | GET | `attachment_page_reads` | src/memorymap/api/routes_files.py:3685 |
+| `/files/{attachment_id}/page-reads/{page}` | DELETE | `delete_attachment_page_read` | src/memorymap/api/routes_files.py:3742 |
 | `/files/{attachment_id}/pdf-info` | GET | `attached_file_pdf_info` | src/memorymap/api/routes_files.py:769 |
-| `/files/{attachment_id}/readings/{source}` | DELETE | `delete_attachment_reading` | src/memorymap/api/routes_files.py:3794 |
-| `/files/{attachment_id}/region-read` | POST | `attachment_region_read` | src/memorymap/api/routes_files.py:3606 |
+| `/files/{attachment_id}/readings/{source}` | DELETE | `delete_attachment_reading` | src/memorymap/api/routes_files.py:3801 |
+| `/files/{attachment_id}/region-read` | POST | `attachment_region_read` | src/memorymap/api/routes_files.py:3613 |
 | `/files/{attachment_id}/text` | GET | `attached_file_text` | src/memorymap/api/routes_files.py:664 |
 | `/files/{attachment_id}/text` | PUT | `save_attached_file_text` | src/memorymap/api/routes_files.py:711 |
 | `/followups` | POST | `chat_followups` | src/memorymap/api/routes_chat.py:291 |
@@ -9335,7 +9335,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/greeting` | GET | `greeting` | src/memorymap/api/routes_insights.py:161 |
 | `/hardware` | GET | `hardware_memory` | src/memorymap/api/routes_models.py:647 |
 | `/health` | GET | `debug_health` | src/memorymap/api/routes_debug.py:79 |
-| `/health` | GET | `health` | src/memorymap/api/app.py:1363 |
+| `/health` | GET | `health` | src/memorymap/api/app.py:1365 |
 | `/health/integrity` | POST | `integrity_check` | src/memorymap/api/routes_debug.py:186 |
 | `/heatmap` | GET | `heatmap` | src/memorymap/api/routes_insights.py:349 |
 | `/history` | GET | `board_history` | src/memorymap/api/routes_board_history.py:271 |
@@ -9355,8 +9355,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/import/reports/{report_id}` | GET | `import_report_page` | src/memorymap/api/routes_import.py:112 |
 | `/improve` | POST | `improve_writing` | src/memorymap/api/routes_entries.py:1548 |
 | `/inspect` | POST | `inspect_model` | src/memorymap/api/routes_models.py:664 |
-| `/instance` | GET | `instance` | src/memorymap/api/app.py:1382 |
-| `/instance/focus` | POST | `instance_focus` | src/memorymap/api/app.py:1396 |
+| `/instance` | GET | `instance` | src/memorymap/api/app.py:1384 |
+| `/instance/focus` | POST | `instance_focus` | src/memorymap/api/app.py:1398 |
 | `/jobs` | GET | `list_jobs` | src/memorymap/api/routes_tasks.py:558 |
 | `/jobs/cancel` | POST | `cancel_job` | src/memorymap/api/routes_models.py:900 |
 | `/jobs/last-runs` | GET | `jobs_last_runs` | src/memorymap/api/routes_tasks.py:524 |
@@ -9381,28 +9381,28 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/logs/stats` | GET | `server_log_stats` | src/memorymap/api/routes_settings.py:2146 |
 | `/logs/stream` | GET | `stream_server_logs` | src/memorymap/api/routes_settings.py:2174 |
 | `/maps/from-notes` | POST | `map_from_notes` | src/memorymap/api/routes_map_from_notes.py:256 |
-| `/media` | GET | `list_media` | src/memorymap/api/routes_files.py:1392 |
+| `/media` | GET | `list_media` | src/memorymap/api/routes_files.py:1399 |
 | `/media-session` | POST | `media_session` | src/memorymap/api/routes_auth.py:692 |
-| `/media/meta/{filename}` | GET | `media_meta` | src/memorymap/api/routes_files.py:1549 |
-| `/media/orphans` | DELETE | `clean_orphaned_media` | src/memorymap/api/routes_files.py:1524 |
-| `/media/orphans` | GET | `list_orphaned_media` | src/memorymap/api/routes_files.py:1493 |
-| `/media/pdf-info/{filename}` | GET | `media_pdf_info` | src/memorymap/api/routes_files.py:1667 |
-| `/media/text/{filename}` | GET | `media_text` | src/memorymap/api/routes_files.py:1599 |
-| `/media/upload` | POST | `upload_media` | src/memorymap/api/routes_files.py:1243 |
-| `/media/{upload_id}` | DELETE | `delete_media` | src/memorymap/api/routes_files.py:1786 |
-| `/media/{upload_id}` | PUT | `rename_media` | src/memorymap/api/routes_files.py:1819 |
-| `/media/{upload_id}/caption` | POST | `caption_media` | src/memorymap/api/routes_files.py:1874 |
-| `/media/{upload_id}/ocr` | POST | `ocr_media` | src/memorymap/api/routes_files.py:1979 |
-| `/media/{upload_id}/ocr-clean-loops` | POST | `clean_media_reading_loops` | src/memorymap/api/routes_files.py:3883 |
-| `/media/{upload_id}/ocr-page-read` | POST | `media_ocr_page_read` | src/memorymap/api/routes_files.py:3452 |
-| `/media/{upload_id}/ocr-range-read` | POST | `media_ocr_range_read` | src/memorymap/api/routes_files.py:3417 |
-| `/media/{upload_id}/ocr-regions` | GET | `media_ocr_regions` | src/memorymap/api/routes_files.py:2497 |
-| `/media/{upload_id}/page-caption` | POST | `media_page_caption` | src/memorymap/api/routes_files.py:3661 |
-| `/media/{upload_id}/page-reads` | GET | `media_page_reads` | src/memorymap/api/routes_files.py:3694 |
-| `/media/{upload_id}/page-reads/{page}` | DELETE | `delete_media_page_read` | src/memorymap/api/routes_files.py:3749 |
-| `/media/{upload_id}/readings/{source}` | DELETE | `delete_media_reading` | src/memorymap/api/routes_files.py:3784 |
-| `/media/{upload_id}/region-read` | POST | `media_region_read` | src/memorymap/api/routes_files.py:3626 |
-| `/media/{upload_id}/vision-ocr` | POST | `vision_ocr_media` | src/memorymap/api/routes_files.py:3936 |
+| `/media/meta/{filename}` | GET | `media_meta` | src/memorymap/api/routes_files.py:1556 |
+| `/media/orphans` | DELETE | `clean_orphaned_media` | src/memorymap/api/routes_files.py:1531 |
+| `/media/orphans` | GET | `list_orphaned_media` | src/memorymap/api/routes_files.py:1500 |
+| `/media/pdf-info/{filename}` | GET | `media_pdf_info` | src/memorymap/api/routes_files.py:1674 |
+| `/media/text/{filename}` | GET | `media_text` | src/memorymap/api/routes_files.py:1606 |
+| `/media/upload` | POST | `upload_media` | src/memorymap/api/routes_files.py:1250 |
+| `/media/{upload_id}` | DELETE | `delete_media` | src/memorymap/api/routes_files.py:1793 |
+| `/media/{upload_id}` | PUT | `rename_media` | src/memorymap/api/routes_files.py:1826 |
+| `/media/{upload_id}/caption` | POST | `caption_media` | src/memorymap/api/routes_files.py:1881 |
+| `/media/{upload_id}/ocr` | POST | `ocr_media` | src/memorymap/api/routes_files.py:1986 |
+| `/media/{upload_id}/ocr-clean-loops` | POST | `clean_media_reading_loops` | src/memorymap/api/routes_files.py:3890 |
+| `/media/{upload_id}/ocr-page-read` | POST | `media_ocr_page_read` | src/memorymap/api/routes_files.py:3459 |
+| `/media/{upload_id}/ocr-range-read` | POST | `media_ocr_range_read` | src/memorymap/api/routes_files.py:3424 |
+| `/media/{upload_id}/ocr-regions` | GET | `media_ocr_regions` | src/memorymap/api/routes_files.py:2504 |
+| `/media/{upload_id}/page-caption` | POST | `media_page_caption` | src/memorymap/api/routes_files.py:3668 |
+| `/media/{upload_id}/page-reads` | GET | `media_page_reads` | src/memorymap/api/routes_files.py:3701 |
+| `/media/{upload_id}/page-reads/{page}` | DELETE | `delete_media_page_read` | src/memorymap/api/routes_files.py:3756 |
+| `/media/{upload_id}/readings/{source}` | DELETE | `delete_media_reading` | src/memorymap/api/routes_files.py:3791 |
+| `/media/{upload_id}/region-read` | POST | `media_region_read` | src/memorymap/api/routes_files.py:3633 |
+| `/media/{upload_id}/vision-ocr` | POST | `vision_ocr_media` | src/memorymap/api/routes_files.py:3943 |
 | `/meetings` | POST | `create_meeting` | src/memorymap/api/routes_meetings.py:52 |
 | `/memory` | GET | `list_memory` | src/memorymap/api/routes_settings.py:1418 |
 | `/memory` | POST | `add_memory` | src/memorymap/api/routes_settings.py:1453 |
@@ -9430,10 +9430,10 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/objects/{object_id}` | DELETE | `delete_object` | src/memorymap/api/routes_whiteboard.py:3080 |
 | `/objects/{object_id}` | PUT | `update_object` | src/memorymap/api/routes_whiteboard.py:3046 |
 | `/ocr-model` | POST | `set_ocr_model` | src/memorymap/api/routes_models.py:746 |
-| `/ocr-readers` | GET | `ocr_readers` | src/memorymap/api/routes_files.py:3205 |
-| `/ocr/language` | POST | `set_ocr_language` | src/memorymap/api/routes_files.py:3254 |
+| `/ocr-readers` | GET | `ocr_readers` | src/memorymap/api/routes_files.py:3212 |
+| `/ocr/language` | POST | `set_ocr_language` | src/memorymap/api/routes_files.py:3261 |
 | `/on-this-day` | GET | `on_this_day` | src/memorymap/api/routes_insights.py:461 |
-| `/openapi.json` | GET | `openapi_schema` | src/memorymap/api/app.py:1346 |
+| `/openapi.json` | GET | `openapi_schema` | src/memorymap/api/app.py:1348 |
 | `/outline` | GET | `documents_outline` | src/memorymap/api/routes_documents.py:438 |
 | `/parse` | POST | `magic_add_reminder` | src/memorymap/api/routes_reminders.py:529 |
 | `/password-on-open` | POST | `set_password_on_open` | src/memorymap/api/routes_auth.py:793 |
@@ -9456,8 +9456,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/read/filter` | GET | `phrase_filter` | src/memorymap/api/routes_read.py:99 |
 | `/read/offers` | POST | `note_offers` | src/memorymap/api/routes_read.py:64 |
 | `/read/words` | GET | `setting_words` | src/memorymap/api/routes_read.py:117 |
-| `/reading-bin/{bin_id}/purge` | DELETE | `purge_binned_reading` | src/memorymap/api/routes_files.py:3828 |
-| `/reading-bin/{bin_id}/restore` | POST | `restore_binned_reading` | src/memorymap/api/routes_files.py:3810 |
+| `/reading-bin/{bin_id}/purge` | DELETE | `purge_binned_reading` | src/memorymap/api/routes_files.py:3835 |
+| `/reading-bin/{bin_id}/restore` | POST | `restore_binned_reading` | src/memorymap/api/routes_files.py:3817 |
 | `/receipt` | GET | `receipt` | src/memorymap/api/routes_privacy.py:95 |
 | `/recent` | DELETE | `forget_recent_question` | src/memorymap/api/routes_chat.py:171 |
 | `/recent` | GET | `recent_questions` | src/memorymap/api/routes_chat.py:165 |
@@ -9534,8 +9534,13 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/support-bundle` | GET | `support_bundle` | src/memorymap/api/routes_settings.py:2339 |
 | `/switches` | GET | `get_switches` | src/memorymap/api/routes_learned.py:197 |
 | `/switches` | PUT | `put_switches` | src/memorymap/api/routes_learned.py:203 |
-| `/system/clear-static-cache` | POST | `system_clear_static_cache` | src/memorymap/api/app.py:1356 |
+| `/system/clear-static-cache` | POST | `system_clear_static_cache` | src/memorymap/api/app.py:1358 |
 | `/system/console-mode` | POST | `set_console_mode` | src/memorymap/api/routes_settings.py:1132 |
+| `/system/desktop-shortcut` | POST | `desktop_shortcut` | src/memorymap/api/routes_maintenance.py:85 |
+| `/system/doctor` | GET | `run_doctor` | src/memorymap/api/routes_maintenance.py:44 |
+| `/system/maintenance` | GET | `maintenance_state` | src/memorymap/api/routes_maintenance.py:30 |
+| `/system/open-logs-folder` | POST | `open_logs_folder` | src/memorymap/api/routes_maintenance.py:75 |
+| `/system/reinstall-on-start` | POST | `reinstall_on_start` | src/memorymap/api/routes_maintenance.py:63 |
 | `/system/restart` | POST | `restart_app` | src/memorymap/api/routes_settings.py:1201 |
 | `/tag-cloud` | GET | `tag_cloud` | src/memorymap/api/routes_insights.py:450 |
 | `/tasks` | GET | `list_tasks` | src/memorymap/api/routes_tasks.py:510 |
@@ -9692,7 +9697,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4625)
+## Backend modules (4654)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -11835,38 +11840,38 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `RequestPulse` | src/memorymap/api/app.py:1089 |
-| `RevalidatedStatic` | src/memorymap/api/app.py:308 |
-| `SpaceGuard` | src/memorymap/api/app.py:1020 |
-| `_UnversionedStatic` | src/memorymap/api/app.py:299 |
-| `_add_middleware` | src/memorymap/api/app.py:1161 |
-| `_add_system_routes` | src/memorymap/api/app.py:1342 |
-| `_backup_if_due` | src/memorymap/api/app.py:705 |
-| `_check_notebook_file` | src/memorymap/api/app.py:697 |
-| `_choose_chat_model_if_missing` | src/memorymap/api/app.py:650 |
-| `_code_for_status` | src/memorymap/api/app.py:807 |
-| `_compact_event_log` | src/memorymap/api/app.py:575 |
-| `_compact_step` | src/memorymap/api/app.py:621 |
-| `_content_length` | src/memorymap/api/app.py:1072 |
-| `_include_routers` | src/memorymap/api/app.py:1247 |
-| `_install_pending_extras` | src/memorymap/api/app.py:629 |
-| `_purge_expired_bin_entries` | src/memorymap/api/app.py:551 |
-| `_purge_step` | src/memorymap/api/app.py:617 |
-| `_register_error_handlers` | src/memorymap/api/app.py:818 |
-| `_stamp_for` | src/memorymap/api/app.py:222 |
-| `_start_autonomous_loop` | src/memorymap/api/app.py:762 |
-| `_start_searxng_if_asked` | src/memorymap/api/app.py:730 |
-| `_start_services` | src/memorymap/api/app.py:1104 |
-| `_startup_maintenance` | src/memorymap/api/app.py:669 |
-| `_static_gzip` | src/memorymap/api/app.py:490 |
-| `asset_hash` | src/memorymap/api/app.py:198 |
-| `asset_stamps` | src/memorymap/api/app.py:227 |
-| `clear_static_cache` | src/memorymap/api/app.py:531 |
-| `create_app` | src/memorymap/api/app.py:1457 |
-| `out_of_space_body` | src/memorymap/api/app.py:990 |
-| `pin_static_mime_types` | src/memorymap/api/app.py:165 |
-| `served_index_html` | src/memorymap/api/app.py:264 |
-| `served_offline_html` | src/memorymap/api/app.py:249 |
+| `RequestPulse` | src/memorymap/api/app.py:1090 |
+| `RevalidatedStatic` | src/memorymap/api/app.py:309 |
+| `SpaceGuard` | src/memorymap/api/app.py:1021 |
+| `_UnversionedStatic` | src/memorymap/api/app.py:300 |
+| `_add_middleware` | src/memorymap/api/app.py:1162 |
+| `_add_system_routes` | src/memorymap/api/app.py:1344 |
+| `_backup_if_due` | src/memorymap/api/app.py:706 |
+| `_check_notebook_file` | src/memorymap/api/app.py:698 |
+| `_choose_chat_model_if_missing` | src/memorymap/api/app.py:651 |
+| `_code_for_status` | src/memorymap/api/app.py:808 |
+| `_compact_event_log` | src/memorymap/api/app.py:576 |
+| `_compact_step` | src/memorymap/api/app.py:622 |
+| `_content_length` | src/memorymap/api/app.py:1073 |
+| `_include_routers` | src/memorymap/api/app.py:1248 |
+| `_install_pending_extras` | src/memorymap/api/app.py:630 |
+| `_purge_expired_bin_entries` | src/memorymap/api/app.py:552 |
+| `_purge_step` | src/memorymap/api/app.py:618 |
+| `_register_error_handlers` | src/memorymap/api/app.py:819 |
+| `_stamp_for` | src/memorymap/api/app.py:223 |
+| `_start_autonomous_loop` | src/memorymap/api/app.py:763 |
+| `_start_searxng_if_asked` | src/memorymap/api/app.py:731 |
+| `_start_services` | src/memorymap/api/app.py:1105 |
+| `_startup_maintenance` | src/memorymap/api/app.py:670 |
+| `_static_gzip` | src/memorymap/api/app.py:491 |
+| `asset_hash` | src/memorymap/api/app.py:199 |
+| `asset_stamps` | src/memorymap/api/app.py:228 |
+| `clear_static_cache` | src/memorymap/api/app.py:532 |
+| `create_app` | src/memorymap/api/app.py:1459 |
+| `out_of_space_body` | src/memorymap/api/app.py:991 |
+| `pin_static_mime_types` | src/memorymap/api/app.py:166 |
+| `served_index_html` | src/memorymap/api/app.py:265 |
+| `served_offline_html` | src/memorymap/api/app.py:250 |
 
 ### src/memorymap/api/asset_strip.py (13)
 
@@ -12566,7 +12571,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `update_link_reason` | src/memorymap/api/routes_entries.py:3746 |
 | `wiki_rename` | src/memorymap/api/routes_entries.py:2684 |
 
-### src/memorymap/api/routes_files.py (121)
+### src/memorymap/api/routes_files.py (122)
 
 | Name | File:line |
 |---|---|
@@ -12574,68 +12579,68 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `AttachmentAnalyseBody` | src/memorymap/api/routes_files.py:368 |
 | `AttachmentGalleryOut` | src/memorymap/api/routes_files.py:193 |
 | `AttachmentRenameBody` | src/memorymap/api/routes_files.py:924 |
-| `CaptionBody` | src/memorymap/api/routes_files.py:1843 |
+| `CaptionBody` | src/memorymap/api/routes_files.py:1850 |
 | `FileTextIn` | src/memorymap/api/routes_files.py:705 |
-| `MediaOrphansOut` | src/memorymap/api/routes_files.py:1476 |
-| `MediaRenameBody` | src/memorymap/api/routes_files.py:1815 |
-| `MediaUploadOut` | src/memorymap/api/routes_files.py:1314 |
-| `OcrBody` | src/memorymap/api/routes_files.py:1961 |
-| `OcrLanguageBody` | src/memorymap/api/routes_files.py:3248 |
-| `OcrPageReadOut` | src/memorymap/api/routes_files.py:2564 |
-| `OcrRangeReadOut` | src/memorymap/api/routes_files.py:3266 |
-| `OcrReadersOut` | src/memorymap/api/routes_files.py:3170 |
-| `OcrRegionBox` | src/memorymap/api/routes_files.py:2039 |
-| `OcrRegionOut` | src/memorymap/api/routes_files.py:2056 |
-| `OcrRegionReadOut` | src/memorymap/api/routes_files.py:3469 |
-| `OcrRegionsOut` | src/memorymap/api/routes_files.py:2120 |
-| `OcrStoredReadingOut` | src/memorymap/api/routes_files.py:2079 |
-| `OcrWordOut` | src/memorymap/api/routes_files.py:2048 |
+| `MediaOrphansOut` | src/memorymap/api/routes_files.py:1483 |
+| `MediaRenameBody` | src/memorymap/api/routes_files.py:1822 |
+| `MediaUploadOut` | src/memorymap/api/routes_files.py:1321 |
+| `OcrBody` | src/memorymap/api/routes_files.py:1968 |
+| `OcrLanguageBody` | src/memorymap/api/routes_files.py:3255 |
+| `OcrPageReadOut` | src/memorymap/api/routes_files.py:2571 |
+| `OcrRangeReadOut` | src/memorymap/api/routes_files.py:3273 |
+| `OcrReadersOut` | src/memorymap/api/routes_files.py:3177 |
+| `OcrRegionBox` | src/memorymap/api/routes_files.py:2046 |
+| `OcrRegionOut` | src/memorymap/api/routes_files.py:2063 |
+| `OcrRegionReadOut` | src/memorymap/api/routes_files.py:3476 |
+| `OcrRegionsOut` | src/memorymap/api/routes_files.py:2127 |
+| `OcrStoredReadingOut` | src/memorymap/api/routes_files.py:2086 |
+| `OcrWordOut` | src/memorymap/api/routes_files.py:2055 |
 | `PdfInfoOut` | src/memorymap/api/routes_files.py:753 |
-| `ReadingBinnedOut` | src/memorymap/api/routes_files.py:3761 |
-| `ReadingRestoredOut` | src/memorymap/api/routes_files.py:3803 |
+| `ReadingBinnedOut` | src/memorymap/api/routes_files.py:3768 |
+| `ReadingRestoredOut` | src/memorymap/api/routes_files.py:3810 |
 | `SaveFileBody` | src/memorymap/api/routes_files.py:999 |
-| `VisionOcrBody` | src/memorymap/api/routes_files.py:3910 |
+| `VisionOcrBody` | src/memorymap/api/routes_files.py:3917 |
 | `_attachment_out` | src/memorymap/api/routes_files.py:425 |
 | `_attachment_size` | src/memorymap/api/routes_files.py:395 |
-| `_bin_file_reading` | src/memorymap/api/routes_files.py:3770 |
-| `_checked_engine` | src/memorymap/api/routes_files.py:2741 |
-| `_checked_reader` | src/memorymap/api/routes_files.py:2715 |
-| `_clean_reading_fields` | src/memorymap/api/routes_files.py:3837 |
-| `_describe_page` | src/memorymap/api/routes_files.py:3062 |
-| `_embed_pattern` | src/memorymap/api/routes_files.py:1742 |
-| `_engine_choice` | src/memorymap/api/routes_files.py:2735 |
+| `_bin_file_reading` | src/memorymap/api/routes_files.py:3777 |
+| `_checked_engine` | src/memorymap/api/routes_files.py:2748 |
+| `_checked_reader` | src/memorymap/api/routes_files.py:2722 |
+| `_clean_reading_fields` | src/memorymap/api/routes_files.py:3844 |
+| `_describe_page` | src/memorymap/api/routes_files.py:3069 |
+| `_embed_pattern` | src/memorymap/api/routes_files.py:1749 |
+| `_engine_choice` | src/memorymap/api/routes_files.py:2742 |
 | `_existing_attachment` | src/memorymap/api/routes_files.py:166 |
 | `_exports_dir` | src/memorymap/api/routes_files.py:990 |
-| `_forget_page_read` | src/memorymap/api/routes_files.py:3704 |
-| `_forget_regions` | src/memorymap/api/routes_files.py:2331 |
-| `_local_regions` | src/memorymap/api/routes_files.py:2764 |
-| `_local_text` | src/memorymap/api/routes_files.py:2757 |
-| `_media_size` | src/memorymap/api/routes_files.py:1591 |
-| `_media_upload_path` | src/memorymap/api/routes_files.py:1657 |
-| `_page_read_count_map` | src/memorymap/api/routes_files.py:2926 |
-| `_page_read_key` | src/memorymap/api/routes_files.py:2769 |
-| `_page_read_text_map` | src/memorymap/api/routes_files.py:2886 |
-| `_parse_page_spec` | src/memorymap/api/routes_files.py:3290 |
-| `_pdf_regions_for` | src/memorymap/api/routes_files.py:2167 |
-| `_read_page` | src/memorymap/api/routes_files.py:3019 |
-| `_read_range` | src/memorymap/api/routes_files.py:3325 |
-| `_read_region` | src/memorymap/api/routes_files.py:3523 |
-| `_reader_model` | src/memorymap/api/routes_files.py:2609 |
-| `_region_image` | src/memorymap/api/routes_files.py:3500 |
-| `_regions_for` | src/memorymap/api/routes_files.py:2396 |
-| `_regions_text` | src/memorymap/api/routes_files.py:2963 |
-| `_reindex_file` | src/memorymap/api/routes_files.py:2826 |
-| `_remember_page_caption` | src/memorymap/api/routes_files.py:2844 |
-| `_remember_page_read` | src/memorymap/api/routes_files.py:2778 |
-| `_remember_regions` | src/memorymap/api/routes_files.py:2296 |
-| `_set_edited_reading` | src/memorymap/api/routes_files.py:2364 |
-| `_stored_page_reads` | src/memorymap/api/routes_files.py:2981 |
-| `_stored_range` | src/memorymap/api/routes_files.py:3375 |
-| `_stored_readings` | src/memorymap/api/routes_files.py:2089 |
-| `_stored_regions` | src/memorymap/api/routes_files.py:2271 |
-| `_strip_embeds` | src/memorymap/api/routes_files.py:1748 |
-| `_tesseract_read_page` | src/memorymap/api/routes_files.py:3127 |
-| `_vision_read_page` | src/memorymap/api/routes_files.py:2626 |
+| `_forget_page_read` | src/memorymap/api/routes_files.py:3711 |
+| `_forget_regions` | src/memorymap/api/routes_files.py:2338 |
+| `_local_regions` | src/memorymap/api/routes_files.py:2771 |
+| `_local_text` | src/memorymap/api/routes_files.py:2764 |
+| `_media_size` | src/memorymap/api/routes_files.py:1598 |
+| `_media_upload_path` | src/memorymap/api/routes_files.py:1664 |
+| `_page_read_count_map` | src/memorymap/api/routes_files.py:2933 |
+| `_page_read_key` | src/memorymap/api/routes_files.py:2776 |
+| `_page_read_text_map` | src/memorymap/api/routes_files.py:2893 |
+| `_parse_page_spec` | src/memorymap/api/routes_files.py:3297 |
+| `_pdf_regions_for` | src/memorymap/api/routes_files.py:2174 |
+| `_read_page` | src/memorymap/api/routes_files.py:3026 |
+| `_read_range` | src/memorymap/api/routes_files.py:3332 |
+| `_read_region` | src/memorymap/api/routes_files.py:3530 |
+| `_reader_model` | src/memorymap/api/routes_files.py:2616 |
+| `_region_image` | src/memorymap/api/routes_files.py:3507 |
+| `_regions_for` | src/memorymap/api/routes_files.py:2403 |
+| `_regions_text` | src/memorymap/api/routes_files.py:2970 |
+| `_reindex_file` | src/memorymap/api/routes_files.py:2833 |
+| `_remember_page_caption` | src/memorymap/api/routes_files.py:2851 |
+| `_remember_page_read` | src/memorymap/api/routes_files.py:2785 |
+| `_remember_regions` | src/memorymap/api/routes_files.py:2303 |
+| `_set_edited_reading` | src/memorymap/api/routes_files.py:2371 |
+| `_stored_page_reads` | src/memorymap/api/routes_files.py:2988 |
+| `_stored_range` | src/memorymap/api/routes_files.py:3382 |
+| `_stored_readings` | src/memorymap/api/routes_files.py:2096 |
+| `_stored_regions` | src/memorymap/api/routes_files.py:2278 |
+| `_strip_embeds` | src/memorymap/api/routes_files.py:1755 |
+| `_tesseract_read_page` | src/memorymap/api/routes_files.py:3134 |
+| `_vision_read_page` | src/memorymap/api/routes_files.py:2633 |
 | `_within_dir` | src/memorymap/api/routes_files.py:1064 |
 | `_within_exports` | src/memorymap/api/routes_files.py:1021 |
 | `analyse_attachment` | src/memorymap/api/routes_files.py:450 |
@@ -12643,54 +12648,55 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `attached_file_pdf_info` | src/memorymap/api/routes_files.py:770 |
 | `attached_file_pdf_page` | src/memorymap/api/routes_files.py:806 |
 | `attached_file_text` | src/memorymap/api/routes_files.py:665 |
-| `attachment_ocr_page_read` | src/memorymap/api/routes_files.py:3436 |
-| `attachment_ocr_range_read` | src/memorymap/api/routes_files.py:3400 |
-| `attachment_ocr_regions` | src/memorymap/api/routes_files.py:2532 |
-| `attachment_page_caption` | src/memorymap/api/routes_files.py:3641 |
-| `attachment_page_reads` | src/memorymap/api/routes_files.py:3679 |
-| `attachment_region_read` | src/memorymap/api/routes_files.py:3607 |
-| `caption_media` | src/memorymap/api/routes_files.py:1875 |
-| `clean_attachment_reading_loops` | src/memorymap/api/routes_files.py:3858 |
-| `clean_media_reading_loops` | src/memorymap/api/routes_files.py:3884 |
-| `clean_orphaned_media` | src/memorymap/api/routes_files.py:1525 |
-| `delete_attachment_page_read` | src/memorymap/api/routes_files.py:3736 |
-| `delete_attachment_reading` | src/memorymap/api/routes_files.py:3795 |
+| `attachment_ocr_page_read` | src/memorymap/api/routes_files.py:3443 |
+| `attachment_ocr_range_read` | src/memorymap/api/routes_files.py:3407 |
+| `attachment_ocr_regions` | src/memorymap/api/routes_files.py:2539 |
+| `attachment_page_caption` | src/memorymap/api/routes_files.py:3648 |
+| `attachment_page_reads` | src/memorymap/api/routes_files.py:3686 |
+| `attachment_region_read` | src/memorymap/api/routes_files.py:3614 |
+| `caption_media` | src/memorymap/api/routes_files.py:1882 |
+| `clean_attachment_reading_loops` | src/memorymap/api/routes_files.py:3865 |
+| `clean_media_reading_loops` | src/memorymap/api/routes_files.py:3891 |
+| `clean_orphaned_media` | src/memorymap/api/routes_files.py:1532 |
+| `delete_attachment_page_read` | src/memorymap/api/routes_files.py:3743 |
+| `delete_attachment_reading` | src/memorymap/api/routes_files.py:3802 |
 | `delete_file` | src/memorymap/api/routes_files.py:907 |
-| `delete_media` | src/memorymap/api/routes_files.py:1787 |
-| `delete_media_page_read` | src/memorymap/api/routes_files.py:3750 |
-| `delete_media_reading` | src/memorymap/api/routes_files.py:3785 |
+| `delete_media` | src/memorymap/api/routes_files.py:1794 |
+| `delete_media_page_read` | src/memorymap/api/routes_files.py:3757 |
+| `delete_media_reading` | src/memorymap/api/routes_files.py:3792 |
 | `download_export` | src/memorymap/api/routes_files.py:1172 |
 | `download_file` | src/memorymap/api/routes_files.py:171 |
 | `file_readings` | src/memorymap/api/routes_files.py:274 |
-| `get_media` | src/memorymap/api/routes_files.py:4008 |
+| `get_media` | src/memorymap/api/routes_files.py:4015 |
 | `list_attachment_gallery` | src/memorymap/api/routes_files.py:298 |
 | `list_exports` | src/memorymap/api/routes_files.py:1134 |
-| `list_media` | src/memorymap/api/routes_files.py:1393 |
-| `list_orphaned_media` | src/memorymap/api/routes_files.py:1494 |
-| `media_meta` | src/memorymap/api/routes_files.py:1550 |
-| `media_ocr_page_read` | src/memorymap/api/routes_files.py:3453 |
-| `media_ocr_range_read` | src/memorymap/api/routes_files.py:3418 |
-| `media_ocr_regions` | src/memorymap/api/routes_files.py:2498 |
-| `media_page_caption` | src/memorymap/api/routes_files.py:3662 |
-| `media_page_reads` | src/memorymap/api/routes_files.py:3695 |
-| `media_pdf_info` | src/memorymap/api/routes_files.py:1668 |
-| `media_pdf_page` | src/memorymap/api/routes_files.py:1708 |
-| `media_region_read` | src/memorymap/api/routes_files.py:3627 |
-| `media_text` | src/memorymap/api/routes_files.py:1600 |
-| `ocr_media` | src/memorymap/api/routes_files.py:1980 |
-| `ocr_readers` | src/memorymap/api/routes_files.py:3206 |
+| `list_media` | src/memorymap/api/routes_files.py:1400 |
+| `list_orphaned_media` | src/memorymap/api/routes_files.py:1501 |
+| `media_meta` | src/memorymap/api/routes_files.py:1557 |
+| `media_ocr_page_read` | src/memorymap/api/routes_files.py:3460 |
+| `media_ocr_range_read` | src/memorymap/api/routes_files.py:3425 |
+| `media_ocr_regions` | src/memorymap/api/routes_files.py:2505 |
+| `media_page_caption` | src/memorymap/api/routes_files.py:3669 |
+| `media_page_reads` | src/memorymap/api/routes_files.py:3702 |
+| `media_pdf_info` | src/memorymap/api/routes_files.py:1675 |
+| `media_pdf_page` | src/memorymap/api/routes_files.py:1715 |
+| `media_region_read` | src/memorymap/api/routes_files.py:3634 |
+| `media_text` | src/memorymap/api/routes_files.py:1607 |
+| `ocr_media` | src/memorymap/api/routes_files.py:1987 |
+| `ocr_readers` | src/memorymap/api/routes_files.py:3213 |
 | `open_exports_folder` | src/memorymap/api/routes_files.py:1183 |
-| `purge_binned_reading` | src/memorymap/api/routes_files.py:3829 |
+| `purge_binned_reading` | src/memorymap/api/routes_files.py:3836 |
 | `rename_file` | src/memorymap/api/routes_files.py:929 |
-| `rename_media` | src/memorymap/api/routes_files.py:1820 |
-| `restore_binned_reading` | src/memorymap/api/routes_files.py:3811 |
+| `rename_media` | src/memorymap/api/routes_files.py:1827 |
+| `restore_binned_reading` | src/memorymap/api/routes_files.py:3818 |
+| `reveal_folder` | src/memorymap/api/routes_files.py:1204 |
 | `safe_filename` | src/memorymap/api/routes_files.py:1007 |
 | `save_attached_file_text` | src/memorymap/api/routes_files.py:712 |
 | `save_generated_file` | src/memorymap/api/routes_files.py:1086 |
-| `set_ocr_language` | src/memorymap/api/routes_files.py:3255 |
+| `set_ocr_language` | src/memorymap/api/routes_files.py:3262 |
 | `upload_file` | src/memorymap/api/routes_files.py:98 |
-| `upload_media` | src/memorymap/api/routes_files.py:1244 |
-| `vision_ocr_media` | src/memorymap/api/routes_files.py:3937 |
+| `upload_media` | src/memorymap/api/routes_files.py:1251 |
+| `vision_ocr_media` | src/memorymap/api/routes_files.py:3944 |
 
 ### src/memorymap/api/routes_graph.py (42)
 
@@ -12860,6 +12866,18 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_tags` | src/memorymap/api/routes_library.py:991 |
 | `_totals` | src/memorymap/api/routes_library.py:1060 |
 | `library` | src/memorymap/api/routes_library.py:1077 |
+
+### src/memorymap/api/routes_maintenance.py (7)
+
+| Name | File:line |
+|---|---|
+| `ReinstallBody` | src/memorymap/api/routes_maintenance.py:59 |
+| `_data_dir` | src/memorymap/api/routes_maintenance.py:26 |
+| `desktop_shortcut` | src/memorymap/api/routes_maintenance.py:86 |
+| `maintenance_state` | src/memorymap/api/routes_maintenance.py:31 |
+| `open_logs_folder` | src/memorymap/api/routes_maintenance.py:76 |
+| `reinstall_on_start` | src/memorymap/api/routes_maintenance.py:64 |
+| `run_doctor` | src/memorymap/api/routes_maintenance.py:45 |
 
 ### src/memorymap/api/routes_map_from_notes.py (6)
 
@@ -13924,6 +13942,22 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_unquote` | src/memorymap/core/docmeta.py:82 |
 | `properties` | src/memorymap/core/docmeta.py:89 |
 
+### src/memorymap/core/doctor.py (11)
+
+| Name | File:line |
+|---|---|
+| `_row` | src/memorymap/core/doctor.py:39 |
+| `disk_row` | src/memorymap/core/doctor.py:56 |
+| `last_run_row` | src/memorymap/core/doctor.py:147 |
+| `model_row` | src/memorymap/core/doctor.py:91 |
+| `notes_row` | src/memorymap/core/doctor.py:67 |
+| `other_devices_row` | src/memorymap/core/doctor.py:134 |
+| `port_row` | src/memorymap/core/doctor.py:83 |
+| `python_row` | src/memorymap/core/doctor.py:43 |
+| `row_name` | src/memorymap/core/doctor.py:179 |
+| `run` | src/memorymap/core/doctor.py:164 |
+| `search_model_row` | src/memorymap/core/doctor.py:109 |
+
 ### src/memorymap/core/docview.py (14)
 
 | Name | File:line |
@@ -14405,6 +14439,21 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | Name | File:line |
 |---|---|
 | `Ahead` | src/memorymap/core/lookahead.py:18 |
+
+### src/memorymap/core/maintenance.py (10)
+
+| Name | File:line |
+|---|---|
+| `ShortcutError` | src/memorymap/core/maintenance.py:44 |
+| `_desktop_entry` | src/memorymap/core/maintenance.py:115 |
+| `_ps_quote` | src/memorymap/core/maintenance.py:132 |
+| `is_frozen` | src/memorymap/core/maintenance.py:48 |
+| `is_source_checkout` | src/memorymap/core/maintenance.py:52 |
+| `logs_dir` | src/memorymap/core/maintenance.py:71 |
+| `make_shortcut` | src/memorymap/core/maintenance.py:136 |
+| `reinstall_pending` | src/memorymap/core/maintenance.py:57 |
+| `set_reinstall` | src/memorymap/core/maintenance.py:61 |
+| `uninstall_plan` | src/memorymap/core/maintenance.py:76 |
 
 ### src/memorymap/core/media_gc.py (7)
 
@@ -15621,7 +15670,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9759)
+## Tests (9778)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16167,6 +16216,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_log_token_scrub.py | 2 |
 | tests/test_long_list_scroll.py | 5 |
 | tests/test_long_runs.py | 12 |
+| tests/test_maintenance.py | 19 |
 | tests/test_make_plan.py | 21 |
 | tests/test_manage_lists_504.py | 5 |
 | tests/test_manual_parity.py | 8 |

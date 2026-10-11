@@ -393,6 +393,14 @@ REM  --reinstall is the one-line answer to every "delete .venv and try
 REM  again" support reply this project has ever sent. Done here, before the
 REM  venv check below, so the rebuild is the ordinary first-run path rather
 REM  than a second code path that can rot.
+REM  Settings, About, Maintenance's "Reinstall on next start" leaves this
+REM  file (core/maintenance.py REINSTALL_MARKER): the app cannot rebuild the
+REM  environment it is running from. It counts as --reinstall once.
+if exist "!MM_DATA_DIR!\reinstall-on-next-start" (
+  set "MM_REINSTALL=1"
+  del /q "!MM_DATA_DIR!\reinstall-on-next-start" >nul 2>nul
+  call :log "reinstall-on-next-start found, rebuilding .venv"
+)
 if "!MM_REINSTALL!"=="1" if exist ".venv" (
   echo  !ESC![1;38;5;73m[..]!ESC![0m Removing .venv to rebuild it from scratch...
   call :log "removing .venv for --reinstall"

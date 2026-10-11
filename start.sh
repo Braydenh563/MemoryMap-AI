@@ -907,6 +907,13 @@ fi
 # support reply this project has ever sent. Done here, before the venv check
 # below, so the rebuild is the ordinary first-run path rather than a second
 # code path that can rot.
+# Settings, About, Maintenance's "Reinstall on next start" leaves this file
+# (core/maintenance.py REINSTALL_MARKER): the app cannot rebuild the
+# environment it is running from. It counts as --reinstall once.
+if [ -f "$MM_DATA_DIR/reinstall-on-next-start" ]; then
+  MM_REINSTALL=1
+  rm -f "$MM_DATA_DIR/reinstall-on-next-start"
+fi
 if [ "$MM_REINSTALL" = "1" ] && [ -d ".venv" ]; then
   echo " ${TEAL}[..]${RESET} Removing .venv to rebuild it from scratch..."
   rm -rf ".venv"

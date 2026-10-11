@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Settings, About, Maintenance: the launcher's doctor, reinstall, logs, shortcut and uninstall from inside the app. Check this computer runs the doctor's checks in the app (the packaged app too) with the same row names as `start --doctor`; Reinstall on next start leaves a marker that start.sh and start.bat read as `--reinstall` once; each is refused from another device.
 - Launcher: `doctor`, `reinstall` and `tools` are one double-click each, as `.sh` and `.bat`: the machine check, a rebuild of the Python environment that asks first and leaves notes alone, and a menu of every launcher action.
 - Security: an action refused from another device now reads "Not available on this device. Do it on the computer MemoryMap runs on."
 - Security: a phone or another computer on the network can no longer make this computer act. Opening a folder, restarting or quitting the app, installing or running software (extras, updates, SearXNG), importing a folder of this computer's files, changing the model server and restoring a whole backup now answer "Only this computer can do that" to any other device.

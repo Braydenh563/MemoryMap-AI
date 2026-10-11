@@ -7,7 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
-- Ask and the Guide: a misspelt word anywhere in a question is read as the word it is near ("redeisgn", "noficiations", "westen australia"), split words are joined ("thes ebuttons", "a nd"), and a missing apostrophe is read ("doesn follow"); the Guide, the clock and the other utilities read the repaired question.
+- Ask and the Guide: a misspelt word anywhere in a question is read as the word it is near ("redeisgn", "noficiations", "westen australia"), split words are joined ("thes ebuttons", "a nd"), a missing apostrophe is read ("doesn follow"), and a stray semicolon inside a word or two words run together are put right ("natura;l", "thenthe"); the Guide, the clock and the other utilities read the repaired question.
 - Ask: an answer to a question that needed a spelling repair opens by saying how it was read ("I took that to mean ..."), in wording that changes from one answer to the next.
 - Settings: Import & export has Clear and forget (recent searches in every box, saved previews, the Guide's conversation, dismissed suggestions), each saying how much it removes and each undoable for ten seconds.
 - Settings: every change and clear is undoable from its toast and listed with its Undo in Recent changes (the last twenty).

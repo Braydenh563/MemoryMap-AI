@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5505, frontend ids 2370, CSS sections 489, backend routes 553, backend modules 4603, test files 1060, tests 9722, plan headings 992.
+Counts: frontend functions 5505, frontend ids 2370, CSS sections 489, backend routes 553, backend modules 4605, test files 1060, tests 9722, plan headings 992.
 
 ## Frontend functions (5505)
 
@@ -9677,7 +9677,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4603)
+## Backend modules (4605)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -10949,19 +10949,19 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `_at_asking_place` | src/memorymap/ai/question_noise.py:2184 |
-| `_cosine` | src/memorymap/ai/question_noise.py:2235 |
-| `_split` | src/memorymap/ai/question_noise.py:2089 |
+| `_at_asking_place` | src/memorymap/ai/question_noise.py:2200 |
+| `_cosine` | src/memorymap/ai/question_noise.py:2251 |
+| `_split` | src/memorymap/ai/question_noise.py:2095 |
 | `_strip_stray_tail` | src/memorymap/ai/question_noise.py:417 |
-| `_sub_cost` | src/memorymap/ai/question_noise.py:1999 |
-| `_trigrams` | src/memorymap/ai/question_noise.py:2230 |
-| `_vector_cosine` | src/memorymap/ai/question_noise.py:2246 |
-| `allowance` | src/memorymap/ai/question_noise.py:2027 |
-| `alternative` | src/memorymap/ai/question_noise.py:2074 |
-| `distance` | src/memorymap/ai/question_noise.py:2005 |
-| `guess_kind` | src/memorymap/ai/question_noise.py:2253 |
-| `nearest` | src/memorymap/ai/question_noise.py:2045 |
-| `repair` | src/memorymap/ai/question_noise.py:2106 |
+| `_sub_cost` | src/memorymap/ai/question_noise.py:2002 |
+| `_trigrams` | src/memorymap/ai/question_noise.py:2246 |
+| `_vector_cosine` | src/memorymap/ai/question_noise.py:2262 |
+| `allowance` | src/memorymap/ai/question_noise.py:2033 |
+| `alternative` | src/memorymap/ai/question_noise.py:2080 |
+| `distance` | src/memorymap/ai/question_noise.py:2011 |
+| `guess_kind` | src/memorymap/ai/question_noise.py:2269 |
+| `nearest` | src/memorymap/ai/question_noise.py:2051 |
+| `repair` | src/memorymap/ai/question_noise.py:2112 |
 | `social_kind` | src/memorymap/ai/question_noise.py:1900 |
 | `strip_strays` | src/memorymap/ai/question_noise.py:438 |
 | `strip_symbols` | src/memorymap/ai/question_noise.py:459 |
@@ -11279,30 +11279,32 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `label` | src/memorymap/ai/speakers.py:66 |
 | `parse_names` | src/memorymap/ai/speakers.py:51 |
 
-### src/memorymap/ai/spelling.py (20)
+### src/memorymap/ai/spelling.py (22)
 
 | Name | File:line |
 |---|---|
-| `_accept` | src/memorymap/ai/spelling.py:207 |
-| `_app_counts` | src/memorymap/ai/spelling.py:95 |
-| `_candidates` | src/memorymap/ai/spelling.py:225 |
-| `_dictionary` | src/memorymap/ai/spelling.py:114 |
-| `_fix` | src/memorymap/ai/spelling.py:256 |
-| `_fix_short` | src/memorymap/ai/spelling.py:287 |
-| `_index` | src/memorymap/ai/spelling.py:143 |
-| `_is_word` | src/memorymap/ai/spelling.py:188 |
-| `_limit` | src/memorymap/ai/spelling.py:80 |
-| `_mask` | src/memorymap/ai/spelling.py:135 |
-| `_own` | src/memorymap/ai/spelling.py:242 |
-| `_readings` | src/memorymap/ai/spelling.py:166 |
-| `_rebuild` | src/memorymap/ai/spelling.py:197 |
-| `_recognised` | src/memorymap/ai/spelling.py:129 |
-| `_resegment` | src/memorymap/ai/spelling.py:330 |
-| `_same_shape` | src/memorymap/ai/spelling.py:281 |
-| `_stems` | src/memorymap/ai/spelling.py:152 |
-| `fix` | src/memorymap/ai/spelling.py:319 |
-| `is_word` | src/memorymap/ai/spelling.py:176 |
-| `rejoin` | src/memorymap/ai/spelling.py:347 |
+| `_accept` | src/memorymap/ai/spelling.py:224 |
+| `_app_counts` | src/memorymap/ai/spelling.py:96 |
+| `_candidates` | src/memorymap/ai/spelling.py:246 |
+| `_dictionary` | src/memorymap/ai/spelling.py:115 |
+| `_fix` | src/memorymap/ai/spelling.py:277 |
+| `_fix_short` | src/memorymap/ai/spelling.py:318 |
+| `_index` | src/memorymap/ai/spelling.py:151 |
+| `_is_word` | src/memorymap/ai/spelling.py:205 |
+| `_limit` | src/memorymap/ai/spelling.py:79 |
+| `_mask` | src/memorymap/ai/spelling.py:143 |
+| `_own` | src/memorymap/ai/spelling.py:263 |
+| `_readings` | src/memorymap/ai/spelling.py:183 |
+| `_rebuild` | src/memorymap/ai/spelling.py:214 |
+| `_recognised` | src/memorymap/ai/spelling.py:135 |
+| `_resegment` | src/memorymap/ai/spelling.py:367 |
+| `_same_shape` | src/memorymap/ai/spelling.py:312 |
+| `_stems` | src/memorymap/ai/spelling.py:160 |
+| `drop_stray` | src/memorymap/ai/spelling.py:421 |
+| `fix` | src/memorymap/ai/spelling.py:356 |
+| `is_word` | src/memorymap/ai/spelling.py:193 |
+| `rejoin` | src/memorymap/ai/spelling.py:384 |
+| `split_run_on` | src/memorymap/ai/spelling.py:436 |
 
 ### src/memorymap/ai/starter_acts.py (20)
 

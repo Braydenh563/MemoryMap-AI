@@ -109,8 +109,8 @@ def trace(remark: dict, notes: list[dict], on: date, *, answer_phrases: bool = F
         elif kind == "measure":
             if text not in values:
                 failures.append(f"not a measured value: {text!r}")
-        elif kind == "asked":
-            pass  # the question's own words; held by the find eval's caller
+        elif kind in ("asked", "reading"):
+            pass  # the question's own words, or how it was read; held by the find eval's caller
         elif kind == "shifted":
             problem = _composer_eval.shifted_failure(part, by_id[part[2]]["content"], date.today())
             if problem:

@@ -28,14 +28,13 @@ import re
 from collections import Counter
 from functools import lru_cache
 
-from memorymap.ai.common_words import WORDS
-from memorymap.ai.common_words_more import MORE
 
 #: Abbreviations typed as they are: never read as a typo of a small word.
 KNOWN_SHORT = frozenset(
     "ai ui ux pc tv ok os js id ip ocr pdf url api app css html gps sms qr usb vpn wifi lan pin gb mb kb ms tag faq pr ci "
     "ml nlp llm gpu cpu ram rom ssd hd md png jpg gif csv txt doc xls "
-    "yo vs ty ya ye hm uh um oh ah eh ha hi he we us ex re ta np ik ig tbh imo idk irl brb".split()
+    "yo vs ty ya ye hm uh um oh ah eh ha hi he we us ex re ta np ik ig tbh imo idk irl brb "
+    "am an as at aw ax be bi by do er go id if in is it la lo ma me mi mu my no nu of om on op or ow ox pa pi so to up".split()
 )
 
 #: Small words a one-letter slip in a short token is read towards, with how
@@ -82,8 +81,10 @@ def _limit(n: int) -> float:
         return 0.0
     if n == 4:
         return _CHEAP
-    if n <= 6:
+    if n == 5:
         return 1.0
+    if n == 6:
+        return 1.2
     if n <= 8:
         return 1.1
     if n <= 11:
@@ -116,6 +117,11 @@ def _dictionary() -> dict[str, float]:
     word list at 1, the app's own words by how often its help uses them, and
     the documentation's long words (seven letters or more) at half: a short
     real word is too near other short words to be a target."""
+    #: Imported here, not at the top: the lists cost milliseconds the composer's
+    #: import budget does not have (`test_the_composer_imports_without_the_database_layer`).
+    from memorymap.ai.common_words import WORDS
+    from memorymap.ai.common_words_more import MORE
+
     weights: dict[str, float] = {w: 1.0 for w in WORDS}
     for word, count in _app_counts().items():
         weights[word] = weights.get(word, 0.0) + count
@@ -129,6 +135,8 @@ def _dictionary() -> dict[str, float]:
 def _recognised() -> frozenset:
     """Every word that is a word, so is left alone: the targets and all the
     documentation's words besides."""
+    from memorymap.ai.common_words_more import MORE
+
     return frozenset(_dictionary()) | MORE
 
 
@@ -157,9 +165,18 @@ def _stems(word: str):
     for ending, backs in _ENDINGS:
         if word.endswith(ending) and len(word) - len(ending) >= 3:
             core = word[: -len(ending)]
+            #: "generateing" is not "generate" + ing: a stem in a lone "e"
+            #: drops it before an ending that starts with a vowel.
+            if ending == "es" and not core.endswith(("s", "x", "z", "ch", "sh", "o")):
+                continue
+            dropped_e = ending[:1] in ("i", "e") and ending not in ("es", "ies", "ied") and core.endswith("e") and not core.endswith("ee")
             for back in backs:
+                if back == "" and dropped_e:
+                    continue
                 yield "", core + back, ending, "e" if back == "e" else "y" if back == "y" else ""
-            if len(core) >= 4 and core[-1] == core[-2]:
+            #: A doubled last letter is the stopped/planning rule, which only
+            #: those endings follow ("propper" is not "prop" + per).
+            if len(core) >= 4 and core[-1] == core[-2] and ending in ("ing", "ings", "ed"):
                 yield "", core[:-1], ending, "dbl"
 
 
@@ -212,16 +229,20 @@ def _accept(typed: str, base: str, d: float) -> bool:
     its first and last letters (short) or is long enough to be unmistakable
     ("pasta" is not "past")."""
     n = len(typed)
-    if d > _limit(n) or d == 0:
+    if d == 0:
         return False
     if len(typed) == len(base):
-        return d <= _CHEAP or (n >= 9 and d <= 1.0)
+        return d <= _limit(n) and (d <= _CHEAP or (n >= 9 and d <= 1.0))
+    #: A letter dropped or added: a long word within its allowance, a short
+    #: one when its first letter (and, under six letters, its last) is kept
+    #: and a whole edit is allowed ("ahnd" is "and", "pasta" is not "past").
     if n >= 7:
-        return True
-    return typed[0] == base[0] and typed[-1] == base[-1]
+        return d <= _limit(n)
+    if n == 6:
+        return d <= _limit(n) and typed[0] == base[0]
+    return d <= 1.0 and typed[0] == base[0] and typed[-1] == base[-1]
 
 
-@lru_cache(maxsize=4096)
 def _candidates(stem: str, distance):  # noqa: ANN001
     """The list words near a stem, as (distance, -weight, word); cached, since
     one question is read many times over (`composer.rephrase`)."""
@@ -266,7 +287,17 @@ def _fix(word: str, after: str, before: str, distance, known=()):  # noqa: ANN00
         for d, negw, base in [*_candidates(stem, distance), *_own(stem, known, distance)]:
             #: After an article the head is a noun: adverbs lose a near tie.
             penalty = 0.5 if before in DETERMINERS and base in NOT_AFTER_ARTICLE else 0.0
-            scored.append((d + penalty, _rebuild(prefix, base, ending, how), -negw))
+            if (how == "y" and not base.endswith("y")) or (how == "e" and not base.endswith("e")):
+                continue
+            if how == "" and ending[:1] in ("i", "e") and ending not in ("es", "ies", "ied") and base.endswith("e") and not base.endswith("ee"):
+                continue
+            rebuilt = _rebuild(prefix, base, ending, how)
+            if rebuilt == word:
+                continue
+            #: Ranked by the whole word, not the stem: "professionaly" is one
+            #: doubled letter from "professionally", two edits from "professionly".
+            whole = d if rebuilt == base else distance(word, rebuilt)
+            scored.append((whole + penalty - 0.8 * FUNCTION_PRIOR.get(rebuilt, 0.0), rebuilt, -negw))
     if not scored:
         return None
     scored.sort(key=lambda row: (round(row[0] / 0.2), -row[2], row[0]))
@@ -291,9 +322,15 @@ def _fix_short(word: str, after: str, before: str, distance):  # noqa: ANN001
         return None
     if len(word) == 2:
         #: Two letters are read only as a small word with its first letter
-        #: dropped ("nd" is "and") or its letters swapped ("ro" is "or").
-        pool = [c for c in FUNCTION_PRIOR if (len(c) == 3 and c.endswith(word)) or (len(c) == 2 and c == word[::-1])]
-        pool.sort(key=lambda c: -FUNCTION_PRIOR[c])
+        #: dropped ("nd" is "and", "dn" is the same letters swapped), its
+        #: letters swapped ("ro" is "or") or one key off ("od" is "of").
+        pool = [
+            cand for cand in FUNCTION_PRIOR
+            if (len(cand) == 3 and sorted(cand[1:]) == sorted(word))
+            or (len(cand) == 2 and cand != word and (cand == word[::-1] or distance(word, cand) <= 0.5))
+        ]
+        #: Before an article a small word is a preposition ("od the" is "of the").
+        pool.sort(key=lambda c: -(FUNCTION_PRIOR[c] + (0.5 if after in DETERMINERS and c in PREPOSITIONS else 0.0)))
         return (pool[0], pool[1] if len(pool) > 1 else None) if pool else None
     context_prep = after in DETERMINERS
     pool = PREPOSITIONS if context_prep else frozenset(FUNCTION_PRIOR)
@@ -376,3 +413,35 @@ def rejoin(tokens: list[str], known=(), skip=frozenset(), changes: list | None =
         out.append(a)
         i += 1
     return out
+
+
+_STRAY_SEMI = re.compile(r"(?<=[a-z]);(?=[a-z])")
+
+
+def drop_stray(token: str, known=(), changes: list | None = None) -> str:  # noqa: ANN001
+    """A semicolon struck inside a word ("natura;l", the key beside "l") taken
+    out when what is left is a word and the pieces are not both words."""
+    if ";" not in token:
+        return token
+    core = token.rstrip("?!.,:;")
+    tail = token[len(core):]
+    joined = core.replace(";", "")
+    if _STRAY_SEMI.search(core) and joined.isalpha() and joined.islower() and is_word(joined, known):
+        if changes is not None:
+            changes.append((core, joined))
+        return joined + tail
+    return token
+
+
+def split_run_on(word: str, known=()) -> tuple[str, str] | None:  # noqa: ANN001
+    """A single unknown token that is two words run together, one of them a
+    small word ("thenthe" is "then the", "ofthe" is "of the"). Only a small
+    word makes the cut: "pancakes" is not "pan cakes"."""
+    if len(word) < 6 or not word.isalpha() or is_word(word, known):
+        return None
+    small = DETERMINERS | PREPOSITIONS | frozenset(FUNCTION_PRIOR) | frozenset({"then", "when", "that", "what", "this", "are", "is"})
+    for cut in range(2, len(word) - 1):
+        head, tail = word[:cut], word[cut:]
+        if (head in small or tail in small) and is_word(head, known) and is_word(tail, known) and min(len(head), len(tail)) >= 2:
+            return head, tail
+    return None

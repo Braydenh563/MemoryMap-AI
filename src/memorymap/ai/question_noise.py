@@ -60,7 +60,7 @@ SLANG: dict[str, str] = {
     "whn": "when", "wen": "when", "wn": "when", "hw": "how", "hu": "who", "wher": "where",
     "whr": "where", "wer": "where", "whats": "what is", "wats": "what is", "hows": "how is",
     "wheres": "where is", "whens": "when is", "whos": "who is", "whys": "why is",
-    "wym": "what do you mean", "wdym": "what do you mean", "wbu": "what about you",
+    "wym": "what do you mean", "yk": "you know", "wdym": "what do you mean", "wbu": "what about you",
     "hbu": "how about you",
     # Contractions typed without the apostrophe.
     "im": "I am", "ive": "I have", "dont": "do not", "didnt": "did not", "doesnt": "does not",
@@ -1996,10 +1996,16 @@ for _r, _row in enumerate(_ROWS):
                         near.add(_ROWS[rr][cc])
 
 
+_SOUNDS = frozenset(frozenset(pair) for pair in ("dt", "bp", "gk", "sz", "ck", "cs", "fv"))
+
+
 def _sub_cost(a: str, b: str) -> float:
     if a == b:
         return 0.0
-    return 0.5 if b in _NEAR.get(a, ()) else 1.0
+    if b in _NEAR.get(a, ()):
+        return 0.5
+    #: Letters that sound alike are mixed up by ear ("instand", "bolier" no, "seperate").
+    return 0.6 if frozenset((a, b)) in _SOUNDS else 1.0
 
 
 def distance(a: str, b: str) -> float:
@@ -2113,6 +2119,7 @@ def repair(text: str, report: list | None = None, known=frozenset(), fixed: list
     spelled out) is added to `fixed` as (typed, chosen), which is what lets an
     answer say how it read the question."""
     tokens = spelling.rejoin(_COMMA_RUN.sub(", ", strip_symbols(text)).split(" "), known, SLANG.keys(), fixed)
+    tokens = [spelling.drop_stray(t, known, fixed) for t in tokens]
     out: list[str] = []
     i = 0
     while i < len(tokens):
@@ -2147,20 +2154,7 @@ def repair(text: str, report: list | None = None, known=frozenset(), fixed: list
             #: A word the speller knows ("weird") is not a typo of "were".
             spelt = (len(low) >= 4 and spelling.is_word(low, known, strict=True)) or (len(word) > 1 and word.isupper() and not text.isupper())
             chosen = nearest(low, ASKING, after) if _at_asking_place(out) and not spelt else None
-            #: Past the opening words only the long words that name a kind
-            #: of question are repaired ("diffrence", "lastest"): a subject
-            #: word near a small word ("slow", "show") is the subject.
             pool = ASKING
-            if not chosen and len(low) >= 6 and not spelt:
-                chosen, pool = nearest(low, KIND_WORDS, after), KIND_WORDS
-            if chosen and report is not None:
-                other = alternative(low, chosen, pool)
-                #: "hwo many" is how and "hwo asked" is who: the next word
-                #: settles it, and nothing is offered.
-                if {chosen, other} == {"how", "who"} and (after.lower() in _HOW_NEXT or after.lower().endswith("ed")):
-                    other = None
-                if other:
-                    report.append({"typed": word, "chosen": chosen, "alternative": other})
             if not chosen and word.isalpha() and not word.isupper() and (word.islower() or not out):
                 read = spelling.fix(
                     low, after=after.lower(), before=out[-1].strip("?!.,:;") if out else "", known=known, distance=distance,
@@ -2174,6 +2168,28 @@ def repair(text: str, report: list | None = None, known=frozenset(), fixed: list
                         fixed.append((word, chosen))
                     i += 1
                     continue
+                #: Two words run together, one of them small ("thenthe"):
+                #: tried only when no list word is near.
+                run_on = spelling.split_run_on(low, known) if word.islower() else None
+                if run_on:
+                    out.append(" ".join(run_on) + tail)
+                    if fixed is not None:
+                        fixed.append((word, " ".join(run_on)))
+                    i += 1
+                    continue
+            #: Past the opening words only the long words that name a kind
+            #: of question are repaired ("lastest"): a subject word near a
+            #: small word ("slow", "show") is the subject.
+            if not chosen and len(low) >= 6 and not spelt:
+                chosen, pool = nearest(low, KIND_WORDS, after), KIND_WORDS
+            if chosen and report is not None:
+                other = alternative(low, chosen, pool)
+                #: "hwo many" is how and "hwo asked" is who: the next word
+                #: settles it, and nothing is offered.
+                if {chosen, other} == {"how", "who"} and (after.lower() in _HOW_NEXT or after.lower().endswith("ed")):
+                    other = None
+                if other:
+                    report.append({"typed": word, "chosen": chosen, "alternative": other})
             if chosen and fixed is not None and chosen.lower() != low:
                 fixed.append((word, chosen))
             out.append((chosen + tail) if chosen else token)

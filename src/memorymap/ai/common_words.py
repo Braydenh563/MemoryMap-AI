@@ -184,7 +184,7 @@ monday tuesday wednesday thursday friday saturday sunday january february march 
 september october november december
 cannot
 
-beta advise advice kindly deposit paid said made went gone took taken saw seen came begun began ran sat stood told thought
+beta architecture architectural corner statistical statistics expertise replicate replicates replicated replication vendored enough because perceive hierarchy advise advice kindly deposit paid said made went gone took taken saw seen came begun began ran sat stood told thought
 brought bought caught taught fought sought built sent spent lent bent felt kept slept left met held sold gave given wrote
 written spoke spoken broke broken chose chosen drove driven ate eaten fell fallen flew flown grew grown knew known threw
 thrown wore worn tore torn swam swum sang sung rang rung drank drunk began hid hidden rode ridden rose risen shook shaken

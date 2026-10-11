@@ -66,6 +66,17 @@ LEFT_ALONE = [
     "summarise my meeting with Priya",
     "what is a tooltip",
     "compare the hiking notes with the camping notes",
+    "stop generating features and keep the proper hierarchy",
+    "the instant highlights on the pancakes recipe page",
+    "they stopped planning the corner shop and the hallway",
+    "everything everywhere in the statistical timezones panel",
+    "a thorough perceive of what receives the notifications",
+    "my wifi password and the sourdough starter notes",
+    "when is the next whiteboard session with Priya",
+    "the ocr workspace shows the mind map and the timeline",
+    "which notes mention the beta and the deposit that was paid",
+    "advise the kindly neighbour about the hallway light",
+    "it was a really nice weekend at the lake house",
 ]
 
 

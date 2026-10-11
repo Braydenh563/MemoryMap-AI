@@ -333,6 +333,13 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the typos90b agent (Brief 90 follow-up, 80 owner typos understood, merged 2026-10-11)
+
+File: `docs/roadmap/archive/agent-remaining/typos90b-1011.md`.
+
+- Not engine-readable, left out of the fixture: "corder" (corner; a one-letter swap in a six-letter word is refused on purpose, it reads "coder"), "nire" (more), "meen", "enout", "thingt", "ohf", "unig".
+- The Guide's no-model system answer still prints no "I took that to mean".
+
 ## Left by the e2efix2 agent (CI E2E: draft recovery after a killed server, the documents count race, merged 2026-10-11)
 
 File: `docs/roadmap/archive/agent-remaining/e2efix2-1011.md`.

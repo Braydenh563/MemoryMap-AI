@@ -184,7 +184,8 @@ def test_the_size_on_disk_ignores_the_cache_symlinks(tmp_path, monkeypatch):
     snap.mkdir(parents=True)
     (snap / "weights").symlink_to(real)
     row = next(m for m in embedmodels.status() if m["id"] == "bge-small")
-    assert row["installed"] is True
+    #: One file is not a model (101c), but the bytes are still counted once.
+    assert row["installed"] is False and row["files_missing"] is True
     assert row["on_disk"] == "2 KB"
 
 

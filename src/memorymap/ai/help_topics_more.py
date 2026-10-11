@@ -239,6 +239,7 @@ MORE_TOPICS: list[dict] = [
             "embedding models", "multilingual search", "change embedding model",
             "pull a model", "pull a model by name", "found on this computer",
             "uninstall embedding model", "reinstall embedding model", "cached models",
+            "files missing", "model files incomplete",
             "rebuild search index", "search index", "search is wrong",
             "too many results", "too few results", "search feels too strict",
             "install search by meaning automatically", "dont install", "refuse install",
@@ -262,7 +263,9 @@ MORE_TOPICS: list[dict] = [
             "one's size, languages, context and licence: Use switches in one "
             "press, and a model under other terms (EmbeddingGemma) links to "
             "them instead; each row's ⋮ has Use, Install or Reinstall, and "
-            "Uninstall (refused on the model in use). Found on this computer "
+            "Uninstall (refused on the model in use). A model whose files are "
+            "partly there says Files missing and offers Reinstall; MemoryMap "
+            "also mends it itself as a background task. Found on this computer "
             "lists embedding models already here (the Hugging Face cache, "
             "Ollama, LM Studio), with Use where MemoryMap can load them and "
             "why not where it cannot. Pull a model by name takes a Hugging Face "

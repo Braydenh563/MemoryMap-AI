@@ -588,6 +588,31 @@ async function renderEmbedModels() {
           renderEmbedModels();
         })
       );
+    } else if (model.files_missing) {
+      //: A folder with some of the files, or none (an interrupted download,
+      //: an empty cache): not a model. The row says so and offers the fix
+      //: that removes the folder first (Brief 101c).
+      const gone = document.createElement("span");
+      gone.className = "chip item-label is-warn";
+      gone.title = `Missing: ${(model.missing || []).join(", ") || "files"}`;
+      setLabel(gone, "ph:warning Files missing");
+      title.appendChild(gone);
+      if (body.can_download) {
+        actions.appendChild(
+          smallButton("ph:arrow-clockwise Reinstall", `Delete the incomplete files and fetch ${model.label} again`, async () => {
+            if (!(await confirmDialog(
+              `Reinstall ${model.label}?\n\nIts files here are incomplete. They are deleted ` +
+                `and ${model.size} is fetched again from HuggingFace.`
+            ))) return;
+            const result = await apiJson(
+              `/embedding-models/${model.id}/download?reinstall=true`,
+              { method: "POST" }
+            ).catch((e) => ({ started: false, message: e.message }));
+            toast(result.message, !result.started);
+            renderEmbedModels();
+          })
+        );
+      }
     } else {
       const get = smallButton("ph:download-simple Download", `Fetch ${model.label}`, async () => {
         if (!(await confirmDialog(

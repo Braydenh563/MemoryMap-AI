@@ -88,7 +88,10 @@ def _tags_of(raw: str) -> list[str]:
 
 
 def _plural(n: int, word: str) -> str:
-    return f"{n} {word}" if n == 1 else f"{n} {word}s"
+    #: "10 categorys" was said in the overview (INBOX 801's NOTEBOOK STATS).
+    if n == 1:
+        return f"{n} {word}"
+    return f"{n} {word[:-1]}ies" if word.endswith("y") and word[-2:-1] not in "aeiou" else f"{n} {word}s"
 
 
 # --- the questions -----------------------------------------------------------

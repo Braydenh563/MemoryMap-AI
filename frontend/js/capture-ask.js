@@ -1780,6 +1780,17 @@ function renderAnswerGrounding(
   support = null, pictureAlts = null
 ) {
   if (!target) return;
+  if (support?.digest) {
+    //: A digest (CHAT_PLAN decision 70, INBOX 812): one mark a line, the
+    //: records numbered to match, and no chips or count under the answer,
+    //: because the column on the right already is the sources.
+    addInlineCitations(answerEl, sentences, rawResults, orderedSources);
+    numberMatchingRecords(target, citationNumbers(sentences, orderedSources));
+    target.replaceChildren();
+    target.classList.add("hidden");
+    ensureModule("askCompose").then(() => digestOffer(answerEl, support.offer)).catch(() => {});
+    return;
+  }
   renderAnswerSupport(answerEl, support);
   // The markers go in the answer itself; the chip row below is their key.
   // Both are built from the same `sentences` and the same numbering

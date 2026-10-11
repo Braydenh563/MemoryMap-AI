@@ -106,6 +106,9 @@ REACHED_AFTER_LOAD = {
     #: Brief 88: a source opens its note at the quoted line, in the .then of
     #: ensureModule('reveal') in capture-ask.js's openNoteAtPassage.
     "markNotePassage": "reveal, called in the .then of ensureModule('reveal') in openNoteAtPassage",
+    #: Decision 70: the digest answer's one offer, in the .then of
+    #: ensureModule('askCompose') in renderAnswerGrounding.
+    "digestOffer": "askCompose, called in the .then of ensureModule('askCompose') in renderAnswerGrounding",
     #: Brief bootdiet: the catalogue is in the palette's bundle, and every other
     #: reader (Tools and features, Quick access, startApp's recovered recordings)
     #: awaits `lazyScript` / `ensureModule` before it reads or calls.

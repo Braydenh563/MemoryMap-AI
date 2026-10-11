@@ -255,7 +255,7 @@
    "kind": "capability",
    "from": "INBOX 808, 810",
    "question": "can you search the web?",
-   "gold": "Yes, when web search is on. Ask \"search the web for ...\" and the results open in a panel under the answer, where I can read a page in place. Web search is {on or off} now, in Settings, Privacy.",
+   "gold": "Yes, when web search is on. Ask \"search the web for ...\" and the results open in a panel under the answer, where I can read a page in place. Web search is {on or off} now, in Settings, Web search.",
    "type": "capability"
   },
   {

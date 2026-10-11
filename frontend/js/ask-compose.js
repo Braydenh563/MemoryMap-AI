@@ -262,3 +262,40 @@ function renderWebSources(holder, sources) {
   }
   if (list.childElementCount) holder.appendChild(list);
 }
+
+//: The digest's one offer (CHAT_PLAN decision 70): its last line, a question
+//: the answer asks ("Remind you to ask the tutor on Thursday?"), made the
+//: button that does it. Plain tier (`.linklike`): an action in running text.
+//: A reminder goes through the same door Quick add uses (`/reminders/parse`,
+//: rules first, the person's clock); a checklist is a new note of boxes.
+function digestOffer(answerEl, offer) {
+  if (!answerEl || !offer || !offer.label) return;
+  const line = [...answerEl.querySelectorAll("p")].reverse().find((p) => p.textContent.trim() === offer.label);
+  if (!line) return;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "linklike digest-offer";
+  button.textContent = offer.label;
+  button.addEventListener("click", async () => {
+    button.disabled = true;
+    try {
+      if (offer.kind === "reminder") {
+        const made = await apiJson("/reminders/parse", {
+          method: "POST",
+          body: JSON.stringify({ text: offer.text, tz_offset_minutes: -new Date().getTimezoneOffset() }),
+        });
+        line.textContent = `Reminder set: ${made.text}, ${relativeWhen(made.due_at)}.`;
+        if (typeof loadReminders === "function") loadReminders();
+      } else if (offer.kind === "checklist") {
+        const items = (offer.items || []).map((item) => `- [ ] ${item}`).join("\n");
+        await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: `${offer.text}\n\n${items}` }) });
+        line.textContent = `Made a checklist note: ${offer.text}.`;
+      }
+      line.classList.add("muted");
+    } catch (error) {
+      button.disabled = false;
+      toast(error.message, true);
+    }
+  });
+  line.replaceChildren(button);
+}

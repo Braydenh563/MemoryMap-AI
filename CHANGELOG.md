@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Ask and Chat with no model: an answer about your notes now reads like a person wrote it, the count and the days first, the facts under bold labels in your terms, what the notes do not cover, and one offer you can press (a reminder, a checklist); no bracketed dates, quote bars, Grounded in chips or count under it.
 - Backups: every start holds the backups folder to the number you keep, so a safety copy before an update no longer leaves one too many.
 - Settings: the bar that marks a changed setting sits in the margin beside the row rather than on the text.
 - Skills: every change a skill or the agent makes to a document, a board, a map or a saved skill is read back before it is reported as done, as notes, tags and reminders already were.

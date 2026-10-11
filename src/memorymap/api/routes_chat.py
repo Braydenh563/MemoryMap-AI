@@ -29,7 +29,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from memorymap.ai import budget as run_budget, composer
+from memorymap.ai import budget as run_budget, composer, composer_digest
 from memorymap.ai import (
     acts,
     agent,
@@ -2180,7 +2180,17 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         #: turn and salt word this answer, a retry ("Try again") rewords it,
         #: and the words earlier answers used are not used again.
         dialogue = composer.Dialogue.from_history(req.history)
-        result = composer.compose(
+        #: The answer a person would give (decision 70, INBOX 812: "I may as
+        #: well just read the notes I made on the right"): a count and a
+        #: span, the facts under labels, what is missing, one offer. A
+        #: follow-on, a "newest notes" turn or a sum keeps the composer's.
+        digest = None
+        if not follow and not str(prepared.get("search_mode") or "").endswith("recent"):
+            try:
+                digest = composer_digest.answer(req.question, prepared["notes"], today=user_now(deps.get_config()).date())
+            except Exception:  # noqa: BLE001  # the composer's answer stands
+                logging.getLogger("memorymap.chat").exception("chat: the digest failed")
+        result = digest or composer.compose(
             follow.question if follow else req.question,
             prepared["notes"],
             today=user_now(deps.get_config()).date(),
@@ -2224,6 +2234,10 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
                 "checks": validate.report(result, req.question)["findings"],
                 #: The insight lines said, for their Confirm and Not right.
                 "insights": result.get("insights", []),
+                #: A digest (decision 70) cites one mark a line and is not
+                #: followed by the sources again: the right column is them.
+                "digest": bool(result.get("digest")),
+                "offer": result.get("offer"),
             }
         return
     else:

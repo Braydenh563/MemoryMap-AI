@@ -789,3 +789,28 @@ def test_the_standalone_windows_put_what_they_save_on_an_undo():
     #: The app window's half: it answers, so the other window can close.
     app_side = (JS / "quick-note.js").read_text(encoding="utf-8")
     assert "note-made-ack" in app_side and "pushEntryCreateUndo(" in app_side
+
+
+# --- two faults the live check found (INBOX 898) ----------------------------------
+#
+# Both are in the shared history machinery, so both are held by name: they were
+# invisible to every static test and to every sweep that pressed Ctrl+Z once.
+
+
+def test_ctrl_z_belongs_to_a_board_only_while_the_board_is_showing():
+    status = (JS / "status.js").read_text(encoding="utf-8")
+    body = status[status.index("function boardHistoryActive()"):][:900]
+    assert "getClientRects().length" in body, (
+        "an open board's view keeps no `hidden` class when another tab covers it, "
+        "so without a visibility test Ctrl+Z on Notes walks the board's history"
+    )
+
+
+def test_a_history_remap_translates_each_id_once():
+    board = (JS / "whiteboard.js").read_text(encoding="utf-8")
+    remap = board[board.index("function wbRemapUndoIds("):][:3500]
+    assert "wbRemapSeen" in remap and "once(" in remap, (
+        "items brought back reuse the ids just deleted (8 comes back as 9 and 9 as 8); "
+        "a second translation of an already translated id duplicates and drops steps"
+    )
+    assert 'wbRemapSeen.set(made, new Set(["id"]))' in board, "a recreated item's own step is already in the new ids"

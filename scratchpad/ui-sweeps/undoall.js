@@ -329,7 +329,7 @@ function sql(statement) {
   // 20. Mermaid text brought onto a plain board: one recorded step.
   await page.evaluate((id) => openWhiteboardBoard(id), board.id);
   await settle(3000);
-  const sketches = async () => ((await call(`/whiteboard/sketches?board_id=${board.id}`)) || []).length;
+  const sketches = async () => ((await call(`/whiteboard/?board_id=${board.id}`)).sketches || []).length;
   await check('Mermaid diagram imported onto a board', 'handler', {
     act: async () => { await page.evaluate(() => wbImportMermaid('flowchart TD\n  A[Start] --> B[End]')); },
     state: sketches,
@@ -337,7 +337,7 @@ function sql(statement) {
   });
 
   // 21. A space renamed in its dialog (the dialog's own Save button).
-  const space = await call('/spaces', { method: 'POST', body: { name: `Space ${tag}`, icon: 'folder' } });
+  const space = await call('/spaces', { method: 'POST', body: { name: `Space ${tag}`, icon: 'ph-folder' } });
   await page.evaluate(() => switchTab('notes'));
   await settle(800);
   await check('space renamed', 'ui', {

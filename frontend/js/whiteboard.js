@@ -7927,22 +7927,57 @@ function wbPushUndo(entry) {
 //: instead: the create route assigns them.
 //: Cards and shapes too (INBOX 537): a link names a card or a shape by id as
 //: well, and a card brought back by Undo is a new row like any other.
+//: **Each id is translated once per Undo or Redo** (INBOX 898, found by the
+//: live check: Ctrl+Z, Ctrl+Shift+Z, Ctrl+Z on a Mermaid import left a shape
+//: behind). Items brought back are new rows, and the table hands out the ids it
+//: has free, which are often the very ids that were just deleted: topic 9 comes
+//: back as 8 and topic 8 as 9. Applied one item at a time, a step that named 9
+//: was changed to 8 and then, by the next item, to 9 again. Every field that
+//: has been translated is remembered here until the history step is over, and
+//: is not translated a second time.
+let wbRemapSeen = new WeakMap();
+
 function wbRemapUndoIds(objects, sketches = new Map(), nodes = new Map()) {
   if (!objects.size && !sketches.size && !nodes.size) return;
+  //: A single translation outside a batch has nothing to collide with.
+  if (!wbHistoryInFlight.length) wbRemapSeen = new WeakMap();
   const obj = (id) => (objects.has(id) ? objects.get(id) : id);
   const sketch = (id) => (sketches.has(id) ? sketches.get(id) : id);
   const node = (id) => (nodes.has(id) ? nodes.get(id) : id);
   const byKind = { object: obj, sketch, node };
-  const linkText = (text) => {
-    if (typeof text !== "string" || !text.includes("link-")) return text;
+  const once = (holder, key, map) => {
+    let keys = wbRemapSeen.get(holder);
+    if (!keys) wbRemapSeen.set(holder, (keys = new Set()));
+    if (keys.has(key)) return;
+    const was = holder[key];
+    holder[key] = map(was);
+    if (holder[key] !== was) keys.add(key);
+  };
+  //: A link names its two topics, cards or shapes inside its JSON.
+  const linkEnds = (holder) => {
+    const text = holder.data;
+    if (typeof text !== "string" || !text.includes("link-")) return;
     try {
       const data = JSON.parse(text);
-      if (!data || typeof data !== "object" || !String(data.type || "").startsWith("link-")) return text;
-      data.sourceId = byKind[data.sourceKind || "node"]?.(data.sourceId) ?? data.sourceId;
-      data.targetId = byKind[data.targetKind || "node"]?.(data.targetId) ?? data.targetId;
-      return JSON.stringify(data);
+      if (!data || typeof data !== "object" || !String(data.type || "").startsWith("link-")) return;
+      const ends = { sourceId: data.sourceKind, targetId: data.targetKind };
+      const done = wbRemapSeen.get(holder) || new Set();
+      let changed = false;
+      for (const [field, kind] of Object.entries(ends)) {
+        if (done.has(`data.${field}`)) continue;
+        const mapped = byKind[kind || "node"]?.(data[field]) ?? data[field];
+        if (mapped !== data[field]) {
+          data[field] = mapped;
+          done.add(`data.${field}`);
+          changed = true;
+        }
+      }
+      if (changed) {
+        holder.data = JSON.stringify(data);
+        wbRemapSeen.set(holder, done);
+      }
     } catch {
-      return text;
+      // Not JSON: nothing to translate.
     }
   };
   const walk = (entry) => {
@@ -7952,24 +7987,22 @@ function wbRemapUndoIds(objects, sketches = new Map(), nodes = new Map()) {
       return;
     }
     if (entry.kind === "object") {
-      if (entry.id != null) entry.id = obj(entry.id);
-      if (entry.parentId != null) entry.parentId = obj(entry.parentId);
-      if (Array.isArray(entry.ids)) entry.ids = entry.ids.map(obj);
+      if (entry.id != null) once(entry, "id", obj);
+      if (entry.parentId != null) once(entry, "parentId", obj);
+      if (Array.isArray(entry.ids)) entry.ids.forEach((_, at) => once(entry.ids, at, obj));
       for (const row of entry.rows || []) {
-        row.id = obj(row.id);
-        if (row.parent_id != null) row.parent_id = obj(row.parent_id);
+        once(row, "id", obj);
+        if (row.parent_id != null) once(row, "parent_id", obj);
       }
     }
-    if (entry.kind === "sketch" && entry.id != null) entry.id = sketch(entry.id);
-    if (entry.kind === "node" && entry.id != null) entry.id = node(entry.id);
+    if (entry.kind === "sketch" && entry.id != null) once(entry, "id", sketch);
+    if (entry.kind === "node" && entry.id != null) once(entry, "id", node);
     for (const key of ["payload", "before"]) {
-      if (entry.kind === "sketch" && entry[key] && typeof entry[key].data === "string") {
-        entry[key].data = linkText(entry[key].data);
-      }
+      if (entry.kind === "sketch" && entry[key]) linkEnds(entry[key]);
     }
     for (const link of entry.links || []) {
-      link.id = sketch(link.id);
-      link.data = linkText(link.data);
+      once(link, "id", sketch);
+      linkEnds(link);
     }
   };
   wbUndoStack.forEach(walk);
@@ -8603,6 +8636,7 @@ async function wbApplyHistoryEntry(from, to) {
     //: re-made mid-batch with a new id is followed by the steps that name it.
     const reverse = [];
     const pending = [...entry.entries];
+    if (!wbHistoryInFlight.length) wbRemapSeen = new WeakMap();
     wbHistoryInFlight.push(pending, reverse);
     try {
       while (pending.length) {
@@ -8735,7 +8769,10 @@ async function wbApplyHistoryEntry(from, to) {
       const none = new Map();
       wbRemapUndoIds(entry.kind === "object" ? ids : none, entry.kind === "sketch" ? new Map([...ids, ...linkIds]) : linkIds, entry.kind === "node" ? ids : none);
     }
-    to.push({ action: "create", kind: entry.kind, id: restored.id });
+    //: Already in the new id space: a later item's translation must not touch it.
+    const made = { action: "create", kind: entry.kind, id: restored.id };
+    wbRemapSeen.set(made, new Set(["id"]));
+    to.push(made);
   } else if (entry.action === "move") {
     // A drag, resize, or nudge's own undo: asked for directly ("account
     // for resizes, rotates, positional movement"). `before` is the item's

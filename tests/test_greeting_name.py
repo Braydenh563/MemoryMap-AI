@@ -81,7 +81,7 @@ def test_a_greeting_that_names_you_twice_falls_back(ai_client, fake_ollama, monk
     ai_client.put("/preferences", json={"display_name": "Brayden"})
     fake_ollama.librarian_reply = "Braiden, nice to meet you under the stars, Brayden!"
     body = ai_client.get("/insights/greeting?block=night").json()
-    assert body["source"] == "fallback"
+    assert body["source"] == "composed"
     assert "Braiden" not in body["greeting"]
 
 

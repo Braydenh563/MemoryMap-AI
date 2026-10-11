@@ -15,7 +15,7 @@ from sqlalchemy import func, select
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from memorymap.ai import librarian
+from memorymap.ai import greeting_compose, librarian
 from memorymap.ai.answer_trim import trim_assistant_padding
 from memorymap.ai.ollama_client import OllamaError
 from memorymap.core import deps
@@ -159,7 +159,7 @@ def _sentence_case(text: str) -> str:
 
 
 @router.get("/greeting")
-def greeting(block: str = "morning") -> dict:
+def greeting(block: str = "morning", session: Session = Depends(get_session)) -> dict:
     """A short greeting phrase for the dashboard banner.
 
     AI-written when the local model is up, otherwise a handwritten fallback, 
@@ -167,12 +167,20 @@ def greeting(block: str = "morning") -> dict:
     contains a name; the frontend adds one from preferences.
     """
     config = deps.get_config()
-    options = GREETING_FALLBACKS.get(block) or GREETING_FALLBACKS["morning"]
+    #: Without a model the composer writes it (INBOX 876): seven times of
+    #: day, the weekday and the notebook's own numbers, never a fixed four.
+    try:
+        now = user_now(config)
+        phrase, mark = greeting_compose.compose(now, greeting_compose.gather(session, now))
+        source = "composed"
+    except Exception:  # noqa: BLE001  # the banner never fails over a count
+        phrase, mark = random.choice(GREETING_FALLBACKS.get(block) or GREETING_FALLBACKS["morning"]), "."
+        source = "fallback"
     fallback = {
-        "greeting": random.choice(options),
-        "punctuation": ".",
-        "append_name": True,  # handwritten phrases are name-free
-        "source": "fallback",
+        "greeting": phrase,
+        "punctuation": mark,
+        "append_name": True,  # composed phrases are name-free
+        "source": source,
     }
 
     ollama = deps.get_ollama()

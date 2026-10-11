@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5511, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4622, test files 1063, tests 9745, plan headings 995.
+Counts: frontend functions 5511, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4623, test files 1064, tests 9750, plan headings 995.
 
 ## Frontend functions (5511)
 
@@ -9243,7 +9243,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/compose/stream` | POST | `compose_draft_stream` | src/memorymap/api/routes_drafts.py:110 |
 | `/compress` | POST | `compress_history` | src/memorymap/api/routes_chat.py:3084 |
 | `/compute` | POST | `compute` | src/memorymap/api/routes_resurface.py:85 |
-| `/confirm` | POST | `confirm_insight` | src/memorymap/api/routes_insights.py:415 |
+| `/confirm` | POST | `confirm_insight` | src/memorymap/api/routes_insights.py:423 |
 | `/contents` | POST | `write_contents` | src/memorymap/api/routes_documents.py:503 |
 | `/corrections` | GET | `list_corrections` | src/memorymap/api/routes_learned.py:78 |
 | `/corrections` | POST | `add_correction` | src/memorymap/api/routes_learned.py:53 |
@@ -9253,14 +9253,14 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/daily` | GET | `daily_journal` | src/memorymap/api/routes_entries.py:935 |
 | `/daily/{day}` | GET | `daily_note` | src/memorymap/api/routes_entries.py:977 |
 | `/daily/{day}` | POST | `open_daily_note` | src/memorymap/api/routes_entries.py:993 |
-| `/day` | GET | `day_digest_lines` | src/memorymap/api/routes_insights.py:376 |
+| `/day` | GET | `day_digest_lines` | src/memorymap/api/routes_insights.py:384 |
 | `/delete` | POST | `delete_model` | src/memorymap/api/routes_models.py:1003 |
 | `/delete` | POST | `delete_tag` | src/memorymap/api/routes_tags.py:95 |
 | `/desktop/fullscreen` | GET | `desktop_fullscreen_state` | src/memorymap/api/routes_tasks.py:761 |
 | `/desktop/fullscreen` | POST | `desktop_fullscreen_toggle` | src/memorymap/api/routes_tasks.py:773 |
-| `/digest` | POST | `weekly_digest` | src/memorymap/api/routes_insights.py:706 |
-| `/digest/stream` | POST | `weekly_digest_stream` | src/memorymap/api/routes_insights.py:638 |
-| `/dismiss` | POST | `dismiss_insight` | src/memorymap/api/routes_insights.py:429 |
+| `/digest` | POST | `weekly_digest` | src/memorymap/api/routes_insights.py:714 |
+| `/digest/stream` | POST | `weekly_digest_stream` | src/memorymap/api/routes_insights.py:646 |
+| `/dismiss` | POST | `dismiss_insight` | src/memorymap/api/routes_insights.py:437 |
 | `/dismissed` | GET | `dismissed_suggestions` | src/memorymap/api/routes_inbox.py:217 |
 | `/dismissed/clear` | POST | `clear_dismissed_suggestions` | src/memorymap/api/routes_inbox.py:225 |
 | `/dismissed/restore` | POST | `restore_dismissed_suggestions` | src/memorymap/api/routes_inbox.py:239 |
@@ -9337,7 +9337,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/health` | GET | `debug_health` | src/memorymap/api/routes_debug.py:79 |
 | `/health` | GET | `health` | src/memorymap/api/app.py:1363 |
 | `/health/integrity` | POST | `integrity_check` | src/memorymap/api/routes_debug.py:186 |
-| `/heatmap` | GET | `heatmap` | src/memorymap/api/routes_insights.py:341 |
+| `/heatmap` | GET | `heatmap` | src/memorymap/api/routes_insights.py:349 |
 | `/history` | GET | `board_history` | src/memorymap/api/routes_board_history.py:271 |
 | `/history` | GET | `tidy_history` | src/memorymap/api/routes_tidy.py:55 |
 | `/history/snapshots` | GET | `list_snapshots` | src/memorymap/api/routes_board_history.py:331 |
@@ -9432,12 +9432,12 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/ocr-model` | POST | `set_ocr_model` | src/memorymap/api/routes_models.py:745 |
 | `/ocr-readers` | GET | `ocr_readers` | src/memorymap/api/routes_files.py:3204 |
 | `/ocr/language` | POST | `set_ocr_language` | src/memorymap/api/routes_files.py:3253 |
-| `/on-this-day` | GET | `on_this_day` | src/memorymap/api/routes_insights.py:453 |
+| `/on-this-day` | GET | `on_this_day` | src/memorymap/api/routes_insights.py:461 |
 | `/openapi.json` | GET | `openapi_schema` | src/memorymap/api/app.py:1346 |
 | `/outline` | GET | `documents_outline` | src/memorymap/api/routes_documents.py:438 |
 | `/parse` | POST | `magic_add_reminder` | src/memorymap/api/routes_reminders.py:529 |
 | `/password-on-open` | POST | `set_password_on_open` | src/memorymap/api/routes_auth.py:793 |
-| `/patterns` | GET | `patterns` | src/memorymap/api/routes_insights.py:393 |
+| `/patterns` | GET | `patterns` | src/memorymap/api/routes_insights.py:401 |
 | `/personas/suggest-thinking-words` | POST | `suggest_persona_thinking_words` | src/memorymap/api/routes_settings.py:188 |
 | `/preferences` | GET | `get_preferences` | src/memorymap/api/routes_settings.py:717 |
 | `/preferences` | PUT | `update_preferences` | src/memorymap/api/routes_settings.py:976 |
@@ -9537,7 +9537,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/system/clear-static-cache` | POST | `system_clear_static_cache` | src/memorymap/api/app.py:1356 |
 | `/system/console-mode` | POST | `set_console_mode` | src/memorymap/api/routes_settings.py:1131 |
 | `/system/restart` | POST | `restart_app` | src/memorymap/api/routes_settings.py:1200 |
-| `/tag-cloud` | GET | `tag_cloud` | src/memorymap/api/routes_insights.py:442 |
+| `/tag-cloud` | GET | `tag_cloud` | src/memorymap/api/routes_insights.py:450 |
 | `/tasks` | GET | `list_tasks` | src/memorymap/api/routes_tasks.py:509 |
 | `/tasks/autonomous/last` | GET | `last_autonomous_pass` | src/memorymap/api/routes_tasks.py:720 |
 | `/tasks/autonomous/last/clear` | POST | `clear_last_autonomous_pass` | src/memorymap/api/routes_tasks.py:737 |
@@ -9692,7 +9692,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4622)
+## Backend modules (4623)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -10471,14 +10471,15 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `parse_followups` | src/memorymap/ai/followups.py:124 |
 | `suggest_followups` | src/memorymap/ai/followups.py:150 |
 
-### src/memorymap/ai/greeting_compose.py (5)
+### src/memorymap/ai/greeting_compose.py (6)
 
 | Name | File:line |
 |---|---|
 | `NotebookFacts` | src/memorymap/ai/greeting_compose.py:67 |
 | `_context_phrases` | src/memorymap/ai/greeting_compose.py:83 |
+| `_naive` | src/memorymap/ai/greeting_compose.py:122 |
 | `compose` | src/memorymap/ai/greeting_compose.py:107 |
-| `gather` | src/memorymap/ai/greeting_compose.py:122 |
+| `gather` | src/memorymap/ai/greeting_compose.py:129 |
 | `slot_for` | src/memorymap/ai/greeting_compose.py:76 |
 
 ### src/memorymap/ai/grounding.py (17)
@@ -12788,29 +12789,29 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `InsightVerdict` | src/memorymap/api/routes_insights.py:405 |
+| `InsightVerdict` | src/memorymap/api/routes_insights.py:413 |
 | `_clean_greeting` | src/memorymap/api/routes_insights.py:136 |
-| `_digest_notes` | src/memorymap/api/routes_insights.py:555 |
-| `_greets_a_stranger` | src/memorymap/api/routes_insights.py:324 |
-| `_long_date` | src/memorymap/api/routes_insights.py:529 |
-| `_name_like_words` | src/memorymap/api/routes_insights.py:282 |
-| `_name_mentions` | src/memorymap/api/routes_insights.py:293 |
-| `_repair_misspelt_name` | src/memorymap/api/routes_insights.py:305 |
+| `_digest_notes` | src/memorymap/api/routes_insights.py:563 |
+| `_greets_a_stranger` | src/memorymap/api/routes_insights.py:332 |
+| `_long_date` | src/memorymap/api/routes_insights.py:537 |
+| `_name_like_words` | src/memorymap/api/routes_insights.py:290 |
+| `_name_mentions` | src/memorymap/api/routes_insights.py:301 |
+| `_repair_misspelt_name` | src/memorymap/api/routes_insights.py:313 |
 | `_sentence_case` | src/memorymap/api/routes_insights.py:157 |
-| `_written_label` | src/memorymap/api/routes_insights.py:536 |
-| `confirm_insight` | src/memorymap/api/routes_insights.py:416 |
-| `day_digest_lines` | src/memorymap/api/routes_insights.py:377 |
-| `digest_question` | src/memorymap/api/routes_insights.py:549 |
-| `digest_structure_note` | src/memorymap/api/routes_insights.py:594 |
-| `dismiss_insight` | src/memorymap/api/routes_insights.py:430 |
+| `_written_label` | src/memorymap/api/routes_insights.py:544 |
+| `confirm_insight` | src/memorymap/api/routes_insights.py:424 |
+| `day_digest_lines` | src/memorymap/api/routes_insights.py:385 |
+| `digest_question` | src/memorymap/api/routes_insights.py:557 |
+| `digest_structure_note` | src/memorymap/api/routes_insights.py:602 |
+| `dismiss_insight` | src/memorymap/api/routes_insights.py:438 |
 | `greeting` | src/memorymap/api/routes_insights.py:162 |
-| `heatmap` | src/memorymap/api/routes_insights.py:342 |
-| `on_this_day` | src/memorymap/api/routes_insights.py:454 |
-| `patterns` | src/memorymap/api/routes_insights.py:394 |
+| `heatmap` | src/memorymap/api/routes_insights.py:350 |
+| `on_this_day` | src/memorymap/api/routes_insights.py:462 |
+| `patterns` | src/memorymap/api/routes_insights.py:402 |
 | `stats` | src/memorymap/api/routes_insights.py:34 |
-| `tag_cloud` | src/memorymap/api/routes_insights.py:443 |
-| `weekly_digest` | src/memorymap/api/routes_insights.py:707 |
-| `weekly_digest_stream` | src/memorymap/api/routes_insights.py:639 |
+| `tag_cloud` | src/memorymap/api/routes_insights.py:451 |
+| `weekly_digest` | src/memorymap/api/routes_insights.py:715 |
+| `weekly_digest_stream` | src/memorymap/api/routes_insights.py:647 |
 
 ### src/memorymap/api/routes_learned.py (18)
 
@@ -15613,7 +15614,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9745)
+## Tests (9750)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16030,6 +16031,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_graph_slim.py | 3 |
 | tests/test_graph_topic_drag.py | 4 |
 | tests/test_graph_view_positions.py | 5 |
+| tests/test_greeting_compose.py | 5 |
 | tests/test_greeting_name.py | 9 |
 | tests/test_grounding.py | 28 |
 | tests/test_grounding_fixtures.py | 10 |
@@ -16858,7 +16860,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | 20. A model per feature (asked for directly, 2026-09-21) | docs/roadmap/WORLD_CLASS_PLAN.md:2220 |
 | 20. Backend | docs/roadmap/BACKLOG.md:1293 |
 | 20. The 2026-10-05 feature audit: decisions | docs/roadmap/DOCUMENTS_PLAN.md:1158 |
-| 2026-09-08, the third night: read this block first, whoever you are | docs/roadmap/HANDOVER.md:31 |
+| 2026-09-08, the third night: read this block first, whoever you are | docs/roadmap/HANDOVER.md:33 |
 | 21. Every failure names its way out (INBOX 272 part 1, 2026-09-21) | docs/roadmap/WORLD_CLASS_PLAN.md:2290 |
 | 21. Skills: rebuilt; what is left | docs/roadmap/BACKLOG.md:1428 |
 | 21. The code editor against VS Code, and writing checks everywhere (INBOX 646) | docs/roadmap/DOCUMENTS_PLAN.md:544 |
@@ -17300,7 +17302,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | E2 · The complexity of the AI path is where the next bug will be, High (read) | docs/roadmap/MODERNISATION_AUDIT.md:653 |
 | E3 · Model calls are scattered across request handlers, background threads and module singletons, High (read) | docs/roadmap/MODERNISATION_AUDIT.md:666 |
 | E4 · The honest positives, so the section is not one-sided (read) | docs/roadmap/MODERNISATION_AUDIT.md:676 |
-| Earlier sessions | docs/roadmap/HANDOVER.md:528 |
+| Earlier sessions | docs/roadmap/HANDOVER.md:530 |
 | Expert audit, 2026-10-10 | docs/roadmap/BACKLOG.md:4269 |
 | F. Agent harness: what "ultimate" needs that is not there | docs/roadmap/AUDIT.md:113 |
 | F. Library, dashboard, settings | docs/roadmap/SESSION_BRIEFS.md:707 |
@@ -17308,7 +17310,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | F1 · Boot is ~1 s and tab switches are ~10–50 ms. The app is not slow; it is *heavy*: Medium | docs/roadmap/MODERNISATION_AUDIT.md:687 |
 | F2 · Fourteen requests in sixty idle seconds, from three separate timers, High | docs/roadmap/MODERNISATION_AUDIT.md:708 |
 | F3 · List rendering is solved; list *fetching* is not, Medium | docs/roadmap/MODERNISATION_AUDIT.md:733 |
-| Fable's working notes for Opus (2026-09-09 05:10 UTC) | docs/roadmap/HANDOVER.md:183 |
+| Fable's working notes for Opus (2026-09-09 05:10 UTC) | docs/roadmap/HANDOVER.md:185 |
 | Found by an agent while measuring something else (2026-09-08, graph) | docs/roadmap/CHAT_PLAN.md:605 |
 | G. Mobile and responsive | docs/roadmap/MODERNISATION_AUDIT.md:743 |
 | G. Test-suite gaps | docs/roadmap/AUDIT.md:123 |
@@ -17334,8 +17336,8 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Harness robustness, 2026-10-04 (INBOX 527) | docs/roadmap/AGENT_SKILLS_REFORM.md:202 |
 | Harper (Automattic) | docs/roadmap/ANALYSIS.md:1783 |
 | Headroom: evaluated, not adopted | docs/roadmap/BACKLOG.md:710 |
-| How far each plan actually is (honest, as of 2026-10-03) | docs/roadmap/HANDOVER.md:319 |
-| How to proceed after PR 149 (the owner asked, 2026-09-14) | docs/roadmap/HANDOVER.md:482 |
+| How far each plan actually is (honest, as of 2026-10-03) | docs/roadmap/HANDOVER.md:321 |
+| How to proceed after PR 149 (the owner asked, 2026-09-14) | docs/roadmap/HANDOVER.md:484 |
 | How to proceed after PR 149 (written 2026-09-14; the live order is CLAUDE.md standing order 1 and HANDOVER's Now line) | docs/ROADMAP.md:295 |
 | How to read the evidence in here | docs/roadmap/MODERNISATION_AUDIT.md:23 |
 | How to work on this repo | docs/ROADMAP.md:364 |
@@ -17353,7 +17355,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Ideas | docs/roadmap/CHAT_PLAN.md:940 |
 | Ideas | docs/roadmap/DOCUMENTS_PLAN.md:1556 |
 | Ideas | docs/roadmap/WORLD_CLASS_PLAN.md:3126 |
-| If Opus is the orchestrator (no Fable available) | docs/roadmap/HANDOVER.md:41 |
+| If Opus is the orchestrator (no Fable available) | docs/roadmap/HANDOVER.md:43 |
 | Image notes and the Library, against photocraft and lightcraft | docs/roadmap/ANALYSIS.md:3955 |
 | Is its backend better designed? No: and it says so about itself | docs/roadmap/ANALYSIS.md:810 |
 | KnowNote (MrSibe) | docs/roadmap/ANALYSIS.md:1932 |
@@ -17375,7 +17377,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | OpenJarvis (open-jarvis) | docs/roadmap/ANALYSIS.md:2894 |
 | Order and dependencies | docs/roadmap/WORLD_CLASS_PLAN.md:1373 |
 | PDF viewer and OCR workspace, against pdfcraft | docs/roadmap/ANALYSIS.md:3922 |
-| PR 144 is done when (the owner's checklist, 2026-09-09 05:30 UTC) | docs/roadmap/HANDOVER.md:80 |
+| PR 144 is done when (the owner's checklist, 2026-09-09 05:30 UTC) | docs/roadmap/HANDOVER.md:82 |
 | Parity matrix, 2026-10-10 | docs/roadmap/ANALYSIS.md:3703 |
 | Performance on small laptops, measured 2026-09-08 23:30 UTC (Chromium, 1366x768, no GPU) | docs/roadmap/WHITEBOARD_PLAN.md:635 |
 | Phase 0: the bridge: click an underline, see suggestions (1 session) | docs/roadmap/DOCUMENTS_PLAN.md:167 |
@@ -17563,8 +17565,8 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Six repositories read for MemoryMap, 2026-09-20 | docs/roadmap/ANALYSIS.md:1760 |
 | Sources | docs/roadmap/MINDMAP_PLAN.md:280 |
 | Speech, four projects read by name, and what this app already does | docs/roadmap/ANALYSIS.md:3102 |
-| Standing orders for this session (whoever the model is) | docs/roadmap/HANDOVER.md:255 |
-| State of the branch (`claude/notes-flow-rebuild`, PR #162) | docs/roadmap/HANDOVER.md:339 |
+| Standing orders for this session (whoever the model is) | docs/roadmap/HANDOVER.md:257 |
+| State of the branch (`claude/notes-flow-rebuild`, PR #162) | docs/roadmap/HANDOVER.md:341 |
 | Steps | docs/roadmap/UI_MODERNISATION_PLAN.md:1091 |
 | Steps | docs/roadmap/WORLD_CLASS_PLAN.md:1534 |
 | Still open | docs/roadmap/WORLD_CLASS_PLAN.md:2267 |

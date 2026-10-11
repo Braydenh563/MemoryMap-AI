@@ -8554,9 +8554,29 @@ function wbAngleFromCenterDeg(cx, cy, px, py, shiftSnap) {
   return Math.round(deg);
 }
 
+//: A board made by this act (INBOX 898): Undo bins it and Redo brings it back,
+//: kept on that board's own history, so call it once the board is open.
+function wbBoardMadeStep(board) {
+  if (!board?.id) return;
+  wbPushCall(`Made the board “${board.title || "Untitled"}”`, () => wbBinBoard(board.id, true), () => wbBinBoard(board.id, false));
+}
+
+//: A step that is a pair of calls rather than a board edit (the library
+//: panel's acts, INBOX 898): the history swaps the two on every press.
+function wbPushCall(label, undo, redo) {
+  const step = { action: "call", label, run: undo, back: redo };
+  wbPushUndo(step);
+  return step;
+}
+
 async function wbApplyHistoryEntry(from, to) {
   const entry = from.pop();
   if (!entry) return false;
+  if (entry.action === "call") {
+    await entry.run();
+    to.push({ action: "call", label: entry.label, run: entry.back, back: entry.run });
+    return true;
+  }
   if (entry.action === "batch") {
     // A single user gesture that touched several items at once, an
     // arrow-key nudge on a multi-selection, or an alignment/distribute pass
@@ -10805,6 +10825,7 @@ async function wbGenerateMapFromNotes() {
     // imported: landing back on an unchanged-looking list is how a thing that
     // worked reads as a thing that did not.
     await openWhiteboardBoard(board.id);
+    wbBoardMadeStep(board);
     await wbMapTidyFresh();
   } catch (error) {
     toast(error.message || voiceLine("failed", { what: "create that map" }), true);
@@ -10981,6 +11002,7 @@ async function wbImportOutlineFile(event) {
       `Imported “${board.title}”: ${board.object_count} node${board.object_count === 1 ? "" : "s"}.`
     );
     await openWhiteboardBoard(board.id);
+    wbBoardMadeStep(board);
     await wbMapTidyFresh();
   } catch (error) {
     // The server's own message, not a generic one: it names the actual
@@ -15750,6 +15772,7 @@ async function createNewBoard(preset = null, { reveal = false } = {}) {
       });
       window.wbLastCreatedBoard = board;
       await openWhiteboardBoard(board.id);
+      wbBoardMadeStep(board);
       wbZoomToFit({ animate: false });
       toast(`"${board.title}" started from a template.`);
     } catch (err) {
@@ -15833,6 +15856,7 @@ async function wbCreateBlankBoard(name, kind) {
     // whiteboard until the next board switch, the node was there, the Map
     // chip was not, and none of the keys worked.
     await fetchWhiteboardState();
+    wbBoardMadeStep(board);
     wbScheduleRender();
     if (kind === "map") {
       // Selected, so Tab works on the very first keystroke. A map whose root
@@ -20914,6 +20938,7 @@ async function createConceptMap() {
     // `allEntries`, and this note is newer than the last fetch.
     await loadEntries();
     await openWhiteboardBoard(board.id);
+    wbBoardMadeStep(board);
     // Selected, because `Tab`/`Enter` act on the selection and an unselected
     // root leaves the map's whole point one undiscoverable click away.
     const placed = wbState.nodes.find((n) => n.entry_id === root.id);

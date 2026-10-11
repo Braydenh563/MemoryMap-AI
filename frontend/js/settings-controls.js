@@ -1564,7 +1564,22 @@ async function addMemoryByHand() {
   status.classList.remove("error");
   if (!text) return;
   try {
-    await apiJson("/memory", { method: "POST", body: JSON.stringify({ content: text }) });
+    const made = await apiJson("/memory", { method: "POST", body: JSON.stringify({ content: text }) });
+    if (made?.id != null) {
+      let liveId = made.id;
+      pushUndo(
+        "Added a memory",
+        async () => {
+          await api(`/memory/${liveId}`, { method: "DELETE" });
+          renderMemorySettings();
+        },
+        async () => {
+          const again = await apiJson("/memory", { method: "POST", body: JSON.stringify({ content: text }) });
+          liveId = again?.id ?? liveId;
+          renderMemorySettings();
+        }
+      );
+    }
     input.value = "";
     renderMemorySettings();
   } catch (error) {

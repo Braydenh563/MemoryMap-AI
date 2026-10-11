@@ -403,6 +403,7 @@ function tensionCard(tension) {
     //: card used to read "Linked as contradicting." when the POST had failed.
     try {
       await apiJson("/entries/tensions/accept", { method: "POST", body: ids });
+      pushTensionLinkUndo(tension.earlier_id, tension.later_id);
     } catch (error) {
       toast(error.message || "Couldn't link these notes.", true);
       return;
@@ -653,6 +654,7 @@ function inboxLinkRow(s, rowReasons) {
       return null;
     });
     if (!made) return false;
+    pushLinkCreateUndo(s.source_id, s.target_id, made, body, "Linked two suggested notes");
     inboxCorrection("accept_link", { a: s.source_id, b: s.target_id, signals });
     if (!quiet) {
       toast(typed ? "Linked, with your reason." : "Linked.");

@@ -9413,7 +9413,8 @@ function wbMapDueRow(node, parts, set) {
         return;
       }
       try {
-        await apiJson("/reminders", { method: "POST", body: JSON.stringify({ text: wbMapLabel(node) || "Map topic", due_at: at.toISOString() }) });
+        const made = await apiJson("/reminders", { method: "POST", body: JSON.stringify({ text: wbMapLabel(node) || "Map topic", due_at: at.toISOString() }) });
+        reminderMadeUndo(made);
         toast(`Reminder set for ${wbMapDueWords(parts.due).words}, 9:00.`);
       } catch (error) {
         toast(error.message || voiceLine("failed", { what: "set that reminder" }), true);

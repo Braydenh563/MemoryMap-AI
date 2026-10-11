@@ -57,10 +57,25 @@ async function newRelationType() {
   if (!name || !name.trim()) return null;
   const inverse = await promptDialog(`What is “${name.trim()}” called from the other end? (for example: Has part; leave empty if the same)`, "", { confirmLabel: "Create" });
   if (inverse === null || inverse === undefined) return null;
-  return apiJson("/relation-types", { method: "POST", body: JSON.stringify({ name: name.trim(), inverse: inverse.trim() || null }) }).catch((e) => {
+  const body = { name: name.trim(), inverse: inverse.trim() || null };
+  const made = await apiJson("/relation-types", { method: "POST", body: JSON.stringify(body) }).catch((e) => {
     toast(e.message, true);
     return null;
   });
+  if (made?.key) {
+    pushUndo(
+      `Added the kind of link “${body.name}”`,
+      async () => {
+        await apiJson(`/relation-types/${made.key}`, { method: "DELETE" });
+        relationTypesRepaint();
+      },
+      async () => {
+        await apiJson("/relation-types", { method: "POST", body: JSON.stringify(body) });
+        relationTypesRepaint();
+      }
+    );
+  }
+  return made;
 }
 
 /** One link's kind and properties. */
@@ -151,6 +166,8 @@ async function openRelationTypesSheet() {
               return null;
             });
             if (!ok) return;
+            const wasKind = Object.fromEntries(Object.keys(body).map((key) => [key, t[key] ?? null]));
+            pushRequestUndo(`Changed the kind of link “${t.name}”`, `/relation-types/${t.key}`, "PATCH", wasKind, body, relationTypesRepaint);
             toast(done);
             close();
             openRelationTypesSheet();

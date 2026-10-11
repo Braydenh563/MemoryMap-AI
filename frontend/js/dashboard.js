@@ -3305,6 +3305,7 @@ async function renderQuickCaptureWidget(body) {
         const saved = result.saved;
         status.textContent = saved.filing_state === "pending" ? "Saved. Filing it now." : `Filed under “${saved.category}”.`;
         if (saved.filing_state === "pending") watchFiling(saved);
+        pushEntryCreateUndo(saved, "Saved a note from the dashboard");
         loadEntries();
       } catch (error) {
         status.textContent = error.message;
@@ -4078,6 +4079,7 @@ function nightFactRow(fact, onGone) {
           method: "POST",
           body: JSON.stringify({ earlier_id: fact.pair.entry_id, later_id: fact.entry_id }),
         });
+        pushTensionLinkUndo(fact.pair.entry_id, fact.entry_id);
         toast("Linked as disagreeing");
       } catch (error) {
         keep.disabled = false;
@@ -4794,6 +4796,7 @@ function dashTensionRow(tension, onGone) {
     pressed.disabled = true;
     try {
       await apiJson(path, { method: "POST", body: ids });
+      if (path.endsWith("/accept")) pushTensionLinkUndo(tension.earlier_id, tension.later_id);
       toast(done);
       li.remove();
       onGone();

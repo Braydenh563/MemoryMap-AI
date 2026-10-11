@@ -101,6 +101,7 @@ const ATTACHMENT_ACTIONS = {
     try {
       if (spec.attachment) {
         await apiJson(`/files/${spec.attachment.id}`, { method: "PUT", body: JSON.stringify({ filename: next }) });
+        pushRequestUndo("Renamed a file", `/files/${spec.attachment.id}`, "PUT", { filename: label }, { filename: next }, () => spec.onChange?.());
         spec.onChange?.();
       } else if (spec.textarea && spec.markdown) {
         const box = spec.textarea;
@@ -110,6 +111,7 @@ const ATTACHMENT_ACTIONS = {
         const upload = await attachmentUpload(spec.url);
         if (upload) {
           await apiJson(`/media/${upload.id}`, { method: "PUT", body: JSON.stringify({ original_name: next }) });
+          pushRequestUndo("Renamed a file", `/media/${upload.id}`, "PUT", { original_name: label }, { original_name: next });
         }
       }
       toast(`Renamed to “${next}”.`);

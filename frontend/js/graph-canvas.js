@@ -3660,16 +3660,20 @@ function gcWireSelectionDock(s = gcTab) {
     const tag = (await promptDialog("Tag these notes", "", { confirmLabel: "Add tag" })).trim().replace(/^#/, "");
     if (!tag) return;
     let done = 0;
+    const changes = [];
     for (const node of nodes) {
       const tags = Array.from(new Set([...(node.tags || []), tag]));
+      const wasTags = [...(node.tags || [])];
       // PUT: the entries route has no PATCH, and EntryUpdate leaves every
       // field it is not given alone.
       const ok = await apiJson(`/entries/${node.id}`, { method: "PUT", body: JSON.stringify({ tags }) }).catch(() => null);
       if (ok) {
         node.tags = tags;
         done += 1;
+        changes.push({ id: node.id, before: { tags: wasTags }, after: { tags } });
       }
     }
+    if (changes.length) pushEntriesPutUndo(`Tagged ${changes.length} note${changes.length === 1 ? "" : "s"} #${tag}`, changes, () => renderGraph());
     toast(`Tagged ${done} note${done === 1 ? "" : "s"} #${tag}.`);
     renderGraph();
   });
@@ -3977,6 +3981,7 @@ async function gcWriteUnresolved(node) {
       body: JSON.stringify({ content: `# ${node.preview}`, defer_filing: true }),
     });
     if (created.filing_state === "pending" && typeof watchFiling === "function") watchFiling(created);
+    pushEntryCreateUndo(created, `Wrote the note “${node.preview}”`);
     toastAction(`Wrote “${node.preview}”.`, "Open", () => flashEntry(created.id), { go: { open: "entry", id: created.id } });
     await renderGraph();
   } catch (error) {

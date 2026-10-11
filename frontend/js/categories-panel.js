@@ -544,6 +544,19 @@ async function createCategoryFromPanel() {
   if (!name || !name.trim()) return;
   try {
     const made = await apiJson("/categories", { method: "POST", body: JSON.stringify({ name: name.trim() }) });
+    if (made.created) {
+      pushUndo(
+        `Made the category “${made.name}”`,
+        async () => {
+          await dropEmptyCategory(made.name);
+          await refreshAfterCategoryChange();
+        },
+        async () => {
+          await apiJson("/categories", { method: "POST", body: JSON.stringify({ name: made.name }) });
+          await refreshAfterCategoryChange();
+        }
+      );
+    }
     toast(made.created ? `Made "${made.name}".` : `"${made.name}" already exists.`);
     await refreshAfterCategoryChange();
   } catch (error) {

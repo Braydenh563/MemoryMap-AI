@@ -222,6 +222,15 @@ async function commitExtractPreview() {
       }),
     });
     closeExtractPreview();
+    const madeIds = result.notes.map((n) => n.id).filter((id) => id != null);
+    if (madeIds.length) {
+      pushRoutePairUndo(
+        `Saved ${madeIds.length} extracted note${madeIds.length === 1 ? "" : "s"}`,
+        madeIds.map((id) => [`/entries/${id}`, "DELETE"]),
+        madeIds.map((id) => [`/entries/${id}/restore`, "POST"]),
+        () => loadEntries()
+      );
+    }
     toast(`Saved ${result.notes.length} note${result.notes.length === 1 ? "" : "s"}.`);
     await loadEntries();
   } catch (error) {
@@ -460,6 +469,7 @@ async function importChatDocuments(files) {
     }
   }
   if (!made.length) return;
+  offerCreatedDocsUndo(made);
   // **Staged on the message, not just imported and announced.** The toast
   // below still says where the file went, but a toast is a moment and the
   // report was about what is left behind: "images and files uploaded into a

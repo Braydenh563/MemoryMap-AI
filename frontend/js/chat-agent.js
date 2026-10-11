@@ -1491,10 +1491,7 @@ const CARD_KINDS = {
         : [
             smallButton("ph:check-circle Mark done", "Complete this reminder", async () => {
               try {
-                await apiJson(`/reminders/${item.id}`, {
-                  method: "PUT",
-                  body: JSON.stringify({ done: true }),
-                });
+                await reminderPutUndoably(item.id, "Completed a reminder", { done: false }, { done: true });
                 item.done = true;
                 toast("Reminder marked done.");
                 //: Only when the tab is actually showing them, `loadReminders`

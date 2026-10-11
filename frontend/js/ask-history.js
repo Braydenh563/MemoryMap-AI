@@ -217,9 +217,16 @@ async function viewAskHistoryTurn(id) {
 
 async function toggleAskHistoryPin(id, pinned) {
   //: A failure is said, not swallowed (audit 2026-10-05, FE-12).
-  await apiJson(`/ask-history/${id}/pin?pinned=${pinned}`, { method: "PUT" }).catch((error) =>
+  const done = await apiJson(`/ask-history/${id}/pin?pinned=${pinned}`, { method: "PUT" }).catch((error) =>
     toast(error.message || "Couldn't change the pin.", true)
   );
+  if (done !== undefined) {
+    const setPin = (to) => async () => {
+      await apiJson(`/ask-history/${id}/pin?pinned=${to}`, { method: "PUT" });
+      loadAskHistoryPage(true);
+    };
+    pushUndo(pinned ? "Pinned a question" : "Unpinned a question", setPin(!pinned), setPin(pinned));
+  }
   loadAskHistoryPage(true);
 }
 

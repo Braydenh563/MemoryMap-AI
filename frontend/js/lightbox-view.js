@@ -843,10 +843,12 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     if (!lightboxEditTarget) return;
     button.disabled = true;
     try {
+      const wasText = lightboxEditTarget.text;
       const saved = await apiJson(lightboxEditTarget.url, {
         method: "PUT",
         body: JSON.stringify({ text: docEdit.value }),
       });
+      pushRequestUndo("Edited a file's text", lightboxEditTarget.url, "PUT", { text: wasText }, { text: saved.text ?? docEdit.value }, () => lightboxLoadExtractedText?.());
       //: Re-rendered from what the server wrote back, not from what was
       //: typed. They are the same today; if they ever differ, a normalised
       //: line ending, a file the OS rewrote, the reader should be looking at
@@ -1112,6 +1114,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
                 method: "PUT",
                 body: JSON.stringify({ original_name: next.trim() }),
               });
+              pushRequestUndo("Renamed an image", `/media/${item.id}`, "PUT", { original_name: item.filename || "" }, { original_name: updated.original_name });
               item.filename = updated.original_name;
               renderInfo(item, true);
             } catch (err) {

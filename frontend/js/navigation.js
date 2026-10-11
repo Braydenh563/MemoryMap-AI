@@ -2784,10 +2784,13 @@ async function renderMemorySettings() {
       toggle.textContent = pref.active ? "Turn off" : "Turn on";
       toggle.addEventListener("click", async () => {
         toggle.disabled = true;
-        await apiJson(`/memory/${pref.id}`, {
+        const flipped = await apiJson(`/memory/${pref.id}`, {
           method: "PATCH",
           body: JSON.stringify({ active: !pref.active }),
         }).catch((error) => toast(error.message || "Couldn't change that.", true));
+        if (flipped) {
+          pushRequestUndo(pref.active ? "Turned a memory off" : "Turned a memory on", `/memory/${pref.id}`, "PATCH", { active: pref.active }, { active: !pref.active }, () => renderMemorySettings());
+        }
         renderMemorySettings();
       });
 
@@ -2805,6 +2808,20 @@ async function renderMemorySettings() {
         //: redrew the list with the memory still in it and no reason why.
         try {
           await apiJson(`/memory/${pref.id}`, { method: "DELETE" });
+          let liveId = null;
+          pushUndo(
+            "Forgot a memory",
+            async () => {
+              const again = await apiJson("/memory", { method: "POST", body: JSON.stringify({ content: pref.content }) });
+              liveId = again?.id ?? null;
+              if (liveId != null && !pref.active) await apiJson(`/memory/${liveId}`, { method: "PATCH", body: JSON.stringify({ active: false }) });
+              renderMemorySettings();
+            },
+            async () => {
+              if (liveId != null) await apiJson(`/memory/${liveId}`, { method: "DELETE" });
+              renderMemorySettings();
+            }
+          );
         } catch (error) {
           toast(error.message || "Couldn't forget that.", true);
         }

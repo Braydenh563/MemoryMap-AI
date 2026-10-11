@@ -316,6 +316,7 @@ async function quickNoteReminder(entryId, slots) {
       body: JSON.stringify({ text, due_at: slots.due.toISOString(), entry_id: entryId, priority: "normal", recurring: slots.recurring || "none" }),
     });
     loadReminders();
+    reminderMadeUndo(reminder);
     return ` Reminder set: ${relativeWhen(reminder.due_at)}.`;
   } catch (error) {
     return ` The reminder was not set: ${error.message}`;
@@ -350,6 +351,7 @@ async function clipPastedLink(url) {
   const progress = toastProgress("Reading the page…");
   try {
     const note = await apiJson("/links/clip", { method: "POST", body: JSON.stringify({ url }) });
+    pushEntryCreateUndo(note, "Clipped a page as a note");
     progress.done(`Saved “${note.source_title || url}” as a note, filing it now.`, {
       actionLabel: "Open",
       onAction: () => flashEntry(note.id),
@@ -452,10 +454,11 @@ async function pasteClipboardAsNote() {
 async function saveChatAnswerAsNote(question, answer) {
   try {
     const content = question ? `${question}\n\n${answer}` : answer;
-    await apiJson("/entries", {
+    const made = await apiJson("/entries", {
       method: "POST",
       body: JSON.stringify({ content, tags: ["chat"], is_draft: true }),
     });
+    pushEntryCreateUndo(made, "Saved a chat answer as a note");
     toast("Saved as a draft note.");
     // Unconditional, not gated on the Notes tab being the one currently
     // open. Reported: a note saved from Chat "didn't show up in the
@@ -493,6 +496,7 @@ async function reminderFromChatAnswer(answer) {
     });
     askNotificationPermission();
     loadReminders();
+    reminderMadeUndo(reminder);
     toastAction("Reminder set for tomorrow, 9am.", "Edit", () => {
       editingReminderId = reminder.id;
       return flashReminder(reminder.id);

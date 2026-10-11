@@ -337,6 +337,18 @@ async function toggleSpaceHidden(id, hidden) {
       method: "PUT",
       body: JSON.stringify({ hidden_from_all: hidden }),
     });
+    pushRequestUndo(
+      hidden ? "Hid a space from All spaces" : "Showed a space in All spaces",
+      `/spaces/${id}`,
+      "PUT",
+      { hidden_from_all: !hidden },
+      { hidden_from_all: hidden },
+      async () => {
+        await loadSpaces();
+        renderSpaceMenu();
+        if (activeSpaceId() === SPACE_ALL) await loadEntries();
+      }
+    );
     await loadSpaces();
     renderSpaceMenu();
     toast(

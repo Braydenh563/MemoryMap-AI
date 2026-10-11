@@ -149,6 +149,8 @@ async function entitySave(page, patch, done) {
     return null;
   });
   if (!saved) return;
+  const wasFields = Object.fromEntries(Object.keys(patch).map((key) => [key, page[key] ?? null]));
+  pushRequestUndo("Changed a name's details", `/entities/${page.id}`, "PATCH", wasFields, patch, () => openEntityPage(page.id));
   toast(done);
   openEntityPage(page.id);
 }

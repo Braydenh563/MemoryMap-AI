@@ -43,10 +43,17 @@ function questionRow(item) {
     text.append(answer);
   }
   const actions = evidenceSpan("night-fact-actions");
-  const move = (state, entry_id = null) =>
-    apiJson(`/questions/${item.id}`, { method: "POST", body: JSON.stringify({ state, entry_id }) })
-      .then(() => loadQuestions())
+  const send = (state, entry_id = null) =>
+    apiJson(`/questions/${item.id}`, { method: "POST", body: JSON.stringify({ state, entry_id }) });
+  const move = (state, entry_id = null) => {
+    const was = item.state;
+    return send(state, entry_id)
+      .then(() => {
+        pushUndo(`Marked a question ${state}`, () => send(was).then(() => loadQuestions()), () => send(state, entry_id).then(() => loadQuestions()));
+        return loadQuestions();
+      })
       .catch((error) => toast(error.message || "Couldn't change that question.", true));
+  };
   actions.append(questionButton("ph:arrow-square-out", "Open the note that asks it", () => flashEntry(item.entry_id)));
   if (item.state === "open") {
     actions.append(

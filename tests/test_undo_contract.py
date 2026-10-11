@@ -26,6 +26,7 @@ OWNERS = {
     "undo-store.js",  # the stack's store across a reload
     "whiteboard.js",  # the board's own history (wbUndo and its stack)
     "whiteboard-history.js",
+    "settings-data.js",  # Settings' own Recent changes list with Undo and Redo (Brief 86)
 }
 #: Names that are an editor's own history inside a larger file.
 EDITOR_HISTORY = re.compile(r"^docUndo")

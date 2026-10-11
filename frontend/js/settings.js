@@ -4118,6 +4118,7 @@ async function learnedEdit(fact) {
       method: "PATCH",
       body: JSON.stringify({ text: next.trim() }),
     });
+    pushRequestUndo("Edited a learned claim", `/learned/${fact.id}`, "PATCH", { text: fact.text }, { text: next.trim() }, () => renderLearnedList());
     toast("Saved. No later run will overwrite it.");
     renderLearnedList();
   } catch (error) {
@@ -4128,6 +4129,17 @@ async function learnedEdit(fact) {
 async function learnedReset(fact) {
   try {
     await apiJson(`/learned/${fact.id}/reset`, { method: "POST" });
+    pushUndo(
+      "Put the model's words back",
+      async () => {
+        await apiJson(`/learned/${fact.id}`, { method: "PATCH", body: JSON.stringify({ text: fact.text }) });
+        renderLearnedList();
+      },
+      async () => {
+        await apiJson(`/learned/${fact.id}/reset`, { method: "POST" });
+        renderLearnedList();
+      }
+    );
     toast("Put the model's own words back.");
     renderLearnedList();
   } catch (error) {

@@ -1884,6 +1884,7 @@ const LAZY_MODULES = {
   atlasFaces: ["/css/atlas-lazy.css"],
   //: A selection's Move to space (batch-space.js's header).
   batchSpace: ["/js/batch-space.js"],
+  undoKit: ["/js/undo-kit.js"],
   //: Settings, Packages: the extras, their bundles and bulk actions (INBOX 595).
   packages: ["/js/settings-packages.js"],
   //: Settings, Search and index's embedding models (INBOX 700, embed-choices.js).
@@ -2181,6 +2182,7 @@ const LAZY_ENTRY_POINTS = {
   //: Opened, asked or drawn for their effect; `openHelpChat`'s close is read by no caller.
   helpChat: ["openHelpChat", "askAtlas", "renderAtlasStarters"],
   batchSpace: ["batchMoveToSpace"],
+  undoKit: ["pushEntryCreateUndo", "pushLinkCreateUndo", "pushRequestUndo", "pushEntriesPutUndo", "pushBinPairUndo", "pushRoutePairUndo", "pushTensionLinkUndo"],
   tidy: ["openTidySheet"],
   semanticNotice: ["semanticInstallNotice", "semanticOnboardingOffer"],
   questionsView: ["initQuestionsView", "loadQuestions"],
@@ -2277,6 +2279,9 @@ const LAZY_ENTRY_POINTS = {
     "wireMdFormatShortcuts",
     "openWhiteboardBoard",
     "deleteDocumentWithUndo",
+    "offerCreateUndo",
+    "offerCreatedDocsUndo",
+    "renameDocumentWithUndo",
     "jumpToDocLine",
     "renderLibraryBoardsGallery",
   ],

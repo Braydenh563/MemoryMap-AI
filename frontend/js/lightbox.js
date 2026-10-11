@@ -63,6 +63,7 @@ function renderReevaluateResult(entry, wrap) {
             method: "PUT",
             body: JSON.stringify({ tags: [...entry.tags, tag] }),
           });
+          pushEntryPutUndo(entry.id, `Tagged a note “${tag}”`, { tags: [...entry.tags] }, { tags: [...entry.tags, tag] });
           tagChip.remove();
           toast(`Tagged “${tag}”.`);
           loadEntries();

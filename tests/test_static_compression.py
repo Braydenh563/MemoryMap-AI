@@ -81,7 +81,7 @@ def test_a_stamped_asset_is_immutable_and_gzipped(client):
 #: 322,228 after the note edit form (renderEditForm, now note-edit-panels.js
 #: behind a stand-in) and eight one-caller helpers moved to their lazy files.
 #: Caps are the measure rounded up to the next 100.
-APP_JS_CAP = 14_300
+APP_JS_CAP = 14_400
 PIECE_CAP = 32_000
 #: After claude/notes-flow-rebuild 143b240 merged: total 321,331 (the
 #: embedding models list into settings-packages.js), app.js unchanged.
@@ -95,7 +95,10 @@ PIECE_CAP = 32_000
 #: quote, the undo call at each chat write; its helpers moved to the lazy
 #: chat-undo.js first, -442): 320,554. A raise to win back (OPEN.md, bootdiet:
 #: the meeting overlay's listeners in settings-wiring.js are the next lever).
-TOTAL_CAP = 320_600
+#: And with undo on every write (INBOX 898; its helpers are the lazy
+#: undo-kit.js, the call sites and three stand-ins are not): app.js 14,379,
+#: total 320,869 at the first batch. A raise to win back.
+TOTAL_CAP = 321_300
 
 
 def _served_gzip_size(client, name: str) -> int:

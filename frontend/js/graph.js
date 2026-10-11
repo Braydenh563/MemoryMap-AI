@@ -1487,15 +1487,20 @@ async function linkByDrop(from, to) {
   // The new link's own id, so Undo removes *this* link rather than whatever
   // link happens to join them, they may have been linked twice by different
   // routes, and guessing is how an undo deletes the wrong thing.
-  const made = (updated.links || []).find((link) => link.entry_id === to.id);
+  const action = await pushLinkCreateUndo(
+    from.id,
+    to.id,
+    updated,
+    { target_id: to.id, reason: details.reason, link_type: details.link_type },
+    "Linked two notes",
+    renderGraph
+  );
   toastAction(
     `Linked "${from.preview}" to "${to.preview}".`,
     "Undo",
     async () => {
-      if (!made) return;
-      await api(`/entries/${from.id}/links/${made.link_id}`, { method: "DELETE" });
-      await refreshEntries([from.id, to.id]).catch(() => {});
-      renderGraph();
+      settleUndoFromToast(action);
+      await action.undo();
       toast("Link removed.");
     }
   );
@@ -3796,6 +3801,14 @@ function openGraphLinkPeek(edge, event, nodes) {
         toast(error.message || "Couldn't change the link's direction.", true);
         return;
       }
+      pushRequestUndo(
+        next ? "Made a link two-way" : "Made a link one-way",
+        `/entries/${sourceId}/links/${edge.id}`,
+        "PATCH",
+        { two_way: !next },
+        { two_way: next },
+        () => renderGraph()
+      );
       for (const drawn of gcTab.edges) if (drawn.id === edge.id && drawn.kind === "link") drawn.two_way = next;
       edge.two_way = next;
       direction.setAttribute("aria-pressed", String(next));
@@ -4408,10 +4421,12 @@ function renderGraphPopupActions(entry) {
     "ph:star",
     entry.pinned ? "Remove from Favourites" : "Add to Favourites",
     async () => {
-      await apiJson(`/entries/${entry.id}`, {
+      const was = Boolean(entry.pinned);
+      const flipped = await apiJson(`/entries/${entry.id}`, {
         method: "PUT",
-        body: JSON.stringify({ pinned: !entry.pinned }),
+        body: JSON.stringify({ pinned: !was }),
       }).catch((e) => toast(e.message, true));
+      if (flipped) pushEntryPutUndo(entry.id, was ? "Removed from Favourites" : "Added to Favourites", { pinned: was }, { pinned: !was });
       toast(entry.pinned ? "Removed from Favourites." : "Added to Favourites.");
       closeGraphPopup();
       await loadEntries().catch(() => {});
@@ -4423,18 +4438,13 @@ function renderGraphPopupActions(entry) {
   keep.appendChild(favourite);
   const bin = smallButton("ph:trash", "Move this note to the bin", async () => {
     if (!(await confirmDialog("Move this note to the bin?"))) return;
-    await api(`/entries/${entry.id}`, { method: "DELETE" }).catch((e) =>
-      toast(e.message, true)
-    );
     closeGraphPopup();
-    await refreshEntries([entry.id]).catch(() => {});
+    try {
+      await binNoteWithUndo(entry);
+    } catch (e) {
+      toast(e.message, true);
+    }
     renderGraph();
-    toastAction("Moved to the bin.", "Undo", async () => {
-      await api(`/entries/${entry.id}/restore`, { method: "POST" });
-      await refreshEntries([entry.id]);
-      renderGraph();
-      toast("Note restored.");
-    }, { also: GO_TO_BIN });
   });
   //: Set apart by a gap of its own inside the keep group rather than by a
   //: fourth divider: three groups is the structure, and a hairline whose
@@ -4481,10 +4491,12 @@ async function saveGraphPopup() {
   status.classList.remove("error");
   status.textContent = "Saving…";
   try {
+    const wasTags = String(graphPopupClean.tags || "").split(",").map((t) => t.trim()).filter(Boolean);
     const saved = await apiJson(`/entries/${graphPopupId}`, {
       method: "PUT",
       body: JSON.stringify({ content: $("graph-popup-content").value, tags }),
     });
+    pushEntryPutUndo(graphPopupId, "Edited a note on the map", { content: graphPopupClean.content, tags: wasTags }, { content: $("graph-popup-content").value, tags });
     status.textContent = "Saved.";
     if (typeof offerWikiRename === "function") offerWikiRename(graphPopupId, saved);
     //: What was just written is the new clean state, so the button puts
@@ -4568,6 +4580,7 @@ async function saveGraphNewNote() {
       body: JSON.stringify({ content, tags, defer_filing: true, inline_tags: true }),
     });
     if (created.filing_state === "pending") watchFiling(created);
+    pushEntryCreateUndo(created, "Added a note to the map");
     if (graphNewLinkFrom !== null) {
       await apiJson(`/entries/${graphNewLinkFrom}/links`, {
         method: "POST",

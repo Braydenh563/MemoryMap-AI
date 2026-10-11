@@ -167,6 +167,17 @@ async function renderAttachToDocument(entry, wrap) {
             method: "POST",
             body: JSON.stringify({ entry_id: entry.id }),
           });
+          pushUndo(
+            `Added a note to “${title}”`,
+            async () => {
+              await apiJson(`/documents/${id}/notes/${entry.id}`, { method: "DELETE" });
+              await refreshEntries([entry.id]);
+            },
+            async () => {
+              await apiJson(`/documents/${id}/notes`, { method: "POST", body: JSON.stringify({ entry_id: entry.id }) });
+              await refreshEntries([entry.id]);
+            }
+          );
           inlineAction = null;
           await refreshEntries([entry.id]);
           toastAction(`Added to “${title}”.`, "Open", () =>

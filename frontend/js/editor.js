@@ -2171,6 +2171,7 @@ async function offerToCreateWikiTarget(name) {
         body: JSON.stringify({ content: `${wanted}\n\n` }),
       });
       await refreshEntries([entry.id]);
+      pushEntryCreateUndo(entry, `Created the note “${wanted}”`);
       toast(`Created “${wanted}”.`);
       if (entry?.id) flashEntry(entry.id);
       return;
@@ -2184,6 +2185,7 @@ async function offerToCreateWikiTarget(name) {
     // something else happens to refetch documents.
     if (doc) {
       editorDocumentCache = [...(editorDocumentCache || []), doc];
+      offerCreateUndo(doc);
       toast(`Created “${wanted}”.`);
       openDocument(doc.id);
     }

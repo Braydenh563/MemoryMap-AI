@@ -137,6 +137,17 @@ def test_a_global_ipv6_client_is_let_in_only_from_this_networks_prefix():
     assert not lanserve.client_allowed("2001:8003:1:2::5", frozenset())
 
 
+def test_this_computers_own_address_is_let_in_whatever_its_range(monkeypatch):
+    monkeypatch.setattr(lanserve.netbind, "lan_addresses", lambda include_v6=None: ["192.0.2.2"])
+    lanserve.refresh_own_prefixes()
+    try:
+        assert lanserve.client_allowed("192.0.2.2")
+        assert not lanserve.client_allowed("192.0.2.3")
+    finally:
+        monkeypatch.undo()
+        lanserve.refresh_own_prefixes()
+
+
 def test_a_refused_client_is_closed_before_any_handshake(lan, monkeypatch):
     """On a real socket: the connection is closed before TLS starts, so the
     client learns nothing, not even the certificate."""
@@ -154,3 +165,57 @@ def test_a_refused_client_is_closed_before_any_handshake(lan, monkeypatch):
             assert raw.recv(100) == b""
         except ConnectionError:
             pass
+
+
+def test_the_gate_closes_and_reopens_the_port(tmp_path):
+    """INBOX 867: on a network nobody allowed, the LAN port is not bound at
+    all; "Allow on this network" binds it within a second, and a move to
+    another network closes it again. Real sockets throughout."""
+    info = lancert.ensure(tmp_path, ["localhost", "127.0.0.1"])
+    config = uvicorn.Config(
+        _app, lifespan="off", log_level="warning",
+        ssl_certfile=str(info.cert_path), ssl_keyfile=str(info.key_path),
+    )
+    config.load()
+    server = _Quiet(config)
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    allowed = {"open": False}
+    thread = threading.Thread(
+        target=lambda: asyncio.run(
+            lanserve.serve(
+                server, None, port=port, gate=lambda: allowed["open"],
+                reopen=lambda: socket.create_server(("127.0.0.1", port)),
+            )
+        ),
+        daemon=True,
+    )
+    thread.start()
+
+    def answers() -> bool:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=1):
+                return True
+        except OSError:
+            return False
+
+    def settles(want: bool) -> bool:
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline:
+            if answers() == want:
+                return True
+            time.sleep(0.1)
+        return False
+
+    try:
+        time.sleep(1.0)
+        assert not answers()
+        allowed["open"] = True
+        assert settles(True)
+        allowed["open"] = False
+        assert settles(False)
+    finally:
+        server.should_exit = True
+        thread.join(10)
+    assert not thread.is_alive()

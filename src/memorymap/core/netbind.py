@@ -341,16 +341,49 @@ def describe(config: ConfigManager, port: int | None = None) -> dict:
     `port` is the port the request came in on. The addresses are the HTTPS
     ones other devices type: the LAN listener's port once it is running,
     else the one it will take (`lan_port`) beside this loopback port."""
+    from memorymap.core import lantrust
+
     host = current()
-    other_devices = not is_loopback_bind(host)
-    addresses = lan_addresses() if other_devices or lan_enabled(config) else []
+    listening = not is_loopback_bind(host)
+    trust = lantrust.status()
+    #: INBOX 867: the LAN port is bound only while this network is allowed
+    #: (core/lantrust.py); "off" is a server started without that gate.
+    held = listening and trust["reason"] != "off" and not trust["open"]
+    other_devices = listening and not held
+    raw = lan_addresses() if listening or lan_enabled(config) else []
     https_port = _current_lan_port or (lan_port(port) if port else None)
+    network = lantrust.current_network() if listening else None
+    if network is None and lan_enabled(config):
+        network = lantrust.network_for_display()
+    shown = order_addresses(raw, network)
+
+    def url(a: str) -> str:
+        return f"https://{url_host(a)}:{https_port}" if https_port else url_host(a)
+
     return {
         "host": host,
         "other_devices": other_devices,
         "lan_on_next_launch": lan_enabled(config),
         "restart_required": lan_enabled(config) == is_loopback_bind(host),
-        "addresses": [
-            f"https://{url_host(a)}:{https_port}" if https_port else url_host(a) for a in addresses
-        ],
+        #: The phone's address first (the default route's interface), then
+        #: the rest, IPv6 last; virtual adapters left out (the owner's
+        #: Windows list had VirtualBox's 192.168.56.1, which no phone reaches).
+        "addresses": [url(a) for a in shown],
+        "primary_address": url(shown[0]) if shown else "",
+        "network": trust if listening else None,
+        "held": trust["reason"] if held else None,
     }
+
+
+def order_addresses(addresses: list[str], network) -> list[str]:  # noqa: ANN001  # a netid.Network or None
+    """The address on the network's own interface first, virtual adapters
+    out, IPv4 before IPv6. Never empties the list: the primary is kept even
+    on an interface the kernel calls virtual (a container's eth0)."""
+    primary = getattr(network, "address", "") or ""
+    virtual = set(getattr(network, "virtual", ()) or ()) - {primary}
+    kept = [a for a in addresses if a not in virtual] or list(addresses)
+
+    def rank(a: str) -> tuple:
+        return (a != primary, ":" in a)
+
+    return sorted(kept, key=rank)

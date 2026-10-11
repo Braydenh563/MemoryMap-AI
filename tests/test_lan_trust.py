@@ -153,6 +153,7 @@ def test_a_denied_device_is_not_remembered_and_can_ask_again(tmp_path):
     lantrust.decide(tmp_path, held["id"], False)
     assert lantrust.wait_decision("other", 0.1) == "denied"
     assert not lantrust.device_known(tmp_path, "other")
+    lantrust.settle("other")  # the device was told
     lantrust.hold("other", "A device", "192.168.0.51")
     assert len(lantrust.pending()) == 1
 
@@ -168,3 +169,179 @@ def test_device_names_say_what_is_asking():
     iphone = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1"
     assert lantrust.device_name(iphone) == "iPhone, Safari"
     assert lantrust.device_name(None) == "A device"
+
+
+# --- the routes --------------------------------------------------------------------
+
+import threading  # noqa: E402
+
+import pytest  # noqa: E402
+from fastapi.testclient import TestClient  # noqa: E402
+
+from memorymap.api import routes_auth  # noqa: E402
+from memorymap.core import netbind, vault  # noqa: E402
+
+PASSWORD = "the owner's password"
+
+
+@pytest.fixture()
+def lan_app(client, monkeypatch):
+    routes_auth._active_tokens.clear()
+    routes_auth._media_tickets.clear()
+    routes_auth._clear_unlock_failures()
+    routes_auth._device_tokens.clear()
+    vault.close()
+    lantrust.reset_for_tests()
+    monkeypatch.setattr(netid, "read", lambda: HOME)
+    monkeypatch.setattr(routes_auth, "DEVICE_WAIT_SECONDS", 0.3)
+    here = TestClient(client.app, base_url="http://127.0.0.1:8795", client=("127.0.0.1", 50000))
+    token = here.post("/auth/setup", json={"password": PASSWORD}).json()["token"]
+    here.headers["X-Auth-Token"] = token
+    yield client
+    lantrust.reset_for_tests()
+    netbind.set_current(netbind.LOOPBACK)
+    routes_auth._active_tokens.clear()
+    routes_auth._device_tokens.clear()
+    vault.close()
+
+
+def _here(client) -> TestClient:
+    token = next(iter(routes_auth._active_tokens))
+    return TestClient(
+        client.app, base_url="http://127.0.0.1:8795", client=("127.0.0.1", 50000), headers={"X-Auth-Token": token}
+    )
+
+
+def _phone(client) -> TestClient:
+    """A phone on the network: https on the LAN port, so its Secure cookie is kept."""
+    return TestClient(
+        client.app, base_url="https://192.168.0.50:8443", client=("192.168.0.50", 50001),
+        headers={"User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) Safari/604.1"},
+    )
+
+
+def test_a_new_device_waits_and_this_computer_allows_it(lan_app):
+    here, phone = _here(lan_app), _phone(lan_app)
+    refused = phone.post("/auth/unlock", json={"password": PASSWORD})
+    assert refused.status_code == 403 and refused.json()["device_pending"] is True
+    assert "allow it first" in refused.json()["detail"]
+    cookie = refused.cookies.get(lantrust.DEVICE_COOKIE)
+    assert cookie and "secure" in refused.headers["set-cookie"].lower()
+    assert "httponly" in refused.headers["set-cookie"].lower()
+    assert "samesite=strict" in refused.headers["set-cookie"].lower()
+    waiting = here.get("/auth/lan-watch?since=-1").json()["pending"]
+    assert [p["name"] for p in waiting] == ["iPhone, Safari"]
+    # Only this computer sees who is waiting, and only it can answer.
+    assert phone.get("/auth/lan-watch").status_code in (401, 403)
+    # The phone asks again and waits; Allow on this computer lets it in.
+    result = {}
+    asking = threading.Thread(
+        target=lambda: result.update(r=phone.post("/auth/unlock", json={"password": PASSWORD}))
+    )
+    routes_auth.DEVICE_WAIT_SECONDS = 5.0
+    asking.start()
+    deadline = __import__("time").monotonic() + 3
+    while not lantrust.pending() and __import__("time").monotonic() < deadline:
+        __import__("time").sleep(0.05)
+    assert here.post(f"/auth/lan-devices/{waiting[0]['id']}/allow").status_code == 200
+    asking.join(10)
+    assert result["r"].status_code == 200 and result["r"].json()["token"]
+    # Remembered: the next sign-in goes straight through.
+    assert phone.post("/auth/unlock", json={"password": PASSWORD}).status_code == 200
+    state = here.get("/auth/lan-access").json()
+    assert [d["name"] for d in state["devices"]] == ["iPhone, Safari"]
+
+
+def test_removing_a_device_signs_it_out_and_it_asks_again(lan_app):
+    here, phone = _here(lan_app), _phone(lan_app)
+    phone.post("/auth/unlock", json={"password": PASSWORD})
+    held = lantrust.pending()[0]
+    here.post(f"/auth/lan-devices/{held['id']}/allow")
+    token = phone.post("/auth/unlock", json={"password": PASSWORD}).json()["token"]
+    assert phone.get("/auth/lan-access", headers={"X-Auth-Token": token}).status_code == 200
+    assert here.delete(f"/auth/lan-devices/{held['id']}").status_code == 200
+    assert phone.get("/auth/lan-access", headers={"X-Auth-Token": token}).status_code == 401
+    assert phone.post("/auth/unlock", json={"password": PASSWORD}).status_code == 403
+
+
+def test_deny_says_so_and_a_wrong_password_never_reaches_the_screen(lan_app):
+    here, phone = _here(lan_app), _phone(lan_app)
+    assert phone.post("/auth/unlock", json={"password": "a guess"}).status_code == 401
+    assert lantrust.pending() == []
+    phone.post("/auth/unlock", json={"password": PASSWORD})
+    held = lantrust.pending()[0]
+    assert phone.post(f"/auth/lan-devices/{held['id']}/deny").status_code in (401, 403)
+    assert here.post(f"/auth/lan-devices/{held['id']}/deny").status_code == 200
+    refused = phone.post("/auth/unlock", json={"password": PASSWORD})
+    assert refused.status_code == 403 and "said no" in refused.json()["detail"]
+    # Told once; it may ask again, and waits like any new device.
+    again = phone.post("/auth/unlock", json={"password": PASSWORD})
+    assert again.status_code == 403 and again.json()["device_pending"] is True
+
+
+def test_loopback_never_waits(lan_app):
+    assert TestClient(lan_app.app, base_url="http://127.0.0.1:8795", client=("127.0.0.1", 50002)).post(
+        "/auth/unlock", json={"password": PASSWORD}
+    ).status_code == 200
+
+
+def test_turning_off_asking_needs_the_password_and_on_does_not(lan_app):
+    here, phone = _here(lan_app), _phone(lan_app)
+    body = {"name": "ask_new_devices", "enabled": False}
+    assert here.post("/auth/lan-options", json=body).status_code == 401
+    assert here.post("/auth/lan-options", json={**body, "current_password": PASSWORD}).json()["ask_new_devices"] is False
+    assert phone.post("/auth/unlock", json={"password": PASSWORD}).status_code == 200
+    assert here.post("/auth/lan-options", json={"name": "ask_new_devices", "enabled": True}).status_code == 200
+    assert lantrust.load(lantrust_dir(lan_app))["ask_new_devices"] is True
+
+
+def lantrust_dir(client):
+    from memorymap.core import deps
+
+    return deps.get_config().data_dir
+
+
+def test_any_network_and_allow_here_need_the_password(lan_app):
+    here = _here(lan_app)
+    assert here.post("/auth/lan-options", json={"name": "any_network", "enabled": True}).status_code == 401
+    assert here.post("/auth/lan-networks/allow", json={}).status_code == 401
+    state = here.post("/auth/lan-networks/allow", json={"current_password": PASSWORD}).json()
+    assert [n["key"] for n in state["networks"]] == [HOME.key]
+    assert here.delete(f"/auth/lan-networks/{HOME.key}").json()["networks"] == []
+    assert here.post(
+        "/auth/lan-options", json={"name": "any_network", "enabled": True, "current_password": PASSWORD}
+    ).json()["any_network"] is True
+    assert here.post("/auth/lan-options", json={"name": "bogus", "enabled": True}).status_code == 422
+
+
+def test_turning_the_switch_on_remembers_this_network(lan_app):
+    here = _here(lan_app)
+    state = here.post("/auth/lan-access", json={"enabled": True, "current_password": PASSWORD}).json()
+    assert [n["key"] for n in state["networks"]] == [HOME.key]
+
+
+def test_preferences_cannot_reach_the_trust_file(lan_app):
+    here = _here(lan_app)
+    here.put("/preferences", json={"any_network": True, "ask_new_devices": False, "networks": [{"key": "x"}]})
+    assert lantrust.load(lantrust_dir(lan_app)) == _state()
+
+
+def test_settings_says_when_the_network_is_held(lan_app):
+    """The launcher bound the network but this network is not allowed."""
+    here = _here(lan_app)
+    netbind.set_current(netbind.ALL_INTERFACES)
+    lantrust.refresh(lantrust_dir(lan_app), CAFE)
+    state = here.get("/auth/lan-access").json()
+    assert state["held"] == "new_network" and state["other_devices"] is False
+    watch = here.get("/auth/lan-watch?since=-1").json()
+    assert watch["serving"] is True and watch["held"]["reason"] == "new_network"
+
+
+def test_addresses_put_the_phones_network_first_and_drop_virtual_adapters():
+    network = netid.Network("192.168.0.1", "aa:bb:cc:dd:ee:01", "192.168.0.0/24", address="192.168.0.107",
+                            virtual=("192.168.56.1",))
+    shown = netbind.order_addresses(
+        ["192.168.56.1", "2001:8003::3ef2", "192.168.0.107", "10.8.0.2", "2001:8003::87db"], network
+    )
+    assert shown == ["192.168.0.107", "10.8.0.2", "2001:8003::3ef2", "2001:8003::87db"]
+    assert netbind.order_addresses(["172.17.0.2"], netid.Network("a", "b", virtual=("172.17.0.2",), address="172.17.0.2")) == ["172.17.0.2"]

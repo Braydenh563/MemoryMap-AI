@@ -555,19 +555,29 @@ def _serve_with_lan(uvicorn, app, config, bind: str) -> None:  # noqa: ANN001
     import contextlib
     import socket as socket_module
 
-    from memorymap.core import lancert, lanserve, netbind
+    from memorymap.core import lancert, lanserve, lantrust, netbind
 
     lan_port = netbind.lan_port(PORT)
     info = lancert.ensure(config.data_dir)
-    #: LAN mode over IPv6 (WORLD_CLASS_PLAN §12, row 2): "::" is one
-    #: dual-stack socket made here, since uvicorn's own bind of "::" is IPv6
-    #: only on Windows. If it cannot be made, LAN mode binds IPv4 as before.
-    sock = netbind.listening_socket(bind, lan_port)
-    if bind == netbind.ALL_INTERFACES_V6 and sock is None:
-        bind = netbind.ALL_INTERFACES
-    if sock is None:
+    #: INBOX 867: only on a network the person allowed (core/lantrust.py).
+    #: Elsewhere the LAN port is not even bound until Settings says "Allow on
+    #: this network"; the accept loop opens and closes it as that changes.
+    trust = lantrust.refresh(config.data_dir)
+    requested = bind
+
+    def make_socket():  # noqa: ANN202
+        #: LAN mode over IPv6 (WORLD_CLASS_PLAN §12, row 2): "::" is one
+        #: dual-stack socket made here, since uvicorn's own bind of "::" is
+        #: IPv6 only on Windows. If it cannot be made, IPv4 as before.
+        made = netbind.listening_socket(requested, lan_port)
+        return made or socket_module.create_server(
+            (netbind.ALL_INTERFACES if requested == netbind.ALL_INTERFACES_V6 else requested, lan_port)
+        )
+
+    sock = None
+    if trust["open"]:
         try:
-            sock = socket_module.create_server((bind, lan_port))
+            sock = make_socket()
         except OSError as exc:
             logger.warning(
                 "Other devices can't reach this notebook: port %s is taken (%s). "
@@ -576,19 +586,30 @@ def _serve_with_lan(uvicorn, app, config, bind: str) -> None:  # noqa: ANN001
             netbind.set_current(HOST)
             uvicorn.run(app, host=HOST, port=PORT, log_level="info")
             return
+        if requested == netbind.ALL_INTERFACES_V6 and sock.family != socket_module.AF_INET6:
+            bind = netbind.ALL_INTERFACES
     netbind.set_current(bind)
     netbind.set_lan_port(lan_port)
-    addresses = ", ".join(
-        f"https://{netbind.url_host(a)}:{lan_port}"
-        for a in netbind.lan_addresses(include_v6=sock.family == socket_module.AF_INET6)
-    ) or bind
     # Printed, not only logged: the terminal is where the person starting the
     # app looks, and the fingerprint is what they compare on the phone.
-    print(
-        f"Other devices on this network can open this notebook (with the password, over HTTPS): {addresses}\n"
-        f"The certificate's fingerprint, to compare on the other device: {info.fingerprint}",
-        flush=True,
-    )
+    if sock is None:
+        label = (trust.get("network") or {}).get("label") or "this network"
+        print(
+            f"Other devices are not let in on {label} yet ({trust['reason'].replace('_', ' ')}). "
+            "To allow them, open Settings, Other devices, and choose Allow on this network.\n"
+            f"The certificate's fingerprint, to compare on the other device: {info.fingerprint}",
+            flush=True,
+        )
+    else:
+        shown = netbind.order_addresses(
+            netbind.lan_addresses(include_v6=sock.family == socket_module.AF_INET6), lantrust.current_network()
+        )
+        addresses = ", ".join(f"https://{netbind.url_host(a)}:{lan_port}" for a in shown) or bind
+        print(
+            f"Other devices on this network can open this notebook (with the password, over HTTPS): {addresses}\n"
+            f"The certificate's fingerprint, to compare on the other device: {info.fingerprint}",
+            flush=True,
+        )
 
     class _NoSignals(uvicorn.Server):
         """The second listener leaves Ctrl+C and SIGTERM to the first, which
@@ -617,13 +638,19 @@ def _serve_with_lan(uvicorn, app, config, bind: str) -> None:  # noqa: ANN001
         while not local.started and not first.done():
             await asyncio.sleep(0.05)
         if first.done():
-            sock.close()
+            if sock is not None:
+                sock.close()
             #: Done already, so its result is ready: re-raise whatever stopped
             #: the local server rather than start the LAN one.
             first.result()
             return
         #: Plain http on this port gets a redirect to https (core/lanserve.py).
-        second = asyncio.ensure_future(lanserve.serve(lan, sock))
+        second = asyncio.ensure_future(
+            lanserve.serve(
+                lan, sock, port=lan_port, gate=lantrust.is_open,
+                refresh=lambda: lantrust.refresh(config.data_dir), reopen=make_socket,
+            )
+        )
         while not first.done() and not second.done():
             if local.should_exit or lan.should_exit:
                 local.should_exit = lan.should_exit = True

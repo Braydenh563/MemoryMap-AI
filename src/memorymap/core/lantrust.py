@@ -179,6 +179,17 @@ def current_network() -> netid.Network | None:
     return _gate["network"]
 
 
+_display: dict = {"at": 0.0, "network": None}
+
+
+def network_for_display() -> netid.Network | None:
+    """The network for Settings while the gate is not running (the switch on,
+    the app not yet restarted): read at most once a minute."""
+    if time.monotonic() - _display["at"] > 60 or _display["at"] == 0.0:
+        _display.update(at=time.monotonic(), network=netid.read())
+    return _display["network"]
+
+
 def status() -> dict:
     network = _gate["network"]
     return {
@@ -298,7 +309,9 @@ def hold(raw: str, name: str, address: str) -> dict:
     with _lock:
         _expire(now)
         held = _pending.get(found)
-        if held is None or held["decision"] == "denied":
+        #: An answer already given (Deny while the phone was not waiting) is
+        #: kept for the device's next try, which `settle`s it.
+        if held is None:
             if len(_pending) >= MAX_PENDING:
                 oldest = min(_pending, key=lambda k: _pending[k]["at"])
                 del _pending[oldest]
@@ -378,6 +391,7 @@ def forget_device(data_dir: Path, device_id: str) -> bool:
             return False
         state["devices"] = kept
         save(data_dir, state)
+        _pending.pop(device_id, None)
         _bump()
     return True
 

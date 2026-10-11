@@ -176,7 +176,11 @@ function showSettingsSection(name) {
       .catch(() => {});
   }
   if (name === "models") renderModelBench();
-  if (name === "general") renderUsage();
+  if (name === "general") {
+    renderUsage();
+    //: Search suggestions are kept on this device (search-suggest.js).
+    $("pref-search-suggest").checked = prefs.get("searchSuggest", "on") !== "off";
+  }
   if (name === "appearance") renderAppearance();
   if (name === "shortcuts") {
     renderShortcutList();
@@ -189,6 +193,10 @@ function showSettingsSection(name) {
     ensureModule("appImport");
     renderBackups();
     renderBackupRetention();
+    ensureModule("settingsData").then(() => {
+      renderSettingsClear();
+      renderSettingsHistory();
+    });
   }
   if (name === "tasks") renderTasks(); // fill it in now, then poll
   if (name === "extras") renderExtras();
@@ -2890,6 +2898,12 @@ function toggleBgArt(on) {
 }
 
 $("theme-btn").addEventListener("click", toggleTheme);
+//: The one switch for every box's suggestions (Brief 86, CHAT_PLAN decision
+//: 69), kept on this device: absent reads as on.
+$("pref-search-suggest")?.addEventListener("change", (event) => {
+  prefs.set("searchSuggest", event.target.checked ? "on" : "off");
+  toast(event.target.checked ? "Search boxes suggest as you type." : "Search boxes no longer suggest.");
+});
 $("bg-art-toggle").addEventListener("change", (e) => {
   toggleBgArt(e.target.checked);
   renderAppearance(); // enable/disable the style + intensity rows

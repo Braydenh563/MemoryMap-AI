@@ -908,7 +908,7 @@ function flashEntry(id) {
     //: Every way to a note comes here (search, a link, the palette, the
     //: Library, the timeline, the graph, chat): the companion reads along
     //: with a long one, or covers its eyes for a private one (avatars.js).
-    if (typeof nameMarkBuddyNoteOpened === "function") nameMarkBuddyNoteOpened(id);
+    nameMarkBuddyNoteOpened(id);
   });
 }
 
@@ -3313,7 +3313,12 @@ async function loadAskHistoryBadge() {
 //: focus.
 for (const type of ["focusin", "input", "click"]) {
   document.addEventListener(type, (event) => {
-    if (event.target.matches?.("#entry-tags, .note-edit-tags > input")) openTagSuggest(event.target);
+    const box = event.target;
+    if (box.matches?.("#entry-tags, .note-edit-tags > input")) openTagSuggest(box);
+    //: Every search box carries `data-search-scope`: the first focus loads its
+    //: suggestions (search-suggest.js, lazy), and typing or a press after Escape
+    //: opens them again. Not a `LAZY_ENTRY_POINTS` stand-in: app.js is at its cap.
+    else if (box.matches?.("input[data-search-scope]")) ensureModule("searchSuggest").then(() => openSearchSuggest(box));
   });
 }
 

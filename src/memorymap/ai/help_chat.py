@@ -950,7 +950,13 @@ HELP_TOPICS.extend(
                 "and the line says \"showing results for\" it. When nothing matches, "
                 "it says what was searched and offers one way on: every kind, a "
                 "spelling, or the nearest feature. To narrow only the "
-                "notes list, use Filter notes on the Your notes tab."
+                "notes list, use Filter notes on the Your notes tab. Every search box "
+                "suggests as you type: your recent searches first, then note titles, "
+                "tags and categories that start with your words, with the best match "
+                "in grey (Tab or Right takes it, Down and Up walk the list, Esc closes it). "
+                "A recent search has its own x, the list's foot clears them, Settings, "
+                "Import & export, Clear and forget clears every box's at once, and Settings, "
+                "General, Search turns the suggestions off."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },
@@ -1002,7 +1008,11 @@ HELP_TOPICS.extend(
                 "send if you report a problem. If something looks out of date or "
                 "broken after an update, open Settings, Import & export and press "
                 "Clear app cache: it reloads the app with fresh files and touches "
-                "nothing in your notebook."
+                "nothing in your notebook. Just below it, Clear and forget removes "
+                "the recent searches in every search box, the saved previews, the "
+                "Guide's conversation and the suggestions you dismissed, each with "
+                "an Undo for ten seconds. Every setting you change is undoable too, from "
+                "the toast and from Recent changes in the same section (the last twenty)."
             ),
             "badge": {"label": "Models", "section": "models"},
         },

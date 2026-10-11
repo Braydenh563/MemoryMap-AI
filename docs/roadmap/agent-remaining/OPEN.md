@@ -333,6 +333,14 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the search86 agent (Brief 86, search suggestions, Clear and forget, Recent changes, merged 2026-10-11)
+
+File: `docs/roadmap/archive/agent-remaining/search86-1011.md`.
+
+- The Library's documents, boards, images, bookmarks, recordings and skills boxes suggest recents only, not their own titles.
+- "Clear dismissed suggestions" does not reach per-note "Not suggested" tags; changes are noted only while Settings is open (the top-bar theme button is not in Recent changes); a look change's Undo toast lands about 1.5 s late.
+- App scripts at 320,589 of 320,600 gzipped (11 bytes); seven `typeof` guards removed on eager functions, each path not driven by hand.
+
 ## Left by the typos90 agent (Brief 90, the owner's typos as composer fixtures, merged 2026-10-11)
 
 File: `docs/roadmap/archive/agent-remaining/typos90-1011.md`.

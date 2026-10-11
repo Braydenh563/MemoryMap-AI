@@ -143,7 +143,7 @@ function settleStartedNotification(item, key) {
 
 //: "Finished: X, took 4 s", "Failed: X" with the reason, "Stopped: X".
 function taskEndingWords(ended, label) {
-  const took = ended && typeof jobDurationWords === "function" ? jobDurationWords(ended.duration_ms) : "";
+  const took = ended ? jobDurationWords(ended.duration_ms) : "";
   const name = (ended && ended.label) || label;
   if (ended && ended.outcome === "failed") return { kind: "error", title: `Failed: ${name}`, detail: ended.detail || "" };
   if (ended && ended.outcome === "cancelled") return { kind: "task", title: `Stopped: ${name}`, detail: ended.detail || "" };
@@ -1333,7 +1333,8 @@ function toastActionButton(note, label, run) {
 //: already in the bell (`keepToastAction`); `also: {label, run}`, a second
 //: button beside the first (a bin notice's "Go to bin" next to its Undo,
 //: INBOX 705). It is the toast's own and is not kept in the bell: its row
-//: keeps the one action it always had.
+//: keeps the one action it always had. `ms` is how long it stays (8 s by
+//: default; a clear that can be undone passes 10 s).
 function toastAction(message, actionLabel, onAction, opts = {}) {
   const run = keepToastAction(message, actionLabel, onAction, opts);
   const box = toastHost();
@@ -1344,7 +1345,7 @@ function toastAction(message, actionLabel, onAction, opts = {}) {
   text.textContent = message;
   // `sticky`: a notice that stays true until acted on (a damaged notebook
   // file) is not timed out; its close button is the way to put it away.
-  note.toastTimer = opts.sticky ? null : setTimeout(() => dismissToast(note), 8000);
+  note.toastTimer = opts.sticky ? null : setTimeout(() => dismissToast(note), opts.ms || 8000);
   const buttons = [toastActionButton(note, actionLabel, run)];
   if (opts.also) buttons.push(toastActionButton(note, opts.also.label, opts.also.run));
   note.append(text, ...buttons, toastCloseButton(note, note.toastTimer));
@@ -1935,6 +1936,34 @@ let embeddingFallbackRunning = false;
 function settingsOpen() {
   // The Models section lives inside the settings modal now (Wave A).
   return settingsModalOpen();
+}
+
+// --- every Settings change has its way back (settings-data.js, Recent changes) --
+//
+// The owner, 2026-10-11: "undo thing in settings??". Two choke points see every
+// change, so no control has to remember: every `/preferences` answer passes the
+// wrapper below (the last one kept as text, so a PUT can be diffed against it),
+// and ai-tools.js reports a look key. All the rest (the diff, the list, the
+// Undo) is the lazy settings-data.js, loaded only when a change is made while
+// Settings is open: the boot scripts are at their gzip cap, and `apiJson` is
+// wrapped here rather than edited at its twenty callers.
+let settingsPrefsLast = null;
+//: `settingsHistoryBusy` is set while an Undo or Redo writes, so its own write is
+//: not noted again.
+let settingsHistoryBusy = false;
+{
+  const apiJsonInner = apiJson;
+  apiJson = async (path, options = {}) => {
+    const data = await apiJsonInner(path, options);
+    if (path === "/preferences") {
+      const was = settingsPrefsLast;
+      settingsPrefsLast = JSON.stringify(data);
+      if (was && options.method === "PUT" && !settingsHistoryBusy && settingsOpen()) {
+        ensureModule("settingsData").then(() => settingsPrefsSeen(JSON.parse(was), data));
+      }
+    }
+    return data;
+  };
 }
 
 function jobsRunning() {

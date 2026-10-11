@@ -9,6 +9,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 - Ask and the Guide: a misspelt word anywhere in a question is read as the word it is near ("redeisgn", "noficiations", "westen australia"), split words are joined ("thes ebuttons", "a nd"), and a missing apostrophe is read ("doesn follow"); the Guide, the clock and the other utilities read the repaired question.
 - Ask: an answer to a question that needed a spelling repair opens by saying how it was read ("I took that to mean ..."), in wording that changes from one answer to the next.
+- Settings: Import & export has Clear and forget (recent searches in every box, saved previews, the Guide's conversation, dismissed suggestions), each saying how much it removes and each undoable for ten seconds.
+- Settings: every change and clear is undoable from its toast and listed with its Undo in Recent changes (the last twenty).
+- Search: every search box suggests as you type (recent searches, then note titles, tags and categories) with the best match in grey; Tab or Right takes it. A recent search has its own x and a Clear recent searches, and Settings, General, Search turns suggestions off.
 - Voice: recordings transcribe again on installs where the audio library refused an option the speech model passed it.
 - Attach: a picture's selection circle sits inside its corner.
 - Running jobs and Activity: every answer, agent turn and background job is listed with a plain title, who started it and how long it took; each opens to its own timed lines, live while it runs.

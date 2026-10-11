@@ -492,3 +492,476 @@ const PRIVACY_SCOPE_WORDS = {
   local_network: "Your network",
   internet: "The internet",
 };
+
+// --- Settings, Data: "Clear and forget" (Brief 86, decision b) ---------------
+//
+// The owner, 2026-10-11: "should the user be able to clear their cache and
+// recent searches in individual and all places and clear other things". Four
+// rows, each saying what it removes and how much, each undoable from its toast
+// for ten seconds (rule 1.8: `offerUndo`):
+//
+// - Recent searches, everywhere: every box's list (prefs.js `searchRecent`).
+// - Cached previews and thumbnails: the pictures, attachment facts and map
+//   previews this window holds (no file on disk: they are drawn again when
+//   needed, so that clear has nothing to put back).
+// - The Guide's conversation: what was asked in this window (the Guide keeps
+//   no answer cache; its memory is this transcript).
+// - Dismissed suggestions: what the person said no to (merges, link types,
+//   links, contradictions, resurfaced notes, insights); the server marks them
+//   forgotten and can mark them remembered again (`/suggestions/dismissed`).
+//
+// Lives here, in the Data pane's own lazy piece: app.js is at its gzip cap, and the
+// pane that opens this file is the one that shows these rows.
+
+function settingsClearCount(n, one, many) {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+//: The caches that hold a picture or a preview, by name, with what they hold.
+//: Each is a Map in the file that fills it; one not loaded yet holds nothing.
+function previewCaches() {
+  const maps = [];
+  if (typeof thumbUrlCache !== "undefined") maps.push(thumbUrlCache);
+  if (typeof attachmentMetaCache !== "undefined") maps.push(attachmentMetaCache);
+  if (typeof referenceCountsCache !== "undefined") maps.push(referenceCountsCache);
+  if (typeof _apiCache !== "undefined") maps.push(_apiCache);
+  return maps;
+}
+
+function previewCount() {
+  const board = typeof mapBoardIndexCache !== "undefined" && mapBoardIndexCache ? mapBoardIndexCache.size : 0;
+  return previewCaches().reduce((sum, map) => sum + map.size, 0) + board;
+}
+
+function clearPreviews() {
+  for (const map of previewCaches()) map.clear();
+  if (typeof mapBoardIndexCache !== "undefined") mapBoardIndexCache = null;
+}
+
+//: What is in the Guide's transcript: [{role, content}], or [] while it is not loaded.
+function guideTurns() {
+  return typeof helpChatHistory !== "undefined" && Array.isArray(helpChatHistory) ? helpChatHistory : [];
+}
+
+//: Paint one row's sentence and switch its button off when there is nothing to clear.
+function paintClearRow(whatId, buttonId, words, count) {
+  const what = $(whatId);
+  if (what) what.textContent = words;
+  const button = $(buttonId);
+  if (button) button.disabled = count === 0;
+}
+
+async function renderSettingsClear() {
+  await ensureModule("searchSuggest");
+  const recents = searchRecentAll();
+  const total = Object.values(recents).reduce((sum, list) => sum + list.length, 0);
+  paintClearRow(
+    "clear-recents-what",
+    "clear-recents",
+    total
+      ? `${settingsClearCount(total, "recent search", "recent searches")} in ${settingsClearCount(Object.keys(recents).length, "search box", "search boxes")}, kept on this device.`
+      : "No search box has anything remembered.",
+    total
+  );
+  const previews = previewCount();
+  paintClearRow(
+    "clear-previews-what",
+    "clear-previews",
+    previews
+      ? `${settingsClearCount(previews, "preview", "previews")} held in this window. They are drawn again when needed, so there is nothing to undo.`
+      : "Nothing is held right now. Pictures and map previews are kept here while you browse.",
+    previews
+  );
+  const turns = Math.ceil(guideTurns().length / 2);
+  paintClearRow(
+    "clear-guide-what",
+    "clear-guide",
+    turns ? `${settingsClearCount(turns, "question", "questions")} in the Guide's conversation, kept in this window only.` : "The Guide's conversation is empty.",
+    turns
+  );
+  const dismissed = await apiJson("/suggestions/dismissed", { silent: true }).catch(() => null);
+  const count = dismissed ? dismissed.total : 0;
+  const parts = dismissed ? dismissedWords(dismissed) : "";
+  paintClearRow(
+    "clear-dismissed-what",
+    "clear-dismissed",
+    count ? `${settingsClearCount(count, "suggestion", "suggestions")} you said no to${parts ? `: ${parts}` : ""}. Clearing lets the app offer them again.` : "You have not dismissed any suggestion.",
+    count
+  );
+}
+
+const DISMISSED_KIND_WORDS = {
+  dismiss_merge: ["name merge", "name merges"],
+  dismiss_link_type: ["link type", "link types"],
+  dismiss_link: ["link", "links"],
+  dismiss_tension: ["contradiction", "contradictions"],
+  dismiss_resurface: ["old note", "old notes"],
+  dismiss_insight: ["insight", "insights"],
+};
+
+function dismissedWords(dismissed) {
+  const parts = Object.entries(dismissed.by_kind || {}).map(([kind, n]) => {
+    const [one, many] = DISMISSED_KIND_WORDS[kind] || [kind, kind];
+    return settingsClearCount(n, one, many);
+  });
+  if (dismissed.tension_pairs) parts.push(settingsClearCount(dismissed.tension_pairs, "contradiction pair", "contradiction pairs"));
+  return parts.join(", ");
+}
+
+//: **A clear is a change that can be taken back** (decision c): it is kept in
+//: Recent changes with what it removed (`settingsHistoryAdd`), and its toast's
+//: Undo is that same entry's, so the toast, the list and the status bar's Undo
+//: agree. `data` is what the way back needs, small enough to keep.
+function settingsClearDone(change, message) {
+  change.at = Date.now();
+  change.sig = `${change.kind}:${change.words}`;
+  change.label = change.words;
+  settingsHistoryAdd(change);
+  offerUndo(
+    change.words,
+    message,
+    async () => { await settingsHistoryApply(change, "old"); renderSettingsClear(); },
+    async () => { await settingsHistoryApply(change, "new"); renderSettingsClear(); },
+    { ms: 10000 }
+  );
+  if (settingsModalOpen()) renderSettingsClear();
+}
+
+$("clear-recents")?.addEventListener("click", async () => {
+  await ensureModule("searchSuggest");
+  const before = searchRecentClearAll();
+  const total = Object.values(before).reduce((sum, list) => sum + list.length, 0);
+  if (!total) return;
+  //: The web panel draws its list from the store: it repaints.
+  if (typeof renderWebSearchHistory === "function") renderWebSearchHistory();
+  settingsClearDone(
+    { kind: "recents", changes: [], words: "Cleared recent searches", data: { before } },
+    `Cleared ${settingsClearCount(total, "recent search", "recent searches")}.`
+  );
+});
+
+$("clear-previews")?.addEventListener("click", () => {
+  const count = previewCount();
+  if (!count) return;
+  clearPreviews();
+  toast(`Cleared ${settingsClearCount(count, "preview", "previews")}. They are drawn again when needed.`);
+  renderSettingsClear();
+});
+
+$("clear-guide")?.addEventListener("click", async () => {
+  const turns = guideTurns().slice();
+  if (!turns.length) return;
+  await ensureModule("helpChat");
+  helpChatNewChat();
+  settingsClearDone(
+    { kind: "guide", changes: [], words: "Cleared the Guide's conversation", data: { turns } },
+    `Cleared the Guide's conversation (${settingsClearCount(Math.ceil(turns.length / 2), "question", "questions")}).`
+  );
+});
+
+//: The words come back; the badges and sources under an answer do not.
+function restoreGuideTurns(turns) {
+  helpChatNewChat();
+  helpChatHistory = turns.slice();
+  const empty = $("help-chat-empty");
+  if (empty) empty.hidden = true;
+  $("help-chat-starters")?.classList.add("hidden");
+  for (const turn of turns) renderHelpChatMessage(turn.role, turn.content, [], [], null);
+}
+
+$("clear-dismissed")?.addEventListener("click", async () => {
+  try {
+    const done = await apiJson("/suggestions/dismissed/clear", { method: "POST" });
+    if (!done.cleared) return;
+    settingsClearDone(
+      { kind: "dismissed", changes: [], words: "Cleared dismissed suggestions", data: { ids: done.ids, tensions: done.tensions } },
+      `Cleared ${settingsClearCount(done.cleared, "dismissed suggestion", "dismissed suggestions")}: they can be offered again.`
+    );
+  } catch (error) {
+    toast(error.message || "Couldn't clear the dismissed suggestions.", true);
+  }
+});
+
+
+// --- Settings, Data: "Recent changes" (Brief 86, decision c) -------------------
+//
+// Every Settings change and clear is kept with its way back (the owner,
+// 2026-10-11: "undo thing in settings??"). What is kept: the last twenty
+// (`SETTINGS_HISTORY_MAX`), newest first, on this device, each `{id, at, kind,
+// label, changes, data, undone}`. The eager half is status.js
+// (`noteSettingChange` and the two choke points that call it: every
+// `/preferences` answer, and every look key in ai-tools.js), because it has to
+// see a change the moment it is made; this half keeps the list, paints it, and
+// applies an Undo or a Redo.
+//
+// Kinds: "prefs" (the notebook's settings, PUT /preferences), "look" (a
+// browser-side appearance key, mirrored to the notebook by ai-tools.js),
+// "recents" (the search boxes' remembered searches), "dismissed" (suggestions
+// said no to), "guide" (the Guide's transcript). A change that cannot be
+// reversed (a value that was never set, a size the list will not hold) is
+// listed without a button and says so.
+
+//: Not a change the person made (a mirrored copy, a counter), or not one to keep.
+const SETTINGS_HISTORY_SKIP = new Set(["ui_state", "settings_history"]);
+const SETTINGS_HISTORY_SECRET = /key|token|secret|password|salt|hash/i;
+
+//: A value as a person reads it, short: on/off for a switch, the words for text.
+function settingShown(value) {
+  if (value === true || value === "on") return "on";
+  if (value === false || value === "off") return "off";
+  if (value == null) return "default";
+  if (value === "") return "empty";
+  if (Array.isArray(value)) return `${value.length} item${value.length === 1 ? "" : "s"}`;
+  if (typeof value === "object") return "changed";
+  const text = String(value);
+  return text.length > 24 ? `${text.slice(0, 23)}…` : text;
+}
+
+function settingName(key) {
+  const words = String(key).replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function settingChangeWords(change) {
+  if (change.words) return change.words;
+  const [first] = change.changes;
+  const more = change.changes.length > 1 ? ` and ${change.changes.length - 1} more` : "";
+  return `${settingName(first.key)}: ${settingShown(first.old)} to ${settingShown(first.new)}${more}`;
+}
+
+//: A `/preferences` PUT, diffed against the answer before it (status.js hands
+//: both over), so a form that saves twelve fields records the one that changed.
+//: The look settings are browser-side (localStorage) and reach the notebook as
+//: the `ui_state` copy, a moment after the change (ai-tools.js `saveUiState`):
+//: its look keys are diffed one by one, each a change of its own.
+function settingsPrefsSeen(before, data) {
+  const changes = [];
+  for (const key of Object.keys(data)) {
+    if (SETTINGS_HISTORY_SKIP.has(key) || SETTINGS_HISTORY_SECRET.test(key)) continue;
+    if (JSON.stringify(data[key]) === JSON.stringify(before[key])) continue;
+    changes.push({ key, old: before[key], new: data[key] });
+  }
+  if (changes.length) noteSettingChange({ kind: "prefs", changes });
+  const was = before.ui_state || {};
+  const now = data.ui_state || {};
+  const looks = [...new Set([...Object.keys(was), ...Object.keys(now)])]
+    .filter((key) => (LOOK_KEYS.includes(key) || key === "themePreset") && was[key] !== now[key])
+    .map((key) => ({ key, old: was[key] ?? null, new: now[key] ?? null }));
+  if (looks.length) noteSettingChange({ kind: "look", changes: looks });
+}
+
+//: The change a coalescing tick continues, and the toast that will offer its Undo.
+let settingFresh = null;
+
+//: `change`: {kind, changes: [{key, old, new}], ...}; `words` overrides the
+//: line; `quiet` keeps it off the toast (the caller raised its own Undo).
+function noteSettingChange(change, { quiet = false } = {}) {
+  change.at = Date.now();
+  change.sig = `${change.kind}:${change.words || ""}:${change.changes.map((c) => c.key).sort().join(",")}`;
+  //: A slider or a typed field is one change, however many ticks: the first
+  //: value it had stays the way back.
+  const last = settingFresh;
+  if (last && last.change.sig === change.sig && change.at - last.change.at < 2500) {
+    change.changes.forEach((c, i) => {
+      const before = last.change.changes.find((p) => p.key === c.key);
+      if (before) change.changes[i] = { ...c, old: before.old };
+    });
+    clearTimeout(last.timer);
+  }
+  change.label = settingChangeWords(change);
+  settingFresh = { change, timer: 0 };
+  settingsHistoryAdd(change);
+  if (quiet) return;
+  //: One notice, with the Undo and long enough to use: the toast the control
+  //: raised for its own change (a "Saved", found by its enter animation still
+  //: running) makes way for this one, which waits for it.
+  settingFresh.timer = setTimeout(() => {
+    for (const note of toastHost().querySelectorAll(".toast:not(.error)")) {
+      if (note.getAnimations().some((a) => a.currentTime < 700)) note.remove();
+    }
+    toastAction(change.label, "Undo", () => settingsHistoryUndo(change), { ms: 10000, record: false });
+  }, 600);
+}
+
+//: Every box's remembered searches at once (prefs.js keeps one list per scope).
+function searchRecentAll() {
+  const found = {};
+  const store = prefsStore();
+  for (let i = 0; store && i < store.length; i++) {
+    const name = store.key(i) || "";
+    const scope = name === "webSearchHistory" ? "web" : name.startsWith(SEARCH_RECENT_PREFIX) ? name.slice(SEARCH_RECENT_PREFIX.length) : "";
+    const list = scope ? searchRecent.load(scope) : [];
+    if (list.length) found[scope] = list;
+  }
+  return found;
+}
+
+function searchRecentClearAll() {
+  const before = searchRecentAll();
+  for (const scope of Object.keys(before)) searchRecent.clear(scope);
+  return before;
+}
+
+function searchRecentRestore(before) {
+  for (const [scope, list] of Object.entries(before || {})) prefs.setJSON(searchRecent.key(scope), list);
+}
+
+const SETTINGS_HISTORY_KEY = "settingsHistory";
+const SETTINGS_HISTORY_MAX = 20;
+//: The largest stored entry; past it the way back is dropped and the row says so.
+const SETTINGS_HISTORY_ENTRY_BYTES = 12000;
+
+function settingsHistoryLoad() {
+  return prefs.json(SETTINGS_HISTORY_KEY, []).filter((entry) => entry && typeof entry === "object" && entry.id);
+}
+
+function settingsHistorySave(list) {
+  prefs.setJSON(SETTINGS_HISTORY_KEY, list.slice(0, SETTINGS_HISTORY_MAX));
+}
+
+//: The entry as it is kept: a way back that was never known or is too big is
+//: dropped, and the row says "Can't be undone" rather than offering a button
+//: that would fail.
+function settingsHistoryEntry(change) {
+  const entry = { ...change, id: change.id || `${change.at}-${Math.random().toString(36).slice(2, 6)}` };
+  const unknown = (entry.changes || []).some((c) => c.old === undefined);
+  const big = JSON.stringify(entry).length > SETTINGS_HISTORY_ENTRY_BYTES;
+  if (unknown || big) {
+    entry.noUndo = true;
+    entry.changes = (entry.changes || []).map((c) => ({ key: c.key }));
+    entry.data = null;
+  }
+  change.id = entry.id;
+  return entry;
+}
+
+//: Called by status.js `noteSettingChange` once this file is here.
+function settingsHistoryAdd(change) {
+  const list = settingsHistoryLoad();
+  const entry = settingsHistoryEntry(change);
+  //: A slider's ticks are one change (status.js carried the first old value
+  //: forward): this replaces the entry the last tick made.
+  if (list[0] && list[0].sig === entry.sig && entry.at - list[0].at < 2500) list.shift();
+  list.unshift(entry);
+  settingsHistorySave(list);
+  renderSettingsHistory();
+}
+
+function settingsHistoryFind(change) {
+  return settingsHistoryLoad().find((entry) => entry.id === change.id) || null;
+}
+
+//: Reapply one side of a change: "old" is Undo, "new" is Redo.
+async function settingsHistoryApply(change, side) {
+  const kept = settingsHistoryFind(change) || change;
+  if (kept.noUndo || change.noUndo) throw new Error("That change can't be undone: its old value was not kept.");
+  settingsHistoryBusy = true;
+  try {
+    if (kept.kind === "prefs") {
+      const body = {};
+      for (const c of kept.changes) body[c.key] = c[side];
+      prefsCache = await apiJson("/preferences", { method: "PUT", body: JSON.stringify(body) });
+    } else if (kept.kind === "look") {
+      for (const c of kept.changes) {
+        if (c[side] == null) localStorage.removeItem(c.key);
+        else localStorage.setItem(c.key, c[side]);
+      }
+      //: The path a fresh load applies the look by (the saved themes' own Apply).
+      applyThemeChoice(prefs.get("theme", "system"), false);
+      applyAppearance();
+      if (bgArtOn()) startBgArt();
+      else stopBgArt();
+      renderAppearance();
+    } else if (kept.kind === "recents") {
+      await ensureModule("searchSuggest");
+      if (side === "old") searchRecentRestore(kept.data.before);
+      else for (const scope of Object.keys(kept.data.before)) searchRecent.clear(scope);
+      if (typeof renderWebSearchHistory === "function") renderWebSearchHistory();
+      if (typeof renderWebPanelMenu === "function") renderWebPanelMenu(webEngineInfo);
+    } else if (kept.kind === "dismissed") {
+      if (side === "old") await apiJson("/suggestions/dismissed/restore", { method: "POST", body: JSON.stringify(kept.data) });
+      else kept.data = await apiJson("/suggestions/dismissed/clear", { method: "POST" });
+    } else if (kept.kind === "guide") {
+      await ensureModule("helpChat");
+      if (side === "old") restoreGuideTurns(kept.data.turns);
+      else helpChatNewChat();
+    }
+  } finally {
+    //: A look is mirrored to the notebook 800 ms after it is written: that PUT
+    //: is this Undo's own, not a new change.
+    if (kept.kind === "look") setTimeout(() => (settingsHistoryBusy = false), 2500);
+    else settingsHistoryBusy = false;
+  }
+  kept.undone = side === "old";
+  const list = settingsHistoryLoad().map((entry) => (entry.id === kept.id ? kept : entry));
+  settingsHistorySave(list);
+  change.undone = kept.undone;
+  renderSettingsHistory();
+  //: The pane in front shows the value that is now true.
+  if (settingsModalOpen() && typeof showSettingsSection === "function") showSettingsSection(currentSettingsSection);
+}
+
+async function settingsHistoryUndo(change) {
+  try {
+    await settingsHistoryApply(change, "old");
+    toast(`Undone: ${change.label}`);
+  } catch (error) {
+    toast(error.message || "Couldn't undo that.", true);
+  }
+}
+
+async function settingsHistoryRedo(change) {
+  try {
+    await settingsHistoryApply(change, "new");
+    toast(`Done again: ${change.label}`);
+  } catch (error) {
+    toast(error.message || "Couldn't do that again.", true);
+  }
+}
+
+function settingsHistoryRow(entry) {
+  const li = document.createElement("li");
+  li.className = "entry-item recent-change";
+  if (entry.undone) li.classList.add("is-undone");
+  const words = document.createElement("div");
+  words.className = "recent-change-words";
+  const label = document.createElement("span");
+  label.className = "recent-change-label";
+  label.textContent = entry.label;
+  const when = document.createElement("small");
+  when.className = "muted";
+  const ago = typeof relativeTime === "function" ? relativeTime(new Date(entry.at).toISOString()) : new Date(entry.at).toLocaleString();
+  when.textContent = entry.undone ? `${ago} · undone` : entry.noUndo ? `${ago} · can't be undone` : ago;
+  words.append(label, when);
+  li.appendChild(words);
+  if (!entry.noUndo) {
+    //: The row-actions recipe (DESIGN.md): a quiet text action, not a bordered
+    //: tonal button (INBOX 848).
+    const again = entry.undone;
+    li.appendChild(
+      rowActions(
+        [{
+          label: again ? "Do again" : "Undo",
+          title: again ? `Make this change again: ${entry.label}` : `Put it back: ${entry.label}`,
+          run: () => (again ? settingsHistoryRedo(entry) : settingsHistoryUndo(entry)),
+        }],
+        `Actions for ${entry.label}`
+      )
+    );
+  }
+  return li;
+}
+
+function renderSettingsHistory() {
+  const list = $("recent-changes-list");
+  if (!list) return;
+  const entries = settingsHistoryLoad();
+  if (!entries.length) {
+    const none = document.createElement("li");
+    none.className = "muted recent-change-empty";
+    none.textContent = "Nothing changed yet. Changes you make in Settings appear here.";
+    list.replaceChildren(none);
+    return;
+  }
+  list.replaceChildren(...entries.map(settingsHistoryRow));
+}

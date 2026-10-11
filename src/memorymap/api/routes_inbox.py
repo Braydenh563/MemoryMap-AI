@@ -192,3 +192,59 @@ def dismiss_type(body: TypeDecision, session: Session = Depends(get_session)) ->
     )
     session.commit()
     return {"dismissed": True}
+
+
+# --- what was dismissed, in one place (Brief 86, decision b) -----------------
+#
+# Settings, Data: "Clear dismissed suggestions". A dismissal is a correction
+# (`learning`) or, for a tension, a pair key in preferences. Clearing marks the
+# corrections revived rather than deleting them and hands back the old pair
+# keys, so the toast's Undo and the Recent changes list can put every one back.
+
+
+class DismissedRestore(BaseModel):
+    ids: list[int] = Field(default_factory=list, max_length=100_000)
+    tensions: list[str] = Field(default_factory=list, max_length=100_000)
+
+
+def _tension_keys() -> list[str]:
+    from memorymap.api.routes_entries import TENSION_DISMISSED_KEY
+    from memorymap.core import deps
+
+    return [str(key) for key in (deps.get_config().get_preference(TENSION_DISMISSED_KEY, []) or [])]
+
+
+@router.get("/dismissed")
+def dismissed_suggestions(session: Session = Depends(get_session)) -> dict:
+    """How many suggestions the person has said no to, by kind."""
+    by_kind = learning.dismissal_counts(session)
+    pairs = len(_tension_keys())
+    return {"total": sum(by_kind.values()) + pairs, "by_kind": by_kind, "tension_pairs": pairs}
+
+
+@router.post("/dismissed/clear")
+def clear_dismissed_suggestions(session: Session = Depends(get_session)) -> dict:
+    """Forget every dismissal; the response is what `/dismissed/restore` takes back."""
+    from memorymap.api.routes_entries import TENSION_DISMISSED_KEY
+    from memorymap.core import deps
+
+    tensions = _tension_keys()
+    ids = learning.revive_dismissals(session)
+    session.commit()
+    if tensions:
+        deps.get_config().set_preference(TENSION_DISMISSED_KEY, [])
+    return {"cleared": len(ids) + len(tensions), "ids": ids, "tensions": tensions}
+
+
+@router.post("/dismissed/restore")
+def restore_dismissed_suggestions(body: DismissedRestore, session: Session = Depends(get_session)) -> dict:
+    from memorymap.api.routes_entries import TENSION_DISMISSED_KEY
+    from memorymap.core import deps
+
+    restored = learning.restore_dismissals(session, body.ids)
+    session.commit()
+    if body.tensions:
+        have = _tension_keys()
+        merged = have + [key for key in body.tensions if key not in have]
+        deps.get_config().set_preference(TENSION_DISMISSED_KEY, merged)
+    return {"restored": restored + len(body.tensions)}

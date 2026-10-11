@@ -1161,7 +1161,7 @@ async function saveFile(filename, blob) {
           toast(error.message || "Couldn't open the exports folder.", true);
         });
       }, { record: false });
-      if (typeof renderExportsList === "function") renderExportsList();
+      renderExportsList();
       //: **A saved file is a notification, not only a toast.** Asked for
       //: (INBOX 159): "exported or downloaded files and images etc should
       //: appear in the notifications to be accessible". A toast is gone in

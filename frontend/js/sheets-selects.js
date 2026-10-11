@@ -2135,13 +2135,13 @@ async function loadChatSuggestions() {
   const label = document.createElement("span");
   label.className = "muted";
   //: UX-07: with no model a chip goes to Notes, Ask, and says so.
-  label.textContent = typeof aiIsOff === "function" && aiIsOff() ? "Try in Notes, Ask:" : "Try asking:";
+  label.textContent = aiIsOff() ? "Try in Notes, Ask:" : "Try asking:";
   box.appendChild(label);
   for (const question of picks) {
     //: No model: the chips go to Notes, Ask, like the dashboard's Ask tile
     //: (INBOX 472: they answered "no saved notes" over two notes).
     const chipEl = chip(question, "", async () => {
-      if (typeof aiIsOff === "function" && aiIsOff()) {
+      if (aiIsOff()) {
         await switchTab("notes");
         showNotesSection("ask");
         $("question").value = question;

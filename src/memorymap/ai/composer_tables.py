@@ -26,6 +26,8 @@ from __future__ import annotations
 
 import re
 
+from memorymap.ai import composer_replies
+
 VOICES = ("natural", "professional")
 DEFAULT_VOICE = "natural"
 
@@ -742,7 +744,11 @@ _FAMILIES_ADDED: dict[str, dict[str, list[str]]] = {'open_notes': {'natural': ['
                               'An absence of documentation was noted for ']},
  'nothing': {'natural': [], 'professional': []}}
 _PAIRS_ADDED: dict[str, dict[str, list[str]]] = {}
-for _table, _added in ((_FAMILIES, _FAMILIES_ADDED), (_PAIRS, _PAIRS_ADDED)):
+#: Nothing found, eight ways a voice (the owner: "can it have more varied
+#: responses??"); the families start empty here and take their lines whole.
+for _key in composer_replies.NOTHING_FAMILIES:
+    _FAMILIES.setdefault(_key, {"natural": [], "professional": []})
+for _table, _added in ((_FAMILIES, _FAMILIES_ADDED), (_PAIRS, _PAIRS_ADDED), (_FAMILIES, composer_replies.NOTHING_FAMILIES)):
     for _key, _by_voice in _added.items():
         for _voice, _variants in _by_voice.items():
             _table[_key][_voice] = _table[_key][_voice] + _variants

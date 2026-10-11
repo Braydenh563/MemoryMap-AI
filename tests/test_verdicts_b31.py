@@ -9,7 +9,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from pathlib import Path
 
-import _gold
+from tests import _gold
 from memorymap.ai import verdicts
 from memorymap.core.database import Entry
 from memorymap.entry import manager
@@ -99,4 +99,8 @@ def test_a_model_reads_the_verdicts_written_into_its_notes():
 def test_the_peek_carries_the_two_buttons():
     js = (ROOT / "frontend/js/capture-ask.js").read_text(encoding="utf-8")
     body = js[js.index("function openCitationPeek("):js.index("function closeCitationPeek(")]
-    assert "Wrong fact" in body and "Pin as true" in body and "/learned/verdict" in js
+    assert "citationVerdictRow(source, content)" in body
+    #: The row itself is built in the lazy ask-compose.js (the boot ratchet).
+    lazy = (ROOT / "frontend/js/ask-compose.js").read_text(encoding="utf-8")
+    row = lazy[lazy.index("//: **Wrong fact and Pin as true"):lazy.index("function askAnswerMenu(")]
+    assert "Wrong fact" in row and "Pin as true" in row and "/learned/verdict" in row

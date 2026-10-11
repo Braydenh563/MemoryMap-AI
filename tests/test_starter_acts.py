@@ -13,12 +13,16 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import starter_acts
+from memorymap.ai import composer, starter_acts
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = json.loads((ROOT / "tests" / "fixtures" / "composer" / "agent_starters_1010.json").read_text("utf-8"))
 STARTERS = FIXTURE["starters"]
-FALLBACK = re.compile(r"^Nothing I found mentions|^I could not find|^The model wrote nothing")
+#: Every wording of nothing found, in both voices (`composer_replies.NOTHING_FAMILIES`).
+FALLBACK = re.compile(
+    "|".join(f"^{re.escape(lead)}" for key in ("none_found", "nothing") for lead in composer.phrase_options(key))
+    + r"|^I could not find|^The model wrote nothing"
+)
 
 
 def _events(client, question, **body):

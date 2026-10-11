@@ -36,11 +36,12 @@ import zlib
 from collections import Counter
 from contextvars import ContextVar
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
 from functools import lru_cache
 from pathlib import Path
 
 from memorymap.ai import composer, composer_tables, glossary, realise, verdicts
+from memorymap.ai import recognise as recogniser
 from memorymap.ai import when as when_words
 
 #: The connecting words, one table (decision 72: a voice swaps this, never
@@ -565,8 +566,33 @@ def _pin(text: str, written: date) -> str:
     text = _PIN.sub(said, text)
     #: "Trimmed my first bowl today", written 2 September, is "on 2
     #: September"; under that day's own label the day is dropped (`_lines`).
-    text = re.sub(r"\s*\b(today|tonight|yesterday)\b", lambda m: f" on {_day(written - timedelta(days=m.group(1).lower() == 'yesterday'), today)}", text, flags=re.I)
+    for found in reversed(_spans(text, written)):
+        if found.kind in ("date", "datetime") and found.text.lower() in _DEICTIC:
+            day = found.value.date() if isinstance(found.value, datetime) else found.value
+            text = f"{text[:found.start].rstrip()} on {_day(day, today)}{text[found.end:]}"
     return text
+
+
+#: The words for the day a note was written, said as that day once read:
+#: the recogniser gives the day each means from the note's own date.
+_DEICTIC = frozenset(("today", "tonight", "yesterday"))
+
+
+@lru_cache(maxsize=4096)
+def _spans_at(text: str, written: date) -> tuple:
+    """The recogniser's first reading of each span in `text`, anchored at
+    noon on the day the note was written (the one reader of date words and
+    units, CHAT_PLAN decision 46)."""
+    return tuple(s for s in recogniser.recognise(text, now=datetime.combine(written, time(12))) if not s.rank)
+
+
+def _spans(text: str, written: date | None) -> tuple:
+    return _spans_at(text, written or _UNDATED) if text else ()
+
+
+#: The anchor for text with no day of its own: units and figures do not
+#: depend on it, and a day read against it is never said.
+_UNDATED = date(2000, 1, 1)
 
 
 def _tidy(text: str, written: date | None = None) -> str:
@@ -760,6 +786,7 @@ def _lines(out: _Out, facts: list[Fact], limit: int, skip: set[tuple] | None = N
         groups.setdefault(label or PHRASES["also"], []).append(f)
     shown = 0
     before: date | None = None
+    seen_days: list[date] = []
     for i, (label, held) in enumerate(list(groups.items())[: limit + (MORE_LINES if more else 0)]):
         bodies = list(dict.fromkeys(_lower_first(f.body.replace(f" on {label}", ""), _NAMES.get()) for f in held))
         #: A line made of pinned sentences says so once, at its end (B32).
@@ -768,6 +795,10 @@ def _lines(out: _Out, facts: list[Fact], limit: int, skip: set[tuple] | None = N
         line_body = _join(bodies) + (pins[-1] if pins else "")
         said = line_body + (_relate(line_body, by_day) if weave else "")
         written = held[0].view.written
+        #: The time since the latest note told above that came before this
+        #: one (gold Q2: "a week later, you tried the Viper", though the line
+        #: above it was made from the same later note).
+        before = max((d for d in seen_days if written and d < written), default=None)
         #: How this line stands to the one before (INBOX 870): the time
         #: between them, said as a clause, when they are days apart.
         #: Only before a clause of the person's own ("you tried ..."): "a
@@ -794,11 +825,18 @@ def _lines(out: _Out, facts: list[Fact], limit: int, skip: set[tuple] | None = N
             said = line_body + _relate(line_body, by_day)
         elif heading:
             line_body = _prose(label, held, bodies, i, by_day) + (pins[-1] if pins else "")
+            #: A note told by its day after an earlier one says the time
+            #: between (gold Q2: "a week later, you tried the Viper").
+            on_day = f"On {_day(written, by_day or written)}, " if written else ""
+            if on_day and before and (written - before).days >= 2 and line_body.startswith(on_day):
+                lead = _gap_on((written - before).days, _day(written, by_day or written))
+                line_body = lead[0].upper() + lead[1:] + line_body[len(on_day):]
             said = line_body + _relate(line_body, by_day)
         elif weave and i and before and written and (written - before).days >= 2 and mine:
             #: "A week later" names its day too (the owner, 2026-10-11).
             said = _gap_on((written - before).days, _day(written, by_day or written)) + line_body
-        before = written or before
+        if written:
+            seen_days.append(written)
         (out.lines if i < limit else out.more).append(f"{said}." if heading else f"**{label}:** {said}.")
         row = _row(line_body, held[0])
         #: Every sentence the line was made from (B31, B32): a verdict on
@@ -1030,7 +1068,7 @@ def _offer(facts: list[Fact]) -> dict | None:
     #: written 4 August, was 6 August): one gone by is not offered for this
     #: Thursday (the owner, 2026-10-11: relative time resolved everywhere).
     actions = [_asked_about(_still_ahead(f.action, f.view.written), f.body) for f in facts if f.action]
-    actions.sort(key=lambda a: not re.search(r"\b(mon|tues|wednes|thurs|fri|satur|sun)day\b|\btomorrow\b", a, re.I))
+    actions.sort(key=lambda a: not any(s.kind in ("date", "datetime") for s in _spans(a, None)))
     if not actions:
         for f in facts:
             still = _STILL_TO.search(f.sentence.text)
@@ -1083,9 +1121,23 @@ def _count(n: int, noun: str = "note") -> str:
 #: to the current datetime and the datetime that note was written)").
 _EVENT = re.compile(
     r"^(?P<subj>[A-Za-z][\w&' -]{1,40}?) (?P<verb>starts?|begins?|opens?|ends?|finish(?:es)?|is|are|goes|go)"
-    r"(?P<adv> back| again| up)? (?P<when>next week|this week|tomorrow|next month)\.?$",
+    r"(?P<adv> back| again| up)? (?P<when>[a-z ]+?)\.?$",
     re.I,
 )
+#: The relative times an event is said from today with: the recogniser
+#: must read the whole of `when` as one day or span, opening with one of these.
+_EVENT_WHEN = ("next ", "this ", "tomorrow")
+
+
+def _event(text: str, written: date | None):  # noqa: ANN202
+    """`_EVENT`'s match when its time is one relative day or span the
+    recogniser reads ("next week", "tomorrow", "next friday"), else None."""
+    m = _EVENT.match(text)
+    if m is None or written is None:
+        return None
+    when = m.group("when")
+    whole = [s for s in _spans(when, written) if s.kind in ("date", "range") and s.start == 0 and s.end == len(when)]
+    return m if whole and when.lower().startswith(_EVENT_WHEN) else None
 _BACK_AT = {"uni", "university", "school", "college", "work", "the gym", "training", "classes", "class"}
 _PAST = {"start": "started", "starts": "started", "begin": "began", "begins": "began", "open": "opened", "opens": "opened",
          "end": "ended", "ends": "ended", "finish": "finished", "finishes": "finished", "is": "was", "are": "were",
@@ -1119,10 +1171,10 @@ def _narrate(out: _Out, view, facts: list[Fact], today: date) -> set:
     "you went back to uni the week of 24 July"), then its facts woven in
     with a reporting verb, one citation for the line. The keys of the
     sentences said, for `_lines` to skip; empty when the note has no event."""
-    event = next((s for s in view.sentences if s.kind == "prose" and _EVENT.match(s.text.strip())), None)
+    event = next((s for s in view.sentences if s.kind == "prose" and _event(s.text.strip(), view.written)), None)
     if event is None or not view.written:
         return set()
-    m = _EVENT.match(event.text.strip())
+    m = _event(event.text.strip(), view.written)
     when, ahead = _when_now(m.group("when"), view.written, today)
     subj, verb, adv = m.group("subj").strip(), m.group("verb").lower(), (m.group("adv") or "")
     place = subj.lower()
@@ -1200,7 +1252,26 @@ def _overview(out: _Out, question: str, members, facts, today: date, kind: str) 
 
 
 _GOING = re.compile(r"\bhow(?:'s| is| are) .+ going\b|\bprogress\b|\bhow am i (?:going|doing)\b", re.I)
-_MEASURE = re.compile(r"\b([a-z]+)(?: up to| down to| at)? (\d+(?:\.\d+)?) ?(kg|kgs|km|kms|min|mins|minutes|reps|lbs|k|%)\b", re.I)
+#: The word a measure is of: "squats" in "squats up to 90 kg".
+_MEASURE_OF = re.compile(r"\b([a-z]+)(?: up to| down to| at)? $", re.I)
+_FIGURE = re.compile(r"(\d+(?:\.\d+)?)\s?(\S+)")
+
+
+def _measures(text: str) -> list[tuple[str, float, str, str]]:
+    """(what, value, figure, unit) for each measure in `text`: a weight, a
+    distance or a time the recogniser reads ("squats up to 90 kg", "ran 5
+    km", "30 min"), or a count of reps, beside the word it is of."""
+    out = []
+    for found in _spans(text, None):
+        figure = None
+        if found.kind == "duration" or (found.kind == "quantity" and found.value[2] != "ratio"):
+            figure = _FIGURE.match(found.text)
+        elif found.kind == "number" and text[found.end:found.end + 5].lower() == " reps":
+            figure = _FIGURE.match(text[found.start:found.end + 5])
+        of = _MEASURE_OF.search(text[:found.start]) if figure else None
+        if of:
+            out.append((of.group(1).lower(), float(figure.group(1)), figure.group(1), figure.group(2)))
+    return out
 
 
 def _progress(members: list[composer.NoteView], today: date) -> str:
@@ -1214,8 +1285,8 @@ def _progress(members: list[composer.NoteView], today: date) -> str:
     def measures(view: composer.NoteView) -> dict[str, tuple[float, str, str]]:
         found = {}
         for s in view.sentences:
-            for m in _MEASURE.finditer(s.text):
-                found.setdefault(m.group(1).lower(), (float(m.group(2)), m.group(2), m.group(3)))
+            for word, value, figure, unit in _measures(s.text):
+                found.setdefault(word, (value, figure, unit))
         return found
 
     a, b = measures(first), measures(last)
@@ -1228,17 +1299,28 @@ def _progress(members: list[composer.NoteView], today: date) -> str:
     return ""
 
 
+def _week_written(text: str, written: date | None, today: date) -> str:
+    """The week a note was written in, said as that week ("this week" in a
+    note of 2 September is "in the week of 2 September"): the recogniser
+    reads the span, and the one holding the day written is the note's own."""
+    if written is None:
+        return text
+    for found in reversed(_spans(text, written)):
+        if found.kind == "range" and found.value[2] == "week" and found.value[0] <= written <= found.value[1]:
+            text = f"{text[:found.start]}in the week of {_day(written, today)}{text[found.end:]}"
+    return text
+
+
 def _gone_quiet(members: list[composer.NoteView]) -> str:
     """"Nothing on bench since September": a measure an earlier note gives
     that the latest one does not (B4, how fresh)."""
     dated = [v for v in members if v.written]
     if len(dated) < 2:
         return ""
-    said_last = {m.group(1).lower() for s in dated[-1].sentences for m in _MEASURE.finditer(s.text)}
+    said_last = {m[0] for s in dated[-1].sentences for m in _measures(s.text)}
     for v in reversed(dated[:-1]):
         for s in v.sentences:
-            for m in _MEASURE.finditer(s.text):
-                word = m.group(1).lower()
+            for word, *_rest in _measures(s.text):
                 if word not in said_last:
                     return PHRASES["gone_quiet"].format(word=word, month=composer._MONTHS[v.written.month - 1])
     return ""
@@ -1320,7 +1402,7 @@ def _single(out: _Out, kind: str, question: str, members, facts, today: date) ->
         stems = {composer._stem(t) for t in composer.subject_terms(clean(question))}
         main = next((c for c in clauses if any(composer._holds(st, set(composer._words(c))) for st in stems)), clauses[0])
         said = _second_person(main)
-        said = re.sub(r"\bthis week\b", f"in the week of {_day(lead.view.written, today)}", said)
+        said = _week_written(said, lead.view.written, today)
         said = _tidy(said, lead.view.written)
         #: Against the aim the notes set (INBOX 870): "$84 ..., under your
         #: aim of $100 a week", which no one note says.
@@ -1827,8 +1909,8 @@ def _lift_table(members, today: date) -> tuple[str, str] | None:
     for v in members:
         found = {}
         for s in v.sentences:
-            for m in _MEASURE.finditer(s.text):
-                found.setdefault(m.group(1).lower(), f"{m.group(2)} {m.group(3)}")
+            for word, _value, figure, unit in _measures(s.text):
+                found.setdefault(word, f"{figure} {unit}")
         if found and v.written:
             rows.append((v.written, found))
             columns += [c for c in found if c not in columns]
@@ -1889,6 +1971,15 @@ def _more(out: _Out) -> dict | None:
     return {"labels": labels, "starts": starts, "label": PHRASES["more_show"].format(count=realise.count_word(len(out.more))), "lines": list(out.more)}
 
 
+def _lead_figure(line: str) -> str | None:
+    """The figure a count opens with ("$84", "90 kg", "12"), as the
+    recogniser reads it, for the page to draw large (`digestShape`): the
+    page finds it by its text and never reads a figure itself."""
+    lead = re.sub(r"\*\*", "", line)
+    found = next((s for s in _spans(lead, None) if s.kind in ("money", "quantity", "number", "duration")), None)
+    return found.text if found and found.start <= len("You've spent ") else None
+
+
 def _result(out: _Out, kind: str, question: str) -> dict:
     #: One paragraph a line: a single newline inside a paragraph is a space
     #: to every markdown reader, so the labelled lines ran together.
@@ -1903,7 +1994,8 @@ def _result(out: _Out, kind: str, question: str) -> dict:
         #: `digest` and `offer` ride on the support too: it is what the Ask
         #: box hands its grounding renderer, which then draws one mark a line
         #: and no chips or count under the answer.
-        "support": {"supported": n, "sentences": n, "unsupported": [], "digest": True, "offer": out.offer, "shape": kind, "more": _more(out)},
+        "support": {"supported": n, "sentences": n, "unsupported": [], "digest": True, "offer": out.offer, "shape": kind, "more": _more(out),
+                    "figure": _lead_figure(out.lines[0]) if kind == "count" and out.lines else None},
         "shape": f"digest:{kind}",
         "parts": [("template", text)],
         "next": list(out.next),

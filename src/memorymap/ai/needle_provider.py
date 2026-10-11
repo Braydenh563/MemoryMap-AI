@@ -57,7 +57,6 @@ from __future__ import annotations
 import ctypes
 import json
 import os
-import re
 import sys
 import threading
 import time
@@ -244,20 +243,46 @@ def _cleaned_arguments(arguments: dict, parameters: dict, text: str) -> dict | N
 
 def _said_by_tools(messages: list[dict]) -> str:
     """What the tools since the last request said, each as an answer (INBOX
-    801: "it doesnt output tool results with the composer"): a result the
-    realiser can say (`realise.tool_answer`: the time, a sum, counts, the
-    notes found) in its words, an error as the reason, anything else by its
-    own label ("Created a note"). Never the raw JSON, never "see the step"."""
+    801: "it doesnt output tool results with the composer"; the owner,
+    2026-10-11: "properly outputted in human readable ways and well
+    structured"): `tool_say` gives each a lead, a list or table, links to
+    what it names and the next tap; a failure as a sentence and the next
+    step. Never the raw JSON, never "see the step"."""
     said = []
+    tail = []
     for message in reversed(messages):
         if message.get("role") != "tool":
             break
-        said.append(_said_by_one(str(message.get("tool_name") or ""), _text(message.get("content")).strip()))
-    return "\n\n".join(reversed([s for s in said if s]))
+        tail.append(message)
+    calls = _calls_before(messages, len(tail))
+    for n, message in enumerate(reversed(tail)):
+        name = str(message.get("tool_name") or "")
+        args = calls[n] if n < len(calls) and calls[n][0] == name else (name, {})
+        said.append(_said_by_one(name, _text(message.get("content")).strip(), args[1]))
+    return "\n\n".join(s for s in said if s)
 
 
-def _said_by_one(name: str, words: str) -> str:
-    from memorymap.ai import realise
+def _calls_before(messages: list[dict], results: int) -> list[tuple[str, dict]]:
+    """The (name, arguments) of the calls the last `results` tool messages
+    answer, in order: the assistant turn just before them."""
+    at = len(messages) - results - 1
+    if at < 0 or messages[at].get("role") != "assistant":
+        return []
+    out = []
+    for call in messages[at].get("tool_calls") or []:
+        fn = (call or {}).get("function") or {}
+        args = fn.get("arguments")
+        if isinstance(args, str):
+            try:
+                args = json.loads(args)
+            except ValueError:
+                args = {}
+        out.append((str(fn.get("name") or ""), args if isinstance(args, dict) else {}))
+    return out
+
+
+def _said_by_one(name: str, words: str, args: dict | None = None) -> str:
+    from memorymap.ai import tool_say
 
     if words[:1] not in ("{", "["):
         return words[:600]
@@ -267,13 +292,7 @@ def _said_by_one(name: str, words: str) -> str:
         result = None
     if not isinstance(result, dict):
         return "Done."
-    if result.get("error"):
-        return f"That did not work: {str(result['error'])[:300]}"
-    shown = realise.tool_answer(name, result, datetime.now().date())
-    if shown:
-        return shown["text"]
-    label = re.sub(r"^ph:[\w-]+\s*", "", str(result.get("label") or "")).strip()
-    return f"{label}." if label and not label.endswith(".") else (label or "Done.")
+    return tool_say.say(name, result, args or {}, datetime.now().date())["text"]
 
 
 class NeedleProvider(Provider):

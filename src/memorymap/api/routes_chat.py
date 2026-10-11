@@ -29,9 +29,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
+from sqlalchemy import text as sql_text
 from sqlalchemy.orm import Session
 
-from memorymap.ai import budget as run_budget, capability, composer, composer_digest, glossary, verdicts, why
+from memorymap.ai import budget as run_budget, capability, composer, composer_digest, find_it, glossary, phrasing, verdicts, vocative, why
 from memorymap.ai import (
     acts,
     agent,
@@ -72,6 +73,7 @@ from memorymap.core.database import (
     Category,
     Conversation,
     Document,
+    Entity,
     Entry,
     MediaUpload,
     Reminder,
@@ -1968,6 +1970,9 @@ class _StreamRequest:
     #: Set by Stop in Activity. The run's Activity job and its budget share it,
     #: so a write the model asked for as Stop landed is refused (Brief 101b).
     stop: threading.Event = field(default_factory=threading.Event)
+    #: What the message called the assistant ("hey lil bro, ..."), taken off
+    #: `question` (`vocative.split`); `call` when that was all it said.
+    address: vocative.Address | None = None
 
 
 def _composed(req: _StreamRequest, ollama_running: bool) -> bool:
@@ -2191,19 +2196,36 @@ def _tool_read_events(req: _StreamRequest) -> list[dict]:
     names the tool (`reading.tool_of`), Chat runs it with no arguments, and
     the realiser says it in one line and draws it in its form. Empty when the
     sentence names no such tool, so the composer answers as before."""
-    from memorymap.ai import act_registry, reading, realise
+    from memorymap.ai import act_registry, question_noise, reading, realise, tool_say
     from memorymap.ai import tools as agent_tools
 
     now = user_now(deps.get_config())
-    got = reading.read(req.question, now=now)
+    #: Read as repaired: "shwo me evry tag i hav plz" is the tag list, as
+    #: "list my tags" is (the routing gold, `fixtures/composer/routing_1011.json`).
+    asked = question_noise.repair(question_noise.tidy(req.question or ""))
+    filed = reading.filed_listing(asked)
+    if filed:
+        #: "list my work notes": the Work notes, or the notes tagged work
+        #: (ledger row 442); a name that is neither is the composer's.
+        for key in ("category", "tag"):
+            args = {key: filed}
+            result = agent_tools.execute_tool(req.session, "list_notes", args)
+            if isinstance(result, dict) and result.get("total_matching"):
+                said = tool_say.say("list_notes", result, args, now.date())
+                return [{"type": "answer", "delta": said["text"]}]
+    got = reading.read(asked, now=now)
     if got.tool not in act_registry.NO_MODEL_READS or got.intent in act_registry.ACTS:
         return []
-    said = realise.tool_answer(got.tool, agent_tools.execute_tool(req.session, got.tool, {}), now.date())
-    if said is None:
-        return []
-    out = [{"type": "answer", "delta": said["text"]}]
-    if said["chart"]:
-        out.append({"type": "chart", "chart": said["chart"]})
+    result = agent_tools.execute_tool(req.session, got.tool, {})
+    drawn = realise.tool_answer(got.tool, result, now.date())
+    #: Said with its links to what it lists and the place to open
+    #: (`tool_say`); a chart, when the counts make one, stands for the table.
+    said = tool_say.say(got.tool, result, {}, now.date())
+    chart = drawn["chart"] if drawn else None
+    parts = (said["lead"], "" if chart else said["body"], said["chips"])
+    out = [{"type": "answer", "delta": "\n\n".join(p for p in parts if p)}]
+    if chart:
+        out.append({"type": "chart", "chart": chart})
     return out
 
 
@@ -2231,6 +2253,62 @@ def _capability_answer(req: _StreamRequest, ollama_running: bool) -> str:
     return capability.answer(req.question, prefs={"web_search_enabled": web}, model_running=ollama_running)
 
 
+def _in_notes(session: Session):  # noqa: ANN202
+    """Whether any note, or any person or thing the notes name, holds a
+    word: such a word is never taken for an invented nickname. Asked only of
+    a word that is otherwise invented, so at most once or twice a message."""
+
+    def holds(word: str) -> bool:
+        if not word.isalpha():
+            return False
+        try:
+            found = session.execute(
+                sql_text("SELECT 1 FROM entries_fts WHERE entries_fts MATCH :w LIMIT 1"), {"w": f'"{word}"'}
+            ).first()
+            return found is not None or session.scalar(select(Entity.id).where(func.lower(Entity.name) == word).limit(1)) is not None
+        except Exception:  # noqa: BLE001  # no index yet: nothing is known
+            return False
+
+    return holds
+
+
+def _reply_seed(req: _StreamRequest) -> tuple[list[str], str]:
+    """The last replies in this conversation, oldest first, and its seed: the
+    chat's salt, the day and the Ask again count, so a new chat on a new day
+    opens differently and a replayed one says the same."""
+    history = req.history or []
+    recent = [str(turn.get("answer") or "") for turn in history[-phrasing.RECENT :]]
+    salt = composer.Dialogue.from_history(history).salt
+    return recent, f"{salt}:{date.today().isoformat()}:{req.body.attempt}"
+
+
+def _social_reply(req: _StreamRequest, prepared: dict) -> str:
+    """The app's own reply to small talk (INBOX 741), never echoing the last
+    three replies (the owner: "can it have more varied responses??")."""
+    recent, seed = _reply_seed(req)
+    last = (req.history or [{}])[-1] if req.history else {}
+    return composer.social(
+        req.question,
+        prepared["intent"],
+        str(last.get("answer") or ""),
+        str(last.get("question") or ""),
+        voice=_composer_voice(),
+        recent=recent,
+        seed=seed,
+    )
+
+
+def _call_events(req: _StreamRequest) -> list[dict]:
+    """A message that only called the assistant: here, and three things to
+    ask next as chips (an "ask" offer; the follow-up strip draws them)."""
+    recent, seed = _reply_seed(req)
+    line = composer.call(req.address.names, recent=recent, seed=seed, voice=_composer_voice())
+    return [
+        {"type": "answer", "delta": line},
+        {"type": "offer", "offer": {"kind": "ask", "label": "", "asks": composer.call_asks(seed)}},
+    ]
+
+
 def _exact_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> list[dict] | None:
     """**A counted answer, streamed as one piece**, or a read tool's answer
     with no model. See the same branch in `chat()`: the number is already
@@ -2240,6 +2318,13 @@ def _exact_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
     goes on to compose or generate."""
     if _asks_capability(req, prepared) and _app_answers(req, ollama_running):
         return [{"type": "answer", "delta": _capability_answer(req, ollama_running)}]
+    if req.address is not None and req.address.call and _app_answers(req, ollama_running):
+        return _call_events(req)
+    #: "Where is the bin?", "I can't find dark mode": the place and a link
+    #: that opens it and rings the control (`ai/find_it.py`).
+    placed = find_it.answer(req.question or "") if _app_answers(req, ollama_running) and not req.images_raw else None
+    if placed is not None:
+        return [{"type": "answer", "delta": placed["text"]}, {"type": "offer", "offer": placed["offer"]}]
     if _nothing_open(req.body) and _app_answers(req, ollama_running):
         return [{"type": "answer", "delta": composer_digest.PHRASES["nothing_open"]}]
     if prepared["stats"] is not None:
@@ -2276,16 +2361,7 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         #: The app answers small talk itself when the answer is composed (the
         #: Ask box's From your notes, or no model): "what can you do" or
         #: "hello" there used to get no answer at all (engine probe P2).
-        yield {
-            "type": "answer",
-            "delta": composer.social(
-                req.question,
-                prepared["intent"],
-                str((req.history or [{}])[-1].get("answer") or "") if req.history else "",
-                str((req.history or [{}])[-1].get("question") or "") if req.history else "",
-                voice=_composer_voice(),
-            ),
-        }
+        yield {"type": "answer", "delta": _social_reply(req, prepared)}
         return
     #: A question about what Atlas can do is not small talk: with a model
     #: up it goes to the model with the app's own line (decision 75).
@@ -2314,17 +2390,13 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
             #: The app's own voice, warm and varied (INBOX 741): with no model
             #: running Chat still answers from the notes, so small talk says
             #: so rather than "the AI model isn't running".
-            offline = composer.social(
-                req.question,
-                prepared["intent"],
-                str((req.history or [{}])[-1].get("answer") or "") if req.history else "",
-                str((req.history or [{}])[-1].get("question") or "") if req.history else "",
-                voice=_composer_voice(),
-            )
-            yield {"type": "answer", "delta": offline}
+            yield {"type": "answer", "delta": _social_reply(req, prepared)}
             return
+        #: Small talk reaches the model as it was said, its nickname and all
+        #: ("thanks legend"): the name came off only so nothing searched it.
+        said = question_noise.tidy(req.body.question) if req.address is not None else req.question
         messages = librarian.build_conversational_messages(
-            f"{req.question}\n\n{req.image_context}" if req.image_context else req.question,
+            f"{said}\n\n{req.image_context}" if req.image_context else said,
             prepared["intent"],
             style=prepared["style"],
             profile=prepared["profile"],
@@ -3232,6 +3304,14 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     #: Cleaned before anything reads it (INBOX 801): a stray backslash, a run
     #: of spaces, a sentence typed in capitals (`question_noise.tidy`).
     question = skill["question"] if skill else question_noise.tidy(body.question) or body.question
+    #: A name in address position comes off before anything reads the
+    #: question, so "brotato what's on today" searches for today, not for
+    #: brotato, and "yo brotatockiibidyrizzler" is a call, never a search.
+    address = None if skill else vocative.split(question, in_notes=_in_notes(session))
+    if address is not None and address.names:
+        question = address.question
+    else:
+        address = None
     allowed_tools = skill["tools"] if skill else None
     if skill and skill["acts"]:
         # An action skill without tools is just a paragraph, so the route
@@ -3257,6 +3337,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
         skill=skill,
         question=question,
         allowed_tools=allowed_tools,
+        address=address,
     )
 
     # X-Accel-Buffering: no tells reverse proxies (nginx) not to buffer the

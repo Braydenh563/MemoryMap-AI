@@ -1186,6 +1186,11 @@ def _start_services() -> Path:
     # first note waits the model's cold load, about 7 s, to be filed).
     if deps.get_config().get_preference("warm_search_model_at_launch", True):
         embeddings.start_warmup(deps.get_embeddings(), deps.get_db().session)
+        #: The speller's lists and the UK/US pairs (INBOX 895), about a
+        #: second built once, so the first question does not wait for them.
+        from memorymap.ai import spelling
+
+        spelling.warm_in_background()
     # The filing model's warm-up and the retry of stand-ins are *not* started
     # here: `create_app` runs for every test app too, and a model call at
     # construction was an extra round on every fake model in the suite. The

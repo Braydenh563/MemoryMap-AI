@@ -57,6 +57,16 @@ class Capability:
 
 
 CAPABILITIES: tuple[Capability, ...] = (
+    #: "do you send my notes anywhere" was answered "Yes. Say make a note"
+    #: (item 8 of the composer brief, 2026-10-11): privacy first.
+    Capability("privacy", re.compile(
+        r"\b(send|sends|sending|share|sharing|upload\w*|sell|leak\w*|cloud|servers?|track\w*|spy\w*|private|privacy|"
+        r"(?:go|goes|leave|leaves|sent) (?:anywhere|to the internet|this (?:computer|device|laptop|pc))|safe|secure|stored|kept)\b", re.I),
+        "No.", "Your notes stay on this computer, and nothing is sent anywhere on its own. Web search sends only the words "
+        "you search for, and only when it is on; a model you connect gets the notes a question needs, so one running on "
+        "this computer keeps everything here."),
+    Capability("access", re.compile(r"\b(see|read|access|look at|view|know)\b(?: \w+){0,2} (?:notes?|stuff|files|data)\b", re.I),
+               "Yes, here on this computer.", "I read your notes to answer you, and they never leave it."),
     Capability("web", re.compile(r"\b(web|internet|online|google|browse|websites?|pages?|look (?:it )?up)\b", re.I),
                "Yes, when web search is on.",
                "Ask \"search the web for ...\" and I answer from the pages I read, with their links under the answer.",
@@ -105,10 +115,21 @@ def _clean(question: str) -> str:
     return re.sub(r"^[\\/'\"`\s]+|[\\/'\"`?.!\s]+$", "", text)
 
 
+#: "do my notes go online", "is my data private", "where are my notes
+#: stored": a question about where the notes go, answered by "privacy".
+_PRIVACY = re.compile(
+    r"^(?:do|does|will|would|are|is|can|could) (?:my|your|the|all my) (?:notes?|data|stuff|files|information|info|entries)\b.*"
+    r"\b(?:go|leave|sent|send|online|cloud|private|safe|secure|shared|uploaded|stored|seen)\b"
+    r"|^(?:is|are) (?:this|it|the app|this app|atlas|memorymap) (?:private|safe|secure|online|offline|local)\b"
+    r"|^where (?:are|is|do|does) (?:my|the) (?:notes?|data|stuff|files) (?:stored|kept|go|saved|live)\b",
+    re.I,
+)
+
+
 def asks(question: str) -> bool:
     """Whether `question` asks what Atlas can do rather than asking it to."""
     text = _clean(question)
-    if _OVERVIEW.match(text):
+    if _OVERVIEW.match(text) or _PRIVACY.match(text):
         return True
     m = _LEAD.match(text)
     if not m:
@@ -125,11 +146,20 @@ def answer(question: str, *, prefs: dict | None = None, model_running: bool = Fa
     prefs = prefs or {}
     text = _clean(question)
     found = [c for c in CAPABILITIES if c.words.search(text)] if not _OVERVIEW.match(text) else []
+    if _PRIVACY.match(text):
+        found = [c for c in CAPABILITIES if c.key == "privacy"]
     if not found:
         model = "A model is connected, so I can also write and translate." if model_running else (
             "With no model connected I do all of this myself; connecting one in Settings, Models adds writing and translating.")
         return "\n\n".join([*OVERVIEW, model, "Try \"what have I saved about uni?\""])
     c = found[0]
+    if c.key == "privacy":
+        #: "is my data private" is a yes; "do you send my notes" a no; "where
+        #: are my notes stored" neither (the answer says where).
+        if re.match(r"^where\b", text, re.I):
+            return c.how
+        sending = re.search(r"\b(send|sends|sent|sending|share|sharing|upload\w*|sell|leak\w*|cloud|servers?|track\w*|spy\w*|online|go|goes|leave|leaves)\b", text, re.I)
+        return f"{'No.' if sending else 'Yes.'} {c.how}"
     lines = []
     if c.model and model_running:
         lines.append("Yes, with the model you have connected.")

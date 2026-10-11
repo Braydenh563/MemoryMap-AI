@@ -2992,7 +2992,7 @@ li.link-source {
   color: var(--muted);
   cursor: pointer;
 }
-.icon-btn:hover,
+.icon-btn:is(:hover, :focus-visible),
 .icon-btn:is(:focus-visible, :has(:focus-visible)) {
   background: var(--chip-bg);
   color: var(--ink);

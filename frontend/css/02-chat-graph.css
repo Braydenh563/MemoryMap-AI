@@ -267,7 +267,7 @@
 /* One style for both roles. The user's used to be translucent white because
    the row sat *on* an accent-filled bubble; below it, both rows sit on the
    page and a white-on-page button is invisible in a light theme. */
-.msg-action:hover,
+.msg-action:is(:hover, :focus-visible),
 .msg-action:is(:focus-visible, :has(:focus-visible)) {
   background: var(--accent-soft);
 }
@@ -1072,7 +1072,7 @@ body.graph-fullscreen-on .sidebar-panel {
   box-shadow: none;
   transition: background var(--ui-fast) var(--ease-out), scale var(--ui-fast) var(--ease-out);
 }
-.graph-zoom-btn:hover,
+.graph-zoom-btn:is(:hover, :focus-visible),
 .graph-zoom-btn:is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg-hover);
 }
@@ -2425,7 +2425,7 @@ kbd {
   flex: 0 0 auto;
   white-space: nowrap;
 }
-.toast-action:hover,
+.toast-action:is(:hover, :focus-visible),
 .toast-action:is(:focus-visible, :has(:focus-visible)),
 .toast .toast-help:hover,
 .toast .toast-help:is(:focus-visible, :has(:focus-visible)) {
@@ -2442,7 +2442,7 @@ kbd {
   opacity: 0.6;
   cursor: pointer;
 }
-.toast-close:hover,
+.toast-close:is(:hover, :focus-visible),
 .toast-close:is(:focus-visible, :has(:focus-visible)) {
   opacity: 1;
 }
@@ -3348,7 +3348,7 @@ html {
   font: inherit;
   font-size: var(--text-base);
 }
-.legend-toggle:hover,
+.legend-toggle:is(:hover, :focus-visible),
 .legend-toggle:is(:focus-visible, :has(:focus-visible)) {
   background: var(--accent-soft);
 }

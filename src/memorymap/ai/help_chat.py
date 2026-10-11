@@ -52,8 +52,12 @@ from memorymap import SUPPORT_EMAIL
 from memorymap.ai import AI_NAME
 from memorymap.ai import act_registry, presets, question_noise, spelling
 from memorymap.ai.help_topics_more import HELP_GROUPS, MORE_TOPICS, TOPIC_META
-from memorymap.ai.model_manager import ModelManager
-from memorymap.ai.provider import Provider
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:  # annotations only: the speller reads this module's topics,
+    # and importing the model manager drew in SQLAlchemy for a typed question.
+    from memorymap.ai.model_manager import ModelManager
+    from memorymap.ai.provider import Provider
 
 #: **The guide's name, in one place** (INBOX 204, the owner: "give the help ai
 #: a name fitting for the application like a persona and improve its
@@ -2412,7 +2416,7 @@ def _matching_topics(question: str) -> list[dict]:
     #: panel", "thes ebuttons"): misspellings put right, split words joined,
     #: before the keywords are read. The keyword typo rule below stays, for a
     #: word the speller does not know.
-    lowered = _normalise_keys(question_noise.repair(question).lower())
+    lowered = _normalise_keys((act_registry.repair or str)(question).lower())
     words = [w for w in _WORD.findall(lowered) if w not in _STOP]
     total = len(HELP_TOPICS)
     scores: dict[str, float] = {}
@@ -2811,6 +2815,7 @@ def offline_answer(
     social = social_reply(question)
     if social:
         return social
+    question, said = _read_as(question)
     topics = topics_for(question, tab) if question else []
     if not topics:
         #: The app's help text for whatever is on screen, when there is any:
@@ -2829,11 +2834,26 @@ def offline_answer(
     #: (INBOX 430's layout), which the client offers as "From the help".
     system = system_answer(topics)
     return {
-        "content": f"{composed_answer(question, topics)}\n\n{OFFLINE_LEAD}",
+        "content": f"{said}{composed_answer(question, topics)}\n\n{OFFLINE_LEAD}",
         "badges": badges_for(topics),
         "sources": source_names(topics),
         "system": system,
     }
+
+
+def _read_as(question: str) -> tuple[str, str]:
+    """The question with its misspellings put right, and the line that says
+    so ("Reading that as ..."), as the composer's answers open (ledger row
+    404): "hwo do i set a remnder" gets the steps "how do I set a reminder"
+    gets, not the topic's first sentence."""
+    from memorymap.ai import composer_ack, question_noise
+
+    fixed: list = []
+    repaired = question_noise.repair(question_noise.tidy(" ".join(question.split())), fixed=fixed) if question else question
+    if not fixed:
+        return question, ""
+    said = "".join(part[1] for part in composer_ack.acknowledge(repaired, voice="natural", seed=question))
+    return repaired, said
 
 
 def answer_stream(

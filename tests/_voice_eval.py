@@ -103,6 +103,11 @@ def trace(remark: dict, notes: list[dict], on: date, *, answer_phrases: bool = F
             for nid in named:
                 if not re.search(rf"\b{re.escape(text)}\b", by_id[nid]["content"], re.I):
                     failures.append(f"note {nid} does not hold {text!r}")
+        elif kind == "address":
+            #: A link around a note's name: "[" and "](#/notes/<a note found>)".
+            linked = re.fullmatch(r"\]\(#/notes/(\d+)\)", text)
+            if text != "[" and not (linked and int(linked.group(1)) in by_id):
+                failures.append(f"not a link to a note found: {text!r}")
         elif kind == "reminder":
             if text not in [r["text"] for r in REMINDERS]:
                 failures.append(f"not a reminder's words: {text!r}")

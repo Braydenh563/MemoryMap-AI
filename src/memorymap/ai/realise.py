@@ -77,7 +77,10 @@ _PHRASES = (
 )
 _PHRASE_RES = tuple((re.compile(p), r) for p, r in _PHRASES)
 #: "Sam and I", "Sam and me": the person first, as people say it of others.
-_AND_I = re.compile(r"\b([A-Z][a-z]+(?: [A-Z][a-z]+)?) and (?:I|me)\b")
+_AND_I = re.compile(
+    r"\b((?!(?:Then|And|But|So|When|After|Before|Yesterday|Today|Tomorrow|Later|Also|Now|Once|Last|This|Next|Finally)\b)"
+    r"[A-Z][a-z]+(?: [A-Z][a-z]+)?) and (?:I|me)\b"
+)
 _WORDS = {"i": "you", "me": "you", "my": "your", "mine": "yours", "myself": "yourself"}
 _WORD_RE = re.compile(r"\b(I|me|my|mine|myself|Me|My|Mine|Myself|MY)\b")
 #: Where someone else's words start: a quotation mark, or "said:"-like.
@@ -104,8 +107,22 @@ _KEEP = re.compile(
 )
 
 
+#: "I live in Perth and I work at the cafe": a place after a preposition,
+#: then a new clause, is not a person beside the writer (found 2026-10-11:
+#: it read "you live in you and Perth work").
+_PLACE_BEFORE = re.compile(r"\b(?:in|at|to|from|near|for|on|of|by|into|around|across|outside|inside|visit|visited)\s+$", re.I)
+
+
+def _with_you(match: re.Match) -> str:
+    before = match.string[: match.start()]
+    after = match.string[match.end():]
+    if _PLACE_BEFORE.search(before) and re.match(r"\s+[a-z]", after) and match.group(0).endswith(" I"):
+        return match.group(0)
+    return f"you and {match.group(1)}"
+
+
 def _shift_words(text: str) -> str:
-    text = _AND_I.sub(lambda m: f"you and {m.group(1)}", text)
+    text = _AND_I.sub(_with_you, text)
     for pattern, said in _PHRASE_RES:
         text = pattern.sub(said, text)
     return _WORD_RE.sub(lambda m: _case_like(m.group(1), _WORDS[m.group(1).lower()]), text)
@@ -263,7 +280,7 @@ def cut_title(title: str, limit: int) -> str:
 # --- the variety floor (decision 51) ------------------------------------------------
 
 #: Parts that carry a fact or the person's words: fixed whatever the turn.
-PROTECTED = frozenset({"confirmed", "quote", "title", "filed", "picture", "measure", "asked", "help", "web", "reminder", "term"})
+PROTECTED = frozenset({"address", "confirmed", "quote", "title", "filed", "picture", "measure", "asked", "help", "web", "reminder", "term"})
 #: Twenty turns of one question in one chat open at least eight ways: the
 #: plan's floor was three (2026-10-10; measured 1 before the mention lead had
 #: variants), raised to decision 58's target of eight by Brief 84 (measured
@@ -419,7 +436,9 @@ def _say_named(tool: str, result: dict, today: date) -> tuple[str, dict]:
 
 def _say_count(tool: str, result: dict, today: date) -> tuple[str, dict]:
     per = [{"name": k, "notes": int(v)} for k, v in (result.get("by_category") or {}).items()]
-    lead = f"You have {count_noun(int(result.get('total') or 0), 'note')}."
+    #: A scoped count ("tagged harbor") is `count`; the whole notebook's is
+    #: `total`. Reading only `total` said "You have no notes." to the first.
+    lead = f"You have {count_noun(int(result.get('total') or result.get('count') or 0), 'note')}."
     return lead, render(per, title="Notes per category", by="category") if len(per) > 1 else _EMPTY
 
 

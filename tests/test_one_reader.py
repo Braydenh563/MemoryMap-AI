@@ -7,7 +7,8 @@ The scan is F0's (`scratchpad/reader_count.py`). The count was 6 files when
 F0 measured it and 9 on the head Brief 65 started from (Brief 39 added
 `utilities`, `factgraph` and `insights`); after Brief 65 it is 1:
 `ai/composer.py`'s `_DATE_CUE`, the engine's file, which scores a sentence as
-dated and turns nothing into a value. The set below only shrinks: a new
+dated and turns nothing into a value; ledger row 453 (2026-10-11) moved that
+and its window pattern into the recogniser, so it is 0. The set below only shrinks: a new
 reader fails this test, and a reader that delegates must leave the set here.
 """
 
@@ -19,7 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 #: The files still reading, each a row of `agent-remaining/f1-1010.md` to move.
-STILL_READING = {"src/memorymap/ai/composer.py"}
+STILL_READING: set[str] = set()
 
 
 def _scan():

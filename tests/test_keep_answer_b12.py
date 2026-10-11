@@ -5,11 +5,14 @@ undo stack, built from `kebabMenu` (DESIGN.md: a menu behind a button).
 
 from __future__ import annotations
 
-from _app_js import app_js_text
+from tests._app_js import app_js_text
 
 
 def _body(name: str) -> str:
-    js = app_js_text()
+    from pathlib import Path
+
+    lazy = Path(__file__).resolve().parents[1] / "frontend" / "js" / "ask-compose.js"
+    js = app_js_text() + lazy.read_text(encoding="utf-8")
     start = js.index(f"function {name}(")
     return js[start : js.index("\n}\n", start)]
 

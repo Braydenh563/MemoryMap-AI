@@ -234,11 +234,13 @@ def test_compare_draws_two_sides_with_measured_counts():
     text = result["text"]
     assert text.startswith(
         tuple(
-            f"{lead}one mentions Lisbon and one mentions Porto. {each}"
+            f"{lead}one mentions Lisbon and one mentions Porto.\n\n**Lisbon**\n"
             for lead in composer.phrase_options("of_found") + composer.phrase_options("across_found")
-            for each in composer.phrase_options("each_side")
         )
-    )
+    ), text
+    #: The lead names only what follows (probe P15, ledger row 443): no
+    #: sentence promising the sides before the sides, under 14 words.
+    assert len(text.split("\n", 1)[0].split()) <= 14, text
     #: Each side's count is said once, by the lead (decision 52), not again
     #: beside its heading.
     assert "**Lisbon**\n" in text and "**Porto**\n" in text and "(one note)" not in text
@@ -309,7 +311,10 @@ def test_words_no_note_found_holds_are_named_in_the_closing_line():
 def test_the_closing_line_is_left_out_when_nothing_matched_at_all():
     result = ask("What is the capital of Peru?")
     #: Engine probe P1: the no-answer names the words no note found holds.
-    assert result["text"] == composer.PHRASES["none_found"] + "“capital” or “Peru”. " + composer.PHRASES["nothing_ask"]
+    #: One of eight leads and eight questions back (the owner: "can it have more varied responses??").
+    lead = next(w for w in composer.phrase_options("none_found") if result["text"].startswith(w))
+    assert result["text"][len(lead):].startswith("“capital” or “Peru”. ")
+    assert result["text"].endswith(tuple(composer.phrase_options("nothing_ask")))
     assert result["grounding"] == [] and result["next"] == []
 
 

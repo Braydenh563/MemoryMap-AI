@@ -365,8 +365,10 @@ def stored_repeat(rule: str) -> str | None:
     head = rule.split(";BYHOUR=")[0]
     if head in _STORED_REPEATS:
         return _STORED_REPEATS[head]
-    found = re.fullmatch(r"FREQ=(WEEKLY|MONTHLY);BY(?:DAY=[A-Z]{2}|MONTHDAY=\d{1,2})", head)
-    if found:
+    found = re.fullmatch(r"FREQ=(WEEKLY|MONTHLY);BY(?:DAY=[A-Z]{2}|MONTHDAY=(\d{1,2}))", head)
+    #: The 29th to the 31st is not in every month: "monthly" would carry
+    #: February's 28th on into March (ledger row 414), so the day stays.
+    if found and int(found.group(2) or 0) < 29:
         return _STORED_REPEATS["FREQ=" + found.group(1)]
     return head if STORED_RULE.fullmatch(head) else None
 
@@ -419,6 +421,13 @@ def _add_months(at: datetime, months: int, parts: dict, day_of_month: int | None
         want = int(parts.get("BYMONTHDAY", day_of_month or at.day))
         day = date(year, month, max(d for d in range(1, want + 1) if _valid_day(year, month, d)))
     return datetime.combine(day, at.timetz())
+
+
+def anchored(rule: str, due: date) -> str:
+    """A plain "monthly" set on the 29th to the 31st, as the rule that keeps
+    that day: the first roll on lands on the 28th of February, and a bare
+    "monthly" would stay there (ledger row 414)."""
+    return f"FREQ=MONTHLY;BYMONTHDAY={due.day}" if rule == "monthly" and due.day >= 29 else rule
 
 
 def next_occurrence(rule: str, after: datetime, day_of_month: int | None = None) -> datetime:
@@ -665,8 +674,10 @@ _DATE_PHRASE_SOURCE = (
             r"(?:last|this|next|coming|on) " + _WEEKDAY_RE + r"(?: (?:morning|afternoon|evening|night))?",
             r"\d{4}-\d{2}-\d{2}",
             r"(?:on )?(?:the )?" + _ORD + r" of (?:next|this|last) month",
-            r"(?:the )?\d{1,2}(?:st|nd|rd|th)? (?:of )?" + _MONTH_RE + r"(?: \d{4})?",
-            _MONTH_RE + r" \d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?",
+            #: "on the 14th of November" whole, never "on the 14th" of this
+            #: month (ledger row 441); "November the 14th" too.
+            r"(?:on (?=the ))?(?:the )?\d{1,2}(?:st|nd|rd|th)? (?:of )?" + _MONTH_RE + r"(?: \d{4})?",
+            _MONTH_RE + r" (?:the )?\d{1,2}(?:st|nd|rd|th)?(?:,? \d{4})?",
             r"(?:on )?the " + _ORD,
             #: "dentist 21st 9am": a bare ordinal is a day of the month only
             #: with a clock right after it (engine probe: it was tomorrow).
@@ -869,7 +880,7 @@ def span(phrase: str, anchor: date, tense: str | None = None) -> tuple[date, dat
             return None
         return day, day, "day"
     found = re.fullmatch(r"(?:the )?(\d{1,2})(?:st|nd|rd|th)? (?:of )?" + _MONTH_RE + r"(?: (\d{4}))?", text) or re.fullmatch(
-        _MONTH_RE + r" (\d{1,2})(?:st|nd|rd|th)?(?: (\d{4}))?", text
+        _MONTH_RE + r" (?:the )?(\d{1,2})(?:st|nd|rd|th)?(?:,? (\d{4}))?", text
     )
     if found:
         groups = found.groups()
@@ -915,6 +926,35 @@ def span(phrase: str, anchor: date, tense: str | None = None) -> tuple[date, dat
             day = date(a.year + 1, 1, 1)
         return day, day, "day"
     return None
+
+
+#: A question's time window, taken off whole before its subject is read
+#: ("last week", "3 days ago", "this month"), so "week 4" stays a subject
+#: and "last week" is not one. Moved from the composer (ledger row 453).
+_WINDOW_WORDS = re.compile(
+    r"\b(?:(?:the\s+)?(?:last|this|next|past|previous|coming)\s+(?:few\s+|couple\s+of\s+|\d{1,3}\s+|two\s+|three\s+)?"
+    r"(?:days?|weeks?|weekend|months?|years?|night|morning|evening|monday|tuesday|wednesday|thursday|friday|saturday|sunday)"
+    r"|(?:the\s+)?week\s+before\s+last|(?:\d{1,3}|a|an|one|two|three|four|five|six)\s+(?:days?|weeks?|months?|years?)\s+ago"
+    r"|(?:since|in|during)\s+(?:january|february|march|april|may|june|july|august|september|october|november|december))\b",
+    re.I,
+)
+#: A sentence that looks dated: the composer's score for a "when" answer,
+#: never turned into a value (that is `find` and `span`).
+_DATED = re.compile(
+    r"\b(\d{1,2}(st|nd|rd|th)|\d{4}|today|tomorrow|tonight|yesterday|next (week|month|year)|"
+    r"last (week|month|year)|this (week|month|year)|weekend|january|february|march|april|may|june|july|"
+    r"august|september|october|november|december|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b",
+    re.I,
+)
+
+
+def without_windows(text: str) -> str:
+    """`text` with its time windows blanked out."""
+    return _WINDOW_WORDS.sub(" ", text or "")
+
+
+def looks_dated(text: str) -> bool:
+    return bool(_DATED.search(text or ""))
 
 
 def find(text: str) -> list[tuple[int, int, str]]:

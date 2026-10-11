@@ -40,7 +40,7 @@
   border-radius: var(--radius-md) var(--radius-md) 0 0;
   padding: var(--space-2) var(--space-3);
 }
-.web-fold[open] > .fold-summary:not(.icon-only):not(.icon-button):not(:hover) {
+.web-fold[open] > .fold-summary:not(.icon-only):not(.icon-button):not(:hover, :focus-visible) {
   background: transparent;
 }
 .web-results-list,

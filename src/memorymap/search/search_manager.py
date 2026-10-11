@@ -22,6 +22,7 @@ from datetime import datetime, time, timezone
 from sqlalchemy import or_, select, text
 from sqlalchemy.orm import Session
 
+from memorymap.ai import variants
 from memorymap.ai.embeddings import (
     EmbeddingService,
     bytes_to_vector,
@@ -161,7 +162,9 @@ def keyword_search(session: Session, query: str, limit: int = 10) -> list[Entry]
         # so none of them can contain FTS5 query-syntax characters, safe to
         # join directly rather than needing to quote/escape each one. (A
         # trailing `*` from the prefix stage is FTS5's own prefix operator.)
-        match_expr = (" AND " if require_all else " OR ").join(words or terms)
+        #: Each word in every spelling it has ("colour" asks for "color"
+        #: too, INBOX 895): the index read both ways without a rebuild.
+        match_expr = (" AND " if require_all else " OR ").join(variants.fts_group(w) for w in (words or terms))
         rows = session.execute(
             text(
                 "SELECT rowid, bm25(entries_fts, 1.0, 4.0) AS score "

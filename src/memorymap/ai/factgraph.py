@@ -303,11 +303,18 @@ def _date_value(phrase: str, anchor: date | None, tense: str | None) -> tuple | 
     return when_words.span(phrase, anchor, tense)
 
 
+_MONTH_WORD = r"(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*"
+
+
 def _sentence_tense(sentence: str) -> str | None:
     _tables()
     if _AUX_FUTURE.search(sentence) or _PROGRESSIVE_FUTURE.search(sentence) or re.search(r"\b(?:plan|want|need)s? to\b", sentence, re.I) or recognise.says_ahead(sentence):
         return "future"
     if re.search(r"\bfor\s+(?:the\s+)?\d{1,2}(?:st|nd|rd|th)\b", sentence, re.I):
+        return "future"
+    #: "Check-up booked for 21 October": what something is booked for is
+    #: ahead of the booking, though "booked" is past (ledger row 441).
+    if re.search(rf"\b(?:(?:booked|scheduled|planned|set|arranged)\s+for|(?:moved|pushed)\s+(?:back\s+)?to|due(?:\s+on|\s+by)?)\s+(?:(?:the\s+)?\d{{1,2}}(?:st|nd|rd|th)?\s+(?:of\s+)?{_MONTH_WORD}|{_MONTH_WORD}\s+\d{{1,2}})\b", sentence, re.I):
         return "future"
     if any(w.lower() in _PAST for w in re.findall(r"[A-Za-z']+", sentence)):
         return "past"

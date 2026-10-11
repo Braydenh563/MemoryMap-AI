@@ -37,7 +37,7 @@ def test_p1_a_name_is_matched_as_a_word_not_inside_same(client, session):
     _seed(session)
     out = _ask(client, "who is Sam", **NOTES_ONLY)
     assert "Same breakfast" not in out["text"]
-    assert composer.PHRASES["none_found"] + "“Sam”." in out["text"]
+    assert any(f"{lead}“Sam”." in out["text"] for lead in composer.phrase_options("none_found"))
 
 
 @pytest.mark.parametrize("message", ["hello", "thanks", "ok", "what is your name", "what can you do", "are you an AI"])

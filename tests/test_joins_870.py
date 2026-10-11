@@ -31,8 +31,10 @@ def _text(n: int) -> str:
 @pytest.mark.parametrize(("n", "clause"), [
     (2, "you're leaning towards the Logitech"),
     (2, "a gap of about $30 between them"),
-    (2, "a week later, you tried the Viper"),
-    (1, "though you're still shaky on big O"),
+    #: The day is named too (the owner, 2026-10-11: "a week later" says when).
+    (2, "A week later, on 25 September, you tried the Viper"),
+    #: Said as then, as the gold has it (atlas narration, the owner 2026-10-11).
+    (1, "though you were still shaky on big O"),
     (1, "about two months old"),
     (12, "with one thing still open"),
     (12, "May, which is seven months from now"),

@@ -114,6 +114,13 @@ REACHED_AFTER_LOAD = {
     "digestOffer": "askCompose, called in the .then of ensureModule('askCompose') in renderAnswerGrounding",
     "digestShape": "askCompose, called in the .then of ensureModule('askCompose') in renderAnswerGrounding",
     "digestMore": "askCompose, called in the .then of ensureModule('askCompose') in renderAnswerGrounding",
+    #: The answer's foot (B12, B30, B31, decision 73, follow-ups), moved out of
+    #: capture-ask.js to keep the boot scripts under their ratchet.
+    "citationVerdictRow": "askCompose, called in the .then of ensureModule('askCompose') in openCitationPeek",
+    "askAnswerMenu": "askCompose, called in the .then of ensureModule('askCompose') in askQuestion",
+    "renderAskInsights": "askCompose, called in the .then of ensureModule('askCompose') in askQuestion",
+    "renderAskWhy": "askCompose, called in the .then of ensureModule('askCompose') in askQuestion",
+    "renderAskFollowups": "askCompose, passed to the .then of ensureModule('askCompose') in askQuestion",
     #: B12: an answer's mind map is tidied after `await openWhiteboardBoard`,
     #: which loads the library bundle first (askKeepAsMap, capture-ask.js).
     "wbMapTidyFresh": "library, called after await openWhiteboardBoard in askKeepAsMap's Open",

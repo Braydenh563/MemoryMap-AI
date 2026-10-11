@@ -5363,6 +5363,48 @@ def test_one_calendar_grid_of_dom_cells() -> None:
     assert not others, f"a second month grid: {others}"
 
 
+def test_web_results_are_one_fold_read_in_place():
+    """CHAT_PLAN decision 66 (INBOX 810): web results are one fold in the
+    Thinking fold's look, a page read in place as text, built in one place."""
+    text = (ROOT / "frontend/js/ask-compose.js").read_text(encoding="utf-8")
+    body = text[text.index("function renderWebSources"):text.index("//: The digest's one offer")]
+    assert 'fold.className = "agent-step web-fold"' in body and 'summary.className = "fold-summary"' in body
+    assert "/websearch/read?url=" in body and "innerHTML" not in body and "iframe" not in body
+    builders = [p.name for p in (ROOT / "frontend/js").glob("*.js") if "web-fold" in p.read_text(encoding="utf-8")]
+    assert builders == ["ask-compose.js"], builders
+
+
+def test_why_this_answer_is_one_fold_built_once():
+    """CHAT_PLAN B30: how an answer was made is one fold in the Thinking
+    fold's look, its lines text (never markup), built in one place."""
+    text = (ROOT / "frontend/js/ask-compose.js").read_text(encoding="utf-8")
+    start = text.index("function renderAskWhy")
+    body = text[start:text.index("\n}\n", start)]
+    assert 'fold.className = "agent-step why-fold"' in body and 'summary.className = "fold-summary"' in body
+    assert "innerHTML" not in body and "textContent" in body
+    builders = [p.name for p in (ROOT / "frontend/js").glob("*.js") if "why-fold" in p.read_text(encoding="utf-8")]
+    assert builders == ["ask-compose.js"], builders
+
+
+def test_answer_shape_is_lifted_in_one_place():
+    """CHAT_PLAN decision 71: a count's figure and a who card are lifted from
+    the rendered answer in one function, on tokens, without markup strings."""
+    text = (ROOT / "frontend/js/ask-compose.js").read_text(encoding="utf-8")
+    body = text[text.index("function digestShape"):text.index("//: **Short by default, More expands**")]
+    assert 'className = "digest-figure"' in body and 'className = "digest-card"' in body
+    assert "innerHTML" not in body and "setLabel(head" in body
+    css = (ROOT / "frontend/css/ask-compose-lazy.css").read_text(encoding="utf-8")
+    card = css[css.index(".digest-card {"):css.index("}", css.index(".digest-card {"))]
+    for token in ("var(--surface-2)", "var(--border)", "var(--radius-md)", "var(--space-3)"):
+        assert token in card, token
+    builders = [p.name for p in (ROOT / "frontend/js").glob("*.js") if "digest-card" in p.read_text(encoding="utf-8")]
+    assert builders == ["ask-compose.js"], builders
+    more = text[text.index("function digestMore"):text.index("//: The digest's one offer")]
+    assert 'className = "linklike digest-more"' in more and "aria-expanded" in more and ".hidden = true" in more
+    ask = (ROOT / "frontend/js/capture-ask.js").read_text(encoding="utf-8")
+    assert "digestShape(answerEl, support.shape, support.figure)" in ask and "digestMore(answerEl, support.more)" in ask
+
+
 # A note's or document's name is shown through one helper (INBOX 820, the
 # owner: layers "and potentially other places in the app dont handle inline md
 # rendering or cut it out"; a board's Layers row read "Note card: **Current

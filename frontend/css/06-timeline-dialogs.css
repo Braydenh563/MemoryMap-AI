@@ -638,7 +638,7 @@
   margin-top: -0.25rem;
   cursor: pointer;
 }
-.entry-more:hover,
+.entry-more:is(:hover, :focus-visible),
 .entry-more:is(:focus-visible, :has(:focus-visible)) {
   text-decoration: underline;
 }

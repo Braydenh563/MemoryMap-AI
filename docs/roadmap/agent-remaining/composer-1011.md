@@ -1,0 +1,21 @@
+# composer-1011: the composer, smart everywhere (INBOX 895, 899; Briefs 104, 97; atlas B20 to B27, B40, A8)
+
+Owner (895): "The composer needs to be a legitimately smart chatbot ... do anything and everythinf and do it very accurately and well." Latest (coordinator relay): the Guide tailored to the question and the person's state; personal and random questions with no model.
+
+Baseline (merge 6afaf8f3c, port 8893, `scratchpad/ui-sweeps/gold.js` TAG=before): gold 89 (sim 0.833, shape 0.949); Q4 73, Q14 75, Q17 81, Q8 83, Q11 83, Q20 84.
+
+Plan, in order: typos fixtures and the speller (Brief 104); UK/US spelling equivalence; personal and random questions (30 gold); tasks and routing (30 phrasings); the Guide tailored (25 gold); phrasing diversity metric; A8 ghost text; B20 to B27, B40.
+
+- done: 6afaf8f3c merge gemini/composer-improvements (boot scripts 322,272 to under 320,600 by moving the answer foot to ask-compose.js)
+- done (step A): owner typos (18 new fixtures, real-word slips, long English words from the vendored list, warmed in the background); UK/US equivalence (`ai/variants.py`, search_manager, engine, composer `_stem`); INBOX 899 part 1: composer_digest, records and ask-compose.js read dates and units through `ai/recognise.py` (one-reader lint back to 1)
+- done (step B, ffa4eeefc): find-it nav links (`ai/find_it.py`, 40/40 gold, 0/8 false links; 0 before)
+- done (step C): vocatives (`ai/vocative.py`, 38/38 gold, 14/14 controls; calls answered with three ask chips) and reply variety (`ai/phrasing.py`, `ai/composer_replies.py`; every family 8+ in both voices; over 50 replies: openers 0.82 to 1.00, shape 0.60 to 1.00, repeats 250 to 0); "glad" kind; emotion and insult readings fixed
+- done (step C): nothing found 8+ a voice; note-answer openers avoid the last three answers (`_Answer.recent`); nothing-found openers 0.25 to 1.00 over 50 turns
+- coordinator order (2026-10-11): every S/M row of OPEN-ledger rows 395 to 543; L rows deferred-next-PR
+- done (rows, step D): 543 agreement is small talk (15/15 forms, owner-typo "gud plan"); 414 monthly from the 29th to 31st keeps its day (BYMONTHDAY, rolled 31 Jan, 28 Feb, 31 Mar); 404 and 417 the Guide with no model reads typos and says so; 410 chips and overview subject drop "notes about"; found working 409: "rust" fitted to "rest" (dictionary words are never fitted); checked built: 406, 416 (Ask draws its own chart), 424, 498, 533 to 535, 542
+- coordinator order 2 (2026-10-11, the owner's words relayed): needle tool calls said in readable, structured words with no model
+- done (step E): `ai/tool_say.py` says all 70 registry tools (lead, list or table with counts, a link per item, next-step chips; errors as a plain sentence plus where to go); needle's `_said_by_tools` uses it with each call's arguments; Chat's no-model read route too. 84 results in `fixtures/composer/tool_results_1011.json`, 10 marked fake (no model, upload or network here). needle runs through the fake transport: the real engine is not installed in this sandbox
+- done (step E, item 4): routing gold `fixtures/composer/routing_1011.json`, 30 typed requests: 12/30 as typed and 15/30 after the speller before, 30/30 after; 7 not-a-listing controls, 0 wrong. Newest-notes list links each name
+- done (rows, step F): 441 days until a note's day (`composer._until_note`; "booked for 21 October" read as ahead, "on the 14th of November" whole, a yearless day rolled to the next one); 442 "list my work notes" lists the category or tag (`reading.filed_listing`, `commands._filed_notes`; "show all my notes" is the newest list, no longer a find about "all my"); 444 open checklist items (`composer._still_open`); 443 (P15) the compare lead goes straight to the sides, the date opener needs a date `when.find` reads; 453 the composer's date cue and window patterns moved to `recognise` (one-reader count 1 to 0); checked: 446 built (recognise orders 3/4 by locale; quick add sends it), 458 by design; 457 an owner decision (recommend Monday to Sunday everywhere)
+- found, not fixed: Agent mode with no model, "find notes simlar to my dentist one yk" answers about the whole sentence as a subject
+- next: clarifying and confirmation families; personal and random questions (30 gold); tasks and routing (30); actions with chips (30); the Guide (25 gold); A8, B20 to B27, B40; Chromium after-run

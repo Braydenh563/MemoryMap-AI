@@ -1788,6 +1788,7 @@ async function sendChatMessage(preset, opts = {}) {
   // raw_results/search_mode/match_info a few lines below, which got exactly
   // this treatment already for the same reported-missing-on-reload reason.
   let groundingSentences = null;
+  let chatOffer = null;
   let composedNext = []; // a composed answer's own next questions (INBOX 725)
   //: **Numbered while it streams, as the Ask tab is** (INBOX 320, the
   //: askcite row): the backend sends the rows so far each time a sentence
@@ -2210,6 +2211,7 @@ async function sendChatMessage(preset, opts = {}) {
         status.textContent = "Waiting for you to review the summary…";
         chatScrollToEnd();
       },
+      onOffer: (event) => { chatOffer = event.offer || null; },
       onStats: (event) => {
         // A round finished. Asked for directly: *"a new chat should be saved
         // after agent turns as well, not after the whole response is
@@ -2368,6 +2370,8 @@ async function sendChatMessage(preset, opts = {}) {
     );
   }
   placeAnswerFigures(bubble.querySelectorAll(".bubble-answer"), meta, question);
+  //: An answer's one acting offer, the Ask box's (`digestOffer`): a place's link.
+  if (chatOffer) ensureModule("askCompose").then(() => digestOffer([...bubble.querySelectorAll(".bubble-answer")].pop(), chatOffer)).catch(() => {});
   const answerRaw = timeline.text();
   const thinkingRaw = timeline.thinkingText();
   //: **The Sources panel replaces the old "N matching notes" disclosure here.**

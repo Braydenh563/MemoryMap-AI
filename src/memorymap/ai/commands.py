@@ -324,6 +324,8 @@ _FIND_HEADS = ("search for ", "look for ", "look up ", "show me ", "where is ", 
                "where are ", "get me ", "find ", "search ", "show ", "list ")
 _OPEN_HEADS = ("take me to ", "jump to ", "pull up ", "bring up ", "go to ", "open ")
 _FREE_FIND = ("find ", "search for ", "search ", "look for ", "look up ")
+_LIST_HEADS = ("show me ", "show ", "list ", "get me ")
+_WHOLE_LISTING = re.compile(r"(?:me )?(?:all |every )?(?:of )?(?:my |the |your )?(?:notes|entries)(?: please| pls| plz)?[?.!]*", re.I)
 
 
 _ON_THE_WEB = re.compile(r"(?:the )?(?:web|internet|online)\b", re.I)
@@ -343,6 +345,18 @@ def _find(text: str) -> dict | None:
         if head is None:
             continue
         rest = text[len(head):].strip()
+        if intent == "find" and _WHOLE_LISTING.fullmatch(rest):
+            #: "show all my notes" is the newest notes, listed by the read
+            #: route, not a find about "all my" (the routing gold, 2026-10-11).
+            return None
+        if intent == "find" and head in _LIST_HEADS:
+            from memorymap.ai import reading
+
+            filed = reading.filed_listing(text)
+            if filed:
+                #: "list my work notes": the Work notes, or the notes tagged
+                #: work, when the notebook has either (ledger row 442).
+                return {"intent": "find", "about": filed, "filed": filed}
         number = re.fullmatch(r"(?:(?:note|entry) )?#?(\d{1,9})", rest, re.IGNORECASE)
         if number and (rest.startswith("#") or not rest.isdigit()):
             return {"intent": intent, "note_id": int(number.group(1))}
@@ -887,6 +901,20 @@ def _clip(text: str, cap: int) -> str:
     return text if len(text) <= cap else text[: cap - 1].rstrip() + "…"
 
 
+def _filed_notes(session: Session, filed: str) -> tuple | None:
+    """("list_notes", its arguments, its result, the line) for the notes in
+    the category `filed`, else tagged `filed`; None when neither holds any."""
+    from memorymap.ai import tool_say, tools
+
+    for key in ("category", "tag"):
+        args = {key: filed, "limit": 8}
+        result = tools.execute_tool(session, "list_notes", args)
+        if isinstance(result, dict) and result.get("total_matching"):
+            lead = tool_say.say("list_notes", result, args)["lead"]
+            return "list_notes", {key: filed}, result, f"{lead} Open one from the rows below."
+    return None
+
+
 def _plan_read(session: Session, parsed: dict) -> dict:
     """Find or open: run the agent's own search and hand back its tool event."""
     from memorymap.ai import agent, cards, tools
@@ -897,6 +925,8 @@ def _plan_read(session: Session, parsed: dict) -> dict:
             return {"line": f"I could not open note #{parsed['note_id']}: it does not exist, or it is private."}
         name, args = "get_note", {"note_id": parsed["note_id"]}
         line = f"Here is note #{parsed['note_id']}. Open it from the row below."
+    elif parsed.get("filed") and (listed := _filed_notes(session, parsed["filed"])):
+        name, args, result, line = listed
     else:
         about = parsed["about"]
         result = tools.execute_tool(session, "search_notes", {"query": about, "limit": 8})

@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from memorymap.ai import notebook_stats
 from memorymap.ai.composer import _MONTHS, _NUMBER_WORDS
-from memorymap.ai.recognise import window
+from memorymap.ai.recognise import recognise, window
 
 _I = r"(?:i|we)"
 _SEARCHES = re.compile(
@@ -53,11 +53,6 @@ _BACKUP = re.compile(
 #: Asking how to, or asking for one, is help or an act, not a record.
 _NOT = re.compile(r"\bhow (?:do|can|would|should) (?:i|we|you)\b|^\s*(?:please\s+)?(?:back ?up|search|look up)\b", re.I)
 _OVERNIGHT = re.compile(r"\b(?:overnight|last night|while i (?:was )?slept|while i was asleep|over ?night)\b", re.I)
-_WHEN = re.compile(
-    r"\b(?:today|yesterday|this (?:morning|week|month)|last (?:week|month)|on (?:mon|tues|wednes|thurs|fri|satur|sun)day"
-    r"|(?:mon|tues|wednes|thurs|fri|satur|sun)day|\d+ (?:days|hours) ago)\b",
-    re.I,
-)
 
 #: How many rows an answer lists before saying how many more.
 LIST_AT_MOST = 8
@@ -141,10 +136,9 @@ def _span_of(question: str, now: datetime) -> tuple[datetime, datetime, str] | N
         start = datetime.combine(now.date(), time(hours[0]), now.tzinfo)
         end = min(start + timedelta(hours=hours[1] - hours[0]), now)
         return start, end, part.group(0).lower()
-    found = _WHEN.search(question)
-    if not found:
+    phrase = _time_phrase(question, now)
+    if not phrase:
         return None
-    phrase = found.group(0).lower()
     span = window(phrase, now)
     if span is None:
         return None
@@ -153,6 +147,20 @@ def _span_of(question: str, now: datetime) -> tuple[datetime, datetime, str] | N
     #: A weekday or "3 days ago" is said as the day it meant.
     day = span[0].date()
     return span[0], span[1], f"on {day:%A} {day.day} {_MONTHS[day.month - 1]}"
+
+
+def _time_phrase(question: str, now: datetime) -> str | None:
+    """The first day or span the recogniser reads in `question`, lowered
+    ("yesterday", "last week", "on monday", "3 days ago"); a bare length
+    followed by "ago" ("2 hours ago") is the time that long back."""
+    for found in recognise(question, now=now, tense="past"):
+        if found.rank:
+            continue
+        if found.kind in ("date", "range"):
+            return found.text.lower()
+        if found.kind == "duration" and question[found.end:].lstrip().lower().startswith("ago"):
+            return f"{found.text.lower()} ago"
+    return None
 
 
 def _offered(text: str, facts: list[dict] | None, offer: dict) -> notebook_stats.StatAnswer:

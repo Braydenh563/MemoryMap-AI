@@ -1705,8 +1705,17 @@ function hasUnsavedWork() {
 //: something", not one per surface). Native browsers ignore the string and
 //: show their own wording; `returnValue` is set for the ones that still read
 //: it.
+//: A chat answer still coming is lost by a reload or a close (the thread
+//: keeps the question and an unfinished answer), so it asks too. Not in
+//: `hasUnsavedWork`: a tab switch leaves the stream running (chat-attach.js),
+//: so only a departure from the page itself loses it. `typeof`: the chat
+//: file loads lazily.
+function chatMidStream() {
+  return typeof chatStreaming !== "undefined" && !!chatStreaming;
+}
+
 window.addEventListener("beforeunload", (event) => {
-  if (!hasUnsavedWork()) return;
+  if (!hasUnsavedWork() && !chatMidStream()) return;
   event.preventDefault();
   event.returnValue = "";
 });

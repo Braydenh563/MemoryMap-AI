@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Closing or reloading the page while a chat answer is still arriving now asks before it leaves. "Model per feature" in Settings stays visible when no model server is running, so an override can still be seen and cleared. Counts and totals use steady-width digits.
 - Settings: General has a Calendar row, "First day of the week" (from your language and region by default, or Monday, Saturday or Sunday); the Statistics week starts on it. A slow model-status check now keeps the last answer instead of greying the Agent panel, and Settings says the server is slow.
 - Launcher: `doctor`, `reinstall` and `tools` are one double-click each, as `.sh` and `.bat`: the machine check, a rebuild of the Python environment that asks first and leaves notes alone, and a menu of every launcher action.
 - Notes: a note with fewer than three tags shows a quiet "+ Tag" after its tags. It opens up to three suggested tags as one-press chips above a field for your own, and its menu has "Don't suggest tags for this note" (Undo in the notice, and "Suggest tags for this note again" in the same menu).

@@ -120,3 +120,15 @@ def test_note_edit_form_flag_is_reset_on_open_save_and_cancel() -> None:
     assert "noteFormDirty = false;" in form[save_index:cancel_index]
     assert "closeNoteForm()" in form[cancel_index:]
     assert "noteFormDirty = false;" in _function(app, "closeNoteForm")
+
+
+def test_a_chat_answer_still_streaming_is_asked_about_on_close() -> None:
+    """WORLD_CLASS_PLAN 22.1 item 4, "a chat mid-stream": the page guard also reads
+    the streaming turn, but a tab switch does not (the stream keeps running)."""
+    app = app_js_text()
+    helper = _function(app, "chatMidStream")
+    assert 'typeof chatStreaming !== "undefined"' in helper
+    start = app.index('addEventListener("beforeunload"')
+    block = app[start : app.index("});", start) + 3]
+    assert "chatMidStream()" in block
+    assert "chatMidStream" not in _function(app, "hasUnsavedWork")

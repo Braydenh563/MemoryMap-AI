@@ -10459,3 +10459,13 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
     mask-image: linear-gradient(to right, #000 calc(100% - var(--target-min) - var(--space-2)), transparent calc(100% - var(--space-5)));
   }
 }
+
+/* **Counts and totals hold still** (WORLD_CLASS_PLAN 7, "Numbers: tabular
+   figures"). A number that changes while you watch (a count beside a title, a
+   find tally, a total) must not shift its neighbours as digits change width.
+   One rule for the whole naming family instead of one declaration in each of
+   forty classes; `:where` keeps its specificity at zero so a rule that sets
+   its own figures still wins. */
+:where([class$="-count"], [class*="-count "], [class$="-total"], [class*="-total "]) {
+  font-variant-numeric: tabular-nums;
+}

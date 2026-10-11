@@ -284,6 +284,12 @@ plugin surface beyond the MCP server (B8). Of the six standouts, 2 and 4 are
 built, 1 and 3 are half built (I6, B4), and 5 (a privacy receipt page) and 6
 (the offline studio) are not built: no code names either.
 
+**State 2026-10-11 (by grep):** built since: typed properties (`entry/properties.py`),
+the web clipper (`clip.html`), importers for notion, obsidian, evernote and
+apple (`routes_import.py`), and the privacy receipt (5) as Settings, "Where
+your data went" (`core/egress.py`). Still gaps: sync (B6), PDF annotation
+(D10), recall cards (A1), the offline studio (6), a plugin surface (B8).
+
 ---
 
 ## 3. Frontend dossiers (one per surface, each a hand-off brief)
@@ -2333,9 +2339,9 @@ mobile first, as the owner's web design class teaches. Measured with
    it, and the strip centred (INBOX 430). S, Sonnet.
 4. **Leaving with unsaved work.** Built 2026-09-27 for the note edit form,
    the Capture box and a document mid-autosave, the three surfaces with a
-   plain dirty flag (HISTORY.md, "Moved from the plans, 2026-09-27"). Left:
-   a board mid-drag and a chat mid-stream, which have no such flag yet. S,
-   Sonnet.
+   plain dirty flag (HISTORY.md, "Moved from the plans, 2026-09-27"), and a
+   chat mid-stream (2026-10-11, `chatMidStream`). Left: a board mid-drag, which
+   has no such flag yet. S, Sonnet.
 5. **Two windows, one note.** Built 2026-09-27 for the note edit form and
    the document editor (HISTORY.md, "Moved from the plans, 2026-09-27").
    Left: the other note writers (a card's checkbox, the graph's tag edit,
@@ -3775,9 +3781,6 @@ World class for a local notebook is five things, each measurable:
 | Settings | VS Code settings: searchable, each with a description and a default, reset per item | measured: `PreferencesBody` 72 fields; 105 help popovers (69 in the Settings modal); 10 keys with a control and no help; a settings search box already exists (`settings-find.js`) (24.6b) | no search across settings; no modified marker or per-item reset; no settings export | 25f |
 | Help and guide | a searchable manual with a "?" on every control | 51 plus 35 Guide topics; `test_manual_parity`; the manual (25c, built 2026-10-11) | "what changed" is Settings, About, What's new (CHANGELOG, already built) | 25c |
 | First run | Linear: value in 60 seconds, the model optional and said so | `first-run.spec.js`, the first steps and the sample notebook (25c, built 2026-10-11) | the first-run queue still asks three questions before the dashboard (welcome, recovery key, updates) | 25c |
-| Settings | VS Code settings: searchable, each with a description and a default, reset per item | measured: `PreferencesBody` 72 fields; 105 help popovers (69 in the Settings modal); 10 keys with a control and no help; a settings search box already exists (`settings-find.js`) (24.6b) | built 2026-10-11 (25f): rows, reset, the settings file | 25f |
-| Help and guide | a searchable manual with a "?" on every control | 51 plus 35 Guide topics; `test_manual_parity` | no offline manual page with search; no "what changed" | 25c |
-| First run | Linear: value in 60 seconds, the model optional and said so | `first-run.spec.js`, `gettingStartedCard`, the name nudge | no sample notebook; the three-step path is implicit | 25c |
 | Import and export | Obsidian, Notion, Evernote, Apple Notes in; a markdown folder out | `app_import.py` (five sources, a MemoryMap folder the fifth), `export_folder.py` (the whole notebook as a markdown folder with sidecars and attachments, `GET /export/folder`), the import report page, web clip, media upload; export per note `.md`, per document md, zip, docx; backups and a bundle | built 2026-10-10 (25b); left: a 5,000-note write is 45.9 s on the loaded sandbox (one commit per note) | 25b |
 | Data safety | never lose a note | measured: bundle is `memorymap.db` (all 57 tables) plus `media/` and `uploads/`; per-note history is `EntryRevision`, 20 per note, with a panel; `versioning.py` is the `/api/v1` middleware (24.6b) | restore is not verified by a test; no integrity check at boot; versions not visible per note; crash recovery of a draft unmeasured | 25e |
 | Phone and PWA | installable, an offline shell, a share target | `phone-shell.js` 2,139 lines; `sw.js` 59 lines and by design no cache (a transparent worker) | no offline shell; the hashed asset URLs make a safe cache possible now (decision 49) | 25d, Brief 40 |

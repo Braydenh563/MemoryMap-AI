@@ -68,6 +68,14 @@ below). Versioning is `0.x` while the app stabilises.
 - First run: optional packages picked in Setup install on the first launch as one Background task (progress, each package, Stop); a list the app could not start yet (another install running) is kept for the next launch instead of being deleted.
 - First run: an empty or partly downloaded model folder is no longer treated as installed. Settings, Search and index and Packages show "Files missing" with Reinstall, and when the search model's files are incomplete the app repairs them itself as a visible Background task ("Fixing search by meaning", with Stop, at most twice a launch) instead of failing with a broken-cache error.
 - First run: the filing warm-up only loads a model that is installed, and a fresh install first chooses its chat model from the installed ones (one rule shared with the launch step), so a default nobody chose no longer reports "llama3.2 failed".
+- Stop on a skill run now refuses a write the model asked for while Stop was landing, instead of only stopping between steps.
+- Undo the run on an agent run now takes its writes off the Ctrl+Z stack and removes the rows' own Undo, so a later Ctrl+Z no longer re-runs an inverse already applied.
+- Exports of private notes and of more than one space are tested for all four formats (a space's export carries only that space, All spaces carries every one, a locked vault exports neither words nor ciphertext).
+- A reminder's Done and Snooze buttons on a notification still on screen survive an app restart: the signing key is kept in the data folder (reminder_token.key) and replaced only when the notebook is locked.
+- The timeline no longer stays at 100 rows when the range changes while the rest of the first page is loading.
+- The reminder edit form has an Alert menu: change the early alert or clear it (it could only be set by words), and Undo puts the old one back.
+- A monthly or yearly repeat remembers its day: ticking off a reminder from the 31st lands on 28 February, then 31 March, 30 April (it used to stay on the 28th for good).
+- Importing a folder export restarts the bin clock: a note binned long ago was purged by the next startup sweep before it could be looked at (Brief 101b).
 - Security: an action refused from another device now reads "Not available on this device. Do it on the computer MemoryMap runs on."
 - Renamed to Tessellate; formerly MemoryMap AI. Every title, window, shortcut, help page, document and the website say Tessellate; your notes, settings and data folder stay where they were, and the repository moved to github.com/Braydenh563/Tessellate (the old address redirects).
 - Security: an action refused from another device now reads "Not available on this device. Do it on the computer Tessellate runs on."

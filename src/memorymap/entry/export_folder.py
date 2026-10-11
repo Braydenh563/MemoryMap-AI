@@ -93,7 +93,13 @@ def _restore(obj: object, record: dict, skip: set[str] | dict) -> None:
     for column in obj.__table__.columns:
         if column.name in skip or column.name not in record:
             continue
-        setattr(obj, column.name, _parsed(column.name, record[column.name]))
+        value = _parsed(column.name, record[column.name])
+        if column.name == "deleted_at" and value is not None:
+            # The bin clock restarts at the import: the stamp the export
+            # carried is when the row was binned elsewhere, and the startup
+            # sweep would purge a row just imported before it could be seen.
+            value = datetime.now(timezone.utc)
+        setattr(obj, column.name, value)
 
 
 def _slug(text: str, length: int = 40) -> str:

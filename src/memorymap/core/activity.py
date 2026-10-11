@@ -53,6 +53,7 @@ class Job:
         on_stop: Callable[[], object] | None,
         stoppable: bool,
         lease: float | None = None,
+        stop_event: threading.Event | None = None,
     ) -> None:
         self.id = f"job-{next(_ids)}"
         self.kind = kind
@@ -62,7 +63,9 @@ class Job:
         self.started = time.time()
         self.on_stop = on_stop
         self.stoppable = stoppable or on_stop is not None
-        self._stop = threading.Event()
+        #: Shared with the work it tracks when that work must see Stop mid-call
+        #: (a skill run's budget, `ai/budget.py`), not only at its next yield.
+        self._stop = stop_event or threading.Event()
         #: A job run somewhere else (a code run in the browser's sandbox)
         #: holds a lease it renews with `touch`; one not renewed in time is
         #: gone, so a closed tab does not leave a row that never ends.
@@ -131,10 +134,11 @@ def start(
     lease: float | None = None,
     title: str = "",
     ledger: bool = True,
+    stop_event: threading.Event | None = None,
 ) -> Job:
     """`ledger=False` for a job that already opens its own `jobruns` run
     (an import), so the ledger lists it once."""
-    job = Job(kind, label, on_stop, stoppable, lease)
+    job = Job(kind, label, on_stop, stoppable, lease, stop_event)
     if ledger:
         from memorymap.core import jobruns
 
@@ -192,10 +196,11 @@ def track(
     stoppable: bool = True,
     title: str = "",
     ledger: bool = True,
+    stop_event: threading.Event | None = None,
 ) -> Iterator[Job]:
     """Register for the length of the block. `stoppable` defaults to True
     because a block that loops is expected to read `job.stopped`."""
-    job = start(kind, label, on_stop=on_stop, stoppable=stoppable, title=title, ledger=ledger)
+    job = start(kind, label, on_stop=on_stop, stoppable=stoppable, title=title, ledger=ledger, stop_event=stop_event)
     try:
         yield job
     except GeneratorExit:
@@ -211,14 +216,16 @@ def track(
         finish(job)
 
 
-def tracked_stream(kind: str, label: str, lines: Iterator, *, title: str = "") -> Iterator:
+def tracked_stream(
+    kind: str, label: str, lines: Iterator, *, title: str = "", stop_event: threading.Event | None = None
+) -> Iterator:
     """A streamed response that shows in Activity and ends on Stop.
 
     Closing the inner generator runs its `finally`, which is what closes the
     HTTP stream to the model, so the runner stops generating too. Each line
     the stream sends is read by a `StreamNarrator`, so the run's log says
     what the answer did (searched, called a tool, wrote) in words."""
-    with track(kind, label, title=title) as job:
+    with track(kind, label, title=title, stop_event=stop_event) as job:
         narrator = StreamNarrator()
         try:
             for line in lines:

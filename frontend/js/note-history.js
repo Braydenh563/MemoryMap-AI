@@ -318,7 +318,7 @@ async function toggleThenAndNow(entry, thenText, row, button) {
 //: said in the plan rather than skipped silently. Lives here, beside the
 //: note's own History, because both are about putting a note back; reached
 //: through `LAZY_ENTRY_POINTS.noteHistory`.
-async function undoSkillRun(span, button) {
+async function undoSkillRun(span, button, onDone) {
   const body = { actors: span.actors || [], since: span.since || 0, until: span.until || 0 };
   let plan;
   try {
@@ -331,7 +331,10 @@ async function undoSkillRun(span, button) {
   if (!undoable) {
     const already = plan.items.length && plan.items.every((item) => item.status === "already undone");
     toast(already ? "Already undone: nothing this run changed is left to put back." : "Nothing this run changed can be put back from here.");
-    if (already) button?.remove();
+    if (already) {
+      button?.remove();
+      onDone?.();
+    }
     return;
   }
   const byId = new Map((allEntries || []).map((entry) => [entry.id, entry]));
@@ -344,6 +347,7 @@ async function undoSkillRun(span, button) {
     const done = await apiJson("/events/undo", { method: "POST", body: JSON.stringify({ ...body, dry_run: false }) });
     toast(`Put back ${done.undone} note${done.undone === 1 ? "" : "s"}.`);
     button?.remove();
+    onDone?.();
     await loadEntries().catch(() => {});
   } catch (error) {
     toast(error.message || "Couldn't undo that.", true);

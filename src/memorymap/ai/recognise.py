@@ -406,30 +406,34 @@ def _day_fits(day: date, parts: dict) -> bool:
     return "BYMONTHDAY" not in parts or day.day == int(parts["BYMONTHDAY"])
 
 
-def _add_months(at: datetime, months: int, parts: dict) -> datetime:
-    """`at` moved on whole months, landing on the rule's day in that month."""
+def _add_months(at: datetime, months: int, parts: dict, day_of_month: int | None = None) -> datetime:
+    """`at` moved on whole months, landing on the rule's day in that month.
+    `day_of_month` is the day the repeat means when `at` was clamped by a
+    shorter month (31 January -> 28 February -> 31 March)."""
     month0 = at.month - 1 + months
     year, month = at.year + month0 // 12, month0 % 12 + 1
     code = parts.get("BYDAY", "")
     if re.match(r"-?\d", code):
         day = _nth_of_month(year, month, code)
     else:
-        want = int(parts.get("BYMONTHDAY", at.day))
+        want = int(parts.get("BYMONTHDAY", day_of_month or at.day))
         day = date(year, month, max(d for d in range(1, want + 1) if _valid_day(year, month, d)))
     return datetime.combine(day, at.timetz())
 
 
-def next_occurrence(rule: str, after: datetime) -> datetime:
+def next_occurrence(rule: str, after: datetime, day_of_month: int | None = None) -> datetime:
     """The next time a stored repeat ("weekly", or a rule `stored_repeat`
     keeps) falls after `after`, at `after`'s time of day: what completing a
-    repeating reminder rolls it on to (`routes_reminders`)."""
+    repeating reminder rolls it on to (`routes_reminders`). `day_of_month`
+    is the anchor a monthly or yearly repeat returns to when the month
+    allows (`Reminder.repeat_day`)."""
     parts = _rule_parts(rule)
     interval = int(parts.get("INTERVAL", 1))
     freq = parts.get("FREQ", "DAILY")
     if freq == "MONTHLY":
-        return _add_months(after, interval, parts)
+        return _add_months(after, interval, parts, day_of_month)
     if freq == "YEARLY":
-        return _add_months(after, 12 * interval, parts)
+        return _add_months(after, 12 * interval, parts, day_of_month)
     if freq == "WEEKLY" and "," in parts.get("BYDAY", ""):
         day = next(after.date() + timedelta(days=n) for n in range(1, 8) if _day_fits(after.date() + timedelta(days=n), parts))
         return datetime.combine(day, after.timetz())

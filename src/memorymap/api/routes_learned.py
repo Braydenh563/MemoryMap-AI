@@ -25,7 +25,7 @@ from memorymap.api import paging
 from sqlalchemy.orm import Session
 
 from memorymap.ai import facts, learning
-from memorymap.core import deps
+from memorymap.core import deps, undo_bin
 from memorymap.core.database import utcnow
 from memorymap.core.deps import get_session
 
@@ -209,28 +209,48 @@ def put_switches(body: SwitchBody) -> dict:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
-@router.delete("", status_code=204)
-def forget_everything(body: ForgetBody, session: Session = Depends(get_session)) -> Response:
+@router.delete("")
+def forget_everything(body: ForgetBody, session: Session = Depends(get_session)) -> dict:
     """Forget everything learned. Notes and revisions are not touched.
 
     `confirm` is required rather than implied by the verb: this is the one
     button in the app that throws away work nobody can get back, and a
     mis-routed DELETE with no body should do nothing at all.
+
+    Nobody can get it back *from the notebook*: what went is kept in the undo
+    bin (`core/undo_bin.py`) and the answer carries the token that
+    `POST /learned/unforget` takes (INBOX 898).
     """
     if not body.confirm:
         raise HTTPException(
             status_code=400, detail="Confirm that you want to forget everything learned, then try again."
         )
+    token = undo_bin.stash(deps.get_config().data_dir, "learned", facts.snapshot(session))
     facts.forget(session)
     session.commit()
-    return Response(status_code=204)
+    return {"forgotten": True, "undo_token": token}
+
+
+class UnforgetBody(BaseModel):
+    token: str = Field(min_length=1, max_length=64)
+
+
+@router.post("/unforget")
+def unforget_everything(body: UnforgetBody, session: Session = Depends(get_session)) -> dict:
+    """Undo of `DELETE /learned` (INBOX 898)."""
+    config = deps.get_config()
+    saved, _ = undo_bin.take(config.data_dir, "learned", body.token)
+    put = facts.unforget(session, saved)
+    session.commit()
+    undo_bin.finish(config.data_dir, body.token)
+    return {"restored": put}
 
 
 class BulkBody(BaseModel):
     #: At most one page of the table and a bit: the Settings list shows fifty
     #: rows, and a request for thousands is not a selection anyone made.
     ids: list[int] = Field(min_length=1, max_length=500)
-    action: Literal["delete", "reset"]
+    action: Literal["delete", "reset", "restore"]
 
 
 @router.post("/bulk")
@@ -252,6 +272,16 @@ def bulk_action(body: BulkBody, session: Session = Depends(get_session)) -> dict
     done = 0
     missing: list[int] = []
     for fact_id in dict.fromkeys(body.ids):
+        if body.action == "restore":
+            #: Undo of a bulk delete (INBOX 898).
+            gone = facts.tombstoned(session, fact_id)
+            if gone is None:
+                missing.append(fact_id)
+                continue
+            _unlearn_deletion(session, gone)
+            facts.restore(session, gone)
+            done += 1
+            continue
         row = facts.visible(session, fact_id)
         if row is None:
             missing.append(fact_id)
@@ -270,6 +300,28 @@ def bulk_action(body: BulkBody, session: Session = Depends(get_session)) -> dict
             done += 1
     session.commit()
     return {"action": body.action, "done": done, "missing": missing}
+
+
+def _unlearn_deletion(session: Session, row) -> None:  # noqa: ANN001
+    """Drop the `delete_fact` correction that deleting `row` taught the loop.
+
+    Restoring a fact says the deletion was a slip; leaving the lesson behind
+    would have the notebook learn from a mistake the person took back.
+    """
+    from sqlalchemy import select
+
+    from memorymap.core.database import AuditLog
+
+    rows = session.scalars(
+        select(AuditLog)
+        .where(AuditLog.action == "correction", AuditLog.detail.like("delete_fact:%"))
+        .order_by(AuditLog.id.desc())
+    ).all()
+    for item in rows:
+        subject = (item.payload or {}).get("subject") or {}
+        if subject.get("fact_id") == row.id:
+            session.delete(item)
+            break
 
 
 @router.get("/{fact_id}")
@@ -331,3 +383,32 @@ def delete_fact(fact_id: int, session: Session = Depends(get_session)) -> Respon
     facts.remove(session, row)
     session.commit()
     return Response(status_code=204)
+
+
+@router.post("/{fact_id}/restore")
+def restore_fact(fact_id: int, session: Session = Depends(get_session)) -> dict:
+    """Undo of `DELETE /learned/{id}`: the fact is back, and the deletion is forgotten (INBOX 898)."""
+    row = facts.tombstoned(session, fact_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="That learned fact is not deleted.")
+    _unlearn_deletion(session, row)
+    facts.restore(session, row)
+    session.commit()
+    return facts.as_json(row)
+
+
+@router.delete("/corrections/{correction_id}")
+def remove_correction(correction_id: int, session: Session = Depends(get_session)) -> dict:
+    """Undo of `POST /learned/corrections`: take that one correction back (INBOX 898).
+
+    Only a correction row, and only by the id the POST returned, so an Undo
+    cannot reach any other event in the log.
+    """
+    from memorymap.core.database import AuditLog
+
+    row = session.get(AuditLog, correction_id)
+    if row is None or row.action != "correction":
+        raise HTTPException(status_code=404, detail="That correction could not be found.")
+    session.delete(row)
+    session.commit()
+    return {"removed": correction_id}

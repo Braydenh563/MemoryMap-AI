@@ -131,7 +131,8 @@ def test_favourites_cover_builtins_and_yours(ai_client):
     listed = ai_client.get("/board-library").json()
     assert listed["marks"]["general/star"]["favourite"] is True
     assert [i for i in listed["items"] if i["id"] == item["id"]][0]["favourite"] is True
-    assert ai_client.post("/board-library/marks", json={"key": "general/nope", "favourite": True}).status_code == 404
+    reply_1 = ai_client.post("/board-library/marks", json={"key": "general/nope", "favourite": True})
+    assert reply_1.status_code == 404
 
 
 def test_rename_payload_bumps_version_delete_restore_duplicate(ai_client):
@@ -298,12 +299,16 @@ def test_a_template_starts_a_board_with_its_look(ai_client):
 
 def test_limits_and_pictures(ai_client):
     big = {"box": {"w": 1, "h": 1}, "items": [{"key": f"k{i}", "kind": "object", "type": "text", "data": {"content": "x"}, "x": 0, "y": 0, "w": 20, "h": 20} for i in range(501)]}
-    assert ai_client.post("/board-library", json={"kind": "element", "name": "Too many", "payload": big}).status_code == 422
+    reply_2 = ai_client.post("/board-library", json={"kind": "element", "name": "Too many", "payload": big})
+    assert reply_2.status_code == 422
     outside = {"box": {"w": 1, "h": 1}, "items": [{"key": "p", "kind": "object", "type": "image", "data": {"url": "https://example.com/x.png"}, "x": 0, "y": 0, "w": 20, "h": 20}]}
-    assert ai_client.post("/board-library", json={"kind": "element", "name": "Outside", "payload": outside}).status_code == 422
+    reply_3 = ai_client.post("/board-library", json={"kind": "element", "name": "Outside", "payload": outside})
+    assert reply_3.status_code == 422
     huge = {"box": {"w": 1, "h": 1}, "items": [{"key": "s", "kind": "sketch", "data": {"d": "M 0 0 " + "L 1 1 " * 120000}}]}
-    assert ai_client.post("/board-library", json={"kind": "element", "name": "Huge", "payload": huge}).status_code == 422
-    assert ai_client.post("/board-library", json={"kind": "nonsense", "name": "X", "payload": {}}).status_code == 422
+    reply_4 = ai_client.post("/board-library", json={"kind": "element", "name": "Huge", "payload": huge})
+    assert reply_4.status_code == 422
+    reply_5 = ai_client.post("/board-library", json={"kind": "nonsense", "name": "X", "payload": {}})
+    assert reply_5.status_code == 422
 
 
 def test_export_then_import_gives_new_ids_and_drops_strangers(ai_client):
@@ -326,7 +331,8 @@ def test_export_then_import_gives_new_ids_and_drops_strangers(ai_client):
     assert first["id"] not in {i["id"] for i in imported}
     stranger = next(i for i in imported if i["name"] == "Stranger")
     assert [it["key"] for it in stranger["payload"]["items"]] == ["t"]
-    assert ai_client.post("/board-library/import", json={"format": "other", "items": []}).status_code == 422
+    reply_6 = ai_client.post("/board-library/import", json={"format": "other", "items": []})
+    assert reply_6.status_code == 422
 
 
 def test_media_in_the_library_is_not_an_orphan(ai_client):
@@ -335,3 +341,45 @@ def test_media_in_the_library_is_not_an_orphan(ai_client):
         {"key": "p", "kind": "object", "type": "image", "data": {"url": picture["url"]}, "x": 0, "y": 0, "w": 20, "h": 20}]})
     orphans = ai_client.get("/media/orphans").json()["orphans"]
     assert not any(o["url"] == picture["url"] for o in orphans)
+
+
+def test_a_deleted_library_comes_back_with_its_items(ai_client):
+    """INBOX 898: deleting a library moves its items to Yours; Undo puts the
+    library back and the items in it. An import's undo takes the items too."""
+    made = ai_client.post("/board-library/libraries", json={"name": "Flow"}).json()
+    item = ai_client.post(
+        "/board-library",
+        json={"kind": "element", "name": "Boxes", "payload": _element(), "library_id": made["id"]},
+    ).json()
+    yours = ai_client.get("/board-library").json()["yours_id"]
+
+    gone = ai_client.delete(f"/board-library/libraries/{made['id']}").json()
+    assert gone["moved"] == 1 and gone["undo_token"]
+    moved = ai_client.get(f"/board-library?library_id={yours}").json()["items"]
+    assert item["id"] in {i["id"] for i in moved}
+
+    back = ai_client.post("/board-library/libraries/restore", json={"token": gone["undo_token"]})
+    assert back.status_code == 201 and back.json()["id"] == made["id"]
+    inside = ai_client.get(f"/board-library?library_id={made['id']}").json()["items"]
+    assert [i["id"] for i in inside] == [item["id"]]
+    reply_7 = ai_client.post("/board-library/libraries/restore", json={"token": gone["undo_token"]})
+    assert reply_7.status_code == 404
+
+
+def test_deleting_an_import_with_its_items_is_undone_whole(ai_client):
+    _save(ai_client, name="Seed")
+    yours = ai_client.get("/board-library").json()["yours_id"]
+    body = ai_client.get(f"/board-library/export?library_id={yours}").json()
+    result = ai_client.post("/board-library/import", json=body).json()
+    library_id = result["library"]["id"]
+    assert ai_client.get(f"/board-library?library_id={library_id}").json()["items"]
+
+    gone = ai_client.delete(f"/board-library/libraries/{library_id}?with_items=true").json()
+    assert ai_client.get(f"/board-library?library_id={yours}").json()["items"] == ai_client.get(
+        f"/board-library?library_id={yours}"
+    ).json()["items"]
+    assert len(ai_client.get(f"/board-library?library_id={yours}").json()["items"]) == 1
+
+    ai_client.post("/board-library/libraries/restore", json={"token": gone["undo_token"]})
+    assert len(ai_client.get(f"/board-library?library_id={library_id}").json()["items"]) == result["items"]
+    assert len(ai_client.get(f"/board-library?library_id={yours}").json()["items"]) == 1

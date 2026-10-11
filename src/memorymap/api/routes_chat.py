@@ -142,7 +142,7 @@ def _recent_questions(session: Session, limit: int = 5) -> list[str]:
     rows = session.scalars(
         select(AuditLog)
         .where(
-            AuditLog.action.in_(("queried", "forgot", "cleared")),
+            AuditLog.action.in_(("queried", "forgot", "cleared", "remembered")),
             AuditLog.entity_type == ASK_SURFACE,
         )
         .order_by(AuditLog.id.desc())
@@ -150,7 +150,15 @@ def _recent_questions(session: Session, limit: int = 5) -> list[str]:
     )
     questions: list[str] = []
     forgotten: set[str] = set()
+    #: A `remembered` row is Undo of a `forgot` or `cleared` one (INBOX 898):
+    #: it names that row's id, and walking back, the row it names no longer counts.
+    lifted: set[str] = set()
     for row in rows:
+        if row.action == "remembered":
+            lifted.add(row.detail or "")
+            continue
+        if str(row.id) in lifted:
+            continue
         if row.action == "cleared":
             break
         if row.action == "forgot":
@@ -171,9 +179,28 @@ def recent_questions(session: Session = Depends(get_session)) -> list[str]:
 @router.delete("/recent")
 def forget_recent_question(question: str, session: Session = Depends(get_session)) -> dict:
     """Take one question off the Ask again row (see `_recent_questions`)."""
-    manager.log_action(session, "forgot", ASK_SURFACE, detail=question)
+    marker = manager.log_action(session, "forgot", ASK_SURFACE, detail=question)
     session.commit()
-    return {"forgotten": question}
+    return {"forgotten": question, "marker_id": marker.id if marker else None}
+
+
+class RememberBody(BaseModel):
+    marker_id: int
+
+
+@router.post("/recent/restore")
+def remember_recent_question(body: RememberBody, session: Session = Depends(get_session)) -> dict:
+    """Undo `DELETE /chat/recent`: the chip is offered again (INBOX 898).
+
+    Writes a `remembered` row naming the `forgot` one rather than editing the
+    log, which is a history.
+    """
+    marker = session.get(AuditLog, body.marker_id)
+    if marker is None or marker.action != "forgot" or marker.entity_type != ASK_SURFACE:
+        raise HTTPException(status_code=404, detail="That question was not forgotten.")
+    manager.log_action(session, "remembered", ASK_SURFACE, detail=str(marker.id))
+    session.commit()
+    return {"remembered": marker.detail}
 
 
 def _asked_key(question: str) -> str:

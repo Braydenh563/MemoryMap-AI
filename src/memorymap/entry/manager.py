@@ -3367,15 +3367,23 @@ def wiki_holders(session: Session, entry: Entry, name: str) -> list[Entry]:
     return [row for row in rows if pattern.search(row.content or "")]
 
 
-def rewrite_wiki_name(session: Session, entry: Entry, old: str, new: str) -> int:
+def rewrite_wiki_name(
+    session: Session, entry: Entry, old: str, new: str, saved: list[dict] | None = None
+) -> int:
     """Rewrite `[[old]]` as `[[new]]` in every note that names it (GRAPH_PLAN
     518: a renamed note offers this). Each note keeps its alias and part, gets
     a revision first so it can be undone from its history, and is synced so
-    its links point where the names now do. Returns how many notes changed."""
+    its links point where the names now do. Returns how many notes changed.
+
+    `saved`, when given, gets `{"id", "revision_id"}` for each note changed:
+    the version each held before, which is how Undo puts the old name back
+    (`POST /entries/{id}/history/{revision_id}/restore`, INBOX 898)."""
     pattern = _wiki_name_pattern(old)
     changed = 0
     for holder in wiki_holders(session, entry, old):
-        record_revision(session, holder)
+        revision = record_revision(session, holder)
+        if saved is not None:
+            saved.append({"id": holder.id, "revision_id": revision.id})
         update_entry(session, holder, content=pattern.sub(lambda _m: f"[[{new.strip()}", holder.content))
         sync_wiki_links(session, holder)
         changed += 1
@@ -3475,8 +3483,8 @@ MAX_REVISIONS = 20
 
 
 @events.writes("entry", "revised")
-def record_revision(session: Session, entry: Entry) -> None:
-    """Save the note as it is now, before it's changed.
+def record_revision(session: Session, entry: Entry):  # noqa: ANN201
+    """Save the note as it is now, before it's changed. Returns the revision.
 
     Private notes store their ciphertext, which is what's in the column, a
     revision must never be the one place a private note sits in the clear.
@@ -3508,8 +3516,9 @@ def record_revision(session: Session, entry: Entry) -> None:
             .offset(MAX_REVISIONS)
         )
     )
-    for revision in stale:
-        session.delete(revision)
+    for old_revision in stale:
+        session.delete(old_revision)
+    return revision
 
 
 def revisions_for(session: Session, entry: Entry) -> list:

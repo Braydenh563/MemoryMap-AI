@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5655, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4768, test files 1085, tests 9938, plan headings 996.
+Counts: frontend functions 5655, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4769, test files 1085, tests 9940, plan headings 996.
 
 ## Frontend functions (5655)
 
@@ -4823,7 +4823,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `importDirectory` | frontend/js/settings-data.js:358 |
 | `importDocument` | frontend/js/settings-data.js:465 |
 | `importMarkdown` | frontend/js/settings-data.js:410 |
-| `noteSettingChange` | frontend/js/settings-data.js:767 |
+| `noteSettingChange` | frontend/js/settings-data.js:768 |
 | `paintClearRow` | frontend/js/settings-data.js:556 |
 | `previewCaches` | frontend/js/settings-data.js:531 |
 | `previewCount` | frontend/js/settings-data.js:540 |
@@ -4837,27 +4837,27 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `renderPrivacyRange` | frontend/js/settings-data.js:90 |
 | `renderPrivacyReceipt` | frontend/js/settings-data.js:138 |
 | `renderSettingsClear` | frontend/js/settings-data.js:563 |
-| `renderSettingsHistory` | frontend/js/settings-data.js:973 |
+| `renderSettingsHistory` | frontend/js/settings-data.js:974 |
 | `renderStorageSpaceNotice` | frontend/js/settings-data.js:301 |
-| `restoreGuideTurns` | frontend/js/settings-data.js:672 |
-| `searchRecentAll` | frontend/js/settings-data.js:796 |
-| `searchRecentClearAll` | frontend/js/settings-data.js:808 |
-| `searchRecentRestore` | frontend/js/settings-data.js:814 |
-| `settingChangeWords` | frontend/js/settings-data.js:734 |
-| `settingName` | frontend/js/settings-data.js:729 |
-| `settingShown` | frontend/js/settings-data.js:718 |
+| `restoreGuideTurns` | frontend/js/settings-data.js:673 |
+| `searchRecentAll` | frontend/js/settings-data.js:797 |
+| `searchRecentClearAll` | frontend/js/settings-data.js:809 |
+| `searchRecentRestore` | frontend/js/settings-data.js:815 |
+| `settingChangeWords` | frontend/js/settings-data.js:735 |
+| `settingName` | frontend/js/settings-data.js:730 |
+| `settingShown` | frontend/js/settings-data.js:719 |
 | `settingsClearCount` | frontend/js/settings-data.js:525 |
-| `settingsClearDone` | frontend/js/settings-data.js:624 |
-| `settingsHistoryAdd` | frontend/js/settings-data.js:848 |
-| `settingsHistoryApply` | frontend/js/settings-data.js:864 |
-| `settingsHistoryEntry` | frontend/js/settings-data.js:834 |
-| `settingsHistoryFind` | frontend/js/settings-data.js:859 |
-| `settingsHistoryLoad` | frontend/js/settings-data.js:823 |
-| `settingsHistoryRedo` | frontend/js/settings-data.js:927 |
-| `settingsHistoryRow` | frontend/js/settings-data.js:940 |
-| `settingsHistorySave` | frontend/js/settings-data.js:827 |
-| `settingsHistoryUndo` | frontend/js/settings-data.js:913 |
-| `settingsPrefsSeen` | frontend/js/settings-data.js:746 |
+| `settingsClearDone` | frontend/js/settings-data.js:625 |
+| `settingsHistoryAdd` | frontend/js/settings-data.js:849 |
+| `settingsHistoryApply` | frontend/js/settings-data.js:865 |
+| `settingsHistoryEntry` | frontend/js/settings-data.js:835 |
+| `settingsHistoryFind` | frontend/js/settings-data.js:860 |
+| `settingsHistoryLoad` | frontend/js/settings-data.js:824 |
+| `settingsHistoryRedo` | frontend/js/settings-data.js:928 |
+| `settingsHistoryRow` | frontend/js/settings-data.js:941 |
+| `settingsHistorySave` | frontend/js/settings-data.js:828 |
+| `settingsHistoryUndo` | frontend/js/settings-data.js:914 |
+| `settingsPrefsSeen` | frontend/js/settings-data.js:747 |
 | `undoImport` | frontend/js/settings-data.js:381 |
 
 ### frontend/js/settings-find.js (33)
@@ -8838,7 +8838,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | 7. Meta looks like meta | frontend/css/08-consistency.css:1028 |
 | 8. A panel head is identity, one fact, then the actions, and it does not | frontend/css/08-consistency.css:2363 |
 | A CALMER TOP, NOTHING TAKEN AWAY (Full view) | frontend/css/03-dashboard-widgets.css:4859 |
-| A card's date is in the same corner on every card (INBOX 719) | frontend/css/08-consistency.css:10360 |
+| A card's date is in the same corner on every card (INBOX 719) | frontend/css/08-consistency.css:10372 |
 | A chip's x: a round target inset evenly (INBOX 403) | frontend/css/08-consistency.css:4674 |
 | A dialog's head: title, its '?', icon-only actions, Close last | frontend/css/08-consistency.css:8980 |
 | A diff of two versions of the same text (DOCUMENTS_PLAN Phase 5 items 2, 3) | frontend/css/09-editor.css:556 |
@@ -8847,8 +8847,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | A note's buttons stay while its own menu is open (INBOX 679) | frontend/css/08-consistency.css:10243 |
 | A note's time: the same corner on every card | frontend/css/08-consistency.css:8358 |
 | A notification's two controls are a column of their own (INBOX 874) | frontend/css/06-timeline-dialogs.css:3459 |
-| A rail row's ⋮ overlays the row; it never reserves a column (INBOX 722) | frontend/css/08-consistency.css:10420 |
-| A row is a pointer target (INBOX 719) | frontend/css/08-consistency.css:10344 |
+| A rail row's ⋮ overlays the row; it never reserves a column (INBOX 722) | frontend/css/08-consistency.css:10432 |
+| A row is a pointer target (INBOX 719) | frontend/css/08-consistency.css:10356 |
 | Ask history: the personal-notes-browser panel (§ROADMAP item 6) | frontend/css/01-forms-settings.css:2827 |
 | Atlas's life: loops while the mark is on screen and motion is on | frontend/css/08-consistency.css:7951 |
 | Atlas, the app's guide (INBOX 224) | frontend/css/08-consistency.css:1783 |
@@ -8889,8 +8889,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Ocean: cool teal and deep blue. Crisp rather than cosy. | frontend/css/05-sidebars-themes.css:3304 |
 | On paper (DOCUMENTS_PLAN Phase 5 item 4, the print stylesheet) | frontend/css/09-editor.css:916 |
 | On this day | frontend/css/03-dashboard-widgets.css:4636 |
-| One sidebar row recipe for every rail (INBOX 702) | frontend/css/08-consistency.css:10313 |
-| One ⋯ opener, styled once (INBOX 722) | frontend/css/08-consistency.css:10389 |
+| One sidebar row recipe for every rail (INBOX 702) | frontend/css/08-consistency.css:10325 |
+| One ⋯ opener, styled once (INBOX 722) | frontend/css/08-consistency.css:10401 |
 | PLAN.md D1: the documents dock's formatting strip hides entirely | frontend/css/07-whiteboard-misc.css:7918 |
 | Parchment: paper, ink and a little gold. Made for long writing. | frontend/css/05-sidebars-themes.css:3231 |
 | Phase 10, INBOX 100: the scroll edge effect | frontend/css/10-responsive.css:159 |
@@ -9327,7 +9327,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/05-sidebars-themes.css | 6228 |
 | frontend/css/06-timeline-dialogs.css | 3713 |
 | frontend/css/07-whiteboard-misc.css | 11943 |
-| frontend/css/08-consistency.css | 10461 |
+| frontend/css/08-consistency.css | 10473 |
 | frontend/css/09-editor.css | 1116 |
 | frontend/css/10-responsive.css | 2586 |
 | frontend/css/ask-compose-lazy.css | 33 |
@@ -9481,9 +9481,9 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/digest` | POST | `weekly_digest` | src/memorymap/api/routes_insights.py:717 |
 | `/digest/stream` | POST | `weekly_digest_stream` | src/memorymap/api/routes_insights.py:649 |
 | `/dismiss` | POST | `dismiss_insight` | src/memorymap/api/routes_insights.py:440 |
-| `/dismissed` | GET | `dismissed_suggestions` | src/memorymap/api/routes_inbox.py:217 |
-| `/dismissed/clear` | POST | `clear_dismissed_suggestions` | src/memorymap/api/routes_inbox.py:225 |
-| `/dismissed/restore` | POST | `restore_dismissed_suggestions` | src/memorymap/api/routes_inbox.py:239 |
+| `/dismissed` | GET | `dismissed_suggestions` | src/memorymap/api/routes_inbox.py:240 |
+| `/dismissed/clear` | POST | `clear_dismissed_suggestions` | src/memorymap/api/routes_inbox.py:254 |
+| `/dismissed/restore` | POST | `restore_dismissed_suggestions` | src/memorymap/api/routes_inbox.py:281 |
 | `/documents/run-sandbox` | GET | `run_sandbox` | src/memorymap/api/run_sandbox.py:713 |
 | `/documents/run-sandbox/python` | GET | `run_sandbox_python` | src/memorymap/api/run_sandbox.py:1428 |
 | `/documents/{document_id}/code-assist` | POST | `code_assist_route` | src/memorymap/api/routes_code_assist.py:34 |
@@ -9921,7 +9921,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:163 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1458 |
 
-## Backend modules (4768)
+## Backend modules (4769)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -11094,7 +11094,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_orphans` | src/memorymap/ai/notebook_stats.py:432 |
 | `_plural` | src/memorymap/ai/notebook_stats.py:90 |
 | `_recent_count` | src/memorymap/ai/notebook_stats.py:490 |
-| `_reminder_block` | src/memorymap/ai/notebook_stats.py:725 |
+| `_reminder_block` | src/memorymap/ai/notebook_stats.py:737 |
 | `_stale_notes` | src/memorymap/ai/notebook_stats.py:571 |
 | `_tag_count` | src/memorymap/ai/notebook_stats.py:361 |
 | `_tag_pairs` | src/memorymap/ai/notebook_stats.py:611 |
@@ -11105,15 +11105,15 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_transposition_of` | src/memorymap/ai/notebook_stats.py:149 |
 | `_untagged` | src/memorymap/ai/notebook_stats.py:350 |
 | `_visible` | src/memorymap/ai/notebook_stats.py:68 |
-| `_week_counts` | src/memorymap/ai/notebook_stats.py:746 |
+| `_week_counts` | src/memorymap/ai/notebook_stats.py:758 |
 | `_window` | src/memorymap/ai/notebook_stats.py:467 |
 | `_word_count` | src/memorymap/ai/notebook_stats.py:516 |
 | `_words` | src/memorymap/ai/notebook_stats.py:680 |
 | `answer` | src/memorymap/ai/notebook_stats.py:219 |
 | `looks_like_a_question_about_the_notebook` | src/memorymap/ai/notebook_stats.py:200 |
-| `page` | src/memorymap/ai/notebook_stats.py:776 |
-| `week_review` | src/memorymap/ai/notebook_stats.py:763 |
-| `week_start` | src/memorymap/ai/notebook_stats.py:740 |
+| `page` | src/memorymap/ai/notebook_stats.py:788 |
+| `week_review` | src/memorymap/ai/notebook_stats.py:775 |
+| `week_start` | src/memorymap/ai/notebook_stats.py:752 |
 
 ### src/memorymap/ai/offers.py (12)
 
@@ -13065,7 +13065,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `import_app` | src/memorymap/api/routes_import.py:64 |
 | `import_report_page` | src/memorymap/api/routes_import.py:113 |
 
-### src/memorymap/api/routes_inbox.py (17)
+### src/memorymap/api/routes_inbox.py (18)
 
 | Name | File:line |
 |---|---|
@@ -13075,16 +13075,17 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `TypeDecision` | src/memorymap/api/routes_inbox.py:164 |
 | `_merges` | src/memorymap/api/routes_inbox.py:49 |
 | `_sentence` | src/memorymap/api/routes_inbox.py:67 |
-| `_tension_keys` | src/memorymap/api/routes_inbox.py:210 |
+| `_tension_keys` | src/memorymap/api/routes_inbox.py:233 |
+| `_turned_down_on_notes` | src/memorymap/api/routes_inbox.py:212 |
 | `_types` | src/memorymap/api/routes_inbox.py:83 |
 | `_visible` | src/memorymap/api/routes_inbox.py:38 |
 | `accept_merge` | src/memorymap/api/routes_inbox.py:144 |
 | `accept_type` | src/memorymap/api/routes_inbox.py:170 |
-| `clear_dismissed_suggestions` | src/memorymap/api/routes_inbox.py:226 |
+| `clear_dismissed_suggestions` | src/memorymap/api/routes_inbox.py:255 |
 | `dismiss_merge` | src/memorymap/api/routes_inbox.py:158 |
 | `dismiss_type` | src/memorymap/api/routes_inbox.py:187 |
-| `dismissed_suggestions` | src/memorymap/api/routes_inbox.py:218 |
-| `restore_dismissed_suggestions` | src/memorymap/api/routes_inbox.py:240 |
+| `dismissed_suggestions` | src/memorymap/api/routes_inbox.py:241 |
+| `restore_dismissed_suggestions` | src/memorymap/api/routes_inbox.py:282 |
 | `suggestions` | src/memorymap/api/routes_inbox.py:125 |
 
 ### src/memorymap/api/routes_insights.py (24)
@@ -16008,7 +16009,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9938)
+## Tests (9940)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16234,7 +16235,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_device_sizes.py | 11 |
 | tests/test_digest_structure.py | 20 |
 | tests/test_disclosure_marker.py | 4 |
-| tests/test_dismissed_suggestions_1011.py | 3 |
+| tests/test_dismissed_suggestions_1011.py | 4 |
 | tests/test_doc_ai_check.py | 8 |
 | tests/test_doc_backlinks.py | 18 |
 | tests/test_doc_blockrefs.py | 2 |
@@ -16684,7 +16685,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_notebook_access.py | 21 |
 | tests/test_notebook_stats.py | 23 |
 | tests/test_notebook_stats_chat.py | 2 |
-| tests/test_notebook_stats_page.py | 7 |
+| tests/test_notebook_stats_page.py | 8 |
 | tests/test_notes_extras_api.py | 26 |
 | tests/test_notes_rail.py | 7 |
 | tests/test_notes_rows_719.py | 8 |

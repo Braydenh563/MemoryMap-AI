@@ -7,6 +7,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Dashboard: the Quick access tiles no longer overflow their group by 4px (1440, 1024 and 600 wide); the ring room is kept only for the strip that scrolls on a phone.
+- Statistics: the links and unlinked-notes counts no longer count a link to a binned or private note, so a hidden note cannot show as joined to anything.
+- Settings, Data: "Clear dismissed suggestions" now also forgets the tags turned down on notes ("Not suggested" in a note's edit form). The line above the button counts them, and Undo (the toast or Recent changes) puts each back on its own note.
 - Launcher: `doctor`, `reinstall` and `tools` are one double-click each, as `.sh` and `.bat`: the machine check, a rebuild of the Python environment that asks first and leaves notes alone, and a menu of every launcher action.
 - Notes: a note with fewer than three tags shows a quiet "+ Tag" after its tags. It opens up to three suggested tags as one-press chips above a field for your own, and its menu has "Don't suggest tags for this note" (Undo in the notice, and "Suggest tags for this note again" in the same menu).
 - Settings: sizes are the device's own. Zoom, Text size, Density, the companion's size and place, the chat box's height and the whiteboard's panel places are no longer copied to your notebook or applied from it, so changing the zoom or the companion's size on a computer leaves a phone as it was (colours, themes and fonts still follow you). They are marked On this device in Settings, Appearance, and a saved look no longer carries them.

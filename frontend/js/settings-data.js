@@ -614,6 +614,7 @@ function dismissedWords(dismissed) {
     return settingsClearCount(n, one, many);
   });
   if (dismissed.tension_pairs) parts.push(settingsClearCount(dismissed.tension_pairs, "contradiction pair", "contradiction pairs"));
+  if (dismissed.note_tags) parts.push(settingsClearCount(dismissed.note_tags, "tag turned down on a note", "tags turned down on notes"));
   return parts.join(", ");
 }
 
@@ -683,7 +684,7 @@ $("clear-dismissed")?.addEventListener("click", async () => {
     const done = await apiJson("/suggestions/dismissed/clear", { method: "POST" });
     if (!done.cleared) return;
     settingsClearDone(
-      { kind: "dismissed", changes: [], words: "Cleared dismissed suggestions", data: { ids: done.ids, tensions: done.tensions } },
+      { kind: "dismissed", changes: [], words: "Cleared dismissed suggestions", data: { ids: done.ids, tensions: done.tensions, note_tags: done.note_tags } },
       `Cleared ${settingsClearCount(done.cleared, "dismissed suggestion", "dismissed suggestions")}: they can be offered again.`
     );
   } catch (error) {

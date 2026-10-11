@@ -40,7 +40,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import and_, case, exists, func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from memorymap.core.database import Category, Document, Entry, EntryLink, Reminder, utcnow
 
@@ -706,9 +706,21 @@ def _notebook_block(session: Session, now: datetime) -> dict:
             key = (created.astimezone(zone) if created.tzinfo else created).strftime("%Y-%m")
             if key in growth:
                 growth[key] += 1
+    #: A link counts only between two counted notes: a link to a binned or
+    #: private one would say that hidden note is joined to something.
+    near, far = aliased(Entry), aliased(Entry)
+    visible_link = (
+        select(EntryLink.id)
+        .join(near, near.id == EntryLink.source_entry_id)
+        .join(far, far.id == EntryLink.target_entry_id)
+    )
+    for end in (near, far):
+        visible_link = visible_link.where(
+            end.deleted_at.is_(None), end.is_private.is_(False), end.is_board.is_(False)
+        )
     linked = or_(
-        exists().where(EntryLink.source_entry_id == Entry.id),
-        exists().where(EntryLink.target_entry_id == Entry.id),
+        exists().where(EntryLink.source_entry_id == Entry.id, EntryLink.id.in_(visible_link)),
+        exists().where(EntryLink.target_entry_id == Entry.id, EntryLink.id.in_(visible_link)),
     )
     return {
         "notes": len(rows),
@@ -716,7 +728,7 @@ def _notebook_block(session: Session, now: datetime) -> dict:
         "tags": len(tags),
         "categories": session.scalar(select(func.count(Category.id))) or 0,
         "documents": session.scalar(select(func.count(Document.id))) or 0,
-        "links": session.scalar(select(func.count(EntryLink.id))) or 0,
+        "links": session.scalar(select(func.count()).select_from(visible_link.subquery())) or 0,
         "orphans": session.scalar(_visible(select(func.count(Entry.id)).where(~linked))) or 0,
         "growth": [{"label": key, "value": growth[key]} for key in keys],
     }

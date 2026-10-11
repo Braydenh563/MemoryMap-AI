@@ -84,3 +84,27 @@ def test_clearing_leaves_other_corrections_alone_and_restore_ignores_strangers(c
     live_id = learning.corrections(session, "accept_merge")[0].id
     body9 = client.post("/suggestions/dismissed/restore", json={"ids": [live_id], "tensions": []}).json()
     assert body9["restored"] == 0
+
+
+def test_tags_turned_down_on_notes_are_counted_cleared_and_restored(client):
+    """INBOX 1271: "Clear dismissed suggestions" now reaches the per-note
+    "Not suggested" tags, and Undo puts each back on its own note."""
+    a = _note(client, "gym session")
+    b = _note(client, "boiler service")
+    client.post(f"/entries/{a['id']}/suggested-tags", json={"discard": ["Study", "uni"]})
+    client.post(f"/entries/{b['id']}/suggested-tags", json={"discard": ["Study"]})
+    body = client.get("/suggestions/dismissed").json()
+    assert body["note_tags"] == 3 and body["total"] == 3
+
+    cleared = client.post("/suggestions/dismissed/clear").json()
+    assert cleared["cleared"] == 3
+    assert client.get("/suggestions/dismissed").json()["total"] == 0
+    assert client.get(f"/entries/{a['id']}").json()["discarded_tags"] == []
+
+    client.post(
+        "/suggestions/dismissed/restore",
+        json={"ids": cleared["ids"], "tensions": cleared["tensions"], "note_tags": cleared["note_tags"]},
+    )
+    assert client.get(f"/entries/{a['id']}").json()["discarded_tags"] == ["Study", "uni"]
+    assert client.get(f"/entries/{b['id']}").json()["discarded_tags"] == ["Study"]
+    assert client.get("/suggestions/dismissed").json()["note_tags"] == 3

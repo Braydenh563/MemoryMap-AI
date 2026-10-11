@@ -1656,6 +1656,42 @@ def _board_palette(theme: dict) -> list[str]:
     return MAP_BRANCH_PALETTES.get(theme.get("palette") or "classic", MAP_BRANCH_PALETTE)
 
 
+def _branch_children(parents: dict[int, int | None]) -> dict[int | None, list[int]]:
+    """Each node's children by parent, a missing parent read as a root, and a
+    root's children ordered by the oldest id in each branch.
+
+    **A branch is as old as its oldest topic** (the owner, 2026-10-10: "when
+    I added a mindmap node in between, it changed the colour of the other
+    nodes in the branch"). A topic put between a root and its child is the
+    newest id on the map, so ordering a root's children by their own id sent
+    the moved branch to the end of the palette and shifted every branch after
+    it. Ordered by the oldest id in each branch, it takes the place (and the
+    colour) of the branch it now holds. A map nobody re-parented orders as
+    before: a branch's own topic is its oldest. `canvas.wbMapColors` agrees.
+    """
+    children: dict[int | None, list[int]] = {}
+    for node_id, parent_id in parents.items():
+        key = parent_id if parent_id in parents else None
+        children.setdefault(key, []).append(node_id)
+    walk_order: list[int] = []
+    visited: set[int] = set()
+    pending = list(children.get(None, []))
+    while pending:
+        node_id = pending.pop()
+        if node_id in visited:
+            continue
+        visited.add(node_id)
+        walk_order.append(node_id)
+        pending.extend(children.get(node_id, []))
+    oldest: dict[int, int] = {}
+    for node_id in reversed(walk_order):
+        oldest[node_id] = min([node_id, *(oldest[c] for c in children.get(node_id, []) if c in oldest)])
+    for root_id in children.get(None, []):
+        if root_id in children:
+            children[root_id].sort(key=lambda c: oldest.get(c, c))
+    return children
+
+
 def _map_branch_colors(
     parents: dict[int, int | None],
     own: dict[int, str | None],
@@ -1677,34 +1713,7 @@ def _map_branch_colors(
     reader of `parent_id` does.
     """
     palette = palette or MAP_BRANCH_PALETTE
-    children: dict[int | None, list[int]] = {}
-    for node_id, parent_id in parents.items():
-        key = parent_id if parent_id in parents else None
-        children.setdefault(key, []).append(node_id)
-    # **A branch is as old as its oldest topic** (the owner, 2026-10-10: "when
-    # I added a mindmap node in between, it changed the colour of the other
-    # nodes in the branch"). A topic put between a root and its child is the
-    # newest id on the map, so ordering a root's children by their own id sent
-    # the moved branch to the end of the palette and shifted every branch after
-    # it. Ordered by the oldest id in each branch, it takes the place (and the
-    # colour) of the branch it now holds. A map nobody re-parented orders as
-    # before: a branch's own topic is its oldest. `canvas.wbMapColors` agrees.
-    walk_order: list[int] = []
-    visited: set[int] = set()
-    pending = list(children.get(None, []))
-    while pending:
-        node_id = pending.pop()
-        if node_id in visited:
-            continue
-        visited.add(node_id)
-        walk_order.append(node_id)
-        pending.extend(children.get(node_id, []))
-    oldest: dict[int, int] = {}
-    for node_id in reversed(walk_order):
-        oldest[node_id] = min([node_id, *(oldest[c] for c in children.get(node_id, []) if c in oldest)])
-    for root_id in children.get(None, []):
-        if root_id in children:
-            children[root_id].sort(key=lambda c: oldest.get(c, c))
+    children = _branch_children(parents)
     colors: dict[int, str] = {}
     seen: set[int] = set()
     branch = 0
@@ -1943,6 +1952,144 @@ def _preview_items(
 PREVIEW_ASPECT_RANGE = (0.5, 3.0)
 
 
+def _card_preview_rows(db: Session, on) -> list[tuple]:  # noqa: ANN001
+    """One preview row per card on the board."""
+    from memorymap.entry import manager
+
+    rows: list[tuple] = []
+    for node in db.scalars(select(WhiteboardNode).where(on(WhiteboardNode))):
+        entry = db.get(Entry, node.entry_id)
+        label = ""
+        if entry is not None and not entry.is_private:
+            # A card *is* a note, so its own title (or first words) is what
+            # is written on it. A private note contributes its position and
+            # nothing else: the same rule the Connections block and the
+            # Library's file-usage chips follow.
+            text = manager.readable_content(entry)
+            label = (manager.extract_title(text) or text.strip().split("\n")[0])[
+                :PREVIEW_LABEL_CHARS
+            ]
+        rows.append(
+            (
+                float(node.x),
+                float(node.y),
+                "card",
+                label,
+                None,
+                *_preview_size("card", node.width, node.height),
+                None,
+            )
+        )
+    return rows
+
+
+def _sketch_preview_rows(db: Session, on) -> list[tuple]:  # noqa: ANN001
+    """One preview row per drawn stroke on the board."""
+    rows: list[tuple] = []
+    for sketch in db.scalars(select(WhiteboardSketch).where(on(WhiteboardSketch))):
+        #: **From the strokes, not from the row.** A sketch's `x`/`y` are 0 for
+        #: every stroke the drawing tools make, with the path in absolute board
+        #: coordinates, so reading them put every sketch on a board at the
+        #: origin at one default size: eight of them measured as eight marks at
+        #: one position and one size, which is INBOX 164's single squiggle.
+        sx, sy, sw, sh, shape, colour = _sketch_preview(sketch)
+        rows.append((sx, sy, "sketch", "", colour, sw, sh, shape))
+    return rows
+
+
+def _object_data(obj) -> dict:  # noqa: ANN001
+    """An object's `data` as a dict, whatever was stored."""
+    try:
+        parsed = json.loads(obj.data)
+    except (TypeError, ValueError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _object_preview_rows(db: Session, on) -> tuple[list[tuple], list[int | None], dict, dict, dict]:  # noqa: ANN001
+    """The board's objects as preview rows, with the tree the branch colours need:
+    `(rows, owners, parent_of, tree_parents, own_colors)`.
+
+    `parent_of` carries only real parents and is what the edges are drawn
+    from; `tree_parents` holds every map object's parent (roots at None) and
+    `own_colors` its own `data.color`, which the branch-colour walk needs.
+    """
+    rows: list[tuple] = []
+    owners: list[int | None] = []
+    parent_of: dict[int, int] = {}
+    tree_parents: dict[int, int | None] = {}
+    own_colors: dict[int, str | None] = {}
+    # Ordered by id so the branch colours fall in the same order the canvas
+    # gives them: the client walks the objects in the order `GET /whiteboard`
+    # returns them, which is this one.
+    objects = db.scalars(select(WhiteboardObject).where(on(WhiteboardObject)).order_by(WhiteboardObject.id))
+    for obj in list(objects):
+        data = _object_data(obj)
+        label = ""
+        if obj.kind == MAP_TOPIC_KIND or obj.kind == "text":
+            # A map's thumbnail is mostly topics, and a topic *is* its text,
+            # a tree of unlabelled boxes tells two maps apart no better than
+            # a scatter of dots did. A whiteboard's text boxes and sticky notes
+            # are the same case (INBOX 68: "Boards & maps preview looks so
+            # bad"). An image object still has no label: what it says is a
+            # picture, and a thumbnail of a thumbnail is a different feature.
+            label = str(data.get("content") or "")[:PREVIEW_LABEL_CHARS]
+        rows.append(
+            (
+                float(obj.x),
+                float(obj.y),
+                obj.kind or "object",
+                label,
+                None,
+                *_preview_size(obj.kind or "object", obj.width, obj.height),
+                None,
+            )
+        )
+        owners.append(obj.id)
+        if obj.parent_id is not None:
+            parent_of[obj.id] = obj.parent_id
+        if obj.kind == MAP_TOPIC_KIND or obj.kind in MAP_REFERENCE_KINDS:
+            tree_parents[obj.id] = obj.parent_id
+            colour = data.get("color")
+            own_colors[obj.id] = colour if isinstance(colour, str) and colour else None
+    return rows, owners, parent_of, tree_parents, own_colors
+
+
+def _preview_aspect(rows: list[tuple], kept: list[int]) -> float:
+    """The sampled corner span, which is the box the items were normalised
+    into and therefore the box the client draws. A single item, or a straight
+    line of them, has no extent on an axis and keeps the square: the
+    alternative is a divide by zero or a thumbnail whose shape is an artefact
+    of a rounding error."""
+    if not kept:
+        return 1.0
+    xs = [rows[i][0] for i in kept]
+    ys = [rows[i][1] for i in kept]
+    span_x, span_y = max(xs) - min(xs), max(ys) - min(ys)
+    if span_x > 0 and span_y > 0:
+        low, high = PREVIEW_ASPECT_RANGE
+        return round(min(max(span_x / span_y, low), high), 3)
+    return 1.0
+
+
+def _preview_edges(parent_of: dict, owners: list, kept: list[int], items: list[dict]) -> list[dict]:
+    """A line from each kept child to its kept parent. An edge takes the
+    *child's* colour, which is what the canvas does: a branch is one colour
+    from where it leaves the trunk all the way out."""
+    edges: list[dict] = []
+    if not parent_of:
+        return edges
+    at = {owners[i]: n for n, i in enumerate(kept) if owners[i] is not None}
+    for child_id, parent_id in parent_of.items():
+        if child_id in at and parent_id in at:
+            child, parent = items[at[child_id]], items[at[parent_id]]
+            edge = {"x1": parent["x"], "y1": parent["y"], "x2": child["x"], "y2": child["y"]}
+            if child.get("color"):
+                edge["color"] = child["color"]
+            edges.append(edge)
+    return edges
+
+
 def _board_preview(
     db: Session, board_id: int | None, palette: list[str] | None = None
 ) -> tuple[list[dict], list[dict], float]:
@@ -1967,8 +2114,6 @@ def _board_preview(
     height: the picture the client letterboxes *is* that span, so a ratio
     measured any other way would be a number that does not match the drawing.
     """
-    from memorymap.entry import manager
-
     def on(model):
         return (
             model.board_id.is_(None) if board_id is None else model.board_id == board_id
@@ -1978,103 +2123,14 @@ def _board_preview(
     #: `ellipse`, `pen`, ...), `None` for everything that is not a sketch: a
     #: thumbnail that draws one generic wave for every shape on the board is
     #: the half of INBOX 164 the positions do not explain.
-    rows: list[tuple[float, float, str, str, str | None, float, float, str | None]] = []
+    rows = _card_preview_rows(db, on) + _sketch_preview_rows(db, on)
     #: Which object each row came from, positionally, `None` for a card or a
     #: sketch, which have no tree. Only map nodes ever claim a parent, so an
     #: ordinary board leaves `parent_of` empty and pays for nothing.
-    owners: list[int | None] = []
-    parent_of: dict[int, int] = {}
-    #: Every object's parent (including the roots, at None) and its own
-    #: `data.color`, which is what the branch-colour walk needs. Separate from
-    #: `parent_of` because that one carries only real parents and is what the
-    #: edges are drawn from.
-    tree_parents: dict[int, int | None] = {}
-    own_colors: dict[int, str | None] = {}
-
-    for node in db.scalars(select(WhiteboardNode).where(on(WhiteboardNode))):
-        entry = db.get(Entry, node.entry_id)
-        label = ""
-        if entry is not None and not entry.is_private:
-            # A card *is* a note, so its own title (or first words) is what
-            # is written on it. A private note contributes its position and
-            # nothing else: the same rule the Connections block and the
-            # Library's file-usage chips follow.
-            text = manager.readable_content(entry)
-            label = (manager.extract_title(text) or text.strip().split("\n")[0])[
-                :PREVIEW_LABEL_CHARS
-            ]
-        rows.append(
-            (
-                float(node.x),
-                float(node.y),
-                "card",
-                label,
-                None,
-                *_preview_size("card", node.width, node.height),
-                None,
-            )
-        )
-        owners.append(None)
-
-    for sketch in db.scalars(select(WhiteboardSketch).where(on(WhiteboardSketch))):
-        #: **From the strokes, not from the row.** A sketch's `x`/`y` are 0 for
-        #: every stroke the drawing tools make, with the path in absolute board
-        #: coordinates, so reading them put every sketch on a board at the
-        #: origin at one default size: eight of them measured as eight marks at
-        #: one position and one size, which is INBOX 164's single squiggle.
-        sx, sy, sw, sh, shape, colour = _sketch_preview(sketch)
-        rows.append((sx, sy, "sketch", "", colour, sw, sh, shape))
-        owners.append(None)
-
-    # Ordered by id so the branch colours fall in the same order the canvas
-    # gives them: the client walks the objects in the order `GET /whiteboard`
-    # returns them, which is this one.
-    objects = list(
-        db.scalars(
-            select(WhiteboardObject)
-            .where(on(WhiteboardObject))
-            .order_by(WhiteboardObject.id)
-        )
-    )
-    for obj in objects:
-        label = ""
-        data = {}
-        try:
-            parsed = json.loads(obj.data)
-            data = parsed if isinstance(parsed, dict) else {}
-        except (TypeError, ValueError):
-            data = {}
-        if obj.kind == MAP_TOPIC_KIND or obj.kind == "text":
-            # A map's thumbnail is mostly topics, and a topic *is* its text,
-            # a tree of unlabelled boxes tells two maps apart no better than
-            # a scatter of dots did.
-            #
-            # A whiteboard's text boxes and sticky notes are the same case and
-            # were left out of it (INBOX 68: "Boards & maps preview looks so
-            # bad"). A board of five text boxes previewed as five blank
-            # rectangles, so the one thing written on the board, which is what
-            # a person named it after, was the one thing the picture of it did
-            # not have. An image object still has no label: what it says is a
-            # picture, and a thumbnail of a thumbnail is a different feature.
-            label = str(data.get("content") or "")[:PREVIEW_LABEL_CHARS]
-        rows.append(
-            (
-                float(obj.x),
-                float(obj.y),
-                obj.kind or "object",
-                label,
-                None,
-                *_preview_size(obj.kind or "object", obj.width, obj.height),
-                None,
-            )
-        )
-        owners.append(obj.id)
-        if obj.parent_id is not None:
-            parent_of[obj.id] = obj.parent_id
-        if obj.kind == MAP_TOPIC_KIND or obj.kind in MAP_REFERENCE_KINDS:
-            tree_parents[obj.id] = obj.parent_id
-            colour = data.get("color")
-            own_colors[obj.id] = colour if isinstance(colour, str) and colour else None
+    owners: list[int | None] = [None] * len(rows)
+    object_rows, object_owners, parent_of, tree_parents, own_colors = _object_preview_rows(db, on)
+    rows += object_rows
+    owners += object_owners
 
     # **The branch colours, computed here and not in the client.** Every node
     # drew in one grey before this, so a map's thumbnail showed its structure
@@ -2106,41 +2162,7 @@ def _board_preview(
     stride = max(1, len(rows) // PREVIEW_POINTS)
     kept = list(range(len(rows)))[::stride][:PREVIEW_POINTS]
     items = _preview_items([rows[i] for i in kept])
-
-    # The sampled corner span, which is the box the items were normalised
-    # into and therefore the box the client draws.
-    aspect = 1.0
-    if kept:
-        xs = [rows[i][0] for i in kept]
-        ys = [rows[i][1] for i in kept]
-        span_x, span_y = max(xs) - min(xs), max(ys) - min(ys)
-        if span_x > 0 and span_y > 0:
-            low, high = PREVIEW_ASPECT_RANGE
-            aspect = round(min(max(span_x / span_y, low), high), 3)
-        # A single item, or a straight line of them, has no extent on an axis
-        # and keeps the square: the alternative is a divide by zero or a
-        # thumbnail whose shape is an artefact of a rounding error.
-
-    edges: list[dict] = []
-    if parent_of:
-        at = {owners[i]: n for n, i in enumerate(kept) if owners[i] is not None}
-        for child_id, parent_id in parent_of.items():
-            if child_id in at and parent_id in at:
-                child, parent = items[at[child_id]], items[at[parent_id]]
-                edge = {
-                    "x1": parent["x"],
-                    "y1": parent["y"],
-                    "x2": child["x"],
-                    "y2": child["y"],
-                }
-                # An edge takes the *child's* colour, which is what the canvas
-                # does: a branch is one colour from where it leaves the trunk
-                # all the way out, and colouring it by the parent would paint
-                # the first hop of every branch the trunk's colour.
-                if child.get("color"):
-                    edge["color"] = child["color"]
-                edges.append(edge)
-    return items, edges, aspect
+    return items, _preview_edges(parent_of, owners, kept, items), _preview_aspect(rows, kept)
 
 
 #: How many boards' thumbnails are remembered at once. The Library lists every
@@ -3263,31 +3285,40 @@ def _reference_label(db: Session, kind: str, ref_id: int | None, fallback: str) 
     all. A private note contributes the fact of the reference and nothing
     else: the same rule the board preview and the Connections block follow.
     """
-    from memorymap.core.database import Attachment, Bookmark, Document
-    from memorymap.entry import manager
-
     if ref_id is None:
         return fallback
     if kind == "note":
-        entry = db.get(Entry, ref_id)
-        if entry is None or entry.is_deleted:
-            return fallback or "(note missing)"
-        if entry.is_private:
-            return "Private note"
-        text = manager.readable_content(entry)
-        return manager.extract_title(text) or text.strip().split("\n")[0][:80] or fallback
+        return _note_reference_label(db, ref_id, fallback)
+    return _other_reference_label(db, kind, ref_id) or fallback
+
+
+def _note_reference_label(db: Session, ref_id: int, fallback: str) -> str:
+    """A note reference's name: its title, "Private note" for a private one."""
+    from memorymap.entry import manager
+
+    entry = db.get(Entry, ref_id)
+    if entry is None or entry.is_deleted:
+        return fallback or "(note missing)"
+    if entry.is_private:
+        return "Private note"
+    text = manager.readable_content(entry)
+    return manager.extract_title(text) or text.strip().split("\n")[0][:80] or fallback
+
+
+def _other_reference_label(db: Session, kind: str, ref_id: int) -> str:
+    """A document, file or link reference's name, "" when it has none."""
+    from memorymap.core.database import Attachment, Bookmark, Document
+
     if kind == "document":
         document = db.get(Document, ref_id)
-        return (document.title if document is not None else "") or fallback
+        return document.title if document is not None else ""
     if kind == "file":
         attachment = db.get(Attachment, ref_id)
-        return (attachment.filename if attachment is not None else "") or fallback
+        return attachment.filename if attachment is not None else ""
     if kind == "link":
         bookmark = db.get(Bookmark, ref_id)
-        if bookmark is None:
-            return fallback
-        return bookmark.title or bookmark.url or fallback
-    return fallback
+        return (bookmark.title or bookmark.url) if bookmark is not None else ""
+    return ""
 
 
 def _reference_facets(db: Session, kind: str, ref_id: int | None) -> dict:
@@ -4533,6 +4564,65 @@ def _export_node_id(node_id: object) -> str:
     return f"ID_{node_id}"
 
 
+def _freemind_attributes(node: dict, style: dict) -> dict:
+    """The attributes of one FreeMind `<node>`: its text, kind and reference,
+    link, this app's private style fields and the box shape."""
+    attrs = {"TEXT": node["text"] or "(untitled)"}
+    if node["kind"] != MAP_TOPIC_KIND:
+        attrs["_kind"] = node["kind"]
+        if node["ref_id"] is not None:
+            attrs["_ref"] = str(node["ref_id"])
+    if style.get("link"):
+        attrs["LINK"] = style["link"]
+    for field, attribute in _FREEMIND_PRIVATE.items():
+        if field in style:
+            attrs[attribute] = _xml_attribute(style[field])
+    if style.get("shape"):
+        # FreeMind's own two: `fork` is a label on the line with no box
+        # around it, which is exactly this map's "plain", and `bubble` is
+        # the boxed node every other shape here is a variety of.
+        attrs["STYLE"] = "fork" if style["shape"] == "none" else "bubble"
+    return attrs
+
+
+def _freemind_font(style: dict) -> dict:
+    """A node's `<font>` attributes. NAME is left off rather than filled with
+    "SansSerif": this app sets no font family, and writing one would be a
+    claim about the map that nobody here made."""
+    font = {}
+    if style.get("bold"):
+        font["BOLD"] = "true"
+    if style.get("italic"):
+        font["ITALIC"] = "true"
+    if style.get("font_size"):
+        font["SIZE"] = str(int(style["font_size"]))
+    return font
+
+
+def _freemind_edge(node: dict, style: dict) -> dict:
+    """A node's `<edge>` attributes: line style, width and the node colour."""
+    edge = {}
+    if style.get("edge_style") in _FREEMIND_EDGE_STYLE:
+        edge["STYLE"] = _FREEMIND_EDGE_STYLE[style["edge_style"]]
+    #: FreeMind's own `<edge WIDTH>`, alongside the private `_edge_width`
+    #: that carries the step back: WIDTH is a number of pixels or the word
+    #: `thin`, which is a lossy home for a three-step scale, so it is
+    #: written for the reader that opens the file and read back from the
+    #: private attribute. Same bargain as `STYLE` and `_shape` above.
+    if style.get("edge_width") == "thin":
+        edge["WIDTH"] = "thin"
+    elif style.get("edge_width") == "thick":
+        edge["WIDTH"] = "4"
+    if node.get("color"):
+        # A map's node colour paints the spine down the node's leading
+        # edge and the line coming into it (§12.0, "a node carries its
+        # colour on its own card"), which is `<edge COLOR>` here rather
+        # than `<node COLOR>`: FreeMind's node colour is its *text*
+        # colour, and writing it there would recolour the words.
+        edge["COLOR"] = str(node["color"])
+    return edge
+
+
 def _export_freemind(title: str, roots: list[dict], cross_links: list[dict] | None = None) -> str:
     """FreeMind `.mm`: the other format every mindmapper reads, and the one
     Coggle, Freeplane, XMind and MindMeister all import (§4's list).
@@ -4555,59 +4645,19 @@ def _export_freemind(title: str, roots: list[dict], cross_links: list[dict] | No
     elements: dict = {}
 
     def build(parent_element, node: dict):
-        attrs = {"TEXT": node["text"] or "(untitled)"}
-        if node["kind"] != MAP_TOPIC_KIND:
-            attrs["_kind"] = node["kind"]
-            if node["ref_id"] is not None:
-                attrs["_ref"] = str(node["ref_id"])
         style = node.get("style") or {}
-        if style.get("link"):
-            attrs["LINK"] = style["link"]
-        for field, attribute in _FREEMIND_PRIVATE.items():
-            if field in style:
-                attrs[attribute] = _xml_attribute(style[field])
-        if style.get("shape"):
-            # FreeMind's own two: `fork` is a label on the line with no box
-            # around it, which is exactly this map's "plain", and `bubble` is
-            # the boxed node every other shape here is a variety of.
-            attrs["STYLE"] = "fork" if style["shape"] == "none" else "bubble"
+        attrs = _freemind_attributes(node, style)
         attrs["ID"] = _export_node_id(node["id"])
         element = ET.SubElement(parent_element, "node", attrs)
         elements[node["id"]] = element
         # `<font>` and `<edge>` are FreeMind's own children of a node, and
         # they are written only when something was actually chosen: an empty
         # `<font/>` on every node would triple the size of a plain map's file
-        # and say nothing. NAME is left off rather than filled with
-        # "SansSerif": this app sets no font family, and writing one would be
-        # a claim about the map that nobody here made.
-        font = {}
-        if style.get("bold"):
-            font["BOLD"] = "true"
-        if style.get("italic"):
-            font["ITALIC"] = "true"
-        if style.get("font_size"):
-            font["SIZE"] = str(int(style["font_size"]))
+        # and say nothing.
+        font = _freemind_font(style)
         if font:
             ET.SubElement(element, "font", font)
-        edge = {}
-        if style.get("edge_style") in _FREEMIND_EDGE_STYLE:
-            edge["STYLE"] = _FREEMIND_EDGE_STYLE[style["edge_style"]]
-        #: FreeMind's own `<edge WIDTH>`, alongside the private `_edge_width`
-        #: that carries the step back: WIDTH is a number of pixels or the word
-        #: `thin`, which is a lossy home for a three-step scale, so it is
-        #: written for the reader that opens the file and read back from the
-        #: private attribute. Same bargain as `STYLE` and `_shape` above.
-        if style.get("edge_width") == "thin":
-            edge["WIDTH"] = "thin"
-        elif style.get("edge_width") == "thick":
-            edge["WIDTH"] = "4"
-        if node.get("color"):
-            # A map's node colour paints the spine down the node's leading
-            # edge and the line coming into it (§12.0, "a node carries its
-            # colour on its own card"), which is `<edge COLOR>` here rather
-            # than `<node COLOR>`: FreeMind's node colour is its *text*
-            # colour, and writing it there would recolour the words.
-            edge["COLOR"] = str(node["color"])
+        edge = _freemind_edge(node, style)
         if edge:
             ET.SubElement(element, "edge", edge)
         return element
@@ -5227,6 +5277,41 @@ def _parse_xmind(content: str) -> tuple[str, list[dict]]:
     return title, [centre]
 
 
+def _outline_note_line(stack: list, line: str, stripped: str, blank: bool) -> None:
+    """Text indented under a bullet is that topic's note: add it to the owner's `note_lines`."""
+    prefix = line[: len(line) - len(stripped)]
+    if stack and len(prefix) + prefix.count("\t") > stack[-1][0]:
+        lines = stack[-1][1].setdefault("note_lines", [])
+        if lines and blank:
+            lines.append("")
+        lead = len(line) - len(line.lstrip(" "))
+        text = line[min(lead, stack[-1][0] + 2):].lstrip("\t")
+        lines.append(_MARKDOWN_NOTE_UNESCAPE.sub(r"\1", text))
+
+
+def _outline_attach(stack: list, roots: list, node: dict, indent: int) -> list:
+    """Hang `node` under the nearest shallower bullet (or make it a root) and return the new path stack."""
+    while stack and stack[-1][0] >= indent:
+        stack.pop()
+    if stack and len(stack) < MAX_IMPORT_DEPTH:
+        stack[-1][1]["children"].append(node)
+    else:
+        roots.append(node)
+        stack = []
+    stack.append((indent, node))
+    return stack
+
+
+def _outline_node(text: str) -> dict:
+    """One outline bullet as a node; a `[ ]` or `[x]` prefix makes it a task."""
+    node: dict = {"text": text[:MAX_OBJECT_TEXT_CHARS], "children": []}
+    task = _MARKDOWN_TASK_ITEM.match(text)
+    if task and text[task.end():].strip():
+        node["text"] = text[task.end():][:MAX_OBJECT_TEXT_CHARS]
+        node["style"] = {"task": "open" if task.group(1) == " " else "done"}
+    return node
+
+
 def _parse_markdown_outline(content: str) -> tuple[str, list[dict]]:
     """An indented `- bullet` outline in, `(title, nested nodes)` out.
 
@@ -5259,15 +5344,7 @@ def _parse_markdown_outline(content: str) -> tuple[str, list[dict]]:
             #: (decision 18): what `_export_markdown` writes, and what a
             #: paragraph under a hand-written bullet means. Anything else
             #: that is not a bullet is not part of the outline, as before.
-            prefix = line[: len(line) - len(stripped)]
-            if stack and len(prefix) + prefix.count("\t") > stack[-1][0]:
-                owner = stack[-1][1]
-                lines = owner.setdefault("note_lines", [])
-                if lines and blank:
-                    lines.append("")
-                lead = len(line) - len(line.lstrip(" "))
-                text = line[min(lead, stack[-1][0] + 2):].lstrip("\t")
-                lines.append(_MARKDOWN_NOTE_UNESCAPE.sub(r"\1", text))
+            _outline_note_line(stack, line, stripped, blank)
             blank = False
             continue
         blank = False
@@ -5284,19 +5361,8 @@ def _parse_markdown_outline(content: str) -> tuple[str, list[dict]]:
         # indented with tabs nests the same way one indented with spaces does.
         prefix = line[: len(line) - len(stripped)]
         indent = len(prefix) + prefix.count("\t")
-        node: dict = {"text": text[:MAX_OBJECT_TEXT_CHARS], "children": []}
-        task = _MARKDOWN_TASK_ITEM.match(text)
-        if task and text[task.end():].strip():
-            node["text"] = text[task.end():][:MAX_OBJECT_TEXT_CHARS]
-            node["style"] = {"task": "open" if task.group(1) == " " else "done"}
-        while stack and stack[-1][0] >= indent:
-            stack.pop()
-        if stack and len(stack) < MAX_IMPORT_DEPTH:
-            stack[-1][1]["children"].append(node)
-        else:
-            roots.append(node)
-            stack = []
-        stack.append((indent, node))
+        node = _outline_node(text)
+        stack = _outline_attach(stack, roots, node, indent)
     for node in _flatten_parsed(roots):
         lines = node.pop("note_lines", None)
         note = "\n".join(lines or []).strip()

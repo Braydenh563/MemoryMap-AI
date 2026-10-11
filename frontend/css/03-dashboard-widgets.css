@@ -2752,16 +2752,24 @@ button.chat-trail-link {
   background: var(--surface-2);
 }
 
-/* The no-model line (INBOX 767): `.notice` is the box and does not wrap, so this
-   is one row; a phone gets a grid so the close stays on the first row. */
+/* The no-model line (INBOX 767): one row where it fits; a phone gets a grid so
+   the close stays on the first row. In a narrow card the words keep 12rem and
+   the action steps to a second row at the end (the owner 2026-10-11, mono:
+   the words were squeezed to 14px beside the button and ran out of the card). */
 .ai-offline-note.notice {
+  flex-wrap: wrap;
   align-items: center;
   margin-block: var(--space-3);
 }
 
 .ai-offline-text {
-  flex: 1;
+  flex: 1 1 12rem;
   min-width: 0;
+}
+
+/* Before the phone grid's rule, at its specificity, so the phone keeps its own. */
+.ai-offline-note > .ghost:not(.icon-only) {
+  margin-inline-start: auto;
 }
 
 /* A phone: the words and the close share the first row, the action is the

@@ -1244,8 +1244,7 @@ Entries are the owner's words, then the recommendation. Bugs come first, then de
 
 ### Bugs
 
-- "popup panels appearing at the start on a new install are messy and clash/overlap a lot"
-  Recommendation: one first-run queue with no overlapping panels, measured with getBoundingClientRect on a fresh profile. Also carried by Brief 37 (the first-run queue).
+- The first-run popups bullet is built (uiset): HISTORY.md, "Moved from the plans, 2026-10-11 (uiset, the first-run queue)".
 - "I pressed done and it just didnt give me the tour at all??"
   Recommendation: Done starts the tour or closes it cleanly, with the handoff in Brief 37 (INBOX 745 (d)). Also carried by Brief 37 (tour handoff).
 - "says done but the bar is still there??"

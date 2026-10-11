@@ -213,6 +213,7 @@ REACHED_AFTER_LOAD = {
     #: drawn, which is the intended degradation.
     "settingsIndexWatchSection": "settingsUi, awaited by openSettingsModal before a section is shown",
     "renderHelpTopics": "settingsUi, awaited by openSettingsModal on the line before the call",
+    "renderCredits": "settingsUi, awaited by openSettingsModal two lines before the call",
     "renderSettingResults": "settingsUi, called from the search field inside the open dialog",
     "settingQueryAlts": "settingsUi, called from filterSettings, the search field inside the open dialog (an empty query returns before it)",
     "meaningHolds": "settingsUi (meaning.js), called from filterSettings beside settingQueryAlts; without the bundle the plain substring rule runs",

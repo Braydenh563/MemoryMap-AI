@@ -186,7 +186,16 @@ function openSettingRow(row) {
     }
     if (!el.getClientRects().length) return;
     flashRevealed(el);
-    const control = el.matches("label") ? el.control || el.querySelector("input, select, textarea") : el.querySelector?.("input, select, textarea");
+    //: The row's control, not its words (OPEN, a11y: "Accent colour" landed
+    //: on its DIV at both widths): a `.setting-label` stands beside its
+    //: control inside `.setting-row`, and a control can be a button group
+    //: (the swatches), whose chosen button is the one to land on. A head
+    //: (h3, h4, legend) names a group and keeps the focus itself.
+    const FIELD = "input:not([type=hidden]), select, textarea";
+    const pick = (root) => root?.querySelector?.(FIELD) ||
+      root?.querySelector?.('[aria-checked="true"], [aria-pressed="true"], button:not([disabled])');
+    const control = el.matches("label") ? el.control || el.querySelector(FIELD)
+      : el.querySelector?.(FIELD) || (el.matches(".setting-label") ? pick(el.closest(".setting-row")) : null);
     if (control && control.getClientRects().length) {
       (typeof focusSelect === "function" && control.tagName === "SELECT" ? focusSelect : (c) => c.focus({ preventScroll: true }))(control);
     } else {
@@ -776,6 +785,60 @@ function helpSearchBind() {
     input.value = "";
     helpApplySearch("");
   });
+}
+
+//: **Settings, Help, Credits**: every library the app is built on, from
+//: frontend/credits.json (scripts/build_credits.py writes it from
+//: docs/THIRD_PARTY.md; tests/test_credits.py holds the two equal). Drawn the
+//: first time the fold opens: a group head per part, then a row per library
+//: with its licence and a link to where it came from.
+let creditsLoad = null;
+function renderCredits() {
+  const fold = $("credits-fold");
+  const box = $("credits-list");
+  if (!fold || !box || fold.dataset.wired) return;
+  fold.dataset.wired = "1";
+  const draw = () => {
+    if (!fold.open || creditsLoad) return;
+    creditsLoad = fetch("/credits.json")
+      .then((answer) => (answer.ok ? answer.json() : Promise.reject(new Error(String(answer.status)))))
+      .then((data) => {
+        const parts = [];
+        for (const group of data.groups || []) {
+          const head = document.createElement("h4");
+          head.className = "setting-subhead";
+          head.textContent = group.title;
+          const list = document.createElement("ul");
+          list.className = "credits-rows";
+          for (const row of group.rows) {
+            const item = document.createElement("li");
+            const name = document.createElement("a");
+            name.href = row.source;
+            name.target = "_blank";
+            name.rel = "noopener noreferrer";
+            name.textContent = row.name;
+            const licence = document.createElement("span");
+            licence.className = "muted";
+            licence.textContent = row.licence;
+            item.append(name, licence);
+            list.append(item);
+          }
+          parts.push(head, list);
+        }
+        box.replaceChildren(...parts);
+        box.removeAttribute("aria-busy");
+      })
+      .catch(() => {
+        creditsLoad = null;
+        const line = document.createElement("p");
+        line.className = "muted";
+        line.textContent = "The credits did not load. The full list is in docs/THIRD_PARTY.md.";
+        box.replaceChildren(line);
+        box.removeAttribute("aria-busy");
+      });
+  };
+  fold.addEventListener("toggle", draw);
+  draw();
 }
 
 function renderHelpTopics() {

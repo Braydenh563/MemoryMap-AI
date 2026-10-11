@@ -1,0 +1,149 @@
+{
+ "groups": [
+  {
+   "title": "In the server",
+   "rows": [
+    {
+     "name": "FlashText",
+     "licence": "MIT",
+     "source": "https://github.com/vi3k6i5/flashtext"
+    }
+   ]
+  },
+  {
+   "title": "In the app",
+   "rows": [
+    {
+     "name": "CodeMirror 6",
+     "licence": "MIT",
+     "source": "https://codemirror.net"
+    },
+    {
+     "name": "Emmet",
+     "licence": "MIT",
+     "source": "https://github.com/emmetio/emmet"
+    },
+    {
+     "name": "js-beautify",
+     "licence": "MIT",
+     "source": "https://github.com/beautifier/js-beautify"
+    },
+    {
+     "name": "sucrase",
+     "licence": "MIT",
+     "source": "https://github.com/alangpierce/sucrase"
+    },
+    {
+     "name": "JS-Interpreter",
+     "licence": "Apache-2.0, Acorn MIT",
+     "source": "https://github.com/NeilFraser/JS-Interpreter"
+    },
+    {
+     "name": "sql.js",
+     "licence": "MIT",
+     "source": "https://github.com/sql-js/sql.js"
+    },
+    {
+     "name": "Harper",
+     "licence": "Apache-2.0",
+     "source": "https://github.com/Automattic/harper"
+    },
+    {
+     "name": "D3",
+     "licence": "ISC",
+     "source": "https://d3js.org"
+    },
+    {
+     "name": "p5.js",
+     "licence": "LGPL-2.1",
+     "source": "https://p5js.org"
+    },
+    {
+     "name": "Phosphor Icons",
+     "licence": "MIT",
+     "source": "https://phosphoricons.com"
+    },
+    {
+     "name": "Mammoth",
+     "licence": "BSD-2-Clause",
+     "source": "https://github.com/mwilliamson/mammoth.js"
+    },
+    {
+     "name": "docx",
+     "licence": "MIT",
+     "source": "https://github.com/dolanmiu/docx"
+    },
+    {
+     "name": "English word list",
+     "licence": "the English Speller Database licence",
+     "source": "https://wordlist.aspell.net"
+    }
+   ]
+  },
+  {
+   "title": "Optional downloads",
+   "rows": [
+    {
+     "name": "Bergamot translator",
+     "licence": "MPL-2.0",
+     "source": "https://github.com/browsermt/bergamot-translator"
+    },
+    {
+     "name": "Firefox Translations model, English to Spanish",
+     "licence": "MPL-2.0",
+     "source": "https://github.com/mozilla/translations"
+    },
+    {
+     "name": "marian-nmt (inside the Bergamot WASM)",
+     "licence": "MIT",
+     "source": "https://github.com/browsermt/marian-dev"
+    },
+    {
+     "name": "intgemm (inside the Bergamot WASM)",
+     "licence": "MIT",
+     "source": "https://github.com/kpu/intgemm"
+    },
+    {
+     "name": "SentencePiece (inside the Bergamot WASM)",
+     "licence": "Apache-2.0",
+     "source": "https://github.com/google/sentencepiece"
+    },
+    {
+     "name": "ruy (inside the Bergamot WASM)",
+     "licence": "Apache-2.0",
+     "source": "https://github.com/google/ruy"
+    },
+    {
+     "name": "ssplit-cpp (inside the Bergamot WASM)",
+     "licence": "Apache-2.0",
+     "source": "https://github.com/browsermt/ssplit-cpp"
+    }
+   ]
+  },
+  {
+   "title": "The whiteboard's shapes",
+   "rows": [
+    {
+     "name": "draw.io stencils",
+     "licence": "Apache-2.0",
+     "source": "https://github.com/jgraph/drawio"
+    },
+    {
+     "name": "Phosphor Icons",
+     "licence": "MIT",
+     "source": "https://phosphoricons.com"
+    }
+   ]
+  },
+  {
+   "title": "Data",
+   "rows": [
+    {
+     "name": "Wikipedia's lists of common misspellings",
+     "licence": "CC BY-SA 4.0",
+     "source": "https://en.wikipedia.org/wiki/Wikipedia:Lists_of_common_misspellings"
+    }
+   ]
+  }
+ ]
+}

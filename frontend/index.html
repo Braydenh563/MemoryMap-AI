@@ -13668,6 +13668,16 @@ Link to another note with [[its first few words]]."></textarea>
               </div>
               <div class="atlas-starters" id="atlas-row-starters"></div>
             </div>
+            <!-- Credits (the owner: "we should reference all the vendored repos
+                 and libraries somewhere to give them credit"): drawn from
+                 docs/THIRD_PARTY.md through frontend/credits.json
+                 (scripts/build_credits.py) by settings-find.js's
+                 `renderCredits`, the first time the fold opens. -->
+            <details class="settings-group settings-fold" data-fold-key="help-credits" id="credits-fold" open>
+              <summary><h3 class="inline-h3">Credits</h3></summary>
+              <p class="muted">MemoryMap is built on these libraries and data, each under its own licence.</p>
+              <div id="credits-list" class="credits-list" aria-busy="true"></div>
+            </details>
           </section>
 
           <section class="settings-section hidden" id="settings-about">

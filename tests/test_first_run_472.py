@@ -120,10 +120,10 @@ def test_first_run_surfaces_take_turns():
     three goes through one queue, and the welcome's turn lasts through the
     tour it starts."""
     onboarding = frontend_text("onboarding.js")
-    assert "function firstRunTurn(show)" in onboarding
+    assert "function firstRunTurn(show, slot)" in onboarding
     assert 'document.addEventListener("tour-closed"' in onboarding
-    assert "firstRunTurn(() => showRecoveryOffer(password))" in frontend_text("account-recovery.js")
-    assert "firstRunTurn(() => resolve())" in frontend_text("update-dialogs.js")
+    assert 'firstRunTurn(() => showRecoveryOffer(password), "recovery")' in frontend_text("account-recovery.js")
+    assert 'firstRunTurn(ask, "updates")' in frontend_text("update-dialogs.js")
     tour = frontend_text("tour.js")
     assert tour.count('document.dispatchEvent(new Event("tour-closed"))') == 2, (
         "the tour says it closed both when it ends and when it had nothing to show"
@@ -190,3 +190,25 @@ def test_first_setup_says_it_needs_the_internet_once():
     assert extras.download_mb(extras.EXTRAS_BY_ID["documents"]) > 0
     for doc in ("README.md", "docs/INSTALL.md"):
         assert "A first install needs the internet once." in (ROOT / doc).read_text(encoding="utf-8")
+
+
+def test_first_run_surfaces_go_in_a_fixed_order():
+    """The owner, 2026-10-11, from the Windows app: "popup panels appearing at
+    the start on a new install are messy and clash/overlap a lot". The
+    desktop's console question never took a turn and opened on the welcome's
+    `looksReady`; the companion's offer drew over the tour's Settings step
+    (263x72 px); at 390 the last surface's toast sat on the next question's
+    card (337x47 px). Measured after (fr.js, a fresh data dir, `/health`
+    faked as the desktop, 1440 light and 390 dark): welcome, tour, recovery
+    key, console question, update question, one at a time; no overlap but the
+    tour's own Settings step."""
+    onboarding = frontend_text("onboarding.js")
+    assert 'const FIRST_RUN_ORDER = ["welcome", "recovery", "console", "updates"];' in onboarding
+    assert 'firstRunTurn(showOnboardingTurn, "welcome")' in onboarding
+    console_intro = onboarding.split("async function maybeShowConsoleViewIntro()")[1].split("\n}\n")[0]
+    assert "await firstRunTurn(() => confirmDialog(" in console_intro and '"console")' in console_intro
+    pump = onboarding.split("async function firstRunPump()")[1].split("\n}\n")[0]
+    assert "firstRunWelcomeDue()" in pump and "firstRunToastsGone(" in pump
+    assert "a.rank - b.rank" in pump
+    hint = frontend_text("avatars.js").split("function nameMarkBuddyHint(")[1].split("\n}\n")[0]
+    assert '"tour-card", "onboarding-overlay"' in hint

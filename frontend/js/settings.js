@@ -337,6 +337,7 @@ async function openSettingsModal(section = "models", scrollToId = null) {
   await ensureModule("settingsUi");
   //: Settings, Help's topics, from the Guide's own table (settings-find.js).
   if (typeof renderHelpTopics === "function") renderHelpTopics();
+  if (typeof renderCredits === "function") renderCredits();
   showSettingsSection(section);
   // Re-read every open, not cached: the panel shows what the *currently
   // selected* model recommends, and changing the chat model is the most likely
@@ -4724,6 +4725,13 @@ function jobLineEl(kind) {
 }
 
 async function refreshJobRuns() {
+  //: Not while locked: the 2 s poll outlived a lock and was refused with a
+  //: 401 once or twice per lock (OPEN, forgotpw-1006). `lockNow` drops the
+  //: token, so no token means no poll, and the timer is not re-armed.
+  if (!authToken()) {
+    clearTimeout(jobRunsTimer);
+    return;
+  }
   if (jobRunsInFlight) return;
   jobRunsInFlight = true;
   try {
@@ -4739,7 +4747,7 @@ async function refreshJobRuns() {
   for (const el of lines) paintJobLine(el);
   clearTimeout(jobRunsTimer);
   const running = lines.some((el) => el.offsetParent !== null && el.dataset.jobRunning === "1");
-  if (running) jobRunsTimer = setTimeout(refreshJobRuns, 2000);
+  if (running && authToken()) jobRunsTimer = setTimeout(refreshJobRuns, 2000);
 }
 
 // Settings → Background tasks → Background jobs: every kind in one column,

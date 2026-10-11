@@ -54,6 +54,15 @@ below). Versioning is `0.x` while the app stabilises.
 - Find anything: a recording is found by its title and by what was said in it, and a press opens it in Library, Recordings. `kind:recording` asks for them alone.
 - Dashboard: Live captions can be a Quick access tile (Edit quick access, then Add).
 - OCR workspace: a page whose stored reading was made before words were kept says "Read this page again to select its words on the picture", so Live Text is not silently empty.
+- Long menu labels are cut with an ellipsis inside the row and shown whole on hover, in every font; the no-model notice steps its button down in a narrow card; Settings, Help, Credits has a Guide topic.
+- Toasts stack neatly: the same notice inside 4 s is one card with a count, three show and the rest fold into a "+N more" card that opens the bell; no two cards cross while they move.
+- First run: an empty notebook is offered a way to bring in notes kept in another app.
+- Settings and menus: a worded button is announced by its words, Most used follows a write at once, a found setting lands on its control, the palette learns from what you ran for longer searches, help popovers fade out, and the background jobs poll stops when you lock.
+- Settings, Help: a Credits section lists every library and data set the app is built on, with its licence and a link to its source.
+- First run: the welcome, the tour, the recovery offer, the console question and the updates question take turns in a fixed order, one at a time, after any toasts have gone.
+- Recordings: an empty Recordings page shows an icon, a title, a line and a Record button.
+- Recordings: the waveform track has visibly rounded corners and its own tint, with the bars kept inside them.
+- Recordings: the playback speed menu is the same height as the menu button beside it.
 - Launcher: `doctor`, `reinstall` and `tools` are one double-click each, as `.sh` and `.bat`: the machine check, a rebuild of the Python environment that asks first and leaves notes alone, and a menu of every launcher action.
 - Notes: a note with fewer than three tags shows a quiet "+ Tag" after its tags. It opens up to three suggested tags as one-press chips above a field for your own, and its menu has "Don't suggest tags for this note" (Undo in the notice, and "Suggest tags for this note again" in the same menu).
 - Settings: sizes are the device's own. Zoom, Text size, Density, the companion's size and place, the chat box's height and the whiteboard's panel places are no longer copied to your notebook or applied from it, so changing the zoom or the companion's size on a computer leaves a phone as it was (colours, themes and fonts still follow you). They are marked On this device in Settings, Appearance, and a saved look no longer carries them.

@@ -338,6 +338,23 @@ Each row below was checked against the head before anything was built.
   before. The six carry `data-wb-closes`, the closer selects it, and
   `tests/test_wb_menu_rows_close.py` pins both.
 
+## Moved from the plans, 2026-10-11 (uiset, the first-run queue)
+
+From UI_MODERNISATION_PLAN, "Placed from the owner", Bugs, as it stood:
+
+> - "popup panels appearing at the start on a new install are messy and clash/overlap a lot"
+>   Recommendation: one first-run queue with no overlapping panels, measured with getBoundingClientRect on a fresh profile. Also carried by Brief 37 (the first-run queue).
+
+Built (commit "First run: one popup at a time, in a fixed order", ledger row
+1631, the owner seeing the overlap in the Windows app): `firstRunTurn` in
+onboarding.js is one ordered queue (welcome, recovery, console, updates); each
+turn waits for the lock, the welcome, the tour, Settings and any dialog to
+close and for toasts to go, and the companion's hint holds back while the tour
+or welcome is up. Measured on a fresh data dir at 1440 with the desktop flag
+(`fr.js`): welcome 6.5 s, tour 10.3 s, recovery 92.0 s, console 92.9 s,
+updates 94.8 s, no overlap but the tour's own Settings step. Not verified: the
+Windows app itself, and 390 after the toast wait was added.
+
 ## Moved from the plans, 2026-10-11 (Brief 86)
 
 The search86 agent built decisions a to c and INBOX 848 and 849; what is left is in `archive/agent-remaining/search86-1011.md`. The brief, as it stood:
@@ -48359,6 +48376,75 @@ Built for 776, 777, 779, 780, 782, 783 (agent uipolish-1010, 2026-10-11): the to
      (zoom, font size, density, the companion's size and spots) stay on the
      device; colours and themes still follow you.
      **Fixed f8597d361.** Measured (scratchpad/ui-sweeps/devsize.js, 1440 desktop + 390 phone, one server): desktop zoom 130 and companion 1.4 left the phone at zoom 1 and --nmb-scale 1; ui_state held no size key; the accent reached the phone; legacy sizes in the notebook were ignored and cleaned. Sizes are not in saved looks (looks are colours).
+- **The owner, 2026-10-11, verbatim.** "the audio speed dropdown doesnt fit
+  the height of the button next to it". The recording card head
+  (`.recording-act`): the speed select, dressed as `.select-opener`, kept its
+  own padding. **Fixed (uiset, the recording head commit).** The opener takes
+  the kebab's height (`--target-min`, padding-block 0), as the chat sidebar's
+  openers take their row's. Measured (rec.js, a seeded WAV): opener 36.9px
+  beside the 28px kebab at 1440 light before; 28 and 28 at 1440 light and
+  dark, 44 and 44 at 390 dark after. Test:
+  `test_the_speed_opener_is_the_kebabs_height`.
+- **The owner, 2026-10-11, verbatim.** "can this audio track have curved
+  corners??". What painted the square: `.recording-wave` had `--radius-sm`
+  (2.4px on a 40px track in this look) and an `--inner` fill (247,246,244)
+  the card's own tint (rgba(31,36,48,0.04) on white) matched, so only the
+  bars' square extent showed. **Fixed (uiset, the recording track commit).**
+  The recorder's own corner (`--radius-md`, as `.meeting-wave`), the track
+  tint (`--chip-bg`), and the bars, marks, playhead and seek inset by the
+  corner. Measured (rec.js): radius 2.4 to 4.8px, fill
+  rgba(28,28,26,0.05) light and rgba(236,235,232,0.06) dark, the corner
+  pixel transparent, at 1440 and 390. Test:
+  `test_the_track_has_visible_round_corners`.
+- **The owner, 2026-10-11, verbatim.** "can you add like an icon or smth to
+  this page so it doesnt look so empty??". The Recordings sub-tab's empty
+  state was one muted line ("Nothing recorded yet. Record keeps a voice note
+  here; ..."). **Fixed (uiset, the recordings empty state commit).**
+  DESIGN.md's empty state recipe (`recordingsEmpty`): the microphone icon,
+  "No recordings yet", the sentence, and "Record a voice note", which does
+  what the header's Record does (`openVoiceNote`); no search match and a
+  failed load are the same block (the magnifier; the warn mood). The
+  transcript's error inside a card is the small-panel `.empty-line`.
+  Measured (emp.js, fresh data dir): 1358x225 at 1440 and 322x259 at 390,
+  icon 41.6px, button 32px (44px at 390), no sideways scroll, light and dark.
+  Census of the other `*-empty` classes built in JS: 30, all inside a small
+  panel, menu, picker or section (the `.empty-line` recipe's ground, not the
+  full block); left as they are. Test: `test_no_recordings_is_the_empty_state_recipe`.
+- **The owner, 2026-10-11, verbatim.** "lots of the same notifcations dont
+  neatly stack when they appear fast in the corner". **Fixed (uiset, the
+  toast stack commit).** DESIGN.md's toast bullet: the same words of the same
+  kind inside 4 s are one card with "×N" and a restarted timer
+  (`toastMerge`); an Undo merges only with the same Undo; the cards are
+  `--space-2` apart, the newest nearest the corner, positions measured and
+  played back so an arrival rides in by the distance the others move (no two
+  cards cross); three show and the rest fold into one "+N more" card that
+  opens the bell, each folded notice filed there (`toastLayout`); reduced
+  motion never slides the stack (`toastReduced`). Measured (toaststack.js,
+  10 identical plus 5 different plus 2 Undos): 1440 light, count ×10, 0
+  overlaps over 30 samples, 3 shown, "+3 more", gaps 6.4px, newest nearest
+  the corner, the 2 Undos kept apart; 390 light, the same over 87 samples;
+  1440 dark with reduced motion, the same over 52 samples, the burst in
+  521 ms. Under load the light bursts took 1.4 s and 3.6 s, not 500 ms. Test:
+  `tests/test_toast_stack_1011.py`.
+- **The owner, 2026-10-11, verbatim.** "there's some overflowing text in some
+  places on different fonts like mono". The dashboard header's ... menu:
+  "Continue: Here are some refined, non-corny..." ran 33px past its row's
+  padding in mono at 1440 (dashmono.js: text to 1426, row content edge 1393,
+  clipped with no ellipsis). **Fixed (uiset, the font fit commit).** The
+  kebabMenu item recipe: the row and its words flex with min-width 0, the
+  words end in an ellipsis inside the padding, and a cut row carries its full
+  words in a title on hover or focus (`menuRowFits`, both menu builders); the
+  font size never shrinks. After: the words end at 1393 at 1440 and 360 at
+  390, ellipsis, full title. Also found in mono: the no-model notice in a
+  dashboard card squeezed its words to 14px beside the button and ran 58px
+  out; the words now keep 12rem and the action steps to a second row (268px
+  of words, nothing past the box). The font matrix (`fontmatrix.js`, read
+  from `#font-seg`, run by `gate.sh --sweeps`) runs errors.js's new text-fit
+  check per font and theme at 1440, 1024 and 390. Mono, light and dark: 0
+  findings at 1440 and 1024; at 390 one, the Timeline table's title cell,
+  which cuts with its own ellipsis (the check now counts a box's own
+  ellipsis as handled). The other fonts: the uiset ledger, row 1486. Tests:
+  `tests/test_font_matrix.py`.
 
 892. **Fixed 2026-10-11 (lanbar-1011, 10e4cf6ff and the status bar commit):** the
      accept loop re-reads the address set every 5 s and re-issues the

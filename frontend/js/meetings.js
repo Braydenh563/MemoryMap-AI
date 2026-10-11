@@ -1459,20 +1459,54 @@ async function renderRecordings() {
   try {
     body = await apiJson("/recordings?limit=500");
   } catch (error) {
-    list.replaceChildren(recordingsEmpty(error.message || "Couldn't load your recordings."));
+    list.replaceChildren(recordingsEmpty("failed", error.message));
     return;
   }
   noteRecoveredRecordings(body.recovered);
   const q = ($("recordings-search")?.value || "").trim().toLowerCase();
   const rows = body.recordings.filter((r) => !q || (r.title || "").toLowerCase().includes(q));
   list.replaceChildren(...rows.map(recordingRow));
-  if (!rows.length) list.appendChild(recordingsEmpty(q ? "No recording has that in its name." : "Nothing recorded yet. Record keeps a voice note here; a meeting's recording lands here too."));
+  if (!rows.length) list.appendChild(recordingsEmpty(q ? "match" : "none"));
 }
 
-function recordingsEmpty(text) {
+//: **The empty state recipe** (DESIGN.md: icon, title, one sentence, one
+//: action), not a grey line: the owner, 2026-10-11, of the bare sentence that
+//: was here, "can you add like an icon or smth to this page so it doesnt look
+//: so empty??". `kind` is "none", "match" (the search found nothing) or
+//: "failed" (the list did not load, the recipe's warn mood).
+function recordingsEmpty(kind, detail = "") {
+  const copy = {
+    none: ["ph-microphone", "No recordings yet", "Record keeps a voice note here; a meeting's recording lands here too."],
+    match: ["ph-magnifying-glass", "No recordings match", "No recording has that in its name."],
+    failed: ["ph-warning-circle", "Recordings did not load", detail || "Couldn't load your recordings."],
+  }[kind];
   const li = document.createElement("li");
-  li.className = "muted recordings-empty";
-  li.textContent = text;
+  li.className = `empty-state recordings-empty${kind === "failed" ? " is-failed" : ""}`;
+  const icon = document.createElement("span");
+  icon.className = "empty-icon";
+  icon.setAttribute("aria-hidden", "true");
+  const glyph = document.createElement("i");
+  glyph.className = `ph ${copy[0]}`;
+  icon.appendChild(glyph);
+  const title = document.createElement("p");
+  title.className = "empty-title";
+  title.textContent = copy[1];
+  const line = document.createElement("p");
+  line.className = "muted";
+  line.textContent = copy[2];
+  li.append(icon, title, line);
+  //: The one action: what the header's Record does.
+  if (kind === "none") {
+    const record = document.createElement("button");
+    record.type = "button";
+    record.className = "small";
+    const mic = document.createElement("i");
+    mic.className = "ph ph-microphone ph-lead";
+    mic.setAttribute("aria-hidden", "true");
+    record.append(mic, " Record a voice note");
+    record.addEventListener("click", () => openVoiceNote());
+    li.appendChild(record);
+  }
   return li;
 }
 
@@ -1635,7 +1669,9 @@ function recordingWave(rec, audio, time) {
   };
   const at = (event) => {
     const box = canvas.getBoundingClientRect();
-    return (event.clientX - box.left) / (box.width || 1);
+    //: The same inset as the bars (`recordingPaint`), so a press lands where it is drawn.
+    const inset = parseFloat(getComputedStyle(canvas).borderTopLeftRadius) || 0;
+    return (event.clientX - box.left - inset) / (box.width - 2 * inset || 1);
   };
   //: Press and drag: the pointer is captured so a drag past the end still
   //: seeks, and the playhead follows the finger before the audio has caught up.
@@ -1685,7 +1721,9 @@ function recordingPaint(canvas, rec, played) {
   const rest = style.getPropertyValue("--muted").trim() || "#888";
   const ink = style.getPropertyValue("--text").trim() || "#222";
   const peaks = rec.peaks.length ? rec.peaks : [8];
-  const bar = canvas.width / peaks.length;
+  //: Bars stay off the rounded ends: inset by the track's own corner.
+  const inset = (parseFloat(getComputedStyle(canvas).borderTopLeftRadius) || 0) * ratio;
+  const bar = (canvas.width - 2 * inset) / peaks.length;
   const mid = canvas.height / 2;
   //: Bars no thinner than 2 device pixels with a gap, so a long recording
   //: reads as a shape rather than a grey slab.
@@ -1694,20 +1732,20 @@ function recordingPaint(canvas, rec, played) {
     const h = Math.max(2 * ratio, (peak / 100) * (canvas.height - 8 * ratio));
     paint.globalAlpha = i / peaks.length < played ? 1 : 0.55;
     paint.fillStyle = i / peaks.length < played ? accent : rest;
-    paint.fillRect(i * bar, mid - h / 2, width, h);
+    paint.fillRect(inset + i * bar, mid - h / 2, width, h);
   });
   paint.globalAlpha = 1;
   //: A mark is a short tick from the top with a dot, so it never reads as
   //: the playhead, which runs the full height.
   paint.fillStyle = accent;
   for (const mark of rec.marks || []) {
-    const x = (mark.at / (rec.duration_ms || 1)) * canvas.width;
+    const x = inset + (mark.at / (rec.duration_ms || 1)) * (canvas.width - 2 * inset);
     paint.fillRect(x - ratio / 2, 0, ratio, canvas.height * 0.35);
     paint.beginPath();
     paint.arc(x, 3 * ratio, 3 * ratio, 0, Math.PI * 2);
     paint.fill();
   }
-  const x = Math.max(ratio, Math.min(canvas.width - ratio, played * canvas.width));
+  const x = Math.max(ratio, Math.min(canvas.width - ratio, inset + played * (canvas.width - 2 * inset)));
   paint.fillStyle = ink;
   paint.fillRect(x - ratio, 0, 2 * ratio, canvas.height);
 }
@@ -1838,7 +1876,11 @@ async function recordingTranscriptFill(rec, audio, list) {
   try {
     body = await apiJson(`/recordings/${rec.id}/transcript`);
   } catch (error) {
-    list.replaceChildren(recordingsEmpty(error.message || "Couldn't read the transcript."));
+    //: A line inside the card, the small-panel recipe (`.empty-line`).
+    const line = document.createElement("li");
+    line.className = "muted empty-line";
+    line.textContent = error.message || "Couldn't read the transcript.";
+    list.replaceChildren(line);
     return;
   }
   const lines = body.segments.map((seg) => {

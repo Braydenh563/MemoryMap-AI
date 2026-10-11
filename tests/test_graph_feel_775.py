@@ -74,7 +74,7 @@ def test_without_intro_nothing_is_played_back():
 
 def test_less_motion_does_not_ask_for_the_playback():
     # Brief 100: `gcStill` asks the system and the app's own Reduce motion.
-    assert "intro: !gcStill()," in CANVAS
+    assert "intro: !gcStill() && !restoring," in CANVAS, "a saved view restored plays no intro (claim #238)"
     still = CANVAS[CANVAS.index("\nfunction gcStill(") : CANVAS.index("\n}\n", CANVAS.index("\nfunction gcStill("))]
     assert "prefers-reduced-motion: reduce" in still and 'dataset?.motion === "reduced"' in still
 
@@ -134,7 +134,11 @@ def test_an_open_panel_is_kept_clear_and_a_fitted_map_refits_round_it():
     for panel in ("#graph-options", "#graph-help-panel", "#graph-selection-dock", "#graph-trace", "#graph-topic"):
         assert f'"{panel}"' in overlays, panel
     assert 'for (const el of document.querySelectorAll(GC_FIT_OVERLAYS.join(","))) s.observer.observe(el);' in CANVAS
-    assert "if (entries.some((entry) => entry.target.id !== s.boxId)) gcRefitForPanels(s);" in CANVAS
+    # The owner, 2026-10-11: opening or closing the gear panel or the dock's
+    # menu must not move a node or the camera, so those two never refit
+    # (graphmenustill.js measures it); the other panels still do.
+    assert "if (entries.some((entry) => entry.target.id !== s.boxId && !entry.target.matches(GC_FIT_MENUS))) gcRefitForPanels(s);" in CANVAS
+    assert 'const GC_FIT_MENUS = "#graph-options, #graph-card > .graph-overlay > .dock";' in CANVAS
     refit = CANVAS[CANVAS.index("\nfunction gcRefitForPanels(") : CANVAS.index("\n}\n", CANVAS.index("\nfunction gcRefitForPanels("))]
     assert "s.userZoomed || s.intro || !s.zoom" in refit and "else if (s.fittedOnce) fitGraphToView(" in refit
 
@@ -149,7 +153,7 @@ def test_a_map_already_showing_is_never_hidden_to_relayout():
     # Round 2: "I just change views or reset it and it just suddenly changes
     # or disappears and reappears". Only a canvas that has shown nothing hides.
     assert "if (reframe && s.canvas && !s.shown) {" in CANVAS
-    assert "warm: reframe && !(viewSeed && viewSeed.alpha === 0)," in CANVAS
+    assert "warm: reframe && !restoring && !(viewSeed && viewSeed.alpha === 0)," in CANVAS
     reveal = CANVAS[CANVAS.index("\nfunction gcReveal(") : CANVAS.index("\n}\n", CANVAS.index("\nfunction gcReveal("))]
     assert "s.shown = true;" in reveal
     intro = CANVAS[CANVAS.index("\nfunction gcFrameIntro(") : CANVAS.index("\n}\n", CANVAS.index("\nfunction gcFrameIntro("))]

@@ -7626,15 +7626,16 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
   from { rotate: -0.6deg; }
   to { rotate: 0.7deg; }
 }
-/* The system's reduced motion: slowed right down, as the legs are (the
-   companion's own reduced-motion block above; `!important` for the same
-   reason, the rules above out-rank this one). */
+/* The system's reduced motion keeps the pose and stops the loop (INBOX 772,
+   ledger 669: the figure's float, bob and glide were slowed to 6s, not
+   stopped). An act (`nmb-act-*`) still plays: it is one gesture that ends,
+   and it is what says the companion answered: so the loops are named (a
+   walk, a carry, the float), not "anything but an act". `!important`
+   because the loops' motion gates out-rank this selector. */
 @media (prefers-reduced-motion: reduce) {
-  #nm-buddy .atl-layer-lower,
-  #nm-buddy .nm-live .nm-atlas.atl-layer-lower,
-  #nm-buddy .nm-live .nm-atlas.atl-layer-lower[data-atlas-look="masculine"] { animation-duration: 6s !important; }
-  #nm-buddy:has(.atl-figure) .nm-buddy-char,
-  #nm-buddy:has(.atl-figure[data-atlas-look="masculine"]) .nm-buddy-char { animation-duration: 6s !important; }
+  #nm-buddy:is(.nmb-walking, .nm-buddy-dragging) .nm-live .nm-atlas.atl-layer-lower,
+  #nm-buddy.nmb-walking .nm-live .nm-atlas.atl-layer-lower[data-atlas-look="masculine"],
+  #nm-buddy:has(.atl-figure):is(.nmb-walking, [data-pose="float"]) .nm-buddy-char { animation: none !important; }
 }
 /* A slow turn and lift about her middle, the compositor's (a box). */
 @keyframes atl-float {

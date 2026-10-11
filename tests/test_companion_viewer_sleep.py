@@ -54,3 +54,27 @@ def test_its_focus_is_a_glow_from_the_keyboard_only() -> None:
     assert "#nm-buddy .nm-buddy-face:focus-visible::before { opacity: 1; }" in CSS
     # No filter on the moving figure for it.
     assert "drop-shadow" not in glow
+
+
+def test_the_reduce_hint_stops_atlas_figure_loops_and_keeps_acts() -> None:
+    # Ledger 669, INBOX 772: under the system hint the figure's float, bob and
+    # glide stop (they were slowed to 6s); an act, one gesture that ends, plays.
+    assert "#nm-buddy:has(.atl-figure) .nm-buddy-char,\n" not in CSS, "the 6s slow-down is gone"
+    block = CSS[CSS.index("ledger 669") :]
+    block = block[: block.index("\n}\n")]
+    assert '#nm-buddy:has(.atl-figure):is(.nmb-walking, [data-pose="float"]) .nm-buddy-char { animation: none !important; }' in block
+    assert "#nm-buddy:is(.nmb-walking, .nm-buddy-dragging) .nm-live .nm-atlas.atl-layer-lower," in block
+    assert "[class*=" not in block, "a class attribute selector up the tree restyles the subtree on every class change"
+    assert "nmb-act" not in block.split("*/")[-1], "an act, one gesture, still plays"
+
+
+def test_the_idle_pool_never_reaches_for_one_of_the_last_five_acts() -> None:
+    # Brief 34 step 5, ledger 678/679 ("more varied"): the act just played and
+    # the four before it sit out while anything else suits the moment.
+    act = _fn("nameMarkBuddyAct")
+    assert "nmb.recentActs = [act, ...(nmb.recentActs || []).filter((a) => a !== act)].slice(0, NMB_RECENT_ACTS);" in act
+    assert act.index("if (!act) {") < act.index("nmb.recentActs ="), "clearing an act is not an act"
+    decide = _fn("nameMarkBuddyDecide")
+    assert "const fresh = pool.filter(([act]) => !recent.includes(act));" in decide
+    assert "if (fresh.length && fresh.length < pool.length)" in decide, "a pool of only recent acts still picks"
+    assert AV.index("const NMB_RECENT_ACTS = 5;") < AV.index("function nameMarkBuddyAct(")

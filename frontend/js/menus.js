@@ -313,6 +313,12 @@ function wireHelpPopover(trigger, panel) {
   };
   const open = () => {
     closeHelpPopovers();
+    //: The '?' stops its click (below), so the page's outside-click close
+    //: never reaches an open menu: they stacked (INBOX 796, app-wide as
+    //: ledger 936). Opening one shuts the others.
+    if (!trigger.closest(".action-menu")) closeActionMenus();
+    const home = trigger.closest(".doc-dock-menu-list")?._escapedHome?.parent;
+    for (const menu of document.querySelectorAll("details.dock-menu[open]")) if (menu !== home && !menu.contains(trigger)) menu.open = false;
     homeParent = panel.parentElement;
     homeNext = panel.nextSibling;
     //: **Into the open modal, not `<body>`, when the "?" is inside one**

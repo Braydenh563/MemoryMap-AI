@@ -78,7 +78,7 @@ def test_warm_is_asked_for_whenever_the_map_is_framed_again():
     # Round 2 of INBOX 775: a map already showing is not hidden to re-layout;
     # the warm-up is played back from where its notes stood
     # (tests/test_graph_feel_775.py).
-    assert "warm: reframe && !(viewSeed && viewSeed.alpha === 0)," in CANVAS
+    assert "warm: reframe && !restoring && !(viewSeed && viewSeed.alpha === 0)," in CANVAS
 
 
 def test_an_instant_fit_is_applied_now_not_as_a_zero_length_transition():

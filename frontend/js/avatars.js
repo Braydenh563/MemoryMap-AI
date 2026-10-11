@@ -6960,6 +6960,7 @@ function nameMarkBuddyCallBack() {
 
 // --- its behaviours -----------------------------------------------------------
 
+const NMB_RECENT_ACTS = 5;
 function nameMarkBuddyAct(act, ms) {
   const buddy = document.getElementById("nm-buddy");
   if (!buddy) return;
@@ -7031,6 +7032,9 @@ function nameMarkBuddyAct(act, ms) {
   if (act !== was && !NMB_FACELESS_ACTS.includes(act) && !NMB_RESTING_ACTS.has(act) && !nameMarkBuddyStill()) nameMarkBuddyLimbs(buddy, "cue", 420);
   nmb.act = act;
   nmb.lastAct = act;
+  //: The idle pool's memory (Brief 34 step 5, ledger 678 and 679): the last
+  //: five acts, so `nameMarkBuddyDecide` does not reach for one of them.
+  nmb.recentActs = [act, ...(nmb.recentActs || []).filter((a) => a !== act)].slice(0, NMB_RECENT_ACTS);
   if (NMB_LOUD_ACTS.includes(act)) nameMarkBuddyLoud();
   if (!NMB_RESTING_ACTS.has(act)) nameMarkBuddyVary(buddy);
   const face = { lie: "sleepy", facepalm: "unimpressed" }[act];
@@ -7352,6 +7356,17 @@ function nameMarkBuddyDecide(now = Date.now(), hour = new Date().getHours()) {
       pool.push([act, w]);
       total += w;
     }
+  }
+  //: **Never one of the last five** while anything else suits the moment
+  //: (the owner: "more varied"): a weighted pick alone repeated a heavy act
+  //: two or three times a minute. Only when every suitable act is recent
+  //: does the plain pick stand.
+  const recent = nmb.recentActs || [];
+  const fresh = pool.filter(([act]) => !recent.includes(act));
+  if (fresh.length && fresh.length < pool.length) {
+    pool.length = 0;
+    pool.push(...fresh);
+    total = fresh.reduce((sum, [, w]) => sum + w, 0);
   }
   let roll = Math.random() * total;
   for (const [act, w] of pool) {

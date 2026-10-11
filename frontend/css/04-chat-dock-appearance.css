@@ -1773,6 +1773,15 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
      (DESIGN.md, "Control height"). 36px, above the app's 28px floor,
      because these carry no label to widen them. */
   --control-h: var(--control-h-lg);
+  /* **Pinned at the panel's foot** (the owner, 2026-10-11: "the graph
+     popups get cut off now at the bottom"): a long note scrolls under it,
+     so the dock is always whole and in reach. Sticky against the panel's
+     own scrollport; the chip tint over the panel's opaque ground, so text
+     scrolling under it does not show through. */
+  position: sticky;
+  bottom: calc(-1 * var(--graph-popup-pad));
+  z-index: 1;
+  background: linear-gradient(var(--chip-bg) 0 0), var(--modal-bg-opaque);
 }
 
 .graph-popup-tool-group {

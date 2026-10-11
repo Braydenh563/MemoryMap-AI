@@ -934,7 +934,7 @@ function gcEnsureCanvas(s = gcTab) {
     s.observer = new ResizeObserver((entries) => {
       const before = { ...s.dims };
       if (!gcResize(s)) {
-        if (entries.some((entry) => entry.target.id !== s.boxId)) gcRefitForPanels(s);
+        if (entries.some((entry) => entry.target.id !== s.boxId && !entry.target.matches(GC_FIT_MENUS))) gcRefitForPanels(s);
         return;
       }
       //: **The map stays framed when its card changes size** (INBOX 613, the
@@ -1356,7 +1356,14 @@ function gcShowTopic(topic, colour) {
     if (row.source === "model") gcTopicSummaries.set(key, row);
     say(row);
   });
-  actions.appendChild(ask);
+  //: A topic becomes a category only when asked (ledger 945, GRAPH_PLAN
+  //: "Topics and categories": neither writes the other on its own). One
+  //: move with one Undo, the batch bar's own (`moveNotesToCategory`).
+  const file = smallButton("ph:folder-simple-plus File as a category", "File these notes under one category, named for the topic", async () => {
+    const wanted = (await promptDialog(`File these ${topic.size} notes under the category:`, topic.name.replace(/^#/, ""), { confirmLabel: "File" })).trim();
+    if (wanted) await moveNotesToCategory(topic.ids, wanted);
+  });
+  actions.append(ask, file);
   const known = gcTopicSummaries.get(key);
   if (known) say(known);
   box.replaceChildren(head, terms, summary, actions);
@@ -1585,6 +1592,12 @@ const GC_FIT_OVERLAYS = [
   "#graph-trace-result",
   "#graph-topic",
 ];
+//: **A menu is not a panel** (the owner, 2026-10-11: "opening and closing
+//: the graph settings button dropdown and the menu button move the graph a
+//: bit"). The gear's options and the dock (whose ⋯ menu opens inside it)
+//: still keep a Fit clear of themselves, but opening or closing one does not
+//: refit the map: a menu over the map moves nothing on it (graphmenustill.js).
+const GC_FIT_MENUS = "#graph-options, #graph-card > .graph-overlay > .dock";
 const GC_FIT_GAP = 4;
 function gcFitInsets(s = gcTab) {
   const insets = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -3494,7 +3507,6 @@ function gcWireInteraction(s = gcTab) {
     //: was forty requests.
     const savePins = () => apiJson("/graph/pins", { method: "PUT", body: JSON.stringify({ pins }) })
       .catch(() => toast("The moved notes were not pinned where you left them.", true, { action: ["Try again", savePins] }));
-    if (pins.length) savePins();
     s.dragGroup = [];
     const wasTopic = s.dragTopic;
     s.dragTopic = null;
@@ -3524,7 +3536,10 @@ function gcWireInteraction(s = gcTab) {
       //: then had to find and undo.
       node.graph_pin_x = node.fx;
       node.graph_pin_y = node.fy;
-      apiJson(`/graph/pin/${node.id}`, {
+      //: A topic carried by its core note is one write with its mates
+      //: (ledger 931: it was the group's PUT plus this one).
+      if (pins.length) pins.push({ id: node.id, x: node.fx, y: node.fy });
+      else apiJson(`/graph/pin/${node.id}`, {
         method: "PUT",
         body: JSON.stringify({ x: node.graph_pin_x, y: node.graph_pin_y }),
       }).catch(() => {
@@ -3533,6 +3548,7 @@ function gcWireInteraction(s = gcTab) {
         // reload and nothing else.
       });
     }
+    if (pins.length) savePins();
     gcRequestDraw(s);
   }
 
@@ -4376,6 +4392,14 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
     setTimeout(() => gcReveal(s), 4000);
   }
   const hidden = s.canvas?.style.opacity === "0";
+  //: **A saved view's notes are held from the first step** (claim #238): the
+  //: `freeze` below arrived after `init`, and an init that warmed (a view
+  //: re-picks its layout, which clears the fit, so `reframe`) stepped every
+  //: note 450ms before the hold landed: 726px off the saved spots once a
+  //: note had been added since. Held in the init itself now, with no warm-up
+  //: and no intro for a restore.
+  const held = new Set(viewSeed?.freezeIds || []);
+  const restoring = Boolean(viewSeed?.restore);
   const init = {
     type: "init",
     epoch: s.epoch,
@@ -4388,6 +4412,7 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
       y: n.y,
       fx: n.fx == null ? null : n.fx,
       fy: n.fy == null ? null : n.fy,
+      held: held.has(n.id),
       r: n.r,
       group: n.category || "",
     })),
@@ -4416,11 +4441,11 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
     //: Step the layout out of its starting spiral before the first post
     //: (the worker's `WARM_MS`) whenever the map is framed again, so the
     //: frame is set on where it ends.
-    warm: reframe && !(viewSeed && viewSeed.alpha === 0),
+    warm: reframe && !restoring && !(viewSeed && viewSeed.alpha === 0),
     //: And then play those steps back, framed on where they end (the
     //: worker's `INTRO_HOLD`), unless the reader asked for less motion: they
     //: get the settled map at once, as before.
-    intro: !gcStill(),
+    intro: !gcStill() && !restoring,
   };
   //: **A layout that already settled is held, not settled again** (INBOX
   //: 424c/d). Every visit to the Graph tab refetched the map and restarted
@@ -4830,6 +4855,7 @@ async function renderGraphCanvas(s = gcTab) {
   // inherits the result forward through `prior`, above, the same as any
   // other re-render already does. Only meaningful for force: a tree/radial/
   // arc layout is recomputed deterministically below and never reads this.
+  const restoring = Boolean(graphPendingViewPositions) && s.layoutKind === "force";
   const viewPositions =
     graphPendingViewPositions || (s.layoutKind === "force" && !prior.size ? gcCachedPositions(s) : null);
   graphPendingViewPositions = null;
@@ -4953,6 +4979,7 @@ async function renderGraphCanvas(s = gcTab) {
     gcStartWorker(nodes, edges, gcWorldFor(nodes.length, width, height), s, {
       alpha: viewPositions && !unplacedByView ? 0 : 1,
       freezeIds: seededUnpinnedIds,
+      restore: restoring,
       //: Every note is where the last layout left it: see the hold in
       //: `gcStartWorker`. A saved view's own seeding is its own decision.
       holdIfSettled: !viewPositions && visibleNodes.every((n) => Number.isFinite(prior.get(n.id)?.x)),

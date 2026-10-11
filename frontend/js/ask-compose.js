@@ -477,7 +477,7 @@ function digestOffer(answerEl, offer) {
       } else if (offer.kind === "checklist" || offer.kind === "note") {
         const items = (offer.items || []).map((item) => `- [ ] ${item}`).join("\n");
         const content = offer.kind === "checklist" ? `${offer.text}\n\n${items}` : offer.text;
-        const made = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content }) });
+        const made = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content, defer_filing: true }) });
         said = `Saved a note: ${noteNamePlain(offer.text, 80)}.`;
         undo = () => apiJson(`/entries/${made.id}`, { method: "DELETE" });
       }

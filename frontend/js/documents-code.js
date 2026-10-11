@@ -2918,7 +2918,7 @@ function docDebugSavedBreaks(id) {
   if (DOC_DEBUG.breaks.has(id)) return DOC_DEBUG.breaks.get(id);
   let rows = [];
   try {
-    const saved = JSON.parse(localStorage.getItem(DOC_DEBUG_BREAKS_KEY) || "{}")[id];
+    const saved = prefs.json(DOC_DEBUG_BREAKS_KEY, {})[id];
     if (Array.isArray(saved)) rows = saved.filter((r) => Number.isInteger(r?.line)).map((r) => ({ line: r.line, cond: String(r.cond || "") }));
   } catch { /* storage refused or unreadable: this tab's breakpoints only */ }
   DOC_DEBUG.breaks.set(id, rows);
@@ -2931,12 +2931,12 @@ function docDebugKeepBreaks(id, rows) {
   DOC_DEBUG.breaks.set(id, rows);
   if (same) return;
   try {
-    const saved = JSON.parse(localStorage.getItem(DOC_DEBUG_BREAKS_KEY) || "{}");
+    const saved = prefs.json(DOC_DEBUG_BREAKS_KEY, {});
     delete saved[id];
     if (rows.length) saved[id] = rows.map((r) => ({ line: r.line, cond: r.cond || "" }));
     const ids = Object.keys(saved);
     for (const old of ids.slice(0, Math.max(0, ids.length - DOC_DEBUG_BREAKS_DOCS))) delete saved[old];
-    localStorage.setItem(DOC_DEBUG_BREAKS_KEY, JSON.stringify(saved));
+    prefs.set(DOC_DEBUG_BREAKS_KEY, JSON.stringify(saved));
   } catch { /* storage refused: kept for this tab only */ }
 }
 

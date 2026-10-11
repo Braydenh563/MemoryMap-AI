@@ -1698,12 +1698,8 @@ function sayChatModelChosen(status) {
   const why = status?.chat_model_chosen_why;
   if (!why || typeof toastAction !== "function") return;
   const key = `chatModelChosen:${status.chat_model}`;
-  try {
-    if (localStorage.getItem(key)) return;
-    localStorage.setItem(key, "1");
-  } catch {
-    return;
-  }
+  if (prefs.get(key)) return;
+  if (!prefs.set(key, "1")) return;
   toastAction(`${aiNameNow()} now runs ${status.chat_model}: ${why}.`, "Change", () => openSettingsModal("models", "chat-model-select"));
 }
 // Has the status endpoint ever answered? "We haven't asked yet" and "we asked

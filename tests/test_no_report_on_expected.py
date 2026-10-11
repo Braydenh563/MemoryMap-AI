@@ -49,8 +49,9 @@ def test_a_package_action_the_server_refuses_is_a_notice_and_a_failed_request_is
     # installed." came back as started: false and were shown as errors.
     text = (JS / "settings-packages.js").read_text(encoding="utf-8")
     assert "toast(result.message, !result." not in text
-    assert text.count('result.failed ? true : result.') == 4
-    assert text.count("failed: true, message: e.message") == 4
+    #: One place (`packagesPost`) answers all four actions.
+    assert text.count('result.failed ? true : result.') == 1
+    assert text.count("failed: true, message: e.message") == 1
 
 
 def test_a_held_quick_note_says_its_reminder_was_not_set():

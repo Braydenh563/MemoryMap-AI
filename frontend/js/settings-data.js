@@ -1094,7 +1094,7 @@ function settingsHistoryRow(entry) {
   label.textContent = entry.label;
   const when = document.createElement("small");
   when.className = "muted";
-  const ago = typeof relativeTime === "function" ? relativeTime(new Date(entry.at).toISOString()) : new Date(entry.at).toLocaleString();
+  const ago = typeof relativeTime === "function" ? relativeTime(new Date(entry.at).toISOString()) : whenText(new Date(entry.at));
   const gone = entry.noUndo || (entry.big && !settingsHistoryBigKept.has(entry.id));
   when.textContent = entry.undone ? `${ago} · undone` : gone ? `${ago} · can't be undone` : ago;
   words.append(label, when);

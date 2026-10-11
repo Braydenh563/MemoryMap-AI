@@ -228,7 +228,7 @@ async function commitExtractPreview() {
         `Saved ${madeIds.length} extracted note${madeIds.length === 1 ? "" : "s"}`,
         madeIds.map((id) => [`/entries/${id}`, "DELETE"]),
         madeIds.map((id) => [`/entries/${id}/restore`, "POST"]),
-        () => loadEntries()
+        () => refreshEntries(madeIds)
       );
     }
     toast(`Saved ${result.notes.length} note${result.notes.length === 1 ? "" : "s"}.`);

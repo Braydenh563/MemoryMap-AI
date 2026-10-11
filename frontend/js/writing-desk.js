@@ -285,7 +285,7 @@ async function saveDraftAsNote() {
     saveDraftLocally();
     status.textContent = wroteBack ? "Saved back to the note." : "Saved as a note.";
     toast(wroteBack ? "The note has been updated." : "Draft saved as a note.");
-    await loadEntries();
+    await refreshEntries([entry.id]);
     flashEntry(entry.id); // show them where it landed
   } catch (error) {
     status.classList.add("error");

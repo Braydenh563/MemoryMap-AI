@@ -357,7 +357,7 @@ async function clipPastedLink(url) {
       onAction: () => flashEntry(note.id),
       go: { open: "entry", id: note.id },
     });
-    loadEntries().catch(() => {});
+    refreshEntries([note.id]).catch(() => {});
     if (note.filing_state === "pending") watchFiling(note, { quiet: true });
   } catch (error) {
     progress.done(error.message || "Couldn't read that page.", { isError: true });
@@ -514,7 +514,7 @@ try {
   standaloneNotes.onmessage = (event) => {
     if (event.data?.type !== "note-made" || event.data.id == null) return;
     pushEntryCreateUndo({ id: event.data.id }, event.data.label || "Saved a note");
-    loadEntries().catch(() => {});
+    refreshEntries([event.data.id]).catch(() => {});
     standaloneNotes.postMessage({ type: "note-made-ack", id: event.data.id });
   };
 } catch {

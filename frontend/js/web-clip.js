@@ -142,7 +142,7 @@ async function saveWebPageAsNote() {
     });
     pushEntryCreateUndo(made, "Saved a web page as a note");
     toast("Saved as a note.");
-    loadEntries().catch(() => {});
+    refreshEntries([made.id]).catch(() => {});
   } catch (error) {
     toast(error.message, true);
   }

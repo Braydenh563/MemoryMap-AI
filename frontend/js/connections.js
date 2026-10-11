@@ -120,13 +120,13 @@ async function linkNoteMention(subjectId, row, button) {
     });
     const textAfter = (await apiJson(sourcePath).catch(() => null))?.content;
     if (typeof textBefore === "string" && typeof textAfter === "string" && textBefore !== textAfter) {
-      pushRequestUndo(`Linked a mention in ${row.title}`, sourcePath, "PUT", { content: textBefore }, { content: textAfter }, () => loadEntries());
+      pushRequestUndo(`Linked a mention in ${row.title}`, sourcePath, "PUT", { content: textBefore }, { content: textAfter }, () => (row.kind === "note" ? refreshEntries([row.id]) : undefined));
     }
     toast(`Linked from ${row.title}.`);
   } catch (error) {
     toast(error.message, true);
   }
-  if (typeof loadEntries === "function") await loadEntries();
+  if (row.kind === "note" && typeof refreshEntries === "function") await refreshEntries([row.id]);
   if (typeof renderNotesRail === "function") renderNotesRail();
   if (!$("connections-overlay").classList.contains("hidden")) openConnections("entries", subjectId, $("connections-subject").textContent);
 }

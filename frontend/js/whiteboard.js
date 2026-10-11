@@ -5000,7 +5000,7 @@ async function wbMindMapAddCard(parentId, x, y) {
   // fetched before this note existed. Without this the new branch renders
   // as a placeholder and never resolves, see the `!entry` branch in the
   // card renderer.
-  await loadEntries();
+  await refreshEntries([entry.id]);
 
   const map = wbMindMapEnsureMap(parentId);
   map.parentOf.set(nodeRes.id, parentId);
@@ -7398,7 +7398,7 @@ async function wbCloneNoteCard(source, dirName) {
   });
   if (!made) return;
   //: The card reads its words from `allEntries`, fetched before this note.
-  await loadEntries();
+  await refreshEntries([made.entry_id]);
   selectWbItem("node", made.id);
   renderWhiteboardNow();
   wbAnnounce(`New note ${dir.words}, joined. Type its words.`);
@@ -21639,7 +21639,7 @@ async function createConceptMap() {
     window.wbLastCreatedBoard = board;
     // Same reason as `wbMindMapAddCard`: the root card reads its text out of
     // `allEntries`, and this note is newer than the last fetch.
-    await loadEntries();
+    await refreshEntries([root.id]);
     await openWhiteboardBoard(board.id);
     wbBoardMadeStep(board);
     // Selected, because `Tab`/`Enter` act on the selection and an unselected

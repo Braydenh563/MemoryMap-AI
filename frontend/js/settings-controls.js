@@ -2575,7 +2575,7 @@ async function renderMemorySettings() {
       text.className = "memory-text";
       text.textContent = pref.content;
       text.title = pref.created_at
-        ? `Saved ${new Date(pref.created_at).toLocaleString()}`
+        ? `Saved ${whenText(new Date(pref.created_at))}`
         : "";
 
       // A suggestion is a question, not a switch someone flipped: it gets

@@ -91,6 +91,10 @@ _BASE = {
     #: several wordings, picked by the question, so answers do not all read
     #: the same.
     "gap": ("{gap} later, ", "{gap} on, ", "after {gap}, "),
+    #: A note told as what happened (the owner, 2026-10-11): its event re-said
+    #: from today, then its facts in one flowing sentence, never label lines.
+    "told": ("you mentioned", "you said", "you noted"),
+    "told_future": ("You'll have {np}.", "That means {np}."),
     "landed": ("{opening}, and you're {landed}.", "{opening}. For now you're {landed}."),
     "open_count": ("{opening}, with {left} still open.", "{opening}, and {left} still to settle."),
     "stale": (
@@ -867,6 +871,90 @@ def _count(n: int, noun: str = "note") -> str:
     return realise.count_noun(n, noun)
 
 
+#: A note's event with a relative time ("Uni starts back next week"): said
+#: from today, with its tense, rather than dropped as stale (the owner,
+#: 2026-10-11: "seeing the context for uni, classes, next week (in comparison
+#: to the current datetime and the datetime that note was written)").
+_EVENT = re.compile(
+    r"^(?P<subj>[A-Za-z][\w&' -]{1,40}?) (?P<verb>starts?|begins?|opens?|ends?|finish(?:es)?|is|are|goes|go)"
+    r"(?P<adv> back| again| up)? (?P<when>next week|this week|tomorrow|next month)\.?$",
+    re.I,
+)
+_BACK_AT = {"uni", "university", "school", "college", "work", "the gym", "training", "classes", "class"}
+_PAST = {"start": "started", "starts": "started", "begin": "began", "begins": "began", "open": "opened", "opens": "opened",
+         "end": "ended", "ends": "ended", "finish": "finished", "finishes": "finished", "is": "was", "are": "were",
+         "go": "went", "goes": "went"}
+
+
+def _when_now(when: str, written: date, today: date) -> tuple[str, bool]:
+    """A note's "next week" said from today, and whether it is still ahead:
+    the same week it was written it is still "next week"; once that week has
+    gone it is "the week of 24 July" (`_pin`'s day), in the past tense."""
+    when = when.lower()
+    if when == "tomorrow":
+        day = written + timedelta(days=1)
+        gap = (day - today).days
+        return ({0: "today", 1: "tomorrow"}.get(gap) or f"on {_day(day, today)}"), gap >= 0
+    if when == "next month":
+        index = written.month
+        year, month = written.year + index // 12, index % 12 + 1
+        ahead = (year, month) >= (today.year, today.month)
+        same = (year, month) == (today.year, today.month)
+        return ("this month" if same else f"in {composer._MONTHS[month - 1]}"), ahead
+    step = 1 if when == "next week" else 0
+    meant = written + timedelta(days=7 * step)
+    weeks = ((meant - timedelta(days=meant.weekday())) - (today - timedelta(days=today.weekday()))).days // 7
+    said = {0: "this week", 1: "next week"}.get(weeks) or f"the week of {_day(meant, today)}"
+    return said, weeks >= 0
+
+
+def _narrate(out: _Out, view, facts: list[Fact], today: date) -> set:
+    """One note told as what happened, when it has an event with a relative
+    time: the event from today ("you're back at uni next week"; months on,
+    "you went back to uni the week of 24 July"), then its facts woven in
+    with a reporting verb, one citation for the line. The keys of the
+    sentences said, for `_lines` to skip; empty when the note has no event."""
+    event = next((s for s in view.sentences if s.kind == "prose" and _EVENT.match(s.text.strip())), None)
+    if event is None or not view.written:
+        return set()
+    m = _EVENT.match(event.text.strip())
+    when, ahead = _when_now(m.group("when"), view.written, today)
+    subj, verb, adv = m.group("subj").strip(), m.group("verb").lower(), (m.group("adv") or "")
+    place = subj.lower()
+    if place in _BACK_AT and adv.strip() == "back" and verb.startswith(("start", "begin", "go")):
+        clause = f"you're back at {place} {when}" if ahead else f"you went back to {place} {when}"
+    else:
+        name = subj if subj[:1].isupper() and subj.split()[0].lower() not in ("the", "a", "my") else subj[:1].lower() + subj[1:]
+        clause = f"{name} {verb if ahead else _PAST.get(verb, verb)}{adv} {when}"
+    own = sorted((f for f in facts if f.view.id == view.id and f.sentence.key != event.key), key=lambda f: f.sentence.start)[:3]
+    told, trailing = [], []
+    for f in own:
+        body = _lower_first(f.body, _NAMES.get())
+        timed = f.label if _TIME_LABEL.match(f.label + " x") else ""
+        if timed and timed.lower() not in body.lower():
+            body = f"{body} {timed.lower()}"
+        (told if re.match(r"you\b|you're\b|your\b", body) else trailing).append(body)
+    line = clause[0].upper() + clause[1:]
+    if told:
+        line += f", and {_vary('told')} {realise.join_items(told)}"
+    if trailing and not ahead:
+        line += f", with {realise.join_items(trailing)}"
+    line += "."
+    if trailing and ahead:
+        weekly = " each week" if _DAYS_PLURAL.search(" ".join(trailing)) and "every" not in " ".join(trailing) else ""
+        line += " " + _vary("told_future").format(np=realise.join_items(trailing) + weekly)
+    out.lines.append(line)
+    said = [event, *(f.sentence for f in own)]
+    row = {
+        "sentence": line.rstrip("."), "note_id": view.note.get("source_id", view.id), "source": event.text,
+        "start": event.start, "end": event.end, "score": 1.0, "digest": True,
+    }
+    if len(said) > 1:
+        row["parts"] = [{"note_id": row["note_id"], "source": s.text, "start": s.start, "end": s.end} for s in said]
+    out.rows.append(row)
+    return {s.key for s in said}
+
+
 def _overview(out: _Out, question: str, members, facts, today: date, kind: str) -> None:
     topic = _topic(question, members)
     moved = _progress(members, today) if _GOING.search(question) else ""
@@ -892,7 +980,11 @@ def _overview(out: _Out, question: str, members, facts, today: date, kind: str) 
             opening = _vary("open_count").format(opening=opening.rstrip("."), left="one thing" if len(left) == 1 else f"{realise.count_word(len(left))} things")
         out.lines.append(opening)
     shown_notes = {f.view.id for f in facts}
-    _lines(out, facts, LINES[kind], by_day=today, more=kind == "overview", weave=True)
+    told: set = set()
+    if not moved:
+        for view in members:
+            told |= _narrate(out, view, facts, today)
+    _lines(out, facts, LINES[kind] - (len(out.lines) - 1), skip=told, by_day=today, more=kind == "overview", weave=True)
     if not moved:
         pattern = _pattern(members, today)
         if pattern:
@@ -968,7 +1060,7 @@ def _say_fact(out: _Out, lead: Fact, today: date, question: str) -> None:
         others = [v for v in _VIEWS.get() if v.id != lead.view.id]
         if not any(composer._holds(composer._stem(w), v.words) for v in others for i in items for w in composer.subject_terms(i)[-1:]):
             out.closing.append(PHRASES["none_own"])
-    elif lead.label and lead.label not in {name for name, _ in _CUES}:
+    elif lead.label and lead.label not in {name for name, _ in _CUES} and not _TIME_LABEL.match(lead.label + " x"):
         #: A heading the note gives itself ("Psych lecture") names the note;
         #: a label the answer gave the fact ("How it went") does not.
         out.lines.append(f"From your {lead.label[0].lower() + lead.label[1:]} note, {_day(lead.view.written, today)}: {body}.")
@@ -1262,6 +1354,10 @@ def answer(
         return _result(out, kind, asked)
     if kind in ("overview", "likes") and len(members) >= 2:
         _overview(out, asked, members, facts, today, kind)
+    elif kind in ("overview", "likes") and (told := _narrate(out, members[0], facts, today)):
+        #: One note with an event: told as what happened, then the rest.
+        _lines(out, [f for f in facts if f.sentence.key not in told], 2)
+        out.lines.append(PHRASES["only_note"])
     elif kind in ("overview", "likes"):
         _single(out, "fact", asked, members, facts, today)
     else:

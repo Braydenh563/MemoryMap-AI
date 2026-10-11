@@ -60,7 +60,9 @@ def test_the_owners_question_opens_with_the_count_and_the_span():
     result = composer_digest.answer("What have I saved about courses & study?", NOTES, today=TODAY)
     lines = result["text"].split("\n\n")
     assert lines[0] == "You have four notes about uni, 17 July to 4 August."
-    assert any(line.startswith("**Your week:** classes on Tuesdays and Thursdays") for line in lines)
+    #: The first note told as what happened (the owner, 2026-10-11), its
+    #: "next week" said from today; tests/test_narrate_1011.py has the rest.
+    assert lines[1].startswith("You went back to uni the week of 24 July") and "classes on Tuesdays and Thursdays" in lines[1]
     assert "Nothing yet on assessments or due dates." in lines
     assert lines[-1] == "Remind you to ask the tutor on Thursday?"
     assert result["offer"] == {"kind": "reminder", "label": lines[-1], "text": "Ask the tutor on Thursday"}
@@ -78,7 +80,8 @@ def test_the_joke_is_never_a_fact_about_the_person():
 
 def test_one_citation_row_a_line_and_each_names_its_note():
     result = composer_digest.answer("What have I saved about courses & study?", NOTES, today=TODAY)
-    labelled = [line for line in result["text"].split("\n\n") if line.startswith("**")]
+    #: A labelled line, or a note told as one sentence (test_narrate_1011.py).
+    labelled = [line for line in result["text"].split("\n\n") if line.startswith(("**", "You went back"))]
     assert len(result["grounding"]) == len(labelled)
     for row, line in zip(result["grounding"], labelled):
         assert row["sentence"] in line

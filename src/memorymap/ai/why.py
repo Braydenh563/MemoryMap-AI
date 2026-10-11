@@ -93,7 +93,7 @@ def lines(
             say("searched", f"{where}: nothing matched.")
     kind = (shape or "").split(":", 1)[-1]
     if composed:
-        say("answered", "Atlas wrote it from your notes, with no model: every line is quoted from a note.")
+        say("answered", "Atlas wrote it from your notes, with no model: every line comes from a note it cites.")
     elif model:
         say("answered", f"The model, {model}, wrote it{' from the notes found' if matched else ''}.")
         if context:

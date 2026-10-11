@@ -1,0 +1,21 @@
+{
+ "about": "The owner, 2026-10-11, on the Ask answer for \"What have I saved about courses & study?\": \"I want it more dynamic and better at language ... seeing the context for uni, classes, next week (in comparison to the current datetime and the datetime that note was written), this semester, and the class names\". A rule as well as a gold: a note's relative time is resolved against the day it was written and said again from today, and a note's connected facts are told in flowing sentences with a reporting verb, not label lines; citations kept. The same note on two days: the week it was written (the owner's own wording is the gold) and months later.",
+ "question": "What have I saved about courses & study?",
+ "note": "uni1",
+ "variants": [
+  {
+   "name": "same week",
+   "today": "2026-07-17",
+   "gold": "You start a new semester of uni next week, and you have mentioned you plan to study the classes of \"Intro to Psychology\" and \"Data Structures\". You also stated how you will be attending classes on Tuesdays and Thursdays each week.",
+   "says": ["next week", "Intro to Psychology", "Data Structures", "Tuesdays and Thursdays", "each week"],
+   "never": ["the week of", "went back", "**"]
+  },
+  {
+   "name": "months later",
+   "today": "2026-10-11",
+   "gold": "You went back to uni the week of 24 July, and you mentioned you're doing Intro to Psychology and Data Structures this semester, with classes on Tuesdays and Thursdays.",
+   "says": ["went back to uni the week of 24 July", "Intro to Psychology", "Data Structures", "Tuesdays and Thursdays"],
+   "never": ["next week", "**", "your this semester note"]
+  }
+ ]
+}

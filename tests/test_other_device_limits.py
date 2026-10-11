@@ -125,6 +125,12 @@ def _signed_in_with(client: TestClient, password: str) -> TestClient:
     return client
 
 
+def test_live_budgets_replay_only_from_this_computer(phone):
+    """The live bench replays reads to 127.0.0.1 with the caller's token."""
+    assert phone.get("/models/bench/budgets?live=true").status_code == 403
+    assert phone.get("/models/bench/budgets").status_code == 200
+
+
 def test_the_recovery_key_save_dialog_opens_only_here(phone):
     assert phone.post("/auth/recovery-key/save", json={"text": "x" * 40}).status_code == 403
 

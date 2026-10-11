@@ -207,7 +207,7 @@ async function renderBackups() {
     size.className = "muted";
     size.textContent = relativeTime(item.created_at);
     const actions = rowActions([
-      {
+      onOtherDevice() ? null : {
         label: "Restore",
         title: "Roll the notebook back to this backup",
         run: async () => {

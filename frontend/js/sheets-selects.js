@@ -1194,6 +1194,7 @@ function openKebabSheet(menu, opener, label) {
 //: (`label`, `title`, `run`, `danger`), so a row moves between the two shapes
 //: without its caller changing.
 function rowActions(actions, ariaLabel) {
+  actions = actions.filter(Boolean); // an action left out on this device is null
   const wrap = document.createElement("span");
   wrap.className = "entry-actions row-actions";
   const button = (action) => {

@@ -1130,6 +1130,10 @@ async function markOtherDevice() {
   }, true);
 }
 
+function onOtherDevice() {
+  return document.documentElement.dataset.otherDevice === "1";
+}
+
 //: At load, not from `startApp`: `/health` is open before the unlock, and the
 //: settings markup is already parsed (app.js is held to its gzip ratchet).
 markOtherDevice().catch(() => {});

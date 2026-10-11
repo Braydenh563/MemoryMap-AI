@@ -2,9 +2,9 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5514, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4627, test files 1066, tests 9769, plan headings 995.
+Counts: frontend functions 5515, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4627, test files 1066, tests 9770, plan headings 995.
 
-## Frontend functions (5514)
+## Frontend functions (5515)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -660,61 +660,61 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `aiNameNow` | frontend/js/sheets-selects.js:2180 |
+| `aiNameNow` | frontend/js/sheets-selects.js:2181 |
 | `annotateSliders` | frontend/js/sheets-selects.js:990 |
 | `applySidebarSheetMode` | frontend/js/sheets-selects.js:199 |
 | `applySidebarWidth` | frontend/js/sheets-selects.js:100 |
 | `applyWebPanelWidth` | frontend/js/sheets-selects.js:506 |
-| `builtinPersonas` | frontend/js/sheets-selects.js:2279 |
-| `builtinThinkingWords` | frontend/js/sheets-selects.js:2229 |
-| `clampToolbarMenu` | frontend/js/sheets-selects.js:1357 |
+| `builtinPersonas` | frontend/js/sheets-selects.js:2280 |
+| `builtinThinkingWords` | frontend/js/sheets-selects.js:2230 |
+| `clampToolbarMenu` | frontend/js/sheets-selects.js:1358 |
 | `dateFieldFace` | frontend/js/sheets-selects.js:1019 |
 | `eachSidebar` | frontend/js/sheets-selects.js:192 |
-| `editChatAnswer` | frontend/js/sheets-selects.js:1822 |
-| `editedMarker` | frontend/js/sheets-selects.js:1811 |
+| `editChatAnswer` | frontend/js/sheets-selects.js:1823 |
+| `editedMarker` | frontend/js/sheets-selects.js:1812 |
 | `enhanceAllSelects` | frontend/js/sheets-selects.js:1001 |
 | `enhanceDateField` | frontend/js/sheets-selects.js:1029 |
 | `enhanceSelect` | frontend/js/sheets-selects.js:697 |
 | `focusSelect` | frontend/js/sheets-selects.js:1092 |
-| `formatTokens` | frontend/js/sheets-selects.js:1576 |
+| `formatTokens` | frontend/js/sheets-selects.js:1577 |
 | `initResizableSidebars` | frontend/js/sheets-selects.js:455 |
 | `initSidebarSheetDismissal` | frontend/js/sheets-selects.js:262 |
-| `kebabMenu` | frontend/js/sheets-selects.js:1210 |
+| `kebabMenu` | frontend/js/sheets-selects.js:1211 |
 | `labelledMenu` | frontend/js/sheets-selects.js:620 |
 | `layoutIsStacked` | frontend/js/sheets-selects.js:42 |
 | `layoutIsTablet` | frontend/js/sheets-selects.js:79 |
-| `lightboxReadingsFor` | frontend/js/sheets-selects.js:1547 |
-| `loadChatSuggestions` | frontend/js/sheets-selects.js:2110 |
-| `loadConversationList` | frontend/js/sheets-selects.js:1645 |
+| `lightboxReadingsFor` | frontend/js/sheets-selects.js:1548 |
+| `loadChatSuggestions` | frontend/js/sheets-selects.js:2111 |
+| `loadConversationList` | frontend/js/sheets-selects.js:1646 |
 | `makeMenuItem` | frontend/js/sheets-selects.js:600 |
 | `makeSidebarResizable` | frontend/js/sheets-selects.js:318 |
 | `makeWebPanelResizable` | frontend/js/sheets-selects.js:543 |
-| `openConversation` | frontend/js/sheets-selects.js:1885 |
+| `openConversation` | frontend/js/sheets-selects.js:1886 |
 | `openKebabSheet` | frontend/js/sheets-selects.js:1135 |
-| `parseServerTime` | frontend/js/sheets-selects.js:1585 |
-| `personaDisplayName` | frontend/js/sheets-selects.js:2186 |
-| `personaNamesNow` | frontend/js/sheets-selects.js:2304 |
-| `relativeTime` | frontend/js/sheets-selects.js:1595 |
-| `renderDashboardPersonaSelect` | frontend/js/sheets-selects.js:2520 |
-| `renderPersonas` | frontend/js/sheets-selects.js:2309 |
-| `replaceOpenToolbarMenus` | frontend/js/sheets-selects.js:1463 |
+| `parseServerTime` | frontend/js/sheets-selects.js:1586 |
+| `personaDisplayName` | frontend/js/sheets-selects.js:2187 |
+| `personaNamesNow` | frontend/js/sheets-selects.js:2305 |
+| `relativeTime` | frontend/js/sheets-selects.js:1596 |
+| `renderDashboardPersonaSelect` | frontend/js/sheets-selects.js:2521 |
+| `renderPersonas` | frontend/js/sheets-selects.js:2310 |
+| `replaceOpenToolbarMenus` | frontend/js/sheets-selects.js:1464 |
 | `resetWebPanelWidth` | frontend/js/sheets-selects.js:524 |
 | `rowActions` | frontend/js/sheets-selects.js:1196 |
-| `savePersonaList` | frontend/js/sheets-selects.js:2294 |
-| `shortModelName` | frontend/js/sheets-selects.js:1502 |
+| `savePersonaList` | frontend/js/sheets-selects.js:2295 |
+| `shortModelName` | frontend/js/sheets-selects.js:1503 |
 | `sidebarDefault` | frontend/js/sheets-selects.js:23 |
 | `sidebarFittedWidth` | frontend/js/sheets-selects.js:86 |
 | `sidebarWidth` | frontend/js/sheets-selects.js:25 |
-| `sortConversations` | frontend/js/sheets-selects.js:1632 |
-| `thinkingWordsFor` | frontend/js/sheets-selects.js:2245 |
+| `sortConversations` | frontend/js/sheets-selects.js:1633 |
+| `thinkingWordsFor` | frontend/js/sheets-selects.js:2246 |
 | `trackSeparatorValue` | frontend/js/sheets-selects.js:297 |
-| `wantsThinkingWords` | frontend/js/sheets-selects.js:2266 |
+| `wantsThinkingWords` | frontend/js/sheets-selects.js:2267 |
 | `watchForSelects` | frontend/js/sheets-selects.js:1104 |
 | `webPanelIsNarrow` | frontend/js/sheets-selects.js:490 |
 | `webPanelMaxWidth` | frontend/js/sheets-selects.js:500 |
 | `wireInPlaceSheetDismissal` | frontend/js/sheets-selects.js:244 |
 
-### frontend/js/skills.js (63)
+### frontend/js/skills.js (64)
 
 | Name | File:line |
 |---|---|
@@ -722,28 +722,28 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `appendToolRow` | frontend/js/skills.js:966 |
 | `applyToolFilter` | frontend/js/skills.js:1030 |
 | `askSkillInputs` | frontend/js/skills.js:240 |
-| `batchArchive` | frontend/js/skills.js:1411 |
-| `batchDelete` | frontend/js/skills.js:1454 |
-| `batchEach` | frontend/js/skills.js:1378 |
-| `batchExport` | frontend/js/skills.js:1448 |
-| `batchFavourite` | frontend/js/skills.js:1405 |
-| `batchMove` | frontend/js/skills.js:1356 |
-| `batchNoun` | frontend/js/skills.js:1401 |
-| `batchPublish` | frontend/js/skills.js:1422 |
-| `batchPut` | frontend/js/skills.js:1397 |
-| `batchSelection` | frontend/js/skills.js:1350 |
-| `batchTag` | frontend/js/skills.js:1370 |
-| `blobToBase64` | frontend/js/skills.js:1147 |
+| `batchArchive` | frontend/js/skills.js:1415 |
+| `batchDelete` | frontend/js/skills.js:1458 |
+| `batchEach` | frontend/js/skills.js:1382 |
+| `batchExport` | frontend/js/skills.js:1452 |
+| `batchFavourite` | frontend/js/skills.js:1409 |
+| `batchMove` | frontend/js/skills.js:1360 |
+| `batchNoun` | frontend/js/skills.js:1405 |
+| `batchPublish` | frontend/js/skills.js:1426 |
+| `batchPut` | frontend/js/skills.js:1401 |
+| `batchSelection` | frontend/js/skills.js:1354 |
+| `batchTag` | frontend/js/skills.js:1374 |
+| `blobToBase64` | frontend/js/skills.js:1151 |
 | `buildSkillsPanel` | frontend/js/skills.js:445 |
 | `customSkills` | frontend/js/skills.js:35 |
 | `desktopShell` | frontend/js/skills.js:1100 |
-| `downloadBlob` | frontend/js/skills.js:1179 |
-| `downloadFromApi` | frontend/js/skills.js:1163 |
+| `downloadBlob` | frontend/js/skills.js:1183 |
+| `downloadFromApi` | frontend/js/skills.js:1167 |
 | `downloadJson` | frontend/js/skills.js:1066 |
-| `enterSelectMode` | frontend/js/skills.js:1322 |
-| `exitSelectMode` | frontend/js/skills.js:1340 |
-| `fillBatchCategories` | frontend/js/skills.js:1295 |
-| `fillBatchMore` | frontend/js/skills.js:1428 |
+| `enterSelectMode` | frontend/js/skills.js:1326 |
+| `exitSelectMode` | frontend/js/skills.js:1344 |
+| `fillBatchCategories` | frontend/js/skills.js:1299 |
+| `fillBatchMore` | frontend/js/skills.js:1432 |
 | `fillSkillSelect` | frontend/js/skills.js:393 |
 | `healthFacts` | frontend/js/skills.js:1090 |
 | `inputsToText` | frontend/js/skills.js:56 |
@@ -751,8 +751,9 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `loadSkills` | frontend/js/skills.js:19 |
 | `looksLikeAnAgentRequest` | frontend/js/skills.js:624 |
 | `markOtherDevice` | frontend/js/skills.js:1116 |
-| `pickJsonFile` | frontend/js/skills.js:1251 |
-| `refuseOnOtherDevice` | frontend/js/skills.js:1137 |
+| `onOtherDevice` | frontend/js/skills.js:1133 |
+| `pickJsonFile` | frontend/js/skills.js:1255 |
+| `refuseOnOtherDevice` | frontend/js/skills.js:1141 |
 | `renderChatNudge` | frontend/js/skills.js:667 |
 | `renderRunBudget` | frontend/js/skills.js:894 |
 | `renderSkillFolderLine` | frontend/js/skills.js:836 |
@@ -764,7 +765,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `renderToolSettings` | frontend/js/skills.js:923 |
 | `resetChatNudge` | frontend/js/skills.js:735 |
 | `runSkill` | frontend/js/skills.js:173 |
-| `saveFile` | frontend/js/skills.js:1195 |
+| `saveFile` | frontend/js/skills.js:1199 |
 | `saveSkillList` | frontend/js/skills.js:753 |
 | `saveToolSwitch` | frontend/js/skills.js:905 |
 | `setSkillVerify` | frontend/js/skills.js:150 |
@@ -780,7 +781,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `syncSkillVerifyRow` | frontend/js/skills.js:165 |
 | `textToInputs` | frontend/js/skills.js:62 |
 | `textToSteps` | frontend/js/skills.js:49 |
-| `updateBatchCount` | frontend/js/skills.js:1271 |
+| `updateBatchCount` | frontend/js/skills.js:1275 |
 
 ### frontend/js/shell-reminders.js (51)
 
@@ -4762,17 +4763,17 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | Name | File:line |
 |---|---|
 | `buildModelCard` | frontend/js/settings-models.js:310 |
-| `checkCustomModel` | frontend/js/settings-models.js:659 |
+| `checkCustomModel` | frontend/js/settings-models.js:660 |
 | `modelBase` | frontend/js/settings-models.js:68 |
 | `modelBytes` | frontend/js/settings-models.js:291 |
 | `modelCancel` | frontend/js/settings-models.js:184 |
-| `modelCardFor` | frontend/js/settings-models.js:443 |
+| `modelCardFor` | frontend/js/settings-models.js:444 |
 | `modelDisplayName` | frontend/js/settings-models.js:109 |
 | `modelDownload` | frontend/js/settings-models.js:165 |
 | `modelFacts` | frontend/js/settings-models.js:133 |
 | `modelFitTitle` | frontend/js/settings-models.js:124 |
 | `modelGb` | frontend/js/settings-models.js:114 |
-| `modelGroupOpen` | frontend/js/settings-models.js:470 |
+| `modelGroupOpen` | frontend/js/settings-models.js:471 |
 | `modelHidesBig` | frontend/js/settings-models.js:60 |
 | `modelInstalledName` | frontend/js/settings-models.js:78 |
 | `modelMenuItems` | frontend/js/settings-models.js:227 |
@@ -4783,11 +4784,11 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `modelSignature` | frontend/js/settings-models.js:302 |
 | `modelState` | frontend/js/settings-models.js:95 |
 | `modelUse` | frontend/js/settings-models.js:194 |
-| `paintModelHardware` | frontend/js/settings-models.js:618 |
-| `renderCustomCards` | frontend/js/settings-models.js:631 |
-| `renderInstalledModels` | frontend/js/settings-models.js:495 |
-| `renderSuggested` | frontend/js/settings-models.js:511 |
-| `updateModelProgress` | frontend/js/settings-models.js:429 |
+| `paintModelHardware` | frontend/js/settings-models.js:619 |
+| `renderCustomCards` | frontend/js/settings-models.js:632 |
+| `renderInstalledModels` | frontend/js/settings-models.js:496 |
+| `renderSuggested` | frontend/js/settings-models.js:512 |
+| `updateModelProgress` | frontend/js/settings-models.js:430 |
 
 ### frontend/js/settings-packages.js (14)
 
@@ -9158,7 +9159,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 |  | GET | `list_tags` | src/memorymap/api/routes_tags.py:40 |
 |  | GET | `list_types` | src/memorymap/api/routes_relations.py:65 |
 |  | GET | `search` | src/memorymap/api/routes_search.py:59 |
-|  | GET | `state` | src/memorymap/api/routes_bench.py:236 |
+|  | GET | `state` | src/memorymap/api/routes_bench.py:240 |
 |  | GET | `suggestions` | src/memorymap/api/routes_inbox.py:124 |
 |  | GET | `tidy_summary` | src/memorymap/api/routes_tidy.py:50 |
 |  | GET | `timeline` | src/memorymap/api/routes_timeline.py:375 |
@@ -9172,7 +9173,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 |  | POST | `create_entry` | src/memorymap/api/routes_entries.py:701 |
 |  | POST | `create_reminder` | src/memorymap/api/routes_reminders.py:476 |
 |  | POST | `create_type` | src/memorymap/api/routes_relations.py:76 |
-|  | POST | `start` | src/memorymap/api/routes_bench.py:196 |
+|  | POST | `start` | src/memorymap/api/routes_bench.py:200 |
 | `/` | GET | `get_whiteboard_state` | src/memorymap/api/routes_whiteboard.py:927 |
 | `/account` | GET | `account` | src/memorymap/api/routes_auth.py:1016 |
 | `/activity` | GET | `list_activity` | src/memorymap/api/routes_tasks.py:895 |
@@ -9225,7 +9226,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/boards/{board_id}/nodes/{node_id}/suggest` | POST | `suggest_branches` | src/memorymap/api/routes_map_suggest.py:146 |
 | `/boards/{board_id}/nodes/{node_id}/summary` | POST | `summarise_branch` | src/memorymap/api/routes_map_suggest.py:308 |
 | `/boards/{board_id}/tree` | GET | `board_tree` | src/memorymap/api/routes_whiteboard.py:3564 |
-| `/budgets` | GET | `budgets` | src/memorymap/api/routes_bench.py:123 |
+| `/budgets` | GET | `budgets` | src/memorymap/api/routes_bench.py:124 |
 | `/bulk` | POST | `bulk_action` | src/memorymap/api/routes_learned.py:236 |
 | `/bulk` | POST | `bulk_edit_tags` | src/memorymap/api/routes_tags.py:104 |
 | `/capabilities` | GET | `capabilities` | src/memorymap/api/routes_capabilities.py:75 |
@@ -9524,7 +9525,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/status` | GET | `status` | src/memorymap/api/routes_models.py:318 |
 | `/status` | GET | `status` | src/memorymap/api/routes_translate.py:22 |
 | `/status` | GET | `status` | src/memorymap/api/routes_voice.py:30 |
-| `/stop` | POST | `stop` | src/memorymap/api/routes_bench.py:245 |
+| `/stop` | POST | `stop` | src/memorymap/api/routes_bench.py:249 |
 | `/storage` | GET | `storage_location` | src/memorymap/api/routes_backups.py:43 |
 | `/stream` | POST | `chat_stream` | src/memorymap/api/routes_chat.py:2912 |
 | `/suggest-tags` | POST | `suggest_tags_for_draft` | src/memorymap/api/routes_entries.py:1264 |
@@ -12022,19 +12023,19 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `BenchBody` | src/memorymap/api/routes_bench.py:148 |
-| `Budget` | src/memorymap/api/routes_bench.py:33 |
-| `_last_report` | src/memorymap/api/routes_bench.py:165 |
-| `_report_path` | src/memorymap/api/routes_bench.py:161 |
-| `_run` | src/memorymap/api/routes_bench.py:172 |
-| `budget_rows` | src/memorymap/api/routes_bench.py:101 |
-| `budgets` | src/memorymap/api/routes_bench.py:124 |
-| `heavy_ids` | src/memorymap/api/routes_bench.py:85 |
-| `loopback` | src/memorymap/api/routes_bench.py:117 |
-| `start` | src/memorymap/api/routes_bench.py:197 |
-| `state` | src/memorymap/api/routes_bench.py:237 |
-| `stop` | src/memorymap/api/routes_bench.py:246 |
-| `time_share` | src/memorymap/api/routes_bench.py:69 |
+| `BenchBody` | src/memorymap/api/routes_bench.py:152 |
+| `Budget` | src/memorymap/api/routes_bench.py:34 |
+| `_last_report` | src/memorymap/api/routes_bench.py:169 |
+| `_report_path` | src/memorymap/api/routes_bench.py:165 |
+| `_run` | src/memorymap/api/routes_bench.py:176 |
+| `budget_rows` | src/memorymap/api/routes_bench.py:102 |
+| `budgets` | src/memorymap/api/routes_bench.py:125 |
+| `heavy_ids` | src/memorymap/api/routes_bench.py:86 |
+| `loopback` | src/memorymap/api/routes_bench.py:118 |
+| `start` | src/memorymap/api/routes_bench.py:201 |
+| `state` | src/memorymap/api/routes_bench.py:241 |
+| `stop` | src/memorymap/api/routes_bench.py:250 |
+| `time_share` | src/memorymap/api/routes_bench.py:70 |
 
 ### src/memorymap/api/routes_board_history.py (21)
 
@@ -15626,7 +15627,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9769)
+## Tests (9770)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16327,7 +16328,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_openapi_gate.py | 3 |
 | tests/test_optional_sign_in.py | 22 |
 | tests/test_orient_script.py | 2 |
-| tests/test_other_device_limits.py | 14 |
+| tests/test_other_device_limits.py | 15 |
 | tests/test_out_of_space.py | 8 |
 | tests/test_outbound_fetch_guard.py | 5 |
 | tests/test_outbound_inventory.py | 4 |

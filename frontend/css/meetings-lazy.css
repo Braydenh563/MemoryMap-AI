@@ -218,6 +218,17 @@
   margin-left: auto;
 }
 
+/* The speed select is dressed as `.select-opener`, whose own padding made it
+   36.9px beside the 28px kebab in the same head (the owner, 2026-10-11: "the
+   audio speed dropdown doesnt fit the height of the button next to it"). It
+   takes the kebab's height, as the chat sidebar's openers take their row's
+   (04-chat-dock-appearance.css, INBOX 437 (4)). */
+.recording-act .select-shell > .select-opener {
+  height: var(--target-min);
+  min-height: var(--target-min);
+  padding-block: 0;
+}
+
 .recording-row audio {
   display: none;
 }

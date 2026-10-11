@@ -2,9 +2,9 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5655, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4768, test files 1085, tests 9938, plan headings 996.
+Counts: frontend functions 5657, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4768, test files 1085, tests 9941, plan headings 996.
 
-## Frontend functions (5655)
+## Frontend functions (5657)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -4280,15 +4280,15 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `addMeetingMarker` | frontend/js/meetings.js:2182 |
-| `addRecordingMark` | frontend/js/meetings.js:1775 |
-| `binRecording` | frontend/js/meetings.js:1918 |
+| `addMeetingMarker` | frontend/js/meetings.js:2224 |
+| `addRecordingMark` | frontend/js/meetings.js:1813 |
+| `binRecording` | frontend/js/meetings.js:1960 |
 | `closeMeetingRecorder` | frontend/js/meetings.js:954 |
 | `discardMeetingTake` | frontend/js/meetings.js:968 |
-| `editRecordingMark` | frontend/js/meetings.js:1790 |
+| `editRecordingMark` | frontend/js/meetings.js:1828 |
 | `enhanceGain` | frontend/js/meetings.js:1197 |
 | `enhanceRecording` | frontend/js/meetings.js:1219 |
-| `fillMicDevices` | frontend/js/meetings.js:2331 |
+| `fillMicDevices` | frontend/js/meetings.js:2373 |
 | `meetingAcceptOriginal` | frontend/js/meetings.js:1273 |
 | `meetingActionRow` | frontend/js/meetings.js:265 |
 | `meetingAppendUndoable` | frontend/js/meetings.js:539 |
@@ -4321,61 +4321,61 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `meetingTick` | frontend/js/meetings.js:891 |
 | `meetingTranscribeTake` | frontend/js/meetings.js:1140 |
 | `meetingWhenText` | frontend/js/meetings.js:29 |
-| `micControlsInto` | frontend/js/meetings.js:2271 |
-| `micLevelInto` | frontend/js/meetings.js:2391 |
-| `nameMeetingMic` | frontend/js/meetings.js:2432 |
-| `nameRecordingSpeakers` | frontend/js/meetings.js:1899 |
+| `micControlsInto` | frontend/js/meetings.js:2313 |
+| `micLevelInto` | frontend/js/meetings.js:2433 |
+| `nameMeetingMic` | frontend/js/meetings.js:2474 |
+| `nameRecordingSpeakers` | frontend/js/meetings.js:1941 |
 | `noteRecoveredRecordings` | frontend/js/meetings.js:1401 |
-| `openLiveCaptionsFrom` | frontend/js/meetings.js:2197 |
+| `openLiveCaptionsFrom` | frontend/js/meetings.js:2239 |
 | `openMeetingRecorder` | frontend/js/meetings.js:921 |
 | `openMeetingSheet` | frontend/js/meetings.js:334 |
 | `openNewMeeting` | frontend/js/meetings.js:131 |
-| `openRecordingTrim` | frontend/js/meetings.js:2061 |
+| `openRecordingTrim` | frontend/js/meetings.js:2103 |
 | `openRecordings` | frontend/js/meetings.js:1438 |
 | `openVoiceNote` | frontend/js/meetings.js:938 |
-| `playRecordingFrom` | frontend/js/meetings.js:1739 |
-| `recordingCardsRun` | frontend/js/meetings.js:2026 |
-| `recordingFacts` | frontend/js/meetings.js:1476 |
-| `recordingMarksFill` | frontend/js/meetings.js:1714 |
-| `recordingMenu` | frontend/js/meetings.js:1880 |
-| `recordingPaint` | frontend/js/meetings.js:1673 |
-| `recordingReady` | frontend/js/meetings.js:1569 |
-| `recordingRow` | frontend/js/meetings.js:1499 |
-| `recordingRunLine` | frontend/js/meetings.js:2035 |
-| `recordingShowLine` | frontend/js/meetings.js:1749 |
-| `recordingSpeed` | frontend/js/meetings.js:1591 |
-| `recordingTranscript` | frontend/js/meetings.js:1817 |
-| `recordingTranscriptFill` | frontend/js/meetings.js:1833 |
-| `recordingTranscriptNow` | frontend/js/meetings.js:1871 |
-| `recordingTranscriptState` | frontend/js/meetings.js:1486 |
-| `recordingTranscriptionEnded` | frontend/js/meetings.js:2000 |
-| `recordingTrimField` | frontend/js/meetings.js:2106 |
-| `recordingWav` | frontend/js/meetings.js:2150 |
-| `recordingWave` | frontend/js/meetings.js:1610 |
-| `recordingsEmpty` | frontend/js/meetings.js:1469 |
-| `removeRecordingMark` | frontend/js/meetings.js:1800 |
-| `renameRecording` | frontend/js/meetings.js:1909 |
+| `playRecordingFrom` | frontend/js/meetings.js:1777 |
+| `recordingCardsRun` | frontend/js/meetings.js:2068 |
+| `recordingFacts` | frontend/js/meetings.js:1510 |
+| `recordingMarksFill` | frontend/js/meetings.js:1752 |
+| `recordingMenu` | frontend/js/meetings.js:1922 |
+| `recordingPaint` | frontend/js/meetings.js:1709 |
+| `recordingReady` | frontend/js/meetings.js:1603 |
+| `recordingRow` | frontend/js/meetings.js:1533 |
+| `recordingRunLine` | frontend/js/meetings.js:2077 |
+| `recordingShowLine` | frontend/js/meetings.js:1787 |
+| `recordingSpeed` | frontend/js/meetings.js:1625 |
+| `recordingTranscript` | frontend/js/meetings.js:1855 |
+| `recordingTranscriptFill` | frontend/js/meetings.js:1871 |
+| `recordingTranscriptNow` | frontend/js/meetings.js:1913 |
+| `recordingTranscriptState` | frontend/js/meetings.js:1520 |
+| `recordingTranscriptionEnded` | frontend/js/meetings.js:2042 |
+| `recordingTrimField` | frontend/js/meetings.js:2148 |
+| `recordingWav` | frontend/js/meetings.js:2192 |
+| `recordingWave` | frontend/js/meetings.js:1644 |
+| `recordingsEmpty` | frontend/js/meetings.js:1474 |
+| `removeRecordingMark` | frontend/js/meetings.js:1838 |
+| `renameRecording` | frontend/js/meetings.js:1951 |
 | `renderRecordings` | frontend/js/meetings.js:1452 |
 | `resetMeetingUI` | frontend/js/meetings.js:899 |
 | `saveMeetingDocument` | frontend/js/meetings.js:1354 |
 | `saveMeetingNote` | frontend/js/meetings.js:1390 |
-| `saveRecordingMarks` | frontend/js/meetings.js:1762 |
+| `saveRecordingMarks` | frontend/js/meetings.js:1800 |
 | `saveVoiceNoteText` | frontend/js/meetings.js:1408 |
 | `setMeetingState` | frontend/js/meetings.js:851 |
 | `showMeetingRecorder` | frontend/js/meetings.js:943 |
 | `startMeetingWave` | frontend/js/meetings.js:712 |
-| `startRecordingTranscription` | frontend/js/meetings.js:1965 |
+| `startRecordingTranscription` | frontend/js/meetings.js:2007 |
 | `stopMeetingTimer` | frontend/js/meetings.js:832 |
 | `stopMeetingTranscription` | frontend/js/meetings.js:1298 |
-| `stopRecordingTranscription` | frontend/js/meetings.js:1972 |
-| `syncMicSelects` | frontend/js/meetings.js:2343 |
+| `stopRecordingTranscription` | frontend/js/meetings.js:2014 |
+| `syncMicSelects` | frontend/js/meetings.js:2385 |
 | `syncRecordingDock` | frontend/js/meetings.js:876 |
-| `testMicrophone` | frontend/js/meetings.js:2352 |
+| `testMicrophone` | frontend/js/meetings.js:2394 |
 | `toggleMeetingPause` | frontend/js/meetings.js:1326 |
 | `toggleMeetingRecording` | frontend/js/meetings.js:985 |
-| `transcribeRecording` | frontend/js/meetings.js:1934 |
-| `trimRecording` | frontend/js/meetings.js:2126 |
-| `watchRecordingTranscription` | frontend/js/meetings.js:1981 |
+| `transcribeRecording` | frontend/js/meetings.js:1976 |
+| `trimRecording` | frontend/js/meetings.js:2168 |
+| `watchRecordingTranscription` | frontend/js/meetings.js:2023 |
 
 ### frontend/js/model-bench.js (7)
 
@@ -4517,23 +4517,25 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `ocrEngineStartInstall` | frontend/js/ocr-engine.js:286 |
 | `ocrEngineStatusLine` | frontend/js/ocr-engine.js:223 |
 
-### frontend/js/onboarding.js (13)
+### frontend/js/onboarding.js (15)
 
 | Name | File:line |
 |---|---|
-| `closeOnboarding` | frontend/js/onboarding.js:357 |
-| `firstRunSurfaceOpen` | frontend/js/onboarding.js:299 |
-| `firstRunTurn` | frontend/js/onboarding.js:318 |
+| `closeOnboarding` | frontend/js/onboarding.js:410 |
+| `firstRunPump` | frontend/js/onboarding.js:351 |
+| `firstRunSurfaceOpen` | frontend/js/onboarding.js:313 |
+| `firstRunTurn` | frontend/js/onboarding.js:336 |
+| `firstRunWelcomeDue` | frontend/js/onboarding.js:343 |
 | `loadOnboardingDiagnostics` | frontend/js/onboarding.js:68 |
-| `maybeShowConsoleViewIntro` | frontend/js/onboarding.js:411 |
-| `onboardingBack` | frontend/js/onboarding.js:393 |
-| `onboardingNext` | frontend/js/onboarding.js:374 |
-| `openOnboarding` | frontend/js/onboarding.js:344 |
+| `maybeShowConsoleViewIntro` | frontend/js/onboarding.js:464 |
+| `onboardingBack` | frontend/js/onboarding.js:446 |
+| `onboardingNext` | frontend/js/onboarding.js:427 |
+| `openOnboarding` | frontend/js/onboarding.js:397 |
 | `renderOnboardingActions` | frontend/js/onboarding.js:129 |
 | `renderOnboardingSlide` | frontend/js/onboarding.js:227 |
-| `showOnboarding` | frontend/js/onboarding.js:349 |
-| `showOnboardingTurn` | frontend/js/onboarding.js:327 |
-| `whenFirstRunClear` | frontend/js/onboarding.js:311 |
+| `showOnboarding` | frontend/js/onboarding.js:402 |
+| `showOnboardingTurn` | frontend/js/onboarding.js:380 |
+| `whenFirstRunClear` | frontend/js/onboarding.js:326 |
 
 ### frontend/js/pick-row.js (3)
 
@@ -5246,11 +5248,11 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `applyUpdateNow` | frontend/js/update-dialogs.js:132 |
+| `applyUpdateNow` | frontend/js/update-dialogs.js:121 |
 | `askUpdateChoiceOnce` | frontend/js/update-dialogs.js:81 |
 | `checkForUpdate` | frontend/js/update-dialogs.js:18 |
-| `showSourceUpdatedDialog` | frontend/js/update-dialogs.js:242 |
-| `showUpdateAvailableDialog` | frontend/js/update-dialogs.js:150 |
+| `showSourceUpdatedDialog` | frontend/js/update-dialogs.js:231 |
+| `showUpdateAvailableDialog` | frontend/js/update-dialogs.js:139 |
 
 ### frontend/js/usage-ledger.js (6)
 
@@ -9340,7 +9342,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/lan-lazy.css | 56 |
 | frontend/css/library-lazy.css | 6012 |
 | frontend/css/manual-lazy.css | 139 |
-| frontend/css/meetings-lazy.css | 477 |
+| frontend/css/meetings-lazy.css | 497 |
 | frontend/css/nav-history-lazy.css | 144 |
 | frontend/css/questions-lazy.css | 92 |
 | frontend/css/quickadd-lazy.css | 35 |
@@ -16008,7 +16010,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9938)
+## Tests (9941)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16803,7 +16805,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_recognise.py | 7 |
 | tests/test_recordings.py | 16 |
 | tests/test_recordings_background.py | 4 |
-| tests/test_recordings_library.py | 18 |
+| tests/test_recordings_library.py | 21 |
 | tests/test_recurrence_1010.py | 7 |
 | tests/test_recycle_bin.py | 18 |
 | tests/test_reevaluate.py | 4 |

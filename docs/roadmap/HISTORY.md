@@ -48359,6 +48359,15 @@ Built for 776, 777, 779, 780, 782, 783 (agent uipolish-1010, 2026-10-11): the to
      (zoom, font size, density, the companion's size and spots) stay on the
      device; colours and themes still follow you.
      **Fixed f8597d361.** Measured (scratchpad/ui-sweeps/devsize.js, 1440 desktop + 390 phone, one server): desktop zoom 130 and companion 1.4 left the phone at zoom 1 and --nmb-scale 1; ui_state held no size key; the accent reached the phone; legacy sizes in the notebook were ignored and cleaned. Sizes are not in saved looks (looks are colours).
+- **The owner, 2026-10-11, verbatim.** "the audio speed dropdown doesnt fit
+  the height of the button next to it". The recording card head
+  (`.recording-act`): the speed select, dressed as `.select-opener`, kept its
+  own padding. **Fixed (uiset, the recording head commit).** The opener takes
+  the kebab's height (`--target-min`, padding-block 0), as the chat sidebar's
+  openers take their row's. Measured (rec.js, a seeded WAV): opener 36.9px
+  beside the 28px kebab at 1440 light before; 28 and 28 at 1440 light and
+  dark, 44 and 44 at 390 dark after. Test:
+  `test_the_speed_opener_is_the_kebabs_height`.
 
 ## Moved from the plans, 2026-10-10 (canvasdepth)
 

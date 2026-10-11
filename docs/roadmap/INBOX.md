@@ -274,6 +274,20 @@ with its owner named in the entry.
      judged against written gold answers, not rule counts), first in the
      assistant brief; the empty badges and Atlas over the answer to ownerfix.
 
+813. **The owner, 2026-10-11, verbatim.** "also idk but I feel like it looks
+     awkward when some things have borders and other things dont in a header
+     but idk im not an expert. and some dropdowns have different ui styles??
+     all ui styles and elements needs to be consistent across the app."
+     (screenshots: the Ask bar's white bordered "Normal" select beside
+     borderless icons and a filled Ask; the Questions bar's grey filled "Open
+     (1)" select; the reply bar's grey "Inherited: gemma..." select; All notes
+     with an icon-only filter and list then grid; Library with a "Filter" text
+     button and grid then list.) Read: three select looks, two filter looks,
+     two orders of the same view switch, bordered and borderless controls in
+     one bar. Placed: grammar57: one bar select (the dock's filled, borderless
+     one), one filter trigger, one view switch order (list, grid), and in a
+     bar only the primary is filled; a lint counts each.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-11: 801 (Agent mode and the composer with no model) placed in CHAT_PLAN; 802 (drag the force graph like main) in GRAPH_PLAN; 803 (buttons, OCR, the constellation, the capture gutter) in UI_MODERNISATION_PLAN, each "Placed from INBOX, 2026-10-11".

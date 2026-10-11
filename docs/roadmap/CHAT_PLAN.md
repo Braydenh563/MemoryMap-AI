@@ -1835,3 +1835,57 @@ Decisions, taken (standing order 3; numbered after 64; 70 added for INBOX 812):
 Owner: an Opus agent, "assistant" (A1 to A8), queued after transparency
 and graph; A9 and A10, an Opus agent, "learnaudit", queued after it. Not
 verified: every model-side claim (CLAUDE.md section 4).
+
+### The owner's brainstorm, 2026-10-11 (after INBOX 812)
+
+The owner, asked four questions, answered: length adapts to the question;
+the voice is picked in Settings; the priorities are "all of the above and
+more"; volunteered insight "should be togglable and also dynamic".
+
+71. **Length adapts.** The question's kind sets the answer's shape: a fact is
+    one line, an overview is decision 70's shape, a compare is a table, a
+    count is a large number with its span, a who is a card, and "what's
+    left" is a checklist. "More" expands, and "shorter" or "longer" persist
+    for the chat.
+72. **Voice is a setting.** The presets are Warm and concise (the default),
+    Neutral, Playful and Plain. One table of openings, joins and closings
+    per preset, so facts and shape do not change between voices. It sits in
+    Settings, Chat, with a live sample.
+73. **Volunteered insight is a switch, and dynamic.** Off, one line, or as
+    found. At "one line" the engine adds at most one gap, bridge, change or
+    offer, scored by novelty and relevance. It stays quiet below a
+    threshold, and the threshold rises when the person dismisses them.
+74. **All four areas, in this order of build:** answers (B1 to B12), trust
+    (B30 to B32), utilities (rows A1 to A4), then the composer everywhere
+    (B20 to B27). Each row is gated by decision 70's gold answers or its own
+    measured gate.
+
+| # | Idea | Gate |
+| --- | --- | --- |
+| B1 | Answer first, then the "so what": one inference the notes support | A gold answer's last line |
+| B2 | A shape per question kind (decision 71) | 10 kinds, each a gold answer |
+| B3 | Rewrite, not quote: merge duplicates, person shift, pin relative time ("this week" written 17 July becomes "the week of 17 July") | 0 raw quotes in an overview |
+| B4 | How sure and how fresh: "said three times", "once, two months ago", stale flag | Each fact carries a count or age |
+| B5 | Short by default, More expands; hovering a citation previews its sentence | Hover shows the sentence |
+| B6 | Varied openings per voice (decision 72) | No opening repeated in 5 turns |
+| B7 | A personal glossary learned from the notes ("CC" is Cloud Computing) | 20 abbreviations resolved |
+| B8 | Dialogue memory: "that class", "the second one", "and last month?" | 5-turn eval |
+| B9 | One clarifying chip when two readings tie | Shown only on a tie |
+| B10 | Context: the open tab, note and named category | "Summarise this" on any tab |
+| B11 | Gaps and next steps, bridges, changes, patterns (decision 73) | Owner's gold answers |
+| B12 | Turn an answer into a note, document, mind map, flashcards or reminder | One click each, with Undo |
+| B20 | Ghost-text completions (decision 69) | Accept rate logged |
+| B21 | A featured answer card above search results | On a question-shaped query only |
+| B22 | A one-line gist on every note card, suggested titles | Gist under 90 characters |
+| B23 | A dashboard digest of the week | Every number links to its list |
+| B24 | Plain language that acts in the command palette ("remind me Tuesday 9am lecture") | The act's preview card |
+| B25 | Why two notes are linked, why a note was filed, settings explained, in sentences | Graph, filing, Settings |
+| B26 | Document edits with no model: summarise selection, tighten, continue a list | Undo per edit |
+| B27 | Reminder and notification text composed, not templated | Reads as one sentence |
+| B30 | "Why this answer": the intent, notes, shape and time, as a job's lines (INBOX 805) | Every answer |
+| B31 | "Wrong fact" on any line, feeding the audit (decision 68) | Suppressed next turn |
+| B32 | "Pin as true": the person's word beats any inference | Quoted as theirs |
+| B40 | A rating on each answer adds it to the gold set; a weekly answer gallery is published for the owner | The gallery link in the PR |
+
+Owner: the Atlas agent (brief-assistant, running) builds 70, then B1 to B12
+and B30 to B32; later rows join its remaining list and the queue.

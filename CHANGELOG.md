@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Notifications: the circle and cross on each row sit at its right edge, centred on the row, and stay drawn, instead of at the bottom beside the time.
 - Graph: tapping the settings button on a phone no longer opens the Layout dropdown by itself. A sheet that opens under a finger lands focus on the sheet, not on its first select.
 - Graph: on a phone the note panel's actions are one row (Open, Link and a ⋯ whose rows are named in words) instead of three rows of unlabelled icons, and the New note button no longer floats over the panel.
 - Companion: it steps off a dock's open "more" menu (Notes' Reload, Manage tags and the rest), and any open menu or list, instead of standing over it.

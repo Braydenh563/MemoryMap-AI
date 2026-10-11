@@ -1125,7 +1125,7 @@ HELP_TOPICS.extend(
                 "A pop-up with a button (Undo, Open it, Show it) is kept here with "
                 "the same button: an opener still works after a restart, an Undo "
                 "only while it can still be undone, then its line says Undo expired. "
-                "Point at a row for its two controls beside the time: the circle "
+                "Each row has two controls at its right edge: the circle "
                 "marks it read or unread, the cross removes just that one; the bin at the bottom "
                 "clears them all. "
                 "Reminders also pop up on their own while a tab or the "

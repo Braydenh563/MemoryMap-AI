@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5512, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4616, test files 1063, tests 9747, plan headings 995.
+Counts: frontend functions 5512, frontend ids 2375, CSS sections 488, backend routes 553, backend modules 4616, test files 1063, tests 9748, plan headings 995.
 
 ## Frontend functions (5512)
 
@@ -1022,119 +1022,119 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `agentActivityNotice` | frontend/js/status.js:942 |
-| `agentActivityQuiet` | frontend/js/status.js:934 |
-| `agentModeAvailable` | frontend/js/status.js:2857 |
-| `aiIsOff` | frontend/js/status.js:2105 |
-| `aiOffGlyph` | frontend/js/status.js:2474 |
-| `aiOfflineDismissed` | frontend/js/status.js:2280 |
-| `aiStatusState` | frontend/js/status.js:2361 |
+| `agentActivityNotice` | frontend/js/status.js:944 |
+| `agentActivityQuiet` | frontend/js/status.js:936 |
+| `agentModeAvailable` | frontend/js/status.js:2859 |
+| `aiIsOff` | frontend/js/status.js:2107 |
+| `aiOffGlyph` | frontend/js/status.js:2476 |
+| `aiOfflineDismissed` | frontend/js/status.js:2282 |
+| `aiStatusState` | frontend/js/status.js:2363 |
 | `announcedReminders` | frontend/js/status.js:42 |
-| `appStackIsNewer` | frontend/js/status.js:1651 |
-| `armReminderTimer` | frontend/js/status.js:821 |
-| `askNotificationPermission` | frontend/js/status.js:691 |
-| `backendLabel` | frontend/js/status.js:2920 |
-| `boardHistoryActive` | frontend/js/status.js:1620 |
-| `checkDueReminders` | frontend/js/status.js:837 |
-| `closeModelGate` | frontend/js/status.js:2122 |
-| `closeNotifications` | frontend/js/status.js:671 |
-| `dismissAiOffline` | frontend/js/status.js:2289 |
+| `appStackIsNewer` | frontend/js/status.js:1653 |
+| `armReminderTimer` | frontend/js/status.js:823 |
+| `askNotificationPermission` | frontend/js/status.js:693 |
+| `backendLabel` | frontend/js/status.js:2922 |
+| `boardHistoryActive` | frontend/js/status.js:1622 |
+| `checkDueReminders` | frontend/js/status.js:839 |
+| `closeModelGate` | frontend/js/status.js:2124 |
+| `closeNotifications` | frontend/js/status.js:673 |
+| `dismissAiOffline` | frontend/js/status.js:2291 |
 | `dismissNotification` | frontend/js/status.js:253 |
-| `dismissToast` | frontend/js/status.js:1045 |
+| `dismissToast` | frontend/js/status.js:1047 |
 | `dismissedNotificationIds` | frontend/js/status.js:244 |
-| `emailSupportReport` | frontend/js/status.js:1088 |
+| `emailSupportReport` | frontend/js/status.js:1090 |
 | `forcedReadIds` | frontend/js/status.js:202 |
 | `forcedUnreadIds` | frontend/js/status.js:171 |
-| `insightLine` | frontend/js/status.js:1546 |
-| `insightSend` | frontend/js/status.js:1519 |
-| `insightVerdicts` | frontend/js/status.js:1523 |
-| `integrityWords` | frontend/js/status.js:1358 |
+| `insightLine` | frontend/js/status.js:1548 |
+| `insightSend` | frontend/js/status.js:1521 |
+| `insightVerdicts` | frontend/js/status.js:1525 |
+| `integrityWords` | frontend/js/status.js:1360 |
 | `isNotificationUnread` | frontend/js/status.js:220 |
-| `jobsRunning` | frontend/js/status.js:1969 |
+| `jobsRunning` | frontend/js/status.js:1971 |
 | `keepToastAction` | frontend/js/status.js:365 |
-| `lastAnswerLine` | frontend/js/status.js:2496 |
-| `loadMostUsed` | frontend/js/status.js:1855 |
-| `loadRecentQuestions` | frontend/js/status.js:1828 |
-| `noteDamagedNotebook` | frontend/js/status.js:1362 |
-| `noteServerDown` | frontend/js/status.js:1418 |
-| `noteServerUp` | frontend/js/status.js:1427 |
+| `lastAnswerLine` | frontend/js/status.js:2498 |
+| `loadMostUsed` | frontend/js/status.js:1857 |
+| `loadRecentQuestions` | frontend/js/status.js:1830 |
+| `noteDamagedNotebook` | frontend/js/status.js:1364 |
+| `noteServerDown` | frontend/js/status.js:1420 |
+| `noteServerUp` | frontend/js/status.js:1429 |
 | `noticeLiveValid` | frontend/js/status.js:387 |
-| `noticeTaskTransitions` | frontend/js/status.js:3166 |
-| `noticeUnwatchedAnswer` | frontend/js/status.js:977 |
+| `noticeTaskTransitions` | frontend/js/status.js:3168 |
+| `noticeUnwatchedAnswer` | frontend/js/status.js:979 |
 | `notificationActionButton` | frontend/js/status.js:427 |
 | `notificationGoes` | frontend/js/status.js:418 |
-| `notificationsMuted` | frontend/js/status.js:919 |
+| `notificationsMuted` | frontend/js/status.js:921 |
 | `notificationsReadAt` | frontend/js/status.js:153 |
-| `notify` | frontend/js/status.js:765 |
-| `nudgeEmbeddingProblem` | frontend/js/status.js:2539 |
-| `offerUndo` | frontend/js/status.js:1562 |
-| `openModelGate` | frontend/js/status.js:2132 |
-| `openModelOffer` | frontend/js/status.js:2139 |
+| `notify` | frontend/js/status.js:767 |
+| `nudgeEmbeddingProblem` | frontend/js/status.js:2541 |
+| `offerUndo` | frontend/js/status.js:1564 |
+| `openModelGate` | frontend/js/status.js:2134 |
+| `openModelOffer` | frontend/js/status.js:2141 |
 | `openNotifications` | frontend/js/status.js:465 |
-| `openUndoHistoryMenu` | frontend/js/status.js:1769 |
-| `paintStatusItem` | frontend/js/status.js:2593 |
-| `paintTitle` | frontend/js/status.js:798 |
-| `paintUndoDoor` | frontend/js/status.js:1729 |
-| `performRedo` | frontend/js/status.js:1683 |
-| `performUndo` | frontend/js/status.js:1660 |
-| `plainHttpError` | frontend/js/status.js:1161 |
-| `playReminderChime` | frontend/js/status.js:731 |
-| `pollServerHealth` | frontend/js/status.js:1455 |
-| `primeReminderAudio` | frontend/js/status.js:706 |
-| `pushEntryPutUndo` | frontend/js/status.js:1595 |
-| `pushUndo` | frontend/js/status.js:1492 |
+| `openUndoHistoryMenu` | frontend/js/status.js:1771 |
+| `paintStatusItem` | frontend/js/status.js:2595 |
+| `paintTitle` | frontend/js/status.js:800 |
+| `paintUndoDoor` | frontend/js/status.js:1731 |
+| `performRedo` | frontend/js/status.js:1685 |
+| `performUndo` | frontend/js/status.js:1662 |
+| `plainHttpError` | frontend/js/status.js:1163 |
+| `playReminderChime` | frontend/js/status.js:733 |
+| `pollServerHealth` | frontend/js/status.js:1457 |
+| `primeReminderAudio` | frontend/js/status.js:708 |
+| `pushEntryPutUndo` | frontend/js/status.js:1597 |
+| `pushUndo` | frontend/js/status.js:1494 |
 | `recordNotification` | frontend/js/status.js:97 |
-| `refreshBackgroundTasks` | frontend/js/status.js:3095 |
-| `refreshModelStatus` | frontend/js/status.js:1997 |
+| `refreshBackgroundTasks` | frontend/js/status.js:3097 |
+| `refreshModelStatus` | frontend/js/status.js:1999 |
 | `rememberAnnounced` | frontend/js/status.js:50 |
-| `renderAgentActivityMode` | frontend/js/status.js:1013 |
-| `renderAiOfflineNotice` | frontend/js/status.js:2304 |
-| `renderAiPill` | frontend/js/status.js:2504 |
-| `renderBackendPicker` | frontend/js/status.js:2930 |
-| `renderChatModeSeg` | frontend/js/status.js:2861 |
+| `renderAgentActivityMode` | frontend/js/status.js:1015 |
+| `renderAiOfflineNotice` | frontend/js/status.js:2306 |
+| `renderAiPill` | frontend/js/status.js:2506 |
+| `renderBackendPicker` | frontend/js/status.js:2932 |
+| `renderChatModeSeg` | frontend/js/status.js:2863 |
 | `renderNotifMuteToggle` | frontend/js/status.js:295 |
 | `renderNotificationBadge` | frontend/js/status.js:275 |
-| `renderSearchEngineHealth` | frontend/js/status.js:2786 |
-| `renderSettings` | frontend/js/status.js:2963 |
-| `renderStatusBar` | frontend/js/status.js:2629 |
-| `renderUndoBar` | frontend/js/status.js:1714 |
-| `reopenAnswerPanel` | frontend/js/status.js:992 |
-| `resetStatusCadence` | frontend/js/status.js:1919 |
-| `retryServerNow` | frontend/js/status.js:1468 |
+| `renderSearchEngineHealth` | frontend/js/status.js:2788 |
+| `renderSettings` | frontend/js/status.js:2965 |
+| `renderStatusBar` | frontend/js/status.js:2631 |
+| `renderUndoBar` | frontend/js/status.js:1716 |
+| `reopenAnswerPanel` | frontend/js/status.js:994 |
+| `resetStatusCadence` | frontend/js/status.js:1921 |
+| `retryServerNow` | frontend/js/status.js:1470 |
 | `runNotificationGo` | frontend/js/status.js:404 |
-| `scheduleServerDownRetry` | frontend/js/status.js:1442 |
-| `scheduleUndoBar` | frontend/js/status.js:1706 |
-| `setChatMode` | frontend/js/status.js:2904 |
+| `scheduleServerDownRetry` | frontend/js/status.js:1444 |
+| `scheduleUndoBar` | frontend/js/status.js:1708 |
+| `setChatMode` | frontend/js/status.js:2906 |
 | `setForcedReadIds` | frontend/js/status.js:211 |
 | `setForcedUnreadIds` | frontend/js/status.js:180 |
 | `setNotificationUnread` | frontend/js/status.js:226 |
-| `setTitleCount` | frontend/js/status.js:803 |
-| `setTitleView` | frontend/js/status.js:808 |
-| `settingsOpen` | frontend/js/status.js:1936 |
+| `setTitleCount` | frontend/js/status.js:805 |
+| `setTitleView` | frontend/js/status.js:810 |
+| `settingsOpen` | frontend/js/status.js:1938 |
 | `settleNotification` | frontend/js/status.js:118 |
 | `settleStartedNotification` | frontend/js/status.js:138 |
-| `settleUndoFromToast` | frontend/js/status.js:1583 |
-| `showAgentNoModelHint` | frontend/js/status.js:2899 |
-| `showServerDownBanner` | frontend/js/status.js:1401 |
-| `startReminderWatch` | frontend/js/status.js:900 |
+| `settleUndoFromToast` | frontend/js/status.js:1585 |
+| `showAgentNoModelHint` | frontend/js/status.js:2901 |
+| `showServerDownBanner` | frontend/js/status.js:1403 |
+| `startReminderWatch` | frontend/js/status.js:902 |
 | `storedNotifications` | frontend/js/status.js:84 |
-| `surfaceHistory` | frontend/js/status.js:1633 |
-| `syncAgentPaletteAvailability` | frontend/js/status.js:2343 |
-| `syncModelGatedControls` | frontend/js/status.js:2186 |
-| `syncNotifBlocked` | frontend/js/status.js:686 |
+| `surfaceHistory` | frontend/js/status.js:1635 |
+| `syncAgentPaletteAvailability` | frontend/js/status.js:2345 |
+| `syncModelGatedControls` | frontend/js/status.js:2188 |
+| `syncNotifBlocked` | frontend/js/status.js:688 |
 | `taskEndingWords` | frontend/js/status.js:145 |
-| `taskKey` | frontend/js/status.js:3147 |
-| `toast` | frontend/js/status.js:1216 |
-| `toastAction` | frontend/js/status.js:1338 |
-| `toastActionButton` | frontend/js/status.js:1318 |
-| `toastCloseButton` | frontend/js/status.js:1053 |
-| `toastHost` | frontend/js/status.js:1130 |
-| `toastProgress` | frontend/js/status.js:1286 |
-| `toastStack` | frontend/js/status.js:1029 |
-| `toggleAiStatusPopup` | frontend/js/status.js:2771 |
+| `taskKey` | frontend/js/status.js:3149 |
+| `toast` | frontend/js/status.js:1218 |
+| `toastAction` | frontend/js/status.js:1340 |
+| `toastActionButton` | frontend/js/status.js:1320 |
+| `toastCloseButton` | frontend/js/status.js:1055 |
+| `toastHost` | frontend/js/status.js:1132 |
+| `toastProgress` | frontend/js/status.js:1288 |
+| `toastStack` | frontend/js/status.js:1031 |
+| `toggleAiStatusPopup` | frontend/js/status.js:2773 |
 | `toggleNotificationMute` | frontend/js/status.js:311 |
 | `unreadNotifications` | frontend/js/status.js:269 |
-| `voiceLine` | frontend/js/status.js:1210 |
+| `voiceLine` | frontend/js/status.js:1212 |
 
 ### frontend/js/ai-tools.js (50)
 
@@ -8630,7 +8630,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | A note card's text leads; its metadata steps back (INBOX 505) | frontend/css/08-consistency.css:10007 |
 | A note's buttons stay while its own menu is open (INBOX 679) | frontend/css/08-consistency.css:10400 |
 | A note's time: the same corner on every card | frontend/css/08-consistency.css:8487 |
-| A notification's two controls take no width of their own (INBOX 523) | frontend/css/06-timeline-dialogs.css:3472 |
+| A notification's two controls are a column of their own (INBOX 874) | frontend/css/06-timeline-dialogs.css:3458 |
 | A rail row's ⋮ overlays the row; it never reserves a column (INBOX 722) | frontend/css/08-consistency.css:10577 |
 | A row is a pointer target (INBOX 719) | frontend/css/08-consistency.css:10501 |
 | Ask history: the personal-notes-browser panel (§ROADMAP item 6) | frontend/css/01-forms-settings.css:2813 |
@@ -8719,7 +8719,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Settings headings sit at one left edge | frontend/css/08-consistency.css:1453 |
 | Settings rows that wrap their actions under the title (INBOX 82) | frontend/css/08-consistency.css:2226 |
 | Settings: a section's intro sits under its heading, not above it | frontend/css/08-consistency.css:4605 |
-| TENSIONS: THE DISAGREEMENT REVIEW | frontend/css/06-timeline-dialogs.css:3374 |
+| TENSIONS: THE DISAGREEMENT REVIEW | frontend/css/06-timeline-dialogs.css:3369 |
 | THE CHAT ON A PHONE, MEASURED | frontend/css/04-chat-dock-appearance.css:5586 |
 | THE OCR WORKSPACE | frontend/css/07-whiteboard-misc.css:5311 |
 | THE QUIET SIDE OF THE BUTTON RAMP: A RUN OF ROW ACTIONS | frontend/css/08-consistency.css:2317 |
@@ -8754,8 +8754,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Timeline: the table view (TIMELINE_PLAN.md Phase 2) | frontend/css/06-timeline-dialogs.css:346 |
 | Trace mode on the graph (§41) | frontend/css/07-whiteboard-misc.css:2004 |
 | Two floating buttons that sit over content: opaque, readable hover | frontend/css/08-consistency.css:4997 |
-| WCAG 2.5.8 target size | frontend/css/06-timeline-dialogs.css:3183 |
-| WHITEBOARD TAB | frontend/css/06-timeline-dialogs.css:2276 |
+| WCAG 2.5.8 target size | frontend/css/06-timeline-dialogs.css:3178 |
+| WHITEBOARD TAB | frontend/css/06-timeline-dialogs.css:2271 |
 | Wave B: threads, inline actions, templates | frontend/css/02-chat-graph.css:386 |
 | Wave E: graph view | frontend/css/02-chat-graph.css:905 |
 | Wave F: command palette | frontend/css/02-chat-graph.css:1580 |
@@ -8911,7 +8911,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | one line of facts: a note's meta row | frontend/css/08-consistency.css:2745 |
 | one popup, three tiers (INBOX 456, DESIGN.md "A popup window or panel") | frontend/css/08-consistency.css:9285 |
 | one size for every dropdown | frontend/css/01-forms-settings.css:4697 |
-| one switch, everywhere a checkbox means "on or off" | frontend/css/06-timeline-dialogs.css:2057 |
+| one switch, everywhere a checkbox means "on or off" | frontend/css/06-timeline-dialogs.css:2052 |
 | one ⋯ button, everywhere (INBOX 722) | frontend/css/00-tokens-shell.css:4229 |
 | optional extras (Settings) | frontend/css/00-tokens-shell.css:1619 |
 | page margins (Appearance > Page Margins) | frontend/css/07-whiteboard-misc.css:2665 |
@@ -9007,7 +9007,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the documents editor | frontend/css/library-lazy.css:2445 |
 | the documents sidebar's vertical budget (§41) | frontend/css/07-whiteboard-misc.css:2130 |
 | the documents sidebar, redrawn as one tree (the owner, 2026-10-10: | frontend/css/library-lazy.css:3913 |
-| the export dialog (WHITEBOARD_PLAN.md Phase 3, decision 4) | frontend/css/06-timeline-dialogs.css:2542 |
+| the export dialog (WHITEBOARD_PLAN.md Phase 3, decision 4) | frontend/css/06-timeline-dialogs.css:2537 |
 | the faded notes card (WORLD_CLASS_PLAN 15, I4) | frontend/css/03-dashboard-widgets.css:4751 |
 | the field: the glyph inside, Stop only while something is loading | frontend/css/03-dashboard-widgets.css:1337 |
 | the file picker, in the app's own clothes | frontend/css/08-consistency.css:8957 |
@@ -9071,7 +9071,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the tab strip is centred on the window, not on whatever is left of it | frontend/css/07-whiteboard-misc.css:7640 |
 | the timeline, de-vibecoded | frontend/css/08-consistency.css:3165 |
 | the tool rail (WHITEBOARD_PLAN.md Phase 1, decision 1) | frontend/css/07-whiteboard-misc.css:10614 |
-| the tools panel, sorted into what each group of icons does | frontend/css/06-timeline-dialogs.css:2697 |
+| the tools panel, sorted into what each group of icons does | frontend/css/06-timeline-dialogs.css:2692 |
 | the touch floor, for the two surfaces the dock rule cannot reach | frontend/css/03-dashboard-widgets.css:4715 |
 | the trace strip | frontend/css/04-chat-dock-appearance.css:1 |
 | the two radio-backed segmented bars | frontend/css/03-dashboard-widgets.css:3786 |
@@ -9107,7 +9107,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/03-dashboard-widgets.css | 5173 |
 | frontend/css/04-chat-dock-appearance.css | 6510 |
 | frontend/css/05-sidebars-themes.css | 6150 |
-| frontend/css/06-timeline-dialogs.css | 3743 |
+| frontend/css/06-timeline-dialogs.css | 3712 |
 | frontend/css/07-whiteboard-misc.css | 12004 |
 | frontend/css/08-consistency.css | 10618 |
 | frontend/css/09-editor.css | 1389 |
@@ -15603,7 +15603,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9747)
+## Tests (9748)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16273,7 +16273,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_notes_rail.py | 7 |
 | tests/test_notes_rows_719.py | 8 |
 | tests/test_notif_dismiss.py | 2 |
-| tests/test_notification_actions.py | 10 |
+| tests/test_notification_actions.py | 11 |
 | tests/test_notifications_centre.py | 8 |
 | tests/test_object_actions.py | 6 |
 | tests/test_ocr.py | 19 |

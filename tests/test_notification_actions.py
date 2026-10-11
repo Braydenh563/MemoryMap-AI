@@ -136,9 +136,10 @@ def test_a_row_shows_its_action_as_a_button():
     body = _body(STATUS, "async function openNotifications(")
     assert "notificationActionButton(item)" in body
     assert "notif-dot" in body, "the unread dot is an element, in the icon's gutter"
-    assert "foot.append(time, actions)" in body, (
-        "the time leads the meta line and the controls sit beside it, never in its place (INBOX 811)"
+    assert "foot.append(time)" in body and "row.append(actions)" in body, (
+        "the time leads the meta line; the controls are the row's right-edge column (INBOX 874)"
     )
+    assert "foot.append(time, actions)" not in body, "the controls went back to the bottom of the row (INBOX 874)"
     assert '"ghost small quiet notif-cta"' in _body(STATUS, "function notificationActionButton("), (
         "the row's action is quiet text, not a bordered block (INBOX 811)"
     )
@@ -155,3 +156,14 @@ def test_the_row_is_one_grid_with_no_overlaid_controls():
     assert not re.search(r"\.notif-row:(hover|focus-within) \.notif-time\s*\{[^}]*opacity:\s*0", tail), (
         "the time gives its place up to the controls again (INBOX 811)"
     )
+
+
+def test_the_controls_are_the_rows_centred_right_column_and_always_drawn():
+    """INBOX 874, the owner: "should the x and tick buttons on notifications be
+    at the bototom of the notification?? I thought they were in the middle or
+    top right??" A third grid column, centred on the row, drawn at rest."""
+    assert re.search(r"\.notif-row \{[^}]*grid-template-columns: var\(--notif-line\) minmax\(0, 1fr\) auto;", CSS, re.S)
+    rule = re.search(r"\n\.notif-row-actions \{([^}]*)\}", CSS)
+    assert rule and "grid-column: 3" in rule.group(1) and "align-self: center" in rule.group(1)
+    assert not re.search(r"\.notif-row-actions\s*\{[^}]*opacity:\s*0", CSS), "the controls are hidden until hover again (a gap that appears)"
+    assert not re.search(r"\.notif-dismiss\s*\{[^}]*opacity:\s*0", CSS)

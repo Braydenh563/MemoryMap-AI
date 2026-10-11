@@ -454,7 +454,7 @@ async function saveChatAnswerAsNote(question, answer) {
     const content = question ? `${question}\n\n${answer}` : answer;
     await apiJson("/entries", {
       method: "POST",
-      body: JSON.stringify({ content, tags: ["chat"], is_draft: true }),
+      body: JSON.stringify({ content, tags: ["chat"], is_draft: true, defer_filing: true }),
     });
     toast("Saved as a draft note.");
     // Unconditional, not gated on the Notes tab being the one currently

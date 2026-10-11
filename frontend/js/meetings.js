@@ -1156,7 +1156,7 @@ async function saveVoiceNoteText(text, title) {
   const button = $("meeting-save");
   button.disabled = true;
   try {
-    const made = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: title ? `${title}\n\n${text}` : text }) });
+    const made = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: title ? `${title}\n\n${text}` : text, defer_filing: true }) });
     const binned = meetingBinPair("note", made.id);
     pushUndo("Saved a voice note", binned.undo, binned.redo);
     closeMeetingRecorder();
@@ -1506,7 +1506,7 @@ async function transcribeRecording(rec) {
     renderRecordings();
     const text = (body.text || "").trim();
     if (!text) return toast("Nothing was heard in that recording.", "info");
-    const made = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: `${rec.title || "Recording"}\n\n${text}` }) });
+    const made = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: `${rec.title || "Recording"}\n\n${text}`, defer_filing: true }) });
     const binned = meetingBinPair("note", made.id);
     pushUndo("Saved a transcript as a note", binned.undo, binned.redo);
     await refreshEntries([made.id]).catch(() => {});

@@ -4571,7 +4571,7 @@ function wbMindMapEnsureMap(fromId) {
 //: `parentId`, the one operation both Tab and Enter reduce to, differing
 //: only in which card counts as the parent.
 async function wbMindMapAddCard(parentId, x, y) {
-  const entry = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: "New branch", map_topic: true }) });
+  const entry = await apiJson("/entries", { method: "POST", body: JSON.stringify({ content: "New branch", map_topic: true, defer_filing: true }) });
   wbPushUndo({ action: "noteMade", entryId: entry.id });
   const nodeRes = await apiJson("/whiteboard/nodes", {
     method: "POST",

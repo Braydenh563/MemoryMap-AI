@@ -2168,7 +2168,7 @@ async function offerToCreateWikiTarget(name) {
       // the name would leave the very link that made it still unresolved.
       const entry = await apiJson("/entries", {
         method: "POST",
-        body: JSON.stringify({ content: `${wanted}\n\n` }),
+        body: JSON.stringify({ content: `${wanted}\n\n`, defer_filing: true }),
       });
       await refreshEntries([entry.id]);
       toast(`Created “${wanted}”.`);

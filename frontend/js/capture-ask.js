@@ -606,7 +606,7 @@ async function saveEntry() {
   // continuing in the backend with a popup notification so I dont have to
   // wait twiddling my thumbs". Choosing a category yourself skips it
   // either way: there is nothing to wait for.
-  const deferFiling = !category && (prefsCache.background_filing ?? true);
+  const deferFiling = !category && (prefsCache?.background_filing ?? true);
 
   button.disabled = true;
   status.classList.remove("error");
@@ -736,6 +736,7 @@ async function saveEntryAsDraft() {
         document_ids: [...captureDocuments],
         is_draft: true,
         inline_tags: true,
+        defer_filing: true,
       }),
     });
     clearStagedImages();

@@ -7,6 +7,9 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Backups: a line above the list gives the automatic schedule, when it last ran and whether that worked (or why it failed), and when the next is due.
+- Import: an imported note that was in the bin longer than the bin keeps notes now gets a full period from the import, so the next start no longer clears what you just brought in; a big import commits in batches and reads each note for dates once (about 12 to 25% less processing per note).
+- Settings: a second browser that has never agreed with your notebook now takes the notebook's look instead of pushing its old one over it.
 - Launcher: `doctor`, `reinstall` and `tools` are one double-click each, as `.sh` and `.bat`: the machine check, a rebuild of the Python environment that asks first and leaves notes alone, and a menu of every launcher action.
 - Notes: a note with fewer than three tags shows a quiet "+ Tag" after its tags. It opens up to three suggested tags as one-press chips above a field for your own, and its menu has "Don't suggest tags for this note" (Undo in the notice, and "Suggest tags for this note again" in the same menu).
 - Settings: sizes are the device's own. Zoom, Text size, Density, the companion's size and place, the chat box's height and the whiteboard's panel places are no longer copied to your notebook or applied from it, so changing the zoom or the companion's size on a computer leaves a phone as it was (colours, themes and fonts still follow you). They are marked On this device in Settings, Appearance, and a saved look no longer carries them.

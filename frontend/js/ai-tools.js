@@ -1672,17 +1672,25 @@ function watchMirroredUiKeys() {
 // one computer reaches the next. A value that differs from what was agreed is
 // this browser's own unsent change (a reload inside the 800 ms save delay, a
 // server that was down) and keeps winning, so two windows never overwrite
-// each other's last word with an old copy.
+// each other's last word with an old copy. A browser with no mark at all has
+// agreed on nothing yet, so the notebook wins every key there.
 function seedUiStateFromServer(state) {
   if (!state || typeof state !== "object") return false;
   const synced = prefs.json("ui-synced", {});
+  //: A browser that has never agreed with the notebook (the first load after
+  //: the upgrade that added the mark, or a cleared profile) has no way to tell
+  //: its own unsent change from an old copy. Its differing values are almost
+  //: always the old copy: an unsent change lives for 800 ms. So the notebook
+  //: wins there, rather than a stale second browser pushing its look over a
+  //: newer one once.
+  const marked = prefs.has("ui-synced");
   let restored = 0;
   for (const key of mirroredUiKeys()) {
     if (state[key] == null) continue;
     const remote = String(state[key]);
     const local = prefs.has(key) ? prefs.get(key, "") : null;
     if (local === remote) continue;
-    if (local == null || local === synced[key]) {
+    if (local == null || !marked || local === synced[key]) {
       localStorage.setItem(key, remote);
       restored += 1;
     }

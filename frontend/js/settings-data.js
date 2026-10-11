@@ -193,12 +193,45 @@ async function renderPrivacyReceipt() {
   }
 }
 
+//: The schedule with its last success (WORLD_CLASS 25e, the Backups row): what
+//: the automatic backup is, when it last ran and whether that worked, and when
+//: the next is due. The daily rule is the server's (`passes.schedule`,
+//: `backup.BACKUP_EVERY_HOURS`), so the words come from `/jobs/last-runs` and
+//: the due time is the newest backup plus a day.
+function backupScheduleWords(run, newest) {
+  const parts = [run?.schedule || "Once a day, at the first start of the day."];
+  const day = (iso) =>
+    parseServerTime(iso)?.toLocaleString(undefined, { weekday: "long", day: "numeric", month: "long", hour: "numeric", minute: "2-digit" }) || "";
+  if (run?.ran && run.status === "failed") {
+    parts.push(`The last try failed${run.error ? `: ${run.error}` : ""}.`);
+  } else if (run?.ran && run.finished_at) {
+    parts.push(`Last ran ${day(run.finished_at)}${run.status === "ok" ? ", and it worked" : ""}.`);
+  } else {
+    parts.push("It has not run on this notebook yet.");
+  }
+  const at = newest ? parseServerTime(newest.created_at) : null;
+  if (at) {
+    const due = new Date(at.getTime() + 24 * 3600 * 1000);
+    parts.push(due.getTime() <= Date.now() ? "Due at the next start." : `Next due ${day(due.toISOString())}, at the first start after that.`);
+  }
+  return parts.join(" ");
+}
+
+async function renderBackupSchedule(backups) {
+  const line = $("backup-schedule");
+  if (!line) return;
+  const runs = await apiJson("/jobs/last-runs", { silent: true }).catch(() => null);
+  const run = runs?.jobs?.find((job) => job.kind === "backup");
+  line.textContent = backupScheduleWords(run, backups[0]);
+}
+
 async function renderBackups() {
   const list = $("backup-list");
   showSkeletons(list, 2, "li");
   const backups = await apiJson("/backups").catch(() => []);
   clearSkeletons(list);
   list.replaceChildren();
+  renderBackupSchedule(backups).catch(() => {});
   for (const item of backups) {
     const li = document.createElement("li");
     const row = document.createElement("div");

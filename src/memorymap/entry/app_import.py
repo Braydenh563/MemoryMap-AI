@@ -476,6 +476,8 @@ def _make(session, note: Imported, key: str):  # noqa: ANN001, ANN202
         category_name=note.category or manager.UNCATEGORISED,
         tags=note.tags,
         ai_confidence=100 if note.category else 0,
+        commit=False,
+        dates=False,
     )
     entry.source_path = key
     if note.category:
@@ -483,9 +485,9 @@ def _make(session, note: Imported, key: str):  # noqa: ANN001, ANN202
     created = note.created or written_on(note.title, note.body)
     if created is not None:
         entry.created_at = created
-        #: "Tomorrow" in a note from 2024 meant a day in 2024: the dated
-        #: mentions are read again on the day the note was written.
-        manager.record_dates(session, entry)
+    #: "Tomorrow" in a note from 2024 meant a day in 2024: the dated mentions
+    #: are read once, on the day the note was written (`dates=False` above).
+    manager.record_dates(session, entry)
     return entry
 
 
@@ -493,8 +495,8 @@ def write(session, source: str, notes: list[Imported], progress=None) -> dict:  
     """Make the notes that are not already here. Returns the counts and ids.
 
     `progress` (`export_folder.Progress`) is told every hundred notes and
-    asked before each one whether to stop; each note is committed as it is
-    made (`create_entry`), so a stop keeps what was written."""
+    asked before each one whether to stop; every hundred notes are
+    committed (and the rest at the end or on a stop), so a stop keeps what was written."""
     from memorymap.entry import export_folder
 
     progress = progress or export_folder.Progress()
@@ -521,6 +523,8 @@ def write(session, source: str, notes: list[Imported], progress=None) -> dict:  
             named[kind].update(names)
         ids.append(entry.id)
         made.append(entry)
+        if done % progress.every == 0:
+            session.commit()  # in batches, not one fsync per note
     session.commit()
     return {"imported": len(ids), "already": already, "ids": ids, "entries": made, "stopped": stopped,
             "people": sorted(named["people"])[:50], "places": sorted(named["places"])[:50]}

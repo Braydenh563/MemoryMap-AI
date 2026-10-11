@@ -12678,6 +12678,7 @@ Link to another note with [[its first few words]]."></textarea>
                 <span id="backup-status" class="status" role="status"></span>
               </div>
               <p class="status job-line" role="status" data-job-line="backup"></p>
+              <p id="backup-schedule" class="muted" role="status"></p>
               <ul id="backup-list" class="entry-list"></ul>
               <!-- Asked about directly: "backup retention should be a
                    setting: backups accumulate with no cap the user can see
@@ -12693,7 +12694,9 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="help-body hidden" id="backups-help" role="dialog" aria-label="About backups">
                 <p>
                   A backup is also taken automatically once a day when the
-                  app starts. Restoring first snapshots the current state,
+                  app starts; the line above the list says when the last one
+                  ran, whether it worked and when the next is due. Restoring
+                  first snapshots the current state,
                   so even a restore can be undone. Backups live in your
                   data folder, they never leave this computer.
                 </p>

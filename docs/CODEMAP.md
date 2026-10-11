@@ -4487,7 +4487,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `announceReminders` | frontend/js/reminder-notify.js:82 |
+| `announceReminders` | frontend/js/reminder-notify.js:86 |
 | `launcherNotifies` | frontend/js/reminder-notify.js:15 |
 | `listenToReminderWorker` | frontend/js/reminder-notify.js:25 |
 | `showReminderNotification` | frontend/js/reminder-notify.js:35 |

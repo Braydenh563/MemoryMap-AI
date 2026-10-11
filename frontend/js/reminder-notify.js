@@ -45,7 +45,11 @@ async function showReminderNotification(title, body, reminderId) {
   //: reminder and those two actions, good for a day (`core/reminder_token.py`).
   //: Without one (the server did not answer) the notification has no buttons.
   const scoped = reminderId
-    ? await apiJson(`/reminders/${reminderId}/notification-token`, { method: "POST", silent: true }).catch(() => null)
+    ? await apiJson(`/reminders/${reminderId}/notification-token`, { method: "POST", silent: true }).catch((error) => {
+        //: No token: the notification still shows, without Done and Snooze.
+        console.warn("reminder notification without its buttons", error);
+        return null;
+      })
     : null;
   try {
     await registration.showNotification(title, {

@@ -5063,7 +5063,7 @@ function graphSyncLayoutChip(layoutKind) {
     }
     //: A timeout, not a frame: the wake-source ratchet counts frame loops, and
     //: this runs once after the panel or sheet is in place.
-    setTimeout(() => document.getElementById("graph-layout")?.focus(), 0);
+    setTimeout(() => focusSelect(document.getElementById("graph-layout")), 0);
   });
 }
 

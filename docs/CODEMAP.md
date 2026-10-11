@@ -9205,23 +9205,23 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/board-library/{item_id}` | PUT | `update_library_item` | src/memorymap/api/routes_board_library.py:532 |
 | `/board-library/{item_id}/duplicate` | POST | `duplicate_library_item` | src/memorymap/api/routes_board_library.py:578 |
 | `/board-library/{item_id}/restore` | POST | `restore_library_item` | src/memorymap/api/routes_board_library.py:567 |
-| `/boards` | GET | `list_boards` | src/memorymap/api/routes_whiteboard.py:2251 |
-| `/boards` | POST | `create_board` | src/memorymap/api/routes_whiteboard.py:2508 |
-| `/boards/generate` | POST | `generate_map` | src/memorymap/api/routes_whiteboard.py:5670 |
-| `/boards/import` | POST | `import_board` | src/memorymap/api/routes_whiteboard.py:5744 |
-| `/boards/propose` | POST | `propose_map` | src/memorymap/api/routes_whiteboard.py:5541 |
-| `/boards/{board_id}` | PUT | `rename_board` | src/memorymap/api/routes_whiteboard.py:2715 |
-| `/boards/{board_id}/duplicate` | POST | `duplicate_board` | src/memorymap/api/routes_whiteboard.py:2550 |
-| `/boards/{board_id}/export` | GET | `export_board` | src/memorymap/api/routes_whiteboard.py:4735 |
-| `/boards/{board_id}/nodes` | POST | `create_map_node` | src/memorymap/api/routes_whiteboard.py:3631 |
-| `/boards/{board_id}/nodes/clear-style` | POST | `clear_map_node_styles` | src/memorymap/api/routes_whiteboard.py:4056 |
-| `/boards/{board_id}/nodes/move-many` | PUT | `move_map_nodes` | src/memorymap/api/routes_whiteboard.py:3919 |
-| `/boards/{board_id}/nodes/outline` | POST | `paste_map_outline` | src/memorymap/api/routes_whiteboard.py:3726 |
+| `/boards` | GET | `list_boards` | src/memorymap/api/routes_whiteboard.py:2256 |
+| `/boards` | POST | `create_board` | src/memorymap/api/routes_whiteboard.py:2513 |
+| `/boards/generate` | POST | `generate_map` | src/memorymap/api/routes_whiteboard.py:5675 |
+| `/boards/import` | POST | `import_board` | src/memorymap/api/routes_whiteboard.py:5749 |
+| `/boards/propose` | POST | `propose_map` | src/memorymap/api/routes_whiteboard.py:5546 |
+| `/boards/{board_id}` | PUT | `rename_board` | src/memorymap/api/routes_whiteboard.py:2720 |
+| `/boards/{board_id}/duplicate` | POST | `duplicate_board` | src/memorymap/api/routes_whiteboard.py:2555 |
+| `/boards/{board_id}/export` | GET | `export_board` | src/memorymap/api/routes_whiteboard.py:4740 |
+| `/boards/{board_id}/nodes` | POST | `create_map_node` | src/memorymap/api/routes_whiteboard.py:3636 |
+| `/boards/{board_id}/nodes/clear-style` | POST | `clear_map_node_styles` | src/memorymap/api/routes_whiteboard.py:4061 |
+| `/boards/{board_id}/nodes/move-many` | PUT | `move_map_nodes` | src/memorymap/api/routes_whiteboard.py:3924 |
+| `/boards/{board_id}/nodes/outline` | POST | `paste_map_outline` | src/memorymap/api/routes_whiteboard.py:3731 |
 | `/boards/{board_id}/nodes/{node_id}/branches` | POST | `add_branches` | src/memorymap/api/routes_map_suggest.py:197 |
-| `/boards/{board_id}/nodes/{node_id}/move` | PUT | `move_map_node` | src/memorymap/api/routes_whiteboard.py:3802 |
+| `/boards/{board_id}/nodes/{node_id}/move` | PUT | `move_map_node` | src/memorymap/api/routes_whiteboard.py:3807 |
 | `/boards/{board_id}/nodes/{node_id}/suggest` | POST | `suggest_branches` | src/memorymap/api/routes_map_suggest.py:146 |
 | `/boards/{board_id}/nodes/{node_id}/summary` | POST | `summarise_branch` | src/memorymap/api/routes_map_suggest.py:308 |
-| `/boards/{board_id}/tree` | GET | `board_tree` | src/memorymap/api/routes_whiteboard.py:3564 |
+| `/boards/{board_id}/tree` | GET | `board_tree` | src/memorymap/api/routes_whiteboard.py:3569 |
 | `/budgets` | GET | `budgets` | src/memorymap/api/routes_bench.py:123 |
 | `/bulk` | POST | `bulk_action` | src/memorymap/api/routes_learned.py:236 |
 | `/bulk` | POST | `bulk_edit_tags` | src/memorymap/api/routes_tags.py:104 |
@@ -9345,7 +9345,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/history/snapshots/{snapshot_id}` | DELETE | `delete_snapshot` | src/memorymap/api/routes_board_history.py:372 |
 | `/history/{event_id}` | GET | `board_at` | src/memorymap/api/routes_board_history.py:385 |
 | `/history/{event_id}/restore` | POST | `restore_board` | src/memorymap/api/routes_board_history.py:416 |
-| `/images` | GET | `list_images` | src/memorymap/api/routes_whiteboard.py:2440 |
+| `/images` | GET | `list_images` | src/memorymap/api/routes_whiteboard.py:2445 |
 | `/import` | POST | `import_document` | src/memorymap/api/routes_documents.py:529 |
 | `/import.ics` | POST | `import_ics` | src/memorymap/api/routes_reminders.py:401 |
 | `/import/app` | POST | `import_app` | src/memorymap/api/routes_import.py:63 |
@@ -9419,16 +9419,16 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/most-opened` | GET | `most_opened` | src/memorymap/api/routes_vision.py:112 |
 | `/move` | POST | `move_notes` | src/memorymap/api/routes_categories.py:171 |
 | `/near/{entry_id}` | GET | `near` | src/memorymap/api/routes_resurface.py:145 |
-| `/nodes` | POST | `create_node` | src/memorymap/api/routes_whiteboard.py:2820 |
-| `/nodes/{node_id}` | DELETE | `delete_node` | src/memorymap/api/routes_whiteboard.py:2897 |
-| `/nodes/{node_id}` | PUT | `update_node` | src/memorymap/api/routes_whiteboard.py:2865 |
+| `/nodes` | POST | `create_node` | src/memorymap/api/routes_whiteboard.py:2825 |
+| `/nodes/{node_id}` | DELETE | `delete_node` | src/memorymap/api/routes_whiteboard.py:2902 |
+| `/nodes/{node_id}` | PUT | `update_node` | src/memorymap/api/routes_whiteboard.py:2870 |
 | `/note-types` | GET | `list_note_types` | src/memorymap/api/routes_properties.py:133 |
 | `/note-types` | POST | `create_note_type` | src/memorymap/api/routes_properties.py:145 |
 | `/note-types/{type_id}` | DELETE | `delete_note_type` | src/memorymap/api/routes_properties.py:189 |
 | `/note-types/{type_id}` | PATCH | `patch_note_type` | src/memorymap/api/routes_properties.py:167 |
-| `/objects` | POST | `create_object` | src/memorymap/api/routes_whiteboard.py:3002 |
-| `/objects/{object_id}` | DELETE | `delete_object` | src/memorymap/api/routes_whiteboard.py:3080 |
-| `/objects/{object_id}` | PUT | `update_object` | src/memorymap/api/routes_whiteboard.py:3046 |
+| `/objects` | POST | `create_object` | src/memorymap/api/routes_whiteboard.py:3007 |
+| `/objects/{object_id}` | DELETE | `delete_object` | src/memorymap/api/routes_whiteboard.py:3085 |
+| `/objects/{object_id}` | PUT | `update_object` | src/memorymap/api/routes_whiteboard.py:3051 |
 | `/ocr-model` | POST | `set_ocr_model` | src/memorymap/api/routes_models.py:746 |
 | `/ocr-readers` | GET | `ocr_readers` | src/memorymap/api/routes_files.py:3205 |
 | `/ocr/language` | POST | `set_ocr_language` | src/memorymap/api/routes_files.py:3254 |
@@ -9500,9 +9500,9 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/seed-examples` | POST | `seed_example_entries` | src/memorymap/api/routes_entries.py:2389 |
 | `/setup` | POST | `setup` | src/memorymap/api/routes_auth.py:615 |
 | `/shutdown` | POST | `shutdown` | src/memorymap/api/routes_tasks.py:786 |
-| `/sketches` | POST | `create_sketch` | src/memorymap/api/routes_whiteboard.py:2918 |
-| `/sketches/{sketch_id}` | DELETE | `delete_sketch` | src/memorymap/api/routes_whiteboard.py:2973 |
-| `/sketches/{sketch_id}` | PUT | `update_sketch` | src/memorymap/api/routes_whiteboard.py:2948 |
+| `/sketches` | POST | `create_sketch` | src/memorymap/api/routes_whiteboard.py:2923 |
+| `/sketches/{sketch_id}` | DELETE | `delete_sketch` | src/memorymap/api/routes_whiteboard.py:2978 |
+| `/sketches/{sketch_id}` | PUT | `update_sketch` | src/memorymap/api/routes_whiteboard.py:2953 |
 | `/skills` | GET | `list_skills` | src/memorymap/api/routes_settings.py:1313 |
 | `/source-status` | GET | `source_update_status` | src/memorymap/api/routes_update.py:628 |
 | `/spaces` | GET | `get_spaces` | src/memorymap/api/routes_spaces.py:66 |
@@ -13469,23 +13469,23 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `BoardBackground` | src/memorymap/api/routes_whiteboard.py:1338 |
-| `BoardCreate` | src/memorymap/api/routes_whiteboard.py:1529 |
-| `BoardImageOut` | src/memorymap/api/routes_whiteboard.py:2433 |
+| `BoardBackground` | src/memorymap/api/routes_whiteboard.py:1343 |
+| `BoardCreate` | src/memorymap/api/routes_whiteboard.py:1534 |
+| `BoardImageOut` | src/memorymap/api/routes_whiteboard.py:2438 |
 | `BoardLayer` | src/memorymap/api/routes_whiteboard.py:1252 |
-| `BoardOut` | src/memorymap/api/routes_whiteboard.py:1434 |
-| `BoardRename` | src/memorymap/api/routes_whiteboard.py:2670 |
-| `BoardTypeMixin` | src/memorymap/api/routes_whiteboard.py:1503 |
-| `MapClearStyleOut` | src/memorymap/api/routes_whiteboard.py:4033 |
-| `MapGenerate` | src/memorymap/api/routes_whiteboard.py:5610 |
-| `MapImport` | src/memorymap/api/routes_whiteboard.py:4816 |
-| `MapNodeCreate` | src/memorymap/api/routes_whiteboard.py:3591 |
-| `MapNodeMove` | src/memorymap/api/routes_whiteboard.py:3767 |
-| `MapNodeMoveOne` | src/memorymap/api/routes_whiteboard.py:3858 |
-| `MapNodesMove` | src/memorymap/api/routes_whiteboard.py:3873 |
-| `MapOutlinePaste` | src/memorymap/api/routes_whiteboard.py:3696 |
-| `MapProposal` | src/memorymap/api/routes_whiteboard.py:5452 |
-| `MapTreeOut` | src/memorymap/api/routes_whiteboard.py:3525 |
+| `BoardOut` | src/memorymap/api/routes_whiteboard.py:1439 |
+| `BoardRename` | src/memorymap/api/routes_whiteboard.py:2675 |
+| `BoardTypeMixin` | src/memorymap/api/routes_whiteboard.py:1508 |
+| `MapClearStyleOut` | src/memorymap/api/routes_whiteboard.py:4038 |
+| `MapGenerate` | src/memorymap/api/routes_whiteboard.py:5615 |
+| `MapImport` | src/memorymap/api/routes_whiteboard.py:4821 |
+| `MapNodeCreate` | src/memorymap/api/routes_whiteboard.py:3596 |
+| `MapNodeMove` | src/memorymap/api/routes_whiteboard.py:3772 |
+| `MapNodeMoveOne` | src/memorymap/api/routes_whiteboard.py:3863 |
+| `MapNodesMove` | src/memorymap/api/routes_whiteboard.py:3878 |
+| `MapOutlinePaste` | src/memorymap/api/routes_whiteboard.py:3701 |
+| `MapProposal` | src/memorymap/api/routes_whiteboard.py:5457 |
+| `MapTreeOut` | src/memorymap/api/routes_whiteboard.py:3530 |
 | `WhiteboardComment` | src/memorymap/api/routes_whiteboard.py:270 |
 | `WhiteboardNodeBase` | src/memorymap/api/routes_whiteboard.py:295 |
 | `WhiteboardNodeOut` | src/memorymap/api/routes_whiteboard.py:318 |
@@ -13495,121 +13495,121 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `WhiteboardSketchBase` | src/memorymap/api/routes_whiteboard.py:324 |
 | `WhiteboardSketchOut` | src/memorymap/api/routes_whiteboard.py:333 |
 | `WhiteboardStateOut` | src/memorymap/api/routes_whiteboard.py:828 |
-| `_PathEnd` | src/memorymap/api/routes_whiteboard.py:1833 |
-| `_apply_board_look` | src/memorymap/api/routes_whiteboard.py:2692 |
-| `_apply_comments` | src/memorymap/api/routes_whiteboard.py:2813 |
-| `_board_background` | src/memorymap/api/routes_whiteboard.py:1376 |
-| `_board_entry` | src/memorymap/api/routes_whiteboard.py:3555 |
+| `_PathEnd` | src/memorymap/api/routes_whiteboard.py:1838 |
+| `_apply_board_look` | src/memorymap/api/routes_whiteboard.py:2697 |
+| `_apply_comments` | src/memorymap/api/routes_whiteboard.py:2818 |
+| `_board_background` | src/memorymap/api/routes_whiteboard.py:1381 |
+| `_board_entry` | src/memorymap/api/routes_whiteboard.py:3560 |
 | `_board_filter` | src/memorymap/api/routes_whiteboard.py:838 |
 | `_board_layers` | src/memorymap/api/routes_whiteboard.py:1273 |
 | `_board_numbered` | src/memorymap/api/routes_whiteboard.py:1209 |
-| `_board_palette` | src/memorymap/api/routes_whiteboard.py:1649 |
-| `_board_preview` | src/memorymap/api/routes_whiteboard.py:1941 |
+| `_board_palette` | src/memorymap/api/routes_whiteboard.py:1654 |
+| `_board_preview` | src/memorymap/api/routes_whiteboard.py:1946 |
 | `_board_settings` | src/memorymap/api/routes_whiteboard.py:1003 |
 | `_board_theme` | src/memorymap/api/routes_whiteboard.py:1132 |
-| `_build_tree` | src/memorymap/api/routes_whiteboard.py:3418 |
-| `_clean_import_style` | src/memorymap/api/routes_whiteboard.py:4906 |
+| `_build_tree` | src/memorymap/api/routes_whiteboard.py:3423 |
+| `_clean_import_style` | src/memorymap/api/routes_whiteboard.py:4911 |
 | `_clean_levels` | src/memorymap/api/routes_whiteboard.py:1098 |
 | `_clean_theme` | src/memorymap/api/routes_whiteboard.py:1056 |
-| `_cross_links` | src/memorymap/api/routes_whiteboard.py:3493 |
-| `_delete_one_object` | src/memorymap/api/routes_whiteboard.py:3158 |
+| `_cross_links` | src/memorymap/api/routes_whiteboard.py:3498 |
+| `_delete_one_object` | src/memorymap/api/routes_whiteboard.py:3163 |
 | `_drop_orphan_links` | src/memorymap/api/routes_whiteboard.py:953 |
-| `_export_freemind` | src/memorymap/api/routes_whiteboard.py:4531 |
-| `_export_markdown` | src/memorymap/api/routes_whiteboard.py:4246 |
-| `_export_node_id` | src/memorymap/api/routes_whiteboard.py:4527 |
-| `_export_opml` | src/memorymap/api/routes_whiteboard.py:4447 |
-| `_export_text` | src/memorymap/api/routes_whiteboard.py:4287 |
-| `_export_tree` | src/memorymap/api/routes_whiteboard.py:4144 |
-| `_export_xmind` | src/memorymap/api/routes_whiteboard.py:4691 |
-| `_first_cycle` | src/memorymap/api/routes_whiteboard.py:3890 |
-| `_flatten_parsed` | src/memorymap/api/routes_whiteboard.py:5733 |
+| `_export_freemind` | src/memorymap/api/routes_whiteboard.py:4536 |
+| `_export_markdown` | src/memorymap/api/routes_whiteboard.py:4251 |
+| `_export_node_id` | src/memorymap/api/routes_whiteboard.py:4532 |
+| `_export_opml` | src/memorymap/api/routes_whiteboard.py:4452 |
+| `_export_text` | src/memorymap/api/routes_whiteboard.py:4292 |
+| `_export_tree` | src/memorymap/api/routes_whiteboard.py:4149 |
+| `_export_xmind` | src/memorymap/api/routes_whiteboard.py:4696 |
+| `_first_cycle` | src/memorymap/api/routes_whiteboard.py:3895 |
+| `_flatten_parsed` | src/memorymap/api/routes_whiteboard.py:5738 |
 | `_forget_links_to` | src/memorymap/api/routes_whiteboard.py:848 |
-| `_freemind_style` | src/memorymap/api/routes_whiteboard.py:4940 |
-| `_import_link_targets` | src/memorymap/api/routes_whiteboard.py:4982 |
-| `_is_descendant` | src/memorymap/api/routes_whiteboard.py:3773 |
-| `_is_link_sketch` | src/memorymap/api/routes_whiteboard.py:1424 |
+| `_freemind_style` | src/memorymap/api/routes_whiteboard.py:4945 |
+| `_import_link_targets` | src/memorymap/api/routes_whiteboard.py:4987 |
+| `_is_descendant` | src/memorymap/api/routes_whiteboard.py:3778 |
+| `_is_link_sketch` | src/memorymap/api/routes_whiteboard.py:1429 |
 | `_is_one_emoji` | src/memorymap/api/routes_whiteboard.py:228 |
-| `_map_branch_colors` | src/memorymap/api/routes_whiteboard.py:1654 |
-| `_map_kind_ok` | src/memorymap/api/routes_whiteboard.py:3208 |
-| `_map_node_dict` | src/memorymap/api/routes_whiteboard.py:3390 |
-| `_map_node_style` | src/memorymap/api/routes_whiteboard.py:3376 |
-| `_map_objects` | src/memorymap/api/routes_whiteboard.py:3462 |
-| `_markdown_note_lines` | src/memorymap/api/routes_whiteboard.py:4308 |
-| `_next_position` | src/memorymap/api/routes_whiteboard.py:3606 |
-| `_note_titles` | src/memorymap/api/routes_whiteboard.py:5479 |
-| `_object_data` | src/memorymap/api/routes_whiteboard.py:3319 |
+| `_map_branch_colors` | src/memorymap/api/routes_whiteboard.py:1659 |
+| `_map_kind_ok` | src/memorymap/api/routes_whiteboard.py:3213 |
+| `_map_node_dict` | src/memorymap/api/routes_whiteboard.py:3395 |
+| `_map_node_style` | src/memorymap/api/routes_whiteboard.py:3381 |
+| `_map_objects` | src/memorymap/api/routes_whiteboard.py:3467 |
+| `_markdown_note_lines` | src/memorymap/api/routes_whiteboard.py:4313 |
+| `_next_position` | src/memorymap/api/routes_whiteboard.py:3611 |
+| `_note_titles` | src/memorymap/api/routes_whiteboard.py:5484 |
+| `_object_data` | src/memorymap/api/routes_whiteboard.py:3324 |
 | `_object_to_out` | src/memorymap/api/routes_whiteboard.py:777 |
 | `_on_current_layer` | src/memorymap/api/routes_whiteboard.py:1328 |
-| `_opml_style` | src/memorymap/api/routes_whiteboard.py:4965 |
-| `_outline_covering` | src/memorymap/api/routes_whiteboard.py:5523 |
-| `_outline_from_filing` | src/memorymap/api/routes_whiteboard.py:5494 |
-| `_outline_from_paste` | src/memorymap/api/routes_whiteboard.py:3706 |
-| `_outline_numbers` | src/memorymap/api/routes_whiteboard.py:4183 |
-| `_outline_rows` | src/memorymap/api/routes_whiteboard.py:4113 |
-| `_parent_map` | src/memorymap/api/routes_whiteboard.py:3880 |
-| `_parse_freemind` | src/memorymap/api/routes_whiteboard.py:4993 |
-| `_parse_markdown_outline` | src/memorymap/api/routes_whiteboard.py:5225 |
-| `_parse_opml` | src/memorymap/api/routes_whiteboard.py:5057 |
-| `_parse_xmind` | src/memorymap/api/routes_whiteboard.py:5144 |
-| `_parse_xml_document` | src/memorymap/api/routes_whiteboard.py:4841 |
-| `_path_bbox` | src/memorymap/api/routes_whiteboard.py:1771 |
-| `_place_map_nodes` | src/memorymap/api/routes_whiteboard.py:5308 |
-| `_preview_fields` | src/memorymap/api/routes_whiteboard.py:2200 |
-| `_preview_fingerprint` | src/memorymap/api/routes_whiteboard.py:2159 |
-| `_preview_items` | src/memorymap/api/routes_whiteboard.py:1884 |
-| `_preview_points` | src/memorymap/api/routes_whiteboard.py:1539 |
-| `_preview_size` | src/memorymap/api/routes_whiteboard.py:1732 |
-| `_proposal_notes` | src/memorymap/api/routes_whiteboard.py:5460 |
-| `_record_map_creation` | src/memorymap/api/routes_whiteboard.py:5623 |
-| `_reference_facets` | src/memorymap/api/routes_whiteboard.py:3288 |
-| `_reference_label` | src/memorymap/api/routes_whiteboard.py:3252 |
+| `_opml_style` | src/memorymap/api/routes_whiteboard.py:4970 |
+| `_outline_covering` | src/memorymap/api/routes_whiteboard.py:5528 |
+| `_outline_from_filing` | src/memorymap/api/routes_whiteboard.py:5499 |
+| `_outline_from_paste` | src/memorymap/api/routes_whiteboard.py:3711 |
+| `_outline_numbers` | src/memorymap/api/routes_whiteboard.py:4188 |
+| `_outline_rows` | src/memorymap/api/routes_whiteboard.py:4118 |
+| `_parent_map` | src/memorymap/api/routes_whiteboard.py:3885 |
+| `_parse_freemind` | src/memorymap/api/routes_whiteboard.py:4998 |
+| `_parse_markdown_outline` | src/memorymap/api/routes_whiteboard.py:5230 |
+| `_parse_opml` | src/memorymap/api/routes_whiteboard.py:5062 |
+| `_parse_xmind` | src/memorymap/api/routes_whiteboard.py:5149 |
+| `_parse_xml_document` | src/memorymap/api/routes_whiteboard.py:4846 |
+| `_path_bbox` | src/memorymap/api/routes_whiteboard.py:1776 |
+| `_place_map_nodes` | src/memorymap/api/routes_whiteboard.py:5313 |
+| `_preview_fields` | src/memorymap/api/routes_whiteboard.py:2205 |
+| `_preview_fingerprint` | src/memorymap/api/routes_whiteboard.py:2164 |
+| `_preview_items` | src/memorymap/api/routes_whiteboard.py:1889 |
+| `_preview_points` | src/memorymap/api/routes_whiteboard.py:1544 |
+| `_preview_size` | src/memorymap/api/routes_whiteboard.py:1737 |
+| `_proposal_notes` | src/memorymap/api/routes_whiteboard.py:5465 |
+| `_record_map_creation` | src/memorymap/api/routes_whiteboard.py:5628 |
+| `_reference_facets` | src/memorymap/api/routes_whiteboard.py:3293 |
+| `_reference_label` | src/memorymap/api/routes_whiteboard.py:3257 |
 | `_require_board` | src/memorymap/api/routes_whiteboard.py:900 |
 | `_require_entry` | src/memorymap/api/routes_whiteboard.py:893 |
 | `_require_object_data` | src/memorymap/api/routes_whiteboard.py:804 |
-| `_require_reference` | src/memorymap/api/routes_whiteboard.py:3220 |
+| `_require_reference` | src/memorymap/api/routes_whiteboard.py:3225 |
 | `_require_table_cells` | src/memorymap/api/routes_whiteboard.py:794 |
-| `_restore_import_links` | src/memorymap/api/routes_whiteboard.py:5379 |
-| `_sibling_key` | src/memorymap/api/routes_whiteboard.py:3484 |
-| `_sketch_preview` | src/memorymap/api/routes_whiteboard.py:1844 |
-| `_store_board_background` | src/memorymap/api/routes_whiteboard.py:1400 |
+| `_restore_import_links` | src/memorymap/api/routes_whiteboard.py:5384 |
+| `_sibling_key` | src/memorymap/api/routes_whiteboard.py:3489 |
+| `_sketch_preview` | src/memorymap/api/routes_whiteboard.py:1849 |
+| `_store_board_background` | src/memorymap/api/routes_whiteboard.py:1405 |
 | `_store_board_layers` | src/memorymap/api/routes_whiteboard.py:1291 |
 | `_store_board_numbered` | src/memorymap/api/routes_whiteboard.py:1227 |
 | `_store_board_settings` | src/memorymap/api/routes_whiteboard.py:1030 |
 | `_store_board_theme` | src/memorymap/api/routes_whiteboard.py:1145 |
-| `_strip_outline_numbers` | src/memorymap/api/routes_whiteboard.py:4217 |
-| `_subtree` | src/memorymap/api/routes_whiteboard.py:3127 |
+| `_strip_outline_numbers` | src/memorymap/api/routes_whiteboard.py:4222 |
+| `_subtree` | src/memorymap/api/routes_whiteboard.py:3132 |
 | `_themed_style` | src/memorymap/api/routes_whiteboard.py:1179 |
 | `_without_pins` | src/memorymap/api/routes_whiteboard.py:1197 |
-| `_xmind_marks` | src/memorymap/api/routes_whiteboard.py:5134 |
-| `_xmind_style` | src/memorymap/api/routes_whiteboard.py:5116 |
-| `_xmind_topic` | src/memorymap/api/routes_whiteboard.py:4662 |
-| `_xml_attribute` | src/memorymap/api/routes_whiteboard.py:4432 |
-| `board_tree` | src/memorymap/api/routes_whiteboard.py:3565 |
-| `clear_map_node_styles` | src/memorymap/api/routes_whiteboard.py:4058 |
-| `create_board` | src/memorymap/api/routes_whiteboard.py:2510 |
-| `create_map_node` | src/memorymap/api/routes_whiteboard.py:3635 |
-| `create_node` | src/memorymap/api/routes_whiteboard.py:2822 |
-| `create_object` | src/memorymap/api/routes_whiteboard.py:3004 |
-| `create_sketch` | src/memorymap/api/routes_whiteboard.py:2920 |
+| `_xmind_marks` | src/memorymap/api/routes_whiteboard.py:5139 |
+| `_xmind_style` | src/memorymap/api/routes_whiteboard.py:5121 |
+| `_xmind_topic` | src/memorymap/api/routes_whiteboard.py:4667 |
+| `_xml_attribute` | src/memorymap/api/routes_whiteboard.py:4437 |
+| `board_tree` | src/memorymap/api/routes_whiteboard.py:3570 |
+| `clear_map_node_styles` | src/memorymap/api/routes_whiteboard.py:4063 |
+| `create_board` | src/memorymap/api/routes_whiteboard.py:2515 |
+| `create_map_node` | src/memorymap/api/routes_whiteboard.py:3640 |
+| `create_node` | src/memorymap/api/routes_whiteboard.py:2827 |
+| `create_object` | src/memorymap/api/routes_whiteboard.py:3009 |
+| `create_sketch` | src/memorymap/api/routes_whiteboard.py:2925 |
 | `current_layer` | src/memorymap/api/routes_whiteboard.py:1316 |
-| `delete_node` | src/memorymap/api/routes_whiteboard.py:2899 |
-| `delete_object` | src/memorymap/api/routes_whiteboard.py:3082 |
-| `delete_sketch` | src/memorymap/api/routes_whiteboard.py:2975 |
-| `duplicate_board` | src/memorymap/api/routes_whiteboard.py:2552 |
-| `export_board` | src/memorymap/api/routes_whiteboard.py:4736 |
-| `generate_map` | src/memorymap/api/routes_whiteboard.py:5671 |
+| `delete_node` | src/memorymap/api/routes_whiteboard.py:2904 |
+| `delete_object` | src/memorymap/api/routes_whiteboard.py:3087 |
+| `delete_sketch` | src/memorymap/api/routes_whiteboard.py:2980 |
+| `duplicate_board` | src/memorymap/api/routes_whiteboard.py:2557 |
+| `export_board` | src/memorymap/api/routes_whiteboard.py:4741 |
+| `generate_map` | src/memorymap/api/routes_whiteboard.py:5676 |
 | `get_whiteboard_state` | src/memorymap/api/routes_whiteboard.py:928 |
-| `import_board` | src/memorymap/api/routes_whiteboard.py:5745 |
-| `list_boards` | src/memorymap/api/routes_whiteboard.py:2252 |
-| `list_images` | src/memorymap/api/routes_whiteboard.py:2441 |
-| `move_map_node` | src/memorymap/api/routes_whiteboard.py:3806 |
-| `move_map_nodes` | src/memorymap/api/routes_whiteboard.py:3921 |
-| `paste_map_outline` | src/memorymap/api/routes_whiteboard.py:3731 |
-| `propose_map` | src/memorymap/api/routes_whiteboard.py:5542 |
-| `rename_board` | src/memorymap/api/routes_whiteboard.py:2716 |
-| `update_node` | src/memorymap/api/routes_whiteboard.py:2867 |
-| `update_object` | src/memorymap/api/routes_whiteboard.py:3048 |
-| `update_sketch` | src/memorymap/api/routes_whiteboard.py:2950 |
+| `import_board` | src/memorymap/api/routes_whiteboard.py:5750 |
+| `list_boards` | src/memorymap/api/routes_whiteboard.py:2257 |
+| `list_images` | src/memorymap/api/routes_whiteboard.py:2446 |
+| `move_map_node` | src/memorymap/api/routes_whiteboard.py:3811 |
+| `move_map_nodes` | src/memorymap/api/routes_whiteboard.py:3926 |
+| `paste_map_outline` | src/memorymap/api/routes_whiteboard.py:3736 |
+| `propose_map` | src/memorymap/api/routes_whiteboard.py:5547 |
+| `rename_board` | src/memorymap/api/routes_whiteboard.py:2721 |
+| `update_node` | src/memorymap/api/routes_whiteboard.py:2872 |
+| `update_object` | src/memorymap/api/routes_whiteboard.py:3053 |
+| `update_sketch` | src/memorymap/api/routes_whiteboard.py:2955 |
 
 ### src/memorymap/api/run_sandbox.py (20)
 

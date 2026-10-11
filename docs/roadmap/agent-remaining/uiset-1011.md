@@ -68,8 +68,8 @@ Owner reports done first: speed opener height (07d447054), track corners (aef9d7
 | 1448 | skipped | LAN and phone (brief: skip) |
 | 1449 | done-already | Each log record has its own copy, Copy traceback and 'Copy N shown' (BACKLOG text describes the built state) |
 | 1450 | closed | Measured judgement: the JSON is not worth compressing |
-| 1451 | not-built | 'Surprise me' theme pick: M; settings.js is boot JS with 892 bytes of gzip room |
-| 1452 | not-built | Hover preview of a theme needs a scratch layer over appearancePref; M, boot JS room |
+| 1451 | built | Settings, Themes, Surprise me (#theme-surprise in settings-controls.js); themepreview.js sweep: picks a theme other than the active one, stored value set |
+| 1452 | built | Hover or keyboard focus on a theme card previews it (themePreview, read ahead of the manual layer, never stored); themepreview.js: preset changes while hovered, localStorage untouched, restored on leave |
 | 1453 | deferred | A decision for the owner, not a build |
 | 1454 | pointer | Screen-reader pass: BACKLOG section 115 row 4, axe sweep; not started |
 | 1455 | not-built | Opt-in retention rules: L, needs a decision and a backend job |

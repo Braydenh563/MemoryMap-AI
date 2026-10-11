@@ -2275,3 +2275,48 @@ function textToInputs(text) {
 ensureModule("meetings").then((ok) => {
   if (ok && $("mic-settings-controls")) micControlsInto($("mic-settings-controls"));
 });
+
+//: Settings, Appearance, Themes (ledger 1451, 1452): a theme shows on the
+//: whole app while the pointer or focus rests on its card, and "Surprise me"
+//: applies one you are not using. The preview is `themePreview` (settings.js),
+//: read ahead of the manual layer and never stored.
+let themePreviewTimer = 0;
+function previewTheme(name) {
+  clearTimeout(themePreviewTimer);
+  themePreviewTimer = setTimeout(() => {
+    if (themePreview === name) return;
+    themePreview = name;
+    applyAppearance();
+    applyThemeChoice(appearancePref("theme"), false);
+    applyPalette(appearancePref("palette"), false);
+  }, name ? 120 : 0);
+}
+(() => {
+  const holder = $("theme-presets");
+  if (!holder) return;
+  const card = (event) => event.target.closest?.(".theme-card");
+  holder.addEventListener("pointerover", (event) => {
+    if (event.pointerType === "touch") return;
+    const c = card(event);
+    if (c) previewTheme(c.dataset.preset);
+  });
+  holder.addEventListener("pointerleave", () => previewTheme(""));
+  holder.addEventListener("focusin", (event) => {
+    const c = card(event);
+    if (c && c.matches(":focus-visible")) previewTheme(c.dataset.preset);
+  });
+  holder.addEventListener("focusout", () => previewTheme(""));
+  //: Capture: the preview is gone before the card's own click applies the theme.
+  holder.addEventListener("click", () => {
+    clearTimeout(themePreviewTimer);
+    themePreview = "";
+  }, true);
+})();
+$("theme-surprise")?.addEventListener("click", () => {
+  const active = activeThemePreset();
+  const names = Object.keys(THEME_PRESETS).filter((n) => n !== active);
+  const pick = names[Math.floor(Math.random() * names.length)];
+  applyThemePreset(pick, true);
+  renderAppearance();
+  toast(`${THEME_PRESETS[pick].label} theme. Press Surprise me again for another.`, "info");
+});

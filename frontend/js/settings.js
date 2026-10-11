@@ -1682,7 +1682,11 @@ function themeSwatch(preset) {
   return [set.page, set.accent];
 }
 
+//: A theme under the pointer in Settings (settings-controls.js previewTheme):
+//: read before the manual layer, because a click would clear that layer.
+let themePreview = "";
 function activeThemePreset() {
+  if (themePreview) return themePreview;
   //: No look chosen yet means the default look, not "no look": the default is
   //: a look like any other now (Quiet utilitarian), and theme-boot.js reads
   //: the same fallback so the first paint agrees.
@@ -1710,6 +1714,7 @@ function appearancePref(key, fallback) {
   // means forgetting it degrades to the caller's intent rather than to
   // "undefined".
   return (
+    (themePreview ? THEME_PRESETS[themePreview].values[key] : undefined) ??
     prefs.get(key, null) ?? themeValue(key) ?? APPEARANCE_DEFAULTS[key] ?? fallback
   );
 }
@@ -2494,6 +2499,7 @@ function renderThemePresets() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "theme-card";
+    button.dataset.preset = name;
     button.title = `Apply the ${preset.label} theme`;
     button.setAttribute("aria-pressed", String(name === active));
     const swatch = document.createElement("span");

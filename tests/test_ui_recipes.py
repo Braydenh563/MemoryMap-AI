@@ -5139,12 +5139,13 @@ def test_the_no_model_notice_is_one_row_on_the_notice_recipe() -> None:
     css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
     row = re.search(r"\n\.ai-offline-note\.notice \{(.*?)\n\}", css, re.S)
     assert row and "align-items: center" in row.group(1), ".ai-offline-note.notice has no row rule"
-    assert re.search(r"\n\.ai-offline-text \{[^}]*flex: 1;[^}]*min-width: 0", css), (
+    assert re.search(r"\n\.ai-offline-text \{[^}]*flex: 1 1 12rem;[^}]*min-width: 0", css), (
         "the sentence takes the spare width and can shrink, or the button is pushed out of the box"
     )
-    #: `.notice` does not wrap, which is what keeps it one row at desktop width.
+    #: `.notice` does not wrap; this row alone wraps, so the action steps to a
+    #: second row when the words would be squeezed under 12rem (mono, a narrow card).
     notice = re.search(r"\n\.notice \{(.*?)\n\}", css, re.S).group(1)
-    assert "flex-wrap" not in notice and "flex-wrap" not in row.group(1)
+    assert "flex-wrap" not in notice and "flex-wrap: wrap" in row.group(1)
     phone = re.search(r"@media \(max-width: 599\.98px\) \{\s*\.ai-offline-note\.notice \{(.*?)\n  \}(.*?)\n\}\n", css, re.S)
     assert phone and "display: grid" in phone.group(1), "under 600px (599.98px) the row is a grid"
     assert re.search(r"\.icon-only\) \{[^}]*grid-area: 2 / 2", phone.group(2)), "the button sits under the sentence"

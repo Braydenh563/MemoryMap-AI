@@ -10732,10 +10732,17 @@ Link to another note with [[its first few words]]."></textarea>
                 <p>
                   A theme sets everything below in one go. Anything you then
                   change by hand sits on top of it and wins, so you can pick
-                  a theme and still choose your own accent colour.
+                  a theme and still choose your own accent colour. Rest the
+                  pointer on a theme to see it before you pick it, or press
+                  Surprise me for one at random.
                 </p>
               </div>
               <div id="theme-presets" class="theme-presets"></div>
+              <div class="row theme-surprise-row">
+                <button id="theme-surprise" class="ghost small"
+                  title="Try a theme you are not using, picked at random">
+                  Surprise me</button>
+              </div>
               <p class="muted" id="theme-override-note"></p>
 
               <!-- Your own themes. Saved server-side with the rest of your
@@ -13611,7 +13618,12 @@ Link to another note with [[its first few words]]."></textarea>
             <ul id="log-list" class="log-list"></ul>
             <pre id="log-terminal" class="log-terminal hidden" tabindex="0"
               aria-label="Server and browser logs, terminal style"></pre>
-            <p id="logs-empty" class="muted empty-line hidden">No log records yet.</p>
+            <div id="logs-empty" class="empty-state hidden">
+              <span class="empty-icon" aria-hidden="true"><i class="ph ph-scroll ph-lead" aria-hidden="true"></i></span>
+              <p class="empty-title" id="logs-empty-title">No log lines match</p>
+              <p id="logs-empty-text">Nothing fits the filters above.</p>
+              <button id="logs-empty-clear" class="ghost small" type="button"><i class="ph ph-x ph-lead" aria-hidden="true"></i> Clear filters</button>
+            </div>
             <p id="logs-filtered-out" class="muted hidden"></p>
           </section>
 

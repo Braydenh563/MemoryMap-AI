@@ -1500,6 +1500,11 @@ function paletteCommands() {
     { label: "ph:arrow-right Go forward", about: "Forward again, after going back.", chord: "navigateForward", act: () => stepTabHistory(1) },
     { label: "ph:arrows-clockwise Reload the app", about: "Clears cached files first, so the newest version loads.", chord: "forceReload", act: () => forceReloadApp() },
     { label: "ph:lock Lock Tessellate", about: "Close the notebook until the password is typed again.", act: lockNow },
+    //: The top bar's other controls, so each is in the palette too (ledger 1410).
+    { label: "ph:gear Open Settings", chord: "settings", act: () => openSettingsModal() },
+    { label: "ph:bell Open notifications", keywords: "bell", act: () => openNotifications() },
+    { label: "ph:squares-four Switch space", act: () => $("space-switcher-btn")?.click() },
+    { label: "ph:power Quit Tessellate", act: () => quitApp() },
   ].map(catalogueRun);
 }
 

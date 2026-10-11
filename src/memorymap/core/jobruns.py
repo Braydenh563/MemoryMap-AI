@@ -306,6 +306,7 @@ class Run:
         text = _clip(line)
         if text:
             self._log.append((time.time(), text))
+            logger.info("[%s] %s", self.id, text)
             _bump()
 
     def lines(self) -> list[dict]:
@@ -367,6 +368,9 @@ class Run:
             if self not in _live:
                 _live.append(self)
         _bump()
+        #: In the app log under its run id, so Settings, Logs can show this
+        #: run's lines (the Logs button filters on "[run-12]").
+        logger.info("[%s] %s started", self.id, self.title)
         if self._db is None:
             return
         try:
@@ -400,6 +404,8 @@ class Run:
             if self in _live:
                 _live.remove(self)
         self._to_ledger()
+        if not self._skipped and not self._finished:
+            logger.info("[%s] %s %s", self.id, self.title, "failed" if self._status == "failed" else "finished")
         if self._db is None or self._finished:
             return
         self._finished = True

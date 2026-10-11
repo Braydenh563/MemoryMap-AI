@@ -1476,7 +1476,7 @@ async function renderRecordings() {
 //: "failed" (the list did not load, the recipe's warn mood).
 function recordingsEmpty(kind, detail = "") {
   const copy = {
-    none: ["ph-microphone", "No recordings yet", "Record keeps a voice note here; a meeting's recording lands here too."],
+    none: ["ph-microphone", "Nothing recorded yet", "Record keeps a voice note here; a meeting's recording lands here too."],
     match: ["ph-magnifying-glass", "No recordings match", "No recording has that in its name."],
     failed: ["ph-warning-circle", "Recordings did not load", detail || "Couldn't load your recordings."],
   }[kind];
@@ -1486,24 +1486,23 @@ function recordingsEmpty(kind, detail = "") {
   icon.className = "empty-icon";
   icon.setAttribute("aria-hidden", "true");
   const glyph = document.createElement("i");
-  glyph.className = `ph ${copy[0]}`;
+  glyph.className = `ph ${copy[0]} ph-lead`;
   icon.appendChild(glyph);
   const title = document.createElement("p");
   title.className = "empty-title";
   title.textContent = copy[1];
   const line = document.createElement("p");
-  line.className = "muted";
   line.textContent = copy[2];
   li.append(icon, title, line);
   //: The one action: what the header's Record does.
   if (kind === "none") {
     const record = document.createElement("button");
     record.type = "button";
-    record.className = "small";
+    record.className = "ghost small";
     const mic = document.createElement("i");
     mic.className = "ph ph-microphone ph-lead";
     mic.setAttribute("aria-hidden", "true");
-    record.append(mic, " Record a voice note");
+    record.append(mic, " Record");
     record.addEventListener("click", () => openVoiceNote());
     li.appendChild(record);
   }

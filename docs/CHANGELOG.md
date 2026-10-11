@@ -54,6 +54,9 @@ below). Versioning is `0.x` while the app stabilises.
 - Find anything: a recording is found by its title and by what was said in it, and a press opens it in Library, Recordings. `kind:recording` asks for them alone.
 - Dashboard: Live captions can be a Quick access tile (Edit quick access, then Add).
 - OCR workspace: a page whose stored reading was made before words were kept says "Read this page again to select its words on the picture", so Live Text is not silently empty.
+- The command palette has rows for Open Settings, Open notifications, Switch space and Quit, so every top-bar control is in it.
+- Notes, Questions and Library, Recordings show the empty state block with an icon, the sentence and the action; a Settings section fades in; Background jobs has a Report button for the last import.
+- Settings, Themes: resting the pointer or focus on a theme shows it on the whole app, and Surprise me applies a random one.
 - Long menu labels are cut with an ellipsis inside the row and shown whole on hover, in every font; the no-model notice steps its button down in a narrow card; Settings, Help, Credits has a Guide topic.
 - Toasts stack neatly: the same notice inside 4 s is one card with a count, three show and the rest fold into a "+N more" card that opens the bell; no two cards cross while they move.
 - First run: an empty notebook is offered a way to bring in notes kept in another app.
@@ -214,6 +217,7 @@ below). Versioning is `0.x` while the app stabilises.
 - Chat with web search on: a search that found pages always answers, a line a page; the pages sit in a Web results fold under the answer, each with its site and one line, and a title opens the page to read right there.
 - Ask and Chat: "can you search the web?", "can you do maths?" or "what can you do?" is answered about the app, whether and how, and whether its switch is on, never searched for, with or without a model.
 - Ask and Chat with no model: an answer about your notes now reads like a person wrote it, the count and the days first, the facts under bold labels in your terms, what the notes do not cover, and one offer you can press (a reminder, a checklist); no bracketed dates, quote bars, Grounded in chips or count under it.
+- New Tessellate logo: three cells, the last one settling into place.
 - Security: an action refused from another device now reads "Not available on this device. Do it on the computer MemoryMap runs on."
 - Renamed to Tessellate; formerly MemoryMap AI. Every title, window, shortcut, help page, document and the website say Tessellate; your notes, settings and data folder stay where they were, and the repository moved to github.com/Braydenh563/Tessellate (the old address redirects).
 - Security: an action refused from another device now reads "Not available on this device. Do it on the computer Tessellate runs on."

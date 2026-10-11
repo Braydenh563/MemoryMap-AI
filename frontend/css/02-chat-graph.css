@@ -2784,6 +2784,11 @@ kbd {
   margin-bottom: 0.5rem;
   opacity: 0.85;
 }
+/* An icon with nothing after it has no gap to leave: `.ph-lead`'s end margin
+   pushed the glyph 8px off the block's centre (measured). */
+.empty-icon > .ph-lead {
+  margin-inline-end: 0;
+}
 .empty-title {
   margin: 0 0 0.25rem;
   font-weight: 600;

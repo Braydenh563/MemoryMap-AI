@@ -2,6 +2,15 @@
 
 Owner reports done first: speed opener height (07d447054), track corners (aef9d7633), Recordings empty state (9c1e0d617), the toast stack (4d0cba219), the mono menu row and the font matrix (the font fit commit).
 
+Questions empty state: Notes > Questions uses the `.empty-state` block as Recordings does (emptystates.js: icon centre 0px off, 256px high, action below the title).
+
+Logo motion (owner bug, frozen mark): after merging agent/logo-1011 the mark animates in all five places (logomotion.js: 2 animations on the lock screen, dashboard hero, status bar and chat empty state, 4 on About, transform changing over 500ms in each). App Reduce motion not re-measured; OS reduced motion deliberately leaves the mark moving (02-chat-graph.css). 1410, 1434, 1435: census not done, left open.
+
+Follow-up: the app Reduce motion setting stills the mark (logomotion.js MOTION=reduced: data-motion=reduced, 0 animations, no transform change in all five places). Top-bar census (topbarcensus.js, 13 controls): palette rows 10 to 13 (added Open Settings, Open notifications, Switch space, Quit MemoryMap in settings-panes.js); data-help-for popovers 0 of 13, left by design (top-bar buttons carry tooltips; the Guide covers them).
+
+Owner 2026-10-11, job rows: "Logs at the top left" is read as the top-right corner of the row, on the title line, as a rowActions quiet button (task history: 8 distinct x down to 1, button centre = title centre). Logs filters on the run id (jobruns writes "[run-N] ..." lines to the app log); no lines shows the Bookmarks empty state (joblogs.js).
+
+
 | id | status | evidence or commit |
 | --- | --- | --- |
 | 1387 | umbrella | Section head for B87 to B93; its rows are below |
@@ -23,7 +32,7 @@ Owner reports done first: speed opener height (07d447054), track corners (aef9d7
 | 1403 | split | BOOT_CSS_CAP lowered (row 1405); the rows-view meta button and the tool-confirm pair are Brief 57's rowActions sweep (SESSION_BRIEFS 1828) |
 | 1404 | done-already | .dash-find has the hover veil (07-whiteboard-misc.css .dash-find:hover, 08-consistency.css dock rule) |
 | 1405 | built | BOOT_CSS_CAP lowered from 183,300 to 179,000, the measured 178,530 plus room (test_boot_budget.py) (e9bf48384) |
-| 1406 | not-built | Background jobs Report button needs boot JS room (892 bytes gzip left of BOOT_JS_CAP); Activity panel at 390 translucency not re-measured |
+| 1406 | built | Background jobs: the Import row has a Report button (last-runs carries import_report.latest; settings.js renderJobOverview, 32px high); jobreport.js; the Activity panel translucency at 390 is not re-measured |
 | 1407 | built | openSettingRow lands on a row's control (a search for 'accent colour' focuses the active swatch at 1440 and 390, set.js) (e9bf48384) |
 | 1408 | built | palettePrefixPicks: stored picks for longer queries count at half weight from 2 typed letters (e9bf48384) |
 | 1409 | decided | Kept as is (no stems in the setting words); recorded in the ledger |
@@ -37,7 +46,7 @@ Owner reports done first: speed opener height (07d447054), track corners (aef9d7
 | 1417 | not-verified | OLED and gamma reading need hardware |
 | 1418 | not-verified | Write with AI with a model running needs a model (CLAUDE.md section 4) |
 | 1419 | built | Help popovers fade out like menus (.help-popover.hidden joins the exit transition; wireHelpPopover moves home after the exit) (e9bf48384) |
-| 1420 | not-built | A sub-tab panel cross-fade needs a class set on switch; S, not started |
+| 1420 | built | Settings sections fade in (CSS only, settings-pane-in on .settings-section:not(.hidden), 0.2s); panefade.js samples opacity 0,0,0,0.77 over 240ms |
 | 1421 | decided | 444 decision 10: Tools and Appearance stay indexed, not split (the index is the recipe); closed |
 | 1422 | not-verified | Doc-focus panels 720 to 819px not driven in a sweep |
 | 1423 | built | scroll-padding-block: var(--ring-room) now covers .library-view-section (was .tab-page, .dash-body) (e9bf48384) |
@@ -68,12 +77,12 @@ Owner reports done first: speed opener height (07d447054), track corners (aef9d7
 | 1448 | skipped | LAN and phone (brief: skip) |
 | 1449 | done-already | Each log record has its own copy, Copy traceback and 'Copy N shown' (BACKLOG text describes the built state) |
 | 1450 | closed | Measured judgement: the JSON is not worth compressing |
-| 1451 | not-built | 'Surprise me' theme pick: M; settings.js is boot JS with 892 bytes of gzip room |
-| 1452 | not-built | Hover preview of a theme needs a scratch layer over appearancePref; M, boot JS room |
+| 1451 | built | Settings, Themes, Surprise me (#theme-surprise in settings-controls.js); themepreview.js sweep: picks a theme other than the active one, stored value set |
+| 1452 | built | Hover or keyboard focus on a theme card previews it (themePreview, read ahead of the manual layer, never stored); themepreview.js: preset changes while hovered, localStorage untouched, restored on leave |
 | 1453 | deferred | A decision for the owner, not a build |
 | 1454 | pointer | Screen-reader pass: BACKLOG section 115 row 4, axe sweep; not started |
 | 1455 | not-built | Opt-in retention rules: L, needs a decision and a backend job |
-| 1456 | not-built | Saved swatches panel: M (audit C9) |
+| 1456 | deferred | Saved swatches panel: M, spans swatchPicker, whiteboard and categories; left for the next PR |
 | 1457 | pointer | Memory as a surface: PLAN A3; not started |
 | 1458 | done-already | BACKLOG section 110.2: the gallery kebab closes on capture; fixed then |
 | 1459 | done-already | BACKLOG section 110.2: zero flex basis on the status span; fixed then |

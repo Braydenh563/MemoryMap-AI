@@ -2801,3 +2801,67 @@ $("maintenance-restart")?.addEventListener("click", () => restartMemoryMap());
 $("maintenance-logs")?.addEventListener("click", openMaintenanceFolder);
 $("maintenance-shortcut")?.addEventListener("click", makeMaintenanceShortcut);
 $("maintenance-uninstall")?.addEventListener("click", openUninstallSteps);
+//: Settings, Appearance, Themes (ledger 1451, 1452): a theme shows on the
+//: whole app while the pointer or focus rests on its card, and "Surprise me"
+//: applies one you are not using. The preview is `themePreview` (settings.js),
+//: read ahead of the manual layer and never stored.
+let themePreviewTimer = 0;
+function previewTheme(name) {
+  clearTimeout(themePreviewTimer);
+  themePreviewTimer = setTimeout(() => {
+    if (themePreview === name) return;
+    themePreview = name;
+    applyAppearance();
+    applyThemeChoice(appearancePref("theme"), false);
+    applyPalette(appearancePref("palette"), false);
+  }, name ? 120 : 0);
+}
+(() => {
+  const holder = $("theme-presets");
+  if (!holder) return;
+  const card = (event) => event.target.closest?.(".theme-card");
+  holder.addEventListener("pointerover", (event) => {
+    if (event.pointerType === "touch") return;
+    const c = card(event);
+    if (c) previewTheme(c.dataset.preset);
+  });
+  holder.addEventListener("pointerleave", () => previewTheme(""));
+  holder.addEventListener("focusin", (event) => {
+    const c = card(event);
+    if (c && c.matches(":focus-visible")) previewTheme(c.dataset.preset);
+  });
+  holder.addEventListener("focusout", () => previewTheme(""));
+  //: Capture: the preview is gone before the card's own click applies the theme.
+  holder.addEventListener("click", () => {
+    clearTimeout(themePreviewTimer);
+    themePreview = "";
+  }, true);
+})();
+$("theme-surprise")?.addEventListener("click", () => {
+  const active = activeThemePreset();
+  const names = Object.keys(THEME_PRESETS).filter((n) => n !== active);
+  const pick = names[Math.floor(Math.random() * names.length)];
+  applyThemePreset(pick, true);
+  renderAppearance();
+  toast(`${THEME_PRESETS[pick].label} theme. Press Surprise me again for another.`, "info");
+});
+
+//: Logs, from a job history row and the empty log (moved out of boot code, the
+//: gzip budget): the row's button awaits this file through openSettingsModal.
+async function openTaskLog(item) {
+  await openSettingsModal("logs");
+  const filter = $("log-filter");
+  //: The run's id, which its log lines carry in brackets (jobruns.py), so the
+  //: lines shown are this run's. An older entry without one falls back to words.
+  logFilterFromRun = !!item.run_id;
+  filter.value = item.run_id ? `[${item.run_id}]` : /\(([^)]+)\)/.exec(item.label || "")?.[1] || item.name || item.label || "";
+  filter.dispatchEvent(new Event("input"));
+}
+
+$("logs-empty-clear").addEventListener("click", () => {
+  logFilterFromRun = false;
+  $("log-filter").value = "";
+  $("log-level").value = "all";
+  $("log-source").value = "all";
+  renderActiveLogView();
+});

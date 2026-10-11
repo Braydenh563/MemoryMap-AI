@@ -7,6 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Backups: in the desktop app, "Also copy each backup to" sends a second copy of every backup to a folder you choose (an external drive, a synced folder), keeps the same number there, and notes on the backup when the drive was not connected. Each backup row says where it was also copied.
+- Settings, About: Files on disk is a bar with a legend (the notebook, attached files, pictures, backups, optional features) and a total, so you can see what is taking the space and what an optional feature costs.
 - Backups: a line above the list gives the automatic schedule, when it last ran and whether that worked (or why it failed), and when the next is due.
 - Import: an imported note that was in the bin longer than the bin keeps notes now gets a full period from the import, so the next start no longer clears what you just brought in; a big import commits in batches and reads each note for dates once (about 12 to 25% less processing per note).
 - Settings: a second browser that has never agreed with your notebook now takes the notebook's look instead of pushing its old one over it.

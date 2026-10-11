@@ -336,7 +336,7 @@ MORE_TOPICS: list[dict] = [
         ),
         "body": (
             "Settings, About, Health says how the notebook is, each line dated: "
-            "the last backup and when it was taken, the data folder's size, what "
+            "the last backup and when it was taken, the data folder's size, Files on disk (a bar of the notebook, attached files, pictures, backups and optional features), what "
             "is running now, the last error in the log, and Integrity, whose "
             "Check now has the database check itself and counts the search index "
             "beside your notes. The palette's Health goes straight there. The "
@@ -418,7 +418,10 @@ MORE_TOPICS: list[dict] = [
             "Library, Documents, the more menu, Import a file as a document. "
             "Backups: Back up now, and how many to keep; one is also taken "
             "each day the app starts, and restoring snapshots first, so even a "
-            "restore can be undone. Each backup row says when in words, marks "
+            "restore can be undone. A line above the list gives the schedule, when "
+            "it last ran and whether that worked, and when the next is due; in the "
+            "desktop app, Also copy each backup to sends a second copy to a folder "
+            "you choose, such as an external drive. Each backup row says when in words, marks "
             "the newest Latest, and says what made it (the daily backup, Back "
             "up now, before an update or a restore), its size and whether it "
             "was checked. App cache, at the bottom: Clear app cache "

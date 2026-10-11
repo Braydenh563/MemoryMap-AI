@@ -1295,6 +1295,7 @@ are now done** (§85, §86):
 - **Async httpx client**: **Next:** section 78 says the sync routes are correct, so this is optional; measure first with `scratchpad/ui-sweeps/apibench.js`, then switch only `ai/ollama_client.py`'s streaming read (nothing in `src/` uses `httpx.AsyncClient`, checked 2026-10-05). Touches the streaming path, which is what makes chat
   feel responsive, so a subtle regression wouldn't show up in tests. Do it with
   §6.
+  **Decided 2026-10-11 (data-1011): not built.** Section 78 stands (the sync routes are correct); the streaming read is the one path that would change, a regression there would not show in tests, and nothing measured asks for it.
 - ~~**Alembic migrations**: the additive auto-migrator cannot rename or drop, and
   won't survive a real schema change~~ **Built.** `migrations/` (Alembic),
   `_ensure_alembic_baseline()` (`core/database.py`) stamps any pre-existing
@@ -1762,7 +1763,7 @@ thing anywhere in the app.
   mostly already exist. **(needs Opus)**: checked 2026-10-04, `GET /storage`
   still returns only `database_bytes`; the walk, the cache and the Settings
   line with its '?' are one design.
-  **Partly built 2026-10-05** (HISTORY.md, "backlog-1005"): `GET /storage` reports `uploads_bytes`, `media_bytes` and `backups_bytes` from a cached walk (`diskspace.dir_bytes`), and Settings, About, Health has a Files on disk row. **Next:** the per-extra footprint (`core/extras.py`: bytes of each installed extra's folder, beside its Remove button).
+  **Built 2026-10-11 (data-1011).** `GET /storage` reports `uploads_bytes`, `media_bytes`, `backups_bytes` and `extras_bytes` (`extras.installed_bytes`, the installed extras' own files); each extra's `disk_bytes` already sat beside its Remove button; Settings, About, Health draws Files on disk as one bar and a legend (DESIGN.md recipe `.storage-bar`, `scratchpad/ui-sweeps/storagebar.js`).
 - **One actual "your data" page, not the pieces scattered.** **Partly built:** Settings, Privacy, "Where your data went" (`frontend/index.html:11095`, `core/egress.py`) is the receipt. **Next:** a head line stating what is stored and where, with links to Export and the wipe above once it exists. The individual
   facts already exist: where the data lives and how big it is (README),
   what's in the audit log (Settings → Activity), what export and wipe do
@@ -1788,6 +1789,7 @@ thing anywhere in the app.
   likely solving a problem that doesn't exist yet at any realistic notebook
   size: worth measuring an actual `data/memorymap.db` before writing any
   compression code, not assuming it's needed. **(needs owner)**: see 79b.
+  **Measured and decided 2026-10-11 (data-1011): not built.** A 2,000-note notebook is a 4.2 MB file; the notes table is 426 KB of it (10%), the audit log and its indexes 1.2 MB (30%), the search index 0.6 MB. Compressing note text saves a tenth at most, and the log is already compacted (`events.compact`). Revisit only when a real notebook shows note text above 40% of the file.
 - **A synthesised export, not just a raw one.** **Skill built 2026-10-05** (HISTORY.md, "backlog-1005"): "Write a document from a tag" in `ai/skills.py`; the button on a graph or list selection is still open (it needs a place in the selection bar, a design call). Same item as sections 102 item 10 and 109.3 item 5. Export today (JSON/CSV/MD)
   is a dump of what's selected; Gemini's grounded suggestion was a step
   beyond that: pick a tag or a cluster and have the AI *compile* it into
@@ -2105,6 +2107,7 @@ clippings.
   capture surface, so a design call.
 - **A Readwise/Kindle importer**: **Pointer:** the imports agent (section 115 row 1 is the importer set; Readwise is not on it, so size it there first). It is a genuine integration and should be sized
   separately before anyone commits to it. **(needs owner)**
+  **Sized 2026-10-11 (data-1011), still needs the owner:** two readers in `entry/app_import.py` (`readwise`: the CSV with Highlight, Book Title, Book Author, Note, Location, Highlighted at; `kindle`: `My Clippings.txt`, blocks split on `==========`), a note per book keyed by a hash of title and author, a button each in Settings, Import & export, about 150 lines and two test files. The open question is a re-import: the clippings file only grows, and the rule that a note already here is left alone would skip a book that gained highlights. Recommendation: a note per book, and a re-import appends only the highlights not already in it, which needs the writer to merge into a source-keyed note (a new capability).
 
 ## 75. Voice memos: capture, storage, playback, and a dedicated library page
 

@@ -193,6 +193,58 @@ async function renderPrivacyReceipt() {
   }
 }
 
+//: **Where the disk went** (BACKLOG section 26, the owner: "can the user see a
+//: visual depiction of the storage size the application takes up"). One bar,
+//: a segment per kind as wide as its share, and the same numbers as a legend,
+//: which is also the bar's accessible name. `GET /storage` is a cached walk on
+//: the server, so opening About costs one request and no tree walk.
+const STORAGE_KINDS = [
+  ["database_bytes", "Notebook"],
+  ["uploads_bytes", "Attached files"],
+  ["media_bytes", "Pictures"],
+  ["backups_bytes", "Backups"],
+  ["extras_bytes", "Optional features"],
+];
+
+async function renderStorageBreakdown() {
+  const bar = $("storage-bar");
+  const legend = $("storage-legend");
+  if (!bar || !legend) return;
+  lazyScript("/css/settings-data-lazy.css");
+  const storage = await apiJson("/storage", { silent: true }).catch(() => null);
+  bar.replaceChildren();
+  legend.replaceChildren();
+  if (!storage) {
+    bar.setAttribute("aria-label", "Storage could not be read");
+    legend.textContent = "Could not read the sizes.";
+    return;
+  }
+  const kinds = STORAGE_KINDS.map(([key, label]) => ({ key, label, bytes: Number(storage[key]) || 0 }));
+  const total = kinds.reduce((sum, kind) => sum + kind.bytes, 0);
+  for (const kind of kinds.filter((k) => k.bytes > 0)) {
+    const segment = document.createElement("span");
+    segment.className = "storage-seg";
+    segment.dataset.kind = kind.key;
+    segment.style.flexGrow = String(kind.bytes);
+    bar.appendChild(segment);
+  }
+  for (const kind of kinds) {
+    const item = document.createElement("li");
+    const swatch = document.createElement("span");
+    swatch.className = "storage-swatch";
+    swatch.dataset.kind = kind.key;
+    swatch.setAttribute("aria-hidden", "true");
+    item.append(swatch, `${kind.label} ${humanBytes(kind.bytes)}`);
+    legend.appendChild(item);
+  }
+  const words = `${kinds.map((k) => `${k.label} ${humanBytes(k.bytes)}`).join(", ")}. Together ${humanBytes(total)}.`;
+  bar.setAttribute("aria-label", `Storage by kind: ${words}`);
+  const sum = document.createElement("li");
+  sum.className = "storage-total";
+  sum.textContent = `Together ${humanBytes(total)}`;
+  legend.appendChild(sum);
+}
+
 //: The schedule with its last success (WORLD_CLASS 25e, the Backups row): what
 //: the automatic backup is, when it last ran and whether that worked, and when
 //: the next is due. The daily rule is the server's (`passes.schedule`,
@@ -225,8 +277,45 @@ async function renderBackupSchedule(backups) {
   line.textContent = backupScheduleWords(run, backups[0]);
 }
 
+//: The second place each backup goes (`backup_copy_dir`): a path on the server's
+//: own disk, so the row is the desktop app's, like "Save exports to". Saved on
+//: blur or Enter; a bad folder is refused with the server's words and the field
+//: goes back to what it was.
+async function renderBackupCopyRow() {
+  const row = $("backup-copy-row");
+  if (!row) return;
+  const desktop = await desktopShell();
+  row.classList.toggle("hidden", !desktop);
+  if (!desktop) return;
+  const stored = prefsCache || (await apiJson("/preferences", { silent: true }).catch(() => ({})));
+  $("pref-backup-copy-dir").value = stored.backup_copy_dir || "";
+}
+
+async function saveBackupCopyDir(value) {
+  const input = $("pref-backup-copy-dir");
+  if (value === (prefsCache?.backup_copy_dir || "")) return;
+  try {
+    prefsCache = await apiJson("/preferences", { method: "PUT", body: JSON.stringify({ backup_copy_dir: value }) });
+    input.value = prefsCache.backup_copy_dir;
+    toast(value ? `Each backup is also copied to ${prefsCache.backup_copy_dir}` : "Backups stay on this computer only.");
+  } catch (error) {
+    input.value = prefsCache?.backup_copy_dir || "";
+    toast(error.message || "Couldn't use that folder.", true);
+  }
+}
+
+$("pref-backup-copy-dir")?.addEventListener("blur", (event) => saveBackupCopyDir(event.target.value.trim()));
+$("pref-backup-copy-dir")?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") event.target.blur();
+});
+$("pref-backup-copy-clear")?.addEventListener("click", () => {
+  $("pref-backup-copy-dir").value = "";
+  saveBackupCopyDir("");
+});
+
 async function renderBackups() {
   const list = $("backup-list");
+  renderBackupCopyRow().catch(() => {});
   showSkeletons(list, 2, "li");
   const backups = await apiJson("/backups").catch(() => []);
   clearSkeletons(list);
@@ -297,8 +386,9 @@ async function renderBackups() {
       item.origin_words || "Made before backups recorded why",
       humanBytes(item.size),
       item.checked ? "checked: it opens and reads back" : "not checked",
+      item.copied_to ? `also copied to ${item.copied_to}` : item.copy_error ? `not copied: ${item.copy_error}` : "",
       item.name,
-    ].join(" · ");
+    ].filter(Boolean).join(" · ");
     li.appendChild(facts);
     list.appendChild(li);
   }

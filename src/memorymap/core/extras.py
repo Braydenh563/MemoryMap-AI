@@ -1073,6 +1073,21 @@ def _read_footprint(extra: Extra) -> tuple[str, int | None]:
     return str(first.version or ""), total or None
 
 
+def installed_bytes() -> int:
+    """What the installed extras weigh together, from their own files only
+    (the same line `footprint` draws), for the storage breakdown. Reads the
+    cache the Packages screen fills, so it costs one metadata walk the first
+    time and nothing after."""
+    total = 0
+    for extra in EXTRAS:
+        try:
+            if is_installed(extra):
+                total += footprint(extra)[1] or 0
+        except Exception:  # noqa: BLE001  # a number for a bar must never fail the page
+            _logger.debug("couldn't weigh %s", extra.id, exc_info=True)
+    return total
+
+
 def _forget_footprints() -> None:
     _footprints.clear()
 

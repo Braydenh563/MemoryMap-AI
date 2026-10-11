@@ -35,6 +35,11 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
     # a lost file. Asked for directly, alongside the "Open exports folder"
     # button: "a configurable save location for exported images."
     "export_save_dir": "",
+    # A second place each backup is copied to (an external drive, a synced
+    # folder), so one disk failing does not take the notebook and every backup
+    # with it. Empty means backups stay in `data_dir/backups` only. Validated
+    # at save time like `export_save_dir`.
+    "backup_copy_dir": "",
     # Semantic search relevance (search_manager.py). Defaults match that
     # module's own MIN_SIMILARITY/RELATIVE_Z_MARGIN constants, kept here
     # too, as plain values rather than an import, so Settings -> Preferences

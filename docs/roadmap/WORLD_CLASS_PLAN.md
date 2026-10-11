@@ -2354,6 +2354,7 @@ mobile first, as the owner's web design class teaches. Measured with
    "Export", "Back up now". Target: version history in every note and
    document menu with a diff, a "Last backup" line in Settings and on the
    About page, and a first-run prompt to choose a backup folder. M, Opus.
+   **Built 2026-10-11 (data-1011):** History and Download .md were in the note menu; Last backup is in Health and a schedule line (last run, whether it worked, next due) heads the Backups list; "Also copy each backup to" (desktop) sends a second copy to a chosen folder. Decided: no first-run modal, the Backups line says where copies are.
 9. **Offline promise, visible.** The Privacy receipt now exists; the top
    bar should say "Local" with the same verdict, one click to the receipt.
    S, Sonnet.
@@ -4003,7 +4004,7 @@ sources; three export shapes per document and one per note.
 | Settings | 75 keys, panes, help on 105; search, reset, modified, export built (25f) | appearance keys kept per browser (see agent-remaining/settings52-1011.md) | Brief 52 |
 | Import | Notion, Obsidian, Evernote, Apple Notes, web clip, media | the report page, progress, a markdown folder in, the round trip (25b) | Brief 48 |
 | Export | per note `.md`, per document md, zip, docx, the bundle | the whole notebook as a folder (25b); boards and maps as SVG and PNG with the notes they link; a document as PDF | Brief 48 |
-| Backups | create, list, restore, bundle | the tested restore, the boot check, a schedule shown with the last success (25e) | Brief 51 |
+| Backups | create, list, restore, bundle, schedule line, second-copy folder | the tested restore, the boot check (25e, built) | Brief 51 |
 | Help | Guide chat, popovers, manual parity, the manual (25c) | none open here | Brief 49, built |
 | Skills and tools | 67 tools, 30 skills, MCP | Phase E; one file per tool family (26) | Briefs 54, 63 |
 | Spaces | create, edit, delete dialogs, the space guard | a space's own dashboard line and its export; moving a note between spaces with its links kept | Brief 59 row |

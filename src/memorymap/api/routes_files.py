@@ -3624,6 +3624,53 @@ def _region_image(crop: UploadFile) -> bytes:
     return data
 
 
+def _require_region_reader(local: bool, reader: str) -> None:
+    """409 unless the local engine, or the AI model, is there to do the read."""
+    if local:
+        reason = ocr.unavailable_reason(_engine_choice(reader))
+        if reason:
+            raise HTTPException(status_code=409, detail=reason)
+    elif not deps.get_ollama().is_running():
+        raise HTTPException(status_code=409, detail="The AI model isn't running.")
+
+
+def _region_model(mode: str, reader: str, local: bool) -> str:
+    """The model that reads or describes a region; 409 when none is installed.
+
+    A read uses whichever reader the workspace's picker named; a describe is
+    always the general vision model, for the same reason `_describe_page`
+    is: a dedicated document reader is tuned to transcribe, not to explain.
+    """
+    if local:
+        model = "tesseract"
+    elif mode == "read":
+        model = _reader_model(reader)
+    else:
+        model = deps.get_model_manager().resolve_vision_model(deps.get_ollama()) or ""
+    if not model:
+        raise HTTPException(
+            status_code=409,
+            detail="No installed model can read images. Install or "
+            "pick one in Settings → Models.",
+        )
+    return model
+
+
+def _region_text(data: bytes, mode: str, reader: str, local: bool, model: str) -> str:
+    """The text of a cropped region: a description, a local read, or a vision read."""
+    with tempfile.TemporaryDirectory(prefix="mm-region-") as scratch:
+        crop_path = Path(scratch) / "region.png"
+        crop_path.write_bytes(data)
+        if mode == "describe":
+            #: `count=1` and page 0: the prompt's "page N of M" would be a
+            #: lie about a crop, and what is wanted here is a description of
+            #: the *figure*, which is what the prompt asks for either way.
+            return captioning.page_caption_text(crop_path, 0, 1, model, deps.get_ollama())
+        if local:
+            return (_local_text(crop_path, _engine_choice(reader)) or "").strip()
+        return (vision_ocr.vision_ocr_text(crop_path, model, deps.get_ollama()) or "").strip()
+
+
 def _read_region(crop: UploadFile, page: int, mode: str, reader: str) -> OcrRegionReadOut:
     """Read or describe one drawn rectangle. Never stores anything.
 
@@ -3649,47 +3696,15 @@ def _read_region(crop: UploadFile, page: int, mode: str, reader: str) -> OcrRegi
     if mode == "read":
         reader = _checked_reader(reader)
     local = mode == "read" and reader in LOCAL_READERS
-    if local:
-        reason = ocr.unavailable_reason(_engine_choice(reader))
-        if reason:
-            raise HTTPException(status_code=409, detail=reason)
-    else:
-        if not deps.get_ollama().is_running():
-            raise HTTPException(status_code=409, detail="The AI model isn't running.")
-    #: A read uses whichever reader the workspace's picker named; a describe is
-    #: always the general vision model, for the same reason `_describe_page`
-    #: is: a dedicated document reader is tuned to transcribe, not to explain.
-    model = (
-        "tesseract"
-        if local
-        else _reader_model(reader)
-        if mode == "read"
-        else deps.get_model_manager().resolve_vision_model(deps.get_ollama()) or ""
-    )
-    if not model:
-        raise HTTPException(
-            status_code=409,
-            detail="No installed model can read images. Install or "
-            "pick one in Settings → Models.",
-        )
+    _require_region_reader(local, reader)
+    model = _region_model(mode, reader, local)
     label = "Describing" if mode == "describe" else "Reading"
     token = vision_ocr.register_page_read(
         f"{label} a region of page {page + 1}",
         model=ocr.engine_name(_engine_choice(reader)) if local else model,
     )
     try:
-        with tempfile.TemporaryDirectory(prefix="mm-region-") as scratch:
-            crop_path = Path(scratch) / "region.png"
-            crop_path.write_bytes(data)
-            if mode == "describe":
-                #: `count=1` and page 0: the prompt's "page N of M" would be a
-                #: lie about a crop, and what is wanted here is a description of
-                #: the *figure*, which is what the prompt asks for either way.
-                text = captioning.page_caption_text(crop_path, 0, 1, model, deps.get_ollama())
-            elif local:
-                text = (_local_text(crop_path, _engine_choice(reader)) or "").strip()
-            else:
-                text = (vision_ocr.vision_ocr_text(crop_path, model, deps.get_ollama()) or "").strip()
+        text = _region_text(data, mode, reader, local, model)
     finally:
         vision_ocr.finish_page_read(token)
     text = (text or "").strip()

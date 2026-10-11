@@ -727,6 +727,18 @@ def _hang_canvas(session, board, canvas: dict, idmap: dict, said: list[str]) -> 
 
     #: Each list kept in step with the export's, a skipped card as None, so a
     #: connector's end by place (`_link_ends`) finds the row that took it.
+    cards = _hang_cards(session, board, canvas, idmap, said, WhiteboardNode)
+    lines = _hang_rows(session, WhiteboardSketch, board, canvas.get("sketches"), _ROW_LEFT_OUT | {"board_id"})
+    shapes = _hang_rows(session, WhiteboardObject, board, canvas.get("objects"), _ROW_LEFT_OUT | {"board_id", "parent_id"})
+    session.flush()
+    for row, shape in zip(shapes, canvas.get("objects") or []):
+        _fix_object_links(row, shape, shapes, board, idmap, said)
+    rows = {"node": cards, "object": shapes, "sketch": lines}
+    for row, sketch in zip(lines, canvas.get("sketches") or []):
+        _hang_connector_ends(row, sketch, rows, board, said)
+
+
+def _hang_cards(session, board, canvas: dict, idmap: dict, said: list[str], model) -> list:  # noqa: ANN001
     cards = []
     for node in canvas.get("nodes") or []:
         target = idmap.get(node.get("entry_id"))
@@ -734,58 +746,62 @@ def _hang_canvas(session, board, canvas: dict, idmap: dict, said: list[str]) -> 
             said.append(f"board {board.id}: a card for note {node.get('entry_id')}, which is not in the folder")
             cards.append(None)
             continue
-        row = WhiteboardNode(board_id=board.id, entry_id=target)
+        row = model(board_id=board.id, entry_id=target)
         _restore(row, node, _ROW_LEFT_OUT | {"board_id", "entry_id"})
         session.add(row)
         cards.append(row)
-    lines = []
-    for sketch in canvas.get("sketches") or []:
-        row = WhiteboardSketch(board_id=board.id)
-        _restore(row, sketch, _ROW_LEFT_OUT | {"board_id"})
+    return cards
+
+
+def _hang_rows(session, model, board, items, left_out) -> list:  # noqa: ANN001
+    """One new row of `model` per exported item, on this board."""
+    rows = []
+    for item in items or []:
+        row = model(board_id=board.id)
+        _restore(row, item, left_out)
         session.add(row)
-        lines.append(row)
-    shapes = []
-    for shape in canvas.get("objects") or []:
-        row = WhiteboardObject(board_id=board.id)
-        _restore(row, shape, _ROW_LEFT_OUT | {"board_id", "parent_id"})
-        session.add(row)
-        shapes.append(row)
-    session.flush()
-    for row, shape in zip(shapes, canvas.get("objects") or []):
-        place = shape.get("parent_id")
-        changed = False
-        if isinstance(place, int) and 0 <= place < len(shapes):
-            row.parent_id = shapes[place].id
+        rows.append(row)
+    return rows
+
+
+def _fix_object_links(row, shape: dict, shapes: list, board, idmap: dict, said: list[str]) -> None:  # noqa: ANN001
+    """Point an object at its new parent row, and a map's note reference at the new note id."""
+    place = shape.get("parent_id")
+    changed = False
+    if isinstance(place, int) and 0 <= place < len(shapes):
+        row.parent_id = shapes[place].id
+        changed = True
+    #: A map's note reference names a note by id, which is new here too.
+    data = _json_dict(row.data)
+    if row.kind == "note" and isinstance(data.get("ref_id"), int):
+        new = idmap.get(data["ref_id"])
+        if new is None:
+            said.append(f"board {board.id}: a map node for note {data['ref_id']}, which is not in the folder")
+        elif new != data["ref_id"]:
+            row.data = json.dumps(dict(data, ref_id=new))
             changed = True
-        #: A map's note reference names a note by id, which is new here too.
-        data = _json_dict(row.data)
-        if row.kind == "note" and isinstance(data.get("ref_id"), int):
-            new = idmap.get(data["ref_id"])
-            if new is None:
-                said.append(f"board {board.id}: a map node for note {data['ref_id']}, which is not in the folder")
-            elif new != data["ref_id"]:
-                row.data = json.dumps(dict(data, ref_id=new))
-                changed = True
-        if changed:
-            _keep_updated(row, shape)
-    rows = {"node": cards, "object": shapes, "sketch": lines}
-    for row, sketch in zip(lines, canvas.get("sketches") or []):
-        ends = sketch.get("ends")
-        if not isinstance(ends, dict):
+    if changed:
+        _keep_updated(row, shape)
+
+
+def _hang_connector_ends(row, sketch: dict, rows: dict, board, said: list[str]) -> None:  # noqa: ANN001
+    """Rewrite a connector's source and target ids to the rows that took their place."""
+    ends = sketch.get("ends")
+    if not isinstance(ends, dict):
+        return
+    data = _json_dict(row.data)
+    for side, end in ends.items():
+        if side not in ("source", "target") or not isinstance(end, list) or len(end) != 2:
             continue
-        data = _json_dict(row.data)
-        for side, end in ends.items():
-            if side not in ("source", "target") or not isinstance(end, list) or len(end) != 2:
-                continue
-            kind, at = end
-            found = rows.get(kind, [])
-            item = found[at] if isinstance(at, int) and 0 <= at < len(found) else None
-            if item is None:
-                said.append(f"board {board.id}: a connector's {side} end, whose item is not in the folder")
-                continue
-            data[f"{side}Id"] = item.id
-        row.data = json.dumps(data)
-        _keep_updated(row, sketch)
+        kind, at = end
+        found = rows.get(kind, [])
+        item = found[at] if isinstance(at, int) and 0 <= at < len(found) else None
+        if item is None:
+            said.append(f"board {board.id}: a connector's {side} end, whose item is not in the folder")
+            continue
+        data[f"{side}Id"] = item.id
+    row.data = json.dumps(data)
+    _keep_updated(row, sketch)
 
 
 def _json_dict(text: str | None) -> dict:

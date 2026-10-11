@@ -214,7 +214,10 @@ def test_uninstall_is_steps_and_a_command_never_a_button(platform, frozen, comma
      ("post", "/system/desktop-shortcut", None)],
 )
 def test_another_device_is_refused_every_maintenance_route(client, app_state, method, path, body):
-    kwargs = {"headers": FAR} | ({"json": body} if body else {})
+    #: Signed in, so the refusal under test is the route's own (a device with
+    #: no password set is turned away by the sign-in check before it gets there).
+    token = client.post("/auth/setup", json={"password": "first-pass-1"}).json()["token"]
+    kwargs = {"headers": FAR | {"X-Auth-Token": token}} | ({"json": body} if body else {})
     response = getattr(client, method)(path, **kwargs)
     assert response.status_code == 403 and response.json()["detail"] == REFUSAL
     assert not (app_state.data_dir / maintenance.REINSTALL_MARKER).exists()

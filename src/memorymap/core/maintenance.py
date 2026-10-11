@@ -119,7 +119,7 @@ def _desktop_entry(root: Path, exec_line: str, icon_root: Path | None = None) ->
         "[Desktop Entry]",
         "Type=Application",
         "Name=Tessellate",
-        "Comment=Your notebook, on your own machine",
+        "Comment=Your notes, pieced together",
         f"Exec={exec_line}",
         f"Path={root}",
         f"Icon={icon_root or root}/frontend/icon-512.png",
@@ -131,6 +131,50 @@ def _desktop_entry(root: Path, exec_line: str, icon_root: Path | None = None) ->
 
 def _ps_quote(text: str) -> str:
     return "'" + str(text).replace("'", "''") + "'"
+
+
+def _shortcut_windows(target: Path, frozen: bool, root: Path, desktop: Path, run) -> dict:  # noqa: ANN001
+    link = desktop / WINDOWS_LINK
+    program = str(target) if frozen else str(root / "start.bat")
+    icon = str(target) if frozen else str(root / "frontend" / "icon.ico")
+    script = (
+        f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut({_ps_quote(link)}); "
+        f"$s.TargetPath={_ps_quote(program)}; $s.Arguments='--desktop'; "
+        f"$s.WorkingDirectory={_ps_quote(target.parent if frozen else root)}; "
+        f"$s.IconLocation={_ps_quote(icon)}; $s.Description='Tessellate'; $s.Save()"
+    )
+    run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
+        capture_output=True, timeout=30, check=False)
+    if not link.exists():
+        raise ShortcutError("not-made")
+    return {"path": str(link)}
+
+
+def _shortcut_mac(target: Path, frozen: bool, root: Path, desktop: Path) -> dict:
+    if not desktop.is_dir():
+        raise ShortcutError("no-desktop")
+    link = desktop / MAC_LINK
+    link.unlink(missing_ok=True)
+    link.symlink_to(target if frozen else root / "start.sh")
+    return {"path": str(link)}
+
+
+def _shortcut_linux(target: Path, frozen: bool, root: Path, home: Path, desktop: Path) -> dict:
+    apps = home / ".local" / "share" / "applications"
+    apps.mkdir(parents=True, exist_ok=True)
+    exec_line = f"{target} --desktop" if frozen else f"{root}/start.sh --desktop"
+    entry = apps / LINUX_ENTRY
+    base = target.parent if frozen else root
+    icon_root = Path(getattr(sys, "_MEIPASS", base)) if frozen else root
+    entry.write_text(_desktop_entry(base, exec_line, icon_root), encoding="utf-8")
+    entry.chmod(0o755)
+    out = {"path": str(entry)}
+    if desktop.is_dir():
+        copy = desktop / LINUX_ENTRY
+        copy.write_text(entry.read_text(encoding="utf-8"), encoding="utf-8")
+        copy.chmod(0o755)
+        out["desktop_copy"] = str(copy)
+    return out
 
 
 def make_shortcut(
@@ -151,42 +195,7 @@ def make_shortcut(
     home = Path(home or Path.home())
     target = Path(sys.executable) if frozen else root
     if platform == "win32":
-        desktop = desktop or Path(os.environ.get("USERPROFILE") or home) / "Desktop"
-        link = desktop / WINDOWS_LINK
-        program = str(target) if frozen else str(root / "start.bat")
-        icon = str(target) if frozen else str(root / "frontend" / "icon.ico")
-        script = (
-            f"$s=(New-Object -ComObject WScript.Shell).CreateShortcut({_ps_quote(link)}); "
-            f"$s.TargetPath={_ps_quote(program)}; $s.Arguments='--desktop'; "
-            f"$s.WorkingDirectory={_ps_quote(target.parent if frozen else root)}; "
-            f"$s.IconLocation={_ps_quote(icon)}; $s.Description='Tessellate'; $s.Save()"
-        )
-        run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
-            capture_output=True, timeout=30, check=False)
-        if not link.exists():
-            raise ShortcutError("not-made")
-        return {"path": str(link)}
+        return _shortcut_windows(target, frozen, root, desktop or Path(os.environ.get("USERPROFILE") or home) / "Desktop", run)
     if platform == "darwin":
-        desktop = desktop or home / "Desktop"
-        if not desktop.is_dir():
-            raise ShortcutError("no-desktop")
-        link = desktop / MAC_LINK
-        link.unlink(missing_ok=True)
-        link.symlink_to(target if frozen else root / "start.sh")
-        return {"path": str(link)}
-    apps = home / ".local" / "share" / "applications"
-    apps.mkdir(parents=True, exist_ok=True)
-    exec_line = f"{target} --desktop" if frozen else f"{root}/start.sh --desktop"
-    entry = apps / LINUX_ENTRY
-    base = target.parent if frozen else root
-    icon_root = Path(getattr(sys, "_MEIPASS", base)) if frozen else root
-    entry.write_text(_desktop_entry(base, exec_line, icon_root), encoding="utf-8")
-    entry.chmod(0o755)
-    out = {"path": str(entry)}
-    desktop = desktop or home / "Desktop"
-    if desktop.is_dir():
-        copy = desktop / LINUX_ENTRY
-        copy.write_text(entry.read_text(encoding="utf-8"), encoding="utf-8")
-        copy.chmod(0o755)
-        out["desktop_copy"] = str(copy)
-    return out
+        return _shortcut_mac(target, frozen, root, desktop or home / "Desktop")
+    return _shortcut_linux(target, frozen, root, home, desktop or home / "Desktop")

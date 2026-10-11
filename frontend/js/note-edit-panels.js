@@ -223,6 +223,7 @@ function renderEditForm(li, entry) {
   titleInput.type = "text";
   titleInput.maxLength = 200;
   titleInput.className = "note-edit-title";
+  titleInput.dataset.autocorrect = ""; // autocorrect.js serves it
   titleInput.placeholder = "Title";
   titleInput.setAttribute("aria-label", "Title: becomes the note's leading heading");
   titleInput.value = draft ? draft.title : parts.title;
@@ -238,6 +239,7 @@ function renderEditForm(li, entry) {
   //: per-note id: `editingId` allows exactly one open edit form at a time.
   textarea.id = "entry-edit-content";
   textarea.className = "note-edit-box";
+  textarea.dataset.autocorrect = "";
   //: Ctrl+B/Ctrl+I/Ctrl+Shift+S, same as the capture box (documents.js:
   //: `wireMdFormatShortcuts`). Passed the element itself, not its id: this
   //: textarea is not in the document yet, and a fresh one exists every

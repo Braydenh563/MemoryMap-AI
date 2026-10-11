@@ -5664,6 +5664,11 @@ select {
   color: var(--muted);
   font-size: var(--text-xs);
 }
+/* "Close in meaning" (Brief 94): the head over the rows an embedding model
+   found that the words did not, aligned with the rows' text. */
+.settings-result-head {
+  padding: var(--space-2) var(--space-4) 0;
+}
 /* The pane's dock is sticky at the top of the pane (INBOX 599). The ground
    is the dialog's opaque ground, never a tint alone: a translucent bar reads
    right at rest and turns into a window once the pane scrolls under it (the
@@ -5758,10 +5763,14 @@ select {
   }
 }
 /* The strip is a row below 820 (the nav is one), so the results would sit in
-   it as one more cell. They get the width of the pane instead. */
+   it as one more cell. They get the width of the pane instead, and no more:
+   a flex item's floor is its longest row's one line, so "Auto-clear binned
+   notes, documents, reminders and OCR readings after" made the list 496px in
+   a 308px strip at 390 (Brief 94, measured) until `min-width: 0`. */
 @media (max-width: 819.98px) {
   .modal-nav .settings-results {
     flex: 0 0 100%;
+    min-width: 0;
   }
 }
 /* --- model cards: the Models screen's suggested downloads (INBOX 444) -------

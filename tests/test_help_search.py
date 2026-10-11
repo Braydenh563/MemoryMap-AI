@@ -20,9 +20,11 @@ JS = (ROOT / "frontend" / "js" / "settings-find.js").read_text(encoding="utf-8")
 HTML = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
 CSS = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
 
+#: meaning.js first: the Settings bundle loads the two together (Brief 94).
 HARNESS = """
-const vm = require("vm"), fs = require("fs");
-const ctx = vm.createContext({ document: {}, window: {} });
+const vm = require("vm"), fs = require("fs"), path = require("path");
+const ctx = vm.createContext({ document: { addEventListener() {} }, window: {}, apiJson: () => new Promise(() => {}) });
+vm.runInContext(fs.readFileSync(path.join(path.dirname(process.argv[1]), "meaning.js"), "utf8"), ctx);
 vm.runInContext(fs.readFileSync(process.argv[1], "utf8"), ctx);
 const call = (src) => JSON.stringify(vm.runInContext(src, ctx));
 console.log(call(process.argv[2]));
@@ -42,9 +44,11 @@ def _node(expr: str):
 def test_every_term_of_the_query_must_match() -> None:
     assert _node('helpQueryTerms("  Dark  mode ")') == ["dark", "mode"]
     assert _node('helpQueryTerms("")') == []
-    assert _node('helpMatches(["dark", "mode"], "switch to dark theme mode")') is True
-    assert _node('helpMatches(["dark", "mode"], "switch to dark theme")') is False
-    assert _node('helpMatches([], "anything")') is True
+    #: A tier now (Brief 94): above 1 held by name, 1 by the body only, 0 not.
+    assert _node('helpMatches(["dark", "mode"], "switch to dark theme mode")') > 1
+    assert _node('helpMatches(["dark", "mode"], "switch to dark theme")') == 0
+    assert _node('helpMatches(["dark", "mode"], "switch to dark theme mode", null, "themes")') == 1
+    assert _node('helpMatches([], "anything")') > 0
 
 
 def test_the_field_is_the_search_field_recipe_under_the_welcome_and_tours() -> None:

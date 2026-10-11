@@ -1745,3 +1745,11 @@ $("reminder-add").parentElement.addEventListener("click", (event) => {
 // Finding is arithmetic and always available. Merging offers the AI when it's
 // running and a plain join when it isn't: the join reads worse but cannot
 // lose anything, which is the property that matters when tidying.
+// --- autocorrect -----------------------------------------------------------------
+//: autocorrect.js (lazy, Brief 94) is fetched on the first focus of a box it
+//: serves; once in, it listens for itself.
+document.addEventListener("focusin", function autocorrectDoor(event) {
+  if (!event.target.closest?.("[data-autocorrect], .note-surface")) return;
+  document.removeEventListener("focusin", autocorrectDoor);
+  lazyScript("/js/autocorrect.js");
+});

@@ -5027,6 +5027,25 @@ html[data-chrome="native"] #top-bar #brand-logo {
   border-style: solid;
   border-color: transparent;
 }
+/* The autocorrect underline (autocorrect.js, Brief 94): a button over the
+   corrected word for five seconds, a click puts the word back. It sits in the
+   window's coordinates, a layer above its box set in script. */
+.autocorrect-mark {
+  position: fixed;
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-bottom: 2px solid var(--accent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  cursor: pointer;
+}
+.autocorrect-mark:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
 /* --- the suggestion menu, the dictionary, and the goal ------------------------
    Asked for: "I cant click on the flagged word or phrase and see a popup for
    suggested fixes or other options like adding to dictionary (a way to manage

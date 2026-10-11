@@ -52,7 +52,8 @@ function recordBrowserLog(level, parts) {
     const liveRecord = { ...record, source: "browser", logger: "browser",
       key: `b-live-${Date.now()}-${Math.random()}` };
     logRecords.push(liveRecord);
-    //: These four are settings.js's own, like the two names tested above.
+    //: The four are settings.js's, beside `logRecords`, so the check above
+    //: answers for them too (Brief 94 took the guards for the gzip budget).
     sortLogRecords();
     if (logScreenOpen) {
       renderActiveLogView();
@@ -1814,7 +1815,7 @@ const LAZY_MODULES = {
   //: Notes, Questions (questions-view.js), behind two stand-ins.
   questionsView: ["/css/questions-lazy.css", "/js/questions-view.js"],
   settingsData: ["/js/settings-data.js"],
-  settingsUi: ["/js/settings-find.js", "/js/settings-models.js"],
+  settingsUi: ["/js/meaning.js", "/js/settings-find.js", "/js/settings-models.js"],
   tagSuggest: ["/js/tag-suggest.js"],
   searchSuggest: ["/js/search-suggest.js"],
   //: The writing desk's model passes (compose, title, save as note); see writing-desk.js.
@@ -1843,7 +1844,7 @@ const LAZY_MODULES = {
   tour: ["/js/tour.js"],
   updates: ["/js/update-dialogs.js"],
   //: With the feature rows it lists (app-features.js).
-  appPalette: ["/js/app-features.js", "/js/app-palette.js"],
+  appPalette: ["/js/meaning.js", "/js/app-features.js", "/js/app-palette.js"],
   notePanels: ["/js/note-panels.js", "/js/note-edit-panels.js", "/js/note-pick-preview.js"],
   //: Every listener inside the Settings window, awaited on first open: settings-controls.js.
   settingsControls: ["/js/settings-controls.js"],

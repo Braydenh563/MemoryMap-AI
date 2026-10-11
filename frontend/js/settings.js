@@ -668,9 +668,12 @@ function filterSettings(term) {
   let matches = 0;
   //: Each word, or a word meaning the same thing (settings-find.js
   //: `settingQueryAlts`, once that file has loaded): "night" keeps the
-  //: section with the theme in it.
+  //: section with the theme in it. Held at a word start (meaning.js,
+  //: `meaningHolds`, Brief 94): "bin" is not in "binding".
   const alts = typeof settingQueryAlts === "function" ? settingQueryAlts(query) : [[query]];
-  const holds = (text) => text.includes(query) || alts.every((said) => said.some((w) => text.includes(w)));
+  const holds = (text) =>
+    text.includes(query) ||
+    (typeof meaningHolds === "function" ? meaningHolds(alts, text) : alts.every((said) => said.some((w) => text.includes(w))));
   for (const button of buttons) {
     const section = $(`settings-${button.dataset.section}`);
     const hit =

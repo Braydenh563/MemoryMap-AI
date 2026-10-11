@@ -54,6 +54,9 @@ below). Versioning is `0.x` while the app stabilises.
 - Notifications: a notice's actions sit on their own row under its message, left-aligned with it, so the close button is alone in its corner.
 - Notes, Select mode: the tick sits in the card's left gutter on the first line instead of stacking a row above the title (cards and rows keep their height).
 - Library: flicking quickly through the sub-tabs no longer flashes the other kind's tiles or jumps the layout (Images and Files redraw from what is loaded, an overtaken load never draws, placeholders are tile-sized).
+- Search by meaning: Settings, the command palette, Help, the manual and the Guide find a thing by another word for it or a slip in its name ("trash" is the bin, "the little guy in the corner" the companion, "chnage pasword" the password); with an embedding model on, Settings and the palette add a Close in meaning list.
+- Settings: on a phone, a long matching setting no longer widens the results list past the screen.
+- Autocorrect in notes, chat, Ask and titles: a clear typo is fixed as you finish the word, underlined for five seconds (click it to put the word back), Backspace or Ctrl+Z straight after undoes it and the toast carries Undo; never in code, links, tags or search; one switch in Settings, General, Writing.
 - Voice: recordings transcribe again on installs where the audio library refused an option the speech model passed it.
 - Attach: a picture's selection circle sits inside its corner.
 - Running jobs and Activity: every answer, agent turn and background job is listed with a plain title, who started it and how long it took; each opens to its own timed lines, live while it runs.

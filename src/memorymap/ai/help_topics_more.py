@@ -545,7 +545,8 @@ MORE_TOPICS: list[dict] = [
         "id": "settings-overview",
         "keywords": (
             "settings", "where are the settings", "open settings", "find a setting",
-            "search settings", "preferences",
+            "search settings", "preferences", "cant remember what its called",
+            "find by meaning",
         ),
         "body": (
             "Settings opens from the gear in the top bar or Ctrl+,. Its sections "
@@ -557,8 +558,12 @@ MORE_TOPICS: list[dict] = [
             "Logs) and Help and About. The search box at the top of the list "
             "finds a setting by any word in it or by what it does, with words "
             "that mean the same (\"night\" or \"darker\" finds the theme, "
-            "\"battery\" the battery-efficient mode, \"back up\" Backups), and "
-            "lists the matching settings under it, each opening where it sits. A long section lists its "
+            "\"battery\" the battery-efficient mode, \"back up\" Backups, "
+            "\"the little guy in the corner\" the companion, and a slip such as "
+            "\"chnage pasword\" the password), and "
+            "lists the matching settings under it, each opening where it sits; with "
+            "an embedding model on (Settings, Search and index), up to three more found by "
+            "meaning follow under Close in meaning. A long section lists its "
             "groups under its own name in that list: press one to go to it, and "
             "the one you are reading is marked as you scroll. On a phone the "
             "section picker holds the same groups under the section you are in."
@@ -808,7 +813,9 @@ MORE_TOPICS: list[dict] = [
             "The manual is every topic Atlas answers from, on one page: Settings, "
             "Help, Open the manual, or Open the manual in the Guide's ... menu. "
             "The contents on the left jump to a group, the search box keeps only "
-            "the topics that hold every word you type, and the printer button "
+            "the topics that hold every word you type or what the words mean "
+            "(\"trash\" keeps the bin's topic), those whose name holds them "
+            "first, and the printer button "
             "prints what is shown (or saves it as a PDF). It is made from the "
             "Guide's own topics, so the two never disagree. What changed in each "
             "version is under Settings, About, What's new."
@@ -1953,7 +1960,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "command-palette", "find-anything", "search", "addresses", "settings-overview", "settings-reset", "install-app",
     )),
     ("Writing notes", (
-        "capture", "quick-note", "quick-add", "editor-offers", "share-note", "capture-anywhere", "note-outbox", "attachments", "notes-controls",
+        "capture", "quick-note", "quick-add", "editor-offers", "autocorrect", "share-note", "capture-anywhere", "note-outbox", "attachments", "notes-controls",
         "notes-list", "note-history", "links", "favourites", "templates",
         "write-with-atlas", "translate", "translate-offline", "extract-notes", "voice", "live-captions", "meetings",
     )),
@@ -2230,3 +2237,27 @@ def _act_topic() -> dict:
 
 MORE_TOPICS.append(_act_topic())
 TOPIC_META["chat-acts"] = {"title": "Things Chat does for you", "path": "Chat tab"}
+
+
+#: Autocorrect outside the editor (Brief 94, INBOX 850): autocorrect.js.
+MORE_TOPICS.append({
+    "id": "autocorrect",
+    "keywords": (
+        "autocorrect", "auto correct", "autocorrection", "turn off autocorrect",
+        "fix my typos", "it changed my word", "undo a correction", "corrected my word",
+    ),
+    "body": (
+        "Autocorrect fixes a clear typo, such as teh or hwo, as you finish the "
+        "word, in the note boxes, the chat and Ask composers and the titles. "
+        "The corrected word is underlined for five seconds: click it to put "
+        "back what you typed, or press Backspace or Ctrl+Z straight after, and "
+        "the toast carries Undo too. A word you put back is left alone for the "
+        "rest of the session, and a word in your dictionary never changes. It "
+        "never runs in code, links, tags or search boxes. Turn it off in "
+        "Settings, General, Writing; a document has its own switch in the "
+        "editor's ... menu."
+    ),
+    "badge": {"label": "General", "section": "general", "target": "pref-autocorrect"},
+})
+TOPIC_META["autocorrect"] = {"title": "Autocorrect", "path": "Settings, General, Writing", "target": "pref-autocorrect"}
+

@@ -342,6 +342,11 @@ class PreferencesBody(BaseModel):
     #: changes what was typed without being asked is the thing people turn off
     #: first, so this one asks.
     smart_punctuation: bool | None = None
+    #: Autocorrect in the note boxes, the chat and Ask composers and the
+    #: titles (Brief 94, autocorrect.js). On by default, unlike the line above:
+    #: it changes only strings that are not words, says so, and puts each back
+    #: with one key.
+    autocorrect: bool | None = None
     # Display name for the dashboard greeting (empty string clears it).
     display_name: str | None = Field(default=None, max_length=60)
     # Optional context about the user for the librarian.
@@ -753,6 +758,7 @@ def _preferences_from(config) -> dict:
         "spelling_variant": config.get_preference("spelling_variant", "off"),
         "grammar_check": config.get_preference("grammar_check", True),
         "smart_punctuation": config.get_preference("smart_punctuation", False),
+        "autocorrect": config.get_preference("autocorrect", True),
         "display_name": config.get_preference("display_name", ""),
         #: Echoed so Settings can draw the boxes with what is in them rather
         #: than empty, which is the bug this file's other comments keep

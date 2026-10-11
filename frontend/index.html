@@ -1128,7 +1128,7 @@
         category, files or a template.</p>
     </div>
     <p class="muted">Saved where you are, filed in the background.</p>
-    <textarea id="quick-note-text" rows="5" aria-label="Quick note"
+    <textarea id="quick-note-text" data-autocorrect rows="5" aria-label="Quick note"
       placeholder="A thought, a link, a #tag. Ctrl+Enter saves."></textarea>
     <p id="quick-note-status" class="status" role="status"></p>
     <div class="row right space-dialog-actions">
@@ -1570,7 +1570,7 @@
                  typed as the note's own first line ("# Recipe") work exactly
                  the same way. Starting a note with a single # already becomes
                  a title without touching this box at all. -->
-            <input id="entry-title" type="text" maxlength="200"
+            <input id="entry-title" data-autocorrect type="text" maxlength="200"
               placeholder="Optional title"
               aria-label="Optional title: becomes the note's leading heading">
             <!-- Asked for directly: "can you add like a toolbar like in the
@@ -1623,7 +1623,7 @@
                 <i class="ph ph-code ph-lead" aria-hidden="true"></i> <span class="toolbar-word">Source</span>
               </button>
             </div>
-            <textarea id="entry-content" rows="3" class="autogrow" aria-label="New note"
+            <textarea id="entry-content" data-autocorrect rows="3" class="autogrow" aria-label="New note"
               placeholder="Type anything: a joke, a shopping list, a race result…
 Link to another note with [[its first few words]]."></textarea>
             <!-- The box's own foot: Clear (field-clear.js, INBOX 466) at the left, the count at the right. -->
@@ -1880,7 +1880,7 @@ Link to another note with [[its first few words]]."></textarea>
                   <span id="draft-thoughts-count" class="muted"></span>
                 </span>
               </div>
-              <textarea id="draft-thoughts" rows="7"
+              <textarea id="draft-thoughts" data-autocorrect rows="7"
                 placeholder="Just get it down, order doesn't matter…"></textarea>
               <!-- **What to write, in what voice, at what length, from what.**
                    Three selects and an adder, the same shapes the chat dock's
@@ -1963,7 +1963,7 @@ Link to another note with [[its first few words]]."></textarea>
                    one box at 189.2px and the other at 330.3px on a phone. On
                    a desktop neither number is what decides, the flex stretch
                    inside a stretched column is. -->
-              <textarea id="draft-text" rows="7"
+              <textarea id="draft-text" data-autocorrect rows="7"
                 placeholder="Your draft will appear here as Atlas writes it. You can edit it directly."></textarea>
               <!-- Every draft this session produced, newest last, on the
                    `.library-chip` recipe. Undo steps back one pass; these are
@@ -2097,7 +2097,7 @@ Link to another note with [[its first few words]]."></textarea>
             <i class="ph ph-sparkle ask-composer-icon" aria-hidden="true"></i>
             <!-- `data-no-selection-popup`: a question, not writing, so the
                  selection menu leaves it alone (`fieldSelection`, selection.js). -->
-            <input id="question" type="text" data-no-selection-popup
+            <input id="question" data-autocorrect type="text" data-no-selection-popup
               placeholder="e.g. What jokes have I saved?"
               aria-label="Ask your notebook a question">
             <button type="button" id="ask-clear" class="ghost icon-only small field-clear hidden" title="Clear" aria-label="Clear"><i class="ph ph-eraser" aria-hidden="true"></i></button>
@@ -3054,7 +3054,7 @@ Link to another note with [[its first few words]]."></textarea>
             <!-- A textarea, not an input: a three-sentence question used to
                  scroll sideways inside one line. Enter still sends; Shift+Enter
                  is a newline, which an <input> could not offer at all. -->
-            <textarea id="chat-input" rows="1" class="autogrow chat-input"
+            <textarea id="chat-input" data-autocorrect rows="1" class="autogrow chat-input"
               aria-label="Message" placeholder="Ask your notebook anything…"></textarea>
             <button type="button" id="chat-clear" class="ghost icon-only small field-clear hidden" title="Clear" aria-label="Clear"><i class="ph ph-eraser" aria-hidden="true"></i></button>
             <button id="mic-chat" class="ghost icon-only" title="Dictate your question (local Whisper)" aria-label="Dictate your question"><i class="ph ph-microphone" aria-hidden="true"></i></button>
@@ -4408,7 +4408,7 @@ Link to another note with [[its first few words]]."></textarea>
                the graph entirely (user-reported: "sketches don't open from
                the graph"). Any image attachment previews here. -->
           <div id="graph-popup-media" class="graph-popup-media hidden"></div>
-          <textarea id="graph-popup-content" class="autogrow" rows="4" aria-label="Note content"></textarea>
+          <textarea id="graph-popup-content" data-autocorrect class="autogrow" rows="4" aria-label="Note content"></textarea>
           <input id="graph-popup-tags" type="text" placeholder="Tags, comma separated"
             aria-label="Tags">
           <!-- The button is hidden until the note is actually edited: a Save
@@ -4433,9 +4433,9 @@ Link to another note with [[its first few words]]."></textarea>
             <button id="graph-new-close" class="icon-only ghost small dialog-head-btn" type="button" aria-label="Close" title="Close (Esc)"><i class="ph ph-x" aria-hidden="true"></i></button>
           </div>
           <p class="muted" id="graph-new-hint"></p>
-          <input id="graph-new-note-title" type="text" maxlength="200"
+          <input id="graph-new-note-title" data-autocorrect type="text" maxlength="200"
             placeholder="Optional title" aria-label="Optional title">
-          <textarea id="graph-new-content" rows="3"
+          <textarea id="graph-new-content" data-autocorrect rows="3"
             placeholder="Type the thought: Atlas will file it…" aria-label="Note content"></textarea>
           <input id="graph-new-tags" type="text" placeholder="Tags, comma separated"
             aria-label="Tags">
@@ -4691,7 +4691,7 @@ Link to another note with [[its first few words]]."></textarea>
                  from, as a breadcrumb does. -->
             <button type="button" id="doc-back" class="ghost small doc-back" title="Back to your documents in the Library"
               aria-label="Back to your documents in the Library"><i class="ph ph-caret-left ph-lead" aria-hidden="true"></i><span class="doc-back-label">Documents</span></button>
-            <input id="doc-title" type="text" maxlength="200" placeholder="Untitled"
+            <input id="doc-title" data-autocorrect type="text" maxlength="200" placeholder="Untitled"
               aria-label="Document title" class="doc-title-input">
             <!-- What kind of file this document is. Asked for directly: the
                  editor should handle code as well as prose, the type should
@@ -8992,8 +8992,9 @@ Link to another note with [[its first few words]]."></textarea>
         reads for meaning.
       </p>
       <p>
-        Autocorrect as you type and word suggestions are per document, in the
-        editor's ⋯ menu. Import takes a .txt file with one word per line and
+        In a document, autocorrect and word suggestions are per document, in
+        the editor's ⋯ menu; in notes, chat and titles autocorrect is one
+        switch in Settings, General, Writing. Import takes a .txt file with one word per line and
         adds to the list; it never removes a word.
       </p>
     </div>
@@ -11672,6 +11673,11 @@ Link to another note with [[its first few words]]."></textarea>
                 <span>Smart quotes and dashes in documents</span>
               </label>
               <p class="muted">Curly quotes as you type, and two hyphens become a dash; never inside code.</p>
+              <label class="check-row">
+                <input type="checkbox" id="pref-autocorrect" checked>
+                <span>Autocorrect as I type</span>
+              </label>
+              <p class="muted">Fixes a clear typo in notes, chat and titles as you finish the word; Backspace puts it back. Never in code, links, tags or search.</p>
             </div>
             <!-- Search (Brief 86, CHAT_PLAN decision 69): the one switch for
                  every box's suggestions; kept on this device like simple mode. -->

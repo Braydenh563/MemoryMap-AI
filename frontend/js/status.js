@@ -931,10 +931,10 @@ function toast(message, isError = false, { exempt = false, action = null } = {})
   //: with the message already in it. Plain toasts stay plain.
   if (isError) {
     const [label, run] = action || ["Open the logs", () => openSettingsModal("logs")];
-    note.appendChild(toastActionButton(note, label, () => {
+    const act = toastActionButton(note, label, () => {
       clearTimeout(timer);
       run();
-    }));
+    });
     const help = document.createElement("button");
     help.type = "button";
     help.className = "ghost small toast-help";
@@ -945,7 +945,7 @@ function toast(message, isError = false, { exempt = false, action = null } = {})
       dismissToast(note);
       emailSupportReport(message);
     });
-    note.appendChild(help);
+    note.appendChild(toastActions(act, help));
   }
   const timer = setTimeout(() => dismissToast(note), isError ? 9000 : 5500);
   note.appendChild(toastCloseButton(note, timer));
@@ -998,12 +998,24 @@ function toastProgress(message) {
       text.textContent = finalMessage;
       note.classList.toggle("error", Boolean(isError));
       if (actionLabel && onAction) {
-        note.appendChild(toastActionButton(note, actionLabel, keepToastAction(finalMessage, actionLabel, onAction, { go, record })));
+        note.appendChild(toastActions(toastActionButton(note, actionLabel, keepToastAction(finalMessage, actionLabel, onAction, { go, record }))));
       }
       note.toastTimer = setTimeout(() => dismissToast(note), 5500);
       note.appendChild(toastCloseButton(note, note.toastTimer));
     },
   };
+}
+
+//: **A notification's actions are their own row** (INBOX 847: "notification
+//: buttons are still in line with the x close button ... it looks weird"): the
+//: message and the close button are the first row, the actions sit under the
+//: message, left-aligned with its words (`.toast-actions`, 02-chat-graph.css),
+//: so the close X is alone in its corner.
+function toastActions(...buttons) {
+  const row = document.createElement("div");
+  row.className = "toast-actions";
+  row.append(...buttons);
+  return row;
 }
 
 //: One action on a toast (INBOX 584): a small button after the message,
@@ -1041,7 +1053,7 @@ function toastAction(message, actionLabel, onAction, opts = {}) {
   note.toastTimer = opts.sticky ? null : setTimeout(() => dismissToast(note), opts.ms || 8000);
   const buttons = [toastActionButton(note, actionLabel, run)];
   if (opts.also) buttons.push(toastActionButton(note, opts.also.label, opts.also.run));
-  note.append(text, ...buttons, toastCloseButton(note, note.toastTimer));
+  note.append(text, toastActions(...buttons), toastCloseButton(note, note.toastTimer));
   toastStack(box, () => box.appendChild(note));
 }
 
@@ -1103,7 +1115,7 @@ function showServerDownBanner() {
   button.className = "small toast-action";
   button.textContent = "Retry";
   button.addEventListener("click", () => retryServerNow());
-  note.append(text, button, toastCloseButton(note, null));
+  note.append(text, toastActions(button), toastCloseButton(note, null));
   toastStack(box, () => box.appendChild(note));
   serverDownNote = note;
 }

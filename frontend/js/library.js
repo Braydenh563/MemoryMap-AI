@@ -3439,6 +3439,13 @@ let libraryImagesCache = [];
 //: and comparing those would make this test always fail, which is the bug
 //: again with extra steps.
 let libraryImagesSignature = "";
+//: INBOX 852: a render only paints if it is still the newest (a press that
+//: lands while an older fetch is out would otherwise let the older answer
+//: redraw the grid after the newer one), and a sub-tab switch repaints from
+//: the cache at once when there is one, so the previous kind's tiles are never
+//: on screen under the new heading while the fetch is out.
+let libraryImagesGen = 0;
+let libraryImagesLoaded = false;
 function libraryImagesFingerprint(rows) {
   return JSON.stringify(
     (rows || []).map((row) => [
@@ -6504,19 +6511,58 @@ function ocrRevealRegionsForPage(page) {
   }, 300);
 }
 
+//: **Every match is marked in the text** (INBOX 853, the owner: "when
+//: searching in the ocr workspace extracted text, I feel it should highlight
+//: the key words"). The filter kept the rows that held the word and said
+//: "3 of 8 rows"; now each occurrence in a region's words is a `<mark>` on
+//: the app's one find-highlight recipe (`mark.global-find-hit`), the current
+//: one stronger (`.global-find-current`) and scrolled into view, and the count
+//: is of occurrences: "3 of 15". Enter and Shift+Enter, or the two buttons
+//: beside the count, step through them. A region's words are editable, so the
+//: marks are taken out by writing its text back (never while it is being
+//: typed in: only the find box's own input, a step or a redraw gets here).
+let ocrFindHits = [];
+let ocrFindCurrent = -1;
+
+function ocrFindMarkRegion(text, query) {
+  if (text.querySelector("mark.global-find-hit")) text.textContent = text.textContent;
+  if (!query || text.classList.contains("ocr-region-text-empty")) return [];
+  const source = text.textContent;
+  const lower = source.toLowerCase();
+  const marks = [];
+  const frag = document.createDocumentFragment();
+  let at = 0;
+  for (let hit = lower.indexOf(query); hit !== -1; hit = lower.indexOf(query, at)) {
+    if (hit > at) frag.appendChild(document.createTextNode(source.slice(at, hit)));
+    const mark = document.createElement("mark");
+    mark.className = "global-find-hit";
+    mark.textContent = source.slice(hit, hit + query.length);
+    frag.appendChild(mark);
+    marks.push(mark);
+    at = hit + query.length;
+  }
+  if (!marks.length) return [];
+  if (at < source.length) frag.appendChild(document.createTextNode(source.slice(at)));
+  text.replaceChildren(frag);
+  return marks;
+}
+
 function ocrApplyFind() {
   const query = ($("ocr-find")?.value || "").trim().toLowerCase();
   const rows = [...document.querySelectorAll("#ocr-region-list .ocr-region")];
-  let hits = 0;
+  ocrFindHits = [];
   for (const row of rows) {
-    const text = (row.textContent || "").toLowerCase();
-    const match = !query || text.includes(query);
+    const text = row.querySelector(".ocr-region-text");
+    const marks = text ? ocrFindMarkRegion(text, query) : [];
+    const match = !query || marks.length > 0;
     row.classList.toggle("hidden", !match);
     row.classList.toggle("is-found", Boolean(query) && match);
-    if (query && match) hits += 1;
+    ocrFindHits.push(...marks);
   }
-  const count = $("ocr-find-count");
-  if (count) count.textContent = query ? `${hits} of ${rows.length}` : "";
+  //: Stays on the match the person was at when the same word is still found
+  //: (a redraw after a page load), else starts at the first.
+  ocrFindCurrent = ocrFindHits.length ? 0 : -1;
+  ocrFindShowCurrent(false);
   //: The boxes on the picture follow the filter, so "find" answers *where* as
   //: well as *what*: the one thing this workspace can do that a text search
   //: over a transcription cannot.
@@ -6526,6 +6572,41 @@ function ocrApplyFind() {
     );
     box.classList.toggle("is-dimmed", Boolean(query) && row?.classList.contains("hidden"));
   }
+}
+
+function ocrFindShowCurrent(scroll) {
+  const query = ($("ocr-find")?.value || "").trim();
+  const count = $("ocr-find-count");
+  for (const mark of ocrFindHits) mark.classList.remove("global-find-current");
+  const current = ocrFindHits[ocrFindCurrent];
+  if (count) {
+    count.textContent = !query ? "" : current ? `${ocrFindCurrent + 1} of ${ocrFindHits.length}` : "No matches";
+  }
+  for (const id of ["ocr-find-prev", "ocr-find-next"]) {
+    const button = $(id);
+    if (button) button.disabled = ocrFindHits.length < 2;
+    button?.classList.toggle("hidden", !query);
+  }
+  if (!current) return;
+  current.classList.add("global-find-current");
+  if (!scroll) return;
+  //: The nearest scrolling ancestor's own scrollTop, not `scrollIntoView`,
+  //: which walks every scroller up the page (DESIGN.md, a list that says
+  //: where you are).
+  let box = current.parentElement;
+  while (box && !(box.scrollHeight > box.clientHeight && /auto|scroll/.test(getComputedStyle(box).overflowY))) {
+    box = box.parentElement;
+  }
+  if (!box) return;
+  const at = current.getBoundingClientRect();
+  const frame = box.getBoundingClientRect();
+  box.scrollTop += at.top - frame.top - (frame.height - at.height) / 2;
+}
+
+function ocrFindStep(delta) {
+  if (!ocrFindHits.length) return;
+  ocrFindCurrent = (ocrFindCurrent + delta + ocrFindHits.length) % ocrFindHits.length;
+  ocrFindShowCurrent(true);
 }
 
 //: Reading a *picture*, as opposed to a page of a document. Deliberately the
@@ -7131,7 +7212,17 @@ onDomReady(() => {
   }
   $("ocr-prev-page")?.addEventListener("click", () => ocrStepPage(-1));
   $("ocr-next-page")?.addEventListener("click", () => ocrStepPage(1));
-  $("ocr-find")?.addEventListener("input", () => ocrApplyFind());
+  $("ocr-find")?.addEventListener("input", () => {
+    ocrApplyFind();
+    ocrFindShowCurrent(true);
+  });
+  $("ocr-find")?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    ocrFindStep(event.shiftKey ? -1 : 1);
+  });
+  $("ocr-find-prev")?.addEventListener("click", () => ocrFindStep(-1));
+  $("ocr-find-next")?.addEventListener("click", () => ocrFindStep(1));
   //: A reader is a claim about *who read this*, so switching it clears the
   //: reading rather than leaving one reader's words under the other's name.
   $("ocr-reader")?.addEventListener("change", () => {
@@ -8091,6 +8182,7 @@ async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
   const grid = $("library-images-grid");
   const empty = $("library-images-empty");
   if (!grid) return;
+  const gen = ++libraryImagesGen;
   //: The grid is rebuilt from scratch on every render, so the view class has
   //: to be re-applied with it, the toggle is a property of the list, not of
   //: the tiles that happen to be in it right now.
@@ -8110,6 +8202,7 @@ async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
   //: back when the gallery really is empty.
   if (grid.querySelector(":scope > .skeleton")) empty?.classList.add("hidden");
   const images = await apiPagedList("/media", MEDIA_PAGE_SIZE, { silent: true }).catch(() => null);
+  if (gen !== libraryImagesGen) return;
   // A note's own attached file (`Attachment`, not `MediaUpload`) never came
   // from `/media` at all: reported directly, twice: "a pdf I uplaoded to a
   // note doesnt show in the libary" and "my uploaded pdf file isnt shown in
@@ -8125,6 +8218,7 @@ async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
   // `/media/{name}.ext` row: would silently call every attachment a "file"
   // regardless of its real mime.
   const attachments = await apiPagedList("/files/gallery", 200, { silent: true }).catch(() => []);
+  if (gen !== libraryImagesGen) return;
   clearSkeletons(grid);
   // **These two loops are load-bearing and were once silently lost.**
   // Reported: "none of the images and sketches are in the images library
@@ -8149,6 +8243,7 @@ async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
     item.vision_ocr_text = item.vision_ocr_text || "";
   }
   libraryImagesCache = [...(images || []), ...(attachments || [])];
+  libraryImagesLoaded = true;
   const fingerprint = libraryImagesFingerprint(libraryImagesCache);
   const unchanged = fingerprint === libraryImagesSignature;
   libraryImagesSignature = fingerprint;
@@ -9916,7 +10011,16 @@ onDomReady(() => {
         librarySectionShownAt[targetId] = now;
         if (targetId === "library-view-media") {
           setLibraryMediaKind(btn.dataset.mediaKind);
-          renderLibraryImagesGallery();
+          //: Images and Files share one grid: with the cache in hand the new
+          //: kind is drawn in this same frame and the fetch only redraws when
+          //: the answer differs, so the other kind's tiles (or placeholders)
+          //: never show under this heading (INBOX 852).
+          if (libraryImagesLoaded) {
+            filterLibraryImagesGallery();
+            renderLibraryImagesGallery({ ifUnchanged: "skip" });
+          } else {
+            renderLibraryImagesGallery();
+          }
           startLibraryImagesPoll();
         } else if (fresh) {
           stopLibraryImagesPoll();

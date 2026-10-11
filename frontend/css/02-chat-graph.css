@@ -2410,21 +2410,25 @@ kbd {
 /* One toast recipe (INBOX 584, the owner: "no spacing between the message
    and show it link"; measured before: 0px between "...final.png." and its
    Show it, because the progress toast's action was a bare link with no
-   margin and every other part carried its own). The message, its actions,
-   then the close, spaced by one gap. Every control is `--toast-ctl` tall and
-   the message's first line is padded to centre on it, so a one-line toast
-   is one centre line and a wrapped message keeps its actions beside its
+   margin and every other part carried its own). Then INBOX 847 (the owner:
+   "notification buttons are still in line with the x close button ... it
+   looks weird"): two rows. The message and the close button are the first,
+   the actions (`.toast-actions`, one wrapper from `toastActions`) sit under
+   the message on their own row, so the X is alone in its corner. Every
+   control is `--toast-ctl` tall and the message's first line is padded to
+   centre on the close button, so a wrapped message keeps the X beside its
    first line rather than floating to the middle of the paragraph. */
 .toast {
   --toast-ctl: var(--target-min);
   --toast-line: 1.375rem;
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
-  gap: var(--space-3);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-1) var(--space-3);
 }
 .toast > .toast-msg {
-  flex: 1 1 auto;
+  grid-column: 1;
+  grid-row: 1;
   min-width: 0;
   /* A wrapped notice breaks evenly rather than leaving one word alone on
      its second line ("Moved 3 notes to / the bin."). */
@@ -2433,14 +2437,31 @@ kbd {
   padding-block: calc((var(--toast-ctl) - var(--toast-line)) / 2);
   overflow-wrap: anywhere;
 }
-.toast.toast > button {
-  flex: 0 0 auto;
+.toast > .toast-actions {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  /* The quiet action's own side padding is pulled back so its word starts on
+     the message's left edge. */
+  margin-inline-start: calc(var(--space-2) * -1);
+}
+/* `button.small` (01-forms-settings.css) outranks `.toast-action`'s own
+   padding, so the side padding the pull-back above assumes is set here. */
+.toast > .toast-actions > button {
+  padding-inline: var(--space-2);
+}
+.toast.toast button {
   height: var(--toast-ctl);
   min-height: var(--toast-ctl);
   margin: 0;
   white-space: nowrap;
 }
 .toast.toast > .toast-close {
+  grid-column: 2;
+  grid-row: 1;
   min-width: var(--toast-ctl);
   display: inline-flex;
   align-items: center;

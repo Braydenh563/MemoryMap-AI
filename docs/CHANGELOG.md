@@ -48,6 +48,12 @@ below). Versioning is `0.x` while the app stabilises.
 - Settings: every change and clear is undoable from its toast and listed with its Undo in Recent changes (the last twenty).
 - Search: every search box suggests as you type (recent searches, then note titles, tags and categories) with the best match in grey; Tab or Right takes it. A recent search has its own x and a Clear recent searches, and Settings, General, Search turns suggestions off.
 - Notes: unsaved edits kept on this device are no longer dropped when the app restarts and starts up while still locked; the offer to open them comes back after you sign in.
+- OCR workspace: finding in what was read marks every match in the text, the current one stronger and scrolled into view, counts occurrences ("3 of 15"), and steps with Enter, Shift+Enter or two buttons.
+- Settings: Filing style is the same row heading as Categories and Tags (one element, one type); a lint holds every row head to it.
+- Hover grounds: a link-like row's hover ground keeps its rounded corners (a lint and a sweep, `hoverradius.js`, hold it).
+- Notifications: a notice's actions sit on their own row under its message, left-aligned with it, so the close button is alone in its corner.
+- Notes, Select mode: the tick sits in the card's left gutter on the first line instead of stacking a row above the title (cards and rows keep their height).
+- Library: flicking quickly through the sub-tabs no longer flashes the other kind's tiles or jumps the layout (Images and Files redraw from what is loaded, an overtaken load never draws, placeholders are tile-sized).
 - Voice: recordings transcribe again on installs where the audio library refused an option the speech model passed it.
 - Attach: a picture's selection circle sits inside its corner.
 - Running jobs and Activity: every answer, agent turn and background job is listed with a plain title, who started it and how long it took; each opens to its own timed lines, live while it runs.

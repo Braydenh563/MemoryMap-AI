@@ -315,6 +315,8 @@ class PreferencesBody(BaseModel):
     #: The register the composer writes its connecting words in when no model
     #: answers (`ai/composer_tables.py`): plain and friendly, or formal.
     composer_voice: Literal["natural", "professional", "playful", "plain"] | None = None
+    #: What Atlas volunteers past the answer (CHAT_PLAN decision 73).
+    insight_level: Literal["off", "one", "all"] | None = None
     #: **The writing checker's own two settings.** Both belong on the server
     #: rather than in `localStorage`, and the reason is the same for each: a
     #: dictionary you have to rebuild when you clear your browser data is a
@@ -748,6 +750,7 @@ def _preferences_from(config) -> dict:
         "search_relative_z_margin": config.get_preference("search_relative_z_margin", 0.5),
         "communication_style": config.get_preference("communication_style", "friendly"),
         "composer_voice": config.get_preference("composer_voice", "natural"),
+        "insight_level": config.get_preference("insight_level", "one"),
         "writing_dictionary": config.get_preference("writing_dictionary", []),
         "spelling_variant": config.get_preference("spelling_variant", "off"),
         "grammar_check": config.get_preference("grammar_check", True),

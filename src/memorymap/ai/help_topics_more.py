@@ -282,6 +282,7 @@ MORE_TOPICS: list[dict] = [
             "longer answers", "friendly", "professional wording", "formal wording",
             "natural wording", "wording when no model", "composer voice",
             "voice", "playful", "plain answers", "neutral", "how atlas sounds",
+            "insight", "patterns in answers", "what atlas adds",
         ),
         "body": (
             "Settings, Personas, Answer style: how Atlas words its answers, "
@@ -289,7 +290,10 @@ MORE_TOPICS: list[dict] = [
             "active. Below it, How Atlas sounds with no model picks the voice "
             "it answers from your notes in without a model: Warm and concise "
             "(the default), Neutral, Playful or Plain, with a sample under it. "
-            "The facts and the sources are the same in every voice."
+            "The facts and the sources are the same in every voice. What "
+            "Atlas adds of its own sets whether an answer about a topic ends "
+            "with a pattern from your notes: Nothing, One line (the default) "
+            "or Everything it finds; each Not right raises the bar."
         ),
         "badge": {"label": "Answer style", "section": "personas", "target": "pref-style"},
     },
@@ -1168,7 +1172,7 @@ MORE_TOPICS.extend(
                 "they can. Under the overview, Patterns says what the notes measure "
                 "(golf 4 times since 5 September), each with Confirm, which keeps it "
                 "as your own word from then on, and Not right, which never shows it "
-                "or anything like it again; Chat and the dashboard's ⋯ offer the same."
+                "or anything like it again; Chat, Ask and the dashboard's ⋯ offer the same."
             ),
             "badge": {"label": "Notes", "tab": "notes"},
         },

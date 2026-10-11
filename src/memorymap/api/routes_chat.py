@@ -1929,6 +1929,16 @@ def _answer_voice() -> str:
     return value if value in ("natural", "professional", "playful", "plain") else "natural"
 
 
+def _insight_level() -> str:
+    """How much Atlas volunteers past the answer (CHAT_PLAN decision 73), the
+    `insight_level` preference: "off", "one" line (the default) or "all"."""
+    try:
+        value = deps.get_config().get_preference("insight_level", "one")
+    except Exception:  # noqa: BLE001  # no preference is the default
+        return "one"
+    return value if value in composer_digest.INSIGHT_LEVELS else "one"
+
+
 def _composer_voice() -> str:
     """The composer's own register for the same choice: it has two, so
     Playful joins with Natural's words and Plain with Professional's."""
@@ -2302,6 +2312,7 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
                 digest = composer_digest.answer(
                 follow.question if restated else req.question, prepared["notes"], today=user_now(deps.get_config()).date(),
                 voice=_answer_voice(), turn=len(req.history or []),
+                insight=_insight_level(), learned=_insight_memory(req.session),
             )
             except Exception:  # noqa: BLE001  # the composer's answer stands
                 logging.getLogger("memorymap.chat").exception("chat: the digest failed")

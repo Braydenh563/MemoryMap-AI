@@ -419,6 +419,8 @@ class _Out:
     more: list[str] = field(default_factory=list)
     #: The one clarifying chip (B9): the other reading, shown only on a tie.
     next: list[str] = field(default_factory=list)
+    #: Volunteered insights said (decision 73), for Confirm and Not right.
+    insights: list[dict] = field(default_factory=list)
 
 
 def _day(d: date | None, today: date) -> str:
@@ -1166,7 +1168,10 @@ def all_said(question: str, notes: list[dict], *, today: date | None = None) -> 
     return _result(out, "more", asked)
 
 
-def answer(question: str, notes: list[dict], *, today: date | None = None, voice: str = "natural", turn: int = 0) -> dict | None:
+def answer(
+    question: str, notes: list[dict], *, today: date | None = None, voice: str = "natural", turn: int = 0,
+    insight: str = "one", learned=None,  # noqa: ANN001
+) -> dict | None:
     """The decision-70 answer to `question` from the route's `notes`, or None
     when the question is not one this shape answers (a sum, a time, a
     command, nothing found): the caller then asks `composer.compose`."""
@@ -1245,8 +1250,58 @@ def answer(question: str, notes: list[dict], *, today: date | None = None, voice
         topic = _topic(asked, members)
         out.closing.insert(0, PHRASES["tie"].format(topic=topic, category=other, count=_count(len(others))))
         out.next.append(PHRASES["tie_chip"].format(topic=topic, category=other))
+    if kind in ("overview", "likes") and not tie:
+        _volunteer(out, asked, members, notes, today, insight, learned)
     out.offer = out.offer or _offer(facts) or _kind_offer(kind, asked, members, facts, today, out)
     return _result(out, kind, asked)
+
+
+#: Volunteered insight (CHAT_PLAN decision 73): "off", "one" line, or "all"
+#: as found. What it may say: a pattern, a plan gone quiet, a change of mind,
+#: from `ai/insights`' measured rules, each over these notes only.
+INSIGHT_LEVELS = ("off", "one", "all")
+#: How much of an insight must rest on the notes the answer is about, before
+#: any dismissal; each "Not right" raises it, so a person who keeps
+#: dismissing hears fewer, and only the closest.
+INSIGHT_BAR = 0.5
+INSIGHT_STEP = 0.1
+
+
+def insight_bar(learned) -> float:  # noqa: ANN001
+    dismissed = len(getattr(learned, "dismissed", ()) or ())
+    return min(1.0, INSIGHT_BAR + INSIGHT_STEP * dismissed)
+
+
+def _volunteer(out: _Out, asked: str, members, notes: list[dict], today: date, level: str, learned) -> None:  # noqa: ANN001, ARG001
+    """At most one measured insight (all, at "all") the answer has not
+    already said, scored by how much of it rests on the answer's notes."""
+    if level not in INSIGHT_LEVELS or level == "off":
+        return
+    from memorymap.ai import insights
+
+    ids = {v.note.get("source_id", v.id) for v in members}
+    #: The route's notes carry their day as `written` words; the rules read
+    #: an ISO `created_at` (the composer's `_insights_for` does the same).
+    own = [{**v.note, "id": v.note.get("source_id", v.id), "created_at": v.written.isoformat()} if v.written else v.note for v in members]
+    topic = _topic(asked, members)
+    found = [*insights.for_subject(topic, own, today, asked), *insights.drift(own, today), *insights.contrast(own, today)]
+    dismissed = getattr(learned, "dismissed", frozenset()) or frozenset()
+    said = " ".join(out.lines).lower()
+    scored = []
+    for item in found:
+        if insights.key(item) in dismissed or not item.note_ids:
+            continue
+        #: Novelty: "you have written about uni 4 times" after "You have
+        #: four notes about uni" says nothing new.
+        if item.rule in ("recurrence", "streak") and realise.count_word(len(members)) in said:
+            continue
+        relevance = len(set(item.note_ids) & ids) / len(item.note_ids)
+        if relevance >= insight_bar(learned):
+            scored.append((relevance, item))
+    scored.sort(key=lambda pair: -pair[0])
+    for _, item in scored[: 1 if level == "one" else 3]:
+        out.closing.insert(0, item.text)
+        out.insights.append(insights.as_row(item, learned))
 
 
 def _this(out: _Out, views: list, names: set[str], today: date, asked: str) -> dict | None:
@@ -1436,7 +1491,7 @@ def _more(out: _Out) -> dict | None:
 def _result(out: _Out, kind: str, question: str) -> dict:
     #: One paragraph a line: a single newline inside a paragraph is a space
     #: to every markdown reader, so the labelled lines ran together.
-    paragraphs = list(out.lines) + out.more + out.closing[:2]
+    paragraphs = list(out.lines) + out.more + out.closing[: 2 + len(out.insights)]
     if out.offer:
         paragraphs.append(out.offer["label"])
     text = "\n\n".join(paragraphs)
@@ -1452,7 +1507,7 @@ def _result(out: _Out, kind: str, question: str) -> dict:
         "parts": [("template", text)],
         "next": list(out.next),
         "next_parts": [[("template", n)] for n in out.next],
-        "insights": [],
+        "insights": list(out.insights),
         "broad": kind == "overview",
         "digest": True,
         "offer": out.offer,

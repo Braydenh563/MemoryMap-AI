@@ -29,6 +29,7 @@ const SETTING_ROWS = [
   { key: "search_relative_z_margin", id: "pref-search-z-margin" },
   { key: "communication_style", id: "pref-style" },
   { key: "composer_voice", id: "pref-voice" },
+  { key: "insight_level", id: "pref-insight" },
   { key: "smart_punctuation", id: "pref-smart-punctuation" },
   { key: "profile_enabled", id: "pref-profile-enabled" },
   { key: "notifications_muted_except_reminders", id: "pref-notif-mute-except-reminders" },

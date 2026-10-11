@@ -519,6 +519,8 @@ $("pref-voice").addEventListener("change", (e) => {
   showVoiceSample(e.target.value);
 });
 showVoiceSample($("pref-voice").value);
+//: Decision 73: what an answer volunteers past itself.
+$("pref-insight").addEventListener("change", (e) => setPreference("insight_level", e.target.value));
 
 //: Clamped here as the backend clamps it (5 to 60), so a typed 100 saves
 //: as 60 rather than being refused by the preferences schema.

@@ -2224,6 +2224,7 @@ Link to another note with [[its first few words]]."></textarea>
               <div id="ask-answer-foot" class="answer-foot hidden">
                 <div id="ask-answer-related" class="hidden"></div>
                 <div id="ask-answer-sources" class="hidden"></div>
+                <div id="ask-insights" class="hidden"></div>
                 <div id="ask-followups" class="chat-followups ask-followups hidden"></div>
               </div>
             </div>
@@ -9872,6 +9873,32 @@ Link to another note with [[its first few words]]."></textarea>
                   reads like a record; Playful is lighter; Plain says only what
                   it must. The facts, their order and the sources are the same
                   in every voice, and the line above shows a sample.
+                </p>
+              </div>
+              <div class="row">
+                <label for="pref-insight" class="muted">What Atlas adds of its own</label>
+                <select id="pref-insight" title="Whether an answer ends with a pattern Atlas found in your notes">
+                  <option value="off">Nothing</option>
+                  <option value="one">One line (default)</option>
+                  <option value="all">Everything it finds</option>
+                </select>
+              </div>
+              <p class="muted">
+                A pattern, a plan gone quiet or a change of mind, measured in your notes.
+                <button type="button" class="icon-only ghost small graph-help-toggle"
+                  data-help-for="composer-insight-help" aria-controls="composer-insight-help" aria-expanded="false"
+                  title="About this setting" aria-label="About what Atlas adds of its own">
+                  <i class="ph ph-question" aria-hidden="true"></i>
+                </button>
+              </p>
+              <div class="help-body hidden" id="composer-insight-help" role="dialog" aria-label="About what Atlas adds of its own">
+                <p>
+                  After an answer about a topic, Atlas can add a line the notes
+                  on the right cannot show you: a subject that keeps coming up,
+                  a plan no later note picks up, a change of mind. Each is
+                  counted from your own notes and carries Confirm and Not
+                  right. Every Not right raises the bar, so the more you dismiss,
+                  the fewer and closer the lines it adds.
                 </p>
               </div>
             </div>

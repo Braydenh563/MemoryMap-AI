@@ -278,6 +278,8 @@ PHRASES: dict[str, str] = {
     "recall_notes": " notes ",
     "recall_b": ", newest first:",
     "recall_none": "Nothing I found was written ",
+    "bare_a": "Your note ",
+    "bare_b": " is only a title so far, with nothing written under it yet.",
     "none_tagged": "No note found is tagged ",
     # A source that is not a note says its kind in its citation (decision 37):
     # "[board **Harbor board**]".
@@ -3900,6 +3902,23 @@ def _as_typed(word: str, question: str) -> str:
     return found.group(0) if found else word
 
 
+def _bare_title(out: _Answer, terms: list[str], views: list[NoteView]) -> NoteView | None:
+    """A note that is only a title ("Work", "Gym") asked about by that name
+    has no sentence to quote, so the answer used to be "your notes don't
+    cover that" beside a note that plainly is it. Say what it is instead."""
+    stems = {_stem(t) for t in terms}
+    if not stems:
+        return None
+    for v in views:
+        if v.sentences or not v.title:
+            continue
+        named = v.title_words | v.filed_words | v.words
+        if all(_holds(stem, named) for stem in stems):
+            out.t("bare_a", "open_quote").asked(v.title).t("close_quote", "bare_b")
+            return v
+    return None
+
+
 def _nothing(
     shape: str,
     unsure: list[dict] | None = None,
@@ -4207,6 +4226,9 @@ def _compose(
                 said=said,
             )
             if not chosen:
+                bare = _bare_title(out, terms, views_list)
+                if bare is not None:
+                    return _result(out.parts, shape, out.rows)
                 return _nothing(shape, unsure, voice, [_as_typed(w, question) for w in _absent(typed, views_list)], out)
             if wish == "brief":
                 chosen = [s for s in chosen if s.note_id == chosen[0].note_id]

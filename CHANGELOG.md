@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Fixed: chat with no model, "summarise my work notes" when the only note is titled Work answered "Your notes don't seem to cover that"; it now says the note is only a title so far.
 - The Guide with no model: typed questions reach the right topic and its first line answers them, "why is the chat so slow" is Performance mode, "where did my deleted notes go" is the bin, "can i export everything to markdown" is Import & export, "is my data sent anywhere" opens with "No."; a switch's topic says how it is set now ("Web search is off now. Turn it on in Settings, Web search"); help sentences no longer break at "e.g." or "0.5x" (25 of 25 gold questions, from 19).
 - Fixed: a real server answered every chat and the model status with an error since the import-cycle change (the model manager module took the running manager's name). Chat with no model: "how do i export everything to markdown", "how do I back up my notes" and "why is the chat so slow" are answered by the Guide, not searched for in the notes.
 - Chat with no model: a reminder time says which half of the day ("12:39am", "12:39pm", "midnight"); "remind me tonight" said after eight is the next whole hour, not eight o'clock gone by, and a time already past ("tonight at 8", said at ten) is asked again rather than refused; "file the golf note under sport" moves it (a word after "under" is never a nickname).

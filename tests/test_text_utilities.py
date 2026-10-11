@@ -94,3 +94,36 @@ def test_a_window_in_the_documents_search_is_a_window(client, session):
     assert titles("harbor") == ["Harbor crane", "Harbor roof"]
     assert titles("harbor in the last week") == ["Harbor roof"]
     assert titles("last week") == ["Garden", "Harbor roof"]
+
+
+def test_the_document_status_bar_shows_lines_not_only_counts_them():
+    """OPEN ledger 299: `textCounts` returned `lines` and nothing showed it.
+    The bar now reads characters, words, lines and the reading time."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1] / "frontend"
+    source = (root / "js" / "documents.js").read_text(encoding="utf-8")
+    block = source[source.index("function renderDocCounts") : source.index("function renderDocStatusBar")]
+    assert "docLineCount(" in block
+    assert "line${" in block or "line\"" in block
+    assert "lines" in (root / "index.html").read_text(encoding="utf-8").split('id="doc-counts"')[1][:200]
+    helper = source[source.index("function docLineCount") :][:400]
+    assert 'endsWith("\\n")' in helper
+
+
+def test_the_palette_has_a_help_button_that_takes_its_own_escape():
+    """OPEN ledger 289: the timer, stopwatch and Count words are palette rows
+    with no surface of their own, so the palette's foot carries a `?`
+    (`data-help-for`). The first Escape closes that help only; the palette
+    closes on the next (menus.js marks the press as spent)."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1] / "frontend"
+    html = (root / "index.html").read_text(encoding="utf-8")
+    card = html[html.index('id="palette-card"') : html.index('id="history-overlay"')]
+    assert 'data-help-for="palette-help"' in card and 'aria-controls="palette-help"' in card
+    assert 'id="palette-help"' in card
+    for word in ("Timer", "Stopwatch", "Count words"):
+        assert word in card
+    wiring = (root / "js" / "settings-wiring.js").read_text(encoding="utf-8")
+    assert "if (!e.helpPopoverSpent) closePalette();" in wiring

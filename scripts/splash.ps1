@@ -506,12 +506,13 @@ try {
 
   $btnCopy.Add_Click({
     # What a person is asked for when they report "it will not start": the
-    # steps that ran, how long the current one has been going, and the tail of
-    # the log. Deliberately NOT a live `start.bat --doctor` run: the doctor
-    # probes the port the app is about to bind and talks to the git remote,
-    # and running it in the middle of an install is a good way to make the
-    # thing being diagnosed worse. The doctor is one command away in a
-    # terminal; this is what only the splash knows.
+    # steps that ran, how long the current one has been going, the tail of the
+    # log, and the launcher's own `--doctor` table. The doctor is run with
+    # MEMORYMAP_DOCTOR_OFFLINE=1 and a 20 second limit: a live one probes the
+    # port the app is about to bind and asks the git remote and the model
+    # server, which in the middle of an install makes the thing being
+    # diagnosed worse; the offline mode skips exactly those three rows
+    # (start.bat, `:doctor_port`, `:doctor_updates`, `:doctor_ollama`).
     try {
       $lines = @("Tessellate launch diagnostics", (Get-Date).ToString("u"), "")
       foreach ($s in @($st.rows)) {
@@ -521,6 +522,30 @@ try {
       $lines += ("Windows: " + [System.Environment]::OSVersion.VersionString)
       $lines += ("PowerShell: " + $PSVersionTable.PSVersion.ToString())
       if ($LogPath) { $lines += ("Log: " + $LogPath) }
+      if ($LauncherPath -and (Test-Path -LiteralPath $LauncherPath)) {
+        try {
+          $psi = New-Object System.Diagnostics.ProcessStartInfo
+          $psi.FileName = $env:ComSpec
+          $psi.Arguments = '/c ""' + $LauncherPath + '" --doctor"'
+          $psi.UseShellExecute = $false
+          $psi.CreateNoWindow = $true
+          $psi.RedirectStandardOutput = $true
+          $psi.EnvironmentVariables["MEMORYMAP_DOCTOR_OFFLINE"] = "1"
+          $doc = [System.Diagnostics.Process]::Start($psi)
+          if ($doc.WaitForExit(20000)) {
+            $lines += ""
+            $lines += "Launcher doctor (offline):"
+            $lines += $doc.StandardOutput.ReadToEnd()
+          } else {
+            try { $doc.Kill() } catch { }
+            $lines += ""
+            $lines += "Launcher doctor (offline): did not finish in 20 seconds"
+          }
+        } catch {
+          $lines += ""
+          $lines += "Launcher doctor (offline): could not be run"
+        }
+      }
       $lines += ""
       $lines += "Last log lines:"
       $lines += (Read-LogTail 20)

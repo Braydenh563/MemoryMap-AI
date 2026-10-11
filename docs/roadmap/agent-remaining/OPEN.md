@@ -3426,7 +3426,7 @@ The five files are in [`../archive/agent-remaining/`](../archive/agent-remaining
 - The Timeline labels a map under the "Boards" kind chip (`frontend/js/timeline.js:266`); it draws it with a map chip and an "Open this map" action, so it is not a note leak. (from mapnotes-1010.md)
 - Notes keep the old `updated_at` rule (any write moves it): `edited_at` answers "when a person changed it", but `lexical_filing` (`src/memorymap/ai/lexical_filing.py:554`) keys stamps on `updated_at`, so the board-only guard in `core/database.py` was not widened. (from mapnotes-1010.md)
 - Each VC row is unbuilt; the script and test are the only code (Brief 75 says no code beyond them). (from vendor-1010.md)
-- The p5 API list in `scratchpad/vendor_use.py` is a Chromium dump pinned to 1.9.4; regenerate it with a p5 upgrade. (from vendor-1010.md)
+- The p5 API list in `scratchpad/vendor_use.py` is a Chromium dump pinned to 1.9.4 (the vendored p5 is 1.11.13 since 2026-10-11, not yet regenerated); regenerate it with a p5 upgrade. (from vendor-1010.md)
 - Brief 2 (consistency lints): HISTORY mentions it only as an owner reference; no record of the lint set being built as the brief. (from briefs-1010.md)
 - Brief 3 (prefs, api.stream/upload, innerHTML): HISTORY line 43146 area still lists `api.stream`/`api.upload` and the no-bare-fetch lint as not built. (from briefs-1010.md)
 - Brief 4 (Settings two-pane, 54 paragraphs): WORLD_CLASS_PLAN.md:1019 says the 54 paragraphs "not re-checked here, so still open". (from briefs-1010.md)

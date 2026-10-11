@@ -2388,6 +2388,28 @@ def _start_tray(
     return icon
 
 
+def _run_mcp() -> int:
+    """The stdio MCP server (`mcp_server.serve`) for the packaged app, which
+    cannot run `python -m memorymap.mcp_server` (its exe is the interpreter).
+
+    The protocol lives on file descriptors 0 and 1, opened here rather than
+    read from `sys.stdin`/`sys.stdout`: a windowed build has no console, so
+    `_ensure_std_streams` has already pointed `sys.stdout` at a log file, and
+    an MCP client launches the exe with pipes on those descriptors. If they
+    are not there the client gets a message on stderr and a non-zero exit
+    instead of a hang. Live behaviour of a windowed exe is "needs device"."""
+    try:
+        stdin = open(0, encoding="utf-8", closefd=False)  # noqa: SIM115
+        stdout = open(1, "w", encoding="utf-8", newline="\n", closefd=False)  # noqa: SIM115
+    except OSError:
+        print("MemoryMap --mcp needs standard input and output from an MCP client.", file=sys.stderr)
+        return 2
+    from memorymap import mcp_server
+
+    mcp_server.serve(stdin=stdin, stdout=stdout)
+    return 0
+
+
 def _export_markdown(destination: str) -> int:
     """Write the Markdown export zip to `destination`, with no server.
 
@@ -2582,6 +2604,13 @@ def main() -> None:
         "(the same archive Settings downloads)",
     )
     parser.add_argument(
+        "--mcp",
+        action="store_true",
+        help="serve this notebook's tools, notes and skills to an MCP client "
+        "(Claude Desktop) over standard input and output, then exit when it "
+        "closes; Settings, Tools shows the config to paste",
+    )
+    parser.add_argument(
         "--reset-password",
         action="store_true",
         help="forgot your password: clear it so you can set a new one "
@@ -2630,6 +2659,9 @@ def main() -> None:
     if args.capture:
         _close_bootloader_splash()
         raise SystemExit(_capture())
+    if args.mcp:
+        _close_bootloader_splash()
+        raise SystemExit(_run_mcp())
     if args.export:
         _close_bootloader_splash()
         raise SystemExit(_export_markdown(args.export))

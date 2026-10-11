@@ -138,7 +138,8 @@ MORE_TOPICS: list[dict] = [
         "body": (
             "Settings, Tools it can use also has Use these tools from another "
             "app: a snippet to paste into an MCP client such as Claude Desktop, "
-            "with a Copy button. "
+            "with a Copy button; that client can also read your notes (never "
+            "a private one) and use your skills as prompts. "
             "A number Atlas would work out (a sum, a percentage, a conversion, a "
             "count of days) comes from the app's own calculator, Calculate, and a "
             "date in your words from Read text, so a small model computes "
@@ -818,7 +819,8 @@ MORE_TOPICS: list[dict] = [
             "stop the timer", "time how long",
         ),
         "body": (
-            "Type timer in the command palette (Ctrl+K) for Start a timer (25 "
+            "Type timer in the command palette (Ctrl+K; its ? at the foot lists "
+            "the timer, the stopwatch and Count words) for Start a timer (25 "
             "minutes) and Start a stopwatch, or type a length, such as timer 10 "
             "minutes, 90s timer or countdown 2h, and press Enter. The time runs "
             "on the status bar (on a phone the bar comes back while it runs); "
@@ -2103,7 +2105,9 @@ MORE_TOPICS.extend([
             "Typing the address without https still "
             "works: the app sends the phone on to https. If the phone cannot connect, "
             "both must be on the same Wi-Fi (not a guest one) and this computer's "
-            "firewall must let the app in. The phone reads and writes the same "
+            "firewall must let the app in (on Windows, Other devices shows the "
+            "one line to paste into an administrator Command Prompt, for private "
+            "networks only). The phone reads and writes the same "
             "notebook; nothing goes through the internet, so the computer has to be on. "
             "Nothing installs on the phone: it is only a browser window, and search, "
             "the models and the notes all run and stay on this computer. A phone "

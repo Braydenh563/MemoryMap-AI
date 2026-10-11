@@ -15302,6 +15302,14 @@ function renderDocToolbarState() {
   }
 }
 
+//: The lines a reader sees: `textCounts(...).lines` is `wc -l` (newlines), so a
+//: last line with no newline after it is one more, and an empty text has none.
+function docLineCount(text) {
+  const value = String(text || "");
+  if (!value) return 0;
+  return textCounts(value).lines + (value.endsWith("\n") ? 0 : 1);
+}
+
 //: The counts. A whole-document pass, which is why it is scheduled rather
 //: than run on the keystroke (see `scheduleDocFacts`).
 function renderDocCounts() {
@@ -15314,12 +15322,17 @@ function renderDocCounts() {
   //: Counted by `textCounts` (settings-wiring.js), the one count the
   //: composer, this bar and the server share: characters are code points, as
   //: `wc -m` counts them, so an emoji is one, not two.
-  const { words, chars, read } = textCounts(docCommentStrip(docText()));
+  const stripped = docCommentStrip(docText());
+  const { words, chars, read } = textCounts(stripped);
+  const lines = docLineCount(stripped);
   //: Characters first, because that is the one the existing header line never
-  //: showed and the one that was asked for by name.
+  //: showed and the one that was asked for by name. Lines (OPEN ledger 299)
+  //: come before the reading time, which is what a phone's ellipsis drops
+  //: first.
   counts.textContent = [
     `${chars.toLocaleString()} char${chars === 1 ? "" : "s"}`,
     `${words.toLocaleString()} word${words === 1 ? "" : "s"}`,
+    lines ? `${lines.toLocaleString()} line${lines === 1 ? "" : "s"}` : "",
     read,
   ]
     .filter(Boolean)

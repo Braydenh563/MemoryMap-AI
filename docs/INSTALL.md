@@ -62,6 +62,8 @@ terms stopped the release build, so releases carry the `.exe` only.
 **The installer is a snapshot.** It does not update itself, and nothing
 contacts GitHub until you ask: see [Updating](#updating).
 
+**What the setup file is, and what it costs.** `MemoryMap-AI-Setup-<version>-windows-x86_64.exe` is an ordinary Windows setup program, built with [Inno Setup](https://jrsoftware.org/isinfo.php), a free tool whose licence allows free and commercial use. You never need Inno Setup yourself: it is used once, on the build machine, to make the file, and nothing in the installed app calls it. The app does use the file: Settings, About, Check for updates downloads the next release's setup program and runs it silently over the old one, and `/VERYSILENT` is how a fleet install runs it. The file is unsigned, so Windows asks you to click through once.
+
 ## Linux package
 
 1. Download `MemoryMap-AI-*-linux-x86_64.tar.gz` from the same
@@ -174,7 +176,7 @@ model in the same place.
 | `--version` | Print the version and exit |
 | `--help` | Show the list and exit |
 
-**Sharing the system's packages (opt-in, Linux and macOS).** `MEMORYMAP_SYSTEM_SITE_PACKAGES=1 ./start.sh --reinstall` builds `.venv` with `--system-site-packages`, so a torch you already installed system-wide is not downloaded again. It is refused, with the reason printed, when that torch is outside the range in `requirements.txt`.
+**Sharing the system's packages (opt-in).** On Windows, `set MEMORYMAP_SYSTEM_SITE_PACKAGES=1` and then `start.bat --reinstall` (the Windows launcher is checked as text only; it needs a run on a Windows machine). On Linux and macOS, `MEMORYMAP_SYSTEM_SITE_PACKAGES=1 ./start.sh --reinstall` builds `.venv` with `--system-site-packages`, so a torch you already installed system-wide is not downloaded again. It is refused, with the reason printed, when that torch is outside the range in `requirements.txt`.
 The risk is that a system package shadows the one the app was tested with and fails later in a way that looks unrelated; if anything misbehaves, run `./start.sh --reinstall` without the variable.
 
 **If it does not start, run `--doctor` first.** It prints one row per thing
@@ -242,9 +244,10 @@ For a server or a NAS. From the repository root, `MEMORYMAP_FIRST_PASSWORD=choos
 - `MEMORYMAP_FIRST_PASSWORD` is used only while no password is set, is never logged and is removed from the process once read. Take it out of your compose file after the first start.
 - Two volumes: `/data` (database, files, certificate, backups) and `/models` (downloaded models), so resetting a notebook never downloads a model again.
 - The compose file publishes the port on the host's loopback only. For other devices, put a reverse proxy with TLS in front.
+- Behind a reverse proxy, set `MEMORYMAP_ALLOWED_HOSTS` to the public name it forwards (`memory.example.com`; several are comma-separated, names only). Without it the app answers 421 to a Host that is not the container's own. A page on that name, on port 443 or 80, is then treated as the app's own page.
 - The default image has no torch (about 400 MB on disk): search by keyword and an Ollama embedder on the host (`OLLAMA_URL`). `--build-arg WITH_EMBEDDER=1` adds the built-in search model and CPU torch (about 1.6 GB).
 - What a container cannot do: the desktop window and tray, native file dialogs, the Start menu shortcuts and Repair, and the "Allow other devices" switch (use the port mapping instead).
-- Not built in the sandbox it was written in; report what the first build says.
+- Not built in the sandbox it was written in (no Docker daemon, needs device); `tests/test_docker_files.py` reads the files as text. Report what the first build says.
 
 ## Running it
 
@@ -267,7 +270,8 @@ Other commands:
 | `python -m memorymap --reset-password` | Clear a forgotten password so you can set a new one; private notes stay sealed (the lock screen's "Forgot your password?" does the same, or keeps them with a recovery key) |
 | `python -m memorymap --reinstall` | One-click repair: clears the app window's cached profile, then starts normally; what the installer's Repair shortcut runs, and your notes and settings are never touched |
 | `python -m memorymap --capture` | Open a one-line capture window on the running app: bind it to a key in your system settings |
-| `python -m memorymap.mcp_server` | A stdio MCP server over the app's own non-destructive tools, for another program on this computer (a source checkout only: the packaged app has no Python to run it with) |
+| `python -m memorymap.mcp_server` | A stdio MCP server for another program on this computer: the app's non-destructive tools, your notes as readable resources (`memorymap://note/<id>`, never a private note) and your skills as prompts |
+| `MemoryMap --mcp` | The same server from the packaged app, which has no Python to run the line above with (live behaviour of the windowed exe: needs device) |
 
 ### Environment variables
 

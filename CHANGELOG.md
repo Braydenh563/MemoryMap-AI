@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+<<<<<<< HEAD
 - Fixed: a wrong password on the lock screen now says "That password is wrong." under the field (it said "Locked"), and pressing Read in the OCR workspace with no reader installed now leaves the reader menu open on the installs (a document-level handler closed it the moment it opened).
 - Fixed: closing a board card's editor while the text editor was still loading no longer throws.
 - Chat: "what is there about X" and "what have I got on X" answer as the topic overview with no model; a pasted wall of brackets no longer stalls a document read aloud or the plain-text strip (linear link stripping); a panel frame's hint takes a double-click again.
@@ -26,6 +27,19 @@ below). Versioning is `0.x` while the app stabilises.
 - Closing or reloading the page while a chat answer is still arriving now asks before it leaves. "Model per feature" in Settings stays visible when no model server is running, so an override can still be seen and cleared. Counts and totals use steady-width digits.
 - Settings: General has a Calendar row, "First day of the week" (from your language and region by default, or Monday, Saturday or Sunday); the Statistics week starts on it. A slow model-status check now keeps the last answer instead of greying the Agent panel, and Settings says the server is slow.
 - Settings, About, Maintenance: the launcher's doctor, reinstall, logs, shortcut and uninstall from inside the app. Check this computer runs the doctor's checks in the app (the packaged app too) with the same row names as `start --doctor`; Reinstall on next start leaves a marker that start.sh and start.bat read as `--reinstall` once; each is refused from another device.
+=======
+- Packaging: the frozen builds use Python 3.13, the dependency floors are the newest releases (fastapi 0.143.0, SQLAlchemy 2.1.4, tzdata 2026.5, numpy 2.5.4), and the vendored CodeMirror packages, docx (9.10.0) and p5.js (1.11.13) are bumped with licences unchanged; the version, the data folder and the launchers kept out of the installer are each pinned by a test.
+- Launcher: the Windows launcher reads MEMORYMAP_SYSTEM_SITE_PACKAGES like the shell one; the splash's Copy diagnostics adds the launcher's doctor with its port, git and model-server rows skipped (MEMORYMAP_DOCTOR_OFFLINE=1); the Windows uninstaller's dry run counts the notes when they are deleted.
+- Documents: the status bar also shows the line count. The command palette has a ? at its foot that explains the timer, stopwatch and Count words, and its first Escape closes that help only.
+- Appearance now follows you between open windows: a window in the same browser repaints at once, and another browser or computer pulls the notebook's look when the window regains focus (an unsent change of its own still wins).
+- Settings, About: Also tell me about beta versions (off by default) makes a check offer the highest version, a beta or release candidate included; a final release always outranks its own betas.
+- Install guide: what the setup file is, that it is built with free Inno Setup, and that the app's updater runs it.
+- Packaging checks: the Windows smoke ignores only tracebacks listed in `packaging/benign_tracebacks.txt` (empty), and the upgrade check skips with a notice in a repository that has published no release.
+- Settings, Other devices: on Windows, with the switch on, the one `netsh` line that opens the port on private networks only, with a Copy button.
+- Tools for other apps: the MCP server now also offers your notes as readable resources (never a private note) and your skills as prompts, and the packaged app starts it with `MemoryMap --mcp`; Settings, Tools shows the matching config to paste.
+- Docker: the compose file's build context is the repository (it pointed one folder too high), the image's data and models folders belong to the user the app runs as, and `MEMORYMAP_ALLOWED_HOSTS` names a reverse proxy's public host so it is no longer answered 421 and its pages are not refused as another site.
+- Library: importing a .diff, .patch, .vb or .vbs file now works (it was refused as unreadable), and so does a file named Dockerfile or Makefile, which has no suffix.
+>>>>>>> agent/pack-1011
 - Launcher: `doctor`, `reinstall` and `tools` are one double-click each, as `.sh` and `.bat`: the machine check, a rebuild of the Python environment that asks first and leaves notes alone, and a menu of every launcher action.
 - Notes: a note with fewer than three tags shows a quiet "+ Tag" after its tags. It opens up to three suggested tags as one-press chips above a field for your own, and its menu has "Don't suggest tags for this note" (Undo in the notice, and "Suggest tags for this note again" in the same menu).
 - Settings: sizes are the device's own. Zoom, Text size, Density, the companion's size and place, the chat box's height and the whiteboard's panel places are no longer copied to your notebook or applied from it, so changing the zoom or the companion's size on a computer leaves a phone as it was (colours, themes and fonts still follow you). They are marked On this device in Settings, Appearance, and a saved look no longer carries them.

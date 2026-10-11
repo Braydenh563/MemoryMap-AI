@@ -141,7 +141,7 @@ jobs:
 
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Install build dependencies
         # The base app's own deps, minus sentence-transformers/torch:
@@ -253,7 +253,7 @@ jobs:
 
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       # pywebview's Linux backend needs GTK/WebKit as system packages —
       # pip alone can't provide them.

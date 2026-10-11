@@ -54,7 +54,11 @@ VENDOR_ALLOWED = {
     # p5's translations loader (i18next), used only by the Friendly Error
     # System, which the minified build leaves out; the CSP's connect-src
     # 'self' would refuse it anyway. fe1005-offline.js saw no request.
-    ("p5.min.js", "https://cdn.jsdelivr.net/npm/p5/translations/{{lng}}/{{ns}}.json"),
+    # 1.11 writes the same loader with the minor version in the path
+    # (`npm/p5@<major.minor>/translations/...`), so the address as matched
+    # ends at the `@`; same loader, same reason, re-checked in Chromium on
+    # 1.11.13 (no request left the page, scratchpad notes in pack-1011.md).
+    ("p5.min.js", "https://cdn.jsdelivr.net/npm/p5@"),
 }
 VENDOR_REQUEST = re.compile(
     r"""(?:fetch\(|importScripts\(|\.src\s*=\s*|loadPath:\s*|url\(\s*)["'`](https?://[^"'`]+)"""

@@ -632,7 +632,9 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (e.key === "Escape" && !$("palette-overlay").classList.contains("hidden")) {
-    closePalette();
+    //: A '?' open on the palette (its foot) takes this Escape for itself; the
+    //: next one closes the palette (`menus.js` marks the press as spent).
+    if (!e.helpPopoverSpent) closePalette();
     return;
   }
   if (e.key === "Escape" && !$("sketch-overlay").classList.contains("hidden")) {

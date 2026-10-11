@@ -1635,7 +1635,19 @@ body.graph-fullscreen-on .sidebar-panel {
 }
 .palette-hint {
   font-size: var(--text-sm);
-  margin: 0.5rem 0 0;
+  margin: 0;
+}
+/* The key hints and the '?' on one line; on a phone the hints go and the '?'
+   stays, pushed to the right. */
+.palette-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.palette-foot .graph-help-toggle {
+  margin-left: auto;
 }
 /* --- Wave F: whiteboard-lite ---------------------------------------------------- */
 #sketch-overlay {

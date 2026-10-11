@@ -78,8 +78,24 @@ CODE_SUFFIXES = frozenset(
         # attached and then had no viewer, no AI reading, and no import path.
         # Every other mainstream language already in this set had all three.
         ".cs",
+        # A diff or patch is what a reviewer pastes into a library; the two
+        # Visual Basic suffixes are plain source. `.dockerfile` and `.mk` are
+        # what `effective_suffix` gives the two common extensionless names.
+        ".diff", ".patch", ".vb", ".vbs", ".dockerfile", ".mk",
     }
 )
+
+#: Files whose name is their type, because they carry no suffix at all.
+EXTENSIONLESS_CODE_NAMES = {"dockerfile": ".dockerfile", "makefile": ".mk"}
+
+
+def effective_suffix(name: str) -> str:
+    """The suffix the viewer and the importer judge a file by: its own, or the
+    one a well-known extensionless name stands for (`Dockerfile`)."""
+    suffix = Path(name).suffix[:12].lower()
+    if suffix:
+        return suffix
+    return EXTENSIONLESS_CODE_NAMES.get(Path(name).name.lower(), "")
 
 #: A saved web page, for the *import* path only (DOCUMENTS_PLAN Phase 7,
 #: "import of .docx/.html to markdown"): somebody who saves an article and

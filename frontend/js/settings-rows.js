@@ -10,8 +10,9 @@
 //    A reset sets the control and fires its own event, so the save is the one
 //    the control already makes: there is no second way to write a setting.
 // 2. **Where it is kept, said so.** A look setting the notebook does not keep
-//    (it is not in `mirroredUiKeys`, ai-tools.js) is marked "This browser".
-//    Only `perf` is: performance mode is the machine's, the rest follow the person.
+//    (it is not in `mirroredUiKeys`, ai-tools.js) is marked "On this device".
+//    Performance mode is the machine's, and sizes (`DEVICE_ONLY_KEYS`) are the
+//    screen's; the rest follow the person.
 // 3. **The settings as a file**: Settings, Import and export, Your settings.
 //
 // The registries are walked by tests/test_settings_rows.py against every key
@@ -72,7 +73,7 @@ const SETTING_ROWS = [
 ];
 
 //: Appearance, kept in `localStorage` and mirrored to the notebook (every key
-//: in `mirroredUiKeys`; `perf` alone stays in this browser). The default is the active theme's value, else
+//: in `mirroredUiKeys`; `perf` and the sizes in `DEVICE_ONLY_KEYS` stay on the device). The default is the active theme's value, else
 //: APPEARANCE_DEFAULTS (settings.js), else `base`. `seg` names a segmented
 //: group's data attribute. Zoom, the accent and the palette are left out:
 //: each already has its own reset beside it.
@@ -265,8 +266,8 @@ function settingResetButton(row, rowEl) {
 function settingScopeChip(row, rowEl) {
   if (!row.look || rowEl.querySelector(".setting-scope")) return;
   if (mirroredUiKeys().includes(row.key)) return;
-  const scope = chip("This browser", "setting-scope");
-  scope.title = "Kept in this browser only: another browser or computer has its own";
+  const scope = chip("On this device", "setting-scope");
+  scope.title = "Kept on this device only: another browser, computer or phone has its own";
   const place = settingMarkHost(rowEl);
   place.host.insertBefore(scope, place.before);
 }
@@ -391,7 +392,7 @@ function browserOnlySettings() {
   const mirrored = new Set(mirroredUiKeys());
   const out = {};
   for (const row of LOOK_ROWS) {
-    if (mirrored.has(row.key)) continue;
+    if (mirrored.has(row.key) || DEVICE_ONLY_KEYS.includes(row.key)) continue;
     const value = prefs.get(row.key, null);
     if (value != null) out[row.key] = String(value).slice(0, 400);
   }
@@ -427,7 +428,7 @@ function applyLookSettings(file) {
     if (mirrored.has(key) && typeof value === "string") localStorage.setItem(key, value);
   }
   for (const [key, value] of Object.entries(fromBrowser)) {
-    if (local.has(key) && typeof value === "string") localStorage.setItem(key, value);
+    if (local.has(key) && !DEVICE_ONLY_KEYS.includes(key) && typeof value === "string") localStorage.setItem(key, value);
   }
   applyAppearance();
   if (currentSettingsSection === "appearance") renderAppearance();

@@ -58,8 +58,7 @@ const AUTOCORRECT_SECONDS = 5;
 //: unambiguous. Mid-word it would rewrite "teh" on the way to "tehran".
 const AUTOCORRECT_ENDS = /^[\s.,;:!?)\]]$/;
 const autocorrectRefused = new Set();
-let autocorrectLast = null;
-let autocorrectBusy = false;
+let autocorrectLast = null, autocorrectBusy = false;
 
 //: The correction the text up to the caret asks for, or null. Pure, so the
 //: rule is tested in node: a finished word, not part of a link, a path, a

@@ -111,12 +111,9 @@ let libraryKind = "all";
 //: matching", because the client filtered a list that never held it.
 let libraryTruncated = {};
 //: What the last draw showed, and when (see loadLibrary).
-let librarySignature = "";
-let libraryDrawnAt = 0;
+let librarySignature = "", libraryDrawnAt = 0;
 //: Which `renderLibrary` call is the newest (see its `updateDOM`).
-let libraryRenderGen = 0;
-let libraryBaseItems = [];
-let libraryServerQuery = "";
+let libraryRenderGen = 0, libraryBaseItems = [], libraryServerQuery = "";
 
 //: Same pattern as Notes' and the Library Documents sub-tab's own paging: 
 //: "all" (the default) leaves renderIncrementally's chunked scroll untouched;
@@ -406,8 +403,7 @@ function librarySorted(items) {
 // question finds. The hits are only read as a set of note ids here, so the
 // index holding a binned or archived note (flagged) changes nothing: the
 // filter below keeps only rows whose kind is still "note".
-let librarySemanticIds = null;
-let librarySemanticQuery = "";
+let librarySemanticIds = null, librarySemanticQuery = "";
 
 async function refreshLibrarySemantic() {
   const query = ($("library-search")?.value || "").trim();
@@ -448,8 +444,7 @@ async function refreshLibrarySemantic() {
 // so the count of columns at every width is what it was. One column in Rows,
 // and below 600, where the phone band has always drawn a single column.
 const LIBRARY_CARD_MIN_REM = 17;
-let libraryColumnsShown = 1;
-let libraryColumnsObserver = null;
+let libraryColumnsShown = 1, libraryColumnsObserver = null;
 
 function libraryColumnCount(grid) {
   if (libraryView() === "list" || window.innerWidth < 600) return 1;
@@ -3444,8 +3439,7 @@ let libraryImagesSignature = "";
 //: redraw the grid after the newer one), and a sub-tab switch repaints from
 //: the cache at once when there is one, so the previous kind's tiles are never
 //: on screen under the new heading while the fetch is out.
-let libraryImagesGen = 0;
-let libraryImagesLoaded = false;
+let libraryImagesGen = 0, libraryImagesLoaded = false;
 function libraryImagesFingerprint(rows) {
   return JSON.stringify(
     (rows || []).map((row) => [
@@ -3808,13 +3802,10 @@ const ocrUi = {
   //: Which file `ocrWorkspacePages` was counted for (`ocrBuildPageRail`).
   pagesFor: "",
 };
-let ocrWorkspaceImages = [];
-let ocrWorkspaceCurrent = null;
-let ocrWorkspaceRegions = [];
+let ocrWorkspaceImages = [], ocrWorkspaceCurrent = null, ocrWorkspaceRegions = [];
 //: Which page of a multi-page document is on the stage, and how many there
 //: are. 0/1 for an image, which is a one-page document with no rail.
-let ocrWorkspacePage = 0;
-let ocrWorkspacePages = 1;
+let ocrWorkspacePage = 0, ocrWorkspacePages = 1;
 //: **Whether that count is a fact or a placeholder.** `ocrWorkspacePages`
 //: starts at 1 for a document of unknown length, which is indistinguishable
 //: from a document that really has one page, and the two want opposite
@@ -5964,8 +5955,7 @@ const OCR_VIEW_KEY = "memorymap.ocr.view";
 let ocrViewMode = "page";
 //: Set while the code is doing the scrolling, so the observer that watches
 //: which page is on screen does not answer its own scroll by scrolling again.
-let ocrScrollSyncing = false;
-let ocrScrollObserver = null;
+let ocrScrollSyncing = false, ocrScrollObserver = null;
 
 function ocrStoredViewMode() {
   try {
@@ -6521,8 +6511,7 @@ function ocrRevealRegionsForPage(page) {
 //: beside the count, step through them. A region's words are editable, so the
 //: marks are taken out by writing its text back (never while it is being
 //: typed in: only the find box's own input, a step or a redraw gets here).
-let ocrFindHits = [];
-let ocrFindCurrent = -1;
+let ocrFindHits = [], ocrFindCurrent = -1;
 
 function ocrFindMarkRegion(text, query) {
   if (text.querySelector("mark.global-find-hit")) text.textContent = text.textContent;

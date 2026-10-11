@@ -72,7 +72,7 @@ function lanNoticeDevice(device) {
   recordNotification({
     kind: "info",
     title,
-    detail: "It gave the right password. Allow it here, or in Settings, Other devices.",
+    detail: "It gave the right password. Allow it here, or in Settings, Account & security, Other devices.",
     key: `lan-device:${device.id}:${Math.round(device.at)}`,
     action: { settings: "account", focus: "account-lan-pending", label: "Review" },
   });
@@ -95,7 +95,7 @@ function lanNoticeHeld(held) {
   recordNotification({
     kind: "info",
     title,
-    detail: `Kept closed because ${LAN_HELD_WORDS[held.reason] || "this network is not allowed"}. Settings, Other devices has Allow on this network.`,
+    detail: `Kept closed because ${LAN_HELD_WORDS[held.reason] || "this network is not allowed"}. Settings, Account & security, Other devices has Allow on this network.`,
     key: `lan-held:${key}`,
     action: { settings: "account", focus: "account-allow-lan", label: "Review" },
   });

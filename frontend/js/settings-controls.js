@@ -2273,5 +2273,5 @@ function textToInputs(text) {
 //: Settings, General, Microphone (UI_MODERNISATION V2): drawn by the
 //: recorder's bundle, so the two copies are one set of controls.
 ensureModule("meetings").then((ok) => {
-  if (ok && $("mic-settings-controls") && typeof micControlsInto === "function") micControlsInto($("mic-settings-controls"));
+  if (ok && $("mic-settings-controls")) micControlsInto($("mic-settings-controls"));
 });

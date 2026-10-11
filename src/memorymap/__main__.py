@@ -606,7 +606,7 @@ def _serve_with_lan(uvicorn, app, config, bind: str) -> None:  # noqa: ANN001
         label = (trust.get("network") or {}).get("label") or "this network"
         print(
             f"Other devices are not let in on {label} yet ({trust['reason'].replace('_', ' ')}). "
-            "To allow them, open Settings, Other devices, and choose Allow on this network.\n"
+            "To allow them, open Settings, Account & security, Other devices, and choose Allow on this network.\n"
             f"The certificate's fingerprint, to compare on the other device: {info.fingerprint}",
             flush=True,
         )

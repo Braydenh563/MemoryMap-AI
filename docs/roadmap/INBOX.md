@@ -249,13 +249,6 @@ with its owner named in the entry.
      judged against written gold answers, not rule counts), first in the
      assistant brief; the empty badges and Atlas over the answer to ownerfix.
 
-820. **The owner, 2026-10-11, verbatim.** "layers and potentially other places
-     in the app dont handle inline md rendering or cut it out" (screenshot:
-     the board's Layers panel row "Note card: **Current Commit..."). Fixed for
-     the layer row (`wbItemSpokenName` reads `stripMarkdownPreview`); the
-     sweep of every other place a note's first line is shown as a name is
-     the uisweep agent's, with one helper and a lint.
-
 ## Placed (last 20, newest first)
 
 - 2026-10-11: 836 (Add tags with suggestions on lightly tagged notes; Don't suggest tags) and 837 (the owner's typos as composer fixtures, standing) placed as SESSION_BRIEFS Briefs 89 and 90.

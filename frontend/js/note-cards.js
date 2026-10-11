@@ -2357,7 +2357,7 @@ async function showNoteInGraph(id, options = {}) {
 //: would use, so the agent's own search tools find it, rather than pasting the
 //: whole note into the box.
 function askAtlasAboutNote(entry) {
-  const name = (entry.title || stripFrontmatter(entry.content).trim().split("\n")[0] || "this note").trim();
+  const name = (entry.title || noteNamePlain(entry.content) || "this note").trim();
   askAtlasAboutThing("note", name);
 }
 

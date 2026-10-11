@@ -48284,6 +48284,13 @@ Built for 776, 777, 779, 780, 782, 783 (agent uipolish-1010, 2026-10-11): the to
      companion" and "Atlas look"). Fixed in b928a7d9c: the bar is in the
      gutter, one `--space-3` outside the text.
 
+820. **The owner, 2026-10-11, verbatim.** "layers and potentially other places
+     in the app dont handle inline md rendering or cut it out" (screenshot:
+     the board's Layers panel row "Note card: **Current Commit..."). Fixed for
+     the layer row (`wbItemSpokenName` reads `stripMarkdownPreview`); the
+     sweep of every other place a note's first line is shown as a name is
+     the uisweep agent's, with one helper and a lint.
+
 ## Moved from the plans, 2026-10-10 (canvasdepth)
 
 INBOX 797, the owner: "I feel like the mindmap and whiteboard are still

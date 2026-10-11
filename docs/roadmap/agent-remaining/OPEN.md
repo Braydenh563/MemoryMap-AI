@@ -333,6 +333,15 @@ Left by the graph agent (Brief 38, merged 2026-10-10):
 
 - Closed here, accounts in HISTORY.md, "OPEN.md rows closed, 2026-10-04": Settings → Extras scrolls sideways by 4px at 820.
 
+## Left by the uisweep agent (the 2026-10-11 sweep and learnability, merged 2026-10-11)
+
+File: `docs/roadmap/archive/agent-remaining/uisweep-1011.md`.
+
+- Mechanical: the header's six buttons lose 0.5px of their ring at the window top; the Library active sub-tab's border is cut 2.3px at 390; the chat composer's ring is cut 3px each side at 390.
+- Design, for Briefs 57 to 59: the Notes dock has 10 items; Tidy's "40" is a pill badge; 177 controls sit off the 28/32/44 height steps (a 36px family among them); the timeline scrubber reads as a glitch; the Dashboard boards-and-maps miniature overlaps its text; the board view menu's labels sit 26px off the rows' text column; Settings Help has 196 buttons.
+- Not driven: the code IDE, the OCR workspace, the phone More sheet, the lock screen, the board's tools and Present.
+- `settings-reset` is in no help group (`test_help_coverage.py`).
+
 ## Left by the noagent agent (Agent mode with no model, merged 2026-10-11)
 
 File: `docs/roadmap/archive/agent-remaining/noagent-1011.md`.

@@ -352,25 +352,29 @@ function renderCaptureDocumentAdder() {
   const items = [];
   for (const doc of captureDocumentList) {
     if (captureDocuments.has(doc.id)) continue;
-    items.push(
-      makeMenuItem(`ph:file-text ${doc.title}`, `Attach this note to “${doc.title}”`, () => {
+    //: A menu past five rows is grouped (DESIGN.md, kebabMenu): the documents,
+    //: then the one way to make another.
+    items.push({
+      ...makeMenuItem(`ph:file-text ${doc.title}`, `Attach this note to “${doc.title}”`, () => {
         captureDocuments.add(doc.id);
         renderCaptureDocuments();
       }),
-    );
+      group: "Documents",
+    });
   }
   // Asked for: "the add to document should have the option for a new document
   // as well". Wanting to file a note under something that does not exist yet
   // is the normal case at the start of a project, and leaving to make the
   // document loses the note you were in the middle of writing.
-  items.push(
-    makeMenuItem("ph:plus New document…", "Start a document and attach this note to it", async () => {
+  items.push({
+    ...makeMenuItem("ph:plus New document…", "Start a document and attach this note to it", async () => {
       const doc = await createDocumentNamed($("entry-content").value.trim().slice(0, 60));
       if (!doc) return;
       captureDocuments.add(doc.id);
       await loadCaptureDocuments(); // so the new one is in the list to remove
     }),
-  );
+    group: "New",
+  });
   const adder = labelledMenu("ph:file-plus Add to document", items, "Add this note to a document", "ghost");
   slot.replaceChildren(adder);
 }
@@ -927,7 +931,7 @@ async function flashReminder(id) {
   // completing one is exactly the case where it would just have vanished.
   reminderFilter = "all";
   for (const b of document.querySelectorAll("#reminder-filter button")) {
-    b.classList.toggle("active", b.dataset.filter === "all");
+    setActiveChoice(b, b.dataset.filter === "all");
   }
   await loadReminders();
   requestAnimationFrame(() => {

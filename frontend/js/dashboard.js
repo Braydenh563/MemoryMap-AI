@@ -636,7 +636,7 @@ function dashGlanceFacts({ reminders = [], stats = null, entries = [], now = new
 
   const last = dashContinueNote(entries);
   const lastTitle = last
-    ? (last.title || "").trim() || (last.content || "").split("\n").map((l) => l.replace(/^#{1,6}\s+/, "").trim()).find((l) => l && l !== "---") || "Your last note"
+    ? (last.title || "").trim() || noteNamePlain(last.content) || "Your last note"
     : "";
   const resume = {
     id: "continue",
@@ -1176,6 +1176,8 @@ function dashMarkMenu(x, y) {
 {
   const holder = document.getElementById("dash-hero-emblem");
   if (holder) {
+    //: A gesture with no visible control names itself (Settings, Appearance has the same choice).
+    holder.title = "Right-click or hold to change this mark";
     holder.addEventListener("contextmenu", (event) => {
       event.preventDefault();
       dashMarkMenu(event.clientX, event.clientY);
@@ -3123,15 +3125,21 @@ async function renderDayDigest(box) {
     li.className = line.kind === "quote" ? "digest-day-line muted text-sm" : "digest-day-line";
     li.dataset.kind = line.kind;
     li.dataset.part = line.part;
-    li.textContent = line.text;
     const source = line.source || {};
     const open = source.entry_id ? () => flashEntry(source.entry_id) : () => opens[line.part](line);
-    li.setAttribute("role", "link");
-    li.tabIndex = 0;
-    li.addEventListener("click", open);
-    li.addEventListener("keydown", (event) => {
+    //: The link is inside the item: an `li` given `role="link"` stops being a
+    //: list item, and axe's `list` rule (serious) fails the `ul` for it. The
+    //: whole row still takes the click; the words take the keys.
+    const link = document.createElement("span");
+    link.setAttribute("role", "link");
+    link.tabIndex = 0;
+    //: A quote is the note's own words, Markdown and all: plain here (INBOX 820).
+    link.textContent = notePreviewText(flattenNoteMarkdown(line.text));
+    link.addEventListener("keydown", (event) => {
       if (event.key === "Enter") open();
     });
+    li.appendChild(link);
+    li.addEventListener("click", open);
     list.appendChild(li);
   }
   if (!list.childElementCount) {
@@ -4254,7 +4262,7 @@ async function renderActivityWidget(body) {
   for (const item of [...items].reverse()) {
     const entry = item.entity_type === "entry" || item.entity_type === "board" ? byId.get(item.entity_id) : null;
     const noun = DASH_ACTIVITY_NOUNS[item.entity_type] || "Item";
-    const name = entry ? clipText(notePreviewText(entry.content || "").split("\n")[0], 60) : "";
+    const name = entry ? noteNamePlain(entry.content, 60) : "";
     const verb = HISTORY_ACTION_WORDS[item.action] || item.action.replace(/_/g, " ");
     //: A compacted run is one line, not a burst of edits (the feed's own
     //: `snapshot` count says how many it stands for).
@@ -4278,6 +4286,10 @@ async function renderActivityWidget(body) {
     //: nothing to open, so it is a plain row rather than a button that does
     //: nothing, which is the "dead control" the vibe check counts.
     const li = document.createElement("li");
+    //: The list is a `group` (`dashActionRow` makes it one for its button
+    //: rows), so a plain row beside them is no list item: axe `listitem`
+    //: (serious) fails an `li` whose parent is not a list.
+    li.setAttribute("role", "presentation");
     const text = document.createElement("span");
     text.className = "dash-list-text";
     const titleEl = document.createElement("span");
@@ -4318,7 +4330,7 @@ function activityUndoPlanText(plan, byId, name) {
   const undo = plan.items.filter((item) => item.status === "undo");
   const titled = undo.slice(0, 3).map((item) => {
     const entry = byId.get(item.entity_id);
-    const first = entry ? clipText(notePreviewText(entry.content || "").split("\n")[0], 40) : "";
+    const first = entry ? noteNamePlain(entry.content, 40) : "";
     return first ? `“${first}”` : `note ${item.entity_id}`;
   });
   const more = undo.length > titled.length ? ` and ${undo.length - titled.length} more` : "";
@@ -4522,7 +4534,7 @@ async function renderUnfinishedWidget(body) {
   const ul = document.createElement("ul");
   ul.className = "dash-list";
   for (const row of withTasks.slice(0, 6)) {
-    const first = stripFrontmatter(row.entry.content || "").split("\n").find((line) => line.trim())?.trim() || "Untitled note";
+    const first = noteNamePlain(row.entry.content) || "Untitled note";
     const total = row.open + row.done;
     dashActionRow(ul, {
       title: first.replace(/^#{1,6}\s+/, "").slice(0, 70),

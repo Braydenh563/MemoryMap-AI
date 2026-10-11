@@ -2492,7 +2492,7 @@
   border-color: color-mix(in srgb, var(--wb-branch-edge) 70%, transparent);
 }
 
-.wb-map-node.wb-map-solid:not([data-shape="none"]) :is(.wb-map-node-icon, .wb-map-count, .wb-map-number) {
+.wb-map-node.wb-map-solid:not([data-shape="none"]) :is(.wb-map-node-icon, .wb-map-count, .wb-map-number, .wb-map-progress, .wb-map-progress.wb-map-progress-complete) {
   color: var(--wb-core-ink);
 }
 

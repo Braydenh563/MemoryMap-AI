@@ -992,7 +992,7 @@ async function wbSaveSelectionToLibrary() {
   const payload = wbLibSelectionPayload();
   if (!payload) return;
   const one = payload.items.length === 1 ? payload.items[0] : null;
-  const guess = one?.data?.label || one?.data?.content?.split("\n")[0]?.slice(0, 40) || `${payload.items.length} items`;
+  const guess = one?.data?.label || noteNamePlain(one?.data?.content, 40) || `${payload.items.length} items`;
   const name = await promptDialog("Save to the library as", guess, { confirmLabel: "Save" });
   if (!name || !name.trim()) return;
   return wbLibCreate("element", name.trim(), payload);

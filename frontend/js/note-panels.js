@@ -304,7 +304,7 @@ function similarNoteRow(entry, other, onLinked) {
   };
   const relChip = chip("", "link entry-related-chip", linkIt);
   //: Named by the note's first line, the way a person calls it.
-  const name = preview.split("\n")[0].trim() || preview;
+  const name = noteNamePlain(preview) || preview;
   relChip.setAttribute("aria-label", `Link to ${name}`);
   relChip.title = `Link this note to “${preview}”`;
   //: The same mark the menu item that opens this row wears, drawn the same

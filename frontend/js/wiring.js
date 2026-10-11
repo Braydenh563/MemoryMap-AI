@@ -1697,7 +1697,7 @@ for (const button of document.querySelectorAll("#reminder-filter button")) {
   button.addEventListener("click", () => {
     reminderFilter = button.dataset.filter;
     for (const b of document.querySelectorAll("#reminder-filter button")) {
-      b.classList.toggle("active", b === button);
+      setActiveChoice(b, b === button);
     }
     remindersDonePage = 1; // a filter switch can change what's even in Done
     loadReminders();

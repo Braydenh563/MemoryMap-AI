@@ -16,6 +16,8 @@
 //
 //   BASE=http://127.0.0.1:8781 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node vibefail.js
 const { boot } = require('./lib.js');
+// WIDTH=390 runs the same checks on the phone shell (touch context), the 2026-10-11 sweep.
+const WIDTH = Number(process.env.WIDTH || 1440), PHONE = WIDTH < 600;
 
 // The tabs this app actually has (`data-tab` in index.html), each with the
 // function that re-reads its data. A tab switch alone is not enough: most of
@@ -38,7 +40,7 @@ const TABS = [
 ];
 
 (async () => {
-  const { page, browser } = await boot({});
+  const { page, browser } = await boot(PHONE ? { viewport: { width: WIDTH, height: 844 }, hasTouch: true, isMobile: true } : { viewport: { width: WIDTH, height: 900 } });
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e).slice(0, 140)));
   await page.waitForTimeout(3500);

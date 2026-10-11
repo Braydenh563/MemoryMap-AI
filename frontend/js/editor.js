@@ -1143,7 +1143,7 @@ function editorLinkMatches(needle) {
       icon: "ph:note",
       //: The note's opening line only: its whole text flattened read as the
       //: title then the picture's alt text then the title again (INBOX 784).
-      label: noteLabel({ content: (entry.content || "").split("\n")[0] }, 60),
+      label: noteNamePlain(entry.content, 60) || "(empty note)",
       hint: "note",
       //: The note itself, for the preview: its first lines are what "is
       //: this the one I mean" is answered by (`editorRenderPreview`).

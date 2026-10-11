@@ -4898,14 +4898,14 @@ function wbItemSpokenName(kind, item) {
   if (kind === "node") {
     const entry = (typeof allEntries !== "undefined" ? allEntries : []).find((e) => String(e.id) === String(item.entry_id));
     //: Plain words, not the note's markdown: a layer row read "**Current Commit..." (INBOX 820).
-    const title = entry ? stripMarkdownPreview(stripFrontmatter(entry.content).trim().split("\n")[0]).trim().slice(0, 60) : "";
+    const title = entry ? noteNamePlain(entry.content, 60) : "";
     return title ? `Note card: ${title}` : "Note card";
   }
   if (item.kind === "image") return "Picture";
   if (item.kind === "frame") return `Frame: ${wbFrameTitle(item)}`;
   const isTopic = WB_MAP_KINDS.has(item.kind);
   const raw = isTopic ? wbMapLabel(item) : item.data?.content;
-  const text = String(raw || "").trim().split("\n")[0].slice(0, 60);
+  const text = noteNamePlain(raw, 60);
   const what = isTopic ? "Topic" : item.data?.bg ? "Sticky note" : "Text box";
   return text ? `${what}: ${text}` : what;
 }
@@ -15212,8 +15212,7 @@ function renderWbLibrary() {
     //: row. The picker row's shape instead (DESIGN.md, `richPickerRow`): the
     //: note's first line as its name and the rest as one quiet line, each
     //: ellipsised by the stylesheet at the row's edge, never by a count.
-    const firstLine = stripFrontmatter(entry.content || "").split("\n").map((l) => l.trim()).find(Boolean) || "";
-    const name = entry.is_private ? "Private note" : notePreviewText(flattenNoteMarkdown(entry.title || firstLine)).replace(/^[#>\s]+/, "").trim();
+    const name = entry.is_private ? "Private note" : noteNamePlain(entry.title || entry.content);
     const rest = entry.is_private ? "" : notePreviewText(bodyWithoutTitleLine(entry.content || "")).replace(/\s+/g, " ").trim();
     const title = document.createElement("span");
     title.className = "wb-library-item-title";

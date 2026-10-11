@@ -625,7 +625,7 @@ async function offerKeptNoteEdit() {
     forgetNoteEditLocally();
     return;
   }
-  const name = kept.title || clipText(notePreviewText(note.content).split("\n")[0], 40) || "a note";
+  const name = kept.title || noteNamePlain(note.content, 40) || "a note";
   toastAction(`Your unsaved changes to “${name}” were kept.`, "Open them", async () => {
     await switchTab("notes");
     showNotesSection("browse");

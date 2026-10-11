@@ -2535,8 +2535,7 @@ function wbPaintMapNodeStyle(node, d) {
     const note = typeof d.data?.note === "string" ? d.data.note.trim() : "";
     noteMark.hidden = !note;
     if (note) {
-      const first = note.split("\n")[0];
-      noteMark.title = `Note: ${first.length > 80 ? `${first.slice(0, 79)}…` : first}`;
+      noteMark.title = `Note: ${noteNamePlain(note, 80)}`;
       noteMark.setAttribute("aria-label", "Open the note behind this topic");
     }
   }

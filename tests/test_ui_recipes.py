@@ -5365,3 +5365,44 @@ def test_one_calendar_grid_of_dom_cells() -> None:
     assert 'timelineCalendarCall("timelineCalendarReminders")' in code
     others = [p.name for p in JS if p.name != "timeline-calendar.js" and re.search(r"class(?:Name)?\s*=\s*[\"'][^\"']*-cal-grid", p.read_text(encoding="utf-8"))]
     assert not others, f"a second month grid: {others}"
+
+
+# A note's or document's name is shown through one helper (INBOX 820, the
+# owner: layers "and potentially other places in the app dont handle inline md
+# rendering or cut it out"; a board's Layers row read "Note card: **Current
+# Commit..."). `noteNamePlain(content, limit)` in chat-attach.js drops the
+# frontmatter, takes the first line with words and turns its Markdown into the
+# words it means. A hand-rolled `.split("\n")[0]` on a note's content hands the
+# reader the stored syntax, so each remaining one is named here with why it is
+# not a name; a new one fails the build.
+FIRST_LINE_SPLIT = re.compile(r'\.split\("\\n"\)\[0\]')
+FIRST_LINE_NOT_A_NAME = {
+    "capture-ask.js": 1,  # a figure caption's own words, not a note
+    "documents-code.js": 3,  # parser messages and a search seed from code
+    "documents-codekit.js": 2,  # a snippet's first line of code
+    "documents-prose.js": 1,  # a prose-check option's text
+    "documents.js": 2,  # an editor selection and a placeholder
+    "editor.js": 2,  # the link target a [[wiki link]] resolves by (stored words, brackets stripped)
+    "quick-note.js": 1,  # the quick-note field's own typed title
+}
+
+
+def test_a_note_is_named_through_note_name_plain_not_its_first_line() -> None:
+    found: dict[str, int] = {}
+    for path in JS:
+        text = "\n".join(line for line in path.read_text(encoding="utf-8").splitlines() if not line.lstrip().startswith("//"))
+        count = len(FIRST_LINE_SPLIT.findall(text))
+        if count:
+            found[path.name] = count
+    assert found == FIRST_LINE_NOT_A_NAME, (
+        f"a first-line split on content outside noteNamePlain: {found} (allowed {FIRST_LINE_NOT_A_NAME}); "
+        "name a note with noteNamePlain(content, limit) (chat-attach.js)"
+    )
+
+
+def test_note_name_plain_is_defined_once_and_used_by_the_name_sites() -> None:
+    text = (ROOT / "frontend" / "js" / "chat-attach.js").read_text(encoding="utf-8")
+    assert len(re.findall(r"^function noteNamePlain\(", text, flags=re.M)) == 1
+    used = {p.name for p in JS if "noteNamePlain(" in p.read_text(encoding="utf-8")}
+    for name in ("whiteboard.js", "dashboard.js", "graph.js", "menus.js", "palette.js", "notes-list.js", "phone-shell.js", "note-cards.js"):
+        assert name in used, name

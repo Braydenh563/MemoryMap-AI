@@ -1277,7 +1277,7 @@ function enterSelectMode() {
   fillBatchMore("timeline-batch-more-host");
   updateBatchCount();
   show("batch-bar");
-  $("select-btn").classList.add("active");
+  setActiveChoice($("select-btn"), true);
   syncTimelineSelectUi();
   // The table's tick column only exists while the mode is on, so entering or
   // leaving the mode is a repaint of it. Measured the other way: after a bulk
@@ -1290,7 +1290,7 @@ function exitSelectMode() {
   selectMode = false;
   selectedIds.clear();
   hide("batch-bar");
-  $("select-btn").classList.remove("active");
+  setActiveChoice($("select-btn"), false);
   syncTimelineSelectUi();
   paintTimeline();
   renderEntries();

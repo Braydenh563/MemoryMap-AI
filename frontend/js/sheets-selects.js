@@ -640,7 +640,18 @@ function labelledMenu(label, items, ariaLabel, openerClass = "ghost small") {
     else closeActionMenus();
   });
 
+  //: `group` is honoured here as `kebabMenu` honours it (a hairline where the
+  //: name changes): a worded menu past five rows was drawn ungrouped
+  //: (menus.js sweep, "Add this note to a document": 7 rows, no groups).
+  let lastGroup = null;
   for (const item of items) {
+    if (lastGroup !== null && item.group && item.group !== lastGroup) {
+      const rule = document.createElement("div");
+      rule.className = "menu-sep";
+      rule.setAttribute("role", "separator");
+      menu.appendChild(rule);
+    }
+    if (item.group) lastGroup = item.group;
     const button = document.createElement("button");
     button.className = "menu-item";
     button.setAttribute("role", "menuitem");

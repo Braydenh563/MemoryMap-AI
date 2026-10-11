@@ -1549,7 +1549,7 @@ Owners: uipolish (789), polish2 (790 to 792 and 788's design fixes), DOCUMENTS_P
 
 Owners: the uisweep agent (Sonnet, measure and the mechanical fixes), then Briefs 57, 58 and 59 (Opus) on its findings, ahead of 61 to 63.
 
-- INBOX 800, UI, the owner 2026-10-11 02:40Z, verbatim: "Can you do another devibecoding, ui/ux modernisation and professionalisation sweep across all ui faces??" Placed: every surface at 1440 and 390, both themes, through `devibe.js`, `vibecheck.js`, `hierarchy.js`, `consistency.js`, `hoverbox.js`, `focusring.js`, `contrast.js` and `axe.js`; the findings, each with its number, go to `agent-remaining/uisweep-1011.md`; mechanical ones fixed in the sweep, design ones taken by Briefs 57 to 59 in that order.
+- INBOX 800, UI, the owner 2026-10-11 02:40Z, verbatim: "Can you do another devibecoding, ui/ux modernisation and professionalisation sweep across all ui faces??" Placed: every surface at 1440 and 390, both themes, through `devibe.js`, `vibecheck.js`, `hierarchy.js`, `consistency.js`, `hoverbox.js`, `focusring.js`, `contrast.js` and `axe.js`; the findings, each with its number, go to `archive/agent-remaining/uisweep-1011.md`; mechanical ones fixed in the sweep, design ones taken by Briefs 57 to 59 in that order.
 
 ## Placed from INBOX, 2026-10-11 (the owner on buttons, OCR and the constellation)
 

@@ -1087,6 +1087,13 @@ function reminderItem(reminder, label) {
   //: it to nothing at 320 ("every last Friday of the month" is 118px).
   const when = document.createElement("div");
   when.className = "entry-links";
+  //: The coloured edge and the weight said "high" and nothing said it in
+  //: words (uisweep-1011: a state shown only by colour), so the line does.
+  if (reminder.priority === "high" || reminder.priority === "low") {
+    const level = chip(`ph:flag ${reminder.priority === "high" ? "High" : "Low"} priority`, "tag");
+    level.title = "Set in Edit this reminder";
+    when.appendChild(level);
+  }
   if (reminder.recurring && reminder.recurring !== "none") {
     const words = reminder.repeat_words || reminder.recurring;
     const repeat = chip(`ph:repeat ${words}`, "tag");

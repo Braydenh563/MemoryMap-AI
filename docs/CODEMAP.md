@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5655, frontend ids 2423, CSS sections 490, backend routes 562, backend modules 4768, test files 1085, tests 9938, plan headings 996.
+Counts: frontend functions 5655, frontend ids 2423, CSS sections 490, backend routes 575, backend modules 4768, test files 1086, tests 9939, plan headings 996.
 
 ## Frontend functions (5655)
 
@@ -9352,9 +9352,9 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/usage-lazy.css | 34 |
 | frontend/css/utilities-lazy.css | 116 |
 
-## Backend routes (562)
+## Backend routes (575)
 
-`@router.<method>(` and `@app.<method>(` decorators in `src/memorymap/api/*.py`, sorted by path. The line is the decorator's.
+`@router.<method>(`, `@<name>_router.<method>(` and `@app.<method>(` decorators in `src/memorymap/api/*.py`, sorted by path. The line is the decorator's.
 
 | Path | Method | Function | File:line |
 |---|---|---|---|
@@ -9458,6 +9458,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/code-snippets` | GET | `list_snippets` | src/memorymap/api/routes_code_snippets.py:64 |
 | `/code-snippets` | POST | `create_snippet` | src/memorymap/api/routes_code_snippets.py:89 |
 | `/code-snippets/{snippet_id}` | PUT | `update_snippet` | src/memorymap/api/routes_code_snippets.py:105 |
+| `/command` | GET | `capture_command` | src/memorymap/api/routes_usage.py:46 |
 | `/command/run` | POST | `run_command` | src/memorymap/api/routes_chat.py:2406 |
 | `/compose` | POST | `compose_draft` | src/memorymap/api/routes_drafts.py:75 |
 | `/compose/stream` | POST | `compose_draft_stream` | src/memorymap/api/routes_drafts.py:110 |
@@ -9484,6 +9485,9 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/dismissed` | GET | `dismissed_suggestions` | src/memorymap/api/routes_inbox.py:217 |
 | `/dismissed/clear` | POST | `clear_dismissed_suggestions` | src/memorymap/api/routes_inbox.py:225 |
 | `/dismissed/restore` | POST | `restore_dismissed_suggestions` | src/memorymap/api/routes_inbox.py:239 |
+| `/documents/run-jobs` | POST | `start_run_job` | src/memorymap/api/run_sandbox.py:1527 |
+| `/documents/run-jobs/{job_id}` | DELETE | `end_run_job` | src/memorymap/api/run_sandbox.py:1547 |
+| `/documents/run-jobs/{job_id}/beat` | POST | `beat_run_job` | src/memorymap/api/run_sandbox.py:1539 |
 | `/documents/run-sandbox` | GET | `run_sandbox` | src/memorymap/api/run_sandbox.py:713 |
 | `/documents/run-sandbox/python` | GET | `run_sandbox_python` | src/memorymap/api/run_sandbox.py:1428 |
 | `/documents/{document_id}/code-assist` | POST | `code_assist_route` | src/memorymap/api/routes_code_assist.py:34 |
@@ -9526,8 +9530,10 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/files/readings` | GET | `file_readings` | src/memorymap/api/routes_files.py:273 |
 | `/files/save` | POST | `save_generated_file` | src/memorymap/api/routes_files.py:1085 |
 | `/files/{attachment_id}` | DELETE | `delete_file` | src/memorymap/api/routes_files.py:906 |
+| `/files/{attachment_id}` | GET | `download_file` | src/memorymap/api/routes_files.py:170 |
 | `/files/{attachment_id}` | PUT | `rename_file` | src/memorymap/api/routes_files.py:928 |
 | `/files/{attachment_id}/analyse` | POST | `analyse_attachment` | src/memorymap/api/routes_files.py:449 |
+| `/files/{attachment_id}/html-preview` | GET | `attached_file_html_preview` | src/memorymap/api/routes_files.py:861 |
 | `/files/{attachment_id}/ocr-clean-loops` | POST | `clean_attachment_reading_loops` | src/memorymap/api/routes_files.py:3857 |
 | `/files/{attachment_id}/ocr-page-read` | POST | `attachment_ocr_page_read` | src/memorymap/api/routes_files.py:3435 |
 | `/files/{attachment_id}/ocr-range-read` | POST | `attachment_ocr_range_read` | src/memorymap/api/routes_files.py:3399 |
@@ -9536,10 +9542,12 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/files/{attachment_id}/page-reads` | GET | `attachment_page_reads` | src/memorymap/api/routes_files.py:3678 |
 | `/files/{attachment_id}/page-reads/{page}` | DELETE | `delete_attachment_page_read` | src/memorymap/api/routes_files.py:3735 |
 | `/files/{attachment_id}/pdf-info` | GET | `attached_file_pdf_info` | src/memorymap/api/routes_files.py:769 |
+| `/files/{attachment_id}/pdf-page/{index}` | GET | `attached_file_pdf_page` | src/memorymap/api/routes_files.py:805 |
 | `/files/{attachment_id}/readings/{source}` | DELETE | `delete_attachment_reading` | src/memorymap/api/routes_files.py:3794 |
 | `/files/{attachment_id}/region-read` | POST | `attachment_region_read` | src/memorymap/api/routes_files.py:3606 |
 | `/files/{attachment_id}/text` | GET | `attached_file_text` | src/memorymap/api/routes_files.py:664 |
 | `/files/{attachment_id}/text` | PUT | `save_attached_file_text` | src/memorymap/api/routes_files.py:711 |
+| `/files/{name}` | GET | `translate_file` | src/memorymap/api/routes_translate.py:27 |
 | `/followups` | POST | `chat_followups` | src/memorymap/api/routes_chat.py:291 |
 | `/graph` | GET | `graph` | src/memorymap/api/routes_graph.py:742 |
 | `/graph/local/{entry_id}` | GET | `graph_local` | src/memorymap/api/routes_graph.py:1201 |
@@ -9604,6 +9612,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/lock-all` | POST | `lock_all` | src/memorymap/api/routes_auth.py:1693 |
 | `/logs` | DELETE | `clear_server_logs` | src/memorymap/api/routes_settings.py:2161 |
 | `/logs` | GET | `server_logs` | src/memorymap/api/routes_settings.py:2078 |
+| `/logs/client` | POST | `record_client_error` | src/memorymap/api/routes_settings.py:2097 |
 | `/logs/stats` | GET | `server_log_stats` | src/memorymap/api/routes_settings.py:2149 |
 | `/logs/stream` | GET | `stream_server_logs` | src/memorymap/api/routes_settings.py:2177 |
 | `/maps/from-notes` | POST | `map_from_notes` | src/memorymap/api/routes_map_from_notes.py:256 |
@@ -9613,8 +9622,11 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/media/orphans` | DELETE | `clean_orphaned_media` | src/memorymap/api/routes_files.py:1524 |
 | `/media/orphans` | GET | `list_orphaned_media` | src/memorymap/api/routes_files.py:1493 |
 | `/media/pdf-info/{filename}` | GET | `media_pdf_info` | src/memorymap/api/routes_files.py:1667 |
+| `/media/pdf-page/{filename}/{index}` | GET | `media_pdf_page` | src/memorymap/api/routes_files.py:1707 |
+| `/media/recordings/{recording_id}` | GET | `recording_audio` | src/memorymap/api/routes_recordings.py:426 |
 | `/media/text/{filename}` | GET | `media_text` | src/memorymap/api/routes_files.py:1599 |
 | `/media/upload` | POST | `upload_media` | src/memorymap/api/routes_files.py:1243 |
+| `/media/{filename}` | GET | `get_media` | src/memorymap/api/routes_files.py:4007 |
 | `/media/{upload_id}` | DELETE | `delete_media` | src/memorymap/api/routes_files.py:1786 |
 | `/media/{upload_id}` | PUT | `rename_media` | src/memorymap/api/routes_files.py:1819 |
 | `/media/{upload_id}/caption` | POST | `caption_media` | src/memorymap/api/routes_files.py:1874 |
@@ -9911,6 +9923,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{reminder_id}` | PUT | `update_reminder` | src/memorymap/api/routes_reminders.py:603 |
 | `/{reminder_id}/complete` | POST | `complete_reminder` | src/memorymap/api/routes_reminders.py:633 |
 | `/{reminder_id}/export.ics` | GET | `export_one_ics` | src/memorymap/api/routes_reminders.py:365 |
+| `/{reminder_id}/notification-act` | POST | `act_from_notification` | src/memorymap/api/routes_reminders.py:687 |
 | `/{reminder_id}/notification-token` | POST | `notification_token` | src/memorymap/api/routes_reminders.py:670 |
 | `/{reminder_id}/purge` | DELETE | `purge_reminder` | src/memorymap/api/routes_reminders.py:743 |
 | `/{reminder_id}/restore` | POST | `restore_reminder` | src/memorymap/api/routes_reminders.py:733 |
@@ -16008,7 +16021,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9938)
+## Tests (9939)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16167,6 +16180,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_code_ide_b42.py | 9 |
 | tests/test_code_vscode.py | 23 |
 | tests/test_codemap_fresh.py | 1 |
+| tests/test_codemap_routes.py | 1 |
 | tests/test_codeql_shapes.py | 2 |
 | tests/test_coerce_number_finite.py | 3 |
 | tests/test_command_row_shape.py | 3 |

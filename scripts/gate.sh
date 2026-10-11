@@ -118,7 +118,7 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   # comment, so the changed-test heuristic (a test naming a changed source
   # file) never selects it, and the first new string written after it landed
   # broke it. Caught by a full local run rather than by any gate that day.
-  tests/test_ai_name.py tests/test_frontend_symbols.py
+  tests/test_ai_name.py tests/test_frontend_symbols.py tests/test_codemap_fresh.py
   # The Guide's controls entries against the markup and the shortcut tables:
   # it reads `ai/help_chat.py` and the frontend together, so a help or a
   # control edit never names it. A help edit once put the Guide's whiteboard

@@ -85,3 +85,7 @@ id | status | evidence or commit
 1351 | skipped | composer spec tests (spec39)
 1352 | skipped | composer spec tests (spec39)
 1353 | done-already | every tag path grounds the model's tags in the note's own words (routes_entries._engine_tags, three callers; tests/test_tag_grounding.py); with no model tests/test_filing_accuracy.py::test_tags_offered_are_only_the_notebooks_own; a real model not run
+
+1307a | deferred-next-PR | lazy-import of ai.agent in autonomous needs a quiet machine to measure the saving (load 40 to 55 here)
+WIP verified: group-by-category in Find anything (`tests/test_search_hit_category.py`), CHANGELOG and help present; INBOX 1297 placed for the owner.
+1332 | measured | Chromium 1440: Find anything "garden" with Sort = Group by category lists headings "Work 3" then "Journal 3" with the notes under each

@@ -5192,3 +5192,72 @@ button.ghost.doc-template-choice.wb-template-choice {
   display: grid;
   grid-template-columns: repeat(5, auto);
 }
+
+/* The colour well (DESIGN.md "A colour on a board"): every board colour
+   field opens this one popover. Recent sits over the palette; a shape's
+   fill and border are two labelled halves of one segmented control. */
+.wb-colour-menu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  width: max-content;
+  max-width: min(22rem, calc(100vw - 2 * var(--space-4)));
+}
+.wb-colour-head {
+  margin: 0;
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+.wb-colour-section {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--muted);
+}
+.wb-colour-menu .swatch-picker {
+  grid-template-columns: repeat(8, max-content);
+  gap: var(--space-2);
+  padding: var(--space-1);
+}
+.wb-colour-menu .swatch-option {
+  width: var(--target-min);
+  height: var(--target-min);
+  /* White and near-white swatches need an edge on a light card. */
+  border: 1px solid var(--divider);
+}
+.wb-colour-pair [role="tab"] {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.wb-swatch-dot {
+  width: var(--space-4);
+  height: var(--space-4);
+  border-radius: 50%;
+  /* The swatch recipe's own colour token, set on each dot by script. */
+  background: var(--swatch);
+  box-shadow: inset 0 0 0 1px var(--muted);
+}
+.wb-colour-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.wb-colour-actions [aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+html.wb-eyedropping,
+html.wb-eyedropping * {
+  cursor: crosshair;
+}
+input[type="color"].wb-colour-target {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+input[type="color"].wb-colour-off {
+  opacity: 0.4;
+}
+input[type="color"].wb-mixed {
+  background: repeating-linear-gradient(45deg, var(--muted) 0 3px, transparent 3px 6px);
+}

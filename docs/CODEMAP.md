@@ -2,7 +2,7 @@
 
 Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5530, frontend ids 2378, CSS sections 488, backend routes 553, backend modules 4625, test files 1067, tests 9764, plan headings 995.
+Counts: frontend functions 5530, frontend ids 2378, CSS sections 488, backend routes 553, backend modules 4625, test files 1067, tests 9765, plan headings 995.
 
 ## Frontend functions (5530)
 
@@ -5188,9 +5188,9 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | Name | File:line |
 |---|---|
 | `wbBuildTable` | frontend/js/whiteboard-format.js:813 |
-| `wbColourButton` | frontend/js/whiteboard-format.js:1134 |
-| `wbColourHeading` | frontend/js/whiteboard-format.js:1149 |
-| `wbColourMenu` | frontend/js/whiteboard-format.js:1105 |
+| `wbColourButton` | frontend/js/whiteboard-format.js:1148 |
+| `wbColourHeading` | frontend/js/whiteboard-format.js:1163 |
+| `wbColourMenu` | frontend/js/whiteboard-format.js:1119 |
 | `wbColourName` | frontend/js/whiteboard-format.js:1049 |
 | `wbColourPairOf` | frontend/js/whiteboard-format.js:1060 |
 | `wbDrawsRough` | frontend/js/whiteboard-format.js:711 |
@@ -5220,7 +5220,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbFormatToggle` | frontend/js/whiteboard-format.js:270 |
 | `wbHexOf` | frontend/js/whiteboard-format.js:1031 |
 | `wbInsertTable` | frontend/js/whiteboard-format.js:851 |
-| `wbOpenColourMenu` | frontend/js/whiteboard-format.js:1158 |
+| `wbOpenColourMenu` | frontend/js/whiteboard-format.js:1172 |
 | `wbPaintTable` | frontend/js/whiteboard-format.js:830 |
 | `wbRecentColours` | frontend/js/whiteboard-format.js:1009 |
 | `wbRememberColour` | frontend/js/whiteboard-format.js:1018 |
@@ -5228,16 +5228,16 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `wbRoughProbe` | frontend/js/whiteboard-format.js:728 |
 | `wbRoughRandom` | frontend/js/whiteboard-format.js:717 |
 | `wbRoughSpline` | frontend/js/whiteboard-format.js:743 |
-| `wbSampleColour` | frontend/js/whiteboard-format.js:1323 |
+| `wbSampleColour` | frontend/js/whiteboard-format.js:1340 |
 | `wbSetColourField` | frontend/js/whiteboard-format.js:1071 |
 | `wbSetLinkRoute` | frontend/js/whiteboard-format.js:220 |
 | `wbSetTable` | frontend/js/whiteboard-format.js:865 |
-| `wbStartEyedrop` | frontend/js/whiteboard-format.js:1299 |
-| `wbStopEyedrop` | frontend/js/whiteboard-format.js:1312 |
+| `wbStartEyedrop` | frontend/js/whiteboard-format.js:1316 |
+| `wbStopEyedrop` | frontend/js/whiteboard-format.js:1329 |
 | `wbTableCells` | frontend/js/whiteboard-format.js:808 |
 | `wbTableMenuRows` | frontend/js/whiteboard-format.js:954 |
 | `wbTableReshape` | frontend/js/whiteboard-format.js:928 |
-| `wbWriteColourPair` | frontend/js/whiteboard-format.js:1081 |
+| `wbWriteColourPair` | frontend/js/whiteboard-format.js:1084 |
 
 ### frontend/js/whiteboard-history.js (16)
 
@@ -9140,7 +9140,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/graph-lazy.css | 119 |
 | frontend/css/help-chat-lazy.css | 32 |
 | frontend/css/icon-picker.css | 101 |
-| frontend/css/library-lazy.css | 5265 |
+| frontend/css/library-lazy.css | 5263 |
 | frontend/css/manual-lazy.css | 139 |
 | frontend/css/meetings-lazy.css | 179 |
 | frontend/css/nav-history-lazy.css | 144 |
@@ -10530,30 +10530,30 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `_act_of` | src/memorymap/ai/help_chat.py:2252 |
-| `_edit_distance_at_most_one` | src/memorymap/ai/help_chat.py:2183 |
-| `_guide_lead` | src/memorymap/ai/help_chat.py:2637 |
-| `_guide_opening` | src/memorymap/ai/help_chat.py:2645 |
-| `_help_sentences` | src/memorymap/ai/help_chat.py:2620 |
-| `_keyword_pattern` | src/memorymap/ai/help_chat.py:2137 |
-| `_matching_topics` | src/memorymap/ai/help_chat.py:2291 |
-| `_normalise_keys` | src/memorymap/ai/help_chat.py:2160 |
-| `_place` | src/memorymap/ai/help_chat.py:2615 |
-| `_prompt_for` | src/memorymap/ai/help_chat.py:2488 |
-| `_reading_topics` | src/memorymap/ai/help_chat.py:2274 |
-| `_second_sentence` | src/memorymap/ai/help_chat.py:2624 |
-| `answer` | src/memorymap/ai/help_chat.py:2781 |
-| `answer_stream` | src/memorymap/ai/help_chat.py:2719 |
-| `badges_for` | src/memorymap/ai/help_chat.py:2436 |
-| `composed_answer` | src/memorymap/ai/help_chat.py:2659 |
-| `help_block_for` | src/memorymap/ai/help_chat.py:2845 |
-| `help_listing` | src/memorymap/ai/help_chat.py:2407 |
-| `offline_answer` | src/memorymap/ai/help_chat.py:2677 |
-| `social_reply` | src/memorymap/ai/help_chat.py:2588 |
-| `source_names` | src/memorymap/ai/help_chat.py:2403 |
-| `system_answer` | src/memorymap/ai/help_chat.py:2385 |
-| `topic_title` | src/memorymap/ai/help_chat.py:2371 |
-| `topics_for` | src/memorymap/ai/help_chat.py:2450 |
+| `_act_of` | src/memorymap/ai/help_chat.py:2253 |
+| `_edit_distance_at_most_one` | src/memorymap/ai/help_chat.py:2184 |
+| `_guide_lead` | src/memorymap/ai/help_chat.py:2638 |
+| `_guide_opening` | src/memorymap/ai/help_chat.py:2646 |
+| `_help_sentences` | src/memorymap/ai/help_chat.py:2621 |
+| `_keyword_pattern` | src/memorymap/ai/help_chat.py:2138 |
+| `_matching_topics` | src/memorymap/ai/help_chat.py:2292 |
+| `_normalise_keys` | src/memorymap/ai/help_chat.py:2161 |
+| `_place` | src/memorymap/ai/help_chat.py:2616 |
+| `_prompt_for` | src/memorymap/ai/help_chat.py:2489 |
+| `_reading_topics` | src/memorymap/ai/help_chat.py:2275 |
+| `_second_sentence` | src/memorymap/ai/help_chat.py:2625 |
+| `answer` | src/memorymap/ai/help_chat.py:2782 |
+| `answer_stream` | src/memorymap/ai/help_chat.py:2720 |
+| `badges_for` | src/memorymap/ai/help_chat.py:2437 |
+| `composed_answer` | src/memorymap/ai/help_chat.py:2660 |
+| `help_block_for` | src/memorymap/ai/help_chat.py:2846 |
+| `help_listing` | src/memorymap/ai/help_chat.py:2408 |
+| `offline_answer` | src/memorymap/ai/help_chat.py:2678 |
+| `social_reply` | src/memorymap/ai/help_chat.py:2589 |
+| `source_names` | src/memorymap/ai/help_chat.py:2404 |
+| `system_answer` | src/memorymap/ai/help_chat.py:2386 |
+| `topic_title` | src/memorymap/ai/help_chat.py:2372 |
+| `topics_for` | src/memorymap/ai/help_chat.py:2451 |
 
 ### src/memorymap/ai/help_topics_more.py (1)
 
@@ -15643,7 +15643,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (9764)
+## Tests (9765)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -16655,7 +16655,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_wb_export_inline_images.py | 3 |
 | tests/test_wb_export_png.py | 4 |
 | tests/test_wb_find_replace.py | 2 |
-| tests/test_wb_format.py | 10 |
+| tests/test_wb_format.py | 11 |
 | tests/test_wb_frame_title_target.py | 2 |
 | tests/test_wb_guides.py | 5 |
 | tests/test_wb_hand_drawn.py | 3 |

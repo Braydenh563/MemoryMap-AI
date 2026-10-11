@@ -1240,7 +1240,9 @@ HELP_TOPICS.extend(
                 "Tools: V or S select, H hand, K lasso, P pen, M highlighter, E "
                 "eraser, B fill, L line, A arrow, R rectangle, O circle, G "
                 "triangle, D diamond, T text, N sticky note, F frame, C connector (Shift+C "
-                "curved), I image, X delete. Moving around: the wheel or two "
+                "curved), I image, X delete. The Shapes button's flyout also has a rounded "
+                "rectangle, ellipse, hexagon, parallelogram, star, cylinder, cloud, speech "
+                "bubble and block arrow. Moving around: the wheel or two "
                 "fingers pan, Shift+wheel pans sideways, Ctrl+wheel or a pinch "
                 "zooms, Space and drag pans, a drag to an edge pans, Ctrl+= and Ctrl+- zoom, "
                 "Ctrl+0 is 100%, Shift+1 fits all, Shift+N shows the "
@@ -1403,10 +1405,12 @@ HELP_TOPICS.extend(
                 "the Format panel on the right, with three tabs. Style: line colour, width and pattern, "
                 "fill, opacity, shadow, and for a connector its line shape (curved, straight or elbow), "
                 "its line jumps (where it crosses a line under it, it hops over with an arc, a gap or a "
-                "sharp peak), its two ends (each drawn in its list) and where its label sits along it. Text: the size, colour, weight, "
+                "sharp peak), its two ends (sixteen marks, from open and filled arrows, circles and "
+                "diamonds to a bar and a crow's foot, each drawn in its list; a plain line takes them too) and where its label sits along it. Text: the size, colour, weight, "
                 "alignment and vertical place (top, middle, bottom) of a text box or a shape's words. Arrange: X, Y, width, height and "
-                "angle as numbers, flip, and the order, align, spacing, group and lock buttons. Every "
-                "change is one undo step. Bends, connection points and imports are in Connector bends and importing."
+                "angle as numbers, flip, and the order, align, spacing, group and lock buttons. With "
+                "several items selected it shows what they all share, and a value they differ on reads Mixed. Every "
+                "change is one undo step, across the whole selection. Colours are in Fill, border and recent colours. Bends, connection points and imports are in Connector bends and importing."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },

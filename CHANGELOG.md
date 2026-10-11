@@ -7,6 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Whiteboard: one colour menu for every board colour. A shape's Fill and Border sit side by side, labelled, on its bar and in the Format panel; the menu names which one you are setting, with Same as fill (or Same as border) and Swap as one Undo each. Recent holds your last eight picks on this device above the palette, and Pick from the board is an eyedropper: the next click takes a colour from a shape (its fill, or its border with Alt or Take a shape's border), a line, a text box or any colour button, without opening that button's menu. Setting a border to its fill is two clicks.
+- Whiteboard: the Format panel with several items selected shows only what they all share, a value they differ on reads Mixed (a striped colour, an empty number, a list reading Mixed, a half-ticked box), and one change sets it on all of them as one Undo.
 - Whiteboard: nine more shapes in the Shapes flyout, drawn by dragging: rounded rectangle, ellipse, hexagon, parallelogram, star, cylinder, cloud, speech bubble and block arrow. Each is filled and takes text like the others, and the command palette finds them by name.
 - Whiteboard: more line ends. Open triangle and filled circle join the lists (seventeen ends, crow's foot named), a plain line shows Start and End before it has an end, the Format panel takes them for a drawn line, and the Line and Arrow tools choose the mark as well as which ends.
 - Whiteboard: an undone delete of a shape kept off every layer restores it exactly, with no empty layer field added.

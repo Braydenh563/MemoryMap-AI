@@ -4422,6 +4422,11 @@ function wbFillContextBar() {
   wbApplyContextRow(which ? WB_CONTEXT_CONTROLS[which] : null);
   if (!which) return;
 
+  //: The ink swatch's word says what it colours (the owner, 2026-10-11).
+  const inkWord = { link: "Line", line: "Line", shape: "Border", text: "Text" }[which];
+  const inkWordEl = document.getElementById("wb-prop-color-word");
+  if (inkWordEl && inkWord) inkWordEl.textContent = inkWord;
+  document.getElementById("wb-prop-color")?.setAttribute("aria-label", `${inkWord || "Line"} colour`);
   if (which === "link") {
     const parsed = JSON.parse(item.data);
     document.getElementById("wb-prop-color").value = parsed.color || "#ffffff";
@@ -4462,7 +4467,8 @@ function wbFillContextBar() {
     if (which === "shape") {
       document.getElementById("wb-prop-shapefill").value = parsed.fill || "#3355ff";
       document.getElementById("wb-prop-shapefill-on").checked = Boolean(parsed.fill);
-      document.getElementById("wb-prop-shapefill").disabled = !parsed.fill;
+      //: Dimmed, not disabled: a fill picked from its well turns it on.
+      document.getElementById("wb-prop-shapefill").classList.toggle("wb-colour-off", !parsed.fill);
     }
     return;
   }
@@ -12819,7 +12825,7 @@ async function initWhiteboard() {
     const before = WB_KIND_INFO.sketch.payload(sketch);
     wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
     document.getElementById("wb-prop-shapefill-on").checked = true;
-    document.getElementById("wb-prop-shapefill").disabled = false;
+    document.getElementById("wb-prop-shapefill").classList.remove("wb-colour-off");
     await wbSaveSketchProps(sketch, { fill: e.target.value, fillOpacity: 1 });
     wbScheduleRender();
   });
@@ -12828,7 +12834,7 @@ async function initWhiteboard() {
     if (!sketch) return;
     const before = WB_KIND_INFO.sketch.payload(sketch);
     wbPushUndo({ action: "move", kind: "sketch", id: sketch.id, before });
-    document.getElementById("wb-prop-shapefill").disabled = !e.target.checked;
+    document.getElementById("wb-prop-shapefill").classList.toggle("wb-colour-off", !e.target.checked);
     await wbSaveSketchProps(sketch, { fill: e.target.checked ? document.getElementById("wb-prop-shapefill").value : undefined });
     wbScheduleRender();
   });

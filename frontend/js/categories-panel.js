@@ -948,7 +948,9 @@ function swatchPicker({ label, value, onChange, onChoose, palette = CATEGORY_PAL
   group.className = "swatch-picker";
   group.setAttribute("role", "radiogroup");
   group.setAttribute("aria-label", label);
-  const keys = [...Object.keys(palette), null];
+  //: `none: null` leaves the worded choice out: a row of colours only (the
+  //: board's Recent row, which has nothing to clear).
+  const keys = none === null ? Object.keys(palette) : [...Object.keys(palette), null];
   const radios = keys.map((key) => {
     const radio = document.createElement("button");
     radio.type = "button";
@@ -984,7 +986,7 @@ function swatchPicker({ label, value, onChange, onChoose, palette = CATEGORY_PAL
     mark(keys[to]);
   });
   group.append(...radios);
-  mark(keys.includes(value) ? value : undefined);
+  if (radios.length) mark(keys.includes(value) ? value : undefined);
   return group;
 }
 

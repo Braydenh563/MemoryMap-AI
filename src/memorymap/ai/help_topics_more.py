@@ -1967,7 +1967,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     ("Boards and maps", (
         "whiteboard", "whiteboard-controls", "whiteboard-selection", "board-history", "board-library", "board-library-saving", "board-templates", "board-format", "board-connectors", "mind-maps", "mind-map-controls", "mind-map-features", "mind-map-import-export", "mind-map-study", "mind-map-look", "emoji-and-icons",
         "board-comments", "sticky-notes",
-        "mind-map-structure", "mind-map-callouts", "board-current-layer", "board-hand-drawn", "board-tables", "board-edit-data",
+        "mind-map-structure", "mind-map-callouts", "board-current-layer", "board-hand-drawn", "board-tables", "board-edit-data", "board-colours",
     )),
     ("Library and files", (
         "library", "library-controls", "bookmarks", "web-clipper-bookmark", "contents", "library-skills",
@@ -2201,9 +2201,33 @@ MORE_TOPICS.extend([
         ),
         "badge": {"label": "Library", "tab": "library"},
     },
+    {
+        "id": "board-colours",
+        "keywords": (
+            "border colour", "border color", "fill colour", "fill color", "same colour",
+            "same colour as the fill", "match the border", "swap colours", "recent colours",
+            "eyedropper", "eye dropper", "pick a colour from the board", "colour picker",
+            "change the colour of a shape", "outline colour",
+        ),
+        "body": (
+            "Colours on a board: every colour button (a shape's Fill and Border on its "
+            "bar and in the Format panel, text, and the draw colour) opens one menu. "
+            "For a shape it names both, Fill and Border, with a dot of each: press "
+            "the other to set it instead. Same as fill (or Same as border) makes "
+            "them one colour and Swap trades them, each one Undo step. Recent "
+            "holds your last eight picks on this device, above the board's colours; "
+            "More colours opens any colour by number. Pick from the board is the "
+            "eyedropper: the next click takes a colour instead of doing what it "
+            "would, from a shape (its fill, or its border with Alt or Take a shape's border), "
+            "a line, a text box or any colour button, and Escape stops it. A fill "
+            "that is off shows dimmed; picking a colour turns it on."
+        ),
+        "badge": {"label": "Library", "tab": "library"},
+    },
 ])
 TOPIC_META.update({
     "board-edit-data": {"title": "Edit data on a board item", "path": "A board's Format panel, Data"},
+    "board-colours": {"title": "Fill, border and recent colours on a board", "path": "A shape's bar, Fill or Border"},
     "board-tables": {"title": "Tables on a board", "path": "A board's Insert menu, Table"},
     "board-hand-drawn": {"title": "The hand-drawn look", "path": "A board's View menu, Hand-drawn look"},
     "board-current-layer": {"title": "The current layer", "path": "A board's sidebar, Layers"},

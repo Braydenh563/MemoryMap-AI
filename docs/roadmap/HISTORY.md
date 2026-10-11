@@ -48410,6 +48410,22 @@ Built for 776, 777, 779, 780, 782, 783 (agent uipolish-1010, 2026-10-11): the to
   Census of the other `*-empty` classes built in JS: 30, all inside a small
   panel, menu, picker or section (the `.empty-line` recipe's ground, not the
   full block); left as they are. Test: `test_no_recordings_is_the_empty_state_recipe`.
+- **The owner, 2026-10-11, verbatim.** "lots of the same notifcations dont
+  neatly stack when they appear fast in the corner". **Fixed (uiset, the
+  toast stack commit).** DESIGN.md's toast bullet: the same words of the same
+  kind inside 4 s are one card with "×N" and a restarted timer
+  (`toastMerge`); an Undo merges only with the same Undo; the cards are
+  `--space-2` apart, the newest nearest the corner, positions measured and
+  played back so an arrival rides in by the distance the others move (no two
+  cards cross); three show and the rest fold into one "+N more" card that
+  opens the bell, each folded notice filed there (`toastLayout`); reduced
+  motion never slides the stack (`toastReduced`). Measured (toaststack.js,
+  10 identical plus 5 different plus 2 Undos): 1440 light, count ×10, 0
+  overlaps over 30 samples, 3 shown, "+3 more", gaps 6.4px, newest nearest
+  the corner, the 2 Undos kept apart; 390 light, the same over 87 samples;
+  1440 dark with reduced motion, the same over 52 samples, the burst in
+  521 ms. Under load the light bursts took 1.4 s and 3.6 s, not 500 ms. Test:
+  `tests/test_toast_stack_1011.py`.
 
 ## Moved from the plans, 2026-10-10 (canvasdepth)
 

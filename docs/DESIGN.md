@@ -435,10 +435,17 @@ the edge it lives on, and nothing moves to decorate.
   a row fading in or out later. The lists re-render whole on a filter
   keystroke, so CSS cannot tell a new row from a redrawn one, and every row
   fading on every keystroke is the decoration this section rules out.
-- **A toast** arrives from the edge it lives on (a step, `--space-4`, over
-  `--ui-slow`), leaves the way it came over `--ui-exit`, and the others
-  slide to make room or close the gap (`toastStack`, status.js: measured,
-  changed, played back by `translate` over `--ui-base`).
+- **A toast** is one card in one stack (`toastStack`, status.js): the
+  newest nearest the corner, the cards `--space-2` apart, positions measured,
+  changed and played back by `translate` over `--ui-base`; an arrival rides
+  in by the distance the others move, so no two cards cross. It fades in and
+  leaves in place (a fade and a slight shrink over `--ui-exit`), and the
+  stack closes the gap. The same words of the same kind inside 4 s are one
+  card with a count, "×3", its timer restarted (`toastMerge`); an Undo
+  merges only with the same Undo. Three show; the rest fold into one
+  "+N more" card that opens the bell, and a folded notice is filed there.
+  Reduced motion never slides the stack (`toastReduced`); the fades are the
+  polish set's and follow Interface animations (the owner, 2026-10-11).
 - **Never:** a width, height, margin or padding in motion; a page's own
   scroll; anything on first paint (a transition needs a before, and a strip
   or panel drawn for the first time has none); a loop.

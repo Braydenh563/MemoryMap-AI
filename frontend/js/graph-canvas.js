@@ -1410,9 +1410,15 @@ function gcRenameTopicInline(topic, anchor = null, tools = null) {
     const t = s.transform || d3.zoomIdentity;
     field.classList.add("is-floating");
     const width = Math.max(140, (plate.right - plate.left) * t.k + 24);
+    //: **The plate's own size** (OPEN row 795): the field stood 42px tall
+    //: over a 17px plate. It takes the plate's height, a few pixels over for
+    //: its border, centred on it, in the plate's own 12px type.
+    const plateH = (plate.bottom - plate.top) * t.k;
+    const height = Math.round(plateH + 6);
     field.style.width = `${width}px`;
+    field.style.height = `${height}px`;
     field.style.left = `${t.applyX((plate.left + plate.right) / 2) - width / 2}px`;
-    field.style.top = `${t.applyY(plate.top) - 4}px`;
+    field.style.top = `${t.applyY(plate.top) - (height - plateH) / 2}px`;
     box.appendChild(field);
   }
   let done = false;

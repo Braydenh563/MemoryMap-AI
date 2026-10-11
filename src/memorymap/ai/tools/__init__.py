@@ -3187,6 +3187,7 @@ TOOLS: dict[str, ToolSpec] = {
                     "text": {"type": "string", "description": "New words (optional)"},
                     "color": {"type": "string", "description": "Line or text colour, like #cc3333 (optional)"},
                     "fill": {"type": "string", "description": "Fill colour, like #ffee99 (optional)"},
+                    "fold": {"type": "boolean", "description": "A sticky's folded corner on or off (optional)"},
                 },
                 "required": ["kind", "item_id"],
             },

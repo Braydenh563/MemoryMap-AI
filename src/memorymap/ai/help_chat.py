@@ -324,7 +324,7 @@ HELP_TOPICS: list[dict] = [
             "The Timeline tab lists what you wrote newest first, grouped by day, "
             "week, month or year (Auto picks the finest that reads well), as a "
             "feed, as a sortable table or as a calendar of a month, a week or a "
-            "day. Kinds chooses notes, boards, documents "
+            "day. Kinds chooses notes, boards and maps, documents "
             "and reminders; Options sets the grouping, Group by (category, tag "
             "or thread) and Show group, and the Time range, where On this day "
             "shows today's date in earlier months and years. In the feed, Ctrl and "
@@ -1413,6 +1413,8 @@ HELP_TOPICS.extend(
                 "angle", "rotate by", "flip", "mirror", "opacity", "transparency", "see through", "shadow",
                 "text size in a shape", "align text",
                 "line shape", "line end", "line ends", "arrowhead", "arrow end", "diamond end", "label position",
+                "arrow size", "end size", "bigger arrowhead", "stealth arrow", "memorymap arrow", "signature arrow",
+                "reset style", "default style", "reset an object", "back to default",
                 "line jumps", "line jump", "crossing lines", "lines cross", "hop over",
             ),
             "body": (
@@ -1420,12 +1422,15 @@ HELP_TOPICS.extend(
                 "the Format panel on the right, with three tabs. Style: line colour, width and pattern, "
                 "fill, opacity, shadow, and for a connector its line shape (curved, straight or elbow), "
                 "its line jumps (where it crosses a line under it, it hops over with an arc, a gap or a "
-                "sharp peak), its two ends (sixteen marks, from open and filled arrows, circles and "
-                "diamonds to a bar and a crow's foot, each drawn in its list; a plain line takes them too) and where its label sits along it. Text: the size, colour, weight, "
+                "sharp peak), its two ends (twenty-one marks, from the MemoryMap end, the mark's node dot ahead of a chevron, through open, "
+                "filled, stealth, half and double arrows, circles and diamonds to a cross, a bar and a crow's foot, each drawn in its "
+                "list, each small, medium or large in the menu beside it; a plain line takes them too) and where its label sits along it. Text: the size, colour, weight, "
                 "alignment and vertical place (top, middle, bottom) of a text box or a shape's words. Arrange: X, Y, width, height and "
                 "angle as numbers, flip, and the order, align, spacing, group and lock buttons. With "
                 "several items selected it shows what they all share, and a value they differ on reads Mixed. Every "
-                "change is one undo step, across the whole selection. Colours are in Fill, border and recent colours. Bends, connection points and imports are in Connector bends and importing."
+                "change is one undo step, across the whole selection. Reset style (the item's right-click menu, its ... menu "
+                "or Ctrl+K) puts colour, fill, line and text back to the defaults, its words, place and ends kept. "
+                "Colours are in Fill, border and recent colours. Bends, connection points and imports are in Connector bends and importing."
             ),
             "badge": {"label": "Library", "tab": "library"},
         },
@@ -1437,7 +1442,7 @@ HELP_TOPICS.extend(
                 "anchor point", "entity relationship", "mermaid", "subgraph", "sequence diagram", "class diagram",
                 "state diagram", "drawio", "draw.io file", "open a drawio file", "import a flowchart",
                 "clone and connect", "copy and connect", "next shape", "copy a shape",
-                "connect it to the copy", "connect the copy",
+                "connect it to the copy", "connect the copy", "new note next to", "arrows round a card",
             ),
             "body": (
                 "Connector bends and importing. Every connector takes bends: drag the small ring in the middle "
@@ -1451,7 +1456,8 @@ HELP_TOPICS.extend(
                 "Drag the square on a connector's label to slide "
                 "it along the line. The ends include the entity-relationship marks (one, zero or one, many, "
                 "one or many, zero or many). With one shape or text box selected, the four arrows round it "
-                "(or Alt+Shift and an arrow key) copy it that way and join facing sides with an elbow. "
+                "(or Alt+Shift and an arrow key) copy it that way and join facing sides with an elbow; "
+                "a note card's arrows make a new note there instead, joined and ready to type. "
                 "Insert, Mermaid, draw.io or board SVG brings in a Mermaid flowchart, state, class or "
                 "sequence diagram, a .drawio file (pages and swimlanes as frames) or an SVG a board "
                 "here exported, as shapes and connectors; Export writes an Outline and a Mermaid flowchart."

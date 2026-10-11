@@ -6571,6 +6571,7 @@ Link to another note with [[its first few words]]."></textarea>
               <button type="button" class="wb-menu-item" data-wb-cmd="comment"><i class="ph ph-chat-teardrop-text ph-lead" aria-hidden="true"></i><span>Comment on the item</span></button>
               <button type="button" class="wb-menu-item" data-wb-cmd="copy-style"><i class="ph ph-eyedropper ph-lead" aria-hidden="true"></i><span>Copy style</span><kbd>Ctrl+Alt+C</kbd></button>
               <button type="button" class="wb-menu-item" data-wb-cmd="paste-style"><i class="ph ph-paint-bucket ph-lead" aria-hidden="true"></i><span>Paste style</span><kbd>Ctrl+Alt+V</kbd></button>
+              <button type="button" class="wb-menu-item" data-wb-cmd="reset-style"><i class="ph ph-arrow-counter-clockwise ph-lead" aria-hidden="true"></i><span>Reset style</span></button>
             </div>
           </div>
         </div>
@@ -7293,11 +7294,15 @@ Link to another note with [[its first few words]]."></textarea>
       </div>
       <div class="wb-context-group hidden" data-wb-ctx="caps">
         <select id="wb-prop-startcap" aria-label="Line start style" title="Line start style">
+          <optgroup label="MemoryMap">
+            <option value="memorymap" data-menu-class="wb-cap wb-cap-memorymap wb-cap-start">MemoryMap</option>
+          </optgroup>
           <optgroup label="Plain ends">
             <option value="none" data-menu-class="wb-cap wb-cap-none wb-cap-start">None</option>
             <option value="arrow" data-menu-class="wb-cap wb-cap-arrow wb-cap-start">Open arrow</option>
             <option value="triangle" data-menu-class="wb-cap wb-cap-triangle wb-cap-start">Filled triangle</option>
             <option value="triangle-open" data-menu-class="wb-cap wb-cap-triangle-open wb-cap-start">Open triangle</option>
+            <option value="stealth" data-menu-class="wb-cap wb-cap-stealth wb-cap-start">Stealth arrow</option>
             <option value="diamond" data-menu-class="wb-cap wb-cap-diamond wb-cap-start">Diamond</option>
             <option value="diamond-filled" data-menu-class="wb-cap wb-cap-diamond-filled wb-cap-start">Filled diamond</option>
             <option value="bar" data-menu-class="wb-cap wb-cap-bar wb-cap-start">Bar</option>
@@ -7305,6 +7310,9 @@ Link to another note with [[its first few words]]."></textarea>
             <option value="circle-filled" data-menu-class="wb-cap wb-cap-circle-filled wb-cap-start">Filled circle</option>
             <option value="square" data-menu-class="wb-cap wb-cap-square wb-cap-start">Square</option>
             <option value="multiline" data-menu-class="wb-cap wb-cap-multiline wb-cap-start">Multi-line</option>
+            <option value="cross" data-menu-class="wb-cap wb-cap-cross wb-cap-start">Cross</option>
+            <option value="half-arrow" data-menu-class="wb-cap wb-cap-half-arrow wb-cap-start">Half arrow</option>
+            <option value="double-arrow" data-menu-class="wb-cap wb-cap-double-arrow wb-cap-start">Double arrow</option>
           </optgroup>
           <optgroup label="Entity-relationship ends">
             <option value="er-one" data-menu-class="wb-cap wb-cap-er-one wb-cap-start">One</option>
@@ -7315,12 +7323,21 @@ Link to another note with [[its first few words]]."></textarea>
             <option value="er-zero-many" data-menu-class="wb-cap wb-cap-er-zero-many wb-cap-start">Zero or many</option>
           </optgroup>
         </select>
+        <select id="wb-prop-startsize" class="wb-cap-size" aria-label="Start size" title="Size of the start mark">
+          <option value="s">Small</option>
+          <option value="m" selected>Medium</option>
+          <option value="l">Large</option>
+        </select>
         <select id="wb-prop-endcap" aria-label="Line end style" title="Line end style">
+          <optgroup label="MemoryMap">
+            <option value="memorymap" data-menu-class="wb-cap wb-cap-memorymap">MemoryMap</option>
+          </optgroup>
           <optgroup label="Plain ends">
             <option value="none" data-menu-class="wb-cap wb-cap-none">None</option>
             <option value="arrow" data-menu-class="wb-cap wb-cap-arrow">Open arrow</option>
             <option value="triangle" data-menu-class="wb-cap wb-cap-triangle">Filled triangle</option>
             <option value="triangle-open" data-menu-class="wb-cap wb-cap-triangle-open">Open triangle</option>
+            <option value="stealth" data-menu-class="wb-cap wb-cap-stealth">Stealth arrow</option>
             <option value="diamond" data-menu-class="wb-cap wb-cap-diamond">Diamond</option>
             <option value="diamond-filled" data-menu-class="wb-cap wb-cap-diamond-filled">Filled diamond</option>
             <option value="bar" data-menu-class="wb-cap wb-cap-bar">Bar</option>
@@ -7328,6 +7345,9 @@ Link to another note with [[its first few words]]."></textarea>
             <option value="circle-filled" data-menu-class="wb-cap wb-cap-circle-filled">Filled circle</option>
             <option value="square" data-menu-class="wb-cap wb-cap-square">Square</option>
             <option value="multiline" data-menu-class="wb-cap wb-cap-multiline">Multi-line</option>
+            <option value="cross" data-menu-class="wb-cap wb-cap-cross">Cross</option>
+            <option value="half-arrow" data-menu-class="wb-cap wb-cap-half-arrow">Half arrow</option>
+            <option value="double-arrow" data-menu-class="wb-cap wb-cap-double-arrow">Double arrow</option>
           </optgroup>
           <optgroup label="Entity-relationship ends">
             <option value="er-one" data-menu-class="wb-cap wb-cap-er-one">One</option>
@@ -7337,6 +7357,11 @@ Link to another note with [[its first few words]]."></textarea>
             <option value="er-one-many" data-menu-class="wb-cap wb-cap-er-one-many">One or many</option>
             <option value="er-zero-many" data-menu-class="wb-cap wb-cap-er-zero-many">Zero or many</option>
           </optgroup>
+        </select>
+        <select id="wb-prop-endsize" class="wb-cap-size" aria-label="End size" title="Size of the end mark">
+          <option value="s">Small</option>
+          <option value="m" selected>Medium</option>
+          <option value="l">Large</option>
         </select>
       </div>
       <div class="wb-context-group hidden" data-wb-ctx="stroke">
@@ -7413,10 +7438,11 @@ Link to another note with [[its first few words]]."></textarea>
             <div class="wb-menu-section" data-wb-ctx="more-style">
               <span class="wb-panel-group-label">Style</span>
               <div class="wb-menu-row" id="wb-copy-style-row">
-                <span>Copy and paste a style</span>
+                <span>Copy, paste or reset a style</span>
                 <span class="row wb-inline-controls">
                   <button type="button" id="wb-copy-style" class="ghost small icon-only" title="Copy this item's style (Ctrl+Alt+C)" aria-label="Copy style"><i class="ph ph-eyedropper" aria-hidden="true"></i></button>
                   <button type="button" id="wb-paste-style" class="ghost small icon-only" title="Paste the copied style onto what is selected (Ctrl+Alt+V)" aria-label="Paste style"><i class="ph ph-paint-bucket" aria-hidden="true"></i></button>
+                  <button type="button" id="wb-reset-style" class="ghost small icon-only" title="Reset style: colour, fill, line and text back to the defaults; the words and place stay" aria-label="Reset style"><i class="ph ph-arrow-counter-clockwise" aria-hidden="true"></i></button>
                 </span>
               </div>
               <label class="wb-menu-row hidden" id="wb-prop-nostroke-row" title="No stroke: fill only"><span>No stroke</span><input type="checkbox" id="wb-prop-nostroke"></label>
@@ -7886,10 +7912,10 @@ Link to another note with [[its first few words]]."></textarea>
             </select>
           </label>
           <label class="wb-fmt-row" data-fmt="caps"><span class="wb-fmt-label">Start</span>
-            <select id="wb-fmt-startcap" aria-label="Line start" title="Line start"></select>
+            <span class="wb-fmt-buttons"><select id="wb-fmt-startcap" aria-label="Line start" title="Line start"></select><select id="wb-fmt-startsize" class="wb-cap-size" aria-label="Start size" title="Size of the start mark"><option value="s">Small</option><option value="m" selected>Medium</option><option value="l">Large</option></select></span>
           </label>
           <label class="wb-fmt-row" data-fmt="caps"><span class="wb-fmt-label">End</span>
-            <select id="wb-fmt-endcap" aria-label="Line end" title="Line end"></select>
+            <span class="wb-fmt-buttons"><select id="wb-fmt-endcap" aria-label="Line end" title="Line end"></select><select id="wb-fmt-endsize" class="wb-cap-size" aria-label="End size" title="Size of the end mark"><option value="s">Small</option><option value="m" selected>Medium</option><option value="l">Large</option></select></span>
           </label>
           <label class="wb-fmt-row" data-fmt="label-t"><span class="wb-fmt-label">Label along</span>
             <input type="range" id="wb-fmt-label-t" min="5" max="95" step="5" aria-label="Label position along the line" title="Label position along the line">

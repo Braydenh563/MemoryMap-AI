@@ -164,3 +164,58 @@ def test_the_route_takes_a_memorymap_folder(exported):
     assert reply.status_code == 201, reply.text
     body = reply.json()
     assert body["imported"] == 503 and body["skipped"] == []
+
+
+def test_a_connector_and_a_map_reference_come_back_joined_to_their_items(client, tmp_path):
+    """OPEN row 812: ids inside a board's data were copied, not remapped, so a
+    connector came back joined to whatever had its old numbers and a map's
+    note node pointed at another note. The export also writes each end by
+    place; the import turns it into the new ids."""
+    from memorymap.core.database import Entry, WhiteboardNode, WhiteboardObject, WhiteboardSketch
+    from memorymap.entry import manager
+
+    session = deps.get_db().session()
+    note = manager.create_entry(session, "Joined note")
+    board = manager.create_entry(session, "Linked board")
+    board.is_board = True
+    session.flush()
+    card = WhiteboardNode(board_id=board.id, entry_id=note.id, x=0.0, y=0.0)
+    box = WhiteboardObject(board_id=board.id, kind="text", data=json.dumps({"content": "Box"}))
+    ref = WhiteboardObject(board_id=board.id, kind="note", data=json.dumps({"ref_id": note.id}))
+    session.add_all([card, box, ref])
+    session.flush()
+    session.add(WhiteboardSketch(board_id=board.id, data=json.dumps({
+        "type": "link-straight", "sourceId": card.id, "targetId": box.id, "targetKind": "object", "endCap": "arrow"})))
+    session.commit()
+    note_id, card_id, box_id = note.id, card.id, box.id
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        export_folder.export(session, deps.get_config().uploads_dir, archive)
+    session.close()
+    deps.reset_app_state()
+    deps.init_app_state(data_dir=tmp_path / "empty")
+    # The notebook it lands in already has rows, so every new id differs
+    # from the old one and a copied id would point at the wrong item.
+    session = deps.get_db().session()
+    other = manager.create_entry(session, "Already here")
+    other.is_board = True
+    for i in range(3):
+        manager.create_entry(session, f"earlier {i}")
+    session.flush()
+    session.add_all([WhiteboardNode(board_id=other.id, entry_id=other.id, x=0.0, y=0.0) for _ in range(3)])
+    session.add_all([WhiteboardObject(board_id=other.id, kind="text", data="{}") for _ in range(3)])
+    session.add_all([WhiteboardSketch(board_id=other.id, data="{}") for _ in range(3)])
+    session.commit()
+    session.close()
+    session, _, written = _import(buffer.getvalue())
+    assert written["said"] == [], written["said"]
+    new_board = session.query(Entry).filter(Entry.content.like("Linked board%")).one()
+    new_note = session.query(Entry).filter(Entry.content.like("Joined note%")).one()
+    new_card = session.query(WhiteboardNode).filter_by(board_id=new_board.id).one()
+    objects = {o.kind: o for o in session.query(WhiteboardObject).filter_by(board_id=new_board.id)}
+    link = json.loads(session.query(WhiteboardSketch).filter_by(board_id=new_board.id).one().data)
+    assert (link["sourceId"], link["targetId"]) == (new_card.id, objects["text"].id), link
+    assert link["targetKind"] == "object" and link["endCap"] == "arrow"
+    assert json.loads(objects["note"].data)["ref_id"] == new_note.id
+    assert new_note.id != note_id and new_card.id != card_id and objects["text"].id != box_id
+    session.close()

@@ -7108,6 +7108,11 @@ button.connection-row:is(:hover, :focus-visible) {
   align-items: center;
   gap: var(--space-1);
   align-self: stretch;
+  /* A group wider than the bar (the two ends and their sizes, about 640px)
+     wraps inside itself too, so at 390 the End pair takes a second row
+     rather than running past the bar's edge (wbs-1011, ends.js). */
+  flex-wrap: wrap;
+  row-gap: var(--space-1);
 }
 .wb-context-group:not(.hidden) ~ .wb-context-group:not(.hidden) {
   border-left: 1px solid var(--divider);

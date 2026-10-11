@@ -596,7 +596,7 @@ function wbDrawioText(value) {
 }
 
 //: draw.io's ends to the board's (decision 3's caps row).
-const WB_DRAWIO_CAPS = { classic: "arrow", block: "arrow", open: "arrow", openThin: "arrow", classicThin: "arrow", blockThin: "arrow", oval: "circle", ERone: "er-one-only", ERmandOne: "er-one", ERmany: "er-many", ERoneToMany: "er-one-many", ERzeroToOne: "er-zero-one", ERzeroToMany: "er-zero-many" };
+const WB_DRAWIO_CAPS = { classic: "arrow", block: "arrow", open: "arrow", openThin: "arrow", classicThin: "arrow", blockThin: "arrow", oval: "circle", ERone: "er-one-only", ERmandOne: "er-one", ERmany: "er-many", ERoneToMany: "er-one-many", ERzeroToOne: "er-zero-one", ERzeroToMany: "er-zero-many", cross: "cross", openAsync: "half-arrow", async: "half-arrow", doubleBlock: "double-arrow" };
 //: Style keys with no counterpart here, counted in the import's report.
 const WB_DRAWIO_DROPPED = ["sketch", "glass", "comic", "shadow", "rotation", "image", "gradientColor"];
 

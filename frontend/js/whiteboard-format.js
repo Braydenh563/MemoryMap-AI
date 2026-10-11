@@ -100,6 +100,8 @@ function wbFmtValue(entry, field) {
     case "jumps": return WB_JUMP_STYLES.includes(s?.jumps) ? s.jumps : "none";
     case "startcap": return (kind === "arrow" ? wbSketchCaps(s) : wbLinkCaps(s)).startCap;
     case "endcap": return (kind === "arrow" ? wbSketchCaps(s) : wbLinkCaps(s)).endCap;
+    case "startsize": return (kind === "arrow" ? wbSketchCaps(s) : wbLinkCaps(s)).startSize || "m";
+    case "endsize": return (kind === "arrow" ? wbSketchCaps(s) : wbLinkCaps(s)).endSize || "m";
     case "label-t": return Math.round(wbLinkLabelT(s) * 100);
     case "size": return kind === "shape" ? s.label_size || 16 : o.font_size || 16;
     case "bold": return Boolean(kind === "shape" ? s.label_bold : o.bold);
@@ -380,7 +382,7 @@ function wbFormatSync() {
   for (const [id, field, row] of [
     ["wb-fmt-stroke", "stroke", "stroke"], ["wb-fmt-width", "width", "width"], ["wb-fmt-dash", "dash", "dash"],
     ["wb-fmt-fill", "fill", "fill"], ["wb-fmt-route", "route", "route"], ["wb-fmt-jumps", "jumps", "jumps"], ["wb-fmt-startcap", "startcap", "caps"],
-    ["wb-fmt-endcap", "endcap", "caps"], ["wb-fmt-label-t", "label-t", "label-t"], ["wb-fmt-size", "size", "text"],
+    ["wb-fmt-endcap", "endcap", "caps"], ["wb-fmt-startsize", "startsize", "caps"], ["wb-fmt-endsize", "endsize", "caps"], ["wb-fmt-label-t", "label-t", "label-t"], ["wb-fmt-size", "size", "text"],
     ["wb-fmt-ink", "ink", "text"], ["wb-fmt-alpha", "alpha", "alpha"],
   ]) {
     if (!takes.has(row)) continue;
@@ -554,6 +556,15 @@ function wbFormatCommandButtons() {
   }
 }
 
+//: The fields a change of either end (its mark or its size) writes.
+function wbFmtCapFields(kind, parsed, caps) {
+  if (kind === "arrow") {
+    const d = wbRegenerateShapeCaps(parsed.d, caps.startCap, caps.endCap, (parsed.width || 3) * 4 + 6, caps);
+    return { d, startCap: caps.startCap, endCap: caps.endCap, ...wbCapSizeFields(caps) };
+  }
+  return { startCap: caps.startCap, endCap: caps.endCap, endStyle: undefined, ...wbCapSizeFields(caps) };
+}
+
 onDomReady(() => {
   const panel = wbFormatPanel();
   if (!panel) return;
@@ -641,12 +652,14 @@ onDomReady(() => {
       //: a connector's are drawn from the two fields at render time.
       const caps = kind === "arrow" ? wbSketchCaps(parsed) : wbLinkCaps(parsed);
       caps[`${which}Cap`] = e.target.value;
-      if (kind === "arrow") {
-        const d = wbRegenerateShapeCaps(parsed.d, caps.startCap, caps.endCap, (parsed.width || 3) * 4 + 6);
-        return { d, startCap: caps.startCap, endCap: caps.endCap };
-      }
-      return { startCap: caps.startCap, endCap: caps.endCap, endStyle: undefined };
+      return wbFmtCapFields(kind, parsed, caps);
     }, `${which === "start" ? "Start" : "End"}: ${e.target.selectedOptions[0]?.textContent || e.target.value}.`));
+    on(`wb-fmt-${which}size`, "change", (e) => wbFmtApply("caps", (entry, kind) => {
+      const parsed = wbFmtSketch(entry);
+      const caps = kind === "arrow" ? wbSketchCaps(parsed) : wbLinkCaps(parsed);
+      caps[`${which}Size`] = e.target.value;
+      return wbFmtCapFields(kind, parsed, caps);
+    }, `${which === "start" ? "Start" : "End"} size: ${e.target.selectedOptions[0]?.textContent || e.target.value}.`));
   }
   on("wb-fmt-label-t", "change", (e) => {
     const pct = Math.max(5, Math.min(95, Number(e.target.value) || 50));

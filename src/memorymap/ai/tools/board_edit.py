@@ -194,8 +194,20 @@ def _edit_board_item(session: Session, args: dict) -> dict:
         old["fill"] = data.get(key) or ""
         data[key] = fill
         changed.append("fill")
+    fold = args.get("fold")
+    if fold is not None:
+        #: A sticky's folded corner (OPEN row 810): the Format panel's switch,
+        #: which the assistant could keep but not set.
+        sticky = data.get("sticky") or (data.get("border_color") == "#e8d56a" and data.get("bg"))
+        if kind != "object" or not sticky or data.get("sticker"):
+            raise ToolError("Only a sticky note has a folded corner.")
+        #: With no corner stored the board's default showed, which is
+        #: not read here: the undo turns back to the other state.
+        old["fold"] = data.get("fold", not bool(fold))
+        data["fold"] = bool(fold)
+        changed.append("corner")
     if not changed:
-        raise ToolError("Nothing to change: give text, color or fill.")
+        raise ToolError("Nothing to change: give text, color, fill or fold.")
     if kind == "object":
         from memorymap.api.routes_whiteboard import WhiteboardObjectData
 
@@ -209,7 +221,7 @@ def _edit_board_item(session: Session, args: dict) -> dict:
     return {
         "kind": kind, "item_id": row.id, "changed": changed,
         "label": f"ph:pencil-simple Changed the {kind}'s {' and '.join(changed)}",
-        "undo": {"tool": "edit_board_item", "arguments": {"kind": kind, "item_id": row.id, **{k: v for k, v in old.items() if v}}},
+        "undo": {"tool": "edit_board_item", "arguments": {"kind": kind, "item_id": row.id, **{k: v for k, v in old.items() if v or k == "fold"}}},
     }
 
 

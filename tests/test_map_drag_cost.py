@@ -142,7 +142,11 @@ def test_the_canvas_box_is_measured_once_per_gesture() -> None:
     # no pointer event at all, so a hovering pointer re-measures, which is what
     # it did before the cache, while a gesture (buttons non-zero) keeps it.
     assert "if (!event.buttons) wbClearCanvasRectCache();" in WB
-    assert "const rect = wbCanvasOriginRect();" in _body("wbMapDropTargetAt")
+    # The map's drop target reads the pointer through the shared conversion,
+    # whose origin is the same per-gesture box (OPEN row 842).
+    drop = _body("wbMapDropTargetAt")
+    assert "wbClientToBoard(clientX, clientY)" in drop and "invert(" not in drop
+    assert "wbCanvasOriginRect()" in _body("wbCanvasOrigin")
 
 
 def test_an_object_is_raised_once_a_gesture_not_once_a_frame() -> None:

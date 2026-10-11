@@ -1723,9 +1723,14 @@ async function refreshModelStatus() {
     statusEverAnswered = true;
     modelStatusProblem = null;
   } catch (err) {
-    modelStatus = null; // locked or unreachable: pill shows the worst case
+    //: **A slow answer keeps the last good status** (OPEN ledger 1520): the
+    //: Agent panel and the pill used to grey on every timeout and flicker
+    //: back on the next poll. Only "slow" is flagged (`modelStatusProblem`),
+    //: and Settings still says so. A fault or an unreachable server drops the
+    //: status as before, so the pill shows the worst case.
     if (err?.name === "TimeoutError" || err?.name === "AbortError") modelStatusProblem = "slow";
     else {
+      modelStatus = null; // locked or unreachable: pill shows the worst case
       const up = await fetch("/health", { signal: AbortSignal.timeout(3000) }).then((r) => r.ok).catch(() => false);
       modelStatusProblem = up ? "error" : "down";
     }
@@ -2702,6 +2707,12 @@ function renderSettings() {
     ? `${backend} is running`
     : status.unreachable_hint || `${backend} isn't running`;
   ollamaLine.className = `status ${status.ollama_running ? "ok" : "off"}`;
+  //: A slow poll keeps the last answer on screen (see refreshModelStatus), so
+  //: the line says so instead of presenting a stale answer as fresh.
+  if (modelStatusProblem === "slow") {
+    ollamaLine.textContent = "The model server is slow to answer. Showing the last answer.";
+    ollamaLine.className = "status is-checking";
+  }
   renderBackendPicker(status);
   const embeddingError = $("embedding-error");
   embeddingError.classList.toggle("hidden", !status.embedding_error);

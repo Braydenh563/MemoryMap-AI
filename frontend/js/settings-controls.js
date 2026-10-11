@@ -506,6 +506,7 @@ $("pref-warm-search-model").addEventListener("change", (e) =>
   setPreference("warm_search_model_at_launch", e.target.checked)
 );
 $("pref-voice").addEventListener("change", (e) => setPreference("composer_voice", e.target.value));
+$("pref-week-start").addEventListener("change", (e) => setPreference("week_start", e.target.value));
 
 //: Clamped here as the backend clamps it (5 to 60), so a typed 100 saves
 //: as 60 rather than being refused by the preferences schema.

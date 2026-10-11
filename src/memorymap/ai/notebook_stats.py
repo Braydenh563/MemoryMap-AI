@@ -737,9 +737,10 @@ def _reminder_block(session: Session, now: datetime) -> dict:
     return {"made": made, "done": int(done), "late": int(late), "open": made - int(done)}
 
 
-def week_start(now: datetime) -> datetime:
-    """Monday 00:00 of `now`'s week, on `now`'s own clock."""
-    day = now.date() - timedelta(days=now.weekday())
+def week_start(now: datetime, first_day: int = 0) -> datetime:
+    """00:00 of the first day of `now`'s week, on `now`'s own clock.
+    `first_day` is Python's weekday number: 0 Monday, 5 Saturday, 6 Sunday."""
+    day = now.date() - timedelta(days=(now.weekday() - first_day) % 7)
     return datetime.combine(day, time(0), now.tzinfo)
 
 
@@ -760,12 +761,12 @@ def _week_counts(session: Session, start: datetime, end: datetime) -> dict:
     }
 
 
-def week_review(session: Session, now: datetime) -> dict:
+def week_review(session: Session, now: datetime, first_day: int = 0) -> dict:
     """This week so far against the whole of last week (Screen Time's shape):
     notes made, words written in them, reminders ticked off. "Done" is when
     the tick was made (`Reminder.done_at`); one ticked before that column
     existed has no week, so it is in neither."""
-    this = week_start(now)
+    this = week_start(now, first_day)
     last = this - timedelta(days=7)
     return {
         "this": _week_counts(session, this, now + timedelta(seconds=1)),
@@ -773,14 +774,14 @@ def week_review(session: Session, now: datetime) -> dict:
     }
 
 
-def page(session: Session, now: datetime, usage_summary: dict) -> dict:
+def page(session: Session, now: datetime, usage_summary: dict, first_day: int = 0) -> dict:
     """Everything the Statistics page draws, in one answer."""
     features = list(usage_summary.get("features") or [])[:USAGE_ROWS]
     return {
         "as_of": now.isoformat(),
         "notebook": _notebook_block(session, now),
         "reminders": _reminder_block(session, now),
-        "week": week_review(session, now),
+        "week": week_review(session, now, first_day),
         "usage": {
             "features": features,
             "unused_days": usage_summary.get("unused_days"),

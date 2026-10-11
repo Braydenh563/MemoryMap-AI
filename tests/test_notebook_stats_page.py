@@ -128,3 +128,25 @@ def test_the_route_answers_in_one_call_with_the_usage_rows(client):
     assert body["usage"]["uses"] == 3
     assert body["usage"]["unused_days"] == 90
 
+
+
+def test_the_week_can_start_on_sunday_or_saturday():
+    wednesday = datetime(2026, 10, 14, 9, 0, tzinfo=timezone.utc)
+    assert notebook_stats.week_start(wednesday).date().isoformat() == "2026-10-12"
+    assert notebook_stats.week_start(wednesday, 6).date().isoformat() == "2026-10-11"
+    assert notebook_stats.week_start(wednesday, 5).date().isoformat() == "2026-10-10"
+    sunday = datetime(2026, 10, 11, 9, 0, tzinfo=timezone.utc)
+    assert notebook_stats.week_start(sunday, 6).date().isoformat() == "2026-10-11"
+
+
+def test_the_first_day_follows_the_choice_then_the_locale_then_monday(client):
+    first = client.get("/statistics").json()["week"]["this"]["start"]
+    assert datetime.fromisoformat(first).weekday() == 0
+    client.put("/preferences", json={"week_start_locale": 6})
+    reported = client.get("/statistics").json()["week"]["this"]["start"]
+    assert datetime.fromisoformat(reported).weekday() == 6
+    client.put("/preferences", json={"week_start": "saturday"})
+    chosen = client.get("/statistics").json()["week"]["this"]["start"]
+    assert datetime.fromisoformat(chosen).weekday() == 5
+    bad = client.put("/preferences", json={"week_start": "friday"})
+    assert bad.status_code == 422

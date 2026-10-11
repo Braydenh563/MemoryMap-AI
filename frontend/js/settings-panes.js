@@ -648,10 +648,25 @@ async function reportTimezone() {
   //: zone the server already had on every single cold start. With the shared
   //: reader the comparison has something to compare.
   await loadPreferences().catch(() => null);
-  if (!zone || (prefsCache && prefsCache.timezone === zone)) return;
+  //: The locale's first day of the week, as a Python weekday (Intl says 1 for
+  //: Monday to 7 for Sunday). `weekInfo` is missing in older engines, and
+  //: then the server's Monday stands. Reported with the zone, only on change.
+  let weekDay = null;
+  try {
+    const info = new Intl.Locale(navigator.language).weekInfo;
+    if (info && Number.isInteger(info.firstDay)) weekDay = (info.firstDay - 1) % 7;
+  } catch {
+    weekDay = null;
+  }
+  const body = {};
+  if (zone && !(prefsCache && prefsCache.timezone === zone)) body.timezone = zone;
+  if (weekDay !== null && !(prefsCache && prefsCache.week_start_locale === weekDay)) {
+    body.week_start_locale = weekDay;
+  }
+  if (!Object.keys(body).length) return;
   prefsCache = await apiJson("/preferences", {
     method: "PUT",
-    body: JSON.stringify({ timezone: zone }),
+    body: JSON.stringify(body),
     silent: true,
   }).catch(() => prefsCache);
 }
@@ -713,6 +728,7 @@ async function renderPrefs() {
   $("pref-search-z-margin").value = prefsCache.search_relative_z_margin;
   $("pref-style").value = prefsCache.communication_style;
   $("pref-voice").value = prefsCache.composer_voice;
+  $("pref-week-start").value = prefsCache.week_start || "auto";
   $("pref-profile").value = prefsCache.user_profile;
   $("pref-profile-enabled").checked = prefsCache.profile_enabled;
   paintUserMarks();

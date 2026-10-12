@@ -4320,4 +4320,6 @@ First, in order:
 - The agent cap: the owner cannot fund two Opus agents at once right now; run one at a time, Sonnet for named fixes.
 - Companion physics: when the companion falls it is glitchy and choppy, about 4 frames a second (owner, 2026-10-12). Measure the fall loop's frame times first (`companion-motion` tests, `avatars.js`), then fix the step rate.
 - Chord key: "s" is Settings (`CHORD_ACTIONS.s`), so "View the Stack" on "s" collides; pick a free letter.
+- Rename leftovers, only if the owner asks: release asset names (`ASSET_PREFIX = "MemoryMap-AI-Setup-"`, routes_update.py), the exe "MemoryMap AI.exe" and the Start-menu ID, each with a migration.
+- Unverified on Windows: the launcher splash (title lockup, centred links, `scripts/splash.ps1`; pwsh is not available here).
 

@@ -239,7 +239,7 @@ const EMBLEM_SLOTS = [
   ["onboarding-emblem", 64, true],
   ["chat-empty-emblem", 52, true],
   ["graph-empty-emblem", 52, true],
-  ["about-emblem", 44, true],
+  ["about-emblem", 96, true],
 ];
 
 function renderBrandLogo() {

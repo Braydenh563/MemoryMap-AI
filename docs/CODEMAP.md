@@ -9692,7 +9692,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/03-dashboard-widgets.css | 5017 |
 | frontend/css/04-chat-dock-appearance.css | 6476 |
 | frontend/css/05-sidebars-themes.css | 6228 |
-| frontend/css/06-timeline-dialogs.css | 3696 |
+| frontend/css/06-timeline-dialogs.css | 3706 |
 | frontend/css/07-whiteboard-misc.css | 11893 |
 | frontend/css/08-consistency.css | 10542 |
 | frontend/css/09-editor.css | 1116 |

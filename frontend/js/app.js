@@ -2242,6 +2242,7 @@ const LAZY_ENTRY_POINTS = {
   library: [
     "applyDocGutter",
     "applyMarkdown",
+    "archiveDocumentWithUndo",
     "closeDocAiPanel",
     "createConceptMap",
     "createDocument",

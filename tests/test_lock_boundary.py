@@ -116,6 +116,19 @@ def test_text_fields_are_cleared_too():
         assert field in body, f"{field} keeps its text in .value and must be cleared"
 
 
+def _lock_storage_handler(source: str) -> str:
+    """The `storage` listener that watches the token. There are two: the look
+    mirror (ai-tools.js, `lookFromOtherWindow`) loads first, so the first one
+    found is not the lock's; the lock's is the one that reads the "token" key."""
+    start = 0
+    while True:
+        start = source.index('addEventListener("storage"', start)
+        handler = source[start : source.index("\n});", start)]
+        if '"token"' in handler:
+            return handler
+        start += 1
+
+
 def test_locking_reaches_every_open_tab():
     """Locking in one tab must lock the others.
 
@@ -134,8 +147,7 @@ def test_locking_reaches_every_open_tab():
     assert 'addEventListener("storage"' in source, (
         "no cross-tab lock listener, a second open tab keeps showing everything"
     )
-    start = source.index('addEventListener("storage"')
-    handler = source[start : source.index("\n});", start)]
+    handler = _lock_storage_handler(source)
     assert "purgeLockedContent()" in handler
     assert "showLockScreen(false)" in handler
     # A sign-in elsewhere must not be mistaken for a lock.
@@ -170,8 +182,7 @@ def test_a_prompt_is_not_mistaken_for_the_lock_screen():
     must still purge this one, so "the overlay is showing" cannot be read as
     "already locked" while it is in prompt mode."""
     source = app_js_text()
-    start = source.index('addEventListener("storage"')
-    handler = source[start : source.index("\n});", start)]
+    handler = _lock_storage_handler(source)
     assert 'dataset.mode !== "prompt"' in handler
 
 
@@ -192,8 +203,14 @@ def test_no_second_password_form():
     #: they are Change password's new and confirm fields, on the lock screen.
     recovery = ('id="lock-recovery-new" type="password"', 'id="lock-recovery-confirm" type="password"')
     assert all(field in html for field in recovery)
-    assert html.count('type="password"') == 8, (
-        "lock card, Change password's three, the sealed backup's two, the forgot card's two"
+    #: And two more, named: the quick-unlock PIN and its confirmation (Settings,
+    #: Account, 018448017). A PIN is a second secret for this computer only, set
+    #: while signed in, so the lock card (which checks the account password)
+    #: cannot be its recipe either.
+    pin = ('id="account-pin-new" type="password"', 'id="account-pin-confirm" type="password"')
+    assert all(field in html for field in pin)
+    assert html.count('type="password"') == 10, (
+        "lock card, Change password's three, the sealed backup's two, the forgot card's two, the PIN's two"
     )
     for path in sorted(APP_JS.parent.glob("*.js")):
         source = path.read_text(encoding="utf-8")

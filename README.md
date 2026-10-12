@@ -40,10 +40,14 @@ capture a thought  ->  it files itself  ->  ask a question  ->  an answer, with 
 - **Answers you can check.** Each sentence of an answer cites the note it came
   from.
 - **Private by design.** One SQLite file on your computer: no account, no
-  cloud, no telemetry. The AI runs on your machine through
-  [Ollama](https://ollama.com) or any local OpenAI-compatible server.
-- **Works without AI.** With no model it still files by your notebook's own
-  words, searches, and keeps every feature working.
+  cloud, no telemetry. The AI runs on your machine. A local model is
+  recommended but optional: [Ollama](https://ollama.com), LM Studio or
+  llama.cpp's `llama-server` all work.
+- **Works without AI.** With no model, Atlas still answers from your notes
+  (dates, tasks, reminders, how-to questions) with citations, and the app
+  files, searches and keeps every feature working.
+- **Quick unlock.** A PIN unlocks the notebook on this computer, kept in the
+  system's protected store; the password still works everywhere.
 - **More than notes.** Documents, whiteboards and mind maps, a graph of your
   ideas, a timeline and reminders, in one app.
 

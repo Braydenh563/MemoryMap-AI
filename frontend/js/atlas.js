@@ -2085,7 +2085,9 @@ function atlasCue(parent, tiny) {
 //: boot CSS (tests/test_boot_budget.py); until it lands every sign stays
 //: hidden by its attribute and the face is the one it was.
 function atlasSheet() {
-  ensureModule("atlasFaces");
+  //: The avatar lab page loads atlas.js without app.js, so no lazy loader:
+  //: the faces draw there without the cue sheet rather than throw.
+  window.ensureModule?.("atlasFaces");
 }
 
 function atlasHead(parent, id, level, look, hairAt = null) {

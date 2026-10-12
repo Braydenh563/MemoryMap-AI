@@ -2105,20 +2105,8 @@ def _web_allowed(req: _StreamRequest) -> bool:
         return False
 
 
-def _web_answer(req: _StreamRequest, question: str) -> tuple[dict, list[dict]] | None:
-    """An answer composed from web pages (CHAT_PLAN decision 37, the second
-    half): the search the agent's `web_search` uses, the top pages read as
-    text (`fetch_readable_cached`, the reader's own checks), each page a
-    source of kind "web" cited by its address. None when nothing answers."""
-    from memorymap.search import websearch
-
-    config = deps.get_config()
-    searxng_url, provider = websearch.settings_from(config)
-    try:
-        results = websearch.search_web(question, limit=5, searxng_url=searxng_url or None, provider=provider)
-    except websearch.WebSearchError:
-        logging.getLogger("memorymap.chat").info("chat: web search failed for a composed answer", exc_info=True)
-        return None
+def _web_pages(websearch, results: list[dict]) -> list[dict]:  # noqa: ANN001
+    """The top hits read as pages, each a source of kind "web"; a page that cannot be read is skipped."""
     pages: list[dict] = []
     for i, hit in enumerate(results[:WEB_PAGES]):
         try:
@@ -2135,6 +2123,24 @@ def _web_answer(req: _StreamRequest, question: str) -> tuple[dict, list[dict]] |
                 #: else the page's opening.
                 "snippet": " ".join(str(hit.get("snippet") or text[:200]).split())[:200],
             })
+    return pages
+
+
+def _web_answer(req: _StreamRequest, question: str) -> tuple[dict, list[dict]] | None:
+    """An answer composed from web pages (CHAT_PLAN decision 37, the second
+    half): the search the agent's `web_search` uses, the top pages read as
+    text (`fetch_readable_cached`, the reader's own checks), each page a
+    source of kind "web" cited by its address. None when nothing answers."""
+    from memorymap.search import websearch
+
+    config = deps.get_config()
+    searxng_url, provider = websearch.settings_from(config)
+    try:
+        results = websearch.search_web(question, limit=5, searxng_url=searxng_url or None, provider=provider)
+    except websearch.WebSearchError:
+        logging.getLogger("memorymap.chat").info("chat: web search failed for a composed answer", exc_info=True)
+        return None
+    pages = _web_pages(websearch, results)
     if not pages:
         return None
     composed = composer.compose(question, pages, today=user_now(deps.get_config()).date(), voice=_composer_voice())

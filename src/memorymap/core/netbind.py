@@ -400,6 +400,19 @@ def firewall_hint(port: int | None, platform: str | None = None) -> dict | None:
     }
 
 
+def _shown_addresses(config: ConfigManager, listening: bool, enabled: bool, port: int | None):
+    """The network this computer is on, the addresses to show for it (the
+    phone's first), and the HTTPS port they are typed with."""
+    from memorymap.core import lantrust
+
+    raw = lan_addresses() if listening or enabled else []
+    https_port = _current_lan_port or (lan_port(port) if port else None)
+    network = lantrust.current_network() if listening else None
+    if network is None and enabled:
+        network = lantrust.network_for_display()
+    return network, order_addresses(raw, network), https_port
+
+
 def describe(config: ConfigManager, port: int | None = None) -> dict:
     """What the receipt and Settings say about who can reach the app.
 
@@ -415,12 +428,8 @@ def describe(config: ConfigManager, port: int | None = None) -> dict:
     #: (core/lantrust.py); "off" is a server started without that gate.
     held = listening and trust["reason"] != "off" and not trust["open"]
     other_devices = listening and not held
-    raw = lan_addresses() if listening or lan_enabled(config) else []
-    https_port = _current_lan_port or (lan_port(port) if port else None)
-    network = lantrust.current_network() if listening else None
-    if network is None and lan_enabled(config):
-        network = lantrust.network_for_display()
-    shown = order_addresses(raw, network)
+    enabled = lan_enabled(config)
+    network, shown, https_port = _shown_addresses(config, listening, enabled, port)
 
     def url(a: str) -> str:
         return f"https://{url_host(a)}:{https_port}" if https_port else url_host(a)
@@ -428,8 +437,8 @@ def describe(config: ConfigManager, port: int | None = None) -> dict:
     return {
         "host": host,
         "other_devices": other_devices,
-        "lan_on_next_launch": lan_enabled(config),
-        "restart_required": lan_enabled(config) == is_loopback_bind(host),
+        "lan_on_next_launch": enabled,
+        "restart_required": enabled == is_loopback_bind(host),
         #: The phone's address first (the default route's interface), then
         #: the rest, IPv6 last; virtual adapters left out (the owner's
         #: Windows list had VirtualBox's 192.168.56.1, which no phone reaches).
@@ -437,7 +446,7 @@ def describe(config: ConfigManager, port: int | None = None) -> dict:
         "primary_address": url(shown[0]) if shown else "",
         "network": trust if listening else None,
         "held": trust["reason"] if held else None,
-        "firewall": firewall_hint(https_port) if lan_enabled(config) else None,
+        "firewall": firewall_hint(https_port) if enabled else None,
     }
 
 

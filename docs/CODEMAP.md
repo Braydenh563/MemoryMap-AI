@@ -5169,21 +5169,21 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `allSettingRows` | frontend/js/settings-rows.js:292 |
-| `applyLookSettings` | frontend/js/settings-rows.js:428 |
-| `applySettingsFile` | frontend/js/settings-rows.js:443 |
-| `browserOnlySettings` | frontend/js/settings-rows.js:397 |
-| `exportSettingsFile` | frontend/js/settings-rows.js:413 |
-| `fireSettingEvents` | frontend/js/settings-rows.js:330 |
-| `importSettingsFile` | frontend/js/settings-rows.js:458 |
+| `allSettingRows` | frontend/js/settings-rows.js:296 |
+| `applyLookSettings` | frontend/js/settings-rows.js:432 |
+| `applySettingsFile` | frontend/js/settings-rows.js:447 |
+| `browserOnlySettings` | frontend/js/settings-rows.js:401 |
+| `exportSettingsFile` | frontend/js/settings-rows.js:417 |
+| `fireSettingEvents` | frontend/js/settings-rows.js:334 |
+| `importSettingsFile` | frontend/js/settings-rows.js:462 |
 | `lookBase` | frontend/js/settings-rows.js:169 |
-| `paintSectionReset` | frontend/js/settings-rows.js:311 |
-| `paintSettingRow` | frontend/js/settings-rows.js:281 |
-| `paintSettingRows` | frontend/js/settings-rows.js:303 |
-| `resetSettingRow` | frontend/js/settings-rows.js:337 |
-| `resetSettingSection` | frontend/js/settings-rows.js:359 |
+| `paintSectionReset` | frontend/js/settings-rows.js:315 |
+| `paintSettingRow` | frontend/js/settings-rows.js:285 |
+| `paintSettingRows` | frontend/js/settings-rows.js:307 |
+| `resetSettingRow` | frontend/js/settings-rows.js:341 |
+| `resetSettingSection` | frontend/js/settings-rows.js:363 |
 | `sameSettingValue` | frontend/js/settings-rows.js:163 |
-| `scheduleSettingRowsPaint` | frontend/js/settings-rows.js:367 |
+| `scheduleSettingRowsPaint` | frontend/js/settings-rows.js:371 |
 | `settingDefaultShown` | frontend/js/settings-rows.js:174 |
 | `settingDefaults` | frontend/js/settings-rows.js:122 |
 | `settingIsModified` | frontend/js/settings-rows.js:180 |
@@ -5195,14 +5195,14 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `settingRowEl` | frontend/js/settings-rows.js:197 |
 | `settingRowName` | frontend/js/settings-rows.js:204 |
 | `settingRowShown` | frontend/js/settings-rows.js:214 |
-| `settingRowsIn` | frontend/js/settings-rows.js:296 |
-| `settingRowsWatch` | frontend/js/settings-rows.js:378 |
-| `settingScopeChip` | frontend/js/settings-rows.js:272 |
+| `settingRowsIn` | frontend/js/settings-rows.js:300 |
+| `settingRowsWatch` | frontend/js/settings-rows.js:382 |
+| `settingScopeChip` | frontend/js/settings-rows.js:276 |
 | `settingSegButton` | frontend/js/settings-rows.js:139 |
 | `settingShows` | frontend/js/settings-rows.js:155 |
-| `settingsFileSnapshot` | frontend/js/settings-rows.js:408 |
-| `settingsImportWords` | frontend/js/settings-rows.js:450 |
-| `wireSettingsFile` | frontend/js/settings-rows.js:482 |
+| `settingsFileSnapshot` | frontend/js/settings-rows.js:412 |
+| `settingsImportWords` | frontend/js/settings-rows.js:454 |
+| `wireSettingsFile` | frontend/js/settings-rows.js:486 |
 
 ### frontend/js/shared-intake.js (2)
 

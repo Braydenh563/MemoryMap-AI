@@ -266,6 +266,10 @@ function settingResetButton(row, rowEl) {
   });
   const place = settingMarkHost(rowEl);
   place.host.insertBefore(button, place.before);
+  //: A reset beside a dropdown touched it (the shell's margin-inline-start is
+  //: `auto`, which is no gap once the row shrinks to its content). Set through
+  //: the CSSOM because the boot stylesheets are at their budget.
+  if (button.previousElementSibling?.classList.contains("select-shell")) button.style.marginInlineStart = "var(--space-2)";
   return button;
 }
 

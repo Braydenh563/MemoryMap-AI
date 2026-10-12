@@ -4565,6 +4565,19 @@ def compact_schemas(offered: list[dict]) -> list[dict]:
     return out
 
 
+def keep_first_for(question: str) -> list[str] | None:
+    """The tools a small window must not drop for this question: a turn that
+    asks for the web outright keeps `web_search` and `read_url` at the head of
+    the budget. They were appended last and so cut first, and the model, told
+    about web search by the help text but not handed the tool, thought for 150
+    seconds and answered that it had no way to look (owner, 2026-10-12)."""
+    from tessellate.ai import composer_digest
+
+    if composer_digest.asks_web(question) and tool_enabled("web_search"):
+        return ["web_search", "read_url", *CORE_TOOLS]
+    return None
+
+
 def within_budget(
     offered: list[dict], budget_chars: int, keep_first: list[str] | None = None
 ) -> tuple[list[dict], list[str]]:

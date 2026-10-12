@@ -1608,7 +1608,7 @@ const GC_FIT_OVERLAYS = [
 //: bit"). The gear's options and the dock (whose ⋯ menu opens inside it)
 //: still keep a Fit clear of themselves, but opening or closing one does not
 //: refit the map: a menu over the map moves nothing on it (graphmenustill.js).
-const GC_FIT_MENUS = "#graph-options, #graph-card > .graph-overlay > .dock";
+const GC_FIT_MENUS = "#graph-options, #graph-help-panel, #graph-card > .graph-overlay > .dock";
 const GC_FIT_GAP = 4;
 function gcFitInsets(s = gcTab) {
   const insets = { top: 0, right: 0, bottom: 0, left: 0 };

@@ -1872,8 +1872,9 @@ def _prepare_turn(
             ]
         if budget is not None and budget.window_tokens <= SMALL_WINDOW_TOKENS:
             every_tool = tools.compact_schemas(every_tool)
-        every_tool, _ = tools.within_budget(every_tool, budget.tool_schema_chars)
-        offered, dropped = tools.within_budget(offered, budget.tool_schema_chars)
+        keep = tools.keep_first_for(question)
+        every_tool, _ = tools.within_budget(every_tool, budget.tool_schema_chars, keep)
+        offered, dropped = tools.within_budget(offered, budget.tool_schema_chars, keep)
         if dropped:
             # Visible in Settings → Logs, because "the AI didn't use the tool I
             # expected" is otherwise indistinguishable from the model choosing

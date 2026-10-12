@@ -396,7 +396,7 @@ _ASKING_WORDS = frozenset(
     recently most current currently tell say says said know think thought
     feel felt get got go went make made want need like much many number
     often long ever still actually really there here things thing note notes
-    wrote written write mention mentioned explain should
+    wrote written write mention mentions mentioning mentioned explain should
     could would way am i me my mine whose whom anyone someone near after
     before during without within over under around across through since
     until also again just only some other one any every each

@@ -121,7 +121,7 @@ def test_a_reply_says_who_wrote_it_and_a_composed_one_arrives():
     notes" (it read "Atlas"); a two-block composed answer's blocks rise with
     delays 0 and 60 ms; reduced motion skips it."""
     attach = frontend_text("chat-attach.js")
-    assert 'const by = meta?.composed ? "from your notes" : stats?.model || meta?.answered_by;' in attach
+    assert 'const by = meta?.composed ? "from your notes" : stats?.model || meta?.answered_by || (meta ? "composer" : "");' in attach
     assert "who.textContent = `${bubble.dataset.persona}, ${by}`;" in attach
     assert "if (meta?.composed && !reducedMotionWanted()) {" in attach
     assert '"ph:notebook Your notes, no AI"' not in attach

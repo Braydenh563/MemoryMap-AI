@@ -89,3 +89,15 @@ def test_a_web_ask_survives_typos_and_slang(ask):
 
     assert utilities.kind_of(ask) == "web"
     assert intent.classify(ask) == intent.UTILITY
+
+
+def test_mentions_is_an_asking_word_and_not_a_subject(client, session):
+    """"which note mentions perth" searched for "mentions" too and said the
+    notes "omit" it."""
+    from tessellate.entry import manager
+    from tests.test_composer_route_688 import _ask
+
+    manager.create_entry(session, "# Trip\n\nFlight to Perth on 3 November, hotel booked.")
+    session.commit()
+    text = _ask(client, "which note mentions perth", use_tools=False)["text"]
+    assert "Perth" in text and "mentions" not in text.lower()

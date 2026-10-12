@@ -427,6 +427,14 @@ const scrollEdgeRegions = new Set();
 //: each frame read every bar's box, which traced at 34 to 87ms per scroll.
 const scrollEdgeLastState = new WeakMap();
 
+//: Which region made a bar opaque. Any scroller on the page runs
+//: `markScrollEdge`, and it used to clear the flag from every bar that was not
+//: its own: an inner pane (the answer, the matching records) scrolling for the
+//: first time took the opaque ground off the sub-tab strip the page scroll had
+//: just given it, and the strip went see-through over the Ask box (owner,
+//: 2026-10-12). Only the region that set a bar may take it back.
+const scrollEdgeOwner = new WeakMap();
+
 function markScrollEdge(region, force = false) {
   if (!region || typeof region.getBoundingClientRect !== "function") return;
   const wasScrolled = scrollEdgeLastState.get(region);
@@ -459,16 +467,20 @@ function markScrollEdge(region, force = false) {
     }
   }
   for (const bar of document.querySelectorAll("[data-scrolled]")) {
-    if (bar !== best) bar.removeAttribute("data-scrolled");
+    if (bar !== best && (scrollEdgeOwner.get(bar) || region) === region) bar.removeAttribute("data-scrolled");
   }
-  if (best && scrolled) best.setAttribute("data-scrolled", "1");
-  else if (best) best.removeAttribute("data-scrolled");
+  if (best && scrolled) {
+    best.setAttribute("data-scrolled", "1");
+    scrollEdgeOwner.set(best, region);
+  } else if (best) best.removeAttribute("data-scrolled");
   //: A sub-tab strip is sticky *inside* the region it lids (INBOX 529: "hard
   //: to see when scrolled down"), so the loop above skips it and it stayed
   //: see-through over the notes. It takes its surface the same way.
   for (const strip of region.querySelectorAll(".notes-subtabs, .library-subtabs, [data-dock-name=notes]")) {
-    if (scrolled) strip.setAttribute("data-scrolled", "1");
-    else strip.removeAttribute("data-scrolled");
+    if (scrolled) {
+      strip.setAttribute("data-scrolled", "1");
+      scrollEdgeOwner.set(strip, region);
+    } else strip.removeAttribute("data-scrolled");
   }
 }
 

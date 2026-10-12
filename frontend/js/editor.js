@@ -343,6 +343,13 @@ function editorFuzzyRank(rows, query) {
   scored.sort((a, b) => a.score - b.score || a.index - b.index);
   return scored.map((s) => s.row);
 }
+//: What an empty callout body says until something is written in it.
+function calloutHint(kind) {
+  const own = { todo: "Write the task", toggle: "Write what folds away", success: "Write what worked", failure: "Write what failed" };
+  const meta = CALLOUT_KINDS[kind];
+  return own[kind] || `Write the ${meta ? meta.label.toLowerCase() : "note"}`;
+}
+
 // EDITOR-BLOCKS-END
 
 // ---------------------------------------------------------------------------

@@ -106,7 +106,7 @@ const WB_COMMANDS = [
   { id: "delete", group: "Edit", icon: "ph:trash", label: "Delete", keys: "Del", surface: "both", needs: "selection", run: () => deleteWbSelection() },
   { id: "copy-style", group: "Edit", icon: "ph:eyedropper", label: "Copy style", keys: "Ctrl+Alt+C", surface: "board", needs: "one", run: () => wbCopySelectedStyle() },
   { id: "paste-style", group: "Edit", icon: "ph:paint-bucket", label: "Paste style", keys: "Ctrl+Alt+V", surface: "board", needs: "selection", run: () => wbPasteCopiedStyle() },
-  { id: "reset-style", group: "Edit", icon: "ph:arrow-counter-clockwise", label: "Reset style", surface: "both", needs: "selection", run: () => wbResetSelectedStyle() },
+  { id: "reset-style", group: "Edit", icon: "ph:arrow-counter-clockwise", label: "Reset style", keys: "", surface: "both", needs: "selection", run: () => wbResetSelectedStyle() },
   { id: "find", group: "Edit", icon: "ph:magnifying-glass", label: "Find on this board", menu: "Find on this board", keys: "Ctrl+F", surface: "both", run: () => wbOpenBoardSearch() },
   { id: "replace", group: "Edit", icon: "ph:swap", label: "Find and replace on this board", menu: "Find and replace", keys: "Ctrl+H", surface: "board", run: () => wbOpenBoardSearch({ replace: true }) },
   // The item
@@ -579,7 +579,7 @@ const WB_HELP_SECTIONS = [
     { icon: "ph:x", label: "Cancel a drag, back to Select", keys: ["Esc"] },
     { icon: "ph:text-t", label: "A text box on the empty board", keys: ["double-click"] },
     { cmd: "text" },
-    { cmd: "copy-style" }, { cmd: "paste-style" }, { cmd: "reset-style" },
+    { cmd: "copy-style" }, { cmd: "paste-style" },
     { icon: "ph:dots-three", label: "The item's or the board's menu", keys: ["right-click", "hold"] },
   ] },
   { title: "Arrange", surface: "board", rows: [

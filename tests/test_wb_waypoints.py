@@ -38,12 +38,17 @@ def _const(name: str) -> str:
     return SOURCE[start:end]
 
 
+def _cap_scale() -> str:
+    start = SOURCE.index("const WB_CAP_SIZE_SCALE")
+    return SOURCE[start : SOURCE.index("function wbCapSizeFields(", start)]
+
+
 def _node(expr: str):
     node = shutil.which("node")
     if not node:
         pytest.skip("node is not installed")
     head = "".join(_const(n) for n in ("WB_ELBOW_PAD", "WB_CAP_KINDS", "WB_ER_CAPS", "WB_JUMP_STYLES", "WB_HOLLOW_INSET"))
-    script = head + "".join(_function(n) for n in FUNCTIONS) + f"\nconsole.log(JSON.stringify({expr}));\n"
+    script = head + _cap_scale() + "".join(_function(n) for n in FUNCTIONS) + f"\nconsole.log(JSON.stringify({expr}));\n"
     out = subprocess.run([node, "-e", script], capture_output=True, text=True, check=True)
     return json.loads(out.stdout.strip())
 

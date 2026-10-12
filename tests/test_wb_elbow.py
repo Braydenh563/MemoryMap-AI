@@ -160,7 +160,7 @@ def test_an_er_end_is_drawn_and_differs_from_its_neighbours() -> None:
     start = SOURCE.index("const WB_CAP_KINDS")
     head = SOURCE[start : SOURCE.index("function wbCapPath(", start)]
     script = (
-        _function("wbArrowHeadPath") + head + _function("wbCapPath")
+        _function("wbArrowHeadPath") + head + _function("wbFilledTriangle") + _function("wbCapPathMore") + _function("wbCapPath")
         + "console.log(JSON.stringify(WB_CAP_KINDS.map((k) => wbCapPath(k, 100, 0, 0, 18))));"
     )
     out = subprocess.run([node, "-e", script], capture_output=True, text=True, check=True)

@@ -39,7 +39,8 @@ def test_a_layered_items_eye_and_lock_say_the_layer_decides():
 @pytest.mark.skipif(shutil.which("node") is None, reason="needs node")
 def test_a_hollow_end_stops_the_shaft_at_its_far_edge():
     code = (
-        _slice(WB, "const WB_HOLLOW_INSET", "function wbCapPath(")
+        _slice(WB, "const WB_CAP_SIZE_SCALE", "function wbCapSizeFields(")
+        + _slice(WB, "const WB_HOLLOW_INSET", "function wbCapPath(")
         + "\nconsole.log(JSON.stringify(["
         + "wbShaftEnd({x:200,y:0},{x:0,y:0},'diamond',18),"
         + "wbShaftEnd({x:200,y:0},{x:0,y:0},'circle',18),"

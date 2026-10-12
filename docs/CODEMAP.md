@@ -1,8 +1,8 @@
 # Code map
 
-Generated 2026-10-11 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
+Generated 2026-10-12 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5876, frontend ids 2489, CSS sections 494, backend routes 604, backend modules 5386, test files 1207, tests 10810, plan headings 951.
+Counts: frontend functions 5876, frontend ids 2489, CSS sections 494, backend routes 604, backend modules 5457, test files 1209, tests 10814, plan headings 951.
 
 ## Frontend functions (5876)
 
@@ -138,13 +138,13 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `escapeAndCapMenu` | frontend/js/menus.js:746 |
 | `escapeMenuIfClipped` | frontend/js/menus.js:645 |
 | `escapeMenuToBody` | frontend/js/menus.js:667 |
-| `explainNote` | frontend/js/menus.js:1973 |
+| `explainNote` | frontend/js/menus.js:1974 |
 | `fitActionMenuInWindow` | frontend/js/menus.js:436 |
 | `focusMenuItem` | frontend/js/menus.js:558 |
 | `generateEntryTitle` | frontend/js/menus.js:1221 |
 | `historyActorLabel` | frontend/js/menus.js:1155 |
 | `inlineActionIs` | frontend/js/menus.js:8 |
-| `isEditConflict` | frontend/js/menus.js:1963 |
+| `isEditConflict` | frontend/js/menus.js:1964 |
 | `menuClippingAncestor` | frontend/js/menus.js:572 |
 | `menuExitMs` | frontend/js/menus.js:704 |
 | `menuSidePlan` | frontend/js/menus.js:414 |
@@ -1029,21 +1029,21 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 |---|---|
 | `agentActivityNotice` | frontend/js/status.js:648 |
 | `agentActivityQuiet` | frontend/js/status.js:640 |
-| `agentModeAvailable` | frontend/js/status.js:2646 |
-| `aiIsOff` | frontend/js/status.js:1935 |
-| `aiOffGlyph` | frontend/js/status.js:2316 |
-| `aiOfflineDismissed` | frontend/js/status.js:2122 |
-| `aiStatusState` | frontend/js/status.js:2203 |
+| `agentModeAvailable` | frontend/js/status.js:2642 |
+| `aiIsOff` | frontend/js/status.js:1931 |
+| `aiOffGlyph` | frontend/js/status.js:2312 |
+| `aiOfflineDismissed` | frontend/js/status.js:2118 |
+| `aiStatusState` | frontend/js/status.js:2199 |
 | `announcedReminders` | frontend/js/status.js:42 |
 | `appStackIsNewer` | frontend/js/status.js:1503 |
 | `armReminderTimer` | frontend/js/status.js:511 |
 | `askNotificationPermission` | frontend/js/status.js:381 |
-| `backendLabel` | frontend/js/status.js:2709 |
+| `backendLabel` | frontend/js/status.js:2705 |
 | `boardHistoryActive` | frontend/js/status.js:1468 |
 | `checkDueReminders` | frontend/js/status.js:527 |
-| `closeModelGate` | frontend/js/status.js:1954 |
+| `closeModelGate` | frontend/js/status.js:1950 |
 | `closeNotifications` | frontend/js/status.js:361 |
-| `dismissAiOffline` | frontend/js/status.js:2131 |
+| `dismissAiOffline` | frontend/js/status.js:2127 |
 | `dismissToast` | frontend/js/status.js:880 |
 | `dismissedNotificationIds` | frontend/js/status.js:235 |
 | `forcedReadIds` | frontend/js/status.js:196 |
@@ -1053,26 +1053,26 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `insightVerdicts` | frontend/js/status.js:1372 |
 | `integrityWords` | frontend/js/status.js:1205 |
 | `isNotificationUnread` | frontend/js/status.js:214 |
-| `jobsRunning` | frontend/js/status.js:1788 |
+| `jobsRunning` | frontend/js/status.js:1784 |
 | `keepToastAction` | frontend/js/status.js:340 |
-| `lastAnswerLine` | frontend/js/status.js:2338 |
+| `lastAnswerLine` | frontend/js/status.js:2334 |
 | `loadMostUsed` | frontend/js/status.js:1658 |
 | `loadRecentQuestions` | frontend/js/status.js:1631 |
 | `noteDamagedNotebook` | frontend/js/status.js:1209 |
 | `noteServerDown` | frontend/js/status.js:1265 |
 | `noteServerUp` | frontend/js/status.js:1274 |
-| `noticeTaskTransitions` | frontend/js/status.js:2935 |
+| `noticeTaskTransitions` | frontend/js/status.js:2931 |
 | `noticeUnwatchedAnswer` | frontend/js/status.js:683 |
 | `notificationsMuted` | frontend/js/status.js:625 |
 | `notificationsReadAt` | frontend/js/status.js:147 |
 | `notify` | frontend/js/status.js:455 |
-| `nudgeEmbeddingProblem` | frontend/js/status.js:2381 |
+| `nudgeEmbeddingProblem` | frontend/js/status.js:2377 |
 | `offerUndo` | frontend/js/status.js:1410 |
 | `openLanPanel` | frontend/js/status.js:591 |
-| `openModelGate` | frontend/js/status.js:1964 |
-| `openModelOffer` | frontend/js/status.js:1971 |
-| `paintPrivacyChip` | frontend/js/status.js:3031 |
-| `paintStatusItem` | frontend/js/status.js:2435 |
+| `openModelGate` | frontend/js/status.js:1960 |
+| `openModelOffer` | frontend/js/status.js:1967 |
+| `paintPrivacyChip` | frontend/js/status.js:3027 |
+| `paintStatusItem` | frontend/js/status.js:2431 |
 | `paintTitle` | frontend/js/status.js:488 |
 | `paintUndoDoor` | frontend/js/status.js:1581 |
 | `performRedo` | frontend/js/status.js:1535 |
@@ -1084,46 +1084,46 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `pushEntryPutUndo` | frontend/js/status.js:1443 |
 | `pushUndo` | frontend/js/status.js:1339 |
 | `recordNotification` | frontend/js/status.js:97 |
-| `refreshBackgroundTasks` | frontend/js/status.js:2861 |
-| `refreshModelStatus` | frontend/js/status.js:1816 |
-| `refreshPrivacyChip` | frontend/js/status.js:3045 |
+| `refreshBackgroundTasks` | frontend/js/status.js:2857 |
+| `refreshModelStatus` | frontend/js/status.js:1812 |
+| `refreshPrivacyChip` | frontend/js/status.js:3041 |
 | `rememberAnnounced` | frontend/js/status.js:50 |
 | `reminderNoticeKey` | frontend/js/status.js:231 |
 | `renderAgentActivityMode` | frontend/js/status.js:719 |
-| `renderAiOfflineNotice` | frontend/js/status.js:2146 |
-| `renderAiPill` | frontend/js/status.js:2346 |
-| `renderChatModeSeg` | frontend/js/status.js:2650 |
+| `renderAiOfflineNotice` | frontend/js/status.js:2142 |
+| `renderAiPill` | frontend/js/status.js:2342 |
+| `renderChatModeSeg` | frontend/js/status.js:2646 |
 | `renderNotifMuteToggle` | frontend/js/status.js:270 |
 | `renderNotificationBadge` | frontend/js/status.js:250 |
-| `renderSettings` | frontend/js/status.js:2720 |
-| `renderStatusBar` | frontend/js/status.js:2478 |
+| `renderSettings` | frontend/js/status.js:2716 |
+| `renderStatusBar` | frontend/js/status.js:2474 |
 | `renderUndoBar` | frontend/js/status.js:1566 |
 | `reopenAnswerPanel` | frontend/js/status.js:698 |
-| `resetStatusCadence` | frontend/js/status.js:1738 |
+| `resetStatusCadence` | frontend/js/status.js:1734 |
 | `retryServerNow` | frontend/js/status.js:1315 |
 | `sayChatModelChosen` | frontend/js/status.js:1697 |
 | `scheduleServerDownRetry` | frontend/js/status.js:1289 |
 | `scheduleUndoBar` | frontend/js/status.js:1558 |
-| `setChatMode` | frontend/js/status.js:2693 |
+| `setChatMode` | frontend/js/status.js:2689 |
 | `setForcedReadIds` | frontend/js/status.js:205 |
 | `setForcedUnreadIds` | frontend/js/status.js:174 |
 | `setTitleCount` | frontend/js/status.js:493 |
 | `setTitleView` | frontend/js/status.js:498 |
-| `settingsOpen` | frontend/js/status.js:1755 |
+| `settingsOpen` | frontend/js/status.js:1751 |
 | `settleNotification` | frontend/js/status.js:116 |
 | `settleStartedNotification` | frontend/js/status.js:132 |
 | `settleUndoFromToast` | frontend/js/status.js:1431 |
-| `showAgentNoModelHint` | frontend/js/status.js:2688 |
+| `showAgentNoModelHint` | frontend/js/status.js:2684 |
 | `showServerDownBanner` | frontend/js/status.js:1248 |
-| `startPrivacyChip` | frontend/js/status.js:3055 |
+| `startPrivacyChip` | frontend/js/status.js:3051 |
 | `startReminderWatch` | frontend/js/status.js:598 |
 | `storedNotifications` | frontend/js/status.js:84 |
 | `surfaceHistory` | frontend/js/status.js:1485 |
-| `syncAgentPaletteAvailability` | frontend/js/status.js:2185 |
-| `syncModelGatedControls` | frontend/js/status.js:2018 |
+| `syncAgentPaletteAvailability` | frontend/js/status.js:2181 |
+| `syncModelGatedControls` | frontend/js/status.js:2014 |
 | `syncNotifBlocked` | frontend/js/status.js:376 |
 | `taskEndingWords` | frontend/js/status.js:139 |
-| `taskKey` | frontend/js/status.js:2916 |
+| `taskKey` | frontend/js/status.js:2912 |
 | `toast` | frontend/js/status.js:1042 |
 | `toastAction` | frontend/js/status.js:1181 |
 | `toastActionButton` | frontend/js/status.js:1161 |
@@ -1139,7 +1139,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `toastProgress` | frontend/js/status.js:1116 |
 | `toastReduced` | frontend/js/status.js:839 |
 | `toastStack` | frontend/js/status.js:844 |
-| `toggleAiStatusPopup` | frontend/js/status.js:2620 |
+| `toggleAiStatusPopup` | frontend/js/status.js:2616 |
 | `toggleNotificationMute` | frontend/js/status.js:286 |
 | `unreadNotifications` | frontend/js/status.js:244 |
 | `voiceLine` | frontend/js/status.js:1036 |
@@ -1195,63 +1195,63 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `buildSettingsJumpList` | frontend/js/phone-shell.js:1707 |
-| `clearAppCache` | frontend/js/phone-shell.js:2113 |
-| `closeNotePageIfGone` | frontend/js/phone-shell.js:997 |
-| `dockArrangeLabel` | frontend/js/phone-shell.js:1869 |
-| `dockArrangeSlot` | frontend/js/phone-shell.js:1858 |
-| `dockChatAttachments` | frontend/js/phone-shell.js:1129 |
-| `dockChatTools` | frontend/js/phone-shell.js:1187 |
-| `dockItemCount` | frontend/js/phone-shell.js:1940 |
-| `dockPhoneStatus` | frontend/js/phone-shell.js:712 |
-| `dockShown` | frontend/js/phone-shell.js:1934 |
-| `dockTabBar` | frontend/js/phone-shell.js:568 |
+| `buildSettingsJumpList` | frontend/js/phone-shell.js:1709 |
+| `clearAppCache` | frontend/js/phone-shell.js:2115 |
+| `closeNotePageIfGone` | frontend/js/phone-shell.js:999 |
+| `dockArrangeLabel` | frontend/js/phone-shell.js:1871 |
+| `dockArrangeSlot` | frontend/js/phone-shell.js:1860 |
+| `dockChatAttachments` | frontend/js/phone-shell.js:1131 |
+| `dockChatTools` | frontend/js/phone-shell.js:1189 |
+| `dockItemCount` | frontend/js/phone-shell.js:1942 |
+| `dockPhoneStatus` | frontend/js/phone-shell.js:714 |
+| `dockShown` | frontend/js/phone-shell.js:1936 |
+| `dockTabBar` | frontend/js/phone-shell.js:570 |
 | `emblemArt` | frontend/js/phone-shell.js:112 |
 | `emblemHsl` | frontend/js/phone-shell.js:67 |
 | `emblemPalette` | frontend/js/phone-shell.js:88 |
 | `emblemSetBusy` | frontend/js/phone-shell.js:161 |
 | `ensureP5` | frontend/js/phone-shell.js:34 |
-| `floatPrimaryActions` | frontend/js/phone-shell.js:1795 |
-| `focusTabPage` | frontend/js/phone-shell.js:377 |
-| `foldDockActions` | frontend/js/phone-shell.js:1995 |
-| `foldDockArrange` | frontend/js/phone-shell.js:1950 |
-| `foldSiblingsIntoMenu` | frontend/js/phone-shell.js:1900 |
-| `foldZoneIntoMenu` | frontend/js/phone-shell.js:1881 |
-| `forceReloadApp` | frontend/js/phone-shell.js:2128 |
-| `initBottomTabBar` | frontend/js/phone-shell.js:599 |
-| `initDockActionFolding` | frontend/js/phone-shell.js:2041 |
-| `initDockFolding` | frontend/js/phone-shell.js:1969 |
-| `initHeaderHeightToken` | frontend/js/phone-shell.js:501 |
-| `initKeyboardInset` | frontend/js/phone-shell.js:1639 |
-| `initNotePage` | frontend/js/phone-shell.js:1002 |
-| `initNotesSubtabHeightToken` | frontend/js/phone-shell.js:524 |
-| `initOcrPhonePage` | frontend/js/phone-shell.js:1089 |
-| `initPhoneChatRow` | frontend/js/phone-shell.js:1242 |
-| `initPhoneHeaderMore` | frontend/js/phone-shell.js:642 |
-| `initPhoneStatus` | frontend/js/phone-shell.js:748 |
-| `initPrimaryFab` | frontend/js/phone-shell.js:1821 |
-| `initRowSwipe` | frontend/js/phone-shell.js:843 |
-| `mountPhoneSidebarOpeners` | frontend/js/phone-shell.js:782 |
-| `ocrPhonePage` | frontend/js/phone-shell.js:1053 |
-| `openNotePage` | frontend/js/phone-shell.js:941 |
-| `openPhoneMoreSheet` | frontend/js/phone-shell.js:1488 |
-| `openSheet` | frontend/js/phone-shell.js:1282 |
-| `phoneMoreRunCount` | frontend/js/phone-shell.js:1569 |
-| `phoneSheetDialogs` | frontend/js/phone-shell.js:1108 |
-| `quitApp` | frontend/js/phone-shell.js:2080 |
-| `refreshNotePage` | frontend/js/phone-shell.js:986 |
+| `floatPrimaryActions` | frontend/js/phone-shell.js:1797 |
+| `focusTabPage` | frontend/js/phone-shell.js:379 |
+| `foldDockActions` | frontend/js/phone-shell.js:1997 |
+| `foldDockArrange` | frontend/js/phone-shell.js:1952 |
+| `foldSiblingsIntoMenu` | frontend/js/phone-shell.js:1902 |
+| `foldZoneIntoMenu` | frontend/js/phone-shell.js:1883 |
+| `forceReloadApp` | frontend/js/phone-shell.js:2130 |
+| `initBottomTabBar` | frontend/js/phone-shell.js:601 |
+| `initDockActionFolding` | frontend/js/phone-shell.js:2043 |
+| `initDockFolding` | frontend/js/phone-shell.js:1971 |
+| `initHeaderHeightToken` | frontend/js/phone-shell.js:503 |
+| `initKeyboardInset` | frontend/js/phone-shell.js:1641 |
+| `initNotePage` | frontend/js/phone-shell.js:1004 |
+| `initNotesSubtabHeightToken` | frontend/js/phone-shell.js:526 |
+| `initOcrPhonePage` | frontend/js/phone-shell.js:1091 |
+| `initPhoneChatRow` | frontend/js/phone-shell.js:1244 |
+| `initPhoneHeaderMore` | frontend/js/phone-shell.js:644 |
+| `initPhoneStatus` | frontend/js/phone-shell.js:750 |
+| `initPrimaryFab` | frontend/js/phone-shell.js:1823 |
+| `initRowSwipe` | frontend/js/phone-shell.js:845 |
+| `mountPhoneSidebarOpeners` | frontend/js/phone-shell.js:784 |
+| `ocrPhonePage` | frontend/js/phone-shell.js:1055 |
+| `openNotePage` | frontend/js/phone-shell.js:943 |
+| `openPhoneMoreSheet` | frontend/js/phone-shell.js:1490 |
+| `openSheet` | frontend/js/phone-shell.js:1284 |
+| `phoneMoreRunCount` | frontend/js/phone-shell.js:1571 |
+| `phoneSheetDialogs` | frontend/js/phone-shell.js:1110 |
+| `quitApp` | frontend/js/phone-shell.js:2082 |
+| `refreshNotePage` | frontend/js/phone-shell.js:988 |
 | `releaseDetachedEmblems` | frontend/js/phone-shell.js:197 |
 | `releaseEmblem` | frontend/js/phone-shell.js:180 |
-| `renderAutonomousReview` | frontend/js/phone-shell.js:2200 |
-| `renderBrandLogo` | frontend/js/phone-shell.js:239 |
+| `renderAutonomousReview` | frontend/js/phone-shell.js:2202 |
+| `renderBrandLogo` | frontend/js/phone-shell.js:241 |
 | `renderEmblem` | frontend/js/phone-shell.js:203 |
-| `renderEmblemWhenShown` | frontend/js/phone-shell.js:254 |
-| `renderExportsList` | frontend/js/phone-shell.js:2139 |
-| `sheetRow` | frontend/js/phone-shell.js:1462 |
+| `renderEmblemWhenShown` | frontend/js/phone-shell.js:256 |
+| `renderExportsList` | frontend/js/phone-shell.js:2141 |
+| `sheetRow` | frontend/js/phone-shell.js:1464 |
 | `syncEmblemBusy` | frontend/js/phone-shell.js:149 |
-| `syncPhoneMoreButton` | frontend/js/phone-shell.js:1601 |
-| `syncPhoneMoreRuns` | frontend/js/phone-shell.js:1578 |
-| `toggleAutonomousPanel` | frontend/js/phone-shell.js:2175 |
+| `syncPhoneMoreButton` | frontend/js/phone-shell.js:1603 |
+| `syncPhoneMoreRuns` | frontend/js/phone-shell.js:1580 |
+| `toggleAutonomousPanel` | frontend/js/phone-shell.js:2177 |
 | `watchEmblemVisibility` | frontend/js/phone-shell.js:16 |
 
 ### frontend/js/wiring.js (34)
@@ -1416,91 +1416,91 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `nameCharacterFigure` | frontend/js/avatars.js:3780 |
 | `nameCharacterHeld` | frontend/js/avatars.js:2534 |
 | `nameMark` | frontend/js/avatars.js:1450 |
-| `nameMarkBuddyAct` | frontend/js/avatars.js:7157 |
+| `nameMarkBuddyAct` | frontend/js/avatars.js:7155 |
 | `nameMarkBuddyActOff` | frontend/js/avatars.js:3415 |
 | `nameMarkBuddyActions` | frontend/js/avatars.js:3592 |
 | `nameMarkBuddyActivitiesOff` | frontend/js/avatars.js:3408 |
-| `nameMarkBuddyAim` | frontend/js/avatars.js:7352 |
+| `nameMarkBuddyAim` | frontend/js/avatars.js:7350 |
 | `nameMarkBuddyAnimProps` | frontend/js/avatars.js:5235 |
 | `nameMarkBuddyApplyPreset` | frontend/js/avatars.js:3485 |
 | `nameMarkBuddyArrive` | frontend/js/avatars.js:6753 |
-| `nameMarkBuddyAsleep` | frontend/js/avatars.js:8204 |
-| `nameMarkBuddyAwake` | frontend/js/avatars.js:8117 |
+| `nameMarkBuddyAsleep` | frontend/js/avatars.js:8202 |
+| `nameMarkBuddyAwake` | frontend/js/avatars.js:8115 |
 | `nameMarkBuddyBand` | frontend/js/avatars.js:4969 |
 | `nameMarkBuddyBeat` | frontend/js/avatars.js:6607 |
-| `nameMarkBuddyBellErrand` | frontend/js/avatars.js:8615 |
-| `nameMarkBuddyBlend` | frontend/js/avatars.js:8231 |
+| `nameMarkBuddyBellErrand` | frontend/js/avatars.js:8613 |
+| `nameMarkBuddyBlend` | frontend/js/avatars.js:8229 |
 | `nameMarkBuddyBody` | frontend/js/avatars.js:3741 |
-| `nameMarkBuddyBoredom` | frontend/js/avatars.js:8333 |
-| `nameMarkBuddyBuild` | frontend/js/avatars.js:8994 |
+| `nameMarkBuddyBoredom` | frontend/js/avatars.js:8331 |
+| `nameMarkBuddyBuild` | frontend/js/avatars.js:8992 |
 | `nameMarkBuddyBurst` | frontend/js/avatars.js:6361 |
-| `nameMarkBuddyCallBack` | frontend/js/avatars.js:7132 |
-| `nameMarkBuddyCalmAllows` | frontend/js/avatars.js:8191 |
+| `nameMarkBuddyCallBack` | frontend/js/avatars.js:7130 |
+| `nameMarkBuddyCalmAllows` | frontend/js/avatars.js:8189 |
 | `nameMarkBuddyCatchUp` | frontend/js/avatars.js:5168 |
-| `nameMarkBuddyChatErrand` | frontend/js/avatars.js:8625 |
+| `nameMarkBuddyChatErrand` | frontend/js/avatars.js:8623 |
 | `nameMarkBuddyCheck` | frontend/js/avatars.js:6525 |
 | `nameMarkBuddyChoose` | frontend/js/avatars.js:4444 |
-| `nameMarkBuddyClickReaction` | frontend/js/avatars.js:8177 |
+| `nameMarkBuddyClickReaction` | frontend/js/avatars.js:8175 |
 | `nameMarkBuddyColours` | frontend/js/avatars.js:3726 |
-| `nameMarkBuddyContext` | frontend/js/avatars.js:8710 |
+| `nameMarkBuddyContext` | frontend/js/avatars.js:8708 |
 | `nameMarkBuddyCoverPoint` | frontend/js/avatars.js:4102 |
 | `nameMarkBuddyCovers` | frontend/js/avatars.js:4067 |
 | `nameMarkBuddyCrossfade` | frontend/js/avatars.js:5607 |
-| `nameMarkBuddyCue` | frontend/js/avatars.js:7910 |
-| `nameMarkBuddyCurlUp` | frontend/js/avatars.js:7447 |
+| `nameMarkBuddyCue` | frontend/js/avatars.js:7908 |
+| `nameMarkBuddyCurlUp` | frontend/js/avatars.js:7445 |
 | `nameMarkBuddyCurtained` | frontend/js/avatars.js:6746 |
 | `nameMarkBuddyCustom` | frontend/js/avatars.js:352 |
-| `nameMarkBuddyDecide` | frontend/js/avatars.js:7518 |
+| `nameMarkBuddyDecide` | frontend/js/avatars.js:7516 |
 | `nameMarkBuddyDodge` | frontend/js/avatars.js:3907 |
-| `nameMarkBuddyDrift` | frontend/js/avatars.js:7778 |
+| `nameMarkBuddyDrift` | frontend/js/avatars.js:7776 |
 | `nameMarkBuddyDrop` | frontend/js/avatars.js:4695 |
-| `nameMarkBuddyEase` | frontend/js/avatars.js:8304 |
+| `nameMarkBuddyEase` | frontend/js/avatars.js:8302 |
 | `nameMarkBuddyEdges` | frontend/js/avatars.js:4228 |
 | `nameMarkBuddyEmote` | frontend/js/avatars.js:3425 |
 | `nameMarkBuddyEnter` | frontend/js/avatars.js:6855 |
-| `nameMarkBuddyErrand` | frontend/js/avatars.js:8597 |
-| `nameMarkBuddyExpress` | frontend/js/avatars.js:7690 |
+| `nameMarkBuddyErrand` | frontend/js/avatars.js:8595 |
+| `nameMarkBuddyExpress` | frontend/js/avatars.js:7688 |
 | `nameMarkBuddyFarWay` | frontend/js/avatars.js:5566 |
-| `nameMarkBuddyFeel` | frontend/js/avatars.js:8152 |
+| `nameMarkBuddyFeel` | frontend/js/avatars.js:8150 |
 | `nameMarkBuddyFlies` | frontend/js/avatars.js:5590 |
 | `nameMarkBuddyFlightStep` | frontend/js/avatars.js:6026 |
 | `nameMarkBuddyFlip` | frontend/js/avatars.js:6285 |
 | `nameMarkBuddyFollow` | frontend/js/avatars.js:5049 |
 | `nameMarkBuddyFollowFrame` | frontend/js/avatars.js:5211 |
-| `nameMarkBuddyFrames` | frontend/js/avatars.js:7425 |
+| `nameMarkBuddyFrames` | frontend/js/avatars.js:7423 |
 | `nameMarkBuddyGait` | frontend/js/avatars.js:5580 |
-| `nameMarkBuddyGetUp` | frontend/js/avatars.js:7451 |
+| `nameMarkBuddyGetUp` | frontend/js/avatars.js:7449 |
 | `nameMarkBuddyGlue` | frontend/js/avatars.js:5000 |
 | `nameMarkBuddyGlueBand` | frontend/js/avatars.js:5036 |
 | `nameMarkBuddyGo` | frontend/js/avatars.js:5733 |
-| `nameMarkBuddyGone` | frontend/js/avatars.js:8874 |
-| `nameMarkBuddyHalt` | frontend/js/avatars.js:7467 |
-| `nameMarkBuddyHasAtlas` | frontend/js/avatars.js:7422 |
-| `nameMarkBuddyHeadAt` | frontend/js/avatars.js:8472 |
-| `nameMarkBuddyHide` | frontend/js/avatars.js:8913 |
-| `nameMarkBuddyHint` | frontend/js/avatars.js:9560 |
+| `nameMarkBuddyGone` | frontend/js/avatars.js:8872 |
+| `nameMarkBuddyHalt` | frontend/js/avatars.js:7465 |
+| `nameMarkBuddyHasAtlas` | frontend/js/avatars.js:7420 |
+| `nameMarkBuddyHeadAt` | frontend/js/avatars.js:8470 |
+| `nameMarkBuddyHide` | frontend/js/avatars.js:8911 |
+| `nameMarkBuddyHint` | frontend/js/avatars.js:9558 |
 | `nameMarkBuddyHits` | frontend/js/avatars.js:4049 |
-| `nameMarkBuddyHold` | frontend/js/avatars.js:7773 |
+| `nameMarkBuddyHold` | frontend/js/avatars.js:7771 |
 | `nameMarkBuddyHome` | frontend/js/avatars.js:2796 |
 | `nameMarkBuddyHover` | frontend/js/avatars.js:6188 |
-| `nameMarkBuddyHoverReaction` | frontend/js/avatars.js:8325 |
+| `nameMarkBuddyHoverReaction` | frontend/js/avatars.js:8323 |
 | `nameMarkBuddyIndexReset` | frontend/js/avatars.js:4157 |
 | `nameMarkBuddyInsideCard` | frontend/js/avatars.js:4293 |
-| `nameMarkBuddyJoy` | frontend/js/avatars.js:7738 |
+| `nameMarkBuddyJoy` | frontend/js/avatars.js:7736 |
 | `nameMarkBuddyKeepCustom` | frontend/js/avatars.js:365 |
-| `nameMarkBuddyKeepFrame` | frontend/js/avatars.js:7458 |
+| `nameMarkBuddyKeepFrame` | frontend/js/avatars.js:7456 |
 | `nameMarkBuddyKeepPresets` | frontend/js/avatars.js:3454 |
 | `nameMarkBuddyKeepSpots` | frontend/js/avatars.js:4559 |
 | `nameMarkBuddyKeepUp` | frontend/js/avatars.js:5206 |
-| `nameMarkBuddyLean` | frontend/js/avatars.js:8552 |
-| `nameMarkBuddyLeanSide` | frontend/js/avatars.js:8547 |
-| `nameMarkBuddyLeave` | frontend/js/avatars.js:7061 |
+| `nameMarkBuddyLean` | frontend/js/avatars.js:8550 |
+| `nameMarkBuddyLeanSide` | frontend/js/avatars.js:8545 |
+| `nameMarkBuddyLeave` | frontend/js/avatars.js:7059 |
 | `nameMarkBuddyLedges` | frontend/js/avatars.js:3839 |
-| `nameMarkBuddyLieDown` | frontend/js/avatars.js:7440 |
-| `nameMarkBuddyLieRoom` | frontend/js/avatars.js:7247 |
+| `nameMarkBuddyLieDown` | frontend/js/avatars.js:7438 |
+| `nameMarkBuddyLieRoom` | frontend/js/avatars.js:7245 |
 | `nameMarkBuddyLimbs` | frontend/js/avatars.js:5679 |
 | `nameMarkBuddyLockSync` | frontend/js/avatars.js:6477 |
-| `nameMarkBuddyLoud` | frontend/js/avatars.js:8196 |
+| `nameMarkBuddyLoud` | frontend/js/avatars.js:8194 |
 | `nameMarkBuddyMade` | frontend/js/avatars.js:3082 |
 | `nameMarkBuddyMakeHint` | frontend/js/avatars.js:3102 |
 | `nameMarkBuddyMakeIt` | frontend/js/avatars.js:3095 |
@@ -1508,12 +1508,12 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `nameMarkBuddyMotion` | frontend/js/avatars.js:3668 |
 | `nameMarkBuddyMotionApply` | frontend/js/avatars.js:3700 |
 | `nameMarkBuddyMoveTo` | frontend/js/avatars.js:5454 |
-| `nameMarkBuddyNameProps` | frontend/js/avatars.js:8681 |
+| `nameMarkBuddyNameProps` | frontend/js/avatars.js:8679 |
 | `nameMarkBuddyNextSpot` | frontend/js/avatars.js:6726 |
 | `nameMarkBuddyNoTravel` | frontend/js/avatars.js:3712 |
-| `nameMarkBuddyNoteOpen` | frontend/js/avatars.js:7885 |
-| `nameMarkBuddyNoteOpened` | frontend/js/avatars.js:7878 |
-| `nameMarkBuddyNotice` | frontend/js/avatars.js:8482 |
+| `nameMarkBuddyNoteOpen` | frontend/js/avatars.js:7883 |
+| `nameMarkBuddyNoteOpened` | frontend/js/avatars.js:7876 |
+| `nameMarkBuddyNotice` | frontend/js/avatars.js:8480 |
 | `nameMarkBuddyObstacles` | frontend/js/avatars.js:3848 |
 | `nameMarkBuddyOrigin` | frontend/js/avatars.js:4007 |
 | `nameMarkBuddyOverCanvas` | frontend/js/avatars.js:4282 |
@@ -1523,19 +1523,19 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `nameMarkBuddyPerchShown` | frontend/js/avatars.js:3831 |
 | `nameMarkBuddyPerches` | frontend/js/avatars.js:4392 |
 | `nameMarkBuddyPet` | frontend/js/avatars.js:6207 |
-| `nameMarkBuddyPickVariant` | frontend/js/avatars.js:7260 |
-| `nameMarkBuddyPointer` | frontend/js/avatars.js:8762 |
+| `nameMarkBuddyPickVariant` | frontend/js/avatars.js:7258 |
+| `nameMarkBuddyPointer` | frontend/js/avatars.js:8760 |
 | `nameMarkBuddyPoof` | frontend/js/avatars.js:6309 |
 | `nameMarkBuddyPopups` | frontend/js/avatars.js:3894 |
-| `nameMarkBuddyPout` | frontend/js/avatars.js:8315 |
+| `nameMarkBuddyPout` | frontend/js/avatars.js:8313 |
 | `nameMarkBuddyPresets` | frontend/js/avatars.js:3446 |
-| `nameMarkBuddyPrewarm` | frontend/js/avatars.js:7760 |
+| `nameMarkBuddyPrewarm` | frontend/js/avatars.js:7758 |
 | `nameMarkBuddyPut` | frontend/js/avatars.js:4756 |
 | `nameMarkBuddyQueuePlace` | frontend/js/avatars.js:6592 |
-| `nameMarkBuddyReact` | frontend/js/avatars.js:7814 |
-| `nameMarkBuddyRefit` | frontend/js/avatars.js:7083 |
-| `nameMarkBuddyRefitClear` | frontend/js/avatars.js:7118 |
-| `nameMarkBuddyRelease` | frontend/js/avatars.js:7484 |
+| `nameMarkBuddyReact` | frontend/js/avatars.js:7812 |
+| `nameMarkBuddyRefit` | frontend/js/avatars.js:7081 |
+| `nameMarkBuddyRefitClear` | frontend/js/avatars.js:7116 |
+| `nameMarkBuddyRelease` | frontend/js/avatars.js:7482 |
 | `nameMarkBuddyReleaseVelocity` | frontend/js/avatars.js:6004 |
 | `nameMarkBuddyResetSize` | frontend/js/avatars.js:3977 |
 | `nameMarkBuddyRestore` | frontend/js/avatars.js:4606 |
@@ -1548,9 +1548,9 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `nameMarkBuddySavePreset` | frontend/js/avatars.js:3462 |
 | `nameMarkBuddyScaleSaved` | frontend/js/avatars.js:3948 |
 | `nameMarkBuddyScaled` | frontend/js/avatars.js:4011 |
-| `nameMarkBuddyScene` | frontend/js/avatars.js:7312 |
-| `nameMarkBuddySchedule` | frontend/js/avatars.js:7502 |
-| `nameMarkBuddyScrollAgo` | frontend/js/avatars.js:8200 |
+| `nameMarkBuddyScene` | frontend/js/avatars.js:7310 |
+| `nameMarkBuddySchedule` | frontend/js/avatars.js:7500 |
+| `nameMarkBuddyScrollAgo` | frontend/js/avatars.js:8198 |
 | `nameMarkBuddyScroller` | frontend/js/avatars.js:4956 |
 | `nameMarkBuddyScrollsWith` | frontend/js/avatars.js:5024 |
 | `nameMarkBuddySeed` | frontend/js/avatars.js:2968 |
@@ -1560,11 +1560,11 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `nameMarkBuddySettle` | frontend/js/avatars.js:6786 |
 | `nameMarkBuddyShape` | frontend/js/avatars.js:4018 |
 | `nameMarkBuddyShapeAt1` | frontend/js/avatars.js:4021 |
-| `nameMarkBuddyShowing` | frontend/js/avatars.js:8956 |
+| `nameMarkBuddyShowing` | frontend/js/avatars.js:8954 |
 | `nameMarkBuddyShown` | frontend/js/avatars.js:3817 |
-| `nameMarkBuddyShy` | frontend/js/avatars.js:8779 |
+| `nameMarkBuddyShy` | frontend/js/avatars.js:8777 |
 | `nameMarkBuddySizeSelect` | frontend/js/avatars.js:3986 |
-| `nameMarkBuddySound` | frontend/js/avatars.js:8688 |
+| `nameMarkBuddySound` | frontend/js/avatars.js:8686 |
 | `nameMarkBuddySpotFor` | frontend/js/avatars.js:4591 |
 | `nameMarkBuddySpots` | frontend/js/avatars.js:4550 |
 | `nameMarkBuddySquash` | frontend/js/avatars.js:5951 |
@@ -1572,8 +1572,8 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `nameMarkBuddyStepAside` | frontend/js/avatars.js:4654 |
 | `nameMarkBuddyStill` | frontend/js/avatars.js:3709 |
 | `nameMarkBuddyStillGood` | frontend/js/avatars.js:6512 |
-| `nameMarkBuddyStir` | frontend/js/avatars.js:8442 |
-| `nameMarkBuddyStreak` | frontend/js/avatars.js:7863 |
+| `nameMarkBuddyStir` | frontend/js/avatars.js:8440 |
+| `nameMarkBuddyStreak` | frontend/js/avatars.js:7861 |
 | `nameMarkBuddyStride` | frontend/js/avatars.js:5937 |
 | `nameMarkBuddyStrokes` | frontend/js/avatars.js:6225 |
 | `nameMarkBuddySupportSoon` | frontend/js/avatars.js:6440 |
@@ -1587,23 +1587,23 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `nameMarkBuddyThrow` | frontend/js/avatars.js:6097 |
 | `nameMarkBuddyThrowFeel` | frontend/js/avatars.js:5990 |
 | `nameMarkBuddyThrowLand` | frontend/js/avatars.js:6171 |
-| `nameMarkBuddyTick` | frontend/js/avatars.js:7601 |
-| `nameMarkBuddyTilt` | frontend/js/avatars.js:7401 |
-| `nameMarkBuddyToggle` | frontend/js/avatars.js:8971 |
+| `nameMarkBuddyTick` | frontend/js/avatars.js:7599 |
+| `nameMarkBuddyTilt` | frontend/js/avatars.js:7399 |
+| `nameMarkBuddyToggle` | frontend/js/avatars.js:8969 |
 | `nameMarkBuddyToggles` | frontend/js/avatars.js:3419 |
 | `nameMarkBuddyTravel` | frontend/js/avatars.js:5723 |
 | `nameMarkBuddyUnheld` | frontend/js/avatars.js:5184 |
-| `nameMarkBuddyVary` | frontend/js/avatars.js:7281 |
+| `nameMarkBuddyVary` | frontend/js/avatars.js:7279 |
 | `nameMarkBuddyViewChanged` | frontend/js/avatars.js:6642 |
 | `nameMarkBuddyVisit` | frontend/js/avatars.js:2727 |
-| `nameMarkBuddyWake` | frontend/js/avatars.js:8402 |
-| `nameMarkBuddyWander` | frontend/js/avatars.js:8346 |
-| `nameMarkBuddyWarmthAt` | frontend/js/avatars.js:8148 |
+| `nameMarkBuddyWake` | frontend/js/avatars.js:8400 |
+| `nameMarkBuddyWander` | frontend/js/avatars.js:8344 |
+| `nameMarkBuddyWarmthAt` | frontend/js/avatars.js:8146 |
 | `nameMarkBuddyWatch` | frontend/js/avatars.js:5393 |
 | `nameMarkBuddyWay` | frontend/js/avatars.js:5716 |
 | `nameMarkBuddyWordsUnder` | frontend/js/avatars.js:4316 |
-| `nameMarkBuddyWork` | frontend/js/avatars.js:8003 |
-| `nameMarkBuddyWorkFor` | frontend/js/avatars.js:7999 |
+| `nameMarkBuddyWork` | frontend/js/avatars.js:8001 |
+| `nameMarkBuddyWorkFor` | frontend/js/avatars.js:7997 |
 | `nameMarkBuddyWorld` | frontend/js/avatars.js:6084 |
 | `nameMarkBuddyYoursObstacles` | frontend/js/avatars.js:4685 |
 | `nameMarkCompose` | frontend/js/avatars.js:1302 |
@@ -1639,7 +1639,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `registerCharacter` | frontend/js/avatars.js:1230 |
 | `repaintOwnFace` | frontend/js/avatars.js:3031 |
 | `setOwnNameMarkStyle` | frontend/js/avatars.js:294 |
-| `syncNameMarkBuddy` | frontend/js/avatars.js:9468 |
+| `syncNameMarkBuddy` | frontend/js/avatars.js:9466 |
 | `syncProfileLook` | frontend/js/avatars.js:3173 |
 | `watchNameMark` | frontend/js/avatars.js:1119 |
 
@@ -1756,80 +1756,81 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `richPickerSplitLabel` | frontend/js/rich-picker.js:33 |
 | `richPickerTile` | frontend/js/rich-picker.js:86 |
 
-### frontend/js/editor.js (70)
+### frontend/js/editor.js (71)
 
 | Name | File:line |
 |---|---|
-| `askAboutSelection` | frontend/js/editor.js:2056 |
+| `askAboutSelection` | frontend/js/editor.js:2063 |
+| `calloutHint` | frontend/js/editor.js:347 |
 | `calloutKindOf` | frontend/js/editor.js:285 |
 | `calloutRewriteHead` | frontend/js/editor.js:299 |
-| `chatCommands` | frontend/js/editor.js:570 |
-| `editorApplyAction` | frontend/js/editor.js:444 |
-| `editorApplyNamed` | frontend/js/editor.js:502 |
-| `editorBackOverTrail` | frontend/js/editor.js:893 |
-| `editorBlock` | frontend/js/editor.js:753 |
-| `editorBlockRows` | frontend/js/editor.js:794 |
-| `editorCaretPoint` | frontend/js/editor.js:1013 |
-| `editorChoiceDialog` | frontend/js/editor.js:2080 |
-| `editorCloseMenu` | frontend/js/editor.js:1054 |
-| `editorCodeLanguageRows` | frontend/js/editor.js:782 |
-| `editorCommands` | frontend/js/editor.js:906 |
+| `chatCommands` | frontend/js/editor.js:577 |
+| `editorApplyAction` | frontend/js/editor.js:451 |
+| `editorApplyNamed` | frontend/js/editor.js:509 |
+| `editorBackOverTrail` | frontend/js/editor.js:900 |
+| `editorBlock` | frontend/js/editor.js:760 |
+| `editorBlockRows` | frontend/js/editor.js:801 |
+| `editorCaretPoint` | frontend/js/editor.js:1020 |
+| `editorChoiceDialog` | frontend/js/editor.js:2087 |
+| `editorCloseMenu` | frontend/js/editor.js:1061 |
+| `editorCodeLanguageRows` | frontend/js/editor.js:789 |
+| `editorCommands` | frontend/js/editor.js:913 |
 | `editorEnsureSurfaceModule` | frontend/js/editor.js:129 |
-| `editorFinishFence` | frontend/js/editor.js:1071 |
+| `editorFinishFence` | frontend/js/editor.js:1078 |
 | `editorFuzzyMatch` | frontend/js/editor.js:307 |
 | `editorFuzzyRank` | frontend/js/editor.js:327 |
-| `editorGroupStarts` | frontend/js/editor.js:1439 |
-| `editorHandleInput` | frontend/js/editor.js:1584 |
+| `editorGroupStarts` | frontend/js/editor.js:1446 |
+| `editorHandleInput` | frontend/js/editor.js:1591 |
 | `editorHintAllPlaceholders` | frontend/js/editor.js:216 |
 | `editorHintPlaceholder` | frontend/js/editor.js:190 |
-| `editorInsertBlock` | frontend/js/editor.js:518 |
-| `editorInsertBoardObject` | frontend/js/editor.js:548 |
-| `editorInsertBookmarkLink` | frontend/js/editor.js:535 |
-| `editorLinkMatches` | frontend/js/editor.js:1118 |
-| `editorLoadFiles` | frontend/js/editor.js:1241 |
-| `editorMenuIcon` | frontend/js/editor.js:1281 |
-| `editorMenuList` | frontend/js/editor.js:1286 |
-| `editorNextGroupStart` | frontend/js/editor.js:1449 |
-| `editorNotifyHost` | frontend/js/editor.js:366 |
-| `editorOpenMenu` | frontend/js/editor.js:1505 |
+| `editorInsertBlock` | frontend/js/editor.js:525 |
+| `editorInsertBoardObject` | frontend/js/editor.js:555 |
+| `editorInsertBookmarkLink` | frontend/js/editor.js:542 |
+| `editorLinkMatches` | frontend/js/editor.js:1125 |
+| `editorLoadFiles` | frontend/js/editor.js:1248 |
+| `editorMenuIcon` | frontend/js/editor.js:1288 |
+| `editorMenuList` | frontend/js/editor.js:1293 |
+| `editorNextGroupStart` | frontend/js/editor.js:1456 |
+| `editorNotifyHost` | frontend/js/editor.js:373 |
+| `editorOpenMenu` | frontend/js/editor.js:1512 |
 | `editorOpenMenuByShortcut` | frontend/js/editor.js:173 |
-| `editorPickGlyph` | frontend/js/editor.js:425 |
-| `editorPositionMenu` | frontend/js/editor.js:1027 |
-| `editorRankCommands` | frontend/js/editor.js:1111 |
-| `editorRecentIds` | frontend/js/editor.js:726 |
-| `editorRefreshMenu` | frontend/js/editor.js:1519 |
-| `editorRememberBlock` | frontend/js/editor.js:735 |
-| `editorRenderMenu` | frontend/js/editor.js:1290 |
-| `editorRenderPreview` | frontend/js/editor.js:1360 |
-| `editorRevealRow` | frontend/js/editor.js:1416 |
-| `editorRunItem` | frontend/js/editor.js:1461 |
-| `editorSetActive` | frontend/js/editor.js:1396 |
-| `editorSplice` | frontend/js/editor.js:391 |
+| `editorPickGlyph` | frontend/js/editor.js:432 |
+| `editorPositionMenu` | frontend/js/editor.js:1034 |
+| `editorRankCommands` | frontend/js/editor.js:1118 |
+| `editorRecentIds` | frontend/js/editor.js:733 |
+| `editorRefreshMenu` | frontend/js/editor.js:1526 |
+| `editorRememberBlock` | frontend/js/editor.js:742 |
+| `editorRenderMenu` | frontend/js/editor.js:1297 |
+| `editorRenderPreview` | frontend/js/editor.js:1367 |
+| `editorRevealRow` | frontend/js/editor.js:1423 |
+| `editorRunItem` | frontend/js/editor.js:1468 |
+| `editorSetActive` | frontend/js/editor.js:1403 |
+| `editorSplice` | frontend/js/editor.js:398 |
 | `editorSurfaceFor` | frontend/js/editor.js:105 |
 | `editorSurfaceKind` | frontend/js/editor.js:72 |
-| `editorTokenAt` | frontend/js/editor.js:1087 |
-| `inlineAiAvailable` | frontend/js/editor.js:2476 |
-| `inlineAiClose` | frontend/js/editor.js:2515 |
-| `inlineAiDescribeScope` | frontend/js/editor.js:2418 |
-| `inlineAiElement` | frontend/js/editor.js:2312 |
-| `inlineAiIsCode` | frontend/js/editor.js:2439 |
-| `inlineAiOpen` | frontend/js/editor.js:2481 |
-| `inlineAiPosition` | frontend/js/editor.js:2397 |
-| `inlineAiRetry` | frontend/js/editor.js:2537 |
-| `inlineAiSubmit` | frontend/js/editor.js:2548 |
-| `inlineAiSyncModel` | frontend/js/editor.js:2447 |
-| `inlineAiUndo` | frontend/js/editor.js:2528 |
-| `isEditorSurface` | frontend/js/editor.js:1958 |
-| `offerToCreateWikiTarget` | frontend/js/editor.js:2145 |
-| `pickIconOrEmoji` | frontend/js/editor.js:417 |
-| `selectionBarElement` | frontend/js/editor.js:1797 |
-| `selectionBarHide` | frontend/js/editor.js:1868 |
-| `selectionBarShow` | frontend/js/editor.js:1873 |
-| `selectionBarSync` | frontend/js/editor.js:1962 |
-| `selectionContextFrom` | frontend/js/editor.js:2004 |
-| `selectionContextSource` | frontend/js/editor.js:2037 |
-| `selectionOffsets` | frontend/js/editor.js:2014 |
-| `skillCommands` | frontend/js/editor.js:638 |
+| `editorTokenAt` | frontend/js/editor.js:1094 |
+| `inlineAiAvailable` | frontend/js/editor.js:2483 |
+| `inlineAiClose` | frontend/js/editor.js:2522 |
+| `inlineAiDescribeScope` | frontend/js/editor.js:2425 |
+| `inlineAiElement` | frontend/js/editor.js:2319 |
+| `inlineAiIsCode` | frontend/js/editor.js:2446 |
+| `inlineAiOpen` | frontend/js/editor.js:2488 |
+| `inlineAiPosition` | frontend/js/editor.js:2404 |
+| `inlineAiRetry` | frontend/js/editor.js:2544 |
+| `inlineAiSubmit` | frontend/js/editor.js:2555 |
+| `inlineAiSyncModel` | frontend/js/editor.js:2454 |
+| `inlineAiUndo` | frontend/js/editor.js:2535 |
+| `isEditorSurface` | frontend/js/editor.js:1965 |
+| `offerToCreateWikiTarget` | frontend/js/editor.js:2152 |
+| `pickIconOrEmoji` | frontend/js/editor.js:424 |
+| `selectionBarElement` | frontend/js/editor.js:1804 |
+| `selectionBarHide` | frontend/js/editor.js:1875 |
+| `selectionBarShow` | frontend/js/editor.js:1880 |
+| `selectionBarSync` | frontend/js/editor.js:1969 |
+| `selectionContextFrom` | frontend/js/editor.js:2011 |
+| `selectionContextSource` | frontend/js/editor.js:2044 |
+| `selectionOffsets` | frontend/js/editor.js:2021 |
+| `skillCommands` | frontend/js/editor.js:645 |
 
 ### frontend/js/dashboard.js (140)
 
@@ -2377,11 +2378,11 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | Name | File:line |
 |---|---|
 | `askAnswerFrom` | frontend/js/ask-compose.js:29 |
-| `askAnswerMenu` | frontend/js/ask-compose.js:535 |
-| `askKeepAsDocument` | frontend/js/ask-compose.js:567 |
-| `askKeepAsMap` | frontend/js/ask-compose.js:585 |
-| `askKeptTitle` | frontend/js/ask-compose.js:562 |
-| `citationVerdictRow` | frontend/js/ask-compose.js:507 |
+| `askAnswerMenu` | frontend/js/ask-compose.js:553 |
+| `askKeepAsDocument` | frontend/js/ask-compose.js:585 |
+| `askKeepAsMap` | frontend/js/ask-compose.js:607 |
+| `askKeptTitle` | frontend/js/ask-compose.js:580 |
+| `citationVerdictRow` | frontend/js/ask-compose.js:524 |
 | `digestMore` | frontend/js/ask-compose.js:389 |
 | `digestOffer` | frontend/js/ask-compose.js:427 |
 | `digestShape` | frontend/js/ask-compose.js:349 |
@@ -2389,10 +2390,10 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `markSaidSentences` | frontend/js/ask-compose.js:139 |
 | `readWebPage` | frontend/js/ask-compose.js:298 |
 | `renderActCard` | frontend/js/ask-compose.js:169 |
-| `renderAskFollowups` | frontend/js/ask-compose.js:670 |
-| `renderAskInsights` | frontend/js/ask-compose.js:608 |
+| `renderAskFollowups` | frontend/js/ask-compose.js:696 |
+| `renderAskInsights` | frontend/js/ask-compose.js:634 |
 | `renderAskUseAi` | frontend/js/ask-compose.js:34 |
-| `renderAskWhy` | frontend/js/ask-compose.js:631 |
+| `renderAskWhy` | frontend/js/ask-compose.js:657 |
 | `renderWebSources` | frontend/js/ask-compose.js:248 |
 | `wireAskUseAi` | frontend/js/ask-compose.js:46 |
 
@@ -3012,7 +3013,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docWordText` | frontend/js/documents-word.js:245 |
 | `docWordUploadPicture` | frontend/js/documents-word.js:61 |
 
-### frontend/js/documents.js (587)
+### frontend/js/documents.js (586)
 
 | Name | File:line |
 |---|---|
@@ -3031,7 +3032,6 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `archiveDocumentWithUndo` | frontend/js/documents.js:11152 |
 | `asSurface` | frontend/js/documents.js:632 |
 | `attachBookmarkToDocument` | frontend/js/documents.js:1446 |
-| `calloutHint` | frontend/js/documents.js:21777 |
 | `calloutMenuItems` | frontend/js/documents.js:21750 |
 | `chooseDocTemplate` | frontend/js/documents.js:1866 |
 | `clearInlineFormatting` | frontend/js/documents.js:10377 |
@@ -9760,19 +9760,19 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 |  | POST | `create_type` | src/memorymap/api/routes_relations.py:76 |
 |  | POST | `start` | src/memorymap/api/routes_bench.py:200 |
 | `/` | GET | `get_whiteboard_state` | src/memorymap/api/routes_whiteboard.py:927 |
-| `/account` | GET | `account` | src/memorymap/api/routes_auth.py:1430 |
+| `/account` | GET | `account` | src/memorymap/api/routes_auth.py:1434 |
 | `/activity` | GET | `list_activity` | src/memorymap/api/routes_tasks.py:923 |
 | `/activity/{job_id:path}/stop` | POST | `stop_activity` | src/memorymap/api/routes_tasks.py:932 |
 | `/all` | GET | `ranked` | src/memorymap/api/routes_resurface.py:119 |
-| `/apply` | POST | `apply_update` | src/memorymap/api/routes_update.py:705 |
-| `/apply/status` | GET | `apply_status` | src/memorymap/api/routes_update.py:800 |
+| `/apply` | POST | `apply_update` | src/memorymap/api/routes_update.py:707 |
+| `/apply/status` | GET | `apply_status` | src/memorymap/api/routes_update.py:802 |
 | `/ask` | POST | `ask` | src/memorymap/api/routes_help.py:64 |
 | `/ask/stream` | POST | `ask_stream` | src/memorymap/api/routes_help.py:76 |
-| `/audit` | DELETE | `clear_audit_log` | src/memorymap/api/routes_settings.py:1948 |
-| `/audit` | GET | `audit_log` | src/memorymap/api/routes_settings.py:1672 |
-| `/audit/export.csv` | GET | `audit_export_csv` | src/memorymap/api/routes_settings.py:1763 |
+| `/audit` | DELETE | `clear_audit_log` | src/memorymap/api/routes_settings.py:1970 |
+| `/audit` | GET | `audit_log` | src/memorymap/api/routes_settings.py:1694 |
+| `/audit/export.csv` | GET | `audit_export_csv` | src/memorymap/api/routes_settings.py:1785 |
 | `/auto` | PUT | `tidy_auto` | src/memorymap/api/routes_tidy.py:60 |
-| `/auto-session` | POST | `auto_session` | src/memorymap/api/routes_auth.py:910 |
+| `/auto-session` | POST | `auto_session` | src/memorymap/api/routes_auth.py:914 |
 | `/backups` | GET | `list_backups` | src/memorymap/api/routes_backups.py:109 |
 | `/backups` | POST | `backup_now` | src/memorymap/api/routes_backups.py:118 |
 | `/backups/bundle` | POST | `export_bundle` | src/memorymap/api/routes_backups.py:218 |
@@ -9795,33 +9795,33 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/board-library/{item_id}` | PUT | `update_library_item` | src/memorymap/api/routes_board_library.py:532 |
 | `/board-library/{item_id}/duplicate` | POST | `duplicate_library_item` | src/memorymap/api/routes_board_library.py:604 |
 | `/board-library/{item_id}/restore` | POST | `restore_library_item` | src/memorymap/api/routes_board_library.py:593 |
-| `/boards` | GET | `list_boards` | src/memorymap/api/routes_whiteboard.py:2256 |
-| `/boards` | POST | `create_board` | src/memorymap/api/routes_whiteboard.py:2513 |
-| `/boards/generate` | POST | `generate_map` | src/memorymap/api/routes_whiteboard.py:5675 |
-| `/boards/import` | POST | `import_board` | src/memorymap/api/routes_whiteboard.py:5749 |
-| `/boards/propose` | POST | `propose_map` | src/memorymap/api/routes_whiteboard.py:5546 |
-| `/boards/{board_id}` | PUT | `rename_board` | src/memorymap/api/routes_whiteboard.py:2720 |
-| `/boards/{board_id}/duplicate` | POST | `duplicate_board` | src/memorymap/api/routes_whiteboard.py:2555 |
-| `/boards/{board_id}/export` | GET | `export_board` | src/memorymap/api/routes_whiteboard.py:4740 |
-| `/boards/{board_id}/nodes` | POST | `create_map_node` | src/memorymap/api/routes_whiteboard.py:3636 |
-| `/boards/{board_id}/nodes/clear-style` | POST | `clear_map_node_styles` | src/memorymap/api/routes_whiteboard.py:4061 |
-| `/boards/{board_id}/nodes/move-many` | PUT | `move_map_nodes` | src/memorymap/api/routes_whiteboard.py:3924 |
-| `/boards/{board_id}/nodes/outline` | POST | `paste_map_outline` | src/memorymap/api/routes_whiteboard.py:3731 |
+| `/boards` | GET | `list_boards` | src/memorymap/api/routes_whiteboard.py:2278 |
+| `/boards` | POST | `create_board` | src/memorymap/api/routes_whiteboard.py:2535 |
+| `/boards/generate` | POST | `generate_map` | src/memorymap/api/routes_whiteboard.py:5741 |
+| `/boards/import` | POST | `import_board` | src/memorymap/api/routes_whiteboard.py:5815 |
+| `/boards/propose` | POST | `propose_map` | src/memorymap/api/routes_whiteboard.py:5612 |
+| `/boards/{board_id}` | PUT | `rename_board` | src/memorymap/api/routes_whiteboard.py:2742 |
+| `/boards/{board_id}/duplicate` | POST | `duplicate_board` | src/memorymap/api/routes_whiteboard.py:2577 |
+| `/boards/{board_id}/export` | GET | `export_board` | src/memorymap/api/routes_whiteboard.py:4790 |
+| `/boards/{board_id}/nodes` | POST | `create_map_node` | src/memorymap/api/routes_whiteboard.py:3667 |
+| `/boards/{board_id}/nodes/clear-style` | POST | `clear_map_node_styles` | src/memorymap/api/routes_whiteboard.py:4092 |
+| `/boards/{board_id}/nodes/move-many` | PUT | `move_map_nodes` | src/memorymap/api/routes_whiteboard.py:3955 |
+| `/boards/{board_id}/nodes/outline` | POST | `paste_map_outline` | src/memorymap/api/routes_whiteboard.py:3762 |
 | `/boards/{board_id}/nodes/{node_id}/branches` | POST | `add_branches` | src/memorymap/api/routes_map_suggest.py:197 |
-| `/boards/{board_id}/nodes/{node_id}/move` | PUT | `move_map_node` | src/memorymap/api/routes_whiteboard.py:3807 |
+| `/boards/{board_id}/nodes/{node_id}/move` | PUT | `move_map_node` | src/memorymap/api/routes_whiteboard.py:3838 |
 | `/boards/{board_id}/nodes/{node_id}/suggest` | POST | `suggest_branches` | src/memorymap/api/routes_map_suggest.py:146 |
 | `/boards/{board_id}/nodes/{node_id}/summary` | POST | `summarise_branch` | src/memorymap/api/routes_map_suggest.py:308 |
-| `/boards/{board_id}/tree` | GET | `board_tree` | src/memorymap/api/routes_whiteboard.py:3569 |
+| `/boards/{board_id}/tree` | GET | `board_tree` | src/memorymap/api/routes_whiteboard.py:3600 |
 | `/budgets` | GET | `budgets` | src/memorymap/api/routes_bench.py:124 |
 | `/bulk` | POST | `bulk_action` | src/memorymap/api/routes_learned.py:282 |
 | `/bulk` | POST | `bulk_edit_tags` | src/memorymap/api/routes_tags.py:104 |
 | `/capabilities` | GET | `capabilities` | src/memorymap/api/routes_capabilities.py:77 |
-| `/change-password` | POST | `change_password` | src/memorymap/api/routes_auth.py:1470 |
+| `/change-password` | POST | `change_password` | src/memorymap/api/routes_auth.py:1474 |
 | `/changelog` | GET | `changelog` | src/memorymap/api/app.py:1471 |
 | `/changes` | GET | `entry_changes` | src/memorymap/api/routes_entries.py:2502 |
 | `/charts/question` | POST | `chart_for_question` | src/memorymap/api/routes_vision.py:390 |
 | `/chat-model` | POST | `set_chat_model` | src/memorymap/api/routes_models.py:710 |
-| `/check` | GET | `check_for_update` | src/memorymap/api/routes_update.py:442 |
+| `/check` | GET | `check_for_update` | src/memorymap/api/routes_update.py:550 |
 | `/check-syntax` | POST | `check_syntax` | src/memorymap/api/routes_documents.py:310 |
 | `/choice` | POST | `update_choice` | src/memorymap/api/routes_update.py:423 |
 | `/clip` | POST | `clip` | src/memorymap/api/routes_webclip.py:44 |
@@ -9830,10 +9830,10 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/code-snippets` | POST | `create_snippet` | src/memorymap/api/routes_code_snippets.py:89 |
 | `/code-snippets/{snippet_id}` | PUT | `update_snippet` | src/memorymap/api/routes_code_snippets.py:105 |
 | `/command` | GET | `capture_command` | src/memorymap/api/routes_usage.py:46 |
-| `/command/run` | POST | `run_command` | src/memorymap/api/routes_chat.py:2754 |
+| `/command/run` | POST | `run_command` | src/memorymap/api/routes_chat.py:2760 |
 | `/compose` | POST | `compose_draft` | src/memorymap/api/routes_drafts.py:75 |
 | `/compose/stream` | POST | `compose_draft_stream` | src/memorymap/api/routes_drafts.py:110 |
-| `/compress` | POST | `compress_history` | src/memorymap/api/routes_chat.py:3491 |
+| `/compress` | POST | `compress_history` | src/memorymap/api/routes_chat.py:3497 |
 | `/compute` | POST | `compute` | src/memorymap/api/routes_resurface.py:85 |
 | `/confirm` | POST | `confirm_insight` | src/memorymap/api/routes_insights.py:426 |
 | `/contents` | GET | `read_contents` | src/memorymap/api/routes_documents.py:507 |
@@ -9865,12 +9865,12 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/documents/run-sandbox/python` | GET | `run_sandbox_python` | src/memorymap/api/run_sandbox.py:1562 |
 | `/documents/{document_id}/code-assist` | POST | `code_assist_route` | src/memorymap/api/routes_code_assist.py:34 |
 | `/embedding-backend` | POST | `set_embedding_backend` | src/memorymap/api/routes_models.py:934 |
-| `/embedding-models` | GET | `list_embedding_models` | src/memorymap/api/routes_settings.py:2043 |
-| `/embedding-models/choices` | GET | `embedding_model_choices` | src/memorymap/api/routes_settings.py:2070 |
-| `/embedding-models/pull` | POST | `pull_embedding_model` | src/memorymap/api/routes_settings.py:2127 |
-| `/embedding-models/use` | POST | `use_embedding_model` | src/memorymap/api/routes_settings.py:2104 |
-| `/embedding-models/{model_id}` | DELETE | `remove_embedding_model` | src/memorymap/api/routes_settings.py:2184 |
-| `/embedding-models/{model_id}/download` | POST | `download_embedding_model` | src/memorymap/api/routes_settings.py:2164 |
+| `/embedding-models` | GET | `list_embedding_models` | src/memorymap/api/routes_settings.py:2065 |
+| `/embedding-models/choices` | GET | `embedding_model_choices` | src/memorymap/api/routes_settings.py:2092 |
+| `/embedding-models/pull` | POST | `pull_embedding_model` | src/memorymap/api/routes_settings.py:2149 |
+| `/embedding-models/use` | POST | `use_embedding_model` | src/memorymap/api/routes_settings.py:2126 |
+| `/embedding-models/{model_id}` | DELETE | `remove_embedding_model` | src/memorymap/api/routes_settings.py:2206 |
+| `/embedding-models/{model_id}/download` | POST | `download_embedding_model` | src/memorymap/api/routes_settings.py:2186 |
 | `/entries/{entry_id}/files` | POST | `upload_file` | src/memorymap/api/routes_files.py:99 |
 | `/entries/{entry_id}/meeting` | GET | `read_meeting` | src/memorymap/api/routes_meetings.py:90 |
 | `/entries/{entry_id}/meeting/append` | POST | `append_to_meeting` | src/memorymap/api/routes_meetings.py:176 |
@@ -9878,21 +9878,21 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/entries/{entry_id}/meeting/summarise` | POST | `summarise_meeting` | src/memorymap/api/routes_meetings.py:236 |
 | `/entries/{entry_id}/properties` | GET | `entry_properties` | src/memorymap/api/routes_properties.py:45 |
 | `/entries/{entry_id}/properties` | PUT | `put_properties` | src/memorymap/api/routes_properties.py:61 |
-| `/events` | GET | `event_feed` | src/memorymap/api/routes_settings.py:1890 |
-| `/events/undo` | POST | `undo_actor` | src/memorymap/api/routes_settings.py:1861 |
+| `/events` | GET | `event_feed` | src/memorymap/api/routes_settings.py:1912 |
+| `/events/undo` | POST | `undo_actor` | src/memorymap/api/routes_settings.py:1883 |
 | `/export` | GET | `export_learned` | src/memorymap/api/routes_learned.py:176 |
 | `/export.ics` | GET | `export_ics` | src/memorymap/api/routes_reminders.py:356 |
-| `/export/backup` | GET | `export_backup` | src/memorymap/api/routes_settings.py:2556 |
-| `/export/csv` | GET | `export_csv` | src/memorymap/api/routes_settings.py:3269 |
+| `/export/backup` | GET | `export_backup` | src/memorymap/api/routes_settings.py:2578 |
+| `/export/csv` | GET | `export_csv` | src/memorymap/api/routes_settings.py:3291 |
 | `/export/folder` | GET | `export_notebook_folder` | src/memorymap/api/routes_import.py:121 |
-| `/export/json` | GET | `export_json` | src/memorymap/api/routes_settings.py:2580 |
-| `/export/markdown` | GET | `export_markdown` | src/memorymap/api/routes_settings.py:2710 |
+| `/export/json` | GET | `export_json` | src/memorymap/api/routes_settings.py:2602 |
+| `/export/markdown` | GET | `export_markdown` | src/memorymap/api/routes_settings.py:2732 |
 | `/extract/commit` | POST | `extract_commit` | src/memorymap/api/routes_entries.py:4028 |
 | `/extract/preview` | POST | `extract_preview` | src/memorymap/api/routes_entries.py:3982 |
-| `/extras` | GET | `list_extras` | src/memorymap/api/routes_settings.py:1979 |
-| `/extras/bulk` | POST | `bulk_extras` | src/memorymap/api/routes_settings.py:2011 |
-| `/extras/{extra_id}/install` | POST | `install_extra` | src/memorymap/api/routes_settings.py:2020 |
-| `/extras/{extra_id}/uninstall` | POST | `uninstall_extra` | src/memorymap/api/routes_settings.py:2033 |
+| `/extras` | GET | `list_extras` | src/memorymap/api/routes_settings.py:2001 |
+| `/extras/bulk` | POST | `bulk_extras` | src/memorymap/api/routes_settings.py:2033 |
+| `/extras/{extra_id}/install` | POST | `install_extra` | src/memorymap/api/routes_settings.py:2042 |
+| `/extras/{extra_id}/uninstall` | POST | `uninstall_extra` | src/memorymap/api/routes_settings.py:2055 |
 | `/feature-model` | POST | `set_feature_model` | src/memorymap/api/routes_models.py:786 |
 | `/feature-models/reset` | POST | `reset_feature_models` | src/memorymap/api/routes_models.py:836 |
 | `/file-types` | GET | `list_file_types` | src/memorymap/api/routes_documents.py:285 |
@@ -9908,17 +9908,17 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/files/{attachment_id}` | PUT | `rename_file` | src/memorymap/api/routes_files.py:972 |
 | `/files/{attachment_id}/analyse` | POST | `analyse_attachment` | src/memorymap/api/routes_files.py:451 |
 | `/files/{attachment_id}/html-preview` | GET | `attached_file_html_preview` | src/memorymap/api/routes_files.py:863 |
-| `/files/{attachment_id}/ocr-clean-loops` | POST | `clean_attachment_reading_loops` | src/memorymap/api/routes_files.py:3961 |
+| `/files/{attachment_id}/ocr-clean-loops` | POST | `clean_attachment_reading_loops` | src/memorymap/api/routes_files.py:3976 |
 | `/files/{attachment_id}/ocr-page-read` | POST | `attachment_ocr_page_read` | src/memorymap/api/routes_files.py:3539 |
 | `/files/{attachment_id}/ocr-range-read` | POST | `attachment_ocr_range_read` | src/memorymap/api/routes_files.py:3503 |
 | `/files/{attachment_id}/ocr-regions` | GET | `attachment_ocr_regions` | src/memorymap/api/routes_files.py:2635 |
-| `/files/{attachment_id}/page-caption` | POST | `attachment_page_caption` | src/memorymap/api/routes_files.py:3744 |
-| `/files/{attachment_id}/page-reads` | GET | `attachment_page_reads` | src/memorymap/api/routes_files.py:3782 |
-| `/files/{attachment_id}/page-reads/{page}` | DELETE | `delete_attachment_page_read` | src/memorymap/api/routes_files.py:3839 |
+| `/files/{attachment_id}/page-caption` | POST | `attachment_page_caption` | src/memorymap/api/routes_files.py:3759 |
+| `/files/{attachment_id}/page-reads` | GET | `attachment_page_reads` | src/memorymap/api/routes_files.py:3797 |
+| `/files/{attachment_id}/page-reads/{page}` | DELETE | `delete_attachment_page_read` | src/memorymap/api/routes_files.py:3854 |
 | `/files/{attachment_id}/pdf-info` | GET | `attached_file_pdf_info` | src/memorymap/api/routes_files.py:771 |
 | `/files/{attachment_id}/pdf-page/{index}` | GET | `attached_file_pdf_page` | src/memorymap/api/routes_files.py:807 |
-| `/files/{attachment_id}/readings/{source}` | DELETE | `delete_attachment_reading` | src/memorymap/api/routes_files.py:3898 |
-| `/files/{attachment_id}/region-read` | POST | `attachment_region_read` | src/memorymap/api/routes_files.py:3710 |
+| `/files/{attachment_id}/readings/{source}` | DELETE | `delete_attachment_reading` | src/memorymap/api/routes_files.py:3913 |
+| `/files/{attachment_id}/region-read` | POST | `attachment_region_read` | src/memorymap/api/routes_files.py:3725 |
 | `/files/{attachment_id}/text` | GET | `attached_file_text` | src/memorymap/api/routes_files.py:666 |
 | `/files/{attachment_id}/text` | PUT | `save_attached_file_text` | src/memorymap/api/routes_files.py:713 |
 | `/files/{name}` | GET | `translate_file` | src/memorymap/api/routes_translate.py:27 |
@@ -9947,13 +9947,13 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/history/snapshots/{snapshot_id}` | DELETE | `delete_snapshot` | src/memorymap/api/routes_board_history.py:372 |
 | `/history/{event_id}` | GET | `board_at` | src/memorymap/api/routes_board_history.py:385 |
 | `/history/{event_id}/restore` | POST | `restore_board` | src/memorymap/api/routes_board_history.py:416 |
-| `/images` | GET | `list_images` | src/memorymap/api/routes_whiteboard.py:2445 |
+| `/images` | GET | `list_images` | src/memorymap/api/routes_whiteboard.py:2467 |
 | `/import` | POST | `import_document` | src/memorymap/api/routes_documents.py:555 |
 | `/import.ics` | POST | `import_ics` | src/memorymap/api/routes_reminders.py:401 |
 | `/import/app` | POST | `import_app` | src/memorymap/api/routes_import.py:63 |
-| `/import/directory` | POST | `import_directory` | src/memorymap/api/routes_settings.py:3051 |
-| `/import/document` | POST | `import_document` | src/memorymap/api/routes_settings.py:3173 |
-| `/import/markdown` | POST | `import_markdown` | src/memorymap/api/routes_settings.py:3066 |
+| `/import/directory` | POST | `import_directory` | src/memorymap/api/routes_settings.py:3073 |
+| `/import/document` | POST | `import_document` | src/memorymap/api/routes_settings.py:3195 |
+| `/import/markdown` | POST | `import_markdown` | src/memorymap/api/routes_settings.py:3088 |
 | `/import/reports/{report_id}` | GET | `import_report_page` | src/memorymap/api/routes_import.py:112 |
 | `/improve` | POST | `improve_writing` | src/memorymap/api/routes_entries.py:1605 |
 | `/inspect` | POST | `inspect_model` | src/memorymap/api/routes_models.py:682 |
@@ -9965,20 +9965,20 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/jobs/passes/{kind}/run` | POST | `run_pass_now` | src/memorymap/api/routes_tasks.py:550 |
 | `/jobs/stream` | GET | `jobs_stream` | src/memorymap/api/routes_tasks.py:594 |
 | `/jobs/{job_id}/cancel` | POST | `cancel_job` | src/memorymap/api/routes_tasks.py:572 |
-| `/lan-access` | GET | `lan_access` | src/memorymap/api/routes_auth.py:1087 |
-| `/lan-access` | POST | `set_lan_access` | src/memorymap/api/routes_auth.py:1324 |
-| `/lan-certificate` | POST | `regenerate_lan_certificate` | src/memorymap/api/routes_auth.py:1114 |
-| `/lan-certificate.pem` | GET | `download_lan_certificate` | src/memorymap/api/routes_auth.py:1093 |
-| `/lan-devices/{device_id}` | DELETE | `forget_device` | src/memorymap/api/routes_auth.py:1275 |
-| `/lan-devices/{device_id}/{verdict}` | POST | `answer_device` | src/memorymap/api/routes_auth.py:1254 |
-| `/lan-networks/allow` | POST | `allow_this_network` | src/memorymap/api/routes_auth.py:1165 |
-| `/lan-networks/{key}` | DELETE | `forget_network` | src/memorymap/api/routes_auth.py:1185 |
-| `/lan-networks/{key}/trust` | POST | `trust_network` | src/memorymap/api/routes_auth.py:1196 |
-| `/lan-networks/{key}/untrust` | POST | `untrust_network` | src/memorymap/api/routes_auth.py:1215 |
-| `/lan-notice/dismiss` | POST | `dismiss_lan_notice` | src/memorymap/api/routes_auth.py:1225 |
-| `/lan-options` | POST | `set_lan_option` | src/memorymap/api/routes_auth.py:1233 |
+| `/lan-access` | GET | `lan_access` | src/memorymap/api/routes_auth.py:1091 |
+| `/lan-access` | POST | `set_lan_access` | src/memorymap/api/routes_auth.py:1328 |
+| `/lan-certificate` | POST | `regenerate_lan_certificate` | src/memorymap/api/routes_auth.py:1118 |
+| `/lan-certificate.pem` | GET | `download_lan_certificate` | src/memorymap/api/routes_auth.py:1097 |
+| `/lan-devices/{device_id}` | DELETE | `forget_device` | src/memorymap/api/routes_auth.py:1279 |
+| `/lan-devices/{device_id}/{verdict}` | POST | `answer_device` | src/memorymap/api/routes_auth.py:1258 |
+| `/lan-networks/allow` | POST | `allow_this_network` | src/memorymap/api/routes_auth.py:1169 |
+| `/lan-networks/{key}` | DELETE | `forget_network` | src/memorymap/api/routes_auth.py:1189 |
+| `/lan-networks/{key}/trust` | POST | `trust_network` | src/memorymap/api/routes_auth.py:1200 |
+| `/lan-networks/{key}/untrust` | POST | `untrust_network` | src/memorymap/api/routes_auth.py:1219 |
+| `/lan-notice/dismiss` | POST | `dismiss_lan_notice` | src/memorymap/api/routes_auth.py:1229 |
+| `/lan-options` | POST | `set_lan_option` | src/memorymap/api/routes_auth.py:1237 |
 | `/lan-qr.svg` | GET | `lan_qr` | src/memorymap/api/routes_privacy.py:132 |
-| `/lan-watch` | GET | `lan_watch` | src/memorymap/api/routes_auth.py:1292 |
+| `/lan-watch` | GET | `lan_watch` | src/memorymap/api/routes_auth.py:1296 |
 | `/latest` | GET | `latest` | src/memorymap/api/routes_night.py:84 |
 | `/library` | GET | `library` | src/memorymap/api/routes_library.py:1078 |
 | `/link-reasons/run` | POST | `tidy_link_reasons_run` | src/memorymap/api/routes_tidy.py:78 |
@@ -9986,17 +9986,17 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/link-suggestions` | GET | `link_suggestions` | src/memorymap/api/routes_entries.py:1719 |
 | `/link-suggestions/reasons` | POST | `link_suggestion_reasons` | src/memorymap/api/routes_entries.py:2102 |
 | `/links/backfill-reasons` | POST | `backfill_link_reasons` | src/memorymap/api/routes_entries.py:2150 |
-| `/lock` | POST | `lock` | src/memorymap/api/routes_auth.py:1392 |
-| `/lock-all` | POST | `lock_all` | src/memorymap/api/routes_auth.py:2003 |
-| `/logs` | DELETE | `clear_server_logs` | src/memorymap/api/routes_settings.py:2274 |
-| `/logs` | GET | `server_logs` | src/memorymap/api/routes_settings.py:2191 |
-| `/logs/client` | POST | `record_client_error` | src/memorymap/api/routes_settings.py:2210 |
-| `/logs/stats` | GET | `server_log_stats` | src/memorymap/api/routes_settings.py:2262 |
-| `/logs/stream` | GET | `stream_server_logs` | src/memorymap/api/routes_settings.py:2290 |
-| `/maps/from-note/{note_id}` | POST | `map_from_note` | src/memorymap/api/routes_map_from_notes.py:420 |
+| `/lock` | POST | `lock` | src/memorymap/api/routes_auth.py:1396 |
+| `/lock-all` | POST | `lock_all` | src/memorymap/api/routes_auth.py:2007 |
+| `/logs` | DELETE | `clear_server_logs` | src/memorymap/api/routes_settings.py:2296 |
+| `/logs` | GET | `server_logs` | src/memorymap/api/routes_settings.py:2213 |
+| `/logs/client` | POST | `record_client_error` | src/memorymap/api/routes_settings.py:2232 |
+| `/logs/stats` | GET | `server_log_stats` | src/memorymap/api/routes_settings.py:2284 |
+| `/logs/stream` | GET | `stream_server_logs` | src/memorymap/api/routes_settings.py:2312 |
+| `/maps/from-note/{note_id}` | POST | `map_from_note` | src/memorymap/api/routes_map_from_notes.py:442 |
 | `/maps/from-notes` | POST | `map_from_notes` | src/memorymap/api/routes_map_from_notes.py:258 |
 | `/media` | GET | `list_media` | src/memorymap/api/routes_files.py:1443 |
-| `/media-session` | POST | `media_session` | src/memorymap/api/routes_auth.py:897 |
+| `/media-session` | POST | `media_session` | src/memorymap/api/routes_auth.py:901 |
 | `/media/meta/{filename}` | GET | `media_meta` | src/memorymap/api/routes_files.py:1600 |
 | `/media/orphans` | DELETE | `clean_orphaned_media` | src/memorymap/api/routes_files.py:1575 |
 | `/media/orphans` | GET | `list_orphaned_media` | src/memorymap/api/routes_files.py:1544 |
@@ -10006,47 +10006,47 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/media/restore` | POST | `restore_media` | src/memorymap/api/routes_files.py:1880 |
 | `/media/text/{filename}` | GET | `media_text` | src/memorymap/api/routes_files.py:1650 |
 | `/media/upload` | POST | `upload_media` | src/memorymap/api/routes_files.py:1294 |
-| `/media/{filename}` | GET | `get_media` | src/memorymap/api/routes_files.py:4111 |
+| `/media/{filename}` | GET | `get_media` | src/memorymap/api/routes_files.py:4126 |
 | `/media/{upload_id}` | DELETE | `delete_media` | src/memorymap/api/routes_files.py:1843 |
 | `/media/{upload_id}` | PUT | `rename_media` | src/memorymap/api/routes_files.py:1907 |
 | `/media/{upload_id}/caption` | POST | `caption_media` | src/memorymap/api/routes_files.py:1964 |
 | `/media/{upload_id}/ocr` | POST | `ocr_media` | src/memorymap/api/routes_files.py:2069 |
-| `/media/{upload_id}/ocr-clean-loops` | POST | `clean_media_reading_loops` | src/memorymap/api/routes_files.py:3987 |
+| `/media/{upload_id}/ocr-clean-loops` | POST | `clean_media_reading_loops` | src/memorymap/api/routes_files.py:4002 |
 | `/media/{upload_id}/ocr-page-read` | POST | `media_ocr_page_read` | src/memorymap/api/routes_files.py:3556 |
 | `/media/{upload_id}/ocr-range-read` | POST | `media_ocr_range_read` | src/memorymap/api/routes_files.py:3521 |
 | `/media/{upload_id}/ocr-regions` | GET | `media_ocr_regions` | src/memorymap/api/routes_files.py:2601 |
-| `/media/{upload_id}/page-caption` | POST | `media_page_caption` | src/memorymap/api/routes_files.py:3765 |
-| `/media/{upload_id}/page-reads` | GET | `media_page_reads` | src/memorymap/api/routes_files.py:3798 |
-| `/media/{upload_id}/page-reads/{page}` | DELETE | `delete_media_page_read` | src/memorymap/api/routes_files.py:3853 |
-| `/media/{upload_id}/readings/{source}` | DELETE | `delete_media_reading` | src/memorymap/api/routes_files.py:3888 |
-| `/media/{upload_id}/region-read` | POST | `media_region_read` | src/memorymap/api/routes_files.py:3730 |
-| `/media/{upload_id}/vision-ocr` | POST | `vision_ocr_media` | src/memorymap/api/routes_files.py:4040 |
+| `/media/{upload_id}/page-caption` | POST | `media_page_caption` | src/memorymap/api/routes_files.py:3780 |
+| `/media/{upload_id}/page-reads` | GET | `media_page_reads` | src/memorymap/api/routes_files.py:3813 |
+| `/media/{upload_id}/page-reads/{page}` | DELETE | `delete_media_page_read` | src/memorymap/api/routes_files.py:3868 |
+| `/media/{upload_id}/readings/{source}` | DELETE | `delete_media_reading` | src/memorymap/api/routes_files.py:3903 |
+| `/media/{upload_id}/region-read` | POST | `media_region_read` | src/memorymap/api/routes_files.py:3745 |
+| `/media/{upload_id}/vision-ocr` | POST | `vision_ocr_media` | src/memorymap/api/routes_files.py:4055 |
 | `/meetings` | POST | `create_meeting` | src/memorymap/api/routes_meetings.py:52 |
-| `/memory` | GET | `list_memory` | src/memorymap/api/routes_settings.py:1529 |
-| `/memory` | POST | `add_memory` | src/memorymap/api/routes_settings.py:1564 |
-| `/memory/{preference_id}` | DELETE | `forget_memory` | src/memorymap/api/routes_settings.py:1662 |
-| `/memory/{preference_id}` | PATCH | `update_memory` | src/memorymap/api/routes_settings.py:1641 |
-| `/memory/{preference_id}/answer` | POST | `answer_memory_proposal` | src/memorymap/api/routes_settings.py:1607 |
+| `/memory` | GET | `list_memory` | src/memorymap/api/routes_settings.py:1551 |
+| `/memory` | POST | `add_memory` | src/memorymap/api/routes_settings.py:1586 |
+| `/memory/{preference_id}` | DELETE | `forget_memory` | src/memorymap/api/routes_settings.py:1684 |
+| `/memory/{preference_id}` | PATCH | `update_memory` | src/memorymap/api/routes_settings.py:1663 |
+| `/memory/{preference_id}/answer` | POST | `answer_memory_proposal` | src/memorymap/api/routes_settings.py:1629 |
 | `/merge` | POST | `merge_notes` | src/memorymap/api/routes_duplicates.py:135 |
 | `/merge` | POST | `merge_tags` | src/memorymap/api/routes_tags.py:86 |
 | `/merges/accept` | POST | `accept_merge` | src/memorymap/api/routes_inbox.py:143 |
 | `/merges/dismiss` | POST | `dismiss_merge` | src/memorymap/api/routes_inbox.py:157 |
 | `/merges/{undo_id}/undo` | POST | `undo_merge_route` | src/memorymap/api/routes_entities.py:227 |
-| `/modes` | GET | `list_modes` | src/memorymap/api/routes_chat.py:3427 |
+| `/modes` | GET | `list_modes` | src/memorymap/api/routes_chat.py:3433 |
 | `/most-accessed` | GET | `most_accessed` | src/memorymap/api/routes_entries.py:2477 |
 | `/most-opened` | GET | `most_opened` | src/memorymap/api/routes_vision.py:112 |
 | `/move` | POST | `move_notes` | src/memorymap/api/routes_categories.py:161 |
 | `/near/{entry_id}` | GET | `near` | src/memorymap/api/routes_resurface.py:145 |
-| `/nodes` | POST | `create_node` | src/memorymap/api/routes_whiteboard.py:2825 |
-| `/nodes/{node_id}` | DELETE | `delete_node` | src/memorymap/api/routes_whiteboard.py:2902 |
-| `/nodes/{node_id}` | PUT | `update_node` | src/memorymap/api/routes_whiteboard.py:2870 |
+| `/nodes` | POST | `create_node` | src/memorymap/api/routes_whiteboard.py:2847 |
+| `/nodes/{node_id}` | DELETE | `delete_node` | src/memorymap/api/routes_whiteboard.py:2924 |
+| `/nodes/{node_id}` | PUT | `update_node` | src/memorymap/api/routes_whiteboard.py:2892 |
 | `/note-types` | GET | `list_note_types` | src/memorymap/api/routes_properties.py:133 |
 | `/note-types` | POST | `create_note_type` | src/memorymap/api/routes_properties.py:145 |
 | `/note-types/{type_id}` | DELETE | `delete_note_type` | src/memorymap/api/routes_properties.py:189 |
 | `/note-types/{type_id}` | PATCH | `patch_note_type` | src/memorymap/api/routes_properties.py:167 |
-| `/objects` | POST | `create_object` | src/memorymap/api/routes_whiteboard.py:3007 |
-| `/objects/{object_id}` | DELETE | `delete_object` | src/memorymap/api/routes_whiteboard.py:3085 |
-| `/objects/{object_id}` | PUT | `update_object` | src/memorymap/api/routes_whiteboard.py:3051 |
+| `/objects` | POST | `create_object` | src/memorymap/api/routes_whiteboard.py:3029 |
+| `/objects/{object_id}` | DELETE | `delete_object` | src/memorymap/api/routes_whiteboard.py:3107 |
+| `/objects/{object_id}` | PUT | `update_object` | src/memorymap/api/routes_whiteboard.py:3073 |
 | `/ocr-model` | POST | `set_ocr_model` | src/memorymap/api/routes_models.py:765 |
 | `/ocr-readers` | GET | `ocr_readers` | src/memorymap/api/routes_files.py:3309 |
 | `/ocr/language` | POST | `set_ocr_language` | src/memorymap/api/routes_files.py:3358 |
@@ -10054,16 +10054,16 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/openapi.json` | GET | `openapi_schema` | src/memorymap/api/app.py:1389 |
 | `/outline` | GET | `documents_outline` | src/memorymap/api/routes_documents.py:438 |
 | `/parse` | POST | `magic_add_reminder` | src/memorymap/api/routes_reminders.py:529 |
-| `/password-on-open` | POST | `set_password_on_open` | src/memorymap/api/routes_auth.py:998 |
+| `/password-on-open` | POST | `set_password_on_open` | src/memorymap/api/routes_auth.py:1002 |
 | `/patterns` | GET | `patterns` | src/memorymap/api/routes_insights.py:404 |
 | `/personas/suggest-thinking-words` | POST | `suggest_persona_thinking_words` | src/memorymap/api/routes_settings.py:189 |
-| `/pin` | POST | `set_pin` | src/memorymap/api/routes_auth.py:1578 |
-| `/pin/forget` | POST | `forget_pin` | src/memorymap/api/routes_auth.py:1621 |
+| `/pin` | POST | `set_pin` | src/memorymap/api/routes_auth.py:1582 |
+| `/pin/forget` | POST | `forget_pin` | src/memorymap/api/routes_auth.py:1625 |
 | `/preferences` | GET | `get_preferences` | src/memorymap/api/routes_settings.py:748 |
-| `/preferences` | PUT | `update_preferences` | src/memorymap/api/routes_settings.py:1072 |
-| `/preferences/defaults` | GET | `get_preference_defaults` | src/memorymap/api/routes_settings.py:1135 |
-| `/preferences/export` | GET | `export_preferences` | src/memorymap/api/routes_settings.py:1174 |
-| `/preferences/import` | POST | `import_preferences` | src/memorymap/api/routes_settings.py:1187 |
+| `/preferences` | PUT | `update_preferences` | src/memorymap/api/routes_settings.py:1120 |
+| `/preferences/defaults` | GET | `get_preference_defaults` | src/memorymap/api/routes_settings.py:1144 |
+| `/preferences/export` | GET | `export_preferences` | src/memorymap/api/routes_settings.py:1183 |
+| `/preferences/import` | POST | `import_preferences` | src/memorymap/api/routes_settings.py:1227 |
 | `/preview` | POST | `preview_merge` | src/memorymap/api/routes_duplicates.py:116 |
 | `/provider` | POST | `set_provider` | src/memorymap/api/routes_models.py:853 |
 | `/pull` | POST | `pull_model` | src/memorymap/api/routes_models.py:1057 |
@@ -10077,8 +10077,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/read/near` | POST | `near_rows` | src/memorymap/api/routes_read.py:136 |
 | `/read/offers` | POST | `note_offers` | src/memorymap/api/routes_read.py:68 |
 | `/read/words` | GET | `setting_words` | src/memorymap/api/routes_read.py:121 |
-| `/reading-bin/{bin_id}/purge` | DELETE | `purge_binned_reading` | src/memorymap/api/routes_files.py:3932 |
-| `/reading-bin/{bin_id}/restore` | POST | `restore_binned_reading` | src/memorymap/api/routes_files.py:3914 |
+| `/reading-bin/{bin_id}/purge` | DELETE | `purge_binned_reading` | src/memorymap/api/routes_files.py:3947 |
+| `/reading-bin/{bin_id}/restore` | POST | `restore_binned_reading` | src/memorymap/api/routes_files.py:3929 |
 | `/receipt` | GET | `receipt` | src/memorymap/api/routes_privacy.py:103 |
 | `/recent` | DELETE | `forget_recent_question` | src/memorymap/api/routes_chat.py:183 |
 | `/recent` | GET | `recent_questions` | src/memorymap/api/routes_chat.py:177 |
@@ -10101,21 +10101,21 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/recordings/{recording_id}/transcript` | GET | `read_transcript` | src/memorymap/api/routes_recordings.py:380 |
 | `/recordings/{recording_id}/transcript.srt` | GET | `transcript_srt` | src/memorymap/api/routes_recordings.py:435 |
 | `/recordings/{recording_id}/transcript.vtt` | GET | `transcript_vtt` | src/memorymap/api/routes_recordings.py:440 |
-| `/recover` | POST | `recover` | src/memorymap/api/routes_auth.py:1923 |
-| `/recovery-key` | POST | `make_recovery_key` | src/memorymap/api/routes_auth.py:1846 |
-| `/recovery-key/save` | POST | `save_recovery_key` | src/memorymap/api/routes_auth.py:1893 |
-| `/recycle-bin/empty` | POST | `empty_recycle_bin` | src/memorymap/api/routes_settings.py:1964 |
+| `/recover` | POST | `recover` | src/memorymap/api/routes_auth.py:1927 |
+| `/recovery-key` | POST | `make_recovery_key` | src/memorymap/api/routes_auth.py:1850 |
+| `/recovery-key/save` | POST | `save_recovery_key` | src/memorymap/api/routes_auth.py:1897 |
+| `/recycle-bin/empty` | POST | `empty_recycle_bin` | src/memorymap/api/routes_settings.py:1986 |
 | `/reference-counts` | GET | `entry_reference_counts` | src/memorymap/api/routes_entries.py:2564 |
 | `/reindex` | POST | `rebuild_search_index` | src/memorymap/api/routes_models.py:983 |
-| `/releases` | GET | `list_releases` | src/memorymap/api/routes_update.py:599 |
+| `/releases` | GET | `list_releases` | src/memorymap/api/routes_update.py:601 |
 | `/rename` | POST | `rename_tag` | src/memorymap/api/routes_tags.py:76 |
-| `/reset` | POST | `reset` | src/memorymap/api/routes_auth.py:1977 |
+| `/reset` | POST | `reset` | src/memorymap/api/routes_auth.py:1981 |
 | `/restore` | POST | `restore_ask_turns` | src/memorymap/api/routes_ask_history.py:230 |
 | `/restore` | POST | `restore_conversation` | src/memorymap/api/routes_conversations.py:987 |
 | `/restore` | POST | `restore_tags` | src/memorymap/api/routes_tags.py:110 |
 | `/review-queue` | GET | `review_queue` | src/memorymap/api/routes_vision.py:83 |
 | `/review-queue/{entry_id}/accept` | POST | `accept_filing` | src/memorymap/api/routes_vision.py:94 |
-| `/rotate-vault-key` | POST | `rotate_vault_key` | src/memorymap/api/routes_auth.py:1641 |
+| `/rotate-vault-key` | POST | `rotate_vault_key` | src/memorymap/api/routes_auth.py:1645 |
 | `/run` | POST | `run_now` | src/memorymap/api/routes_night.py:50 |
 | `/runs/{run_id}/facts` | GET | `run_facts` | src/memorymap/api/routes_night.py:92 |
 | `/sample-notebook` | DELETE | `remove_sample_notebook` | src/memorymap/api/routes_help.py:149 |
@@ -10124,13 +10124,13 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/sampling` | GET | `sampling_settings` | src/memorymap/api/routes_models.py:561 |
 | `/sampling` | PUT | `save_sampling_settings` | src/memorymap/api/routes_models.py:609 |
 | `/seed-examples` | POST | `seed_example_entries` | src/memorymap/api/routes_entries.py:2549 |
-| `/setup` | POST | `setup` | src/memorymap/api/routes_auth.py:667 |
+| `/setup` | POST | `setup` | src/memorymap/api/routes_auth.py:668 |
 | `/shutdown` | POST | `shutdown` | src/memorymap/api/routes_tasks.py:817 |
-| `/sketches` | POST | `create_sketch` | src/memorymap/api/routes_whiteboard.py:2923 |
-| `/sketches/{sketch_id}` | DELETE | `delete_sketch` | src/memorymap/api/routes_whiteboard.py:2978 |
-| `/sketches/{sketch_id}` | PUT | `update_sketch` | src/memorymap/api/routes_whiteboard.py:2953 |
-| `/skills` | GET | `list_skills` | src/memorymap/api/routes_settings.py:1421 |
-| `/source-status` | GET | `source_update_status` | src/memorymap/api/routes_update.py:670 |
+| `/sketches` | POST | `create_sketch` | src/memorymap/api/routes_whiteboard.py:2945 |
+| `/sketches/{sketch_id}` | DELETE | `delete_sketch` | src/memorymap/api/routes_whiteboard.py:3000 |
+| `/sketches/{sketch_id}` | PUT | `update_sketch` | src/memorymap/api/routes_whiteboard.py:2975 |
+| `/skills` | GET | `list_skills` | src/memorymap/api/routes_settings.py:1443 |
+| `/source-status` | GET | `source_update_status` | src/memorymap/api/routes_update.py:672 |
 | `/spaces` | GET | `get_spaces` | src/memorymap/api/routes_spaces.py:66 |
 | `/spaces` | POST | `create_space` | src/memorymap/api/routes_spaces.py:71 |
 | `/spaces/restore` | POST | `restore_space` | src/memorymap/api/routes_spaces.py:182 |
@@ -10143,13 +10143,13 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/stats` | GET | `ask_history_stats` | src/memorymap/api/routes_ask_history.py:84 |
 | `/stats` | GET | `stats` | src/memorymap/api/routes_insights.py:33 |
 | `/stats` | GET | `stats` | src/memorymap/api/routes_search.py:162 |
-| `/status` | GET | `status` | src/memorymap/api/routes_auth.py:640 |
+| `/status` | GET | `status` | src/memorymap/api/routes_auth.py:641 |
 | `/status` | GET | `status` | src/memorymap/api/routes_models.py:331 |
 | `/status` | GET | `status` | src/memorymap/api/routes_translate.py:22 |
 | `/status` | GET | `status` | src/memorymap/api/routes_voice.py:30 |
 | `/stop` | POST | `stop` | src/memorymap/api/routes_bench.py:249 |
 | `/storage` | GET | `storage_location` | src/memorymap/api/routes_backups.py:43 |
-| `/stream` | POST | `chat_stream` | src/memorymap/api/routes_chat.py:3308 |
+| `/stream` | POST | `chat_stream` | src/memorymap/api/routes_chat.py:3314 |
 | `/suggest-category` | POST | `suggest_category_for_draft` | src/memorymap/api/routes_entries.py:1282 |
 | `/suggest-tags` | POST | `suggest_tags_for_draft` | src/memorymap/api/routes_entries.py:1310 |
 | `/suggested` | GET | `suggested` | src/memorymap/api/routes_models.py:623 |
@@ -10158,17 +10158,17 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/summary` | GET | `learned_summary` | src/memorymap/api/routes_learned.py:215 |
 | `/summary` | GET | `summary` | src/memorymap/api/routes_questions.py:53 |
 | `/summary` | POST | `summary` | src/memorymap/api/routes_usage.py:35 |
-| `/support-bundle` | GET | `support_bundle` | src/memorymap/api/routes_settings.py:2456 |
+| `/support-bundle` | GET | `support_bundle` | src/memorymap/api/routes_settings.py:2478 |
 | `/switches` | GET | `get_switches` | src/memorymap/api/routes_learned.py:223 |
 | `/switches` | PUT | `put_switches` | src/memorymap/api/routes_learned.py:229 |
 | `/system/clear-static-cache` | POST | `system_clear_static_cache` | src/memorymap/api/app.py:1399 |
-| `/system/console-mode` | POST | `set_console_mode` | src/memorymap/api/routes_settings.py:1241 |
+| `/system/console-mode` | POST | `set_console_mode` | src/memorymap/api/routes_settings.py:1263 |
 | `/system/desktop-shortcut` | POST | `desktop_shortcut` | src/memorymap/api/routes_maintenance.py:85 |
 | `/system/doctor` | GET | `run_doctor` | src/memorymap/api/routes_maintenance.py:44 |
 | `/system/maintenance` | GET | `maintenance_state` | src/memorymap/api/routes_maintenance.py:30 |
 | `/system/open-logs-folder` | POST | `open_logs_folder` | src/memorymap/api/routes_maintenance.py:75 |
 | `/system/reinstall-on-start` | POST | `reinstall_on_start` | src/memorymap/api/routes_maintenance.py:63 |
-| `/system/restart` | POST | `restart_app` | src/memorymap/api/routes_settings.py:1310 |
+| `/system/restart` | POST | `restart_app` | src/memorymap/api/routes_settings.py:1332 |
 | `/tag-cloud` | GET | `tag_cloud` | src/memorymap/api/routes_insights.py:453 |
 | `/tasks` | GET | `list_tasks` | src/memorymap/api/routes_tasks.py:513 |
 | `/tasks/autonomous/last` | GET | `last_autonomous_pass` | src/memorymap/api/routes_tasks.py:749 |
@@ -10186,8 +10186,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/tidy-proposals/dismiss` | POST | `dismiss_tidy` | src/memorymap/api/routes_vision.py:249 |
 | `/tidy-proposals/undismiss` | POST | `undismiss_tidy` | src/memorymap/api/routes_vision.py:261 |
 | `/title` | POST | `draft_title` | src/memorymap/api/routes_drafts.py:147 |
-| `/tools` | GET | `list_tools` | src/memorymap/api/routes_chat.py:3448 |
-| `/tools/execute` | POST | `execute_confirmed_tool` | src/memorymap/api/routes_chat.py:3530 |
+| `/tools` | GET | `list_tools` | src/memorymap/api/routes_chat.py:3454 |
+| `/tools/execute` | POST | `execute_confirmed_tool` | src/memorymap/api/routes_chat.py:3536 |
 | `/topics` | GET | `topics` | src/memorymap/api/routes_help.py:57 |
 | `/transcribe` | POST | `transcribe` | src/memorymap/api/routes_voice.py:94 |
 | `/transcribe-meeting` | POST | `transcribe_meeting` | src/memorymap/api/routes_voice.py:101 |
@@ -10197,8 +10197,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/types/dismiss` | POST | `dismiss_type` | src/memorymap/api/routes_inbox.py:186 |
 | `/undo/{undo_id}` | POST | `tidy_undo` | src/memorymap/api/routes_tidy.py:70 |
 | `/unforget` | POST | `unforget_everything` | src/memorymap/api/routes_learned.py:264 |
-| `/unlock` | POST | `unlock` | src/memorymap/api/routes_auth.py:821 |
-| `/unlock-vault` | POST | `unlock_vault` | src/memorymap/api/routes_auth.py:949 |
+| `/unlock` | POST | `unlock` | src/memorymap/api/routes_auth.py:825 |
+| `/unlock-vault` | POST | `unlock_vault` | src/memorymap/api/routes_auth.py:953 |
 | `/utility-model` | POST | `set_utility_model` | src/memorymap/api/routes_models.py:730 |
 | `/verdict` | GET | `verdict` | src/memorymap/api/routes_privacy.py:95 |
 | `/verdict` | POST | `mark_verdict` | src/memorymap/api/routes_learned.py:90 |
@@ -10332,7 +10332,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:164 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1592 |
 
-## Backend modules (5386)
+## Backend modules (5457)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -10713,160 +10713,161 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `run` | src/memorymap/ai/commands.py:1082 |
 | `summarise_done` | src/memorymap/ai/commands.py:745 |
 
-### src/memorymap/ai/composer.py (142)
+### src/memorymap/ai/composer.py (143)
 
 | Name | File:line |
 |---|---|
-| `Dialogue` | src/memorymap/ai/composer.py:2883 |
-| `FollowOn` | src/memorymap/ai/composer.py:2697 |
-| `NoteView` | src/memorymap/ai/composer.py:727 |
-| `Plan` | src/memorymap/ai/composer.py:3410 |
-| `Sentence` | src/memorymap/ai/composer.py:701 |
-| `_Answer` | src/memorymap/ai/composer.py:1304 |
-| `_Meaning` | src/memorymap/ai/composer.py:1195 |
-| `_WORDED_PHRASES` | src/memorymap/ai/composer.py:2944 |
-| `_absent` | src/memorymap/ai/composer.py:3887 |
-| `_acknowledged` | src/memorymap/ai/composer.py:4047 |
-| `_alternatives` | src/memorymap/ai/composer.py:620 |
-| `_answer_turn` | src/memorymap/ai/composer.py:4064 |
-| `_as_typed` | src/memorymap/ai/composer.py:3897 |
-| `_asked_span` | src/memorymap/ai/composer.py:2236 |
-| `_body` | src/memorymap/ai/composer.py:2373 |
-| `_brief_text` | src/memorymap/ai/composer.py:4371 |
-| `_broad_pool` | src/memorymap/ai/composer.py:2352 |
-| `_build_synonyms` | src/memorymap/ai/composer.py:610 |
-| `_checklist_or_until` | src/memorymap/ai/composer.py:4082 |
-| `_clarify` | src/memorymap/ai/composer.py:3022 |
-| `_clusters` | src/memorymap/ai/composer.py:1971 |
-| `_compare` | src/memorymap/ai/composer.py:2164 |
-| `_compose` | src/memorymap/ai/composer.py:4096 |
-| `_confirmed_lead` | src/memorymap/ai/composer.py:2270 |
-| `_count_word` | src/memorymap/ai/composer.py:1577 |
-| `_cue` | src/memorymap/ai/composer.py:1019 |
-| `_days_named` | src/memorymap/ai/composer.py:2536 |
-| `_did_you_mean` | src/memorymap/ai/composer.py:3879 |
-| `_disagreement` | src/memorymap/ai/composer.py:2096 |
-| `_disagreements` | src/memorymap/ai/composer.py:2104 |
-| `_distinct_ids` | src/memorymap/ai/composer.py:914 |
-| `_due` | src/memorymap/ai/composer.py:1563 |
-| `_earlier` | src/memorymap/ai/composer.py:2076 |
-| `_filtered` | src/memorymap/ai/composer.py:3862 |
-| `_fit_terms` | src/memorymap/ai/composer.py:3089 |
-| `_follow_one` | src/memorymap/ai/composer.py:2769 |
-| `_from_dialogue` | src/memorymap/ai/composer.py:4073 |
-| `_fusable` | src/memorymap/ai/composer.py:1745 |
-| `_help_answer` | src/memorymap/ai/composer.py:3482 |
-| `_help_result` | src/memorymap/ai/composer.py:4007 |
-| `_holds` | src/memorymap/ai/composer.py:633 |
-| `_in_window` | src/memorymap/ai/composer.py:3584 |
-| `_insight_close` | src/memorymap/ai/composer.py:2289 |
-| `_insight_lead` | src/memorymap/ai/composer.py:2308 |
-| `_insights_for` | src/memorymap/ai/composer.py:2249 |
-| `_jaccard` | src/memorymap/ai/composer.py:1115 |
-| `_joined` | src/memorymap/ai/composer.py:1763 |
-| `_keyed_synonyms` | src/memorymap/ai/composer.py:626 |
-| `_lead_block` | src/memorymap/ai/composer.py:1920 |
-| `_list_block` | src/memorymap/ai/composer.py:1791 |
-| `_list_sentence` | src/memorymap/ai/composer.py:1780 |
-| `_lowered` | src/memorymap/ai/composer.py:1619 |
-| `_meant` | src/memorymap/ai/composer.py:3082 |
-| `_mentions` | src/memorymap/ai/composer.py:2320 |
-| `_missing` | src/memorymap/ai/composer.py:2133 |
-| `_month` | src/memorymap/ai/composer.py:3658 |
-| `_multi` | src/memorymap/ai/composer.py:2982 |
-| `_named_notes` | src/memorymap/ai/composer.py:2711 |
-| `_newest` | src/memorymap/ai/composer.py:2558 |
-| `_next_questions` | src/memorymap/ai/composer.py:2601 |
-| `_note_words` | src/memorymap/ai/composer.py:4039 |
-| `_nothing` | src/memorymap/ai/composer.py:3903 |
-| `_one_syllable_cvc` | src/memorymap/ai/composer.py:532 |
-| `_opening` | src/memorymap/ai/composer.py:1853 |
-| `_others` | src/memorymap/ai/composer.py:1995 |
-| `_overview_answer` | src/memorymap/ai/composer.py:3625 |
-| `_overview_bullets` | src/memorymap/ai/composer.py:3748 |
-| `_overview_groups` | src/memorymap/ai/composer.py:3732 |
-| `_overview_lead` | src/memorymap/ai/composer.py:3709 |
-| `_overview_line` | src/memorymap/ai/composer.py:3764 |
-| `_overview_links` | src/memorymap/ai/composer.py:3800 |
-| `_overview_list` | src/memorymap/ai/composer.py:3785 |
-| `_overview_name_chip` | src/memorymap/ai/composer.py:3826 |
-| `_overview_next` | src/memorymap/ai/composer.py:3812 |
-| `_overview_over_broad` | src/memorymap/ai/composer.py:3683 |
-| `_overview_subject` | src/memorymap/ai/composer.py:3665 |
-| `_overview_tag_chip` | src/memorymap/ai/composer.py:3838 |
-| `_own_terms` | src/memorymap/ai/composer.py:2595 |
-| `_pick` | src/memorymap/ai/composer.py:1595 |
-| `_picture_run` | src/memorymap/ai/composer.py:1717 |
-| `_picture_said` | src/memorymap/ai/composer.py:1689 |
-| `_picture_spans` | src/memorymap/ai/composer.py:873 |
-| `_picture_units` | src/memorymap/ai/composer.py:891 |
-| `_quoted_lines` | src/memorymap/ai/composer.py:1709 |
-| `_quotes` | src/memorymap/ai/composer.py:1651 |
-| `_raw` | src/memorymap/ai/composer.py:4271 |
-| `_read_in_dialogue` | src/memorymap/ai/composer.py:4021 |
-| `_readings` | src/memorymap/ai/composer.py:3061 |
-| `_recall` | src/memorymap/ai/composer.py:3592 |
-| `_recall_next` | src/memorymap/ai/composer.py:3850 |
-| `_relation` | src/memorymap/ai/composer.py:1954 |
-| `_respell` | src/memorymap/ai/composer.py:472 |
-| `_result` | src/memorymap/ai/composer.py:3558 |
-| `_said_before` | src/memorymap/ai/composer.py:1844 |
-| `_said_insight` | src/memorymap/ai/composer.py:2263 |
-| `_said_with_before` | src/memorymap/ai/composer.py:1683 |
-| `_say_open` | src/memorymap/ai/composer.py:2475 |
-| `_say_until` | src/memorymap/ai/composer.py:2526 |
-| `_score` | src/memorymap/ai/composer.py:1041 |
-| `_sentence_case` | src/memorymap/ai/composer.py:1755 |
-| `_span` | src/memorymap/ai/composer.py:1900 |
-| `_span_of` | src/memorymap/ai/composer.py:3696 |
-| `_standing` | src/memorymap/ai/composer.py:2752 |
-| `_stem` | src/memorymap/ai/composer.py:542 |
-| `_stem_plain` | src/memorymap/ai/composer.py:556 |
-| `_still_open` | src/memorymap/ai/composer.py:2457 |
-| `_subject_stems` | src/memorymap/ai/composer.py:3677 |
-| `_summary` | src/memorymap/ai/composer.py:2339 |
-| `_templates_in` | src/memorymap/ai/composer.py:2934 |
-| `_time_phrase` | src/memorymap/ai/composer.py:3428 |
-| `_timeline` | src/memorymap/ai/composer.py:2054 |
-| `_title` | src/memorymap/ai/composer.py:807 |
-| `_unit` | src/memorymap/ai/composer.py:825 |
-| `_unlike_before` | src/memorymap/ai/composer.py:1837 |
-| `_until_note` | src/memorymap/ai/composer.py:2499 |
-| `_utility` | src/memorymap/ai/composer.py:3574 |
-| `_was_said` | src/memorymap/ai/composer.py:1100 |
-| `_with_context` | src/memorymap/ai/composer.py:1635 |
-| `_without_length` | src/memorymap/ai/composer.py:2689 |
-| `_words` | src/memorymap/ai/composer.py:642 |
-| `_written` | src/memorymap/ai/composer.py:789 |
-| `brief` | src/memorymap/ai/composer.py:4277 |
-| `call` | src/memorymap/ai/composer.py:3354 |
-| `call_asks` | src/memorymap/ai/composer.py:3370 |
-| `centrality` | src/memorymap/ai/composer.py:1252 |
-| `classify` | src/memorymap/ai/composer.py:501 |
-| `compare_sides` | src/memorymap/ai/composer.py:686 |
-| `compose` | src/memorymap/ai/composer.py:3937 |
-| `disagree` | src/memorymap/ai/composer.py:1283 |
-| `follow_on` | src/memorymap/ai/composer.py:2722 |
-| `help_line` | src/memorymap/ai/composer.py:3519 |
-| `length_wish` | src/memorymap/ai/composer.py:2222 |
-| `phrase_options` | src/memorymap/ai/composer.py:338 |
-| `plan` | src/memorymap/ai/composer.py:3433 |
-| `read_note` | src/memorymap/ai/composer.py:935 |
-| `rephrase` | src/memorymap/ai/composer.py:479 |
-| `select` | src/memorymap/ai/composer.py:1120 |
-| `social` | src/memorymap/ai/composer.py:3323 |
-| `social_kind` | src/memorymap/ai/composer.py:3314 |
-| `source_kind` | src/memorymap/ai/composer.py:927 |
-| `split_parts` | src/memorymap/ai/composer.py:2965 |
-| `subject_terms` | src/memorymap/ai/composer.py:649 |
+| `Dialogue` | src/memorymap/ai/composer.py:2885 |
+| `FollowOn` | src/memorymap/ai/composer.py:2699 |
+| `NoteView` | src/memorymap/ai/composer.py:729 |
+| `Plan` | src/memorymap/ai/composer.py:3412 |
+| `Sentence` | src/memorymap/ai/composer.py:703 |
+| `_Answer` | src/memorymap/ai/composer.py:1306 |
+| `_Meaning` | src/memorymap/ai/composer.py:1197 |
+| `_WORDED_PHRASES` | src/memorymap/ai/composer.py:2946 |
+| `_absent` | src/memorymap/ai/composer.py:3889 |
+| `_acknowledged` | src/memorymap/ai/composer.py:4066 |
+| `_alternatives` | src/memorymap/ai/composer.py:622 |
+| `_answer_turn` | src/memorymap/ai/composer.py:4083 |
+| `_as_typed` | src/memorymap/ai/composer.py:3899 |
+| `_asked_span` | src/memorymap/ai/composer.py:2238 |
+| `_bare_title` | src/memorymap/ai/composer.py:3905 |
+| `_body` | src/memorymap/ai/composer.py:2375 |
+| `_brief_text` | src/memorymap/ai/composer.py:4393 |
+| `_broad_pool` | src/memorymap/ai/composer.py:2354 |
+| `_build_synonyms` | src/memorymap/ai/composer.py:612 |
+| `_checklist_or_until` | src/memorymap/ai/composer.py:4101 |
+| `_clarify` | src/memorymap/ai/composer.py:3024 |
+| `_clusters` | src/memorymap/ai/composer.py:1973 |
+| `_compare` | src/memorymap/ai/composer.py:2166 |
+| `_compose` | src/memorymap/ai/composer.py:4115 |
+| `_confirmed_lead` | src/memorymap/ai/composer.py:2272 |
+| `_count_word` | src/memorymap/ai/composer.py:1579 |
+| `_cue` | src/memorymap/ai/composer.py:1021 |
+| `_days_named` | src/memorymap/ai/composer.py:2538 |
+| `_did_you_mean` | src/memorymap/ai/composer.py:3881 |
+| `_disagreement` | src/memorymap/ai/composer.py:2098 |
+| `_disagreements` | src/memorymap/ai/composer.py:2106 |
+| `_distinct_ids` | src/memorymap/ai/composer.py:916 |
+| `_due` | src/memorymap/ai/composer.py:1565 |
+| `_earlier` | src/memorymap/ai/composer.py:2078 |
+| `_filtered` | src/memorymap/ai/composer.py:3864 |
+| `_fit_terms` | src/memorymap/ai/composer.py:3091 |
+| `_follow_one` | src/memorymap/ai/composer.py:2771 |
+| `_from_dialogue` | src/memorymap/ai/composer.py:4092 |
+| `_fusable` | src/memorymap/ai/composer.py:1747 |
+| `_help_answer` | src/memorymap/ai/composer.py:3484 |
+| `_help_result` | src/memorymap/ai/composer.py:4026 |
+| `_holds` | src/memorymap/ai/composer.py:635 |
+| `_in_window` | src/memorymap/ai/composer.py:3586 |
+| `_insight_close` | src/memorymap/ai/composer.py:2291 |
+| `_insight_lead` | src/memorymap/ai/composer.py:2310 |
+| `_insights_for` | src/memorymap/ai/composer.py:2251 |
+| `_jaccard` | src/memorymap/ai/composer.py:1117 |
+| `_joined` | src/memorymap/ai/composer.py:1765 |
+| `_keyed_synonyms` | src/memorymap/ai/composer.py:628 |
+| `_lead_block` | src/memorymap/ai/composer.py:1922 |
+| `_list_block` | src/memorymap/ai/composer.py:1793 |
+| `_list_sentence` | src/memorymap/ai/composer.py:1782 |
+| `_lowered` | src/memorymap/ai/composer.py:1621 |
+| `_meant` | src/memorymap/ai/composer.py:3084 |
+| `_mentions` | src/memorymap/ai/composer.py:2322 |
+| `_missing` | src/memorymap/ai/composer.py:2135 |
+| `_month` | src/memorymap/ai/composer.py:3660 |
+| `_multi` | src/memorymap/ai/composer.py:2984 |
+| `_named_notes` | src/memorymap/ai/composer.py:2713 |
+| `_newest` | src/memorymap/ai/composer.py:2560 |
+| `_next_questions` | src/memorymap/ai/composer.py:2603 |
+| `_note_words` | src/memorymap/ai/composer.py:4058 |
+| `_nothing` | src/memorymap/ai/composer.py:3922 |
+| `_one_syllable_cvc` | src/memorymap/ai/composer.py:534 |
+| `_opening` | src/memorymap/ai/composer.py:1855 |
+| `_others` | src/memorymap/ai/composer.py:1997 |
+| `_overview_answer` | src/memorymap/ai/composer.py:3627 |
+| `_overview_bullets` | src/memorymap/ai/composer.py:3750 |
+| `_overview_groups` | src/memorymap/ai/composer.py:3734 |
+| `_overview_lead` | src/memorymap/ai/composer.py:3711 |
+| `_overview_line` | src/memorymap/ai/composer.py:3766 |
+| `_overview_links` | src/memorymap/ai/composer.py:3802 |
+| `_overview_list` | src/memorymap/ai/composer.py:3787 |
+| `_overview_name_chip` | src/memorymap/ai/composer.py:3828 |
+| `_overview_next` | src/memorymap/ai/composer.py:3814 |
+| `_overview_over_broad` | src/memorymap/ai/composer.py:3685 |
+| `_overview_subject` | src/memorymap/ai/composer.py:3667 |
+| `_overview_tag_chip` | src/memorymap/ai/composer.py:3840 |
+| `_own_terms` | src/memorymap/ai/composer.py:2597 |
+| `_pick` | src/memorymap/ai/composer.py:1597 |
+| `_picture_run` | src/memorymap/ai/composer.py:1719 |
+| `_picture_said` | src/memorymap/ai/composer.py:1691 |
+| `_picture_spans` | src/memorymap/ai/composer.py:875 |
+| `_picture_units` | src/memorymap/ai/composer.py:893 |
+| `_quoted_lines` | src/memorymap/ai/composer.py:1711 |
+| `_quotes` | src/memorymap/ai/composer.py:1653 |
+| `_raw` | src/memorymap/ai/composer.py:4293 |
+| `_read_in_dialogue` | src/memorymap/ai/composer.py:4040 |
+| `_readings` | src/memorymap/ai/composer.py:3063 |
+| `_recall` | src/memorymap/ai/composer.py:3594 |
+| `_recall_next` | src/memorymap/ai/composer.py:3852 |
+| `_relation` | src/memorymap/ai/composer.py:1956 |
+| `_respell` | src/memorymap/ai/composer.py:474 |
+| `_result` | src/memorymap/ai/composer.py:3560 |
+| `_said_before` | src/memorymap/ai/composer.py:1846 |
+| `_said_insight` | src/memorymap/ai/composer.py:2265 |
+| `_said_with_before` | src/memorymap/ai/composer.py:1685 |
+| `_say_open` | src/memorymap/ai/composer.py:2477 |
+| `_say_until` | src/memorymap/ai/composer.py:2528 |
+| `_score` | src/memorymap/ai/composer.py:1043 |
+| `_sentence_case` | src/memorymap/ai/composer.py:1757 |
+| `_span` | src/memorymap/ai/composer.py:1902 |
+| `_span_of` | src/memorymap/ai/composer.py:3698 |
+| `_standing` | src/memorymap/ai/composer.py:2754 |
+| `_stem` | src/memorymap/ai/composer.py:544 |
+| `_stem_plain` | src/memorymap/ai/composer.py:558 |
+| `_still_open` | src/memorymap/ai/composer.py:2459 |
+| `_subject_stems` | src/memorymap/ai/composer.py:3679 |
+| `_summary` | src/memorymap/ai/composer.py:2341 |
+| `_templates_in` | src/memorymap/ai/composer.py:2936 |
+| `_time_phrase` | src/memorymap/ai/composer.py:3430 |
+| `_timeline` | src/memorymap/ai/composer.py:2056 |
+| `_title` | src/memorymap/ai/composer.py:809 |
+| `_unit` | src/memorymap/ai/composer.py:827 |
+| `_unlike_before` | src/memorymap/ai/composer.py:1839 |
+| `_until_note` | src/memorymap/ai/composer.py:2501 |
+| `_utility` | src/memorymap/ai/composer.py:3576 |
+| `_was_said` | src/memorymap/ai/composer.py:1102 |
+| `_with_context` | src/memorymap/ai/composer.py:1637 |
+| `_without_length` | src/memorymap/ai/composer.py:2691 |
+| `_words` | src/memorymap/ai/composer.py:644 |
+| `_written` | src/memorymap/ai/composer.py:791 |
+| `brief` | src/memorymap/ai/composer.py:4299 |
+| `call` | src/memorymap/ai/composer.py:3356 |
+| `call_asks` | src/memorymap/ai/composer.py:3372 |
+| `centrality` | src/memorymap/ai/composer.py:1254 |
+| `classify` | src/memorymap/ai/composer.py:503 |
+| `compare_sides` | src/memorymap/ai/composer.py:688 |
+| `compose` | src/memorymap/ai/composer.py:3956 |
+| `disagree` | src/memorymap/ai/composer.py:1285 |
+| `follow_on` | src/memorymap/ai/composer.py:2724 |
+| `help_line` | src/memorymap/ai/composer.py:3521 |
+| `length_wish` | src/memorymap/ai/composer.py:2224 |
+| `phrase_options` | src/memorymap/ai/composer.py:340 |
+| `plan` | src/memorymap/ai/composer.py:3435 |
+| `read_note` | src/memorymap/ai/composer.py:937 |
+| `rephrase` | src/memorymap/ai/composer.py:481 |
+| `select` | src/memorymap/ai/composer.py:1122 |
+| `social` | src/memorymap/ai/composer.py:3325 |
+| `social_kind` | src/memorymap/ai/composer.py:3316 |
+| `source_kind` | src/memorymap/ai/composer.py:929 |
+| `split_parts` | src/memorymap/ai/composer.py:2967 |
+| `subject_terms` | src/memorymap/ai/composer.py:651 |
 
 ### src/memorymap/ai/composer_ack.py (3)
 
 | Name | File:line |
 |---|---|
-| `acknowledge` | src/memorymap/ai/composer_ack.py:60 |
-| `last_used` | src/memorymap/ai/composer_ack.py:49 |
-| `reading_of` | src/memorymap/ai/composer_ack.py:76 |
+| `acknowledge` | src/memorymap/ai/composer_ack.py:59 |
+| `last_used` | src/memorymap/ai/composer_ack.py:48 |
+| `reading_of` | src/memorymap/ai/composer_ack.py:75 |
 
 ### src/memorymap/ai/composer_digest.py (75)
 
@@ -11279,15 +11280,17 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `parse_followups` | src/memorymap/ai/followups.py:124 |
 | `suggest_followups` | src/memorymap/ai/followups.py:150 |
 
-### src/memorymap/ai/glossary.py (6)
+### src/memorymap/ai/glossary.py (8)
 
 | Name | File:line |
 |---|---|
+| `_runs_in` | src/memorymap/ai/glossary.py:73 |
+| `_said_in` | src/memorymap/ai/glossary.py:58 |
 | `_tidy` | src/memorymap/ai/glossary.py:53 |
-| `asked` | src/memorymap/ai/glossary.py:120 |
-| `expand` | src/memorymap/ai/glossary.py:101 |
+| `asked` | src/memorymap/ai/glossary.py:129 |
+| `expand` | src/memorymap/ai/glossary.py:110 |
 | `initials` | src/memorymap/ai/glossary.py:36 |
-| `learn` | src/memorymap/ai/glossary.py:58 |
+| `learn` | src/memorymap/ai/glossary.py:88 |
 | `spells` | src/memorymap/ai/glossary.py:42 |
 
 ### src/memorymap/ai/greeting_compose.py (8)
@@ -11367,7 +11370,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `_act_topic` | src/memorymap/ai/help_topics_more.py:2425 |
+| `_act_topic` | src/memorymap/ai/help_topics_more.py:2426 |
 
 ### src/memorymap/ai/inbox.py (7)
 
@@ -11417,12 +11420,12 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `_about_app_first` | src/memorymap/ai/intent.py:127 |
+| `_about_app_first` | src/memorymap/ai/intent.py:133 |
 | `_matches_any` | src/memorymap/ai/intent.py:111 |
 | `_normalise` | src/memorymap/ai/intent.py:102 |
-| `classify` | src/memorymap/ai/intent.py:133 |
-| `is_mash` | src/memorymap/ai/intent.py:184 |
-| `needs_retrieval` | src/memorymap/ai/intent.py:190 |
+| `classify` | src/memorymap/ai/intent.py:139 |
+| `is_mash` | src/memorymap/ai/intent.py:190 |
+| `needs_retrieval` | src/memorymap/ai/intent.py:196 |
 
 ### src/memorymap/ai/janitor.py (27)
 
@@ -12084,27 +12087,33 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `window` | src/memorymap/ai/recognise.py:981 |
 | `without_windows` | src/memorymap/ai/recognise.py:959 |
 
-### src/memorymap/ai/records.py (18)
+### src/memorymap/ai/records.py (24)
 
 | Name | File:line |
 |---|---|
 | `_ago` | src/memorymap/ai/records.py:107 |
+| `_asked_count_words` | src/memorymap/ai/records.py:255 |
+| `_asked_nothing` | src/memorymap/ai/records.py:219 |
 | `_at` | src/memorymap/ai/records.py:102 |
-| `_backup` | src/memorymap/ai/records.py:328 |
+| `_backup` | src/memorymap/ai/records.py:355 |
 | `_count` | src/memorymap/ai/records.py:118 |
 | `_day_words` | src/memorymap/ai/records.py:93 |
+| `_grouped_questions` | src/memorymap/ai/records.py:242 |
 | `_local` | src/memorymap/ai/records.py:79 |
 | `_offered` | src/memorymap/ai/records.py:166 |
 | `_opening` | src/memorymap/ai/records.py:172 |
 | `_question_said` | src/memorymap/ai/records.py:187 |
-| `_ran` | src/memorymap/ai/records.py:291 |
-| `_ran_rows` | src/memorymap/ai/records.py:255 |
-| `_row_line` | src/memorymap/ai/records.py:282 |
+| `_ran` | src/memorymap/ai/records.py:332 |
+| `_ran_head` | src/memorymap/ai/records.py:320 |
+| `_ran_nothing` | src/memorymap/ai/records.py:308 |
+| `_ran_rows` | src/memorymap/ai/records.py:272 |
+| `_row_line` | src/memorymap/ai/records.py:299 |
 | `_searches` | src/memorymap/ai/records.py:192 |
+| `_searches_unspanned` | src/memorymap/ai/records.py:228 |
 | `_span_of` | src/memorymap/ai/records.py:122 |
 | `_time_phrase` | src/memorymap/ai/records.py:152 |
 | `_turns` | src/memorymap/ai/records.py:180 |
-| `answer` | src/memorymap/ai/records.py:353 |
+| `answer` | src/memorymap/ai/records.py:378 |
 | `asks` | src/memorymap/ai/records.py:61 |
 
 ### src/memorymap/ai/relations.py (8)
@@ -12299,33 +12308,34 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `split_run_on` | src/memorymap/ai/spelling.py:666 |
 | `warm_in_background` | src/memorymap/ai/spelling.py:739 |
 
-### src/memorymap/ai/starter_acts.py (25)
+### src/memorymap/ai/starter_acts.py (26)
 
 | Name | File:line |
 |---|---|
-| `_append_today` | src/memorymap/ai/starter_acts.py:338 |
-| `_best_pairs` | src/memorymap/ai/starter_acts.py:296 |
+| `_append_today` | src/memorymap/ai/starter_acts.py:347 |
+| `_best_pairs` | src/memorymap/ai/starter_acts.py:305 |
 | `_changed` | src/memorymap/ai/starter_acts.py:115 |
 | `_conversation` | src/memorymap/ai/starter_acts.py:145 |
 | `_digest_lines` | src/memorymap/ai/starter_acts.py:106 |
 | `_due` | src/memorymap/ai/starter_acts.py:129 |
-| `_link_related` | src/memorymap/ai/starter_acts.py:318 |
-| `_linked` | src/memorymap/ai/starter_acts.py:292 |
+| `_link_related` | src/memorymap/ai/starter_acts.py:327 |
+| `_linked` | src/memorymap/ai/starter_acts.py:301 |
 | `_list_answer` | src/memorymap/ai/starter_acts.py:111 |
-| `_listed` | src/memorymap/ai/starter_acts.py:221 |
+| `_listed` | src/memorymap/ai/starter_acts.py:230 |
 | `_loose_ends` | src/memorymap/ai/starter_acts.py:122 |
-| `_open_board` | src/memorymap/ai/starter_acts.py:193 |
-| `_open_links` | src/memorymap/ai/starter_acts.py:203 |
-| `_open_note` | src/memorymap/ai/starter_acts.py:168 |
+| `_open_board` | src/memorymap/ai/starter_acts.py:202 |
+| `_open_document_or_board` | src/memorymap/ai/starter_acts.py:168 |
+| `_open_links` | src/memorymap/ai/starter_acts.py:212 |
+| `_open_note` | src/memorymap/ai/starter_acts.py:179 |
 | `_original_tail` | src/memorymap/ai/starter_acts.py:85 |
 | `_outline_answer` | src/memorymap/ai/starter_acts.py:157 |
-| `_save_answer` | src/memorymap/ai/starter_acts.py:269 |
+| `_save_answer` | src/memorymap/ai/starter_acts.py:278 |
 | `_since_a_day` | src/memorymap/ai/starter_acts.py:80 |
-| `_tag_open` | src/memorymap/ai/starter_acts.py:255 |
-| `_tag_untagged` | src/memorymap/ai/starter_acts.py:234 |
-| `_tags_of` | src/memorymap/ai/starter_acts.py:226 |
-| `_today_note` | src/memorymap/ai/starter_acts.py:329 |
-| `_vectors` | src/memorymap/ai/starter_acts.py:282 |
+| `_tag_open` | src/memorymap/ai/starter_acts.py:264 |
+| `_tag_untagged` | src/memorymap/ai/starter_acts.py:243 |
+| `_tags_of` | src/memorymap/ai/starter_acts.py:235 |
+| `_today_note` | src/memorymap/ai/starter_acts.py:338 |
+| `_vectors` | src/memorymap/ai/starter_acts.py:291 |
 | `events` | src/memorymap/ai/starter_acts.py:90 |
 | `read` | src/memorymap/ai/starter_acts.py:58 |
 
@@ -12551,32 +12561,33 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `say` | src/memorymap/ai/tool_say.py:810 |
 | `settings_at` | src/memorymap/ai/tool_say.py:56 |
 
-### src/memorymap/ai/tools/__init__.py (91)
+### src/memorymap/ai/tools/__init__.py (92)
 
 | Name | File:line |
 |---|---|
 | `OneOptionAsk` | src/memorymap/ai/tools/__init__.py:2000 |
-| `_ai_actor` | src/memorymap/ai/tools/__init__.py:4715 |
+| `_ai_actor` | src/memorymap/ai/tools/__init__.py:4714 |
 | `_ask_user` | src/memorymap/ai/tools/__init__.py:2008 |
 | `_audit_link_reasons` | src/memorymap/ai/tools/__init__.py:2522 |
 | `_calculate` | src/memorymap/ai/tools/__init__.py:971 |
 | `_check_answer` | src/memorymap/ai/tools/__init__.py:1003 |
-| `_coerce` | src/memorymap/ai/tools/__init__.py:4764 |
-| `_coerce_array` | src/memorymap/ai/tools/__init__.py:4738 |
+| `_coerce` | src/memorymap/ai/tools/__init__.py:4763 |
+| `_coerce_array` | src/memorymap/ai/tools/__init__.py:4737 |
 | `_complete_reminder` | src/memorymap/ai/tools/__init__.py:1797 |
 | `_compress_chat` | src/memorymap/ai/tools/__init__.py:2298 |
+| `_confirm_move_notes` | src/memorymap/ai/tools/__init__.py:4679 |
 | `_count_notes` | src/memorymap/ai/tools/__init__.py:753 |
 | `_create_note` | src/memorymap/ai/tools/__init__.py:1337 |
 | `_delete_note` | src/memorymap/ai/tools/__init__.py:1665 |
 | `_delete_skill` | src/memorymap/ai/tools/__init__.py:1319 |
 | `_delete_tag` | src/memorymap/ai/tools/__init__.py:1978 |
-| `_describe_param` | src/memorymap/ai/tools/__init__.py:4822 |
+| `_describe_param` | src/memorymap/ai/tools/__init__.py:4821 |
 | `_edit_note` | src/memorymap/ai/tools/__init__.py:1376 |
 | `_example_value` | src/memorymap/ai/tools/__init__.py:4397 |
 | `_find_contradictions` | src/memorymap/ai/tools/__init__.py:2541 |
 | `_find_similar_notes` | src/memorymap/ai/tools/__init__.py:423 |
 | `_first_sentence` | src/memorymap/ai/tools/__init__.py:4525 |
-| `_fold_key` | src/memorymap/ai/tools/__init__.py:4732 |
+| `_fold_key` | src/memorymap/ai/tools/__init__.py:4731 |
 | `_get_current_time` | src/memorymap/ai/tools/__init__.py:927 |
 | `_get_note_tool` | src/memorymap/ai/tools/__init__.py:119 |
 | `_graph_neighbours` | src/memorymap/ai/tools/__init__.py:179 |
@@ -12606,7 +12617,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_run_skill` | src/memorymap/ai/tools/__init__.py:2066 |
 | `_save_skill` | src/memorymap/ai/tools/__init__.py:1264 |
 | `_save_user_preference` | src/memorymap/ai/tools/__init__.py:2442 |
-| `_schema_key` | src/memorymap/ai/tools/__init__.py:4858 |
+| `_schema_key` | src/memorymap/ai/tools/__init__.py:4857 |
 | `_scope_filters` | src/memorymap/ai/tools/__init__.py:622 |
 | `_scope_label` | src/memorymap/ai/tools/__init__.py:659 |
 | `_search_chat_history` | src/memorymap/ai/tools/__init__.py:1114 |
@@ -12623,11 +12634,11 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `adds_to_a_named_note` | src/memorymap/ai/tools/__init__.py:4226 |
 | `budget_for_window` | src/memorymap/ai/tools/__init__.py:4635 |
 | `call_example` | src/memorymap/ai/tools/__init__.py:4345 |
-| `check_arguments` | src/memorymap/ai/tools/__init__.py:4875 |
+| `check_arguments` | src/memorymap/ai/tools/__init__.py:4874 |
 | `compact_schemas` | src/memorymap/ai/tools/__init__.py:4536 |
-| `confirm_label` | src/memorymap/ai/tools/__init__.py:4679 |
-| `example_arguments` | src/memorymap/ai/tools/__init__.py:4832 |
-| `execute_tool` | src/memorymap/ai/tools/__init__.py:4916 |
+| `confirm_label` | src/memorymap/ai/tools/__init__.py:4705 |
+| `example_arguments` | src/memorymap/ai/tools/__init__.py:4831 |
+| `execute_tool` | src/memorymap/ai/tools/__init__.py:4915 |
 | `focus_detail` | src/memorymap/ai/tools/__init__.py:4247 |
 | `focus_for` | src/memorymap/ai/tools/__init__.py:4232 |
 | `handoff_event` | src/memorymap/ai/tools/__init__.py:2419 |
@@ -12788,27 +12799,28 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `check` | src/memorymap/ai/tools/verify.py:230 |
 | `has_verifier` | src/memorymap/ai/tools/verify.py:225 |
 
-### src/memorymap/ai/tools/whiteboard.py (19)
+### src/memorymap/ai/tools/whiteboard.py (20)
 
 | Name | File:line |
 |---|---|
-| `_add_map_node` | src/memorymap/ai/tools/whiteboard.py:867 |
-| `_add_whiteboard_card` | src/memorymap/ai/tools/whiteboard.py:368 |
-| `_add_whiteboard_link` | src/memorymap/ai/tools/whiteboard.py:408 |
-| `_create_mindmap` | src/memorymap/ai/tools/whiteboard.py:783 |
-| `_diagram_tree_positions` | src/memorymap/ai/tools/whiteboard.py:459 |
+| `_add_map_node` | src/memorymap/ai/tools/whiteboard.py:874 |
+| `_add_whiteboard_card` | src/memorymap/ai/tools/whiteboard.py:375 |
+| `_add_whiteboard_link` | src/memorymap/ai/tools/whiteboard.py:415 |
+| `_create_mindmap` | src/memorymap/ai/tools/whiteboard.py:790 |
+| `_diagram_tree_positions` | src/memorymap/ai/tools/whiteboard.py:466 |
 | `_draw_link` | src/memorymap/ai/tools/whiteboard.py:93 |
-| `_generate_diagram` | src/memorymap/ai/tools/whiteboard.py:513 |
+| `_generate_diagram` | src/memorymap/ai/tools/whiteboard.py:520 |
 | `_inside` | src/memorymap/ai/tools/whiteboard.py:151 |
-| `_link_map_nodes` | src/memorymap/ai/tools/whiteboard.py:954 |
-| `_map_from_note` | src/memorymap/ai/tools/whiteboard.py:838 |
+| `_link_map_nodes` | src/memorymap/ai/tools/whiteboard.py:961 |
+| `_map_from_note` | src/memorymap/ai/tools/whiteboard.py:845 |
 | `_new_board` | src/memorymap/ai/tools/whiteboard.py:130 |
-| `_outline_lines` | src/memorymap/ai/tools/whiteboard.py:710 |
+| `_outline_extras` | src/memorymap/ai/tools/whiteboard.py:186 |
+| `_outline_lines` | src/memorymap/ai/tools/whiteboard.py:717 |
 | `_place_card` | src/memorymap/ai/tools/whiteboard.py:58 |
 | `_place_object` | src/memorymap/ai/tools/whiteboard.py:114 |
-| `_read_mindmap` | src/memorymap/ai/tools/whiteboard.py:731 |
-| `_read_whiteboard` | src/memorymap/ai/tools/whiteboard.py:194 |
-| `_search_whiteboard` | src/memorymap/ai/tools/whiteboard.py:304 |
+| `_read_mindmap` | src/memorymap/ai/tools/whiteboard.py:738 |
+| `_read_whiteboard` | src/memorymap/ai/tools/whiteboard.py:201 |
+| `_search_whiteboard` | src/memorymap/ai/tools/whiteboard.py:311 |
 | `_whiteboard_board_filter` | src/memorymap/ai/tools/whiteboard.py:23 |
 | `board_outline` | src/memorymap/ai/tools/whiteboard.py:159 |
 
@@ -12970,12 +12982,14 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `transcribe_segments` | src/memorymap/ai/voice.py:97 |
 | `whisper_available` | src/memorymap/ai/voice.py:77 |
 
-### src/memorymap/ai/why.py (2)
+### src/memorymap/ai/why.py (4)
 
 | Name | File:line |
 |---|---|
+| `_answer_say` | src/memorymap/ai/why.py:77 |
+| `_search_say` | src/memorymap/ai/why.py:59 |
 | `_secs` | src/memorymap/ai/why.py:55 |
-| `lines` | src/memorymap/ai/why.py:59 |
+| `lines` | src/memorymap/ai/why.py:89 |
 
 ### src/memorymap/api/app.py (33)
 
@@ -13081,97 +13095,97 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `ChangePasswordBody` | src/memorymap/api/routes_auth.py:1423 |
-| `ForgetPinBody` | src/memorymap/api/routes_auth.py:1560 |
-| `LanAccessBody` | src/memorymap/api/routes_auth.py:1038 |
-| `LanOptionBody` | src/memorymap/api/routes_auth.py:1152 |
-| `LanPasswordBody` | src/memorymap/api/routes_auth.py:1148 |
-| `PasswordBody` | src/memorymap/api/routes_auth.py:496 |
-| `PasswordOnOpenBody` | src/memorymap/api/routes_auth.py:993 |
-| `PinBody` | src/memorymap/api/routes_auth.py:1555 |
-| `RecoverBody` | src/memorymap/api/routes_auth.py:1818 |
-| `RecoveryKeyBody` | src/memorymap/api/routes_auth.py:1814 |
-| `ResetBody` | src/memorymap/api/routes_auth.py:1823 |
-| `RotateVaultKeyBody` | src/memorymap/api/routes_auth.py:1637 |
-| `SaveRecoveryKeyBody` | src/memorymap/api/routes_auth.py:1884 |
-| `VaultScope` | src/memorymap/api/routes_auth.py:115 |
-| `_auto_session_allowed` | src/memorymap/api/routes_auth.py:251 |
-| `_bcrypt_input` | src/memorymap/api/routes_auth.py:416 |
-| `_check_current_password` | src/memorymap/api/routes_auth.py:1564 |
-| `_check_password_for_lan` | src/memorymap/api/routes_auth.py:1133 |
-| `_clear_unlock_failures` | src/memorymap/api/routes_auth.py:332 |
-| `_client_key` | src/memorymap/api/routes_auth.py:340 |
-| `_cookie_secure` | src/memorymap/api/routes_auth.py:172 |
-| `_current_network_key` | src/memorymap/api/routes_auth.py:1080 |
-| `_device_cookie` | src/memorymap/api/routes_auth.py:720 |
-| `_device_must_wait` | src/memorymap/api/routes_auth.py:744 |
-| `_end_network_sessions` | src/memorymap/api/routes_auth.py:707 |
-| `_end_sessions_and_issue` | src/memorymap/api/routes_auth.py:1835 |
-| `_forget_dead_tickets` | src/memorymap/api/routes_auth.py:166 |
-| `_from_the_network` | src/memorymap/api/routes_auth.py:733 |
-| `_from_this_computer` | src/memorymap/api/routes_auth.py:228 |
-| `_get_user` | src/memorymap/api/routes_auth.py:504 |
-| `_grant_media` | src/memorymap/api/routes_auth.py:259 |
-| `_hash_password` | src/memorymap/api/routes_auth.py:429 |
-| `_hold_new_device` | src/memorymap/api/routes_auth.py:755 |
-| `_is_loopback_address` | src/memorymap/api/routes_auth.py:217 |
-| `_iso` | src/memorymap/api/routes_auth.py:1466 |
-| `_issue_token` | src/memorymap/api/routes_auth.py:633 |
-| `_lan_state` | src/memorymap/api/routes_auth.py:1043 |
-| `_new_password_problem` | src/memorymap/api/routes_auth.py:458 |
-| `_no_password_yet` | src/memorymap/api/routes_auth.py:547 |
-| `_notebook_has_password_now` | src/memorymap/api/routes_auth.py:2014 |
-| `_password_matches` | src/memorymap/api/routes_auth.py:433 |
-| `_password_set` | src/memorymap/api/routes_auth.py:523 |
-| `_pin_binding` | src/memorymap/api/routes_auth.py:782 |
-| `_refuse_if_throttled` | src/memorymap/api/routes_auth.py:364 |
-| `_refuse_unless_this_computer` | src/memorymap/api/routes_auth.py:1827 |
-| `_require_this_computer` | src/memorymap/api/routes_auth.py:1158 |
-| `_revoke_media` | src/memorymap/api/routes_auth.py:281 |
-| `_set_device_cookie` | src/memorymap/api/routes_auth.py:725 |
-| `_sweep_expired` | src/memorymap/api/routes_auth.py:142 |
-| `_token_valid` | src/memorymap/api/routes_auth.py:293 |
-| `_unlock_failed` | src/memorymap/api/routes_auth.py:384 |
-| `_unlock_succeeded` | src/memorymap/api/routes_auth.py:393 |
-| `_unlock_with_pin` | src/memorymap/api/routes_auth.py:789 |
-| `_wait_left` | src/memorymap/api/routes_auth.py:353 |
-| `account` | src/memorymap/api/routes_auth.py:1431 |
-| `allow_this_network` | src/memorymap/api/routes_auth.py:1166 |
-| `answer_device` | src/memorymap/api/routes_auth.py:1255 |
-| `auto_session` | src/memorymap/api/routes_auth.py:911 |
-| `change_password` | src/memorymap/api/routes_auth.py:1471 |
-| `dismiss_lan_notice` | src/memorymap/api/routes_auth.py:1226 |
-| `download_lan_certificate` | src/memorymap/api/routes_auth.py:1094 |
-| `end_every_session` | src/memorymap/api/routes_auth.py:609 |
-| `forget_device` | src/memorymap/api/routes_auth.py:1276 |
-| `forget_network` | src/memorymap/api/routes_auth.py:1186 |
-| `forget_pin` | src/memorymap/api/routes_auth.py:1622 |
-| `lan_access` | src/memorymap/api/routes_auth.py:1088 |
-| `lan_watch` | src/memorymap/api/routes_auth.py:1293 |
-| `lock` | src/memorymap/api/routes_auth.py:1393 |
-| `lock_all` | src/memorymap/api/routes_auth.py:2004 |
-| `make_recovery_key` | src/memorymap/api/routes_auth.py:1847 |
-| `media_session` | src/memorymap/api/routes_auth.py:898 |
-| `notebook_open` | src/memorymap/api/routes_auth.py:536 |
-| `password_on_open` | src/memorymap/api/routes_auth.py:212 |
-| `password_warning` | src/memorymap/api/routes_auth.py:465 |
-| `recover` | src/memorymap/api/routes_auth.py:1924 |
-| `regenerate_lan_certificate` | src/memorymap/api/routes_auth.py:1115 |
-| `require_unlock` | src/memorymap/api/routes_auth.py:569 |
-| `require_unlock_media` | src/memorymap/api/routes_auth.py:583 |
-| `reset` | src/memorymap/api/routes_auth.py:1978 |
-| `rotate_vault_key` | src/memorymap/api/routes_auth.py:1642 |
-| `save_recovery_key` | src/memorymap/api/routes_auth.py:1894 |
-| `set_lan_access` | src/memorymap/api/routes_auth.py:1325 |
-| `set_lan_option` | src/memorymap/api/routes_auth.py:1234 |
-| `set_password_on_open` | src/memorymap/api/routes_auth.py:999 |
-| `set_pin` | src/memorymap/api/routes_auth.py:1579 |
-| `setup` | src/memorymap/api/routes_auth.py:668 |
-| `status` | src/memorymap/api/routes_auth.py:641 |
-| `trust_network` | src/memorymap/api/routes_auth.py:1197 |
-| `unlock` | src/memorymap/api/routes_auth.py:822 |
-| `unlock_vault` | src/memorymap/api/routes_auth.py:950 |
-| `untrust_network` | src/memorymap/api/routes_auth.py:1216 |
+| `ChangePasswordBody` | src/memorymap/api/routes_auth.py:1427 |
+| `ForgetPinBody` | src/memorymap/api/routes_auth.py:1564 |
+| `LanAccessBody` | src/memorymap/api/routes_auth.py:1042 |
+| `LanOptionBody` | src/memorymap/api/routes_auth.py:1156 |
+| `LanPasswordBody` | src/memorymap/api/routes_auth.py:1152 |
+| `PasswordBody` | src/memorymap/api/routes_auth.py:497 |
+| `PasswordOnOpenBody` | src/memorymap/api/routes_auth.py:997 |
+| `PinBody` | src/memorymap/api/routes_auth.py:1559 |
+| `RecoverBody` | src/memorymap/api/routes_auth.py:1822 |
+| `RecoveryKeyBody` | src/memorymap/api/routes_auth.py:1818 |
+| `ResetBody` | src/memorymap/api/routes_auth.py:1827 |
+| `RotateVaultKeyBody` | src/memorymap/api/routes_auth.py:1641 |
+| `SaveRecoveryKeyBody` | src/memorymap/api/routes_auth.py:1888 |
+| `VaultScope` | src/memorymap/api/routes_auth.py:116 |
+| `_auto_session_allowed` | src/memorymap/api/routes_auth.py:252 |
+| `_bcrypt_input` | src/memorymap/api/routes_auth.py:417 |
+| `_check_current_password` | src/memorymap/api/routes_auth.py:1568 |
+| `_check_password_for_lan` | src/memorymap/api/routes_auth.py:1137 |
+| `_clear_unlock_failures` | src/memorymap/api/routes_auth.py:333 |
+| `_client_key` | src/memorymap/api/routes_auth.py:341 |
+| `_cookie_secure` | src/memorymap/api/routes_auth.py:173 |
+| `_current_network_key` | src/memorymap/api/routes_auth.py:1084 |
+| `_device_cookie` | src/memorymap/api/routes_auth.py:721 |
+| `_device_must_wait` | src/memorymap/api/routes_auth.py:748 |
+| `_end_network_sessions` | src/memorymap/api/routes_auth.py:708 |
+| `_end_sessions_and_issue` | src/memorymap/api/routes_auth.py:1839 |
+| `_forget_dead_tickets` | src/memorymap/api/routes_auth.py:167 |
+| `_from_the_network` | src/memorymap/api/routes_auth.py:737 |
+| `_from_this_computer` | src/memorymap/api/routes_auth.py:229 |
+| `_get_user` | src/memorymap/api/routes_auth.py:505 |
+| `_grant_media` | src/memorymap/api/routes_auth.py:260 |
+| `_hash_password` | src/memorymap/api/routes_auth.py:430 |
+| `_hold_new_device` | src/memorymap/api/routes_auth.py:759 |
+| `_is_loopback_address` | src/memorymap/api/routes_auth.py:218 |
+| `_iso` | src/memorymap/api/routes_auth.py:1470 |
+| `_issue_token` | src/memorymap/api/routes_auth.py:634 |
+| `_lan_state` | src/memorymap/api/routes_auth.py:1047 |
+| `_new_password_problem` | src/memorymap/api/routes_auth.py:459 |
+| `_no_password_yet` | src/memorymap/api/routes_auth.py:548 |
+| `_notebook_has_password_now` | src/memorymap/api/routes_auth.py:2018 |
+| `_password_matches` | src/memorymap/api/routes_auth.py:434 |
+| `_password_set` | src/memorymap/api/routes_auth.py:524 |
+| `_pin_binding` | src/memorymap/api/routes_auth.py:786 |
+| `_refuse_if_throttled` | src/memorymap/api/routes_auth.py:365 |
+| `_refuse_unless_this_computer` | src/memorymap/api/routes_auth.py:1831 |
+| `_require_this_computer` | src/memorymap/api/routes_auth.py:1162 |
+| `_revoke_media` | src/memorymap/api/routes_auth.py:282 |
+| `_set_device_cookie` | src/memorymap/api/routes_auth.py:726 |
+| `_sweep_expired` | src/memorymap/api/routes_auth.py:143 |
+| `_token_valid` | src/memorymap/api/routes_auth.py:294 |
+| `_unlock_failed` | src/memorymap/api/routes_auth.py:385 |
+| `_unlock_succeeded` | src/memorymap/api/routes_auth.py:394 |
+| `_unlock_with_pin` | src/memorymap/api/routes_auth.py:793 |
+| `_wait_left` | src/memorymap/api/routes_auth.py:354 |
+| `account` | src/memorymap/api/routes_auth.py:1435 |
+| `allow_this_network` | src/memorymap/api/routes_auth.py:1170 |
+| `answer_device` | src/memorymap/api/routes_auth.py:1259 |
+| `auto_session` | src/memorymap/api/routes_auth.py:915 |
+| `change_password` | src/memorymap/api/routes_auth.py:1475 |
+| `dismiss_lan_notice` | src/memorymap/api/routes_auth.py:1230 |
+| `download_lan_certificate` | src/memorymap/api/routes_auth.py:1098 |
+| `end_every_session` | src/memorymap/api/routes_auth.py:610 |
+| `forget_device` | src/memorymap/api/routes_auth.py:1280 |
+| `forget_network` | src/memorymap/api/routes_auth.py:1190 |
+| `forget_pin` | src/memorymap/api/routes_auth.py:1626 |
+| `lan_access` | src/memorymap/api/routes_auth.py:1092 |
+| `lan_watch` | src/memorymap/api/routes_auth.py:1297 |
+| `lock` | src/memorymap/api/routes_auth.py:1397 |
+| `lock_all` | src/memorymap/api/routes_auth.py:2008 |
+| `make_recovery_key` | src/memorymap/api/routes_auth.py:1851 |
+| `media_session` | src/memorymap/api/routes_auth.py:902 |
+| `notebook_open` | src/memorymap/api/routes_auth.py:537 |
+| `password_on_open` | src/memorymap/api/routes_auth.py:213 |
+| `password_warning` | src/memorymap/api/routes_auth.py:466 |
+| `recover` | src/memorymap/api/routes_auth.py:1928 |
+| `regenerate_lan_certificate` | src/memorymap/api/routes_auth.py:1119 |
+| `require_unlock` | src/memorymap/api/routes_auth.py:570 |
+| `require_unlock_media` | src/memorymap/api/routes_auth.py:584 |
+| `reset` | src/memorymap/api/routes_auth.py:1982 |
+| `rotate_vault_key` | src/memorymap/api/routes_auth.py:1646 |
+| `save_recovery_key` | src/memorymap/api/routes_auth.py:1898 |
+| `set_lan_access` | src/memorymap/api/routes_auth.py:1329 |
+| `set_lan_option` | src/memorymap/api/routes_auth.py:1238 |
+| `set_password_on_open` | src/memorymap/api/routes_auth.py:1003 |
+| `set_pin` | src/memorymap/api/routes_auth.py:1583 |
+| `setup` | src/memorymap/api/routes_auth.py:669 |
+| `status` | src/memorymap/api/routes_auth.py:642 |
+| `trust_network` | src/memorymap/api/routes_auth.py:1201 |
+| `unlock` | src/memorymap/api/routes_auth.py:826 |
+| `unlock_vault` | src/memorymap/api/routes_auth.py:954 |
+| `untrust_network` | src/memorymap/api/routes_auth.py:1220 |
 
 ### src/memorymap/api/routes_backups.py (14)
 
@@ -13348,116 +13362,117 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `set_category_colour` | src/memorymap/api/routes_categories.py:314 |
 | `split_category` | src/memorymap/api/routes_categories.py:184 |
 
-### src/memorymap/api/routes_chat.py (107)
+### src/memorymap/api/routes_chat.py (108)
 
 | Name | File:line |
 |---|---|
 | `ChatRequest` | src/memorymap/api/routes_chat.py:373 |
 | `ChatResponse` | src/memorymap/api/routes_chat.py:793 |
 | `ChatTurn` | src/memorymap/api/routes_chat.py:351 |
-| `CommandRunBody` | src/memorymap/api/routes_chat.py:2747 |
-| `CompressBody` | src/memorymap/api/routes_chat.py:3485 |
+| `CommandRunBody` | src/memorymap/api/routes_chat.py:2753 |
+| `CompressBody` | src/memorymap/api/routes_chat.py:3491 |
 | `FollowupBody` | src/memorymap/api/routes_chat.py:316 |
 | `PlanRun` | src/memorymap/api/routes_chat.py:360 |
 | `RememberBody` | src/memorymap/api/routes_chat.py:191 |
-| `ToolExecuteBody` | src/memorymap/api/routes_chat.py:3518 |
+| `ToolExecuteBody` | src/memorymap/api/routes_chat.py:3524 |
 | `_StreamRequest` | src/memorymap/api/routes_chat.py:1944 |
 | `_about` | src/memorymap/api/routes_chat.py:260 |
-| `_act_events` | src/memorymap/api/routes_chat.py:2678 |
-| `_address` | src/memorymap/api/routes_chat.py:3296 |
-| `_agent_events` | src/memorymap/api/routes_chat.py:2769 |
+| `_act_events` | src/memorymap/api/routes_chat.py:2684 |
+| `_address` | src/memorymap/api/routes_chat.py:3302 |
+| `_agent_events` | src/memorymap/api/routes_chat.py:2775 |
 | `_answer_voice` | src/memorymap/api/routes_chat.py:1988 |
-| `_app_answers` | src/memorymap/api/routes_chat.py:2243 |
-| `_app_said` | src/memorymap/api/routes_chat.py:2316 |
+| `_app_answers` | src/memorymap/api/routes_chat.py:2249 |
+| `_app_said` | src/memorymap/api/routes_chat.py:2322 |
 | `_apply_open` | src/memorymap/api/routes_chat.py:556 |
 | `_apply_scope` | src/memorymap/api/routes_chat.py:526 |
 | `_asked_key` | src/memorymap/api/routes_chat.py:210 |
-| `_asks_capability` | src/memorymap/api/routes_chat.py:2236 |
+| `_asks_capability` | src/memorymap/api/routes_chat.py:2242 |
 | `_assist` | src/memorymap/api/routes_chat.py:2039 |
 | `_attached_boards` | src/memorymap/api/routes_chat.py:966 |
 | `_attached_documents` | src/memorymap/api/routes_chat.py:888 |
 | `_attached_files` | src/memorymap/api/routes_chat.py:911 |
 | `_attached_notes` | src/memorymap/api/routes_chat.py:865 |
 | `_attachment_readings` | src/memorymap/api/routes_chat.py:1240 |
-| `_call_events` | src/memorymap/api/routes_chat.py:2305 |
-| `_capability_answer` | src/memorymap/api/routes_chat.py:2252 |
+| `_call_events` | src/memorymap/api/routes_chat.py:2311 |
+| `_capability_answer` | src/memorymap/api/routes_chat.py:2258 |
 | `_category_note_ids` | src/memorymap/api/routes_chat.py:545 |
 | `_chat_model_sees_images` | src/memorymap/api/routes_chat.py:664 |
-| `_checks_grounding` | src/memorymap/api/routes_chat.py:2911 |
+| `_checks_grounding` | src/memorymap/api/routes_chat.py:2917 |
 | `_composed` | src/memorymap/api/routes_chat.py:1981 |
-| `_composed_support` | src/memorymap/api/routes_chat.py:2150 |
+| `_composed_support` | src/memorymap/api/routes_chat.py:2156 |
 | `_composer_embed` | src/memorymap/api/routes_chat.py:2028 |
 | `_composer_voice` | src/memorymap/api/routes_chat.py:2009 |
-| `_engine_answers` | src/memorymap/api/routes_chat.py:2921 |
-| `_exact_events` | src/memorymap/api/routes_chat.py:2348 |
+| `_engine_answers` | src/memorymap/api/routes_chat.py:2927 |
+| `_exact_events` | src/memorymap/api/routes_chat.py:2354 |
 | `_feature_for` | src/memorymap/api/routes_chat.py:123 |
 | `_filed_under` | src/memorymap/api/routes_chat.py:1334 |
 | `_files_on` | src/memorymap/api/routes_chat.py:1218 |
 | `_fill` | src/memorymap/api/routes_chat.py:236 |
-| `_first_agent_event` | src/memorymap/api/routes_chat.py:2826 |
-| `_first_events` | src/memorymap/api/routes_chat.py:2719 |
-| `_follow_up` | src/memorymap/api/routes_chat.py:2890 |
+| `_first_agent_event` | src/memorymap/api/routes_chat.py:2832 |
+| `_first_events` | src/memorymap/api/routes_chat.py:2725 |
+| `_follow_up` | src/memorymap/api/routes_chat.py:2896 |
 | `_glossary` | src/memorymap/api/routes_chat.py:1297 |
 | `_grounding_candidates` | src/memorymap/api/routes_chat.py:828 |
 | `_image_caption_context` | src/memorymap/api/routes_chat.py:677 |
-| `_in_notes` | src/memorymap/api/routes_chat.py:2260 |
+| `_in_notes` | src/memorymap/api/routes_chat.py:2266 |
 | `_insight_level` | src/memorymap/api/routes_chat.py:1999 |
-| `_insight_memory` | src/memorymap/api/routes_chat.py:2666 |
-| `_interactive_lines` | src/memorymap/api/routes_chat.py:3400 |
+| `_insight_memory` | src/memorymap/api/routes_chat.py:2672 |
+| `_interactive_lines` | src/memorymap/api/routes_chat.py:3406 |
 | `_meaning_loading` | src/memorymap/api/routes_chat.py:2015 |
 | `_media_readings` | src/memorymap/api/routes_chat.py:1154 |
 | `_mostly_pictures` | src/memorymap/api/routes_chat.py:1104 |
 | `_note_dates` | src/memorymap/api/routes_chat.py:1112 |
-| `_note_tool_read` | src/memorymap/api/routes_chat.py:2879 |
+| `_note_tool_read` | src/memorymap/api/routes_chat.py:2885 |
 | `_nothing_open` | src/memorymap/api/routes_chat.py:579 |
 | `_one_line` | src/memorymap/api/routes_chat.py:1149 |
 | `_outline_into` | src/memorymap/api/routes_chat.py:1018 |
 | `_picture_alts` | src/memorymap/api/routes_chat.py:1060 |
 | `_picture_notes` | src/memorymap/api/routes_chat.py:1352 |
 | `_picture_sizes` | src/memorymap/api/routes_chat.py:1087 |
-| `_plain_events` | src/memorymap/api/routes_chat.py:2367 |
+| `_plain_events` | src/memorymap/api/routes_chat.py:2373 |
 | `_prepare` | src/memorymap/api/routes_chat.py:1368 |
 | `_recent_questions` | src/memorymap/api/routes_chat.py:133 |
-| `_refuse_failed` | src/memorymap/api/routes_chat.py:3559 |
+| `_refuse_failed` | src/memorymap/api/routes_chat.py:3565 |
 | `_related_elsewhere` | src/memorymap/api/routes_chat.py:1854 |
-| `_reply_seed` | src/memorymap/api/routes_chat.py:2279 |
+| `_reply_seed` | src/memorymap/api/routes_chat.py:2285 |
 | `_resolve_chat_images` | src/memorymap/api/routes_chat.py:624 |
 | `_resolve_mode` | src/memorymap/api/routes_chat.py:585 |
 | `_resolve_persona` | src/memorymap/api/routes_chat.py:601 |
 | `_resolve_plan` | src/memorymap/api/routes_chat.py:764 |
 | `_resolve_skill` | src/memorymap/api/routes_chat.py:738 |
-| `_run_title` | src/memorymap/api/routes_chat.py:3413 |
+| `_run_title` | src/memorymap/api/routes_chat.py:3419 |
 | `_save_ask_turn` | src/memorymap/api/routes_chat.py:1804 |
-| `_searched_question` | src/memorymap/api/routes_chat.py:2903 |
+| `_searched_question` | src/memorymap/api/routes_chat.py:2909 |
 | `_small_model_mode` | src/memorymap/api/routes_chat.py:717 |
-| `_social_reply` | src/memorymap/api/routes_chat.py:2289 |
-| `_spoken_act` | src/memorymap/api/routes_chat.py:2864 |
-| `_starter_events` | src/memorymap/api/routes_chat.py:2738 |
-| `_starter_read` | src/memorymap/api/routes_chat.py:2730 |
-| `_stats_chart` | src/memorymap/api/routes_chat.py:2188 |
-| `_stats_events` | src/memorymap/api/routes_chat.py:2336 |
-| `_stoppable` | src/memorymap/api/routes_chat.py:3394 |
-| `_stream_lines` | src/memorymap/api/routes_chat.py:2950 |
+| `_social_reply` | src/memorymap/api/routes_chat.py:2295 |
+| `_spoken_act` | src/memorymap/api/routes_chat.py:2870 |
+| `_starter_events` | src/memorymap/api/routes_chat.py:2744 |
+| `_starter_read` | src/memorymap/api/routes_chat.py:2736 |
+| `_stats_chart` | src/memorymap/api/routes_chat.py:2194 |
+| `_stats_events` | src/memorymap/api/routes_chat.py:2342 |
+| `_stoppable` | src/memorymap/api/routes_chat.py:3400 |
+| `_stream_lines` | src/memorymap/api/routes_chat.py:2956 |
 | `_time_words` | src/memorymap/api/routes_chat.py:1132 |
-| `_tool_read_events` | src/memorymap/api/routes_chat.py:2198 |
-| `_tools_provider` | src/memorymap/api/routes_chat.py:2936 |
-| `_verdicts` | src/memorymap/api/routes_chat.py:2656 |
+| `_tool_read_events` | src/memorymap/api/routes_chat.py:2204 |
+| `_tools_provider` | src/memorymap/api/routes_chat.py:2942 |
+| `_verdicts` | src/memorymap/api/routes_chat.py:2662 |
 | `_web_allowed` | src/memorymap/api/routes_chat.py:2099 |
-| `_web_answer` | src/memorymap/api/routes_chat.py:2108 |
-| `_web_events` | src/memorymap/api/routes_chat.py:2161 |
-| `_why` | src/memorymap/api/routes_chat.py:3278 |
+| `_web_answer` | src/memorymap/api/routes_chat.py:2129 |
+| `_web_events` | src/memorymap/api/routes_chat.py:2167 |
+| `_web_pages` | src/memorymap/api/routes_chat.py:2108 |
+| `_why` | src/memorymap/api/routes_chat.py:3284 |
 | `_widened` | src/memorymap/api/routes_chat.py:1308 |
 | `chat` | src/memorymap/api/routes_chat.py:1683 |
 | `chat_followups` | src/memorymap/api/routes_chat.py:330 |
-| `chat_stream` | src/memorymap/api/routes_chat.py:3309 |
-| `compress_history` | src/memorymap/api/routes_chat.py:3492 |
-| `execute_confirmed_tool` | src/memorymap/api/routes_chat.py:3531 |
+| `chat_stream` | src/memorymap/api/routes_chat.py:3315 |
+| `compress_history` | src/memorymap/api/routes_chat.py:3498 |
+| `execute_confirmed_tool` | src/memorymap/api/routes_chat.py:3537 |
 | `forget_recent_question` | src/memorymap/api/routes_chat.py:184 |
-| `list_modes` | src/memorymap/api/routes_chat.py:3428 |
-| `list_tools` | src/memorymap/api/routes_chat.py:3449 |
+| `list_modes` | src/memorymap/api/routes_chat.py:3434 |
+| `list_tools` | src/memorymap/api/routes_chat.py:3455 |
 | `recent_questions` | src/memorymap/api/routes_chat.py:178 |
 | `remember_recent_question` | src/memorymap/api/routes_chat.py:196 |
-| `run_command` | src/memorymap/api/routes_chat.py:2755 |
+| `run_command` | src/memorymap/api/routes_chat.py:2761 |
 | `suggestions` | src/memorymap/api/routes_chat.py:283 |
 
 ### src/memorymap/api/routes_code_assist.py (2)
@@ -13781,7 +13796,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `update_link_reason` | src/memorymap/api/routes_entries.py:3908 |
 | `wiki_rename` | src/memorymap/api/routes_entries.py:2844 |
 
-### src/memorymap/api/routes_files.py (126)
+### src/memorymap/api/routes_files.py (129)
 
 | Name | File:line |
 |---|---|
@@ -13806,23 +13821,23 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `OcrStoredReadingOut` | src/memorymap/api/routes_files.py:2169 |
 | `OcrWordOut` | src/memorymap/api/routes_files.py:2138 |
 | `PdfInfoOut` | src/memorymap/api/routes_files.py:755 |
-| `ReadingBinnedOut` | src/memorymap/api/routes_files.py:3865 |
-| `ReadingRestoredOut` | src/memorymap/api/routes_files.py:3907 |
+| `ReadingBinnedOut` | src/memorymap/api/routes_files.py:3880 |
+| `ReadingRestoredOut` | src/memorymap/api/routes_files.py:3922 |
 | `RestoreBody` | src/memorymap/api/routes_files.py:937 |
 | `SaveFileBody` | src/memorymap/api/routes_files.py:1043 |
-| `VisionOcrBody` | src/memorymap/api/routes_files.py:4014 |
+| `VisionOcrBody` | src/memorymap/api/routes_files.py:4029 |
 | `_attachment_out` | src/memorymap/api/routes_files.py:427 |
 | `_attachment_size` | src/memorymap/api/routes_files.py:397 |
-| `_bin_file_reading` | src/memorymap/api/routes_files.py:3874 |
+| `_bin_file_reading` | src/memorymap/api/routes_files.py:3889 |
 | `_checked_engine` | src/memorymap/api/routes_files.py:2845 |
 | `_checked_reader` | src/memorymap/api/routes_files.py:2819 |
-| `_clean_reading_fields` | src/memorymap/api/routes_files.py:3941 |
+| `_clean_reading_fields` | src/memorymap/api/routes_files.py:3956 |
 | `_describe_page` | src/memorymap/api/routes_files.py:3166 |
 | `_embed_pattern` | src/memorymap/api/routes_files.py:1793 |
 | `_engine_choice` | src/memorymap/api/routes_files.py:2839 |
 | `_existing_attachment` | src/memorymap/api/routes_files.py:168 |
 | `_exports_dir` | src/memorymap/api/routes_files.py:1034 |
-| `_forget_page_read` | src/memorymap/api/routes_files.py:3808 |
+| `_forget_page_read` | src/memorymap/api/routes_files.py:3823 |
 | `_forget_regions` | src/memorymap/api/routes_files.py:2435 |
 | `_local_regions` | src/memorymap/api/routes_files.py:2868 |
 | `_local_text` | src/memorymap/api/routes_files.py:2861 |
@@ -13836,15 +13851,18 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_put_notes_back` | src/memorymap/api/routes_files.py:960 |
 | `_read_page` | src/memorymap/api/routes_files.py:3123 |
 | `_read_range` | src/memorymap/api/routes_files.py:3429 |
-| `_read_region` | src/memorymap/api/routes_files.py:3627 |
+| `_read_region` | src/memorymap/api/routes_files.py:3674 |
 | `_reader_model` | src/memorymap/api/routes_files.py:2713 |
 | `_region_image` | src/memorymap/api/routes_files.py:3604 |
+| `_region_model` | src/memorymap/api/routes_files.py:3637 |
+| `_region_text` | src/memorymap/api/routes_files.py:3659 |
 | `_regions_for` | src/memorymap/api/routes_files.py:2500 |
 | `_regions_text` | src/memorymap/api/routes_files.py:3067 |
 | `_reindex_file` | src/memorymap/api/routes_files.py:2930 |
 | `_remember_page_caption` | src/memorymap/api/routes_files.py:2948 |
 | `_remember_page_read` | src/memorymap/api/routes_files.py:2882 |
 | `_remember_regions` | src/memorymap/api/routes_files.py:2400 |
+| `_require_region_reader` | src/memorymap/api/routes_files.py:3627 |
 | `_set_edited_reading` | src/memorymap/api/routes_files.py:2468 |
 | `_stored_page_reads` | src/memorymap/api/routes_files.py:3085 |
 | `_stored_range` | src/memorymap/api/routes_files.py:3479 |
@@ -13863,23 +13881,23 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `attachment_ocr_page_read` | src/memorymap/api/routes_files.py:3540 |
 | `attachment_ocr_range_read` | src/memorymap/api/routes_files.py:3504 |
 | `attachment_ocr_regions` | src/memorymap/api/routes_files.py:2636 |
-| `attachment_page_caption` | src/memorymap/api/routes_files.py:3745 |
-| `attachment_page_reads` | src/memorymap/api/routes_files.py:3783 |
-| `attachment_region_read` | src/memorymap/api/routes_files.py:3711 |
+| `attachment_page_caption` | src/memorymap/api/routes_files.py:3760 |
+| `attachment_page_reads` | src/memorymap/api/routes_files.py:3798 |
+| `attachment_region_read` | src/memorymap/api/routes_files.py:3726 |
 | `caption_media` | src/memorymap/api/routes_files.py:1965 |
-| `clean_attachment_reading_loops` | src/memorymap/api/routes_files.py:3962 |
-| `clean_media_reading_loops` | src/memorymap/api/routes_files.py:3988 |
+| `clean_attachment_reading_loops` | src/memorymap/api/routes_files.py:3977 |
+| `clean_media_reading_loops` | src/memorymap/api/routes_files.py:4003 |
 | `clean_orphaned_media` | src/memorymap/api/routes_files.py:1576 |
-| `delete_attachment_page_read` | src/memorymap/api/routes_files.py:3840 |
-| `delete_attachment_reading` | src/memorymap/api/routes_files.py:3899 |
+| `delete_attachment_page_read` | src/memorymap/api/routes_files.py:3855 |
+| `delete_attachment_reading` | src/memorymap/api/routes_files.py:3914 |
 | `delete_file` | src/memorymap/api/routes_files.py:909 |
 | `delete_media` | src/memorymap/api/routes_files.py:1844 |
-| `delete_media_page_read` | src/memorymap/api/routes_files.py:3854 |
-| `delete_media_reading` | src/memorymap/api/routes_files.py:3889 |
+| `delete_media_page_read` | src/memorymap/api/routes_files.py:3869 |
+| `delete_media_reading` | src/memorymap/api/routes_files.py:3904 |
 | `download_export` | src/memorymap/api/routes_files.py:1216 |
 | `download_file` | src/memorymap/api/routes_files.py:173 |
 | `file_readings` | src/memorymap/api/routes_files.py:276 |
-| `get_media` | src/memorymap/api/routes_files.py:4112 |
+| `get_media` | src/memorymap/api/routes_files.py:4127 |
 | `list_attachment_gallery` | src/memorymap/api/routes_files.py:300 |
 | `list_exports` | src/memorymap/api/routes_files.py:1178 |
 | `list_media` | src/memorymap/api/routes_files.py:1444 |
@@ -13888,19 +13906,19 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `media_ocr_page_read` | src/memorymap/api/routes_files.py:3557 |
 | `media_ocr_range_read` | src/memorymap/api/routes_files.py:3522 |
 | `media_ocr_regions` | src/memorymap/api/routes_files.py:2602 |
-| `media_page_caption` | src/memorymap/api/routes_files.py:3766 |
-| `media_page_reads` | src/memorymap/api/routes_files.py:3799 |
+| `media_page_caption` | src/memorymap/api/routes_files.py:3781 |
+| `media_page_reads` | src/memorymap/api/routes_files.py:3814 |
 | `media_pdf_info` | src/memorymap/api/routes_files.py:1719 |
 | `media_pdf_page` | src/memorymap/api/routes_files.py:1759 |
-| `media_region_read` | src/memorymap/api/routes_files.py:3731 |
+| `media_region_read` | src/memorymap/api/routes_files.py:3746 |
 | `media_text` | src/memorymap/api/routes_files.py:1651 |
 | `ocr_media` | src/memorymap/api/routes_files.py:2070 |
 | `ocr_readers` | src/memorymap/api/routes_files.py:3310 |
 | `open_exports_folder` | src/memorymap/api/routes_files.py:1227 |
-| `purge_binned_reading` | src/memorymap/api/routes_files.py:3933 |
+| `purge_binned_reading` | src/memorymap/api/routes_files.py:3948 |
 | `rename_file` | src/memorymap/api/routes_files.py:973 |
 | `rename_media` | src/memorymap/api/routes_files.py:1908 |
-| `restore_binned_reading` | src/memorymap/api/routes_files.py:3915 |
+| `restore_binned_reading` | src/memorymap/api/routes_files.py:3930 |
 | `restore_file` | src/memorymap/api/routes_files.py:942 |
 | `restore_media` | src/memorymap/api/routes_files.py:1881 |
 | `reveal_folder` | src/memorymap/api/routes_files.py:1248 |
@@ -13910,7 +13928,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `set_ocr_language` | src/memorymap/api/routes_files.py:3359 |
 | `upload_file` | src/memorymap/api/routes_files.py:100 |
 | `upload_media` | src/memorymap/api/routes_files.py:1295 |
-| `vision_ocr_media` | src/memorymap/api/routes_files.py:4041 |
+| `vision_ocr_media` | src/memorymap/api/routes_files.py:4056 |
 
 ### src/memorymap/api/routes_graph.py (42)
 
@@ -14102,21 +14120,25 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `reinstall_on_start` | src/memorymap/api/routes_maintenance.py:64 |
 | `run_doctor` | src/memorymap/api/routes_maintenance.py:45 |
 
-### src/memorymap/api/routes_map_from_notes.py (11)
+### src/memorymap/api/routes_map_from_notes.py (15)
 
 | Name | File:line |
 |---|---|
 | `MapFromNotes` | src/memorymap/api/routes_map_from_notes.py:247 |
 | `_clip` | src/memorymap/api/routes_map_from_notes.py:339 |
+| `_hang_topic` | src/memorymap/api/routes_map_from_notes.py:374 |
 | `_key_category` | src/memorymap/api/routes_map_from_notes.py:68 |
+| `_outline_line` | src/memorymap/api/routes_map_from_notes.py:362 |
+| `_outline_lines` | src/memorymap/api/routes_map_from_notes.py:383 |
+| `_paragraph_topics` | src/memorymap/api/routes_map_from_notes.py:352 |
 | `_topic_text` | src/memorymap/api/routes_map_from_notes.py:343 |
 | `_weight` | src/memorymap/api/routes_map_from_notes.py:211 |
 | `build_tree` | src/memorymap/api/routes_map_from_notes.py:72 |
 | `layout_both_sides` | src/memorymap/api/routes_map_from_notes.py:215 |
-| `map_from_note` | src/memorymap/api/routes_map_from_notes.py:421 |
-| `map_from_note_entry` | src/memorymap/api/routes_map_from_notes.py:398 |
+| `map_from_note` | src/memorymap/api/routes_map_from_notes.py:443 |
+| `map_from_note_entry` | src/memorymap/api/routes_map_from_notes.py:420 |
 | `map_from_notes` | src/memorymap/api/routes_map_from_notes.py:259 |
-| `note_outline` | src/memorymap/api/routes_map_from_notes.py:352 |
+| `note_outline` | src/memorymap/api/routes_map_from_notes.py:393 |
 
 ### src/memorymap/api/routes_map_suggest.py (12)
 
@@ -14390,114 +14412,118 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `stats` | src/memorymap/api/routes_search.py:163 |
 | `warm` | src/memorymap/api/routes_search.py:36 |
 
-### src/memorymap/api/routes_settings.py (104)
+### src/memorymap/api/routes_settings.py (108)
 
 | Name | File:line |
 |---|---|
 | `AvatarStyle` | src/memorymap/api/routes_settings.py:55 |
-| `ClientError` | src/memorymap/api/routes_settings.py:2197 |
+| `ClientError` | src/memorymap/api/routes_settings.py:2219 |
 | `CustomThemeItem` | src/memorymap/api/routes_settings.py:231 |
 | `DashboardLayout` | src/memorymap/api/routes_settings.py:683 |
 | `DraftTemplateBody` | src/memorymap/api/routes_settings.py:210 |
-| `EmbeddingChoiceBody` | src/memorymap/api/routes_settings.py:2065 |
-| `EmbeddingPullBody` | src/memorymap/api/routes_settings.py:2123 |
-| `ExtrasBulkBody` | src/memorymap/api/routes_settings.py:2002 |
-| `ImportDirectoryRequest` | src/memorymap/api/routes_settings.py:2809 |
+| `EmbeddingChoiceBody` | src/memorymap/api/routes_settings.py:2087 |
+| `EmbeddingPullBody` | src/memorymap/api/routes_settings.py:2145 |
+| `ExtrasBulkBody` | src/memorymap/api/routes_settings.py:2024 |
+| `ImportDirectoryRequest` | src/memorymap/api/routes_settings.py:2831 |
 | `PersonaItem` | src/memorymap/api/routes_settings.py:144 |
-| `PreferenceBody` | src/memorymap/api/routes_settings.py:1488 |
+| `PreferenceBody` | src/memorymap/api/routes_settings.py:1510 |
 | `PreferencesBody` | src/memorymap/api/routes_settings.py:301 |
-| `ProposalAnswer` | src/memorymap/api/routes_settings.py:1496 |
+| `ProposalAnswer` | src/memorymap/api/routes_settings.py:1518 |
 | `SavedSearch` | src/memorymap/api/routes_settings.py:657 |
 | `SkillInput` | src/memorymap/api/routes_settings.py:260 |
 | `SkillItem` | src/memorymap/api/routes_settings.py:269 |
 | `SuggestThinkingWordsBody` | src/memorymap/api/routes_settings.py:184 |
 | `TemplateItem` | src/memorymap/api/routes_settings.py:116 |
-| `UndoBody` | src/memorymap/api/routes_settings.py:1846 |
+| `UndoBody` | src/memorymap/api/routes_settings.py:1868 |
 | `_FreshConfig` | src/memorymap/api/routes_settings.py:757 |
-| `_already_imported` | src/memorymap/api/routes_settings.py:2907 |
+| `_already_imported` | src/memorymap/api/routes_settings.py:2929 |
+| `_apply_preference` | src/memorymap/api/routes_settings.py:1072 |
 | `_clean_avatar_style` | src/memorymap/api/routes_settings.py:96 |
-| `_create_document_notes` | src/memorymap/api/routes_settings.py:3244 |
-| `_csv_safe` | src/memorymap/api/routes_settings.py:1730 |
-| `_desktop_entry` | src/memorymap/api/routes_settings.py:1292 |
-| `_export_rows` | src/memorymap/api/routes_settings.py:2546 |
-| `_exportable_keys` | src/memorymap/api/routes_settings.py:1170 |
-| `_exported_created` | src/memorymap/api/routes_settings.py:2742 |
-| `_feed_item` | src/memorymap/api/routes_settings.py:1819 |
-| `_import_directory_files` | src/memorymap/api/routes_settings.py:2928 |
-| `_import_markdown_files` | src/memorymap/api/routes_settings.py:3101 |
-| `_import_root_for` | src/memorymap/api/routes_settings.py:2872 |
-| `_import_roots` | src/memorymap/api/routes_settings.py:2856 |
-| `_inside` | src/memorymap/api/routes_settings.py:2880 |
-| `_keep_exported_state` | src/memorymap/api/routes_settings.py:2759 |
-| `_link_imported` | src/memorymap/api/routes_settings.py:3087 |
-| `_merged_list` | src/memorymap/api/routes_settings.py:1160 |
-| `_models_status_snapshot` | src/memorymap/api/routes_settings.py:2530 |
-| `_not_private_events` | src/memorymap/api/routes_settings.py:1737 |
-| `_parse_frontmatter` | src/memorymap/api/routes_settings.py:2769 |
+| `_create_document_notes` | src/memorymap/api/routes_settings.py:3266 |
+| `_csv_safe` | src/memorymap/api/routes_settings.py:1752 |
+| `_desktop_entry` | src/memorymap/api/routes_settings.py:1314 |
+| `_export_rows` | src/memorymap/api/routes_settings.py:2568 |
+| `_exportable_keys` | src/memorymap/api/routes_settings.py:1179 |
+| `_exported_created` | src/memorymap/api/routes_settings.py:2764 |
+| `_feed_item` | src/memorymap/api/routes_settings.py:1841 |
+| `_import_directory_files` | src/memorymap/api/routes_settings.py:2950 |
+| `_import_markdown_files` | src/memorymap/api/routes_settings.py:3123 |
+| `_import_root_for` | src/memorymap/api/routes_settings.py:2894 |
+| `_import_roots` | src/memorymap/api/routes_settings.py:2878 |
+| `_import_skip_reason` | src/memorymap/api/routes_settings.py:1212 |
+| `_inside` | src/memorymap/api/routes_settings.py:2902 |
+| `_keep_exported_state` | src/memorymap/api/routes_settings.py:2781 |
+| `_link_imported` | src/memorymap/api/routes_settings.py:3109 |
+| `_merged_list` | src/memorymap/api/routes_settings.py:1169 |
+| `_models_status_snapshot` | src/memorymap/api/routes_settings.py:2552 |
+| `_not_private_events` | src/memorymap/api/routes_settings.py:1759 |
+| `_parse_frontmatter` | src/memorymap/api/routes_settings.py:2791 |
 | `_preference_detail` | src/memorymap/api/routes_settings.py:966 |
-| `_preference_out` | src/memorymap/api/routes_settings.py:1502 |
+| `_preference_out` | src/memorymap/api/routes_settings.py:1524 |
 | `_preferences_from` | src/memorymap/api/routes_settings.py:765 |
-| `_redacted_preferences` | src/memorymap/api/routes_settings.py:2401 |
+| `_redacted_preferences` | src/memorymap/api/routes_settings.py:2423 |
 | `_refused_elsewhere` | src/memorymap/api/routes_settings.py:1040 |
-| `_run_directory_import` | src/memorymap/api/routes_settings.py:2892 |
-| `_slug` | src/memorymap/api/routes_settings.py:2646 |
-| `_small_class` | src/memorymap/api/routes_settings.py:1417 |
-| `_text_hash` | src/memorymap/api/routes_settings.py:2903 |
-| `_under_root` | src/memorymap/api/routes_settings.py:2867 |
-| `_validated_backup_copy_dir` | src/memorymap/api/routes_settings.py:1405 |
+| `_run_directory_import` | src/memorymap/api/routes_settings.py:2914 |
+| `_settings_file_preferences` | src/memorymap/api/routes_settings.py:1196 |
+| `_slug` | src/memorymap/api/routes_settings.py:2668 |
+| `_small_class` | src/memorymap/api/routes_settings.py:1439 |
+| `_text_hash` | src/memorymap/api/routes_settings.py:2925 |
+| `_under_root` | src/memorymap/api/routes_settings.py:2889 |
+| `_validated_backup_copy_dir` | src/memorymap/api/routes_settings.py:1427 |
 | `_validated_context_windows` | src/memorymap/api/routes_settings.py:997 |
-| `_validated_export_dir` | src/memorymap/api/routes_settings.py:1384 |
-| `_validated_import_directory` | src/memorymap/api/routes_settings.py:2812 |
+| `_validated_export_dir` | src/memorymap/api/routes_settings.py:1406 |
+| `_validated_import_directory` | src/memorymap/api/routes_settings.py:2834 |
 | `_validated_preference` | src/memorymap/api/routes_settings.py:1056 |
 | `_validated_quick_access` | src/memorymap/api/routes_settings.py:705 |
 | `_validated_quick_tints` | src/memorymap/api/routes_settings.py:728 |
-| `_validated_skills` | src/memorymap/api/routes_settings.py:1332 |
-| `_validated_templates` | src/memorymap/api/routes_settings.py:1358 |
-| `add_memory` | src/memorymap/api/routes_settings.py:1565 |
-| `answer_memory_proposal` | src/memorymap/api/routes_settings.py:1608 |
-| `audit_export_csv` | src/memorymap/api/routes_settings.py:1764 |
-| `audit_log` | src/memorymap/api/routes_settings.py:1673 |
-| `build_markdown_export` | src/memorymap/api/routes_settings.py:2652 |
-| `bulk_extras` | src/memorymap/api/routes_settings.py:2012 |
-| `clear_audit_log` | src/memorymap/api/routes_settings.py:1949 |
-| `clear_server_logs` | src/memorymap/api/routes_settings.py:2275 |
-| `download_embedding_model` | src/memorymap/api/routes_settings.py:2165 |
+| `_validated_skills` | src/memorymap/api/routes_settings.py:1354 |
+| `_validated_templates` | src/memorymap/api/routes_settings.py:1380 |
+| `_wake_autonomous` | src/memorymap/api/routes_settings.py:1090 |
+| `add_memory` | src/memorymap/api/routes_settings.py:1587 |
+| `answer_memory_proposal` | src/memorymap/api/routes_settings.py:1630 |
+| `audit_export_csv` | src/memorymap/api/routes_settings.py:1786 |
+| `audit_log` | src/memorymap/api/routes_settings.py:1695 |
+| `build_markdown_export` | src/memorymap/api/routes_settings.py:2674 |
+| `bulk_extras` | src/memorymap/api/routes_settings.py:2034 |
+| `clear_audit_log` | src/memorymap/api/routes_settings.py:1971 |
+| `clear_server_logs` | src/memorymap/api/routes_settings.py:2297 |
+| `download_embedding_model` | src/memorymap/api/routes_settings.py:2187 |
 | `draft_template` | src/memorymap/api/routes_settings.py:217 |
-| `embedding_model_choices` | src/memorymap/api/routes_settings.py:2071 |
-| `empty_recycle_bin` | src/memorymap/api/routes_settings.py:1965 |
-| `event_feed` | src/memorymap/api/routes_settings.py:1891 |
-| `export_backup` | src/memorymap/api/routes_settings.py:2557 |
-| `export_csv` | src/memorymap/api/routes_settings.py:3270 |
-| `export_json` | src/memorymap/api/routes_settings.py:2582 |
-| `export_markdown` | src/memorymap/api/routes_settings.py:2711 |
-| `export_preferences` | src/memorymap/api/routes_settings.py:1175 |
-| `forget_memory` | src/memorymap/api/routes_settings.py:1663 |
-| `get_preference_defaults` | src/memorymap/api/routes_settings.py:1136 |
+| `embedding_model_choices` | src/memorymap/api/routes_settings.py:2093 |
+| `empty_recycle_bin` | src/memorymap/api/routes_settings.py:1987 |
+| `event_feed` | src/memorymap/api/routes_settings.py:1913 |
+| `export_backup` | src/memorymap/api/routes_settings.py:2579 |
+| `export_csv` | src/memorymap/api/routes_settings.py:3292 |
+| `export_json` | src/memorymap/api/routes_settings.py:2604 |
+| `export_markdown` | src/memorymap/api/routes_settings.py:2733 |
+| `export_preferences` | src/memorymap/api/routes_settings.py:1184 |
+| `forget_memory` | src/memorymap/api/routes_settings.py:1685 |
+| `get_preference_defaults` | src/memorymap/api/routes_settings.py:1145 |
 | `get_preferences` | src/memorymap/api/routes_settings.py:749 |
-| `import_directory` | src/memorymap/api/routes_settings.py:3052 |
-| `import_document` | src/memorymap/api/routes_settings.py:3174 |
-| `import_markdown` | src/memorymap/api/routes_settings.py:3068 |
-| `import_preferences` | src/memorymap/api/routes_settings.py:1188 |
-| `install_extra` | src/memorymap/api/routes_settings.py:2021 |
-| `list_embedding_models` | src/memorymap/api/routes_settings.py:2044 |
-| `list_extras` | src/memorymap/api/routes_settings.py:1980 |
-| `list_memory` | src/memorymap/api/routes_settings.py:1530 |
-| `list_skills` | src/memorymap/api/routes_settings.py:1422 |
-| `pull_embedding_model` | src/memorymap/api/routes_settings.py:2128 |
-| `record_client_error` | src/memorymap/api/routes_settings.py:2211 |
-| `remove_embedding_model` | src/memorymap/api/routes_settings.py:2185 |
-| `restart_app` | src/memorymap/api/routes_settings.py:1311 |
-| `server_log_stats` | src/memorymap/api/routes_settings.py:2263 |
-| `server_logs` | src/memorymap/api/routes_settings.py:2192 |
-| `set_console_mode` | src/memorymap/api/routes_settings.py:1242 |
-| `stream_server_logs` | src/memorymap/api/routes_settings.py:2291 |
+| `import_directory` | src/memorymap/api/routes_settings.py:3074 |
+| `import_document` | src/memorymap/api/routes_settings.py:3196 |
+| `import_markdown` | src/memorymap/api/routes_settings.py:3090 |
+| `import_preferences` | src/memorymap/api/routes_settings.py:1228 |
+| `install_extra` | src/memorymap/api/routes_settings.py:2043 |
+| `list_embedding_models` | src/memorymap/api/routes_settings.py:2066 |
+| `list_extras` | src/memorymap/api/routes_settings.py:2002 |
+| `list_memory` | src/memorymap/api/routes_settings.py:1552 |
+| `list_skills` | src/memorymap/api/routes_settings.py:1444 |
+| `pull_embedding_model` | src/memorymap/api/routes_settings.py:2150 |
+| `record_client_error` | src/memorymap/api/routes_settings.py:2233 |
+| `remove_embedding_model` | src/memorymap/api/routes_settings.py:2207 |
+| `restart_app` | src/memorymap/api/routes_settings.py:1333 |
+| `server_log_stats` | src/memorymap/api/routes_settings.py:2285 |
+| `server_logs` | src/memorymap/api/routes_settings.py:2214 |
+| `set_console_mode` | src/memorymap/api/routes_settings.py:1264 |
+| `stream_server_logs` | src/memorymap/api/routes_settings.py:2313 |
 | `suggest_persona_thinking_words` | src/memorymap/api/routes_settings.py:190 |
-| `support_bundle` | src/memorymap/api/routes_settings.py:2457 |
-| `undo_actor` | src/memorymap/api/routes_settings.py:1862 |
-| `uninstall_extra` | src/memorymap/api/routes_settings.py:2034 |
-| `update_memory` | src/memorymap/api/routes_settings.py:1642 |
-| `update_preferences` | src/memorymap/api/routes_settings.py:1073 |
-| `use_embedding_model` | src/memorymap/api/routes_settings.py:2105 |
+| `support_bundle` | src/memorymap/api/routes_settings.py:2479 |
+| `undo_actor` | src/memorymap/api/routes_settings.py:1884 |
+| `uninstall_extra` | src/memorymap/api/routes_settings.py:2056 |
+| `update_memory` | src/memorymap/api/routes_settings.py:1664 |
+| `update_preferences` | src/memorymap/api/routes_settings.py:1121 |
+| `use_embedding_model` | src/memorymap/api/routes_settings.py:2127 |
 
 ### src/memorymap/api/routes_spaces.py (16)
 
@@ -14630,31 +14656,35 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `status` | src/memorymap/api/routes_translate.py:23 |
 | `translate_file` | src/memorymap/api/routes_translate.py:28 |
 
-### src/memorymap/api/routes_update.py (22)
+### src/memorymap/api/routes_update.py (26)
 
 | Name | File:line |
 |---|---|
 | `_ApplyState` | src/memorymap/api/routes_update.py:161 |
 | `_ChoiceBody` | src/memorymap/api/routes_update.py:419 |
-| `_SourceUpdateState` | src/memorymap/api/routes_update.py:646 |
+| `_SourceUpdateState` | src/memorymap/api/routes_update.py:648 |
 | `_can_auto_apply` | src/memorymap/api/routes_update.py:154 |
 | `_download` | src/memorymap/api/routes_update.py:209 |
 | `_download_url_is_allowed` | src/memorymap/api/routes_update.py:89 |
-| `_exit_once_launched` | src/memorymap/api/routes_update.py:805 |
+| `_exit_once_launched` | src/memorymap/api/routes_update.py:807 |
+| `_fetch_release_answer` | src/memorymap/api/routes_update.py:486 |
+| `_no_releases` | src/memorymap/api/routes_update.py:442 |
+| `_read_release` | src/memorymap/api/routes_update.py:528 |
 | `_release_key` | src/memorymap/api/routes_update.py:133 |
-| `_reset_source_status_for_tests` | src/memorymap/api/routes_update.py:665 |
+| `_reset_source_status_for_tests` | src/memorymap/api/routes_update.py:667 |
 | `_run_apply` | src/memorymap/api/routes_update.py:279 |
+| `_update_check_refused` | src/memorymap/api/routes_update.py:453 |
 | `_version_tuple` | src/memorymap/api/routes_update.py:125 |
 | `_windows_asset` | src/memorymap/api/routes_update.py:142 |
 | `apply_launcher_choice` | src/memorymap/api/routes_update.py:407 |
-| `apply_status` | src/memorymap/api/routes_update.py:801 |
-| `apply_update` | src/memorymap/api/routes_update.py:707 |
-| `check_for_update` | src/memorymap/api/routes_update.py:444 |
+| `apply_status` | src/memorymap/api/routes_update.py:803 |
+| `apply_update` | src/memorymap/api/routes_update.py:709 |
+| `check_for_update` | src/memorymap/api/routes_update.py:552 |
 | `current` | src/memorymap/api/routes_update.py:190 |
-| `list_releases` | src/memorymap/api/routes_update.py:601 |
+| `list_releases` | src/memorymap/api/routes_update.py:603 |
 | `record_update_choice` | src/memorymap/api/routes_update.py:390 |
 | `reset_for_tests` | src/memorymap/api/routes_update.py:182 |
-| `source_update_status` | src/memorymap/api/routes_update.py:671 |
+| `source_update_status` | src/memorymap/api/routes_update.py:673 |
 | `update_choice` | src/memorymap/api/routes_update.py:424 |
 
 ### src/memorymap/api/routes_usage.py (6)
@@ -14730,27 +14760,27 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `web_search` | src/memorymap/api/routes_websearch.py:55 |
 | `web_search_providers` | src/memorymap/api/routes_websearch.py:38 |
 
-### src/memorymap/api/routes_whiteboard.py (141)
+### src/memorymap/api/routes_whiteboard.py (156)
 
 | Name | File:line |
 |---|---|
 | `BoardBackground` | src/memorymap/api/routes_whiteboard.py:1343 |
 | `BoardCreate` | src/memorymap/api/routes_whiteboard.py:1534 |
-| `BoardImageOut` | src/memorymap/api/routes_whiteboard.py:2438 |
+| `BoardImageOut` | src/memorymap/api/routes_whiteboard.py:2460 |
 | `BoardLayer` | src/memorymap/api/routes_whiteboard.py:1252 |
 | `BoardOut` | src/memorymap/api/routes_whiteboard.py:1439 |
-| `BoardRename` | src/memorymap/api/routes_whiteboard.py:2675 |
+| `BoardRename` | src/memorymap/api/routes_whiteboard.py:2697 |
 | `BoardTypeMixin` | src/memorymap/api/routes_whiteboard.py:1508 |
-| `MapClearStyleOut` | src/memorymap/api/routes_whiteboard.py:4038 |
-| `MapGenerate` | src/memorymap/api/routes_whiteboard.py:5615 |
-| `MapImport` | src/memorymap/api/routes_whiteboard.py:4821 |
-| `MapNodeCreate` | src/memorymap/api/routes_whiteboard.py:3596 |
-| `MapNodeMove` | src/memorymap/api/routes_whiteboard.py:3772 |
-| `MapNodeMoveOne` | src/memorymap/api/routes_whiteboard.py:3863 |
-| `MapNodesMove` | src/memorymap/api/routes_whiteboard.py:3878 |
-| `MapOutlinePaste` | src/memorymap/api/routes_whiteboard.py:3701 |
-| `MapProposal` | src/memorymap/api/routes_whiteboard.py:5457 |
-| `MapTreeOut` | src/memorymap/api/routes_whiteboard.py:3530 |
+| `MapClearStyleOut` | src/memorymap/api/routes_whiteboard.py:4069 |
+| `MapGenerate` | src/memorymap/api/routes_whiteboard.py:5681 |
+| `MapImport` | src/memorymap/api/routes_whiteboard.py:4871 |
+| `MapNodeCreate` | src/memorymap/api/routes_whiteboard.py:3627 |
+| `MapNodeMove` | src/memorymap/api/routes_whiteboard.py:3803 |
+| `MapNodeMoveOne` | src/memorymap/api/routes_whiteboard.py:3894 |
+| `MapNodesMove` | src/memorymap/api/routes_whiteboard.py:3909 |
+| `MapOutlinePaste` | src/memorymap/api/routes_whiteboard.py:3732 |
+| `MapProposal` | src/memorymap/api/routes_whiteboard.py:5523 |
+| `MapTreeOut` | src/memorymap/api/routes_whiteboard.py:3561 |
 | `WhiteboardComment` | src/memorymap/api/routes_whiteboard.py:270 |
 | `WhiteboardNodeBase` | src/memorymap/api/routes_whiteboard.py:295 |
 | `WhiteboardNodeOut` | src/memorymap/api/routes_whiteboard.py:318 |
@@ -14760,121 +14790,136 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `WhiteboardSketchBase` | src/memorymap/api/routes_whiteboard.py:324 |
 | `WhiteboardSketchOut` | src/memorymap/api/routes_whiteboard.py:333 |
 | `WhiteboardStateOut` | src/memorymap/api/routes_whiteboard.py:828 |
-| `_PathEnd` | src/memorymap/api/routes_whiteboard.py:1838 |
-| `_apply_board_look` | src/memorymap/api/routes_whiteboard.py:2697 |
-| `_apply_comments` | src/memorymap/api/routes_whiteboard.py:2818 |
+| `_PathEnd` | src/memorymap/api/routes_whiteboard.py:1847 |
+| `_apply_board_look` | src/memorymap/api/routes_whiteboard.py:2719 |
+| `_apply_comments` | src/memorymap/api/routes_whiteboard.py:2840 |
 | `_board_background` | src/memorymap/api/routes_whiteboard.py:1381 |
-| `_board_entry` | src/memorymap/api/routes_whiteboard.py:3560 |
+| `_board_entry` | src/memorymap/api/routes_whiteboard.py:3591 |
 | `_board_filter` | src/memorymap/api/routes_whiteboard.py:838 |
 | `_board_layers` | src/memorymap/api/routes_whiteboard.py:1273 |
 | `_board_numbered` | src/memorymap/api/routes_whiteboard.py:1209 |
 | `_board_palette` | src/memorymap/api/routes_whiteboard.py:1654 |
-| `_board_preview` | src/memorymap/api/routes_whiteboard.py:1946 |
+| `_board_preview` | src/memorymap/api/routes_whiteboard.py:2093 |
 | `_board_settings` | src/memorymap/api/routes_whiteboard.py:1003 |
 | `_board_theme` | src/memorymap/api/routes_whiteboard.py:1132 |
-| `_build_tree` | src/memorymap/api/routes_whiteboard.py:3423 |
-| `_clean_import_style` | src/memorymap/api/routes_whiteboard.py:4911 |
+| `_branch_children` | src/memorymap/api/routes_whiteboard.py:1659 |
+| `_build_tree` | src/memorymap/api/routes_whiteboard.py:3454 |
+| `_card_preview_rows` | src/memorymap/api/routes_whiteboard.py:1955 |
+| `_clean_import_style` | src/memorymap/api/routes_whiteboard.py:4961 |
 | `_clean_levels` | src/memorymap/api/routes_whiteboard.py:1098 |
 | `_clean_theme` | src/memorymap/api/routes_whiteboard.py:1056 |
-| `_cross_links` | src/memorymap/api/routes_whiteboard.py:3498 |
-| `_delete_one_object` | src/memorymap/api/routes_whiteboard.py:3163 |
+| `_cross_links` | src/memorymap/api/routes_whiteboard.py:3529 |
+| `_delete_one_object` | src/memorymap/api/routes_whiteboard.py:3185 |
 | `_drop_orphan_links` | src/memorymap/api/routes_whiteboard.py:953 |
-| `_export_freemind` | src/memorymap/api/routes_whiteboard.py:4536 |
-| `_export_markdown` | src/memorymap/api/routes_whiteboard.py:4251 |
-| `_export_node_id` | src/memorymap/api/routes_whiteboard.py:4532 |
-| `_export_opml` | src/memorymap/api/routes_whiteboard.py:4452 |
-| `_export_text` | src/memorymap/api/routes_whiteboard.py:4292 |
-| `_export_tree` | src/memorymap/api/routes_whiteboard.py:4149 |
-| `_export_xmind` | src/memorymap/api/routes_whiteboard.py:4696 |
-| `_first_cycle` | src/memorymap/api/routes_whiteboard.py:3895 |
-| `_flatten_parsed` | src/memorymap/api/routes_whiteboard.py:5738 |
+| `_export_freemind` | src/memorymap/api/routes_whiteboard.py:4626 |
+| `_export_markdown` | src/memorymap/api/routes_whiteboard.py:4282 |
+| `_export_node_id` | src/memorymap/api/routes_whiteboard.py:4563 |
+| `_export_opml` | src/memorymap/api/routes_whiteboard.py:4483 |
+| `_export_text` | src/memorymap/api/routes_whiteboard.py:4323 |
+| `_export_tree` | src/memorymap/api/routes_whiteboard.py:4180 |
+| `_export_xmind` | src/memorymap/api/routes_whiteboard.py:4746 |
+| `_first_cycle` | src/memorymap/api/routes_whiteboard.py:3926 |
+| `_flatten_parsed` | src/memorymap/api/routes_whiteboard.py:5804 |
 | `_forget_links_to` | src/memorymap/api/routes_whiteboard.py:848 |
-| `_freemind_style` | src/memorymap/api/routes_whiteboard.py:4945 |
-| `_import_link_targets` | src/memorymap/api/routes_whiteboard.py:4987 |
-| `_is_descendant` | src/memorymap/api/routes_whiteboard.py:3778 |
+| `_freemind_attributes` | src/memorymap/api/routes_whiteboard.py:4567 |
+| `_freemind_edge` | src/memorymap/api/routes_whiteboard.py:4602 |
+| `_freemind_font` | src/memorymap/api/routes_whiteboard.py:4588 |
+| `_freemind_style` | src/memorymap/api/routes_whiteboard.py:4995 |
+| `_import_link_targets` | src/memorymap/api/routes_whiteboard.py:5037 |
+| `_is_descendant` | src/memorymap/api/routes_whiteboard.py:3809 |
 | `_is_link_sketch` | src/memorymap/api/routes_whiteboard.py:1429 |
 | `_is_one_emoji` | src/memorymap/api/routes_whiteboard.py:228 |
-| `_map_branch_colors` | src/memorymap/api/routes_whiteboard.py:1659 |
-| `_map_kind_ok` | src/memorymap/api/routes_whiteboard.py:3213 |
-| `_map_node_dict` | src/memorymap/api/routes_whiteboard.py:3395 |
-| `_map_node_style` | src/memorymap/api/routes_whiteboard.py:3381 |
-| `_map_objects` | src/memorymap/api/routes_whiteboard.py:3467 |
-| `_markdown_note_lines` | src/memorymap/api/routes_whiteboard.py:4313 |
-| `_next_position` | src/memorymap/api/routes_whiteboard.py:3611 |
-| `_note_titles` | src/memorymap/api/routes_whiteboard.py:5484 |
-| `_object_data` | src/memorymap/api/routes_whiteboard.py:3324 |
+| `_map_branch_colors` | src/memorymap/api/routes_whiteboard.py:1695 |
+| `_map_kind_ok` | src/memorymap/api/routes_whiteboard.py:3235 |
+| `_map_node_dict` | src/memorymap/api/routes_whiteboard.py:3426 |
+| `_map_node_style` | src/memorymap/api/routes_whiteboard.py:3412 |
+| `_map_objects` | src/memorymap/api/routes_whiteboard.py:3498 |
+| `_markdown_note_lines` | src/memorymap/api/routes_whiteboard.py:4344 |
+| `_next_position` | src/memorymap/api/routes_whiteboard.py:3642 |
+| `_note_reference_label` | src/memorymap/api/routes_whiteboard.py:3295 |
+| `_note_titles` | src/memorymap/api/routes_whiteboard.py:5550 |
+| `_object_data` | src/memorymap/api/routes_whiteboard.py:2000 |
+| `_object_data` | src/memorymap/api/routes_whiteboard.py:3355 |
+| `_object_preview_rows` | src/memorymap/api/routes_whiteboard.py:2009 |
 | `_object_to_out` | src/memorymap/api/routes_whiteboard.py:777 |
 | `_on_current_layer` | src/memorymap/api/routes_whiteboard.py:1328 |
-| `_opml_style` | src/memorymap/api/routes_whiteboard.py:4970 |
-| `_outline_covering` | src/memorymap/api/routes_whiteboard.py:5528 |
-| `_outline_from_filing` | src/memorymap/api/routes_whiteboard.py:5499 |
-| `_outline_from_paste` | src/memorymap/api/routes_whiteboard.py:3711 |
-| `_outline_numbers` | src/memorymap/api/routes_whiteboard.py:4188 |
-| `_outline_rows` | src/memorymap/api/routes_whiteboard.py:4118 |
-| `_parent_map` | src/memorymap/api/routes_whiteboard.py:3885 |
-| `_parse_freemind` | src/memorymap/api/routes_whiteboard.py:4998 |
-| `_parse_markdown_outline` | src/memorymap/api/routes_whiteboard.py:5230 |
-| `_parse_opml` | src/memorymap/api/routes_whiteboard.py:5062 |
-| `_parse_xmind` | src/memorymap/api/routes_whiteboard.py:5149 |
-| `_parse_xml_document` | src/memorymap/api/routes_whiteboard.py:4846 |
-| `_path_bbox` | src/memorymap/api/routes_whiteboard.py:1776 |
-| `_place_map_nodes` | src/memorymap/api/routes_whiteboard.py:5313 |
-| `_preview_fields` | src/memorymap/api/routes_whiteboard.py:2205 |
-| `_preview_fingerprint` | src/memorymap/api/routes_whiteboard.py:2164 |
-| `_preview_items` | src/memorymap/api/routes_whiteboard.py:1889 |
+| `_opml_style` | src/memorymap/api/routes_whiteboard.py:5020 |
+| `_other_reference_label` | src/memorymap/api/routes_whiteboard.py:3308 |
+| `_outline_attach` | src/memorymap/api/routes_whiteboard.py:5292 |
+| `_outline_covering` | src/memorymap/api/routes_whiteboard.py:5594 |
+| `_outline_from_filing` | src/memorymap/api/routes_whiteboard.py:5565 |
+| `_outline_from_paste` | src/memorymap/api/routes_whiteboard.py:3742 |
+| `_outline_node` | src/memorymap/api/routes_whiteboard.py:5305 |
+| `_outline_note_line` | src/memorymap/api/routes_whiteboard.py:5280 |
+| `_outline_numbers` | src/memorymap/api/routes_whiteboard.py:4219 |
+| `_outline_rows` | src/memorymap/api/routes_whiteboard.py:4149 |
+| `_parent_map` | src/memorymap/api/routes_whiteboard.py:3916 |
+| `_parse_freemind` | src/memorymap/api/routes_whiteboard.py:5048 |
+| `_parse_markdown_outline` | src/memorymap/api/routes_whiteboard.py:5315 |
+| `_parse_opml` | src/memorymap/api/routes_whiteboard.py:5112 |
+| `_parse_xmind` | src/memorymap/api/routes_whiteboard.py:5199 |
+| `_parse_xml_document` | src/memorymap/api/routes_whiteboard.py:4896 |
+| `_path_bbox` | src/memorymap/api/routes_whiteboard.py:1785 |
+| `_place_map_nodes` | src/memorymap/api/routes_whiteboard.py:5379 |
+| `_preview_aspect` | src/memorymap/api/routes_whiteboard.py:2058 |
+| `_preview_edges` | src/memorymap/api/routes_whiteboard.py:2075 |
+| `_preview_fields` | src/memorymap/api/routes_whiteboard.py:2227 |
+| `_preview_fingerprint` | src/memorymap/api/routes_whiteboard.py:2186 |
+| `_preview_items` | src/memorymap/api/routes_whiteboard.py:1898 |
 | `_preview_points` | src/memorymap/api/routes_whiteboard.py:1544 |
-| `_preview_size` | src/memorymap/api/routes_whiteboard.py:1737 |
-| `_proposal_notes` | src/memorymap/api/routes_whiteboard.py:5465 |
-| `_record_map_creation` | src/memorymap/api/routes_whiteboard.py:5628 |
-| `_reference_facets` | src/memorymap/api/routes_whiteboard.py:3293 |
-| `_reference_label` | src/memorymap/api/routes_whiteboard.py:3257 |
+| `_preview_size` | src/memorymap/api/routes_whiteboard.py:1746 |
+| `_proposal_notes` | src/memorymap/api/routes_whiteboard.py:5531 |
+| `_record_map_creation` | src/memorymap/api/routes_whiteboard.py:5694 |
+| `_reference_facets` | src/memorymap/api/routes_whiteboard.py:3324 |
+| `_reference_label` | src/memorymap/api/routes_whiteboard.py:3279 |
 | `_require_board` | src/memorymap/api/routes_whiteboard.py:900 |
 | `_require_entry` | src/memorymap/api/routes_whiteboard.py:893 |
 | `_require_object_data` | src/memorymap/api/routes_whiteboard.py:804 |
-| `_require_reference` | src/memorymap/api/routes_whiteboard.py:3225 |
+| `_require_reference` | src/memorymap/api/routes_whiteboard.py:3247 |
 | `_require_table_cells` | src/memorymap/api/routes_whiteboard.py:794 |
-| `_restore_import_links` | src/memorymap/api/routes_whiteboard.py:5384 |
-| `_sibling_key` | src/memorymap/api/routes_whiteboard.py:3489 |
-| `_sketch_preview` | src/memorymap/api/routes_whiteboard.py:1849 |
+| `_restore_import_links` | src/memorymap/api/routes_whiteboard.py:5450 |
+| `_sibling_key` | src/memorymap/api/routes_whiteboard.py:3520 |
+| `_sketch_preview` | src/memorymap/api/routes_whiteboard.py:1858 |
+| `_sketch_preview_rows` | src/memorymap/api/routes_whiteboard.py:1986 |
 | `_store_board_background` | src/memorymap/api/routes_whiteboard.py:1405 |
 | `_store_board_layers` | src/memorymap/api/routes_whiteboard.py:1291 |
 | `_store_board_numbered` | src/memorymap/api/routes_whiteboard.py:1227 |
 | `_store_board_settings` | src/memorymap/api/routes_whiteboard.py:1030 |
 | `_store_board_theme` | src/memorymap/api/routes_whiteboard.py:1145 |
-| `_strip_outline_numbers` | src/memorymap/api/routes_whiteboard.py:4222 |
-| `_subtree` | src/memorymap/api/routes_whiteboard.py:3132 |
+| `_strip_outline_numbers` | src/memorymap/api/routes_whiteboard.py:4253 |
+| `_subtree` | src/memorymap/api/routes_whiteboard.py:3154 |
 | `_themed_style` | src/memorymap/api/routes_whiteboard.py:1179 |
 | `_without_pins` | src/memorymap/api/routes_whiteboard.py:1197 |
-| `_xmind_marks` | src/memorymap/api/routes_whiteboard.py:5139 |
-| `_xmind_style` | src/memorymap/api/routes_whiteboard.py:5121 |
-| `_xmind_topic` | src/memorymap/api/routes_whiteboard.py:4667 |
-| `_xml_attribute` | src/memorymap/api/routes_whiteboard.py:4437 |
-| `board_tree` | src/memorymap/api/routes_whiteboard.py:3570 |
-| `clear_map_node_styles` | src/memorymap/api/routes_whiteboard.py:4063 |
-| `create_board` | src/memorymap/api/routes_whiteboard.py:2515 |
-| `create_map_node` | src/memorymap/api/routes_whiteboard.py:3640 |
-| `create_node` | src/memorymap/api/routes_whiteboard.py:2827 |
-| `create_object` | src/memorymap/api/routes_whiteboard.py:3009 |
-| `create_sketch` | src/memorymap/api/routes_whiteboard.py:2925 |
+| `_xmind_marks` | src/memorymap/api/routes_whiteboard.py:5189 |
+| `_xmind_style` | src/memorymap/api/routes_whiteboard.py:5171 |
+| `_xmind_topic` | src/memorymap/api/routes_whiteboard.py:4717 |
+| `_xml_attribute` | src/memorymap/api/routes_whiteboard.py:4468 |
+| `board_tree` | src/memorymap/api/routes_whiteboard.py:3601 |
+| `clear_map_node_styles` | src/memorymap/api/routes_whiteboard.py:4094 |
+| `create_board` | src/memorymap/api/routes_whiteboard.py:2537 |
+| `create_map_node` | src/memorymap/api/routes_whiteboard.py:3671 |
+| `create_node` | src/memorymap/api/routes_whiteboard.py:2849 |
+| `create_object` | src/memorymap/api/routes_whiteboard.py:3031 |
+| `create_sketch` | src/memorymap/api/routes_whiteboard.py:2947 |
 | `current_layer` | src/memorymap/api/routes_whiteboard.py:1316 |
-| `delete_node` | src/memorymap/api/routes_whiteboard.py:2904 |
-| `delete_object` | src/memorymap/api/routes_whiteboard.py:3087 |
-| `delete_sketch` | src/memorymap/api/routes_whiteboard.py:2980 |
-| `duplicate_board` | src/memorymap/api/routes_whiteboard.py:2557 |
-| `export_board` | src/memorymap/api/routes_whiteboard.py:4741 |
-| `generate_map` | src/memorymap/api/routes_whiteboard.py:5676 |
+| `delete_node` | src/memorymap/api/routes_whiteboard.py:2926 |
+| `delete_object` | src/memorymap/api/routes_whiteboard.py:3109 |
+| `delete_sketch` | src/memorymap/api/routes_whiteboard.py:3002 |
+| `duplicate_board` | src/memorymap/api/routes_whiteboard.py:2579 |
+| `export_board` | src/memorymap/api/routes_whiteboard.py:4791 |
+| `generate_map` | src/memorymap/api/routes_whiteboard.py:5742 |
 | `get_whiteboard_state` | src/memorymap/api/routes_whiteboard.py:928 |
-| `import_board` | src/memorymap/api/routes_whiteboard.py:5750 |
-| `list_boards` | src/memorymap/api/routes_whiteboard.py:2257 |
-| `list_images` | src/memorymap/api/routes_whiteboard.py:2446 |
-| `move_map_node` | src/memorymap/api/routes_whiteboard.py:3811 |
-| `move_map_nodes` | src/memorymap/api/routes_whiteboard.py:3926 |
-| `paste_map_outline` | src/memorymap/api/routes_whiteboard.py:3736 |
-| `propose_map` | src/memorymap/api/routes_whiteboard.py:5547 |
-| `rename_board` | src/memorymap/api/routes_whiteboard.py:2721 |
-| `update_node` | src/memorymap/api/routes_whiteboard.py:2872 |
-| `update_object` | src/memorymap/api/routes_whiteboard.py:3053 |
-| `update_sketch` | src/memorymap/api/routes_whiteboard.py:2955 |
+| `import_board` | src/memorymap/api/routes_whiteboard.py:5816 |
+| `list_boards` | src/memorymap/api/routes_whiteboard.py:2279 |
+| `list_images` | src/memorymap/api/routes_whiteboard.py:2468 |
+| `move_map_node` | src/memorymap/api/routes_whiteboard.py:3842 |
+| `move_map_nodes` | src/memorymap/api/routes_whiteboard.py:3957 |
+| `paste_map_outline` | src/memorymap/api/routes_whiteboard.py:3767 |
+| `propose_map` | src/memorymap/api/routes_whiteboard.py:5613 |
+| `rename_board` | src/memorymap/api/routes_whiteboard.py:2743 |
+| `update_node` | src/memorymap/api/routes_whiteboard.py:2894 |
+| `update_object` | src/memorymap/api/routes_whiteboard.py:3075 |
+| `update_sketch` | src/memorymap/api/routes_whiteboard.py:2977 |
 
 ### src/memorymap/api/run_sandbox.py (21)
 
@@ -14973,36 +15018,40 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `start` | src/memorymap/core/background.py:37 |
 | `stop_all` | src/memorymap/core/background.py:68 |
 
-### src/memorymap/core/backup.py (26)
+### src/memorymap/core/backup.py (30)
 
 | Name | File:line |
 |---|---|
-| `DamagedNotebookError` | src/memorymap/core/backup.py:391 |
+| `DamagedNotebookError` | src/memorymap/core/backup.py:414 |
+| `_NoRun` | src/memorymap/core/backup.py:297 |
 | `_copy_aside` | src/memorymap/core/backup.py:218 |
+| `_discard_partial` | src/memorymap/core/backup.py:342 |
+| `_free_destination` | src/memorymap/core/backup.py:310 |
 | `_newest_key` | src/memorymap/core/backup.py:114 |
 | `_read_record` | src/memorymap/core/backup.py:56 |
 | `_record_path` | src/memorymap/core/backup.py:43 |
-| `_sweep_partials` | src/memorymap/core/backup.py:444 |
+| `_second_copy` | src/memorymap/core/backup.py:322 |
+| `_sweep_partials` | src/memorymap/core/backup.py:467 |
 | `_write_record` | src/memorymap/core/backup.py:47 |
 | `backup_files` | src/memorymap/core/backup.py:86 |
-| `backup_if_due` | src/memorymap/core/backup.py:473 |
-| `backup_is_due` | src/memorymap/core/backup.py:455 |
+| `backup_if_due` | src/memorymap/core/backup.py:496 |
+| `backup_is_due` | src/memorymap/core/backup.py:478 |
 | `backup_now` | src/memorymap/core/backup.py:246 |
 | `backup_path` | src/memorymap/core/backup.py:75 |
 | `backups_dir` | src/memorymap/core/backup.py:69 |
-| `check_at_boot` | src/memorymap/core/backup.py:356 |
+| `check_at_boot` | src/memorymap/core/backup.py:379 |
 | `copy_dir` | src/memorymap/core/backup.py:206 |
-| `damaged_notebook_words` | src/memorymap/core/backup.py:395 |
-| `forget_boot_check` | src/memorymap/core/backup.py:417 |
+| `damaged_notebook_words` | src/memorymap/core/backup.py:418 |
+| `forget_boot_check` | src/memorymap/core/backup.py:440 |
 | `forget_record` | src/memorymap/core/backup.py:64 |
 | `list_backups` | src/memorymap/core/backup.py:126 |
 | `optimize_fts` | src/memorymap/core/backup.py:160 |
-| `prune` | src/memorymap/core/backup.py:423 |
-| `restore_backup` | src/memorymap/core/backup.py:491 |
-| `restore_file` | src/memorymap/core/backup.py:503 |
+| `prune` | src/memorymap/core/backup.py:446 |
+| `restore_backup` | src/memorymap/core/backup.py:514 |
+| `restore_file` | src/memorymap/core/backup.py:526 |
 | `snapshot` | src/memorymap/core/backup.py:185 |
 | `strip_leftovers` | src/memorymap/core/backup.py:174 |
-| `verify_copy` | src/memorymap/core/backup.py:329 |
+| `verify_copy` | src/memorymap/core/backup.py:352 |
 
 ### src/memorymap/core/backup_bundle.py (9)
 
@@ -15294,50 +15343,52 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `resolve` | src/memorymap/core/embedfind.py:216 |
 | `usable_repo` | src/memorymap/core/embedfind.py:211 |
 
-### src/memorymap/core/embedmodels.py (40)
+### src/memorymap/core/embedmodels.py (42)
 
 | Name | File:line |
 |---|---|
 | `DownloadState` | src/memorymap/core/embedmodels.py:340 |
 | `EmbedModel` | src/memorymap/core/embedmodels.py:50 |
 | `OllamaEmbedModel` | src/memorymap/core/embedmodels.py:209 |
-| `_begin_download` | src/memorymap/core/embedmodels.py:786 |
-| `_clear_directory` | src/memorymap/core/embedmodels.py:973 |
+| `_begin_download` | src/memorymap/core/embedmodels.py:795 |
+| `_clear_directory` | src/memorymap/core/embedmodels.py:982 |
 | `_declared_bytes` | src/memorymap/core/embedmodels.py:441 |
-| `_dir_size` | src/memorymap/core/embedmodels.py:531 |
+| `_dir_size` | src/memorymap/core/embedmodels.py:540 |
 | `_file_size` | src/memorymap/core/embedmodels.py:450 |
-| `_human_size` | src/memorymap/core/embedmodels.py:555 |
-| `_in_use` | src/memorymap/core/embedmodels.py:1021 |
-| `_log` | src/memorymap/core/embedmodels.py:631 |
-| `_looks_like_a_dropped_connection` | src/memorymap/core/embedmodels.py:665 |
+| `_human_size` | src/memorymap/core/embedmodels.py:564 |
+| `_in_use` | src/memorymap/core/embedmodels.py:1030 |
+| `_log` | src/memorymap/core/embedmodels.py:640 |
+| `_looks_like_a_dropped_connection` | src/memorymap/core/embedmodels.py:674 |
 | `_model_dir` | src/memorymap/core/embedmodels.py:384 |
-| `_run_download` | src/memorymap/core/embedmodels.py:669 |
-| `_snapshot_missing` | src/memorymap/core/embedmodels.py:460 |
-| `_spawn_download` | src/memorymap/core/embedmodels.py:803 |
-| `cache_health` | src/memorymap/core/embedmodels.py:494 |
+| `_module_configs_missing` | src/memorymap/core/embedmodels.py:471 |
+| `_run_download` | src/memorymap/core/embedmodels.py:678 |
+| `_snapshot_missing` | src/memorymap/core/embedmodels.py:487 |
+| `_snapshot_modules` | src/memorymap/core/embedmodels.py:460 |
+| `_spawn_download` | src/memorymap/core/embedmodels.py:812 |
+| `cache_health` | src/memorymap/core/embedmodels.py:503 |
 | `cache_root` | src/memorymap/core/embedmodels.py:366 |
-| `can_download` | src/memorymap/core/embedmodels.py:563 |
-| `cancel` | src/memorymap/core/embedmodels.py:609 |
+| `can_download` | src/memorymap/core/embedmodels.py:572 |
+| `cancel` | src/memorymap/core/embedmodels.py:618 |
 | `catalogue` | src/memorymap/core/embedmodels.py:271 |
-| `current` | src/memorymap/core/embedmodels.py:605 |
+| `current` | src/memorymap/core/embedmodels.py:614 |
 | `disk_size_of` | src/memorymap/core/embedmodels.py:424 |
-| `hub_metadata` | src/memorymap/core/embedmodels.py:864 |
-| `hub_refusal` | src/memorymap/core/embedmodels.py:894 |
+| `hub_metadata` | src/memorymap/core/embedmodels.py:873 |
+| `hub_refusal` | src/memorymap/core/embedmodels.py:903 |
 | `is_downloaded` | src/memorymap/core/embedmodels.py:417 |
-| `on_download_finished` | src/memorymap/core/embedmodels.py:748 |
-| `parse_typed_name` | src/memorymap/core/embedmodels.py:848 |
+| `on_download_finished` | src/memorymap/core/embedmodels.py:757 |
+| `parse_typed_name` | src/memorymap/core/embedmodels.py:857 |
 | `prefix_for` | src/memorymap/core/embedmodels.py:265 |
-| `reinstall` | src/memorymap/core/embedmodels.py:753 |
-| `remove` | src/memorymap/core/embedmodels.py:949 |
-| `repair` | src/memorymap/core/embedmodels.py:813 |
-| `repair_title` | src/memorymap/core/embedmodels.py:807 |
-| `reset_for_tests` | src/memorymap/core/embedmodels.py:1028 |
+| `reinstall` | src/memorymap/core/embedmodels.py:762 |
+| `remove` | src/memorymap/core/embedmodels.py:958 |
+| `repair` | src/memorymap/core/embedmodels.py:822 |
+| `repair_title` | src/memorymap/core/embedmodels.py:816 |
+| `reset_for_tests` | src/memorymap/core/embedmodels.py:1037 |
 | `resolve_choice` | src/memorymap/core/embedmodels.py:329 |
-| `set_in_use_check` | src/memorymap/core/embedmodels.py:1016 |
+| `set_in_use_check` | src/memorymap/core/embedmodels.py:1025 |
 | `snapshot_state` | src/memorymap/core/embedmodels.py:392 |
-| `start` | src/memorymap/core/embedmodels.py:770 |
-| `start_typed` | src/memorymap/core/embedmodels.py:921 |
-| `status` | src/memorymap/core/embedmodels.py:574 |
+| `start` | src/memorymap/core/embedmodels.py:779 |
+| `start_typed` | src/memorymap/core/embedmodels.py:930 |
+| `status` | src/memorymap/core/embedmodels.py:583 |
 
 ### src/memorymap/core/embedswitch.py (17)
 
@@ -15572,18 +15623,18 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_clip` | src/memorymap/core/jobruns.py:90 |
 | `_database` | src/memorymap/core/jobruns.py:123 |
 | `_failure_reason` | src/memorymap/core/jobruns.py:95 |
-| `begin` | src/memorymap/core/jobruns.py:513 |
+| `begin` | src/memorymap/core/jobruns.py:520 |
 | `clear_finished` | src/memorymap/core/jobruns.py:192 |
 | `clear_live` | src/memorymap/core/jobruns.py:211 |
 | `current` | src/memorymap/core/jobruns.py:227 |
-| `describe_night_pass` | src/memorymap/core/jobruns.py:641 |
+| `describe_night_pass` | src/memorymap/core/jobruns.py:648 |
 | `finished` | src/memorymap/core/jobruns.py:186 |
-| `job_run` | src/memorymap/core/jobruns.py:523 |
-| `last_runs` | src/memorymap/core/jobruns.py:599 |
+| `job_run` | src/memorymap/core/jobruns.py:530 |
+| `last_runs` | src/memorymap/core/jobruns.py:606 |
 | `live` | src/memorymap/core/jobruns.py:220 |
-| `mark_interrupted` | src/memorymap/core/jobruns.py:572 |
-| `merged_history` | src/memorymap/core/jobruns.py:484 |
-| `note_finished` | src/memorymap/core/jobruns.py:544 |
+| `mark_interrupted` | src/memorymap/core/jobruns.py:579 |
+| `merged_history` | src/memorymap/core/jobruns.py:491 |
+| `note_finished` | src/memorymap/core/jobruns.py:551 |
 | `peek_database` | src/memorymap/core/jobruns.py:127 |
 | `set_database_source` | src/memorymap/core/jobruns.py:116 |
 | `started_by` | src/memorymap/core/jobruns.py:174 |
@@ -15705,59 +15756,62 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `refresh_own_prefixes` | src/memorymap/core/lanserve.py:126 |
 | `serve` | src/memorymap/core/lanserve.py:352 |
 
-### src/memorymap/core/lantrust.py (49)
+### src/memorymap/core/lantrust.py (52)
 
 | Name | File:line |
 |---|---|
 | `_bump` | src/memorymap/core/lantrust.py:71 |
 | `_entry` | src/memorymap/core/lantrust.py:184 |
-| `_expire` | src/memorymap/core/lantrust.py:578 |
-| `_group_of` | src/memorymap/core/lantrust.py:336 |
-| `_named` | src/memorymap/core/lantrust.py:344 |
+| `_expire` | src/memorymap/core/lantrust.py:591 |
+| `_group_of` | src/memorymap/core/lantrust.py:337 |
+| `_listed_row` | src/memorymap/core/lantrust.py:361 |
+| `_move_to_trusted` | src/memorymap/core/lantrust.py:401 |
+| `_named` | src/memorymap/core/lantrust.py:345 |
+| `_network_groups` | src/memorymap/core/lantrust.py:349 |
 | `_note_untrusted` | src/memorymap/core/lantrust.py:208 |
 | `_now_text` | src/memorymap/core/lantrust.py:137 |
-| `_one_network` | src/memorymap/core/lantrust.py:323 |
+| `_one_network` | src/memorymap/core/lantrust.py:324 |
 | `_online` | src/memorymap/core/lantrust.py:224 |
 | `_path` | src/memorymap/core/lantrust.py:84 |
 | `_remember` | src/memorymap/core/lantrust.py:196 |
 | `_same` | src/memorymap/core/lantrust.py:176 |
 | `_stopped_trusting` | src/memorymap/core/lantrust.py:144 |
-| `allow_current` | src/memorymap/core/lantrust.py:308 |
-| `clear_switched_off` | src/memorymap/core/lantrust.py:496 |
-| `current_network` | src/memorymap/core/lantrust.py:269 |
-| `decide` | src/memorymap/core/lantrust.py:613 |
-| `device_hash` | src/memorymap/core/lantrust.py:525 |
-| `device_known` | src/memorymap/core/lantrust.py:531 |
-| `device_name` | src/memorymap/core/lantrust.py:555 |
-| `devices` | src/memorymap/core/lantrust.py:658 |
+| `allow_current` | src/memorymap/core/lantrust.py:309 |
+| `clear_switched_off` | src/memorymap/core/lantrust.py:509 |
+| `current_network` | src/memorymap/core/lantrust.py:270 |
+| `decide` | src/memorymap/core/lantrust.py:626 |
+| `device_hash` | src/memorymap/core/lantrust.py:538 |
+| `device_known` | src/memorymap/core/lantrust.py:544 |
+| `device_name` | src/memorymap/core/lantrust.py:568 |
+| `devices` | src/memorymap/core/lantrust.py:671 |
 | `evaluate` | src/memorymap/core/lantrust.py:151 |
-| `forget_device` | src/memorymap/core/lantrust.py:665 |
-| `forget_network` | src/memorymap/core/lantrust.py:377 |
-| `hold` | src/memorymap/core/lantrust.py:583 |
-| `is_open` | src/memorymap/core/lantrust.py:265 |
-| `listed` | src/memorymap/core/lantrust.py:348 |
+| `forget_device` | src/memorymap/core/lantrust.py:678 |
+| `forget_network` | src/memorymap/core/lantrust.py:385 |
+| `hold` | src/memorymap/core/lantrust.py:596 |
+| `is_open` | src/memorymap/core/lantrust.py:266 |
+| `listed` | src/memorymap/core/lantrust.py:377 |
 | `load` | src/memorymap/core/lantrust.py:88 |
-| `mark_switched_off` | src/memorymap/core/lantrust.py:488 |
-| `mark_turned_on` | src/memorymap/core/lantrust.py:473 |
-| `network_for_display` | src/memorymap/core/lantrust.py:276 |
-| `note_used` | src/memorymap/core/lantrust.py:456 |
-| `pending` | src/memorymap/core/lantrust.py:603 |
-| `persist_use` | src/memorymap/core/lantrust.py:462 |
-| `plain_address` | src/memorymap/core/lantrust.py:536 |
+| `mark_switched_off` | src/memorymap/core/lantrust.py:501 |
+| `mark_turned_on` | src/memorymap/core/lantrust.py:486 |
+| `network_for_display` | src/memorymap/core/lantrust.py:277 |
+| `note_used` | src/memorymap/core/lantrust.py:469 |
+| `pending` | src/memorymap/core/lantrust.py:616 |
+| `persist_use` | src/memorymap/core/lantrust.py:475 |
+| `plain_address` | src/memorymap/core/lantrust.py:549 |
 | `refresh` | src/memorymap/core/lantrust.py:238 |
-| `remember_current` | src/memorymap/core/lantrust.py:293 |
-| `reset_for_tests` | src/memorymap/core/lantrust.py:678 |
+| `remember_current` | src/memorymap/core/lantrust.py:294 |
+| `reset_for_tests` | src/memorymap/core/lantrust.py:691 |
 | `save` | src/memorymap/core/lantrust.py:125 |
-| `set_flag` | src/memorymap/core/lantrust.py:512 |
-| `settle` | src/memorymap/core/lantrust.py:651 |
-| `status` | src/memorymap/core/lantrust.py:284 |
-| `touch_device` | src/memorymap/core/lantrust.py:542 |
-| `touch_version` | src/memorymap/core/lantrust.py:505 |
-| `trust_network` | src/memorymap/core/lantrust.py:393 |
-| `untrust_network` | src/memorymap/core/lantrust.py:423 |
-| `unused_since` | src/memorymap/core/lantrust.py:484 |
+| `set_flag` | src/memorymap/core/lantrust.py:525 |
+| `settle` | src/memorymap/core/lantrust.py:664 |
+| `status` | src/memorymap/core/lantrust.py:285 |
+| `touch_device` | src/memorymap/core/lantrust.py:555 |
+| `touch_version` | src/memorymap/core/lantrust.py:518 |
+| `trust_network` | src/memorymap/core/lantrust.py:418 |
+| `untrust_network` | src/memorymap/core/lantrust.py:436 |
+| `unused_since` | src/memorymap/core/lantrust.py:497 |
 | `version` | src/memorymap/core/lantrust.py:77 |
-| `wait_decision` | src/memorymap/core/lantrust.py:633 |
+| `wait_decision` | src/memorymap/core/lantrust.py:646 |
 
 ### src/memorymap/core/launch_status.py (7)
 
@@ -15797,17 +15851,20 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 |---|---|
 | `Ahead` | src/memorymap/core/lookahead.py:18 |
 
-### src/memorymap/core/maintenance.py (10)
+### src/memorymap/core/maintenance.py (13)
 
 | Name | File:line |
 |---|---|
 | `ShortcutError` | src/memorymap/core/maintenance.py:44 |
 | `_desktop_entry` | src/memorymap/core/maintenance.py:115 |
 | `_ps_quote` | src/memorymap/core/maintenance.py:132 |
+| `_shortcut_linux` | src/memorymap/core/maintenance.py:162 |
+| `_shortcut_mac` | src/memorymap/core/maintenance.py:153 |
+| `_shortcut_windows` | src/memorymap/core/maintenance.py:136 |
 | `is_frozen` | src/memorymap/core/maintenance.py:48 |
 | `is_source_checkout` | src/memorymap/core/maintenance.py:52 |
 | `logs_dir` | src/memorymap/core/maintenance.py:71 |
-| `make_shortcut` | src/memorymap/core/maintenance.py:136 |
+| `make_shortcut` | src/memorymap/core/maintenance.py:180 |
 | `reinstall_pending` | src/memorymap/core/maintenance.py:57 |
 | `set_reinstall` | src/memorymap/core/maintenance.py:61 |
 | `uninstall_plan` | src/memorymap/core/maintenance.py:76 |
@@ -15858,19 +15915,20 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `normalise` | src/memorymap/core/native_imports.py:72 |
 | `read_imports` | src/memorymap/core/native_imports.py:297 |
 
-### src/memorymap/core/netbind.py (26)
+### src/memorymap/core/netbind.py (27)
 
 | Name | File:line |
 |---|---|
-| `_any_address` | src/memorymap/core/netbind.py:458 |
+| `_any_address` | src/memorymap/core/netbind.py:467 |
 | `_own_names` | src/memorymap/core/netbind.py:258 |
 | `_proc_v6_addresses` | src/memorymap/core/netbind.py:304 |
+| `_shown_addresses` | src/memorymap/core/netbind.py:403 |
 | `_usable_v6` | src/memorymap/core/netbind.py:286 |
 | `arrived_on_loopback` | src/memorymap/core/netbind.py:222 |
 | `arrived_on_socket` | src/memorymap/core/netbind.py:245 |
 | `bind_host` | src/memorymap/core/netbind.py:173 |
 | `current` | src/memorymap/core/netbind.py:214 |
-| `describe` | src/memorymap/core/netbind.py:403 |
+| `describe` | src/memorymap/core/netbind.py:416 |
 | `dual_stack` | src/memorymap/core/netbind.py:163 |
 | `env_bind` | src/memorymap/core/netbind.py:99 |
 | `explicit_bind` | src/memorymap/core/netbind.py:148 |
@@ -15883,7 +15941,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `lan_port` | src/memorymap/core/netbind.py:60 |
 | `lan_port_candidates` | src/memorymap/core/netbind.py:74 |
 | `listening_socket` | src/memorymap/core/netbind.py:184 |
-| `order_addresses` | src/memorymap/core/netbind.py:444 |
+| `order_addresses` | src/memorymap/core/netbind.py:453 |
 | `set_current` | src/memorymap/core/netbind.py:208 |
 | `set_explicit_bind` | src/memorymap/core/netbind.py:142 |
 | `set_lan_port` | src/memorymap/core/netbind.py:82 |
@@ -16042,19 +16100,25 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `pin_url` | src/memorymap/core/privacy_http.py:79 |
 | `strip_tracking` | src/memorymap/core/privacy_http.py:55 |
 
-### src/memorymap/core/qrsvg.py (9)
+### src/memorymap/core/qrsvg.py (15)
 
 | Name | File:line |
 |---|---|
 | `_Matrix` | src/memorymap/core/qrsvg.py:78 |
 | `_alignment_positions` | src/memorymap/core/qrsvg.py:70 |
+| `_best_mask` | src/memorymap/core/qrsvg.py:306 |
+| `_data_bits` | src/memorymap/core/qrsvg.py:258 |
 | `_data_codewords` | src/memorymap/core/qrsvg.py:36 |
+| `_finder_penalty` | src/memorymap/core/qrsvg.py:216 |
 | `_gf_mul` | src/memorymap/core/qrsvg.py:40 |
+| `_interleaved_codewords` | src/memorymap/core/qrsvg.py:279 |
 | `_raw_modules` | src/memorymap/core/qrsvg.py:25 |
 | `_rs_divisor` | src/memorymap/core/qrsvg.py:48 |
 | `_rs_remainder` | src/memorymap/core/qrsvg.py:60 |
-| `encode` | src/memorymap/core/qrsvg.py:216 |
-| `svg` | src/memorymap/core/qrsvg.py:285 |
+| `_run_penalty` | src/memorymap/core/qrsvg.py:203 |
+| `_version_for` | src/memorymap/core/qrsvg.py:249 |
+| `encode` | src/memorymap/core/qrsvg.py:232 |
+| `svg` | src/memorymap/core/qrsvg.py:319 |
 
 ### src/memorymap/core/quit_hook.py (2)
 
@@ -16357,35 +16421,39 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `normalise` | src/memorymap/entry/duplicates.py:43 |
 | `similarity` | src/memorymap/entry/duplicates.py:73 |
 
-### src/memorymap/entry/export_folder.py (56)
+### src/memorymap/entry/export_folder.py (60)
 
 | Name | File:line |
 |---|---|
 | `ExportResult` | src/memorymap/entry/export_folder.py:382 |
-| `Progress` | src/memorymap/entry/export_folder.py:871 |
+| `Progress` | src/memorymap/entry/export_folder.py:887 |
 | `_Parts` | src/memorymap/entry/export_folder.py:492 |
 | `_Related` | src/memorymap/entry/export_folder.py:172 |
 | `_attachment_names` | src/memorymap/entry/export_folder.py:143 |
 | `_attachment_record` | src/memorymap/entry/export_folder.py:156 |
 | `_categories` | src/memorymap/entry/export_folder.py:388 |
-| `_categories_in` | src/memorymap/entry/export_folder.py:859 |
+| `_categories_in` | src/memorymap/entry/export_folder.py:875 |
 | `_decoded` | src/memorymap/entry/export_folder.py:457 |
 | `_documents_in` | src/memorymap/entry/export_folder.py:591 |
-| `_existing_documents` | src/memorymap/entry/export_folder.py:824 |
+| `_existing_documents` | src/memorymap/entry/export_folder.py:840 |
 | `_existing_notes` | src/memorymap/entry/export_folder.py:633 |
 | `_fingerprint` | src/memorymap/entry/export_folder.py:628 |
+| `_fix_object_links` | src/memorymap/entry/export_folder.py:767 |
 | `_fresh_bin_period` | src/memorymap/entry/export_folder.py:673 |
 | `_from_markdown` | src/memorymap/entry/export_folder.py:537 |
 | `_front_matter` | src/memorymap/entry/export_folder.py:318 |
 | `_group` | src/memorymap/entry/export_folder.py:517 |
 | `_grouped` | src/memorymap/entry/export_folder.py:183 |
 | `_hang_canvas` | src/memorymap/entry/export_folder.py:725 |
+| `_hang_cards` | src/memorymap/entry/export_folder.py:741 |
+| `_hang_connector_ends` | src/memorymap/entry/export_folder.py:787 |
 | `_hang_links` | src/memorymap/entry/export_folder.py:708 |
+| `_hang_rows` | src/memorymap/entry/export_folder.py:756 |
 | `_imported` | src/memorymap/entry/export_folder.py:571 |
 | `_iso` | src/memorymap/entry/export_folder.py:69 |
 | `_json` | src/memorymap/entry/export_folder.py:464 |
-| `_json_dict` | src/memorymap/entry/export_folder.py:791 |
-| `_keep_updated` | src/memorymap/entry/export_folder.py:799 |
+| `_json_dict` | src/memorymap/entry/export_folder.py:807 |
+| `_keep_updated` | src/memorymap/entry/export_folder.py:815 |
 | `_link_ends` | src/memorymap/entry/export_folder.py:273 |
 | `_link_record` | src/memorymap/entry/export_folder.py:163 |
 | `_make_entry` | src/memorymap/entry/export_folder.py:653 |
@@ -16400,14 +16468,14 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_restore` | src/memorymap/entry/export_folder.py:92 |
 | `_row` | src/memorymap/entry/export_folder.py:73 |
 | `_safe_name` | src/memorymap/entry/export_folder.py:111 |
-| `_second_pass` | src/memorymap/entry/export_folder.py:812 |
+| `_second_pass` | src/memorymap/entry/export_folder.py:828 |
 | `_sha1_file` | src/memorymap/entry/export_folder.py:117 |
 | `_slug` | src/memorymap/entry/export_folder.py:105 |
 | `_stored_names` | src/memorymap/entry/export_folder.py:372 |
 | `_strip_attachments` | src/memorymap/entry/export_folder.py:486 |
 | `_write_attachments` | src/memorymap/entry/export_folder.py:691 |
 | `_write_documents` | src/memorymap/entry/export_folder.py:397 |
-| `_write_documents_in` | src/memorymap/entry/export_folder.py:832 |
+| `_write_documents_in` | src/memorymap/entry/export_folder.py:848 |
 | `_write_note` | src/memorymap/entry/export_folder.py:353 |
 | `board_canvas` | src/memorymap/entry/export_folder.py:231 |
 | `document_record` | src/memorymap/entry/export_folder.py:224 |
@@ -16416,7 +16484,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `note_record` | src/memorymap/entry/export_folder.py:206 |
 | `read` | src/memorymap/entry/export_folder.py:603 |
 | `snapshot` | src/memorymap/entry/export_folder.py:295 |
-| `write` | src/memorymap/entry/export_folder.py:879 |
+| `write` | src/memorymap/entry/export_folder.py:895 |
 
 ### src/memorymap/entry/highlights.py (2)
 
@@ -16651,12 +16719,14 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `backlink_spans` | src/memorymap/entry/mentions.py:99 |
 | `sentence_around` | src/memorymap/entry/mentions.py:37 |
 
-### src/memorymap/entry/moving.py (2)
+### src/memorymap/entry/moving.py (4)
 
 | Name | File:line |
 |---|---|
+| `_move_dependents` | src/memorymap/entry/moving.py:46 |
+| `_move_entries` | src/memorymap/entry/moving.py:35 |
 | `to_category` | src/memorymap/entry/moving.py:19 |
-| `to_space` | src/memorymap/entry/moving.py:35 |
+| `to_space` | src/memorymap/entry/moving.py:60 |
 
 ### src/memorymap/entry/opens.py (1)
 
@@ -16824,18 +16894,19 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_written_date` | src/memorymap/entry/timewords.py:107 |
 | `find` | src/memorymap/entry/timewords.py:264 |
 
-### src/memorymap/entry/topics.py (8)
+### src/memorymap/entry/topics.py (9)
 
 | Name | File:line |
 |---|---|
 | `_display` | src/memorymap/entry/topics.py:78 |
-| `_fallback_name` | src/memorymap/entry/topics.py:143 |
-| `apply_names` | src/memorymap/entry/topics.py:195 |
-| `build` | src/memorymap/entry/topics.py:82 |
+| `_fallback_name` | src/memorymap/entry/topics.py:150 |
+| `_score_terms` | src/memorymap/entry/topics.py:82 |
+| `apply_names` | src/memorymap/entry/topics.py:202 |
+| `build` | src/memorymap/entry/topics.py:103 |
 | `detect` | src/memorymap/entry/topics.py:48 |
-| `overlap` | src/memorymap/entry/topics.py:191 |
-| `store_name` | src/memorymap/entry/topics.py:218 |
-| `terms_sentence` | src/memorymap/entry/topics.py:159 |
+| `overlap` | src/memorymap/entry/topics.py:198 |
+| `store_name` | src/memorymap/entry/topics.py:225 |
+| `terms_sentence` | src/memorymap/entry/topics.py:166 |
 
 ### src/memorymap/mcp_server.py (18)
 
@@ -17167,7 +17238,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (10810)
+## Tests (10814)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -17352,6 +17423,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_composer_688.py | 40 |
 | tests/test_composer_725.py | 23 |
 | tests/test_composer_741.py | 5 |
+| tests/test_composer_bare_title.py | 2 |
 | tests/test_composer_brief.py | 13 |
 | tests/test_composer_commands.py | 3 |
 | tests/test_composer_eval_725.py | 6 |
@@ -17695,6 +17767,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_install_doc_setup_file.py | 1 |
 | tests/test_instance_lock.py | 27 |
 | tests/test_intent.py | 2 |
+| tests/test_intent_howto_app.py | 2 |
 | tests/test_iphone_1011.py | 5 |
 | tests/test_janitor_knn.py | 8 |
 | tests/test_janitor_short.py | 5 |

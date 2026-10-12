@@ -2719,11 +2719,13 @@ def _act_events(req: _StreamRequest, prepared: dict) -> Iterator[dict]:
         yield {"type": "answer", "delta": done["summary"]}
         yield {**card, "done": True, "summary": done["summary"], "undo": done["undo"], "open": done.get("open")}
         return
+    #: The steps come first and fold up as the answer starts, the order a
+    #: model's run shows (owner, 2026-10-12: the steps sat under the result).
+    if planned.get("tool") and not card:
+        yield planned["tool"]
     yield {"type": "answer", "delta": planned["line"]}
     if card:
         yield card
-    elif planned.get("tool"):
-        yield planned["tool"]
     elif planned.get("navigate"):
         yield {"type": "navigate", "surface": planned["navigate"]}
 

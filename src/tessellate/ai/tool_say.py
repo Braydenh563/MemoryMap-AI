@@ -71,7 +71,10 @@ def _title(content: object, size: int = 60) -> str:
     lines = [ln.strip() for ln in str(content or "").splitlines() if ln.strip()]
     if not lines:
         return "Untitled"
-    return cut_title(lines[0].lstrip("#").strip() or "Untitled", size)
+    #: A title written with inline Markdown ("**Plan**") is shown as words:
+    #: the link text is not rendered a second time.
+    plain = re.sub(r"(\*\*|__|~~|\*|`)(.+?)\1", r"\2", lines[0].lstrip("#").strip())
+    return cut_title(plain.strip("*_`~ ") or "Untitled", size)
 
 
 def _gist(text: object, size: int = 90) -> str:

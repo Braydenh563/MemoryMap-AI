@@ -63,7 +63,10 @@ def test_an_object_that_is_not_one_note_is_asked_about(client, session):
     _seed(session)
     out = _ask(client, "delete the plumbing note", use_tools=False)
     assert "act" not in out
-    assert out["text"] == "I found no note about “plumbing”. Which note do you mean?"
+    # The wording is one of the voice's variants, so any of them is the answer.
+    from tessellate.ai.composer_replies import WHICH_NOTE
+
+    assert out["text"] in {line.format(about="plumbing") for lines in WHICH_NOTE.values() for line in lines}
 
 
 def test_link_and_its_undo(client, session):

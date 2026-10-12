@@ -37,7 +37,7 @@ _OVERVIEW = re.compile(
 )
 #: What turns a capability question into a request: an object of its own.
 _REQUEST = re.compile(
-    r"\b(?:for|about|called|named|that says|me to|this note|these|those)\b|\bthe (?:\w+ )?note\b"
+    r"\b(?:for|about|abt|regarding|mentioned|wrote|written|called|named|that says|me to|this note|these|those)\b|\bthe (?:\w+ )?note\b"
     r"|\bmy (?!notes?\b|history\b|files?\b|reminders\b|stuff\b|things\b)|\"|“",
     re.I,
 )

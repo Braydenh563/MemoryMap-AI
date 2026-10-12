@@ -21,3 +21,9 @@ def test_empty_and_failed_results_are_a_sentence(name, result):
     assert not said.lstrip().startswith("{")
     assert not re.match(r"\[(?!.*\]\()", said.lstrip())
     assert "Traceback" not in said
+
+
+def test_a_title_written_in_markdown_is_linked_as_plain_words():
+    row = tool_say._note_row({"id": 7, "content": "**Current Commitments**\nTonight, I have work."})
+    assert row.startswith("- [Current Commitments](")
+    assert "**" not in row.split("](")[0]

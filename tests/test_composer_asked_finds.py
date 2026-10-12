@@ -40,3 +40,36 @@ def test_a_filing_asked_by_name_lists_that_filing(ask):
     parsed = commands.parse(ask, NOW)
     assert parsed is not None and parsed.args["intent"] == "find"
     assert parsed.args["filed"] == parsed.args["about"]
+
+
+@pytest.mark.parametrize(
+    ("ask", "about"),
+    [
+        ("can you find stuff ive mentioned abt gym??", "gym"),
+        ("find anything i wrote about taxes", "taxes"),
+        ("search for stuff about the trip", "trip"),
+        ("find dentist", "dentist"),
+    ],
+)
+def test_a_find_with_filler_searches_for_the_topic_and_is_not_a_capability_question(ask, about):
+    from tessellate.ai import intent
+
+    parsed = commands.parse(ask, NOW)
+    assert parsed is not None and parsed.args["about"] == about
+    assert intent.classify(ask) == intent.ACT
+
+
+def test_a_find_sends_its_step_before_its_answer(client, session):
+    """The step group is above the answer in the bubble: the step event is
+    streamed first, so the answer folds it up as it starts."""
+    import json
+
+    from tessellate.entry import manager
+
+    manager.create_entry(session, "# Gym plan\n\nLegs on Monday.")
+    session.commit()
+    kinds = []
+    with client.stream("POST", "/chat/stream", json={"question": "find notes about gym", "use_tools": False}) as response:
+        kinds = [json.loads(line)["type"] for line in response.iter_lines() if line.strip()]
+    assert "tool" in kinds and "answer" in kinds
+    assert kinds.index("tool") < kinds.index("answer")

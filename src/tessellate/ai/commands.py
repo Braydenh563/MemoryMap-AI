@@ -377,6 +377,13 @@ def _listing(text: str, head: str, rest: str) -> dict | None:
     return None
 
 
+#: "stuff ive mentioned abt gym": the filler before the topic is not part of it.
+_TOPIC_FILLER = re.compile(
+    r"^(?:(?:any ?thing|every ?thing|some ?thing|stuff|things|notes?|whatever|all) )?"
+    r"(?:(?:that |which )?(?:i|ive|i've|i have|ive) )?(?:(?:mentioned|said|wrote|written|noted|saved|made|put|jotted|talked|typed) )?"
+    r"(?:(?:about|abt|on|regarding|re|around|for) )?",
+    re.I,
+)
 _NOTES_SCOPE = re.compile(r"\s+(?:in|from|within|across|inside) (?:all )?(?:of )?(?:my|the|your) (?:notes|notebook|entries)$", re.I)
 _MENTIONING = re.compile(r"(?:what|which) notes (?:mention|contain|include) (?P<topic>.+?)[?.!\s]*", re.I)
 _ASKED_FIND = re.compile(
@@ -429,7 +436,7 @@ def _found_object(intent: str, head: str, rest: str) -> dict | None:
     if found and found.get("about"):
         return {"intent": intent, "about": found["about"]}
     if intent == "find" and head in _FREE_FIND and rest and _note_topic(rest):
-        about = _drop_article(_NOTES_SCOPE.sub("", rest))
+        about = _drop_article(_TOPIC_FILLER.sub("", _NOTES_SCOPE.sub("", rest), count=1)) or _drop_article(rest)
         return {"intent": "find", "about": about} if about else None
     return None
 

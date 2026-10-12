@@ -2618,14 +2618,8 @@ body.resizing-sidebar {
 .code-actions > * + .menu-wrap {
   box-shadow: inset 1px 0 0 var(--border);
 }
-.code-actions > .menu-wrap > button.kebab-opener.icon-only {
+.code-actions > .menu-wrap > button {
   border: 0;
-  /* The same height as its neighbour and a pill, so its hover fill is the
-     shell's own end cap rather than a 28px rounded square (owner,
-     2026-10-12: "weird when hovering ... a rounded square"). */
-  height: 100%;
-  min-height: 0;
-  width: var(--control-h-body);
   border-radius: var(--radius-in-pill);
   background: transparent;
   box-shadow: none;

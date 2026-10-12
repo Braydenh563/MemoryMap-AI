@@ -10444,6 +10444,15 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
 }
+/* In the table block's one shell the opener is the shell's end cap: its
+   neighbour's height and a pill, so its hover fill is not a rounded square
+   (owner, 2026-10-12). The shell's own rules are in 05-sidebars-themes.css. */
+.code-actions > .menu-wrap > :is(button).kebab-opener.icon-only {
+  height: 100%;
+  min-height: 0;
+  width: var(--control-h-body);
+  border-radius: var(--radius-in-pill);
+}
 :is(button, summary).kebab-opener.icon-only:not(:hover, [aria-expanded="true"]) {
   background: transparent;
 }

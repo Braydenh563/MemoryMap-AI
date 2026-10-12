@@ -36,15 +36,30 @@
 > If something is slow, broken or missing, [open an issue](https://github.com/Braydenh563/Tessellate/issues)
 > and say what you were doing: it is the fastest way to get it fixed.
 
-> [!IMPORTANT]
-> **Installed it before it was called Tessellate?** The app was renamed, and the
-> installer, the program folder and the downloads are renamed with it, so the
-> new installer does not update the old one in place. Uninstall the old
-> version, download the latest installer from the
-> [releases page](https://github.com/Braydenh563/Tessellate/releases/latest)
-> and install it again. Your notes are not lost: they stay in your data folder
-> (`%APPDATA%\MemoryMap AI` or `%APPDATA%\Tessellate` on Windows) and the new
-> version finds them. Take a backup from Settings first if you want to be safe.
+<details>
+<summary><b>Installed it before it was called Tessellate? Open this first.</b></summary>
+
+<br>
+
+The app was renamed, and the installer, the program folder and the downloads
+are renamed with it, so the new installer does not update the old one in
+place.
+
+1. **Save your notes first.** Copy your data folder somewhere safe:
+   `%APPDATA%\MemoryMap AI` (older installs) or `%APPDATA%\Tessellate`.
+   Press `Win + R`, paste the path and press Enter. A backup from Settings
+   also works.
+2. Uninstall the old version. If a folder is left behind, delete it:
+   `C:\Program Files\MemoryMap AI` (the program only, not your notes).
+3. Download the latest installer from the
+   [releases page](https://github.com/Braydenh563/Tessellate/releases/latest)
+   and install it.
+
+Your notes live in the data folder, not in Program Files, so the new version
+finds them. If it does not, close it and copy your saved folder back to
+`%APPDATA%\Tessellate`.
+
+</details>
 
 ## What it is
 

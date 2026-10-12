@@ -45,7 +45,7 @@
  "src/memorymap/ai/extractor.py::build_extraction": 20,
  "src/memorymap/ai/factgraph.py::_note_facts": 105,
  "src/memorymap/ai/factgraph.py::_units": 17,
- "src/memorymap/ai/facts.py::_Similar.nearest": 19,
+ "src/memorymap/ai/facts.py::_Similar.nearest": 18,
  "src/memorymap/ai/facts.py::_pair_passes": 40,
  "src/memorymap/ai/facts.py::own_question": 16,
  "src/memorymap/ai/facts.py::run": 30,
@@ -232,7 +232,6 @@
  "src/memorymap/entry/tidy.py::_undo_payload": 28,
  "src/memorymap/entry/timewords.py::_clock": 20,
  "src/memorymap/entry/topics.py::detect": 16,
- "src/memorymap/files/service.py::_read_region": 22,
  "src/memorymap/mcp_server.py::handle_request": 17,
  "src/memorymap/search/engine.py::_explain": 18,
  "src/memorymap/search/engine.py::_with_meaning": 31,
@@ -243,10 +242,5 @@
  "src/memorymap/search/search_manager.py::graph_expansion": 19,
  "src/memorymap/search/searxng_process.py::_start_from_source": 20,
  "src/memorymap/search/websearch.py::_searxng_target": 18,
- "src/memorymap/search/websearch.py::fetch_readable": 17,
- "src/memorymap/whiteboard/service.py::_board_preview": 35,
- "src/memorymap/whiteboard/service.py::_export_freemind.build": 19,
- "src/memorymap/whiteboard/service.py::_map_branch_colors": 19,
- "src/memorymap/whiteboard/service.py::_parse_markdown_outline": 23,
- "src/memorymap/whiteboard/service.py::_reference_label": 19
+ "src/memorymap/search/websearch.py::fetch_readable": 17
 }

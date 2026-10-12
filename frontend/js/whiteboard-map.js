@@ -4622,14 +4622,29 @@ function wbMapFreshPlace(row, parent) {
     row.y = index.roots.length ? below(index.roots) + wbMapGapDepth() : 0;
     return;
   }
-  const siblings = index.childrenOf.get(parent.id) || [];
+  let siblings = index.childrenOf.get(parent.id) || [];
+  const mid = (node) => node.x + size(node).w / 2;
+  //: **The central topic's children go to the side with fewer** (bug sweep
+  //: 2026-10-12: 7 of 8 stacked on one side), right on a tie; the new one
+  //: goes under that side's last branch. Other topics' children are not
+  //: moved (below: they grow away from the trunk).
+  if (parent.parent_id == null) {
+    const lefts = siblings.filter((n) => n !== row && mid(n) < mid(parent));
+    const rights = siblings.filter((n) => n !== row && mid(n) >= mid(parent));
+    const toLeft = lefts.length < rights.length;
+    siblings = toLeft ? lefts : rights;
+    const width = row.width || WB_MAP_NODE_W;
+    if (toLeft) row.x = (lefts.length ? Math.max(...lefts.map((n) => n.x + size(n).w)) : parent.x - wbMapGapDepth()) - width;
+    else row.x = rights.length ? Math.min(...rights.map((n) => n.x)) : parent.x + size(parent).w + wbMapGapDepth();
+    row.y = siblings.length ? below(siblings) + wbMapGapBreadth() : parent.y;
+    return;
+  }
   //: **A branch grows away from its trunk** (the owner, 2026-10-11: a child
   //: added under a left-hand topic landed on its right, back toward the
   //: trunk, and on a Free map that is where it stayed). The side is the one
   //: the parent is drawn on, read from its centre against its trunk's.
   let trunk = parent;
   for (let hops = 0; trunk.parent_id != null && index.byId.get(trunk.parent_id) && hops < 200; hops++) trunk = index.byId.get(trunk.parent_id);
-  const mid = (node) => node.x + size(node).w / 2;
   const leftward = trunk !== parent && mid(parent) < mid(trunk);
   const width = row.width || WB_MAP_NODE_W;
   if (leftward) {
@@ -5614,16 +5629,21 @@ function wbMapLayoutPositions(index, layout) {
     const sideOf = (kid) => (kid.x + wbMapNodeSize(kid).w / 2 < trunkMid ? "left" : "right");
     const drawn = kids.filter(placed).map(sideOf);
     const split = drawn.includes("left") && drawn.includes("right");
+    //: The placed branches are weighed before a new one is dealt (bug sweep
+    //: 2026-10-12: a new topic sorts first among its siblings, so it was
+    //: dealt against empty sides and went right every time, 7 of 8).
+    if (split) {
+      for (const kid of kids) {
+        if (!placed(kid)) continue;
+        const weight = wbMapSubtree(index, kid.id).length;
+        if (sideOf(kid) === "left") leftWeight += weight;
+        else rightWeight += weight;
+      }
+    }
     for (const kid of kids) {
       const weight = wbMapSubtree(index, kid.id).length;
       if (split && placed(kid)) {
-        if (sideOf(kid) === "left") {
-          leftKids.push(kid);
-          leftWeight += weight;
-        } else {
-          rightKids.push(kid);
-          rightWeight += weight;
-        }
+        (sideOf(kid) === "left" ? leftKids : rightKids).push(kid);
         continue;
       }
       if (rightWeight <= leftWeight) {

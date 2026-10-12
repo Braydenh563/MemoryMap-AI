@@ -21082,8 +21082,14 @@ onDomReady(() => {
 // the two views repeatedly costs nothing after the first time.
 function wbShowCanvasView() {
   $("wb-boards-landing")?.classList.add("hidden");
-  $("wb-canvas-view")?.classList.remove("hidden");
+  const view = $("wb-canvas-view");
+  //: Whiteboards and mind maps both draw here. Fade in once the board has
+  //: had its first frames, as the graph does, so the shapes are not seen
+  //: arriving mid-layout (owner, 2026-10-12).
+  view?.classList.add("wb-entering");
+  view?.classList.remove("hidden");
   setTimeout(initWhiteboard, 50);
+  setTimeout(() => view?.classList.remove("wb-entering"), 250);
 }
 
 function wbShowBoardsLanding() {

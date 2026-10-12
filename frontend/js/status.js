@@ -2120,7 +2120,17 @@ new MutationObserver((records) => {
 const AI_OFFLINE_DISMISSED_KEY = "aiOfflineDismissed";
 const aiOfflineDismissedNow = new Set();
 
+//: The person's own switch (Settings, Models): the banners never show.
+function aiOfflineNoticeHidden() {
+  try {
+    return prefs.get("hideOfflineNotice", null) === "on";
+  } catch {
+    return false;
+  }
+}
+
 function aiOfflineDismissed(id) {
+  if (aiOfflineNoticeHidden()) return true;
   if (aiOfflineDismissedNow.has(id)) return true;
   try {
     return JSON.parse(sessionStorage.getItem(AI_OFFLINE_DISMISSED_KEY) || "[]").includes(id);
@@ -2148,7 +2158,7 @@ function renderAiOfflineNotice(container, what, { dismissible = false, detail = 
   if (!container) return;
   container.replaceChildren();
   const off = aiIsOff();
-  const closed = dismissible && aiOfflineDismissed(container.id);
+  const closed = aiOfflineNoticeHidden() || (dismissible && aiOfflineDismissed(container.id));
   container.classList.toggle("hidden", !off || closed);
   if (!off || closed) return;
   //: The icon is the container's first child, which is where `.notice > .ph`

@@ -1043,6 +1043,16 @@ $("import-document-file").addEventListener("change", () => importDocument());
 
 $("backup-now").addEventListener("click", backupNow);
 
+$("pref-hide-offline-notice").checked = aiOfflineNoticeHidden();
+$("pref-hide-offline-notice").addEventListener("change", (event) => {
+  try {
+    prefs.set("hideOfflineNotice", event.target.checked ? "on" : "off");
+  } catch {
+    // Storage blocked: the switch holds for this session only.
+  }
+  syncModelGatedControls();
+});
+
 $("pref-single-keys").addEventListener("change", (event) => {
   try {
     prefs.set("singleKeys", event.target.checked ? "on" : "off");

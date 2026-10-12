@@ -9428,6 +9428,17 @@ Link to another note with [[its first few words]]."></textarea>
                   </small>
                 </span>
               </label>
+              <label class="setting-check" id="hide-offline-notice-wrap">
+                <input type="checkbox" id="pref-hide-offline-notice">
+                <span>
+                  Hide the "No model connected" notices
+                  <small class="muted">
+                    Atlas still answers from your notes without a model. This
+                    only stops the banner above Ask, Chat and the writing
+                    desk. Saved on this device.
+                  </small>
+                </span>
+              </label>
               <p id="llm-provider-status" class="status"></p>
               <!-- Everything else in this app is local by construction. A
                    backend address is the one setting that can change that, so
@@ -9513,13 +9524,6 @@ Link to another note with [[its first few words]]."></textarea>
                   <span>Use smart model routing for background jobs</span>
                 </label>
               </div>
-              <div class="stack-top-gap">
-                <label class="checkbox-label row align-center">
-                  <input type="checkbox" id="pref-hide-offline-notice">
-                  <span>Hide the "No model connected" notices</span>
-                </label>
-              </div>
-              <p class="muted">Atlas still answers from your notes without a model; this only stops the banner above Ask and Chat.</p>
               <p class="muted">A small fast model does the filing, the digest and writing fixes, so the chat model stays free.</p>
               <div class="help-body hidden" id="utility-model-help" role="dialog" aria-label="About the utility model">
                 <p>

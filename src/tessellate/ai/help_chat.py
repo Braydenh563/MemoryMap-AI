@@ -467,14 +467,17 @@ HELP_TOPICS: list[dict] = [
     },
     {
         "id": "models",
-        "keywords": ("model", "ollama", "lm studio", "vllm", "llama.cpp", "utility model", "chat model", "sampling", "temperature"),
+        "keywords": ("model", "ollama", "lm studio", "vllm", "llama.cpp", "utility model", "chat model", "sampling", "temperature", "no model connected", "no model notice", "hide notice", "banner", "popup"),
         "body": (
             "Settings, Models picks the chat model and an optional smaller "
             "utility model for background jobs. Any OpenAI-compatible server "
             "works, not just Ollama, LM Studio, llama-server, Jan, vLLM. "
             "Sampling parameters (temperature, top-p, top-k, min-p, repeat "
             "penalty) are exposed there too, starting at what the model itself "
-            "recommends."
+            "recommends. The No model connected banner above Ask, Chat and "
+            "the writing desk can be hidden for good with Hide the \"No model "
+            "connected\" notices under Model backend (saved on this device); "
+            "Atlas still answers from your notes without a model."
         ),
         "badge": {"label": "Models", "section": "models"},
     },
@@ -680,9 +683,7 @@ HELP_TOPICS: list[dict] = [
             "off, and Settings, Models can give the guide a model of its "
             "own. With no model running it still answers from the help: "
             "Atlas's answer is put together for your question, and the From "
-            "the help tab above it shows the topic word for word. The \"No "
-            "model connected\" banners above Ask and Chat can be hidden with "
-            "the switch in Settings, Models. "
+            "the help tab above it shows the topic word for word. "
             "It cannot read your notes or documents (ask the "
             "Chat or Ask tab for those), and nothing said to it is saved: the "
             "conversation is gone on reload, and \"New chat\" clears it now. "

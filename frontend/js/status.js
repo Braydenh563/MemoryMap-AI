@@ -2042,6 +2042,14 @@ function syncModelGatedControls(status = modelStatus) {
     }
     control.classList.toggle("ai-unavailable", off);
   }
+  //: With no model server answering, the per-feature models and the sampling
+  //: settings have nothing to act on (owner, 2026-10-12): hidden, unless a
+  //: feature already has an override of its own, which must stay visible so it
+  //: can be cleared (WORLD_CLASS_PLAN 20).
+  const holdsOverride = Number(status?.feature_models_overridden || 0) > 0;
+  $("feature-models-config")?.classList.toggle("hidden", off && !holdsOverride);
+  const sampling = $("sampling-box");
+  (sampling?.parentElement?.classList.contains("fold-help-wrap") ? sampling.parentElement : sampling)?.classList.toggle("hidden", off);
   //: The badge is a span, not a button, so `disabled` does nothing to it
   //: (see its own comment in `renderTimelineEntry`). Explicitly hidden here so
   //: a badge drawn while the model was online doesn't sit on screen as a

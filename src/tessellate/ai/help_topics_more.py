@@ -1488,7 +1488,7 @@ MORE_TOPICS.extend(
                     "the model's name when a model wrote it). The No model connected line above the Chat box "
                     "and the Ask box has a close button (the small x at its end): it hides that line until "
                     "the next time you start the app, a new session, and connecting a model in Settings, "
-                    "Models always brings the answers back."
+                    "Models always brings the answers back. Hide it for good under Model backend."
                 )
             ),
             "badge": {"label": "Notes", "tab": "notes"},

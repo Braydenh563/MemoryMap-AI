@@ -895,11 +895,15 @@ function renderLogList() {
 // One line the way it would print to a real console: "HH:MM:SS LEVEL   logger
 //, message", level padded like uvicorn's own default formatter pads
 // "INFO:"/"WARNING:"/"ERROR:" so a column of mixed levels still lines up.
-function logTerminalLineText(record) {
+function logTerminalParts(record) {
   const when = new Date(record.time).toLocaleTimeString();
   const level = `${record.level}:`.padEnd(9);
   const body = record.logger ? `${record.logger}: ${record.message}` : record.message;
-  return `${when} ${level}${body}`;
+  return [`${when} ${level}`, body];
+}
+
+function logTerminalLineText(record) {
+  return logTerminalParts(record).join("");
 }
 
 function logTerminalRow(record) {
@@ -908,7 +912,16 @@ function logTerminalRow(record) {
   const rank = logLevelRank(record.level);
   if (rank >= 3) line.classList.add("is-error");
   else if (rank === 2) line.classList.add("is-warn");
-  line.textContent = logTerminalLineText(record);
+  // Two cells, so a long message wraps under where the message starts, not
+  // under the time (owner, 2026-10-12).
+  const [lead, body] = logTerminalParts(record);
+  const head = document.createElement("span");
+  head.className = "log-term-head";
+  head.textContent = lead;
+  const text = document.createElement("span");
+  text.className = "log-term-body";
+  text.textContent = body;
+  line.append(head, text);
   return line;
 }
 

@@ -896,7 +896,16 @@
   word-break: break-word;
 }
 .log-term-line {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
   padding: 0.05rem 0;
+}
+.log-term-head {
+  white-space: pre;
+}
+.log-term-body {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .log-term-line.is-warn {
   color: #f5c451;

@@ -757,6 +757,11 @@ def test_every_ai_board_write_records_a_replayable_event(session):
         },
     )
 
+    #: A map made from one note in one call: a board of its own.
+    outline = manager.create_entry(session, "# Garden\n\n- Tomatoes\n- Beans", tags=[])
+    session.commit()
+    made["from_note"] = run("map_from_note", {"note_id": outline.id})["board_id"]
+
     covered = {
         "create_mindmap",
         "add_map_node",
@@ -764,6 +769,7 @@ def test_every_ai_board_write_records_a_replayable_event(session):
         "add_whiteboard_card",
         "add_whiteboard_link",
         "generate_diagram",
+        "map_from_note",
     }
     assert set(_ai_board_writes()) == covered, (
         "a write tool in ai/tools/whiteboard.py is not driven by this test. "
@@ -793,6 +799,12 @@ def test_every_ai_board_write_records_a_replayable_event(session):
     # one link: nine, and the count is here so a tool that quietly stops
     # writing its rows cannot pass by replaying nothing.
     assert items == 9
+
+    assert events.replay(session, "board", made["from_note"])["type"] == "map"
+    topics = session.query(WhiteboardObject).filter(WhiteboardObject.board_id == made["from_note"]).all()
+    assert topics, "the map from the note has no topics"
+    for row in topics:
+        assert events.replay(session, "whiteboard_object", row.id) == events.object_state(row), row.id
 
 
 def test_a_generated_or_imported_map_replays_with_its_nodes_on_it(client, session):

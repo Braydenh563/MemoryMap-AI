@@ -244,6 +244,8 @@ TOOL_CUES: tuple[tuple[str, str], ...] = (
     ("delete_tag", r"\b(?:delete|remove) the tag \S+(?: from)? (?:every|all)\b|\bdelete the tag\b"),
     ("create_category", r"\b(?:make|create|add) a (?:new )?category\b"),
     ("rename_category", r"\brename the category\b"),
+    #: Notes sent to a space (`tools/moving.py`); to a category is the move act.
+    ("move_notes", r"\b(?:move|send|put)\b.*\bnotes?\b.*\b(?:to|into) (?:the |my )?(?:space\b|\w+ space\b)"),
     ("merge_categories", r"\bmerge\b.*\bcategor"),
     ("delete_category", r"\b(?:delete|remove) the category\b"),
     ("restore_note", r"\brestore\b|\bfrom the (?:recycle )?bin\b|\bundelete\b"),

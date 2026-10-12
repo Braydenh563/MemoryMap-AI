@@ -333,6 +333,7 @@ PROJECTIONS: dict[str, tuple[_Where, ...]] = {
     "rename_category": (),
     "merge_categories": (),
     "delete_category": (),
+    "move_notes": (),  # a count and where they went; its ids carry no titles
     "rename_tag": (),
     "delete_tag": (),
     "audit_link_reasons": (),  # a count of reasons written

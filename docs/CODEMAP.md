@@ -10401,7 +10401,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 |---|---|
 | `Act` | src/memorymap/ai/act_registry.py:56 |
 | `_listing` | src/memorymap/ai/act_registry.py:178 |
-| `act_topic` | src/memorymap/ai/act_registry.py:278 |
+| `act_topic` | src/memorymap/ai/act_registry.py:280 |
 | `ask_line` | src/memorymap/ai/act_registry.py:133 |
 | `capability_line` | src/memorymap/ai/act_registry.py:120 |
 | `guide_topic` | src/memorymap/ai/act_registry.py:148 |
@@ -10625,8 +10625,8 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_flat` | src/memorymap/ai/cards.py:80 |
 | `_note_item` | src/memorymap/ai/cards.py:101 |
 | `_reminder_item` | src/memorymap/ai/cards.py:182 |
-| `_rows` | src/memorymap/ai/cards.py:360 |
-| `result_cards` | src/memorymap/ai/cards.py:367 |
+| `_rows` | src/memorymap/ai/cards.py:361 |
+| `result_cards` | src/memorymap/ai/cards.py:368 |
 
 ### src/memorymap/ai/chunks.py (4)
 
@@ -12566,33 +12566,33 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | Name | File:line |
 |---|---|
 | `OneOptionAsk` | src/memorymap/ai/tools/__init__.py:2000 |
-| `_ai_actor` | src/memorymap/ai/tools/__init__.py:4714 |
+| `_ai_actor` | src/memorymap/ai/tools/__init__.py:4692 |
 | `_ask_user` | src/memorymap/ai/tools/__init__.py:2008 |
 | `_audit_link_reasons` | src/memorymap/ai/tools/__init__.py:2522 |
 | `_calculate` | src/memorymap/ai/tools/__init__.py:971 |
 | `_check_answer` | src/memorymap/ai/tools/__init__.py:1003 |
-| `_coerce` | src/memorymap/ai/tools/__init__.py:4763 |
-| `_coerce_array` | src/memorymap/ai/tools/__init__.py:4737 |
+| `_coerce` | src/memorymap/ai/tools/__init__.py:4741 |
+| `_coerce_array` | src/memorymap/ai/tools/__init__.py:4715 |
 | `_complete_reminder` | src/memorymap/ai/tools/__init__.py:1797 |
 | `_compress_chat` | src/memorymap/ai/tools/__init__.py:2298 |
-| `_confirm_move_notes` | src/memorymap/ai/tools/__init__.py:4679 |
+| `_confirm_move_notes` | src/memorymap/ai/tools/__init__.py:4657 |
 | `_count_notes` | src/memorymap/ai/tools/__init__.py:753 |
 | `_create_note` | src/memorymap/ai/tools/__init__.py:1337 |
 | `_delete_note` | src/memorymap/ai/tools/__init__.py:1665 |
 | `_delete_skill` | src/memorymap/ai/tools/__init__.py:1319 |
 | `_delete_tag` | src/memorymap/ai/tools/__init__.py:1978 |
-| `_describe_param` | src/memorymap/ai/tools/__init__.py:4821 |
+| `_describe_param` | src/memorymap/ai/tools/__init__.py:4799 |
 | `_edit_note` | src/memorymap/ai/tools/__init__.py:1376 |
-| `_example_value` | src/memorymap/ai/tools/__init__.py:4397 |
+| `_example_value` | src/memorymap/ai/tools/__init__.py:4375 |
 | `_find_contradictions` | src/memorymap/ai/tools/__init__.py:2541 |
 | `_find_similar_notes` | src/memorymap/ai/tools/__init__.py:423 |
-| `_first_sentence` | src/memorymap/ai/tools/__init__.py:4525 |
-| `_fold_key` | src/memorymap/ai/tools/__init__.py:4731 |
+| `_first_sentence` | src/memorymap/ai/tools/__init__.py:4503 |
+| `_fold_key` | src/memorymap/ai/tools/__init__.py:4709 |
 | `_get_current_time` | src/memorymap/ai/tools/__init__.py:927 |
 | `_get_note_tool` | src/memorymap/ai/tools/__init__.py:119 |
 | `_graph_neighbours` | src/memorymap/ai/tools/__init__.py:179 |
 | `_graph_summary` | src/memorymap/ai/tools/__init__.py:146 |
-| `_is_plural_variant` | src/memorymap/ai/tools/__init__.py:4377 |
+| `_is_plural_variant` | src/memorymap/ai/tools/__init__.py:4355 |
 | `_link_notes` | src/memorymap/ai/tools/__init__.py:1579 |
 | `_list_categories` | src/memorymap/ai/tools/__init__.py:845 |
 | `_list_notes` | src/memorymap/ai/tools/__init__.py:671 |
@@ -12617,7 +12617,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_run_skill` | src/memorymap/ai/tools/__init__.py:2066 |
 | `_save_skill` | src/memorymap/ai/tools/__init__.py:1264 |
 | `_save_user_preference` | src/memorymap/ai/tools/__init__.py:2442 |
-| `_schema_key` | src/memorymap/ai/tools/__init__.py:4857 |
+| `_schema_key` | src/memorymap/ai/tools/__init__.py:4835 |
 | `_scope_filters` | src/memorymap/ai/tools/__init__.py:622 |
 | `_scope_label` | src/memorymap/ai/tools/__init__.py:659 |
 | `_search_chat_history` | src/memorymap/ai/tools/__init__.py:1114 |
@@ -12631,32 +12631,32 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `_unlink_notes` | src/memorymap/ai/tools/__init__.py:1621 |
 | `_verify_block` | src/memorymap/ai/tools/__init__.py:1237 |
 | `_web_search` | src/memorymap/ai/tools/__init__.py:1832 |
-| `adds_to_a_named_note` | src/memorymap/ai/tools/__init__.py:4226 |
-| `budget_for_window` | src/memorymap/ai/tools/__init__.py:4635 |
-| `call_example` | src/memorymap/ai/tools/__init__.py:4345 |
-| `check_arguments` | src/memorymap/ai/tools/__init__.py:4874 |
-| `compact_schemas` | src/memorymap/ai/tools/__init__.py:4536 |
-| `confirm_label` | src/memorymap/ai/tools/__init__.py:4705 |
-| `example_arguments` | src/memorymap/ai/tools/__init__.py:4831 |
-| `execute_tool` | src/memorymap/ai/tools/__init__.py:4915 |
-| `focus_detail` | src/memorymap/ai/tools/__init__.py:4247 |
-| `focus_for` | src/memorymap/ai/tools/__init__.py:4232 |
+| `adds_to_a_named_note` | src/memorymap/ai/tools/__init__.py:4204 |
+| `budget_for_window` | src/memorymap/ai/tools/__init__.py:4613 |
+| `call_example` | src/memorymap/ai/tools/__init__.py:4323 |
+| `check_arguments` | src/memorymap/ai/tools/__init__.py:4852 |
+| `compact_schemas` | src/memorymap/ai/tools/__init__.py:4514 |
+| `confirm_label` | src/memorymap/ai/tools/__init__.py:4683 |
+| `example_arguments` | src/memorymap/ai/tools/__init__.py:4809 |
+| `execute_tool` | src/memorymap/ai/tools/__init__.py:4893 |
+| `focus_detail` | src/memorymap/ai/tools/__init__.py:4225 |
+| `focus_for` | src/memorymap/ai/tools/__init__.py:4210 |
 | `handoff_event` | src/memorymap/ai/tools/__init__.py:2419 |
-| `is_follow_through` | src/memorymap/ai/tools/__init__.py:4210 |
+| `is_follow_through` | src/memorymap/ai/tools/__init__.py:4188 |
 | `link_type_description` | src/memorymap/ai/tools/__init__.py:1540 |
-| `ollama_tools` | src/memorymap/ai/tools/__init__.py:4409 |
+| `ollama_tools` | src/memorymap/ai/tools/__init__.py:4387 |
 | `prefetch_web` | src/memorymap/ai/tools/__init__.py:1870 |
-| `schema_chars` | src/memorymap/ai/tools/__init__.py:4504 |
+| `schema_chars` | src/memorymap/ai/tools/__init__.py:4482 |
 | `summarise_turns` | src/memorymap/ai/tools/__init__.py:2263 |
-| `tool_catalog` | src/memorymap/ai/tools/__init__.py:4652 |
-| `tool_enabled` | src/memorymap/ai/tools/__init__.py:4315 |
+| `tool_catalog` | src/memorymap/ai/tools/__init__.py:4630 |
+| `tool_enabled` | src/memorymap/ai/tools/__init__.py:4293 |
 | `validate_ask` | src/memorymap/ai/tools/__init__.py:2024 |
 | `validate_compress_chat` | src/memorymap/ai/tools/__init__.py:2314 |
 | `validate_make_plan` | src/memorymap/ai/tools/__init__.py:2345 |
 | `validate_propose_act` | src/memorymap/ai/tools/__init__.py:2380 |
 | `validate_run_skill` | src/memorymap/ai/tools/__init__.py:2107 |
-| `with_relation_types` | src/memorymap/ai/tools/__init__.py:4436 |
-| `within_budget` | src/memorymap/ai/tools/__init__.py:4590 |
+| `with_relation_types` | src/memorymap/ai/tools/__init__.py:4414 |
+| `within_budget` | src/memorymap/ai/tools/__init__.py:4568 |
 
 ### src/memorymap/ai/tools/_common.py (15)
 

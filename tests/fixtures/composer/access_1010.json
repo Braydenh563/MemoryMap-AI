@@ -68,6 +68,7 @@
     "create_category": "make a new category called Garden",
     "rename_category": "rename the category Garden to Outdoors",
     "merge_categories": "merge the Cooking category into Food",
+    "move_notes": "move notes 12 and 14 to the Work space",
     "delete_category": "remove the category Garden",
     "web_search": "search the web for boiler pressure",
     "read_url": "read this page https://example.com/boiler",

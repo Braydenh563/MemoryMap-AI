@@ -324,16 +324,19 @@ _NOTE_HEADS_NEW = (
 )
 
 
+_NAMED = ("called ", "titled ", "named ")
+
+
 def _new_note(text: str) -> dict | None:
     low = text.lower()
     for head, needs_colon in _NOTE_HEADS_NEW:
         if not (low.startswith(head + " ") or low.startswith(head + ":")):
             continue
         rest = text[len(head):].lstrip()
-        if needs_colon and not rest.startswith(":"):
+        if needs_colon and not rest.startswith(":") and not rest.lower().startswith(_NAMED):
             return None
         rest = rest.lstrip(" :-")
-        for lead in ("that ", "saying ", "of ", "about ", "to say "):
+        for lead in ("that ", "saying ", "of ", "about ", "to say ", *_NAMED):
             if rest.lower().startswith(lead):
                 rest = rest[len(lead):]
                 break
@@ -384,7 +387,18 @@ _ASKED_FIND = re.compile(
 )
 
 
+_WHATS_IN = re.compile(
+    r"(?:what(?:'s|s| is) in (?:my |the )?(?P<a>[\w&-]+(?: [\w&-]+)?) (?:category|folder|tag)"
+    r"|(?:pull up|bring up) (?:my |the )?(?:notes|entries) (?:tagged(?: with)?|in|under) #?(?P<b>[\w&-]+(?: [\w&-]+)?))[?.!\s]*",
+    re.I,
+)
+
+
 def _find(text: str) -> dict | None:
+    whats = _WHATS_IN.fullmatch(text.strip())
+    if whats:
+        filed = (whats["a"] or whats["b"]).strip()
+        return {"intent": "find", "about": filed, "filed": filed}
     asked = _ASKED_FIND.fullmatch(text.strip()) or _MENTIONING.fullmatch(text.strip())
     if asked and _note_topic(asked["topic"]):
         about = _drop_article(_NOTES_SCOPE.sub("", asked["topic"].strip()))

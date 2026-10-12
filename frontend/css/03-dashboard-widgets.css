@@ -213,6 +213,18 @@
   margin: 0;
 }
 
+/* The type select is wrapped by `enhanceSelect`, so `.prop-value` sat on the
+   hidden native select and the shell shrank to its text: the same width as
+   the fields below it, as the owner asked (2026-10-12). */
+.prop-row > .select-shell {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+}
+.prop-row > .select-shell > .select-opener {
+  width: 100%;
+}
+
 /* Meetings (INBOX 644, meetings.js): the New meeting sheet's people field
    is the edit form's tag field on a property row, and the meeting sheet's
    action items are DESIGN.md's row in a list: a mark, the content (the

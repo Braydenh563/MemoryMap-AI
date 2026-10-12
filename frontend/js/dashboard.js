@@ -3791,7 +3791,11 @@ function focusRing() {
   return svg;
 }
 
-function paintFocusTimer() {
+//: `root` is the widget's own body while it is being built: it is not in the
+//: page yet, so `$()` found nothing and the ring and the time stayed empty
+//: until something ticked (owner, 2026-10-12: "didnt properly load").
+function paintFocusTimer(root = document) {
+  const $ = (id) => root.querySelector(`#${id}`) || document.getElementById(id);
   const shown = focusTimer.remaining || focusTimer.total;
   const display = $("focus-timer-display");
   if (display) display.textContent = focusTimeLabel(shown);
@@ -3805,7 +3809,7 @@ function paintFocusTimer() {
   $("focus-ring")?.classList.toggle("is-break", focusTimer.mode === "break");
   const toggle = $("focus-timer-toggle");
   if (toggle) setLabel(toggle, focusTimer.running ? "ph:pause Pause" : focusTimer.remaining ? "ph:play Resume" : "ph:play Start");
-  for (const button of document.querySelectorAll(".focus-presets-seg button")) {
+  for (const button of root.querySelectorAll(".focus-presets-seg button")) {
     button.setAttribute("aria-pressed", String(focusTimer.mode === "focus" && Number(button.dataset.minutes) * 60 === focusTimer.focusTotal));
   }
   const step = $("focus-step-value");
@@ -3989,7 +3993,7 @@ async function renderFocusTimerWidget(body) {
   today.className = "muted focus-today";
   body.appendChild(today);
 
-  paintFocusTimer();
+  paintFocusTimer(body);
 }
 
 // --- wiring (moved out of app.js's own wiring block, §88.3) -----------------------

@@ -157,8 +157,12 @@ def test_the_catalogue_carries_each_rows_state(client, tmp_path, monkeypatch):
     rows = {row["model"]: row for row in client.get("/embedding-models/choices").json()["choices"] if row["backend"] == "sentence-transformers"}
     bge = rows["BAAI/bge-small-en-v1.5"]
     assert bge["state"] == "partial" and bge["downloaded"] is False
-    (snapshot / "model.safetensors").write_bytes(b"x" * 2048)
-    (snapshot / "config.json").write_text("{}", encoding="utf-8")
+    #: `downloaded` is the whole-cache check (101c): modules.json, a
+    #: tokenizer and weights of a believable size, not only weights and config.
+    with (snapshot / "model.safetensors").open("wb") as weights:
+        weights.truncate(120 * 1024 * 1024)  # sparse on disk
+    for name in ("config.json", "tokenizer.json", "modules.json"):
+        (snapshot / name).write_text("[]" if name == "modules.json" else "{}", encoding="utf-8")
     bge = {row["model"]: row for row in client.get("/embedding-models/choices").json()["choices"]}["BAAI/bge-small-en-v1.5"]
     assert bge["state"] == "ready" and bge["downloaded"] is True and bge["on_disk"]
     other = next(row for model, row in rows.items() if model != "BAAI/bge-small-en-v1.5")

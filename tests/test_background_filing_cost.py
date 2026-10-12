@@ -44,6 +44,11 @@ class _CountingEmbeddings(EmbeddingService):
     def is_ready(self) -> bool:
         return True
 
+    def loads_cold(self) -> bool:
+        #: Its "model" is loaded from the start: a cold one sends the search
+        #: to words and queues a "warm up" encode (6cf293e43), not a filing's cost.
+        return False
+
     def _embed_uncached(self, text):  # noqa: ANN001
         self.encodes.append(text)
         vector = np.zeros(len(_WORDS) + 1, dtype="float32")

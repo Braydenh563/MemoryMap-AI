@@ -146,7 +146,11 @@ THREAD_SITES = {
     "core/jobs.py": "collect: job- kinds (the pool) and its heartbeat",
     "core/embedmodels.py": "collect: embedding-model",
     "core/security.py": "infrastructure: a DNS probe of two seconds",
-    "api/routes_recordings.py": "activity.start: transcription (stoppable)",
+    #: The registry of threads that are not jobs (e1f3ac992): its callers
+    #: register their work themselves, routes_recordings through
+    #: activity.start (transcription, stoppable), embeddings under collect's
+    #: embeddings kind; the idle watch is infrastructure.
+    "core/background.py": "the registry: activity.start (transcription), collect: embeddings",
     "core/lanserve.py": "infrastructure: the one select thread that waits for a LAN connection first byte",
 }
 

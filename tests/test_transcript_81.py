@@ -76,7 +76,7 @@ def test_transcribe_keeps_the_segments_and_the_routes_write_them_out(client, mon
 
 
 def test_transcribe_joins_the_segments_for_the_old_callers(monkeypatch, tmp_path) -> None:
-    monkeypatch.setattr(voice, "transcribe_segments", lambda path, model_size="base": SEGMENTS[:2])
+    monkeypatch.setattr(voice, "transcribe_segments", lambda path, model_size="base", options=None: SEGMENTS[:2])
     assert voice.transcribe(tmp_path / "x.webm") == (
         "Okay, let's start with the launch date. After some back and forth we decided to move the public launch to November."
     )

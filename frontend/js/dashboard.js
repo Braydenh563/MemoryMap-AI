@@ -1909,6 +1909,19 @@ function dashFillingSkeleton(grid, count) {
   });
   for (let i = 0; i < Math.min(count, columns * 2); i++) outline.appendChild(tabSkeletonPiece({ height: "12rem" }));
   host.appendChild(outline);
+  //: Follows the grid while it waits: Quick access and the greeting above it
+  //: fill in after this is placed and push the grid down, which left the
+  //: placeholder over them with their text showing through (owner,
+  //: 2026-10-12). Cheap: two reads and two writes a frame for a second.
+  const follow = () => {
+    if (!outline.isConnected) return;
+    const top = `${grid.offsetTop}px`;
+    const left = `${grid.offsetLeft}px`;
+    if (outline.style.top !== top) outline.style.top = top;
+    if (outline.style.left !== left) outline.style.left = left;
+    requestAnimationFrame(follow);
+  };
+  requestAnimationFrame(follow);
   return outline;
 }
 

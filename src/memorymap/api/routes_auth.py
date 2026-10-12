@@ -725,7 +725,9 @@ def _device_cookie(request: Request) -> str:
 
 def _set_device_cookie(response: Response, raw: str) -> None:
     #: Only the LAN port is https, and only a device on the network has one.
-    #: Only the shape `_device_cookie` and the trust store issue is ever written back.
+    #: Written only with an id this server minted, never echoed back from a
+    #: request (CodeQL: cookie built from user input), so it lasts 400 days
+    #: from first issue and an older device is asked about once again.
     if not re.fullmatch(r"[A-Za-z0-9_-]{20,100}", raw or ""):
         return
     response.set_cookie(
@@ -779,7 +781,8 @@ def _hold_new_device(request: Request, device: str, config: ConfigManager) -> JS
             "Choose Allow in the notice there, then press Unlock again."
         )
     refused = JSONResponse(status_code=403, content={"detail": detail, "device_pending": decision is None})
-    _set_device_cookie(refused, raw)
+    if not device:
+        _set_device_cookie(refused, raw)
     return refused
 
 
@@ -893,7 +896,6 @@ def unlock(
     if device:
         lantrust.settle(device)
         _device_tokens[token] = lantrust.device_hash(device)
-        _set_device_cookie(response, device)
         lantrust.touch_device(config.data_dir, device, _client_key(request))
     return {"token": token, "vault_open": vault_open}
 

@@ -121,7 +121,8 @@ def test_the_panel_lists_one_row_and_a_phone_still_cannot_touch_it(lan_app):  # 
     assert len(lantrust.load(data_dir)["networks"]) == 2
     state = here.post(f"/auth/lan-networks/{FULL.key}/untrust").json()
     assert state["networks"] == [] and len(state["untrusted"]) == 1
-    assert here.delete(f"/auth/lan-networks/{FULL.key}").json()["untrusted"] == []
+    gone = here.delete(f"/auth/lan-networks/{FULL.key}")
+    assert gone.json()["untrusted"] == []
     _ = PASSWORD
 
 

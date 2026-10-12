@@ -1146,8 +1146,6 @@ def choose_installed_chat_model(installed: list[dict]) -> str | None:
     2026-10-07: "the app should detect and smart choose the available models
     if the user has one or more on first launch"): the largest general chat
     model up to 10 GB on disk, else None."""
-    import re
-
     def is_chat(name: str) -> bool:
         words = set(re.split(r"[^a-z0-9.]+", name.lower()))
         return not any(word in words or name.lower().startswith(word) for word in _NOT_CHAT)

@@ -24,7 +24,7 @@
 //: top-level lets). `wired`: the card's listeners are attached once.
 const RECOVERY = { wired: false, dialogWired: false };
 
-const RECOVERY_FILE = "memorymap-recovery-key.txt";
+const RECOVERY_FILE = "tessellate-recovery-key.txt";
 const RECOVERY_LEAD =
   "Save it away from this computer, such as a password manager or on paper. It is shown only this once.";
 

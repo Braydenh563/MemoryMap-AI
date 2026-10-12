@@ -27,7 +27,7 @@ the last ten runs.
 shortcut in the Start Menu. It clears the window's cached profile and starts the
 app again, and never touches your notes or settings. A startup error is written
 to `desktop-stdio.log` in the `logs` folder inside your data folder
-(`%APPDATA%\MemoryMap AI`).
+(`%APPDATA%\Tessellate`, or `%APPDATA%\MemoryMap AI` before the rename).
 
 **Windows blocked the installer?** The blue "Windows protected your PC" screen is
 expected, because the build is not code-signed yet. Click **More info**, then

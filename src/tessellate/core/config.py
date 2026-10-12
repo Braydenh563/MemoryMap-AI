@@ -208,6 +208,35 @@ DEFAULT_PREFERENCES: dict[str, Any] = {
 }
 
 
+DB_NAME = "tessellate.db"
+OLD_DB_NAME = "memorymap.db"  # brand: keep, the name before the rename
+
+
+def _adopt_old_db(data_dir: Path) -> Path:
+    """Rename a notebook from before the rename once, with its sidecars.
+
+    The -wal file holds committed rows not yet checkpointed, so it moves
+    with the database or those rows are lost. If the move fails (a file
+    held open on Windows), the old name keeps working.
+    """
+    new, old = data_dir / DB_NAME, data_dir / OLD_DB_NAME
+    if new.exists() or not old.exists():
+        return new
+    try:
+        for suffix in ("-wal", "-shm", "-journal"):
+            side = data_dir / (OLD_DB_NAME + suffix)
+            if side.exists():
+                os.replace(side, data_dir / (DB_NAME + suffix))
+        os.replace(old, new)
+    except OSError:
+        for suffix in ("-wal", "-shm", "-journal"):
+            moved = data_dir / (DB_NAME + suffix)
+            if moved.exists() and not (data_dir / (OLD_DB_NAME + suffix)).exists():
+                os.replace(moved, data_dir / (OLD_DB_NAME + suffix))
+        return old
+    return new
+
+
 def _default_data_dir() -> str:
     """Where notes live when nothing else says otherwise.
 
@@ -235,9 +264,14 @@ def _default_data_dir() -> str:
         base = str(Path.home() / "Library" / "Application Support")
     else:
         base = os.getenv("XDG_DATA_HOME") or str(Path.home() / ".local" / "share")
-    # Installs made before the rename to Tessellate keep their notes in the
-    # old folder; it moves only with a fallback (rebrand step 2).
-    return str(Path(base) / "MemoryMap AI")  # brand: keep
+    # An install from before the rename keeps its notes in the old folder,
+    # used while it exists and the new one does not, so an update never opens
+    # an empty notebook beside the person's own. Nothing is moved.
+    # installer.iss's DataDir follows the same rule.
+    old, new = Path(base) / "MemoryMap AI", Path(base) / "Tessellate"  # brand: keep
+    if old.is_dir() and not new.exists():
+        return str(old)
+    return str(new)
 
 
 def resolved_data_dir() -> Path:
@@ -313,14 +347,15 @@ class ConfigManager:
         ).resolve()
         notebook = (
             not self.data_dir.exists()
-            or (self.data_dir / "memorymap.db").exists()
+            or (self.data_dir / DB_NAME).exists()
+            or (self.data_dir / OLD_DB_NAME).exists()
             or not any(self.data_dir.iterdir())  # made empty for the app to fill
         )
         self.data_dir.mkdir(parents=True, exist_ok=True)
         if notebook:
             _owner_only(self.data_dir)
 
-        self.db_path = self.data_dir / "memorymap.db"
+        self.db_path = _adopt_old_db(self.data_dir)
         self.preferences_path = self.data_dir / "preferences.json"
         # Attached files live next to the data dir, so wiping
         # one without the other can't happen by accident.

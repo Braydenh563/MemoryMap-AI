@@ -21,7 +21,7 @@ from dataclasses import dataclass
 _LEAD = re.compile(
     r"^(?:hey |so |ok |okay )?(?:atlas,? )?"
     r"(?:can|could|will|would|do|does) (?:you|u|atlas|it|the app|this app)(?: (?:actually|even|also|ever|still))?"
-    r"(?: be able to)?\s+(?P<rest>.+)$"
+    r"(?: be able to)? (?P<rest>\S.*)$"
     r"|^(?:are|r) (?:you|u) (?:able|allowed|capable of|good at) (?:to )?(?P<rest2>.+)$"
     r"|^is (?:it|there a way) (?:possible )?(?:to |for (?:you|me) to )?(?P<rest3>.+)$"
     r"|^(?:do you (?:know how to|have|support)|have you got) (?P<rest4>.+)$",
@@ -112,7 +112,9 @@ OVERVIEW = (
 
 def _clean(question: str) -> str:
     text = " ".join((question or "").split())
-    return re.sub(r"^[\\/'\"`\s]+|[\\/'\"`?.!\s]+$", "", text)
+    #: str.strip, not a regex: an end-anchored character run is polynomial
+    #: on a long run of the same mark (CodeQL).
+    return text.lstrip("\\/'\"` ").rstrip("\\/'\"`?.! ")
 
 
 #: "do my notes go online", "is my data private", "where are my notes

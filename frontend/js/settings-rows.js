@@ -415,7 +415,7 @@ async function exportSettingsFile() {
   try {
     const body = await settingsFileSnapshot();
     const day = new Date().toISOString().slice(0, 10);
-    await downloadJson(`memorymap-settings-${day}.json`, body);
+    await downloadJson(`tessellate-settings-${day}.json`, body);
     status.textContent = `Exported ${Object.keys(body.preferences).length + Object.keys(body.this_browser).length} settings.`;
   } catch (error) {
     status.textContent = error.message;

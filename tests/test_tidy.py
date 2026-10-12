@@ -371,6 +371,9 @@ def test_the_link_reason_pass_runs_as_a_job_and_can_be_undone(client, session):
     b = _save(client, "Flights\nThen the train to Porto", tags=["portugal"])
     session.add(EntryLink(source_entry_id=a["id"], target_entry_id=b["id"], reason="similar in meaning", reason_confidence=0.7))
     session.commit()
+    #: A Quit-all an earlier test in this worker sent stops a pass that has
+    #: not started yet, by design; this one is asked to run.
+    tidy._stop.clear()
 
     result = tidy.respecify_all("default")
     assert result["named"] == 1

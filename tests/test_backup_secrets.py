@@ -39,7 +39,7 @@ def test_the_full_backup_zip_carries_no_key_file_and_no_api_key(client):
     _plant(deps.get_config())
     client.post("/entries", json={"content": "a note", "category": "General"})
     members = _members(client.get("/export/backup").content)
-    assert "memorymap.db" in members
+    assert "tessellate.db" in members
     for name, body in members.items():
         assert CANARY not in body, f"{name} carries a planted secret"
         assert "lan-tls" not in name and not name.endswith((".key", ".pem")), name

@@ -278,3 +278,31 @@ def test_both_specs_leave_bytecode_out_of_the_bundle():
         assert namespace["_without_bytecode"](keep + drop) == keep, spec
         assert text.index("a.datas = _without_bytecode(a.datas)") < text.index("COLLECT("), spec
         assert text.index("a.datas = _without_bytecode(a.datas)") > text.index("a = Analysis("), spec
+
+
+def test_the_packaged_exe_starts_the_launcher_splash_itself(monkeypatch, tmp_path):
+    """The owner: the packaged exe showed a blank "tk" window, then no splash.
+    It now starts scripts/splash.ps1 (bundled by the spec) on the
+    MM_SPLASH_FILE protocol `_close_launch_splash` already ends."""
+    import sys
+
+    from tessellate import __main__ as launcher
+
+    assert '"scripts" / "splash.ps1"), "scripts")' in (ROOT / "packaging/windows/memorymap.spec").read_text(encoding="utf-8")
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "splash.ps1").write_text("", encoding="utf-8")
+    spawned = []
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path), raising=False)
+    monkeypatch.delenv("MM_SPLASH_FILE", raising=False)
+    monkeypatch.setenv("TEMP", str(tmp_path))
+    monkeypatch.setattr("tempfile.tempdir", str(tmp_path))
+    monkeypatch.setattr("subprocess.Popen", lambda argv, **kw: spawned.append(argv))
+    launcher._start_frozen_splash()
+    status = Path(__import__("os").environ["MM_SPLASH_FILE"])
+    assert spawned and "-StatusFile" in spawned[0] and str(status) in spawned[0]
+    assert status.read_text(encoding="utf-8").startswith("1|1|Start|")
+    spawned.clear()
+    launcher._start_frozen_splash()  # one splash per launch: the variable is set
+    assert not spawned

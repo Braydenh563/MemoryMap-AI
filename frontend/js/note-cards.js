@@ -550,7 +550,9 @@ function mapPreview(board, { size = "card" } = {}) {
       w: onPaper(nx, raw.w, blockW * MAP_PREVIEW_MIN_BLOCK, pad, vw - pad),
       h: onPaper(ny, raw.h, blockH * MAP_PREVIEW_MIN_BLOCK, pad, vh - pad),
     };
-    if (item.kind !== "sketch") drawn.push({ item, x: nx, y: ny, w: size.w, h: size.h });
+    //: Sketched shapes too: a caption is tested against them as obstacles
+    //: (the dashboard's board drew "Store rev…" and "Next" across them).
+    drawn.push({ item, x: nx, y: ny, w: size.w, h: size.h });
     if (item.kind === "sketch") {
       // The shape it was drawn with, at the size and place it was drawn, in
       // its own ink: see `mapPreviewSketch`. The stroke data itself is still
@@ -652,7 +654,7 @@ function mapPreview(board, { size = "card" } = {}) {
   if (labels) {
     const kept = [];
     const ordered = drawn
-      .filter((row) => row.item.label && row.item.kind !== "image")
+      .filter((row) => row.item.label && row.item.kind !== "image" && row.item.kind !== "sketch")
       .sort((a, b) => b.w * b.h - a.w * a.h);
     for (const row of ordered) {
       const { item } = row;

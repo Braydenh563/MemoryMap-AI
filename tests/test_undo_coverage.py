@@ -318,7 +318,7 @@ def analyse():
         _, _, funcs, parent, starts = files[fn]
         i = bisect.bisect_left(starts, pos) - 1
         while i >= 0 and not (funcs[i][0] < pos < funcs[i][1]):
-            i = parent[i] if i >= 0 else -1
+            i = parent[i]
             if i < 0:
                 break
         out = []

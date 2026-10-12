@@ -160,6 +160,9 @@ def test_the_scheduler_runs_its_pass_on_the_pool(app_state, monkeypatch):
 
     monkeypatch.setattr(autonomous, "_run_optimization", fake_pass)
     monkeypatch.setattr(autonomous, "_vacuum", lambda: None)
+    #: A hold an earlier test's quit pass left in this process skips the
+    #: loop's one pass, which failed this only in the full suite.
+    monkeypatch.setattr(autonomous, "snoozed_for", lambda: 0)
     autonomous._working.clear()
     #: A fresh pool: one process runs hundreds of apps here, and a pass an
     #: earlier test's app queued may still hold the lane.

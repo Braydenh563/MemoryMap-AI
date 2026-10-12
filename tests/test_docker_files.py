@@ -28,7 +28,7 @@ def test_every_copy_source_exists_in_the_context():
     for line in DOCKERFILE.splitlines():
         if not line.startswith("COPY ") or "--from=" in line:
             continue
-        *sources, _dest = line.split()[1:]
+        sources = line.split()[1:-1]
         for source in sources:
             assert (ROOT / source).exists(), f"COPY of a missing path: {source}"
 

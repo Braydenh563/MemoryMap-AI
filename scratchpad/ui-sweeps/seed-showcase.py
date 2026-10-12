@@ -302,6 +302,14 @@ def main() -> None:
         ("Compare three home insurance quotes", 3, 19, "low", "none", "o_insur"),
         ("Water the houseplants", 4, 9, "low", "weekly", None),
         ("Boiler service: mention the pressure", 5, 9, "normal", "none", "o_boiler"),
+        #: Further out, so the Timeline's month calendar (the README shot)
+        #: has something in its last weeks, as a real month does.
+        ("Harbor launch: go or no-go", 8, 11, "high", "none", "w_email"),
+        ("Dentist, 8:30", 10, 8, "normal", "none", None),
+        ("Renew the passport photos", 13, 14, "low", "none", "t_trains"),
+        ("Sourdough: refresh the starter jar", 15, 9, "low", "none", "c_starter"),
+        ("Half marathon registration closes", 17, 12, "normal", "none", "h_plan"),
+        ("Fly to Lisbon", 19, 7, "high", "none", "t_trains"),
     ]
     for text, days, hour, priority, recurring, key in reminders:
         due = today + dt.timedelta(days=days, hours=hour)

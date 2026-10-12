@@ -264,6 +264,16 @@ with its owner named in the entry.
      120 notes and 0.458 to 0.667 on 48 held-out ones (`tests/test_everyday_vocabulary.py`).
      Placed: WORLD_CLASS_PLAN 23 step 6.
 
+1298. **The owner, 2026-10-12, verbatim.** "Make the exceptions for the
+     complexity but mark them to be fixed start of next pr". First work of the
+     next PR: split the 16 `composer_digest.py` rows seeded into
+     `tests/complexity_seed.json` (`_single` 79, `_facts` 75, `_lines` 62,
+     `answer` 57 and 12 more) to 15 or below, deleting each row, with the
+     composer tests as the net. Also 18 seeded functions that grew this PR
+     (`_stream_lines` 93 to 106, `_generate_diagram` 27 to 47, `mcp_server.handle_request`
+     17 to 30 and 15 more; `python scripts/complexity.py` lists them): bring each
+     back to its seed.
+
 ## Placed (last 20, newest first)
 
 - 2026-10-11: 899 ("dont notes also already work out timewords and time references?? can the composer and agents ... pull from those") sent to atlas; 900 ("click on the lan icon in the bototm bar and easily be able to toggle it on or off ... without having to restert") folded into 896; 901 (show more and less awkward on wide paragraphs, two screenshots) sent to tags89; 902 (companion physics, entries, organic movement, no jolts, Atlas behaviours, the expanded panel's hanging arms, the arm that rises on a click) sent to throw.

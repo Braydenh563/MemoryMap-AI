@@ -10,6 +10,7 @@ below). Versioning is `0.x` while the app stabilises.
 ## [0.5.0] - 2026-10-12
 
 - Tessellate: the product renamed from MemoryMap AI ("Your notes, pieced together"); the no-model composer answers personal, task, Guide and date questions from your notes; PIN quick unlock; LAN device trust; launch splash and logo animation; whiteboard mind map placement; timeline pill glide; jobs logs per run.
+- 0.5.0 finish: the packaged Windows exe shows the launch splash; new installs keep notes in a `Tessellate` folder (an existing `MemoryMap AI` folder is kept); the notebook file is `tessellate.db` (an old `memorymap.db` is renamed once at start, older backups still restore); backups and exports download as `tessellate-*`; board previews no longer draw captions across sketched shapes; the README's Timeline shot shows the month calendar.
 
 - Fixed: chat with no model answered "how do i pin a note", "how can I rename a note", "how do I tag a note", "how do I make a mind map" and "how do I use the whiteboard" with "nothing in your notes about ..."; they now reach the Guide (the Guide gold test also runs on its own).
 - Fixed: chat with no model, "summarise my work notes" when the only note is titled Work answered "Your notes don't seem to cover that"; it now says the note is only a title so far.

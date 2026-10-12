@@ -1829,7 +1829,7 @@ def audit_export_csv(
         content=buffer.getvalue(),
         media_type="text/csv",
         headers={
-            "Content-Disposition": "attachment; filename=memorymap-activity.csv",
+            "Content-Disposition": "attachment; filename=tessellate-activity.csv",
             "X-Total-Count": str(total),
         },
     )
@@ -2544,7 +2544,7 @@ def support_bundle(session: Session = Depends(get_session)) -> Response:
         content=buffer.getvalue(),
         media_type="application/zip",
         headers={
-            "Content-Disposition": "attachment; filename=memorymap-support-bundle.zip"
+            "Content-Disposition": "attachment; filename=tessellate-support-bundle.zip"
         },
     )
 
@@ -2596,7 +2596,7 @@ def export_backup(background_tasks: BackgroundTasks):
     #: consistent whole through SQLite's backup API, and adds `uploads/` to
     #: `media/`. The same zip is what `POST /backups/bundle` seals with a
     #: password and `POST /backups/bundle/restore` reads back.
-    backup_bundle.build_zip(config.data_dir, config.data_dir / "memorymap.db", Path(tmp_path))
+    backup_bundle.build_zip(config.data_dir, config.db_path, Path(tmp_path))
     return FileResponse(tmp_path, media_type="application/zip", filename="memorymap_backup.zip", background=background_tasks)
 
 @router.get("/export/json")
@@ -2661,7 +2661,7 @@ def export_json(session: Session = Depends(get_session)) -> Response:
     return Response(
         content=json.dumps(payload, indent=2),
         media_type="application/json",
-        headers={"Content-Disposition": "attachment; filename=memorymap-export.json"},
+        headers={"Content-Disposition": "attachment; filename=tessellate-export.json"},
     )
 
 
@@ -2742,7 +2742,7 @@ def export_markdown(
     return Response(
         content=build_markdown_export(session, chosen),
         media_type="application/zip",
-        headers={"Content-Disposition": "attachment; filename=memorymap-markdown.zip"},
+        headers={"Content-Disposition": "attachment; filename=tessellate-markdown.zip"},
     )
 
 
@@ -3316,5 +3316,5 @@ def export_csv(session: Session = Depends(get_session)) -> Response:
     return Response(
         content=buffer.getvalue(),
         media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=memorymap-export.csv"},
+        headers={"Content-Disposition": "attachment; filename=tessellate-export.csv"},
     )

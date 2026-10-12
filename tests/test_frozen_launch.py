@@ -38,7 +38,7 @@ def installed(monkeypatch, tmp_path):
     cwd = tmp_path / "started-in"
     cwd.mkdir()
     monkeypatch.chdir(cwd)
-    return home / "MemoryMap AI", cwd  # brand: keep, the data folder (config._default_data_dir)
+    return home / "Tessellate", cwd  # the new install's data folder (config._default_data_dir)
 
 
 # --- the data directory, with no variable set ------------------------------
@@ -66,7 +66,7 @@ def test_repair_clears_the_profile_the_window_really_uses(installed):
     data_dir, cwd = installed
     profile = data_dir / "webview" / "EBWebView"
     profile.mkdir(parents=True)
-    notes = data_dir / "memorymap.db"
+    notes = data_dir / "tessellate.db"
     notes.write_text("notes")
     entry._repair_install()
     assert not (data_dir / "webview").exists()

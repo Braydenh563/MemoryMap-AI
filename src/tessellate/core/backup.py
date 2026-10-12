@@ -100,7 +100,7 @@ def backup_files(data_dir: Path) -> list[Path]:
     truncates a file underneath us.
     """
     found = []
-    for path in backups_dir(data_dir).glob("memorymap-*.db"):
+    for path in _snapshots(backups_dir(data_dir)):
         try:
             if path.stat().st_size > 0:
                 found.append(path)
@@ -236,7 +236,7 @@ def _copy_aside(destination: Path, target: Path, keep: int) -> None:
     if record.exists():
         shutil.copyfile(record, target / record.name)
     copies = sorted(
-        (p for p in target.glob("memorymap-*.db") if p.is_file() and p.stat().st_size > 0), key=_newest_key, reverse=True
+        (p for p in _snapshots(target) if p.is_file() and p.stat().st_size > 0), key=_newest_key, reverse=True
     )
     for old in copies[max(0, keep) :]:
         old.unlink(missing_ok=True)
@@ -266,7 +266,7 @@ def backup_now(db_path: Path, data_dir: Path, keep: int = KEEP_BACKUPS, run=None
     #: disk is the measured case) leaves a file named like a backup holding
     #: part of one, or none of one: see `backup_files` for what that costs.
     #: Same directory, so the rename is atomic and cannot itself run out of
-    #: space; `.partial` is outside the `memorymap-*.db` glob, so a stray one
+    #: space; `.partial` is outside the `tessellate-*.db` glob, so a stray one
     #: is never listed, restored or counted against retention.
     partial = destination.with_name(f"{destination.name}.partial")
     try:
@@ -307,14 +307,19 @@ class _NoRun:
         pass
 
 
+def _snapshots(folder: Path, suffix: str = ".db") -> list[Path]:
+    """Snapshots under either name: those made before the rename keep theirs."""
+    return [*folder.glob(f"tessellate-*{suffix}"), *folder.glob(f"memorymap-*{suffix}")]  # brand: keep
+
+
 def _free_destination(folder: Path, stamp: str) -> Path:
     """The backup's path, never one already taken: two backups in the same
     second (e.g. the pre-restore safety copy right after a manual one) must
     never overwrite each other."""
-    destination = folder / f"memorymap-{stamp}.db"
+    destination = folder / f"tessellate-{stamp}.db"
     counter = 1
     while destination.exists():
-        destination = folder / f"memorymap-{stamp}-{counter}.db"
+        destination = folder / f"tessellate-{stamp}-{counter}.db"
         counter += 1
     return destination
 
@@ -466,7 +471,7 @@ _PARTIAL_GRACE_SECONDS = 3600
 
 def _sweep_partials(data_dir: Path) -> None:
     now = datetime.now(timezone.utc).timestamp()
-    for path in backups_dir(data_dir).glob("memorymap-*.db.partial"):
+    for path in _snapshots(backups_dir(data_dir), ".db.partial"):
         try:
             if now - path.stat().st_mtime > _PARTIAL_GRACE_SECONDS:
                 path.unlink(missing_ok=True)

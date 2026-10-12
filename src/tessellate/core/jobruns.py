@@ -370,7 +370,7 @@ class Run:
         _bump()
         #: In the app log under its run id, so Settings, Logs can show this
         #: run's lines (the Logs button filters on "[run-12]").
-        logger.info("[%s] %s started", self.id, self.title)
+        logger.info("[%s] %s started", self.id, str(self.title).replace("\r", " ").replace("\n", " "))
         if self._db is None:
             return
         try:

@@ -131,7 +131,7 @@ def test_a_folder_from_one_space_imports_into_the_space_that_is_open(client, ses
     other = client.post("/spaces", json={"name": "Elsewhere"}).json()["id"]
     response = client.post(
         "/import/app?source=memorymap",
-        files=[("files", ("memorymap-notebook.zip", data, "application/zip"))],
+        files=[("files", ("tessellate-notebook.zip", data, "application/zip"))],
         headers={"X-Workspace-ID": other},
     )
     assert response.status_code == 201, response.text

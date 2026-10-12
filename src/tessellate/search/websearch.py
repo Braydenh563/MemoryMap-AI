@@ -194,7 +194,8 @@ def _searxng_target(
         port = 443 if parsed.scheme == "https" else 80
 
     literal = f"[{pinned_ip}]" if pinned_ip.version == 6 else str(pinned_ip)
-    url = f"{parsed.scheme}://{literal}:{port}{path}"
+    scheme = {"https": "https"}.get(parsed.scheme, "http")
+    url = f"{scheme}://{literal}:{int(port)}{path}"
     host_header = host if parsed.port is None else f"{host}:{parsed.port}"
     return url, {**PRIVACY_HEADERS, "Host": host_header}
 

@@ -2450,8 +2450,8 @@ def _body(
 _STILL_OPEN = re.compile(
     r"^(?:what(?:'s|s| is| are)?|which)(?: things?| items?| tasks?)?(?: is| are)?(?: still)? "
     r"(?:open|left(?: to do)?|outstanding|remaining|not done|undone|unticked|unchecked|to do|todo|pending)(?: still)? "
-    r"(?:on|for|in|from|with) (?P<a>.+?)[?.]*$"
-    r"|^what (?:do|have) i (?:still |got )?(?:have |need |got )?(?:left )?to do (?:on|for|in) (?P<b>.+?)[?.]*$",
+    r"(?:on|for|in|from|with) (?P<a>.+)$"
+    r"|^what (?:do|have) i (?:still |got )?(?:have |need |got )?(?:left )?to do (?:on|for|in) (?P<b>.+)$",
     re.I,
 )
 
@@ -2461,7 +2461,7 @@ def _still_open(out: _Answer, question: str, views: list[NoteView]) -> bool:
     many of how many, then those items. False when the question is not
     that, or no note found names it with a checklist."""
     asked = question_noise.repair(question_noise.tidy(" ".join((question or "").split())))
-    found = _STILL_OPEN.match(asked)
+    found = _STILL_OPEN.match(asked.rstrip("?."))
     if not found:
         return False
     wanted = {_stem(w) for w in _words(found.group("a") or found.group("b"))} - {_stem(w) for w in _NOTE_NOUNS}

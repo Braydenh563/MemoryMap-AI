@@ -15,7 +15,7 @@ async function emailSupportReport(about) {
   const subject = encodeURIComponent(`Tessellate report${stamp ? ` (${stamp.split("-")[0]})` : ""}`);
   const body = encodeURIComponent(
     (about ? `What happened: ${about}\n\n` : "What happened: \n\n") +
-      "Please attach memorymap-support-bundle.zip, which was just saved to your downloads.\n"
+      "Please attach tessellate-support-bundle.zip, which was just saved to your downloads.\n"
   );
   try {
     await navigator.clipboard?.writeText?.(SUPPORT_EMAIL);

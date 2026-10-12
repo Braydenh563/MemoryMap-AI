@@ -103,13 +103,13 @@ def test_an_update_that_will_migrate_takes_a_safety_copy_first(tmp_path):
     it straight on the only copy of the notebook; the nightly backup might be a
     day old. A database stamped behind the code now gets a copy first, and one
     already at head (every ordinary launch) gets none."""
-    db_path = tmp_path / "memorymap.db"
+    db_path = tmp_path / "tessellate.db"
     DatabaseManager(db_path)
     _stamp_at(db_path, "d3b7c2a91e45")  # behind: later revisions are pending
     _ensure_alembic_baseline(db_path)
-    copies = sorted((tmp_path / "backups").glob("memorymap-*.db"))
+    copies = sorted((tmp_path / "backups").glob("tessellate-*.db"))
     assert len(copies) == 1, "a migration was pending and no safety copy was taken"
     assert sqlite3.connect(copies[0]).execute("SELECT version_num FROM alembic_version").fetchall() == [("d3b7c2a91e45",)]
 
     _ensure_alembic_baseline(db_path)  # now at head: an ordinary launch
-    assert len(list((tmp_path / "backups").glob("memorymap-*.db"))) == 1
+    assert len(list((tmp_path / "backups").glob("tessellate-*.db"))) == 1

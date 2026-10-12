@@ -135,4 +135,4 @@ def export_notebook_folder(background_tasks: BackgroundTasks, session: Session =
             f", {counts['missing']} attachment files missing" if counts["missing"] else "")
     manager.log_action(session, "exported", "data", detail="folder")
     session.commit()
-    return FileResponse(tmp_path, media_type="application/zip", filename="memorymap-notebook.zip", background=background_tasks)
+    return FileResponse(tmp_path, media_type="application/zip", filename="tessellate-notebook.zip", background=background_tasks)

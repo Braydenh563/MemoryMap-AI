@@ -1837,7 +1837,7 @@ $("library-bin-empty").addEventListener("click", async () => {
 $("library-activity-export").addEventListener("click", async () => {
   try {
     const response = await api("/audit/export.csv");
-    await saveFile("memorymap-activity.csv", await response.blob());
+    await saveFile("tessellate-activity.csv", await response.blob());
   } catch (e) {
     toast(e.message, true);
   }

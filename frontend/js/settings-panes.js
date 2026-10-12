@@ -1098,9 +1098,9 @@ async function downloadExport(kind) {
   const response = await api(`/export/${kind}`);
   // Markdown and the full backup arrive as zips; the rest are single files.
   const name =
-    kind === "markdown" ? "memorymap-markdown.zip" :
-    kind === "backup" ? "memorymap-backup.zip" :
-    `memorymap-export.${kind}`;
+    kind === "markdown" ? "tessellate-markdown.zip" :
+    kind === "backup" ? "tessellate-backup.zip" :
+    `tessellate-export.${kind}`;
   await saveFile(name, await response.blob());
 }
 

@@ -760,7 +760,8 @@ def _device_must_wait(request: Request, config: ConfigManager) -> bool:
 
 def _hold_new_device(request: Request, device: str, config: ConfigManager) -> JSONResponse | None:
     """Hold this sign-in until this computer answers; None once allowed."""
-    raw = device or secrets.token_urlsafe(32)
+    minted = "" if device else secrets.token_urlsafe(32)
+    raw = device or minted
     lantrust.hold(raw, lantrust.device_name(request.headers.get("user-agent")), _client_key(request))
     decision = None
     if _device_waits.acquire(blocking=False):
@@ -781,8 +782,8 @@ def _hold_new_device(request: Request, device: str, config: ConfigManager) -> JS
             "Choose Allow in the notice there, then press Unlock again."
         )
     refused = JSONResponse(status_code=403, content={"detail": detail, "device_pending": decision is None})
-    if not device:
-        _set_device_cookie(refused, raw)
+    if minted:
+        _set_device_cookie(refused, minted)
     return refused
 
 
@@ -1893,7 +1894,7 @@ class SaveRecoveryKeyBody(BaseModel):
     text: str = Field(min_length=1, max_length=4000)
 
 
-RECOVERY_KEY_FILE = "memorymap-recovery-key.txt"
+RECOVERY_KEY_FILE = "tessellate-recovery-key.txt"
 
 
 @router.post("/recovery-key/save", dependencies=[Depends(require_unlock), Depends(this_computer_only)])

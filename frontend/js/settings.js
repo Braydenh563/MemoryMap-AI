@@ -1156,7 +1156,7 @@ async function downloadSupportBundle() {
     const response = await api("/support-bundle").catch(() => {
       throw new Error("Couldn't build the support bundle. Try again.");
     });
-    await saveFile("memorymap-support-bundle.zip", await response.blob());
+    await saveFile("tessellate-support-bundle.zip", await response.blob());
     toast("Support bundle saved. Have a look inside before you send it.");
   } catch (error) {
     toast(error.message || "Couldn't build the support bundle.", true);
@@ -4184,7 +4184,7 @@ async function learnedExport() {
   try {
     const data = await apiJson("/learned/export");
     const day = new Date().toISOString().slice(0, 10);
-    await downloadJson(`memorymap-learned-${day}.json`, data);
+    await downloadJson(`tessellate-learned-${day}.json`, data);
   } catch (error) {
     toast(error.message, true);
   }

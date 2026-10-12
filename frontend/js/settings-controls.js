@@ -763,7 +763,7 @@ $("settings-manage-categories").addEventListener("click", () => openManageCatego
 $("settings-manage-tags").addEventListener("click", () => openTagsSheet());
 
 $("skill-export").addEventListener("click", () =>
-  downloadJson("memorymap-skills.json", {
+  downloadJson("tessellate-skills.json", {
     skills: (prefsCache && prefsCache.skills) || [],
   })
 );
@@ -784,7 +784,7 @@ $("skill-import").addEventListener("click", () =>
 );
 
 $("persona-export").addEventListener("click", () =>
-  downloadJson("memorymap-personas.json", {
+  downloadJson("tessellate-personas.json", {
     personas: (prefsCache && prefsCache.personas) || [],
   })
 );
@@ -1013,7 +1013,7 @@ $("about-take-tour")?.addEventListener("click", () => {
 $("export-md").addEventListener("click", () => downloadExport("markdown"));
 //: The whole notebook as a folder (WORLD_CLASS 25b): notes, attachments,
 //: documents and boards, which From a Tessellate folder reads back whole.
-$("export-folder").addEventListener("click", async () => saveFile("memorymap-notebook.zip", await (await api("/export/folder")).blob()));
+$("export-folder").addEventListener("click", async () => saveFile("tessellate-notebook.zip", await (await api("/export/folder")).blob()));
 
 //: One step (INBOX 464 (18)): the button opens its picker and choosing
 //: starts the import. The folder picker posts through the same function,
@@ -1877,7 +1877,7 @@ async function exportFullBackup() {
     method: "POST",
     body: JSON.stringify({ password: password || null }),
   });
-  await saveFile(password ? "memorymap-backup.mmenc" : "memorymap-backup.zip", await response.blob());
+  await saveFile(password ? "tessellate-backup.mmenc" : "tessellate-backup.zip", await response.blob());
   if (field) field.value = "";
 }
 

@@ -260,6 +260,14 @@ def record_incoming(address: str) -> None:
     if not isinstance(address, str) or not address:
         return
     host = address.split("%", 1)[0]
+    #: A dual-stack socket reports an IPv4 phone as `::ffff:10.1.0.106` (CI's
+    #: runner did); the receipt names it as the phone's own address.
+    try:
+        mapped = ipaddress.ip_address(host).ipv4_mapped
+    except (ValueError, AttributeError):
+        mapped = None
+    if mapped is not None:
+        host = str(mapped)
     _record("incoming", host, None, scope="local_network", via="tessellate.core.lanserve", why=INCOMING_PURPOSE)
 
 

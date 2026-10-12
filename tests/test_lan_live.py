@@ -135,7 +135,7 @@ def test_an_incoming_connection_is_a_local_network_row_with_the_address_only():
     egress.reset()
     before = egress.totals()["local_network"]
     egress.record_incoming("192.168.0.50")
-    egress.record_incoming("192.168.0.50")
+    egress.record_incoming("::ffff:192.168.0.50")  # a dual-stack socket's form of the same phone
     # A phone's own global IPv6 address in this network's /64 is still local.
     egress.record_incoming("2001:db8::50")
     rows = [r for r in egress.destinations() if r["kind"] == "incoming"]

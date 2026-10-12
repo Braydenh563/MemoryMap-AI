@@ -2633,7 +2633,7 @@ async function startArt(holder) {
     p.saveSettled = () => {
       const t = reduceMotion ? 0 : artDriftMs() * 0.0003;
       scene(t, true);
-      p.saveCanvas("memorymap-constellation", "png");
+      p.saveCanvas("tessellate-constellation", "png");
       scene(t);
     };
     //: What the stars are drawn at, for the sweep that measures the glide.

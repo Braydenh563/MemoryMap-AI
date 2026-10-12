@@ -79,7 +79,7 @@ QUOTED = re.compile(r"\"[^\"\n]{0,1200}(?:\n[^\"\n]{0,1200}){0,12}\"|“[^”]{0
 # ---- step 2: internal identifiers (`--identifiers`) ----------------------
 #: Module paths and logger names: `memorymap.<module>` for the package's own
 #: top-level modules, `from/import memorymap`, `-m memorymap`, `src/memorymap`.
-#: Not: `memorymap.db` (the database file installs hold), `memorymap.spec`
+#: Not: `memorymap.db` (the old database name, renamed once at start), `memorymap.spec`
 #: (the PyInstaller spec files), `memorymap.local` (a host name),
 #: `memorymap.desktop.app.1` (the Windows taskbar id pinned shortcuts carry),
 #: `memorymap.ocr.*` (browser keys, migrated in the app head), file formats

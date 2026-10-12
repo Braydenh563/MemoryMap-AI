@@ -88,7 +88,7 @@ def test_strings_that_secure_or_find_existing_data_keep_the_old_name():
     src = ROOT / "src" / "tessellate"
     assert b'b"memorymap-bcrypt-input"' in (src / "api" / "routes_auth.py").read_bytes()
     assert '"MemoryMap AI on this computer"' in (src / "core" / "lancert.py").read_text(encoding="utf-8")
-    assert '"MemoryMap AI")  # brand: keep' in (src / "core" / "config.py").read_text(encoding="utf-8")
+    assert 'Path(base) / "MemoryMap AI", Path(base) / "Tessellate"  # brand: keep' in (src / "core" / "config.py").read_text(encoding="utf-8")
 
 
 def test_a_copy_started_before_the_rename_is_recognised():

@@ -289,7 +289,6 @@ FACETS: tuple[tuple[str, re.Pattern, tuple[tuple[str, re.Pattern], ...]], ...] =
     )),
 )
 
-_WEEKDAY_NAMES = "monday tuesday wednesday thursday friday saturday sunday".split()
 _DAYS_PLURAL = re.compile(r"\b(?:(?:mon|tues|wednes|thurs|fri|satur|sun)days?(?:\s+(?:and|or|,)\s+|,\s*)?)+\b", re.I)
 _RELATIVE = re.compile(r"\s*\b(?:before |by |until )?(?:next|this|last) (?:week|month|weekend)\b", re.I)
 _PREFIX = re.compile(r"^([^:.!?\n]{2,34}):\s+(\S.*)$")
@@ -357,8 +356,7 @@ def clean(question: str) -> str:
     "'what is there about a gaming mouse?\\\\'" searched with the backslash
     kept): slashes and quotes at its ends, doubled spaces."""
     text = " ".join((question or "").split())
-    text = re.sub(r"^[\\/'\"`\s]+|[\\/'\"`\s]+$", "", text)
-    return text.strip()
+    return text.lstrip("\\/'\"` ").rstrip("\\/'\"` ")
 
 
 #: A question that opens with none of these is a topic ("games notes"):
@@ -1713,6 +1711,7 @@ def answer(
         return None
     members.sort(key=lambda v: (v.written or date.min, v.rank))
     tie = _tie(asked, members) if kind == "overview" else None
+    other, others = "", []
     if tie:
         members, other, others = tie
     subject = set(_subject(asked))

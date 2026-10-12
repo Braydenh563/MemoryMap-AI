@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 import re
 import shutil
 import time
@@ -48,7 +49,11 @@ def _root(data_dir: Path) -> Path:
 def _folder(data_dir: Path, token: str) -> Path:
     if not isinstance(token, str) or not _TOKEN.match(token):
         raise HTTPException(status_code=404, detail="That can no longer be put back.")
-    return _root(data_dir) / token
+    root = os.path.realpath(_root(data_dir))
+    folder = os.path.realpath(os.path.join(root, token))
+    if not folder.startswith(root + os.sep):
+        raise HTTPException(status_code=404, detail="That can no longer be put back.")
+    return Path(folder)
 
 
 def prune(data_dir: Path, days: int = KEEP_DAYS) -> int:

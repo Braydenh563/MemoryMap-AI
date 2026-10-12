@@ -77,7 +77,7 @@ def _use(data_dir: str | os.PathLike[str] | None) -> None:
         try:
             _write(path, key)
         except OSError:
-            pass
+            pass  # a key that cannot be saved still works for this run
     _key = key
     _loaded_from = folder
 
@@ -92,7 +92,7 @@ def rotate(data_dir: str | os.PathLike[str] | None = None) -> None:
             _write(Path(data_dir) / KEY_FILE, _key)
             _loaded_from = Path(data_dir)
         except OSError:
-            pass
+            pass  # rotated in memory; the old file is unusable without the old key
 
 
 def forget_process() -> None:

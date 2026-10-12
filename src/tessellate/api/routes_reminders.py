@@ -359,7 +359,7 @@ def export_ics(include_done: bool = False, session: Session = Depends(get_sessio
     only when asked, since a calendar is for what is coming."""
     filters = [] if include_done else [Reminder.done.is_(False)]
     rows = list(session.scalars(select(Reminder).where(*filters).order_by(Reminder.due_at, Reminder.id)))
-    return _ics_response(session, rows, "memorymap-reminders.ics")
+    return _ics_response(session, rows, "tessellate-reminders.ics")
 
 
 @router.get("/{reminder_id}/export.ics")

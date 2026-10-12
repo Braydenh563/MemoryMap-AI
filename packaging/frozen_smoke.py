@@ -301,7 +301,7 @@ def check_api(base: str, data_dir: Path | None, password: str, expect_note: bool
             names = zipfile.ZipFile(io.BytesIO(export.body)).namelist()
         except zipfile.BadZipFile:
             names = []
-        if not any(name.endswith("memorymap.db") for name in names):
+        if not any(name.endswith(("tessellate.db", "memorymap.db")) for name in names):  # brand: keep
             fail(f"GET /export/backup: not a zip with the database in it ({names[:5]})")
 
     for body, label in (({}, "plain"), ({"password": "smoke-password-123"}, "sealed")):
@@ -333,7 +333,9 @@ def check_alembic(data_dir: Path, fail) -> None:
     """The start-up stamp (or upgrade) reached the newest revision: what
     `core/database._ensure_alembic_baseline` logs and swallows when the
     bundle's `alembic.ini` or `migrations/` cannot be read."""
-    db = data_dir / "memorymap.db"
+    db = data_dir / "tessellate.db"
+    if not db.is_file():
+        db = data_dir / "memorymap.db"  # brand: keep, a notebook not yet renamed
     if not db.is_file():
         fail(f"alembic: no database at {db}")
         return

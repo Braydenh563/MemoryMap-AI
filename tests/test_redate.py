@@ -65,7 +65,7 @@ def test_a_run_cut_short_continues_from_its_cursor(client, session, monkeypatch)
     monkeypatch.setattr(redate, "_reread", stop_after_two)
     try:
         redate.run(chunk=2)
-    except BaseException:  # noqa: BLE001 - the stand-in for a quit
+    except KeyboardInterrupt:  # the stand-in for a quit
         pass
     assert int(deps.get_config().get_preference(redate.CURSOR_KEY, 0)) == ids[1]
     assert redate.pending() is True

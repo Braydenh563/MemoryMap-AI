@@ -258,7 +258,7 @@ def test_an_empty_file_is_never_offered_or_restored_as_a_backup(app_state):
     folder = backup.backups_dir(config.data_dir)
     # The fixture's own startup backup would answer "there is a recent one"
     # on its own, which is the thing this test has to ask the empty file.
-    for stale in folder.glob("memorymap-*.db"):
+    for stale in folder.glob("tessellate-*.db"):
         stale.unlink()
     empty = folder / "memorymap-29991231-235959.db"
     empty.touch()

@@ -184,7 +184,9 @@ class DpapiStore(Store):
     @staticmethod
     def _crypt(data: bytes, protect: bool) -> bytes:
         import ctypes
-        from ctypes import wintypes
+        import ctypes.wintypes
+
+        wintypes = ctypes.wintypes
 
         class Blob(ctypes.Structure):
             _fields_ = [("cbData", wintypes.DWORD), ("pbData", ctypes.POINTER(ctypes.c_char))]
@@ -385,6 +387,6 @@ def unlock(data_dir: Path, pin: str, bound_to: bytes) -> tuple[str, bytes | None
             try:
                 store(data_dir).delete(account)
             except StoreError:
-                pass
+                pass  # refused below either way; nothing left to undo
             return "wiped", None
         return "wrong", None

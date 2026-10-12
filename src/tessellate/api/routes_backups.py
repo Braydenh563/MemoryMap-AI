@@ -251,7 +251,7 @@ def export_bundle(body: BundleBody, background_tasks: BackgroundTasks, session: 
     return FileResponse(
         served,
         media_type="application/octet-stream" if sealed else "application/zip",
-        filename="memorymap-backup.mmenc" if sealed else "memorymap-backup.zip",
+        filename="tessellate-backup.mmenc" if sealed else "tessellate-backup.zip",
         background=background_tasks,
     )
 

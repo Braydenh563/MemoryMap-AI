@@ -151,6 +151,8 @@ a = Analysis(
         # FRONTEND_DIR and __main__.py's icon lookup both expect exactly
         # that path once sys.frozen is true (see their own comments).
         (str(FRONTEND_DIR), "frontend"),
+        # The pre-window splash the exe starts itself (__main__._start_frozen_splash).
+        (str(REPO_ROOT / "scripts" / "splash.ps1"), "scripts"),
         # Same reason, same extraction-root convention: core/database.py's
         # _migrations_root() looks for these two right beside "frontend"
         # once sys.frozen is true. Without them, a frozen build silently
@@ -252,8 +254,8 @@ pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 # what is left on screen. The app's own loading window (`_loading_html`,
 # opened as soon as Python runs) already says what the launch is doing,
 # so the bootloader card is dropped rather than patched blind. A
-# pre-Python card that is tested on Windows is carry-over for 0.3.4.
-# `_splash_status` and `_close_bootloader_splash` stay: both are no-ops
+# pre-Python card: the exe now starts scripts/splash.ps1 itself, the card
+# start.bat shows (`_start_frozen_splash`). `_splash_status` and `_close_bootloader_splash` stay: both are no-ops
 # when `pyi_splash` does not exist.
 
 exe = EXE(

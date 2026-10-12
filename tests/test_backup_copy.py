@@ -62,8 +62,8 @@ def test_the_copy_folder_is_held_to_the_retention_number(client, tmp_path):
     config.db_path.touch()
     for _ in range(4):
         backup.backup_now(config.db_path, config.data_dir, keep=2, origin="manual")
-    kept = sorted(p.name for p in folder.glob("memorymap-*.db"))
-    assert len(kept) == 2 and kept == sorted(p.name for p in backup.backups_dir(config.data_dir).glob("memorymap-*.db"))
+    kept = sorted(p.name for p in folder.glob("tessellate-*.db"))
+    assert len(kept) == 2 and kept == sorted(p.name for p in backup.backups_dir(config.data_dir).glob("tessellate-*.db"))
     assert (folder / "photo.jpg").exists()
     assert not list(folder.glob("*.partial"))
 

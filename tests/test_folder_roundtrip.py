@@ -104,7 +104,7 @@ def exported(client, tmp_path):
 
 def _import(data: bytes):
     session = deps.get_db().session()
-    result = app_import.read("memorymap", [("memorymap-notebook.zip", data)], parse_frontmatter=_parse_frontmatter)
+    result = app_import.read("memorymap", [("tessellate-notebook.zip", data)], parse_frontmatter=_parse_frontmatter)
     written = export_folder.write(session, result, deps.get_config().uploads_dir)
     return session, result, written
 
@@ -177,7 +177,7 @@ def test_the_route_takes_a_memorymap_folder(exported):
 
     _, data = exported
     client = TestClient(create_app())
-    reply = client.post("/import/app?source=memorymap", files=[("files", ("memorymap-notebook.zip", data, "application/zip"))])
+    reply = client.post("/import/app?source=memorymap", files=[("files", ("tessellate-notebook.zip", data, "application/zip"))])
     assert reply.status_code == 201, reply.text
     body = reply.json()
     assert body["imported"] == 503 and body["skipped"] == []

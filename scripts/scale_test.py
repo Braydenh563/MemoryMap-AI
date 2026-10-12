@@ -158,12 +158,12 @@ def report_storage(session, data_dir: Path, n: int) -> None:
 
     # Force WAL back into the main file before measuring — otherwise a big
     # write's real cost is split across two files, and the one most people
-    # remember to check (memorymap.db) understates it until SQLite decides
+    # remember to check (tessellate.db) understates it until SQLite decides
     # to checkpoint on its own.
     session.connection().exec_driver_sql("PRAGMA wal_checkpoint(TRUNCATE)")
     session.commit()
 
-    db_file = data_dir / "memorymap.db"
+    db_file = data_dir / "tessellate.db"
     db_bytes = db_file.stat().st_size if db_file.exists() else 0
     uploads_dir = data_dir / "uploads"
     uploads_bytes = (
@@ -184,7 +184,7 @@ def report_storage(session, data_dir: Path, n: int) -> None:
     real_dim_bytes = 384 * 4  # a common local sentence-transformer's output
 
     print(f"\nStorage after {n} notes:")
-    print(f"  memorymap.db (checkpointed):  {db_bytes / 1e6:9.1f} MB")
+    print(f"  tessellate.db (checkpointed):  {db_bytes / 1e6:9.1f} MB")
     print(f"  — of which embeddings table:  {embeddings_bytes / 1e6:9.1f} MB "
           f"(this fixture's 4-dim vectors)")
     print(f"  uploads/ (attachments):       {uploads_bytes / 1e6:9.1f} MB")

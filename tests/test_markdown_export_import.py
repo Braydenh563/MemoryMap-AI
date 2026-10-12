@@ -106,7 +106,7 @@ def test_full_backup_export_is_a_zip_of_the_database(client):
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/zip"
     archive = zipfile.ZipFile(io.BytesIO(response.content))
-    assert "memorymap.db" in archive.namelist()
+    assert "tessellate.db" in archive.namelist()
 
 
 def test_markdown_roundtrip(client):
@@ -151,7 +151,7 @@ def test_the_cli_export_puts_the_default_name_inside_a_directory(client, tmp_pat
     from tessellate.__main__ import _export_markdown
 
     assert _export_markdown(str(tmp_path)) == 0
-    assert (tmp_path / "memorymap-markdown.zip").exists()
+    assert (tmp_path / "tessellate-markdown.zip").exists()
 
 
 def test_the_cli_export_reports_rather_than_raises_on_an_unwritable_path(client, tmp_path):

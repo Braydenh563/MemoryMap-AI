@@ -321,7 +321,7 @@ mm_splash() {
       # on a phase string nobody chose. Every `mm_splash` call site in this
       # file is a fixed literal, but this guards the mechanism itself, not
       # today's call sites.
-      osascript -e "display notification $(printf '%s' "$1" | sed 's/[\\"]/\\&/g; s/^/"/; s/$/"/') with title \"MemoryMap AI\"" \
+      osascript -e "display notification $(printf '%s' "$1" | sed 's/[\\"]/\\&/g; s/^/"/; s/$/"/') with title \"Tessellate\"" \
         >/dev/null 2>&1 || true
       ;;
   esac

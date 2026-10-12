@@ -106,9 +106,9 @@ def test_a_name_that_is_only_punctuation_is_refused(client, app_state):
 
 
 def test_safe_filename_keeps_readable_names_readable():
-    """Sanitising is not an excuse to mangle. "memorymap-export.json" has to
+    """Sanitising is not an excuse to mangle. "tessellate-export.json" has to
     come out the other side unchanged, or every saved file is unrecognisable."""
-    assert safe_filename("memorymap-export.json") == "memorymap-export.json"
+    assert safe_filename("tessellate-export.json") == "tessellate-export.json"
     assert safe_filename("My Chat 2026.md") == "My Chat 2026.md"
 
 

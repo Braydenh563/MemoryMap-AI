@@ -260,7 +260,7 @@ _SAID_OPS = (
 
 def _in_symbols(text: str) -> str:
     text = re.sub(r"^(?:how much is|what(?:'?s| is| does)|calculate|compute|work out)\s+", "", text, flags=re.I)
-    text = re.sub(r"\s+(?:equal|make|come to)$", "", text, flags=re.I)
+    text = re.sub(r" (?:equal|make|come to)$", "", " ".join(text.split()), flags=re.I)
     for words, symbol in _SAID_OPS:
         text = re.sub(words, symbol, text, flags=re.I)
     return text
@@ -286,7 +286,7 @@ _ROOT = re.compile(r"^(?:what(?:'?s| is) )?(?:the )?(square|cube) root of (-?\d+
 _MONTH_DAYS = re.compile(r"^how many days (?:are )?(?:there )?in (?P<month>[a-z]+)(?: (?P<year>\d{4}))?$", re.I)
 _BORN = re.compile(r"^how old (?:is (?:someone|somebody|a person)|would i be|am i|are you)(?: if (?:i was|you were))? born in (?P<year>\d{4})$", re.I)
 _CLOCK_SWAP = re.compile(
-    r"^(?:what(?:'?s| is) )?(?P<time>\d{1,2}(?::\d{2})?\s*(?:am|pm)?|noon|midnight)\s+(?:in\s+)?(?P<a>[a-z][a-z .'-]{1,40}?)(?: time)?\s+(?:in|to|for)\s+(?P<b>[a-z][a-z .'-]{1,40}?)(?: time)?$",
+    r"^(?:what(?:'?s| is) )?(?P<time>\d{1,2}(?::\d{2})? ?(?:am|pm)?|noon|midnight) (?:in )?(?P<a>[a-z][a-z .'-]{1,40}?)(?: time)? (?:in|to|for) (?P<b>[a-z][a-z .'-]{1,40}?)(?: time)?$",
     re.I,
 )
 
@@ -310,7 +310,7 @@ def _list_of(text: str) -> tuple[str, list[float]] | None:
 
 
 def _clock_swap(text: str) -> tuple | None:
-    found = _CLOCK_SWAP.match(text)
+    found = _CLOCK_SWAP.match(" ".join(text.split()))
     if not found:
         return None
     a, b = zone_for(found.group("a").strip()), zone_for(found.group("b").strip())

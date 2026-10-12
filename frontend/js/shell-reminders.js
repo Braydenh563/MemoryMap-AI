@@ -1576,7 +1576,7 @@ function defaultDueValue() {
 //: dialog (or the desktop's saved-to toast) is not drawn under it.
 document.getElementById("reminders-export-ics")?.addEventListener("click", () => {
   document.getElementById("reminders-more-menu")?.removeAttribute("open");
-  downloadFromApi("/reminders/export.ics", "memorymap-reminders.ics");
+  downloadFromApi("/reminders/export.ics", "tessellate-reminders.ics");
 });
 
 //: "Import a calendar (.ics)" (TIMELINE_PLAN decision 17): every event a

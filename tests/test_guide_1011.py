@@ -6,12 +6,15 @@ of 25 before; 25 and 25 after."""
 
 from __future__ import annotations
 
+import importlib
 import json
 from pathlib import Path
 
 import pytest
 
-from tessellate.ai import composer, help_chat, reading  # noqa: F401  # composer registers the help line; reading sets the act reader ("how do i pin a note")
+from tessellate.ai import help_chat  # composer registers the help line; reading sets the act reader ("how do i pin a note")
+importlib.import_module("tessellate.ai.composer")
+importlib.import_module("tessellate.ai.reading")
 
 GOLD = json.loads((Path(__file__).parent / "fixtures" / "composer" / "guide_1011.json").read_text(encoding="utf-8"))["questions"]
 FLOOR = 1.0
@@ -73,8 +76,6 @@ def test_how_to_use_the_app_in_chat_is_the_guide_s_even_with_a_note_word():
 
 
 def test_why_is_the_chat_so_slow_in_chat_is_answered_by_the_guide(client):
-    import json
-
     body = {"question": "why is the chat so slow", "use_tools": True, "history": []}
     with client.stream("POST", "/chat/stream", json=body) as response:
         events = [json.loads(line) for line in response.iter_lines() if line.strip()]

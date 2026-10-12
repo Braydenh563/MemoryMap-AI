@@ -52,6 +52,15 @@ MAX_UNPACKED_BYTES = 64 * 1024**3
 #: carried the database and the files but not `preferences.json`, so a restore
 #: onto a new machine came back with every note and none of the settings (model,
 #: timezone, dashboard layout, templates, skills).
+DB_MEMBER = "tessellate.db"
+#: A zip made before the rename holds the old name; both restore.
+DB_MEMBERS = (DB_MEMBER, "memorymap.db")  # brand: keep
+
+
+def _db_member(names: list[str]) -> str | None:
+    return next((name for name in DB_MEMBERS if name in names), None)
+
+
 PREFERENCES_MEMBER = "preferences.json"
 #: Settings a backup never carries. `llm_api_key` would sit in plain text in an
 #: unsealed zip; the other two describe the machine or the sign-in, and a
@@ -122,7 +131,7 @@ def build_zip(data_dir: Path, db_path: Path, destination: Path) -> None:
     WAL-mode file, which misses what the log still holds, ARCH-18), every
     file under `media/` and `uploads/`, and the settings file minus the keys
     in `_NOT_BACKED_UP`."""
-    snapshot_fd, snapshot_name = tempfile.mkstemp(suffix=".db", prefix="memorymap_snapshot_")
+    snapshot_fd, snapshot_name = tempfile.mkstemp(suffix=".db", prefix="tessellate_snapshot_")
     os.close(snapshot_fd)
     snapshot_path = Path(snapshot_name)
     try:
@@ -130,7 +139,7 @@ def build_zip(data_dir: Path, db_path: Path, destination: Path) -> None:
             backup.snapshot(db_path, snapshot_path)
         with zipfile.ZipFile(destination, "w", zipfile.ZIP_DEFLATED) as archive:
             if db_path.exists():
-                archive.write(snapshot_path, "memorymap.db")
+                archive.write(snapshot_path, DB_MEMBER)
             settings = _readable_preferences(data_dir / "preferences.json")
             if settings:
                 archive.writestr(PREFERENCES_MEMBER, json.dumps(settings, indent=2))
@@ -190,13 +199,14 @@ def restore_zip(archive_path: Path, db_path: Path, data_dir: Path, keep: int) ->
         raise BundleError("That file is not a Tessellate backup.") from exc
     with archive:
         names = archive.namelist()
-        if "memorymap.db" not in names:
+        member = _db_member(names)
+        if member is None:
             raise BundleError("That zip has no notebook in it, so nothing was changed.")
         if sum(info.file_size for info in archive.infolist()) > MAX_UNPACKED_BYTES:
             raise BundleError("That backup is larger than this app will unpack.")
         staged = db_path.with_name(f"{db_path.name}.import-tmp")
         try:
-            with archive.open("memorymap.db") as source, open(staged, "wb") as sink:
+            with archive.open(member) as source, open(staged, "wb") as sink:
                 while chunk := source.read(CHUNK_BYTES):
                     sink.write(chunk)
             try:
@@ -218,7 +228,7 @@ def restore_zip(archive_path: Path, db_path: Path, data_dir: Path, keep: int) ->
                     preferences = {k: v for k, v in loaded.items() if k not in _NOT_BACKED_UP}
         restored = skipped = 0
         for info in archive.infolist():
-            if info.is_dir() or info.filename in ("memorymap.db", PREFERENCES_MEMBER):
+            if info.is_dir() or info.filename in (*DB_MEMBERS, PREFERENCES_MEMBER):
                 continue
             target = _safe_target(data_dir, info.filename)
             if target is None:

@@ -543,14 +543,14 @@ def _under(data_dir, key: str) -> list:
 
 def test_the_desktop_saves_the_key_where_the_person_chooses(client, app_state, monkeypatch, tmp_path):
     local, token, key = _unlocked(client)
-    outside = tmp_path / "elsewhere" / "memorymap-recovery-key.txt"
+    outside = tmp_path / "elsewhere" / "tessellate-recovery-key.txt"
     outside.parent.mkdir()
     asked = _desktop(monkeypatch, outside)
     answer = local.post("/auth/recovery-key/save", json={"text": f"key {key}"}, headers=_auth(token))
     assert answer.status_code == 200, answer.text
     assert answer.json() == {"saved": True, "path": str(outside.resolve())}
     assert outside.read_text() == f"key {key}"
-    assert asked["filename"] == "memorymap-recovery-key.txt"
+    assert asked["filename"] == "tessellate-recovery-key.txt"
     assert app_state.data_dir.resolve() not in asked["start"].resolve().parents
     deps.get_db().engine.dispose()
     assert _under(app_state.data_dir, key) == []  # nothing beside the notebook

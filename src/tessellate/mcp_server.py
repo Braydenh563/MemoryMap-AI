@@ -3,7 +3,7 @@ registry (ROADMAP.md item 38, ANALYSIS.md §60).
 
 Why expose rather than consume: this app already has a local-process trust
 boundary: anyone who can run a process on this machine can already open
-`memorymap.db` directly: so a *stdio* server needs no new trust model, it's
+`tessellate.db` directly: so a *stdio* server needs no new trust model, it's
 the same boundary the app's own SQLite file already sits behind. Consuming
 an external MCP server is the harder half (BACKLOG.md §29's missing trust
 model for tool calls arriving *from* somewhere else) and is deliberately

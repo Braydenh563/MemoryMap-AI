@@ -49,7 +49,8 @@ Downloading them needs Python from
 default options of its installer are enough. Without one, the app works and
 those features stay off.
 
-**Where your notes live.** In `%APPDATA%\MemoryMap AI`. An update or a
+**Where your notes live.** In `%APPDATA%\Tessellate`, or `%APPDATA%\MemoryMap AI`
+for an install made before the rename (it is kept, never moved). An update or a
 reinstall leaves them alone, and so does uninstalling the app.
 
 **Several machines.** The installer runs silently:
@@ -76,8 +77,8 @@ executable bit, so some archive managers unpack a launcher that will not
 start. The window needs GTK and WebKit as system packages (on Debian and
 Ubuntu: `python3-gi`, `python3-gi-cairo`, `gir1.2-gtk-3.0` and
 `gir1.2-webkit2-4.1`). This build has no tray icon, so closing the window quits
-the app. Your notes live in `~/.local/share/MemoryMap AI` (or under
-`$XDG_DATA_HOME`).
+the app. Your notes live in `~/.local/share/Tessellate` (or under
+`$XDG_DATA_HOME`; `~/.local/share/MemoryMap AI` for an install made before the rename).
 
 ## Launcher script
 
@@ -321,7 +322,7 @@ place, and your notes are not touched. You never need to delete
 
 **The Windows installer:** Windows Settings, Apps, Tessellate, Uninstall. That
 removes the program and its Start Menu entries and leaves your notes and
-settings in `%APPDATA%\MemoryMap AI`. It then asks whether to delete the
+settings in `%APPDATA%\Tessellate` (or `%APPDATA%\MemoryMap AI`). It then asks whether to delete the
 optional packages you downloaded (the `python-extras` and `extras` folders,
 which can be large); a silent uninstall keeps them. To take your notes with you first, use
 Settings, Import & export.

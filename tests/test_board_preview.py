@@ -293,3 +293,14 @@ def test_the_preview_carries_the_shape_a_sketch_was_drawn_with(client):
     # that does not: a twenty-board list would otherwise ship hundreds of nulls.
     assert [item.get("color") for item in items].count("#d97706") == 1
     assert any("color" not in item for item in items)
+
+
+def test_a_caption_steps_around_sketched_shapes_too():
+    """The dashboard's board drew "Store rev…" and "Next" across its sketched
+    shapes: the label pass tested captions against cards only. Sketches are
+    obstacles now, and never carry a caption of their own."""
+    from tests._app_js import app_js_text
+
+    js = app_js_text()
+    assert '    drawn.push({ item, x: nx, y: ny, w: size.w, h: size.h });' in js
+    assert 'row.item.kind !== "sketch")' in js

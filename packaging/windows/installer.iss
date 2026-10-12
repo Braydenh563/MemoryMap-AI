@@ -18,7 +18,8 @@
 #define MyAppName "Tessellate"
 ; The folders keep the name they had before the rename to Tessellate: an
 ; upgrade installs over the same folder, and the notes stay where they are
-; (%APPDATA%\MemoryMap AI, config._default_data_dir). Only names a person
+; (%APPDATA%\MemoryMap AI, or %APPDATA%\Tessellate on a new install:
+; config._default_data_dir and DataDir below). Only names a person
 ; reads (shortcuts, Add/Remove Programs, the wizard) say Tessellate.
 ; brand: keep-next
 #define MyAppDirName "MemoryMap AI"
@@ -181,6 +182,23 @@ Type: filesandordirs; Name: "{app}\data\logs"
 Type: dirifempty; Name: "{app}\data"
 
 [Code]
+{ The notes folder, the same rule as config._default_data_dir: an install
+  from before the rename keeps %APPDATA%\MemoryMap AI while it exists and
+  %APPDATA%\Tessellate does not; every other install gets the new one.
+  Nothing is moved. }
+function DataDir: String;
+var
+  OldDir: String;
+  NewDir: String;
+begin
+  OldDir := ExpandConstant('{userappdata}\{#MyAppDirName}');
+  NewDir := ExpandConstant('{userappdata}\{#MyAppName}');
+  if DirExists(OldDir) and (not DirExists(NewDir)) then
+    Result := OldDir
+  else
+    Result := NewDir;
+end;
+
 { Custom wizard page: optional package selection.
 
   Three checkboxes. Search by meaning starts ticked, because it is the
@@ -373,7 +391,7 @@ var
 begin
   if (CurStep = ssPostInstall) and HasSelectedExtras then
   begin
-    Dir := ExpandConstant('{userappdata}\MemoryMap AI');
+    Dir := DataDir;
     ForceDirectories(Dir);
     SaveStringToFile(Dir + '\pending-extras.txt', GetSelectedExtras(''), False);
   end;
@@ -404,8 +422,8 @@ var
 begin
   if CurUninstallStep <> usPostUninstall then
     Exit;
-  Extras := ExpandConstant('{userappdata}\{#MyAppDirName}\python-extras');
-  Downloads := ExpandConstant('{userappdata}\{#MyAppDirName}\extras');
+  Extras := DataDir + '\python-extras';
+  Downloads := DataDir + '\extras';
   if (not DirExists(Extras)) and (not DirExists(Downloads)) then
     Exit;
   if UninstallSilent then

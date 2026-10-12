@@ -203,6 +203,10 @@ async function stage(page, shot) {
       //: date, which in a notebook with reminders is a week from now.
       await page.click('#timeline-jump-today').catch(() => {});
       await page.waitForTimeout(1500);
+      //: The month calendar, the view's own toggle (it sits in Options):
+      //: one week of the feed read as a bare list (owner, 2026-10-12).
+      await page.evaluate(() => document.getElementById('timeline-view-calendar')?.click());
+      await page.waitForTimeout(1500);
       break;
     case 'notes':
       await page.evaluate(() => window.showNotesSection && showNotesSection('browse'));

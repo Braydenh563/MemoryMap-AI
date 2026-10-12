@@ -37,7 +37,7 @@ def test_a_binned_note_imported_with_an_old_stamp_survives_the_sweep(client, tmp
     deps.init_app_state(data_dir=tmp_path / "fresh")
 
     session = deps.get_db().session()
-    result = app_import.read("memorymap", [("memorymap-notebook.zip", data)], parse_frontmatter=_parse_frontmatter)
+    result = app_import.read("memorymap", [("tessellate-notebook.zip", data)], parse_frontmatter=_parse_frontmatter)
     written = export_folder.write(session, result, deps.get_config().uploads_dir)
     assert written["imported"] == 1
     imported = session.get(Entry, written["ids"][0])

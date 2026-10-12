@@ -705,6 +705,47 @@ def _close_bootloader_splash() -> None:
         logger.debug("couldn't close the bootloader splash: %s", exc)
 
 
+def _start_frozen_splash() -> None:
+    """Put scripts/splash.ps1 on screen for the packaged Windows exe.
+
+    The owner: a blank window titled "tk" after a double-click, and then no
+    splash at all once PyInstaller's Tcl/Tk card was dropped (0.3.3). The exe
+    never runs start.bat, so it shows the same PowerShell card start.bat does,
+    driven by the same MM_SPLASH_FILE protocol: `_close_launch_splash` deletes
+    the file once the loading window is up, and the atexit backstop deletes it
+    if this process dies first. Never raises: a splash that fails to start
+    must not stop the app.
+    """
+    if sys.platform != "win32" or not getattr(sys, "frozen", False) or os.environ.get("MM_SPLASH_FILE"):
+        return
+    base = Path(getattr(sys, "_MEIPASS", Path(sys.executable).parent))
+    script = base / "scripts" / "splash.ps1"
+    if not script.is_file():
+        return
+    import atexit
+    import subprocess
+    import tempfile
+
+    from tessellate.core.subproc import NO_WINDOW
+
+    path = Path(tempfile.gettempdir()) / f"mm_splash_{os.getpid()}.txt"
+    shell = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+    argv = [str(shell) if shell.is_file() else "powershell", "-NoProfile", "-ExecutionPolicy", "Bypass",
+            "-WindowStyle", "Hidden", "-File", str(script), "-StatusFile", str(path), "-MaxMinutes", "3"]
+    icon = base / "frontend" / "icon.ico"
+    if icon.is_file():
+        argv += ["-IconPath", str(icon)]
+    try:
+        path.write_text("1|1|Start|Opening Tessellate|active\n", encoding="utf-8")
+        subprocess.Popen(argv, creationflags=NO_WINDOW, stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)
+    except OSError as exc:
+        logger.debug("couldn't start the packaged splash: %s", exc)
+        return
+    os.environ["MM_SPLASH_FILE"] = str(path)
+    atexit.register(lambda: path.unlink(missing_ok=True))
+
+
 def _close_launch_splash() -> None:
     """Take down start.bat's pre-Python splash, if there is one.
 
@@ -1729,6 +1770,7 @@ def _run_desktop(hidden_relaunch: bool = False) -> None:
     if action != "start":
         _hand_off_to_running(running, action)
         return
+    _start_frozen_splash()
 
     show_on_startup = ConfigManager().get_preference("show_console_on_startup", True)
     relaunched = _maybe_relaunch_hidden(show_on_startup, hidden_relaunch)
@@ -2406,7 +2448,11 @@ def _run_mcp() -> int:
         return 2
     from tessellate import mcp_server
 
-    mcp_server.serve(stdin=stdin, stdout=stdout)
+    try:
+        mcp_server.serve(stdin=stdin, stdout=stdout)
+    finally:
+        stdin.close()
+        stdout.close()
     return 0
 
 
@@ -2428,7 +2474,7 @@ def _export_markdown(destination: str) -> int:
 
     target = Path(destination).expanduser()
     if target.is_dir():
-        target = target / "memorymap-markdown.zip"
+        target = target / "tessellate-markdown.zip"
     if target.suffix.lower() != ".zip":
         target = target.with_suffix(".zip")
     try:

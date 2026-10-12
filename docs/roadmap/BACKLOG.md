@@ -4323,4 +4323,5 @@ First, in order:
 - Rename leftovers, only if the owner asks: release asset names (`ASSET_PREFIX = "MemoryMap-AI-Setup-"`, routes_update.py), the exe "MemoryMap AI.exe" and the Start-menu ID, each with a migration.
 - Unverified on Windows: the launcher splash (title lockup, centred links, `scripts/splash.ps1`; pwsh is not available here).
 - Graph load: it does not appear smoothly, it shifts or glitches in (owner, 2026-10-12). Record frames across the first second (node positions per frame, `graph-worker.js` settle, the canvas resize) and fade in once the layout has settled.
+- Mind map: with a popup tool panel showing, a two-finger trackpad pan is slow and laggy (owner, 2026-10-12). Likely the panel's blurred surface repainting under the moving canvas (DESIGN.md glass-off list) or a wheel handler doing layout work per event; measure frame times with and without the panel before fixing.
 

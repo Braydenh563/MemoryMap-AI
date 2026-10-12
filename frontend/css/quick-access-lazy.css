@@ -95,3 +95,11 @@
 .quick-manage-item {
   position: relative;
 }
+
+/* A row that is not on the dashboard has no arrows: its empty plate drew a
+   dark square beside the check on hover (owner, 2026-10-12). */
+@media (hover: hover) {
+  .quick-manage-moves:empty {
+    display: none;
+  }
+}

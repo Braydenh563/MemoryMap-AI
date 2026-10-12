@@ -9718,7 +9718,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/meetings-lazy.css | 501 |
 | frontend/css/nav-history-lazy.css | 144 |
 | frontend/css/questions-lazy.css | 102 |
-| frontend/css/quick-access-lazy.css | 97 |
+| frontend/css/quick-access-lazy.css | 105 |
 | frontend/css/quickadd-lazy.css | 35 |
 | frontend/css/recovery-lazy.css | 115 |
 | frontend/css/reveal-lazy.css | 10 |

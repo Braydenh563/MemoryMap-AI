@@ -822,5 +822,7 @@ def say(tool: str, result: object, args: dict | None = None, today: date | None 
             lead, body, chips = sayer(result, args) if sayer else (_sentence(_plain(result.get("label"))) or "Done.", "", "")
         except (TypeError, ValueError, KeyError, AttributeError):
             lead, body, chips = (_sentence(_plain(result.get("label"))) or "Done.", "", "")
+    if not lead.strip():
+        lead = "Done." if not body.strip() else lead
     text = "\n\n".join(part for part in (lead, body, chips) if part)
     return {"text": text, "lead": lead, "body": body, "chips": chips, "links": re.findall(r"\]\((#/[^)]+|https?://[^)]+)\)", text)}

@@ -1251,7 +1251,9 @@ function toggleTheme() {
 // (:root[data-accent="…"]); this list just drives the swatch picker and
 // gives the background art a hue to paint with.
 const ACCENTS = [
-  { name: "indigo", label: "Indigo", swatch: "#4664f0" },
+  //: "indigo" is the stored name; it means the palette's own accent (Quiet's
+  //: ink blue by default), so it is labelled Default (owner, 2026-10-12).
+  { name: "indigo", label: "Default", swatch: "#4664f0" },
   { name: "emerald", label: "Emerald", swatch: "#0e9f6e" },
   { name: "rose", label: "Rose", swatch: "#ec4899" },
   { name: "amber", label: "Amber", swatch: "#d97706" },
@@ -2472,6 +2474,22 @@ function renderThemePresets() {
   $("theme-reset").disabled = !active;
 }
 
+//: The accent the theme wears with no accent chosen: read with the choice
+//: (the data-accent rule, an inline custom colour) lifted for one
+//: synchronous style read, so nothing paints in between.
+function themeDefaultAccent() {
+  const root = document.documentElement;
+  const chosen = root.dataset.accent;
+  const inline = root.style.getPropertyValue("--accent");
+  const priority = root.style.getPropertyPriority("--accent");
+  delete root.dataset.accent;
+  root.style.removeProperty("--accent");
+  const value = getComputedStyle(root).getPropertyValue("--accent").trim();
+  if (chosen !== undefined) root.dataset.accent = chosen;
+  if (inline) root.style.setProperty("--accent", inline, priority);
+  return value;
+}
+
 function renderAppearance() {
   renderThemePresets();
   const holder = $("accent-swatches");
@@ -2479,7 +2497,10 @@ function renderAppearance() {
   for (const accent of ACCENTS) {
     const button = document.createElement("button");
     button.className = "accent-swatch";
-    button.style.background = accent.swatch;
+    //: Default is no accent at all, the palette's own: the swatch shows
+    //: that, not a fixed hex (owner, 2026-10-12: "the selected one should
+    //: match the default colour").
+    button.style.background = accent.name === "indigo" ? themeDefaultAccent() || accent.swatch : accent.swatch;
     button.title = accent.label;
     button.setAttribute("aria-label", `${accent.label} accent`);
     // A custom colour wins, so no preset shows as active while it's set.

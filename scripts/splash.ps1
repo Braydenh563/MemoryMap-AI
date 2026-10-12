@@ -197,25 +197,35 @@ try {
 
   $centre = [System.Drawing.ContentAlignment]::MiddleCenter
 
-  $title           = New-Object System.Windows.Forms.Label
-  $title.Text      = "Tessellate"
-  $title.ForeColor = $ink
-  $title.Font      = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]17), ([System.Drawing.FontStyle]::Bold)
   # The name with a small "notes" beside it (the owner, 2026-10-12: the
-  # name alone read like a game), centred as one lockup.
-  $note            = New-Object System.Windows.Forms.Label
-  $note.Text       = "notes"
-  $note.ForeColor  = $muted
-  $note.Font       = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]11)
-  $titleW = [System.Windows.Forms.TextRenderer]::MeasureText($title.Text, $title.Font).Width
-  $noteW  = [System.Windows.Forms.TextRenderer]::MeasureText($note.Text, $note.Font).Width
-  $lockX  = [int](($WIDTH - $titleW - $noteW) / 2)
-  $title.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
-  $title.Location  = New-Object System.Drawing.Point($lockX, 106)
-  $title.Size      = New-Object System.Drawing.Size($titleW, 32)
-  $note.TextAlign  = [System.Drawing.ContentAlignment]::BottomLeft
-  $note.Location   = New-Object System.Drawing.Point(($lockX + $titleW), 106)
-  $note.Size       = New-Object System.Drawing.Size($noteW, 28)
+  # name alone read like a game), drawn as one lockup: two Labels padded
+  # their text differently and sat "notes" off the name's baseline, with a
+  # gap wider than a word space (owner, 2026-10-12: "looks awkward").
+  # One panel draws both on a shared baseline, a word space apart.
+  $titleFont = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]17), ([System.Drawing.FontStyle]::Bold)
+  $noteFont  = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]12)
+  $title           = New-Object System.Windows.Forms.Panel
+  $title.Location  = New-Object System.Drawing.Point(0, 104)
+  $title.Size      = New-Object System.Drawing.Size($WIDTH, 34)
+  $title.BackColor = [System.Drawing.Color]::Transparent
+  $title.Add_Paint({
+    param($sender, $e)
+    $g = $e.Graphics
+    $g.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::ClearTypeGridFit
+    $fmt = [System.Drawing.StringFormat]::GenericTypographic
+    $nameW = $g.MeasureString("Tessellate", $titleFont, 1000, $fmt).Width
+    $noteW = $g.MeasureString("notes", $noteFont, 1000, $fmt).Width
+    $gap   = $g.MeasureString(" ", $noteFont).Width * 0.6
+    $x = ($WIDTH - $nameW - $gap - $noteW) / 2
+    # Baseline: the cell ascent in pixels, per font.
+    $asc = { param($f) $f.SizeInPoints * $g.DpiY / 72 * $f.FontFamily.GetCellAscent($f.Style) / $f.FontFamily.GetEmHeight($f.Style) }
+    $base = 2 + (& $asc $titleFont)
+    $inkBrush  = New-Object System.Drawing.SolidBrush $ink
+    $noteBrush = New-Object System.Drawing.SolidBrush $muted
+    $g.DrawString("Tessellate", $titleFont, $inkBrush, [float]$x, [float]($base - (& $asc $titleFont)), $fmt)
+    $g.DrawString("notes", $noteFont, $noteBrush, [float]($x + $nameW + $gap), [float]($base - (& $asc $noteFont)), $fmt)
+    $inkBrush.Dispose(); $noteBrush.Dispose()
+  })
 
   $tag             = New-Object System.Windows.Forms.Label
   $tag.Text        = "Your notes, pieced together"
@@ -283,10 +293,26 @@ try {
     return $b
   }
 
-  $btnDetails = New-FooterLink "Details" 60 90
-  $btnCopy    = New-FooterLink "Copy diagnostics" 160 130
-  $btnRetry   = New-FooterLink "Try again" 300 80
-  $btnCancel  = New-FooterLink "Cancel" 390 70
+  $btnDetails = New-FooterLink "Details" 0 90
+  $btnCopy    = New-FooterLink "Copy diagnostics" 0 130
+  $btnRetry   = New-FooterLink "Try again" 0 80
+  $btnCancel  = New-FooterLink "Cancel" 0 70
+
+  # The visible links, centred as a row: fixed slots left a hole where a
+  # hidden one sat and the row read off-centre (owner, 2026-10-12).
+  function Set-LinkRow {
+    $shown = @($btnDetails, $btnCopy, $btnRetry, $btnCancel) | Where-Object { $_.Visible }
+    if (-not $shown) { return }
+    $gap = 28
+    $widths = @($shown | ForEach-Object { [System.Windows.Forms.TextRenderer]::MeasureText($_.Text, $_.Font).Width + 6 })
+    $total = ($widths | Measure-Object -Sum).Sum + $gap * ($shown.Count - 1)
+    $x = [int](($WIDTH - $total) / 2)
+    for ($i = 0; $i -lt $shown.Count; $i++) {
+      $shown[$i].Width = $widths[$i]
+      $shown[$i].Left = $x
+      $x += $widths[$i] + $gap
+    }
+  }
 
   $hint             = New-Object System.Windows.Forms.Label
   $hint.Text        = ""
@@ -340,7 +366,7 @@ try {
   $details.Size         = New-Object System.Drawing.Size(460, 88)
   $details.Visible      = $false
 
-  $form.Controls.AddRange(@($logo, $title, $note, $tag, $status, $barTrack, $tip, $hint,
+  $form.Controls.AddRange(@($logo, $title, $tag, $status, $barTrack, $tip, $hint,
                             $btnDetails, $btnCopy, $btnRetry, $btnCancel, $details))
   foreach ($i in 0..($MAX_ROWS - 1)) {
     $form.Controls.AddRange(@($rowMark[$i], $rowName[$i], $rowDetail[$i]))
@@ -373,6 +399,7 @@ try {
     $btnDetails.Visible = $visibleLinks
     $btnCopy.Visible    = $visibleLinks
     $btnCancel.Visible  = $visibleLinks
+    Set-LinkRow
     foreach ($i in 0..($MAX_ROWS - 1)) {
       $on = ($st.showList -or $st.failed)
       $rowMark[$i].Visible = $on; $rowName[$i].Visible = $on; $rowDetail[$i].Visible = $on
@@ -533,9 +560,9 @@ try {
       $lines += "Last log lines:"
       $lines += (Read-LogTail 20)
       [System.Windows.Forms.Clipboard]::SetText(($lines -join "`r`n"))
-      $btnCopy.Text = "Copied"
+      $btnCopy.Text = "Copied"; Set-LinkRow
     } catch {
-      $btnCopy.Text = "Could not copy"
+      $btnCopy.Text = "Could not copy"; Set-LinkRow
     }
   })
 

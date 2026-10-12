@@ -3206,16 +3206,19 @@ button.answer-figure-open {
   }
 }
 
-/* At rest, a slow breath: the lifted cell rises a hair and sinks again over
-   seven seconds and its shadow thins as it rises. Under a pixel at 76px, so
-   it reads as alive without pulling the eye. */
+/* At rest, a slow breath: the lifted cell rises, tips a little and sinks
+   again over seven seconds, and its shadow thins as it rises. It was 1.6%,
+   under half a pixel on the 24px bottom-bar mark, so after the landing the
+   mark read as frozen (owner, 2026-10-12: "the animated logos keep perma
+   freezing ... after a loop or two"). 6% is about 1.5px there and 4.5px on
+   the 76px lock screen: seen, not pulling the eye. */
 @keyframes emblem-breathe {
   0%,
   100% {
     transform: none;
   }
   50% {
-    transform: translateY(-1.6%);
+    transform: translateY(-6%) rotate(-2deg);
   }
 }
 
@@ -3225,7 +3228,7 @@ button.answer-figure-open {
     opacity: 1;
   }
   50% {
-    opacity: 0.7;
+    opacity: 0.5;
   }
 }
 

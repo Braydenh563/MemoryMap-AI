@@ -2132,6 +2132,35 @@ def _disagreements(out: _Answer, pair: tuple[Sentence, Sentence], lead: Sentence
 _MISSING_MIN = 3
 
 
+def _one_edit(a: str, b: str) -> bool:
+    """One letter added, dropped or changed: "gamin" for "gaming"."""
+    if abs(len(a) - len(b)) > 1:
+        return False
+    if len(a) > len(b):
+        a, b = b, a
+    for i, (x, y) in enumerate(zip(a, b)):
+        if x != y:
+            return a[i + 1 :] == b[i + 1 :] or a[i:] == b[i + 1 :]
+    return True
+
+
+def _seen(term: str, found: set[str]) -> bool:
+    """A word asked is not missing when a note has it in another shape: a
+    past form ("buy" in "I just bought"), or the word mistyped ("gamin" for
+    "gaming"), which said "I couldn't find any reference to buy or gamin"
+    under the answer that quoted both (owner, 2026-10-12)."""
+    from tessellate.ai import factgraph
+
+    stem = _stem(term)
+    #: The dropped "g" ("gamin", "runnin") stems as its own word.
+    if stem in found or (term.lower().endswith("in") and _stem(term + "g") in found):
+        return True
+    factgraph._tables()
+    if any(factgraph._PAST.get(word) == stem for word in found):
+        return True
+    return len(stem) >= 4 and any(_one_edit(stem, word) for word in found if word[:1] == stem[:1])
+
+
 def _missing(out: _Answer, terms: list[str], views: list[NoteView]) -> None:
     """"None of these notes mention “hotel”." for the question's words that no
     note found contains, measured over every word of every one of them.
@@ -2150,7 +2179,7 @@ def _missing(out: _Answer, terms: list[str], views: list[NoteView]) -> None:
     quoted |= {w for v in views if v.id in out.named for w in v.title_words | v.filed_words}
     missing = [
         t for t in terms
-        if len(t) >= _MISSING_MIN and _stem(t) not in found and not (_alternatives(_stem(t)) & quoted)
+        if len(t) >= _MISSING_MIN and not _seen(t, found) and not (_alternatives(_stem(t)) & quoted)
         and (not out.question or t.lower() in out.question.lower())
     ]
     if not missing or len(missing) == len(terms):

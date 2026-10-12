@@ -28,7 +28,6 @@ from datetime import date, datetime
 
 from tessellate.ai import act_registry
 from tessellate.ai import recognise as rec
-from tessellate.ai.filed_name import filed_listing  # noqa: F401  (re-exported: routes_chat reads it here)
 
 #: The bands of decision 48, highest first: a reading is in the first band
 #: whose floor its confidence reaches. Set 2026-10-10 by the eval

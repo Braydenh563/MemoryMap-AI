@@ -105,15 +105,29 @@
 
 /* Print: the manual alone, every shown topic, no scroll pane, no chrome. */
 @media print {
+  /* The app shell is a viewport-high box with its overflow hidden (and
+     `modal-open` holds the page still), so the printer got the first
+     900px and nothing past it (owner, 2026-10-12: "only prints one page").
+     Printed, every box down to the topics grows with its content. */
+  html:has(body.manual-print),
+  body.manual-print {
+    height: auto !important;
+    overflow: visible !important;
+    display: block !important;
+  }
   body.manual-print > :not(.manual-overlay) {
     display: none !important;
   }
   body.manual-print .manual-overlay {
     position: static;
+    display: block;
+    height: auto;
+    overflow: visible;
     background: none;
     backdrop-filter: none;
   }
   body.manual-print .manual-card {
+    display: block;
     width: auto;
     height: auto;
     max-height: none;

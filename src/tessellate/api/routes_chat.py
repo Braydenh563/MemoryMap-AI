@@ -2096,6 +2096,12 @@ WEB_PAGES = 3
 WEB_PAGE_CHARS = 4000
 
 
+def _web_first(req: _StreamRequest, prepared: dict) -> bool:
+    """The web before the notes: when no note matched, or when the turn asks
+    for the web outright ("search the web for ...")."""
+    return not prepared["notes"] or composer_digest.asks_web(req.question)
+
+
 def _web_allowed(req: _StreamRequest) -> bool:
     """Web sources only when the person turned web search on in Settings and
     the turn may use tools (decision 43: never fetched without the toggle)."""
@@ -2136,7 +2142,7 @@ def _web_answer(req: _StreamRequest, question: str) -> tuple[dict, list[dict]] |
     config = deps.get_config()
     searxng_url, provider = websearch.settings_from(config)
     try:
-        results = websearch.search_web(question, limit=5, searxng_url=searxng_url or None, provider=provider)
+        results = websearch.search_web(composer_digest.web_query(question), limit=5, searxng_url=searxng_url or None, provider=provider)
     except websearch.WebSearchError:
         logging.getLogger("tessellate.chat").info("chat: web search failed for a composed answer", exc_info=True)
         return None
@@ -2434,7 +2440,7 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
             #: Decision 75: the capability line reaches the model as a fact.
             context=_capability_answer(req, ollama_running) if _asks_capability(req, prepared) else "",
         )
-    elif not prepared["notes"] and not req.images_raw and not ollama_running and _web_allowed(req) and (
+    elif _web_first(req, prepared) and not req.images_raw and not ollama_running and _web_allowed(req) and (
         web := _web_answer(req, req.question)
     ):
         #: No note answers, no model runs, and web search is on: the web's

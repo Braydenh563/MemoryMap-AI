@@ -25,6 +25,8 @@
 
 </div>
 
+---
+
 > [!NOTE]
 > **Tessellate is in beta.** It works and it is tested, but some parts are
 > still rough: you may meet lag in places (long note lists, the graph and mind

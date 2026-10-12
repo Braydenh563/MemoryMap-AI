@@ -7,6 +7,10 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-12
+
+- Tessellate: the product renamed from MemoryMap AI ("Your notes, pieced together"); the no-model composer answers personal, task, Guide and date questions from your notes; PIN quick unlock; LAN device trust; launch splash and logo animation; whiteboard mind map placement; timeline pill glide; jobs logs per run.
+
 - Fixed: chat with no model answered "how do i pin a note", "how can I rename a note", "how do I tag a note", "how do I make a mind map" and "how do I use the whiteboard" with "nothing in your notes about ..."; they now reach the Guide (the Guide gold test also runs on its own).
 - Fixed: chat with no model, "summarise my work notes" when the only note is titled Work answered "Your notes don't seem to cover that"; it now says the note is only a title so far.
 - The Guide with no model: typed questions reach the right topic and its first line answers them, "why is the chat so slow" is Performance mode, "where did my deleted notes go" is the bin, "can i export everything to markdown" is Import & export, "is my data sent anywhere" opens with "No."; a switch's topic says how it is set now ("Web search is off now. Turn it on in Settings, Web search"); help sentences no longer break at "e.g." or "0.5x" (25 of 25 gold questions, from 19).

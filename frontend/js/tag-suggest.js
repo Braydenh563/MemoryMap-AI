@@ -269,7 +269,7 @@ function closeNoteTagPopover({ restoreFocus = false } = {}) {
   if (restoreFocus && anchor.isConnected) anchor.focus({ preventScroll: true });
 }
 
-async function noteTagChoices(entry) {
+async function noteTagChoices(entry, { fetchMore = true } = {}) {
   if (entry.tag_suggest_off) return [];
   const have = new Set((entry.tags || []).map((t) => t.toLowerCase()));
   const gone = new Set((entry.discarded_tags || []).map((t) => t.toLowerCase()));
@@ -279,7 +279,7 @@ async function noteTagChoices(entry) {
     if (picked.length < 3 && !have.has(key) && !gone.has(key) && !picked.some((t) => t.toLowerCase() === key)) picked.push(tag);
   };
   (entry.suggested_tags || []).forEach(add);
-  if (picked.length < 3 && !entry.is_private && entry.content) {
+  if (fetchMore && picked.length < 3 && !entry.is_private && entry.content) {
     const more = await apiJson("/entries/suggest-tags", {
       method: "POST", silent: true, body: JSON.stringify({ content: entry.content.slice(0, 4000), tags: entry.tags || [] }),
     }).catch((e) => console.warn("Tag suggestions were not fetched:", e.message) || null);
@@ -295,8 +295,12 @@ async function openNoteTagPopover(entry, anchor) {
     return;
   }
   closeNoteTagPopover();
-  const choices = await noteTagChoices(entry);
-  if (!anchor.isConnected) return;
+  //: Open at once on the suggestions already held, then top them up from the
+  //: server (owner, 2026-10-12: "slow to open", "I cant click off"). Waiting
+  //: for the fetch first also let a second press open a second panel that
+  //: nothing tracked, so no outside click could close it.
+  const choices = await noteTagChoices(entry, { fetchMore: false });
+  if (!anchor.isConnected || noteTagPop) return;
   const panel = document.createElement("div");
   panel.className = "help-popover note-tag-pop";
   panel.setAttribute("role", "dialog");
@@ -328,7 +332,15 @@ async function openNoteTagPopover(entry, anchor) {
       : { label: "ph:bell-slash Don't suggest tags for this note", title: "Stop suggesting tags on this note; you can turn them back on from this menu", run: () => { closeNoteTagPopover(); answerSuggestedTags(entry, { mute: true }); } }],
     "Tag suggestions for this note"
   );
-  head.append(title, help, menu);
+  const closeBtn = document.createElement("button");
+  closeBtn.type = "button";
+  closeBtn.className = "icon-only ghost small";
+  closeBtn.title = "Close (Esc)";
+  closeBtn.setAttribute("aria-label", "Close");
+  closeBtn.append(Object.assign(document.createElement("i"), { className: "ph ph-x" }));
+  closeBtn.firstChild.setAttribute("aria-hidden", "true");
+  closeBtn.addEventListener("click", () => closeNoteTagPopover({ restoreFocus: true }));
+  head.append(title, help, menu, closeBtn);
   panel.append(head, helpBody);
   const suggestions = document.createElement("div");
   suggestions.className = "note-tag-pop-suggested";
@@ -387,4 +399,21 @@ async function openNoteTagPopover(entry, anchor) {
   wireHelpPopover(help, helpBody);
   placeHelpPopover(panel, anchor);
   input.focus({ preventScroll: true });
+  if (!off && choices.length < 3 && !entry.is_private && entry.content) {
+    const mine = noteTagPop;
+    noteTagChoices(entry).then((more) => {
+      if (noteTagPop !== mine || more.length <= choices.length) return;
+      suggestions.replaceChildren();
+      for (const tag of more) {
+        const reason = entry.suggested_tag_reasons?.[tag];
+        const pick = chip(`ph:plus ${tag}`, "tag suggested-tag", () => {
+          closeNoteTagPopover();
+          answerSuggestedTags(entry, { take: [tag] });
+        });
+        pick.title = reason ? `Add #${tag}. ${reason}` : `Add #${tag}`;
+        suggestions.append(pick);
+      }
+      placeHelpPopover(panel, anchor);
+    }).catch(() => {});
+  }
 }

@@ -167,6 +167,9 @@ def test_the_scheduler_runs_its_pass_on_the_pool(app_state, monkeypatch):
     #: A fresh pool: one process runs hundreds of apps here, and a pass an
     #: earlier test's app queued may still hold the lane.
     jobs.shutdown(deadline=0.5)
+    #: `start()` is a no-op while an earlier test's loop thread is alive;
+    #: that loop already made its one pass and sleeps for hours.
+    autonomous.stop()
     autonomous.start()
     try:
         assert ran.wait(timeout=10)

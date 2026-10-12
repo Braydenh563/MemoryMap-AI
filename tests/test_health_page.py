@@ -29,7 +29,7 @@ def test_a_backup_is_named_with_its_date(client):
     made = client.post("/backups")
     assert made.status_code == 201
     trust = client.get("/debug/health").json()["trust"]
-    assert trust["last_backup"]["at"] and trust["last_backup"]["name"].startswith("memorymap-")
+    assert trust["last_backup"]["at"] and trust["last_backup"]["name"].startswith("tessellate-")
 
 
 def test_the_integrity_check_runs_in_one_call_and_is_remembered(client):

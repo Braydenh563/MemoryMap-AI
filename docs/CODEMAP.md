@@ -16072,25 +16072,25 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 
 | Name | File:line |
 |---|---|
-| `DpapiStore` | src/memorymap/core/pinstore.py:155 |
-| `KeychainStore` | src/memorymap/core/pinstore.py:131 |
-| `SecretServiceStore` | src/memorymap/core/pinstore.py:89 |
-| `Store` | src/memorymap/core/pinstore.py:62 |
-| `StoreError` | src/memorymap/core/pinstore.py:58 |
-| `_detect` | src/memorymap/core/pinstore.py:234 |
-| `_read` | src/memorymap/core/pinstore.py:270 |
-| `_run` | src/memorymap/core/pinstore.py:80 |
-| `_write` | src/memorymap/core/pinstore.py:283 |
-| `account_for` | src/memorymap/core/pinstore.py:255 |
-| `available` | src/memorymap/core/pinstore.py:287 |
-| `binding` | src/memorymap/core/pinstore.py:260 |
-| `forget` | src/memorymap/core/pinstore.py:328 |
-| `is_set` | src/memorymap/core/pinstore.py:295 |
-| `save` | src/memorymap/core/pinstore.py:304 |
-| `set_store` | src/memorymap/core/pinstore.py:249 |
-| `store` | src/memorymap/core/pinstore.py:242 |
-| `unlock` | src/memorymap/core/pinstore.py:342 |
-| `valid_pin` | src/memorymap/core/pinstore.py:266 |
+| `DpapiStore` | src/memorymap/core/pinstore.py:157 |
+| `KeychainStore` | src/memorymap/core/pinstore.py:133 |
+| `SecretServiceStore` | src/memorymap/core/pinstore.py:91 |
+| `Store` | src/memorymap/core/pinstore.py:63 |
+| `StoreError` | src/memorymap/core/pinstore.py:59 |
+| `_detect` | src/memorymap/core/pinstore.py:236 |
+| `_read` | src/memorymap/core/pinstore.py:272 |
+| `_run` | src/memorymap/core/pinstore.py:81 |
+| `_write` | src/memorymap/core/pinstore.py:285 |
+| `account_for` | src/memorymap/core/pinstore.py:257 |
+| `available` | src/memorymap/core/pinstore.py:289 |
+| `binding` | src/memorymap/core/pinstore.py:262 |
+| `forget` | src/memorymap/core/pinstore.py:330 |
+| `is_set` | src/memorymap/core/pinstore.py:297 |
+| `save` | src/memorymap/core/pinstore.py:306 |
+| `set_store` | src/memorymap/core/pinstore.py:251 |
+| `store` | src/memorymap/core/pinstore.py:244 |
+| `unlock` | src/memorymap/core/pinstore.py:344 |
+| `valid_pin` | src/memorymap/core/pinstore.py:268 |
 
 ### src/memorymap/core/privacy_http.py (3)
 

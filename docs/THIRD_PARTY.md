@@ -25,6 +25,7 @@ under `src/memorymap/vendor/` or `frontend/vendor/` is missing from this page.
 | Harper | `harper/` | harper.js 2.10.0 | Apache-2.0 (`harper/LICENSE`) | https://github.com/Automattic/harper | grammar checking in documents, as WebAssembly |
 | D3 | `d3.v7.min.js` | 7.9.0 | ISC (`d3.LICENSE.txt`) | https://d3js.org | the graph and the whiteboard's layouts |
 | p5.js | `p5.min.js` | 1.11.13 | LGPL-2.1 (`p5.LICENSE.txt`) | https://p5js.org | the generated brand emblem, and Run on a p5.js sketch document (`run-core.js` hands the file to the run sandbox) |
+| Atkinson Hyperlegible | `atkinson/` | latin subset, 400 and 700 with their italics (woff2) | SIL OFL 1.1 (`atkinson/LICENSE`) | https://github.com/googlefonts/atkinson-hyperlegible | Appearance, Font, Readable: the `--ui-font` face, declared in `00-tokens-shell.css` |
 | Phosphor Icons | `phosphor/` | the web font build | MIT (`phosphor/LICENSE`) | https://phosphoricons.com | every icon in the app |
 | Mammoth | `mammoth/` | 1.13.0 (`mammoth.browser.min.js`) | BSD-2-Clause (`mammoth/LICENSE`) | https://github.com/mwilliamson/mammoth.js | reading a .docx imported into the Library, loaded on demand by `documents-word.js` |
 | docx | `docx/` | 9.10.0 (`dist/index.iife.js` minified) | MIT (`docx/LICENSE`) | https://github.com/dolanmiu/docx | writing a document as .docx (Download as Word), loaded on demand by `documents-word.js` |

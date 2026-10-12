@@ -49,6 +49,8 @@ LIBRARY_KEYS = {
     "p5.js": "p5",
     "Phosphor Icons": "phosphor",
     "English word list": "wordlist",
+    "Python standard library table": "pystdlib",
+    "Atkinson Hyperlegible": "atkinson",
     "Mammoth": "mammoth",
     "docx": "docx",
     "draw.io stencils": "stencils",
@@ -815,6 +817,40 @@ def wordlist_report() -> Report:
     )
 
 
+#: What the Python standard library table (`python-stdlib/stdlib.json`: each
+#: name's kind, signature and doc line) can drive in a Python document, and
+#: where each use would be read.
+PYSTDLIB_CAPABILITIES = (
+    ("completions after module.", ("frontend/js/documents-code.js",), r"autocomplete:.*docPyStdlibSource"),
+    ("hover card", ("frontend/js/documents-code.js",), r"docPyHover"),
+    ("signature help inside a call", ("frontend/js/documents-code.js",), r"docPySignature"),
+)
+
+
+def _capability_report(key: str, title: str, capabilities: tuple, notes: list[str]) -> Report:
+    available, called = [], []
+    for label, files, pattern in capabilities:
+        available.append(label)
+        if any((ROOT / rel).exists() and re.search(pattern, _live_lines(_read(ROOT / rel))) for rel in files):
+            called.append(label)
+    return Report(key, title, available, called, {}, notes)
+
+
+def pystdlib_report() -> Report:
+    modules = json.loads(_read(VENDOR / "python-stdlib" / "stdlib.json")).get("modules", {})
+    return _capability_report(
+        "pystdlib", "Python standard library table", PYSTDLIB_CAPABILITIES, [f"{len(modules)} modules in stdlib.json"]
+    )
+
+
+def atkinson_report() -> Report:
+    """Each face shipped under `atkinson/` is available; one an @font-face names is called."""
+    css = "\n".join(_read(path) for path in sorted((ROOT / "frontend" / "css").glob("*.css")))
+    faces = sorted(path.name for path in (VENDOR / "atkinson").glob("*.woff2"))
+    called = [face for face in faces if f"vendor/atkinson/{face}" in css]
+    return Report("atkinson", "Atkinson Hyperlegible", faces, called, {})
+
+
 #: Mammoth's public surface (mammoth.browser), and the docx classes a writer
 #: reaches for; both are read in documents-word.js (Brief 42, INBOX 736).
 MAMMOTH_API = ["convertToHtml", "convertToMarkdown", "extractRawText", "embedStyleMap", "images"]
@@ -1000,6 +1036,8 @@ def collect() -> dict[str, Report]:
         harper_report(scripts),
         phosphor_report(),
         wordlist_report(),
+        pystdlib_report(),
+        atkinson_report(),
         d3_report(scripts),
         p5_report(scripts),
         flashtext_report(sources),

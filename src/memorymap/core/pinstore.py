@@ -45,6 +45,7 @@ from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from memorymap.core import crypto
+from memorymap.core.subproc import NO_WINDOW
 
 log = logging.getLogger("memorymap.pin")
 
@@ -81,6 +82,7 @@ def _run(args: list[str], stdin: str | None = None) -> subprocess.CompletedProce
     try:
         return subprocess.run(  # noqa: S603  # fixed argv, no shell
             args, input=stdin, capture_output=True, text=True, timeout=_TIMEOUT, check=False,
+            creationflags=NO_WINDOW,
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise StoreError(str(exc)) from exc

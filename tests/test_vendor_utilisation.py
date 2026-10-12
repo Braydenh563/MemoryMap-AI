@@ -32,7 +32,8 @@ pytestmark = pytest.mark.skipif(
 CALLED_FLOOR = {
     "codemirror": 102,
     "emmet": 10,
-    "jsbeautify": 3,
+    #: 4 since ledger 1565: a selection formatted at its first line's indent.
+    "jsbeautify": 4,
     #: Brief 69: `transform` with the typescript, jsx and imports passes.
     "sucrase": 4,
     #: Brief 69: the SQL runner in api/run_sandbox.py.
@@ -42,6 +43,10 @@ CALLED_FLOOR = {
     "harper": 17,
     "phosphor": 260,
     "wordlist": 2,
+    #: Completions after `module.` and the hover card (documents-code.js).
+    "pystdlib": 2,
+    #: Every face shipped is declared by an @font-face (row 1595).
+    "atkinson": 4,
     "d3": 19,
     "p5": 21,
     "flashtext": 2,
@@ -50,6 +55,15 @@ CALLED_FLOOR = {
     "docx": 12,
     #: Brief 83: the Translate worker, a download extra (its WASM engine is not vendored).
     "translate": 11,
+}
+
+
+#: Libraries whose every counted capability is in use, each with why that is
+#: real rather than a reader counting everything as called.
+FULLY_USED = {
+    "stencils": "every board-library set is offered in the shape library",
+    "jsbeautify": "its three formatters and the selection are all reached from Format",
+    "atkinson": "only the four faces the Readable font draws were vendored",
 }
 
 
@@ -89,7 +103,7 @@ def test_every_report_has_a_floor_and_sane_counts(reports) -> None:
         assert set(report.called) <= set(report.available), (
             f"{key}: a called name is not an available one"
         )
-        assert len(report.called) < len(report.available) or key == "stencils", (
+        assert len(report.called) < len(report.available) or key in FULLY_USED, (
             f"{key}: nothing unused is suspicious"
         )
 

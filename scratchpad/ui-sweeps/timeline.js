@@ -40,6 +40,11 @@ const check = (label, ok, detail) => {
     // already covers getting to; switching directly is width-independent.
     await page.evaluate(() => window.switchTab('timeline'));
     await page.waitForTimeout(900);
+    // The gate is the feed's. A phone opens the timeline as the table
+    // (timelineViewMode, UI_MODERNISATION_PLAN Phase 11 item 8), so the feed
+    // is asked for by its own pill at every width.
+    await page.evaluate(() => document.querySelector('#timeline-view-seg [data-timeline-view="feed"]')?.click());
+    await page.waitForTimeout(600);
     // The scale select drives the density, and the gate is about the full
     // row: ask for the day scale explicitly rather than measuring whatever
     // "auto" chose for this seed at this width.

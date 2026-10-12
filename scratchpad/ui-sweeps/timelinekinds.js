@@ -37,6 +37,17 @@ const { boot } = require('./lib.js');
   await page.evaluate(() => localStorage.removeItem('timeline-kinds'));
   await page.evaluate(() => switchTab('timeline'));
   await page.waitForTimeout(2500);
+  // The feed at the day scale, as timeline.js asks: "auto" groups a seeded
+  // notebook by month, which has no Today head to carry the journal action.
+  await page.evaluate(() => {
+    document.querySelector('#timeline-view-seg [data-timeline-view="feed"]')?.click();
+    const sel = document.getElementById('timeline-scale');
+    if (sel && sel.value !== 'day') {
+      sel.value = 'day';
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  });
+  await page.waitForTimeout(1500);
 
   // --- gate 1: four kinds of row, each with its own marker -------------------
   const rows = await page.evaluate(() => {
@@ -72,6 +83,23 @@ const { boot } = require('./lib.js');
     `${new Set(rows.map((r) => r.key)).size} distinct key(s) of ${rows.length} row(s)`);
 
   // --- gate 2: the daily note's Today action ---------------------------------
+  // A day note an earlier run saved goes first, so the action is "Start" again.
+  const cleared = await page.evaluate(async () => {
+    const iso = new Date();
+    const key = `${iso.getFullYear()}-${String(iso.getMonth() + 1).padStart(2, '0')}-${String(iso.getDate()).padStart(2, '0')}`;
+    const ids = [...document.querySelectorAll('#timeline-feed .timeline-row[data-kind="note"]')]
+      .filter((li) => li.querySelector('.timeline-row-title')?.textContent === key)
+      .map((li) => li.dataset.key.split(':')[1]);
+    for (const id of ids) await api(`/entries/${id}`, { method: 'DELETE' });
+    return ids.length;
+  });
+  if (cleared) {
+    await page.evaluate(() => switchTab('notes'));
+    await page.waitForTimeout(500);
+    await page.evaluate(() => switchTab('timeline'));
+    await page.waitForTimeout(2000);
+  }
+
   // By its label, not by position: a note that mentions a future date is
   // plotted there, so the feed's first bucket can legitimately be tomorrow.
   await page.evaluate(() => {
@@ -98,6 +126,12 @@ const { boot } = require('./lib.js');
     button.click();
     return true;
   });
+  await page.waitForTimeout(1500);
+  //: The action opens Capture with the day as the title (`startDayNote`); the
+  //: note is made when it is saved, not on the press.
+  const prefilled = await page.evaluate(() => document.getElementById('entry-title')?.value || '');
+  await page.fill('#entry-content', 'Watered the beans.');
+  await page.click('#save-btn');
   await page.waitForTimeout(2500);
   await page.evaluate(() => switchTab('timeline'));
   await page.waitForTimeout(2000);
@@ -121,7 +155,7 @@ const { boot } = require('./lib.js');
   });
   check('2 today: once the day has one, the action opens it rather than making a second',
     madeDaily && afterDaily.hasDaily && /Today's note/.test(afterDaily.button),
-    `daily row present=${afterDaily.hasDaily}, action "${afterDaily.button.trim()}"`);
+    `title prefilled "${prefilled}", daily row present=${afterDaily.hasDaily}, action "${afterDaily.button.trim()}"`);
   check('2 today: the journal note wears the calendar marker',
     /calendar-dot/.test(afterDaily.marker), afterDaily.marker);
 
@@ -130,18 +164,22 @@ const { boot } = require('./lib.js');
   // state when the menu is shut, the four toggles live in the menu.
   const shut = await page.evaluate(() => {
     const button = document.getElementById('timeline-kinds-btn');
-    const search = document.getElementById('timeline-search');
+    //: The dock's other menu trigger (Options): the search moved into a
+    //: 32px field well, and every dock's menu triggers are 28px beside it
+    //: (notes, timeline, library measured 2026-10-12), so the trigger is
+    //: measured against its own kind.
+    const peer = button.closest('.dock')?.querySelector('summary.doc-dock-menu-btn:not(#timeline-kinds-btn)');
     return {
       caption: document.getElementById('timeline-kinds-label').textContent,
       inDock: !!button.closest('.dock'),
       h: Math.round(button.getBoundingClientRect().height),
       w: Math.round(button.getBoundingClientRect().width),
-      searchH: Math.round(search.getBoundingClientRect().height),
+      peerH: peer ? Math.round(peer.getBoundingClientRect().height) : -1,
     };
   });
   check('3 kinds: one button in the dock, at the dock control height, saying the state',
-    shut.inDock && Math.abs(shut.h - shut.searchH) <= 1 && shut.caption === 'Kinds: all',
-    `"${shut.caption}", ${shut.w}x${shut.h}px, search ${shut.searchH}px`);
+    shut.inDock && Math.abs(shut.h - shut.peerH) <= 1 && shut.caption === 'Kinds: all',
+    `"${shut.caption}", ${shut.w}x${shut.h}px, Options ${shut.peerH}px`);
 
   await page.click('#timeline-kinds-btn');
   await page.waitForTimeout(300);
@@ -181,7 +219,7 @@ const { boot } = require('./lib.js');
   }));
   check('3 kinds: ticking one refetches, the rows go, the caption and the menu follow',
     !afterOff.kinds.includes('reminder') && afterOff.checked === false && afterOff.open &&
-      afterOff.caption === 'Kinds: notes, boards, documents' &&
+      afterOff.caption === 'Kinds: notes, boards and maps, documents' &&
       requests.some((u) => /kind=/.test(u)),
     `kinds left ${afterOff.kinds.join(', ')}, "${afterOff.caption}", menu open=${afterOff.open}, ${requests.length} request(s)`);
   await page.click('#timeline-search');

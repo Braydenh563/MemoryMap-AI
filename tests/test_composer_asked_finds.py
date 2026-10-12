@@ -73,3 +73,19 @@ def test_a_find_sends_its_step_before_its_answer(client, session):
         kinds = [json.loads(line)["type"] for line in response.iter_lines() if line.strip()]
     assert "tool" in kinds and "answer" in kinds
     assert kinds.index("tool") < kinds.index("answer")
+
+
+@pytest.mark.parametrize(
+    "ask",
+    [
+        "cna u search the web for sandwiches",
+        "can u pls serch teh web for sandwiches",
+        "cna u serach the wbe for sandwiches",
+        "u can saerch teh web 4 sandwiches?",
+    ],
+)
+def test_a_web_ask_survives_typos_and_slang(ask):
+    from tessellate.ai import intent, utilities
+
+    assert utilities.kind_of(ask) == "web"
+    assert intent.classify(ask) == intent.UTILITY

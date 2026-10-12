@@ -1944,6 +1944,15 @@ async function sendChatMessage(preset, opts = {}) {
     }
   }
 
+  //: **A new chat gets its row at send time, not at the first agent round.**
+  //: A plain answer has no round boundary, so a chat started with one had no
+  //: row, and so no entry in the list, until the reply finished: start a new
+  //: chat, open another, and the first one could not be reached again until
+  //: it was done (the owner, 2026-10-12). The row holds the question and an
+  //: empty answer; `openConversation` already drops that partial turn and
+  //: puts the live bubbles back (`isStreamingConversation`).
+  if (convRef.id === null) checkpointTurn();
+
   // Captured once, not re-read at save time: the toggle can move on to the
   // next message while this one is still streaming, and the meta line and
   // the saved turn must both say what actually answered *this* question.
@@ -2408,7 +2417,10 @@ async function sendChatMessage(preset, opts = {}) {
   //: appear, I think there should be an animation"): it lands in one piece,
   //: so its blocks rise in turn, `--motion-step` apart, as a streamed one
   //: grows; under reduced motion it simply appears.
-  const by = meta?.composed ? "from your notes" : stats?.model || meta?.answered_by;
+  //: No model wrote it and it is not quoted from the notes (a greeting, a
+  //: time, a count, a capability answer): the engine answered, and says so
+  //: ("hey :D" got an unlabelled "Atlas", the owner, 2026-10-12).
+  const by = meta?.composed ? "from your notes" : stats?.model || meta?.answered_by || (meta ? "composer" : "");
   const who = bubble.querySelector(".msg-role > span:last-child");
   if (answerRaw && by && who) who.textContent = `${bubble.dataset.persona}, ${by}`;
   if (meta?.composed && !reducedMotionWanted()) {

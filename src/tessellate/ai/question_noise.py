@@ -1627,7 +1627,7 @@ SLANG.update({
     "scavanged": "scavenged", "scholarhip": "scholarship", "scientfic": "scientific",
     "scientifc": "scientific", "scientis": "scientist", "scince": "science", "scinece": "science",
     "scirpt": "script", "scoll": "scroll", "screenwrighter": "screenwriter",
-    "scrutinity": "scrutiny", "scuptures": "sculptures", "seach": "search", "seached": "searched",
+    "scrutinity": "scrutiny", "scuptures": "sculptures", "seach": "search", "seached": "searched", "serch": "search", "serach": "search", "saerch": "search", "wbe": "web",
     "seaches": "searches", "secratary": "secretary", "secretery": "secretary",
     "sedereal": "sidereal", "seeked": "sought", "segementation": "segmentation",
     "seguoys": "segues", "seige": "siege", "seing": "seeing", "seinor": "senior",

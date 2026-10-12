@@ -508,6 +508,9 @@ function wbStartPanShield(e) {
 
 function wbEndPanShield() {
   document.getElementById("whiteboard-container")?.classList.remove("wb-hand-pan");
+  //: The bar was placed from held measurements all through the pan; place it
+  //: once with real ones, so its clearance from the handle is exact again.
+  if (wbAddGate.panBarHold) wbUpdateSelectionBar();
 }
 
 function handleWbZoom(e) {
@@ -547,7 +550,7 @@ function wbZoomFrameWork() {
   //: In the same frame as the transform it answers, so a topic panned into
   //: view is drawn on the frame it arrives in rather than one later.
   wbCullNow(t, size);
-  wbUpdateSelectionBar();
+  wbUpdateSelectionBar(true);
   //: The format bar of a topic or text box being edited rides the board
   //: with it (INBOX 817), in the same frame.
   if (typeof selectionBarState === "object" && (selectionBarState.textarea?.id === "wb-topic-edit" || selectionBarState.textarea?.id === "wb-text-edit")) selectionBarSync();
@@ -5037,7 +5040,7 @@ async function wbMindMapAddCard(parentId, x, y) {
 //: still a tool key. The focus is left where it was, not moved to the
 //: canvas as a map's is (decision 27): a focused board canvas reads Tab as
 //: "walk the items" (`wbWalkItems`), which would take the branch key away.
-const wbAddGate = { cardRetypeId: null, renderHold: null, barDeferred: false, barDeferredQueued: false };
+const wbAddGate = { cardRetypeId: null, renderHold: null, barDeferred: false, barDeferredQueued: false, panBarHold: null };
 
 function wbEditNodeText(nodeId, firstKey = "") {
   wbAddGate.cardRetypeId = null;
@@ -5644,7 +5647,13 @@ function wbRenderRelease() {
 //: 60ms, 2,100 elements, on every Tab at 301 topics). Placed two frames on
 //: instead, after the editor, from the same selection.
 
-function wbUpdateSelectionBar() {
+//: What a pan keeps of the selection bar's measurements: a pan moves the
+//: canvas, not the bar, the host or the top bar, so one measure serves every
+//: frame until the pan ends (a zoom frame asks the same). Cleared by any
+//: placement that is not a pan frame, and at the pan's end, which then places
+//: the bar once more with real measurements.
+function wbUpdateSelectionBar(panning = false) {
+  if (!panning) wbAddGate.panBarHold = null;
   if (wbAddGate.barDeferred) {
     if (!wbAddGate.barDeferredQueued) {
       wbAddGate.barDeferredQueued = true;
@@ -5732,7 +5741,9 @@ function wbUpdateSelectionBar() {
   //: lives in the container, and a drag places this bar once a frame, so a
   //: walk of the whole page's 49,000 nodes each time was the largest cost
   //: left on the drag after the element cache above.
-  if (container.querySelector(".wb-object.wb-text-editing")) {
+  const panSig = `${active.id}:${sel ? `${sel.kind}:${sel.id}` : `multi${wbMultiSelection.size}`}`;
+  const panHeld = panning && wbAddGate.panBarHold?.sig === panSig ? wbAddGate.panBarHold : null;
+  if (!panHeld && container.querySelector(".wb-object.wb-text-editing")) {
     hideBoth();
     return;
   }
@@ -5758,7 +5769,7 @@ function wbUpdateSelectionBar() {
   //: the items, not the canvas, the host, the top bar or the bar itself. So
   //: the first frame measures and the rest reuse it, and no frame of the
   //: drag forces a layout here (`wbBulkBarBounds`, INBOX 445).
-  const held = moving?.origin?.barMeasure || null;
+  const held = moving?.origin?.barMeasure || panHeld || null;
   const rect = held ? held.rect : container.getBoundingClientRect();
   const hostRect = held ? held.hostRect : host.getBoundingClientRect();
   const cx = rect.left - hostRect.left + t.applyX((box.minX + box.maxX) / 2);
@@ -5776,7 +5787,7 @@ function wbUpdateSelectionBar() {
     wbMapStripNodeId = mapNode.id;
   }
   if (!mapNode) wbMapStripNodeId = null;
-  if (mapNode) wbSyncMapStrip(mapNode);
+  if (mapNode && !panHeld) wbSyncMapStrip(mapNode);
   active.classList.remove("hidden");
   const w = held ? held.w : active.offsetWidth;
   const h = held ? held.h : active.offsetHeight;
@@ -5798,6 +5809,7 @@ function wbUpdateSelectionBar() {
   // the ring takes *below* the node is what sent the strip down there.
   const topBar = held ? held.topBar : document.getElementById("wb-topbar")?.getBoundingClientRect();
   if (moving && !held) moving.origin.barMeasure = { rect, hostRect, w, h, topBar, sideEdges };
+  else if (panning && !held) wbAddGate.panBarHold = { sig: panSig, rect, hostRect, w, h, topBar, sideEdges };
   const floor = topBar ? topBar.bottom - hostRect.top + gapBelow : 56;
   let y = top - h - gapAbove;
   //: Below a topic, clear of its add row too (MINDMAP_PLAN 15 row 3): the

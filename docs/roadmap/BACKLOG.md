@@ -4315,7 +4315,7 @@ First, in order:
 - OCR workspace through the "m o" chord opens with nothing selected and a blank viewer: select the first file, and when the page renderer package is missing say so with a link to Settings, Packages.
 - Packages: Live captions (whisper.cpp) has no install control; if it is not wired yet, show it disabled like llama.cpp.
 - Ask without the needle package: say so in a notice naming what it adds, never a quietly poorer answer; answer the owner's question of whether the composer needs it to call tools or only to retrieve.
-- Navigation chord: change "m" (MemoryMap) to "t" (Tessellate), keeping "m" working; check "t" is free first.
+- Navigation chord: "m" (MemoryMap) to "t" (Tessellate), keeping "m" working. Not small: "t" is already the second key for Timeline (`TAB_JUMP_KEYS.t`, settings-wiring.js) and a repeated first key hides the guide, so "t t" would close it instead of jumping; Timeline needs another letter or the toggle rule changes. The whiteboard owns "m" (`wbOwnsChord`) and the key is named in help (`ai/help_chat.py`), the manual and `tests/test_manual_parity.py`. Owner asked for it, 2026-10-12.
 - Composer: past-tense reported speech after "A week on, by 9 August," ("you mentioned that you had just begun playing ..."); run the vendored Harper grammar rules over composer output (test-time lint first, then a post-pass for lead capitals such as "tuesday" and missing articles such as "go to gym").
 - The agent cap: the owner cannot fund two Opus agents at once right now; run one at a time, Sonnet for named fixes.
 

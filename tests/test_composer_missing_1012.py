@@ -88,3 +88,17 @@ def test_an_app_link_is_not_an_unbacked_name():
     from tessellate.ai import source_check
     sources = source_check.Sources(["what did I write this week"])
     assert source_check.unbacked_claims("You have no notes in this week.\n\n[Open your notes](#/notes)", sources) == []
+
+
+def test_a_refused_connection_is_one_plain_line():
+    import requests
+    from tessellate.ai.captioning import server_unreachable
+    try:
+        try:
+            raise ConnectionRefusedError("refused")
+        except ConnectionRefusedError as cause:
+            raise RuntimeError("Chat failed") from cause
+    except RuntimeError as exc:
+        assert server_unreachable(exc)
+    assert not server_unreachable(ValueError("a corrupt image"))
+    assert server_unreachable(requests.exceptions.ConnectionError("x"))

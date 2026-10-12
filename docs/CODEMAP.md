@@ -2,7 +2,7 @@
 
 Generated 2026-10-12 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5879, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5474, test files 1215, tests 10841, plan headings 953.
+Counts: frontend functions 5879, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5475, test files 1215, tests 10842, plan headings 953.
 
 ## Frontend functions (5879)
 
@@ -10341,7 +10341,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/tessellate/api/routes_ask_history.py:164 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/tessellate/api/run_sandbox.py:1592 |
 
-## Backend modules (5474)
+## Backend modules (5475)
 
 Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -10590,17 +10590,18 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `asks` | src/tessellate/ai/capability.py:131 |
 | `privacy_line` | src/tessellate/ai/capability.py:154 |
 
-### src/tessellate/ai/captioning.py (7)
+### src/tessellate/ai/captioning.py (8)
 
 | Name | File:line |
 |---|---|
-| `caption_and_store` | src/tessellate/ai/captioning.py:263 |
-| `caption_in_background` | src/tessellate/ai/captioning.py:332 |
+| `caption_and_store` | src/tessellate/ai/captioning.py:279 |
+| `caption_in_background` | src/tessellate/ai/captioning.py:348 |
 | `caption_text` | src/tessellate/ai/captioning.py:238 |
 | `describe_document` | src/tessellate/ai/captioning.py:130 |
 | `page_caption_prompt` | src/tessellate/ai/captioning.py:191 |
 | `page_caption_text` | src/tessellate/ai/captioning.py:201 |
 | `running_captions` | src/tessellate/ai/captioning.py:50 |
+| `server_unreachable` | src/tessellate/ai/captioning.py:266 |
 
 ### src/tessellate/ai/captions.py (16)
 
@@ -12964,14 +12965,14 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 |---|---|
 | `cut_reading_loops` | src/tessellate/ai/vision_ocr.py:122 |
 | `finish_page_read` | src/tessellate/ai/vision_ocr.py:66 |
-| `pdf_reader_or_none` | src/tessellate/ai/vision_ocr.py:201 |
-| `pdf_vision_ocr_and_store` | src/tessellate/ai/vision_ocr.py:340 |
-| `pdf_vision_ocr_in_background` | src/tessellate/ai/vision_ocr.py:415 |
-| `pdf_vision_reader` | src/tessellate/ai/vision_ocr.py:244 |
+| `pdf_reader_or_none` | src/tessellate/ai/vision_ocr.py:206 |
+| `pdf_vision_ocr_and_store` | src/tessellate/ai/vision_ocr.py:345 |
+| `pdf_vision_ocr_in_background` | src/tessellate/ai/vision_ocr.py:420 |
+| `pdf_vision_reader` | src/tessellate/ai/vision_ocr.py:249 |
 | `register_page_read` | src/tessellate/ai/vision_ocr.py:56 |
 | `running_page_reads` | src/tessellate/ai/vision_ocr.py:74 |
-| `vision_ocr_and_store` | src/tessellate/ai/vision_ocr.py:288 |
-| `vision_ocr_in_background` | src/tessellate/ai/vision_ocr.py:422 |
+| `vision_ocr_and_store` | src/tessellate/ai/vision_ocr.py:293 |
+| `vision_ocr_in_background` | src/tessellate/ai/vision_ocr.py:427 |
 | `vision_ocr_text` | src/tessellate/ai/vision_ocr.py:161 |
 
 ### src/tessellate/ai/vocative.py (13)
@@ -17274,7 +17275,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10841)
+## Tests (10842)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -17466,7 +17467,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_composer_commands.py | 3 |
 | tests/test_composer_eval_725.py | 6 |
 | tests/test_composer_eval_741.py | 6 |
-| tests/test_composer_missing_1012.py | 11 |
+| tests/test_composer_missing_1012.py | 12 |
 | tests/test_composer_overview_787.py | 18 |
 | tests/test_composer_route_688.py | 11 |
 | tests/test_composer_rows_1011.py | 9 |

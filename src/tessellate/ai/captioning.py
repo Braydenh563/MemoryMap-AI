@@ -252,12 +252,28 @@ def caption_text(image_path: Path, model: str, ollama) -> str:
             [{"role": "user", "content": CAPTION_PROMPT, "images": [uri]}],
         )
         return cut_reading_loops((reply.get("content") or "").strip())
-    except Exception:
+    except Exception as exc:
         # Same reasoning as ocr.extract_text's own bare except: one bad
         # upload (a corrupt file, a model that errors on this specific
         # image) must never take down the background thread it runs on.
-        logger.warning("Captioning failed for %s", image_path.name, exc_info=True)
+        if server_unreachable(exc):
+            logger.warning("Captioning skipped for %s: the model server is not running.", image_path.name)
+        else:
+            logger.warning("Captioning failed for %s", image_path.name, exc_info=True)
         return ""
+
+
+def server_unreachable(exc: BaseException) -> bool:
+    """True when `exc` (or what it was raised from) is a refused or dropped
+    connection: the model server is not running, which is one plain line in
+    the log, not a page of traceback (the owner, 2026-10-12)."""
+    seen = 0
+    while exc is not None and seen < 8:
+        if isinstance(exc, (ConnectionError, TimeoutError)) or type(exc).__name__ in ("ConnectionError", "NewConnectionError", "MaxRetryError"):
+            return True
+        exc = exc.__cause__ or exc.__context__
+        seen += 1
+    return False
 
 
 def caption_and_store(upload_id: int, image_path: Path, force: bool = False) -> str | None:

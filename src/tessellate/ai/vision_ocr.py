@@ -184,11 +184,16 @@ def vision_ocr_text(image_path: Path, model: str, ollama) -> str | None:
         if not text or text.upper() == _NO_TEXT_SENTINEL:
             return ""
         return text
-    except Exception:
+    except Exception as exc:
         # Same reasoning as ocr.extract_text's and captioning.caption_text's
         # own bare except: one bad image must never take down the request
         # or background thread it runs on.
-        logger.warning("Vision OCR failed for %s", image_path.name, exc_info=True)
+        from tessellate.ai.captioning import server_unreachable
+
+        if server_unreachable(exc):
+            logger.warning("Vision OCR skipped for %s: the model server is not running.", image_path.name)
+        else:
+            logger.warning("Vision OCR failed for %s", image_path.name, exc_info=True)
         return None
 
 

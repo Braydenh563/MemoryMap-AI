@@ -945,6 +945,13 @@ details.tool-chip[open] > .tool-chip-body {
 .graph-canvas:active {
   cursor: grabbing;
 }
+/* The first draw fades in rather than appearing mid-layout (`renderGraph`). */
+#graph-canvas {
+  transition: opacity var(--ui-slow) var(--ease-out);
+}
+#graph-canvas.graph-entering {
+  opacity: 0;
+}
 /* Fullscreen mode for the graph map.
    **Reported directly: square corners.** This used to be `top/left: 0`,
    `100vw x 100vh` and `border-radius: 0 !important`, a true edge-to-edge

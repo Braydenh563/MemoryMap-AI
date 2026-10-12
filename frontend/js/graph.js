@@ -1813,7 +1813,22 @@ async function renderGraph() {
     graphRenderer() === "canvas" && canvas;
   if (svg) svg.classList.toggle("hidden", Boolean(useCanvas));
   if (canvas) canvas.classList.toggle("hidden", !useCanvas);
-  if (useCanvas) return renderGraphCanvas();
+  if (useCanvas) {
+    //: The first draw of a visit fades in once the layout has taken its first
+    //: frames, instead of showing the nodes mid-shuffle (owner, 2026-10-12:
+    //: "so it isnt so in your face"). A later redraw (a switch, a filter)
+    //: keeps what is on screen.
+    const first = !canvas.dataset.revealed;
+    if (first) canvas.classList.add("graph-entering");
+    try {
+      return await renderGraphCanvas();
+    } finally {
+      if (first) {
+        canvas.dataset.revealed = "1";
+        requestAnimationFrame(() => requestAnimationFrame(() => canvas.classList.remove("graph-entering")));
+      }
+    }
+  }
   return renderGraphSvg();
 }
 

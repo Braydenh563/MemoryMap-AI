@@ -1011,14 +1011,14 @@ def _filed_notes(session: Session, filed: str) -> tuple | None:
         args = {key: filed, "limit": 8}
         result = tools.execute_tool(session, "list_notes", args)
         if isinstance(result, dict) and result.get("total_matching"):
-            lead = tool_say.say("list_notes", result, args)["lead"]
-            return "list_notes", {key: filed}, result, f"{lead} Open one from the rows below."
+            said = tool_say.say("list_notes", result, args)
+            return "list_notes", {key: filed}, result, f"{said['lead']}\n\n{said['body']}"
     return None
 
 
 def _plan_read(session: Session, parsed: dict) -> dict:
     """Find or open: run the agent's own search and hand back its tool event."""
-    from tessellate.ai import agent, cards, tools
+    from tessellate.ai import agent, cards, tool_say, tools
 
     if parsed.get("note_id") is not None:
         result = tools.execute_tool(session, "get_note", {"note_id": parsed["note_id"]})
@@ -1036,11 +1036,11 @@ def _plan_read(session: Session, parsed: dict) -> dict:
         if parsed["intent"] == "open":
             result = {**result, "notes": result["notes"][:1]}
         name, args = "search_notes", {"query": about}
-        found = len(result["notes"])
+        said = tool_say.say("search_notes", result, {"query": about})
         line = (
-            f"The closest note about “{about}” is below. Open it from the row."
+            f"The closest note about “{about}” is {said['body'].lstrip('- ').strip()}"
             if parsed["intent"] == "open"
-            else f"I found {found} note{'' if found == 1 else 's'} about “{about}”. Open one from the rows below."
+            else f"{said['lead']}\n\n{said['body']}"
         )
     event = {
         "type": "tool",

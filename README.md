@@ -7,7 +7,7 @@
 <i>Your notes, pieced together</i><br>
 <sub>Formerly MemoryMap AI</sub>
 
-**A notebook that files itself. Local AI, your machine, nothing sent anywhere unless you ask.**
+**Capture anything. Ask anything. Tessellate files it, links it and answers from it, all on your own device.**
 
 [Download](https://github.com/Braydenh563/Tessellate/releases/latest) ·
 [Quick start](#quick-start) ·

@@ -2,7 +2,7 @@
 
 Generated 2026-10-12 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5876, frontend ids 2489, CSS sections 494, backend routes 604, backend modules 5459, test files 1212, tests 10821, plan headings 951.
+Counts: frontend functions 5876, frontend ids 2489, CSS sections 494, backend routes 604, backend modules 5459, test files 1213, tests 10822, plan headings 951.
 
 ## Frontend functions (5876)
 
@@ -17240,7 +17240,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (10821)
+## Tests (10822)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -17321,6 +17321,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_background_filing_cost.py | 2 |
 | tests/test_background_module.py | 2 |
 | tests/test_background_registry.py | 2 |
+| tests/test_background_registry_shutdown.py | 1 |
 | tests/test_background_rows_keep_their_space.py | 3 |
 | tests/test_backlog_status_rows.py | 6 |
 | tests/test_backup_bundle.py | 8 |

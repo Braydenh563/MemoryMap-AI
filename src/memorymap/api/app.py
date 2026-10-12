@@ -1537,6 +1537,11 @@ def create_app() -> FastAPI:
         # shutdown that fails to shut down is worse than one that leaves a
         # line in the log.
         bgtasks.stop_all()
+        # The registry of threads that are not jobs (`core/background.py`):
+        # its watchers name how they stop, and quitting is when to ask.
+        from memorymap.core import background
+
+        background.stop_all()
         # The reminder notifier's loop is a job on that pool, so it is told to
         # end first: otherwise a quit waits the pool's whole deadline for it.
         from memorymap.core import reminder_notifier

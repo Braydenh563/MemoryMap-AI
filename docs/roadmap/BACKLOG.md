@@ -4289,3 +4289,18 @@ Brief 43. Each row: the probe (command), the number, the cause, the fix shape an
 Passed with a number, no row needed: the frontend lint set, three serial runs of 429 tests, 51 to 58 s each, no flake; `--durations=20` over the 17 `test_api*` and `test_chat*` files, 192 tests in 103 s serial, slowest 2.4 s; `fe1005-offline.js`, seven tabs in a French locale, zero requests to any other origin; the service worker has no `fetch` handler and caches nothing, stamped assets are `public, max-age=31536000, immutable`, the shell is `no-cache`; `keyboard.js`, `dockeyboard.js` and `errors.js` at four widths, zero findings; `a11yname.js`, zero unnamed controls; the router-walk test `tests/test_every_route_is_locked.py` already exists and passes (every route answers 401 to a stranger, an allowlist of 18 open paths with reasons); the unlock throttle exists with tests; the app's CSP has no `unsafe-inline` (the sandboxed Run pages keep theirs by design, on an opaque origin); CodeQL runs on every push and PR plus Mondays, `security-and-quality` queries, Python only, `.github/workflows/codeql.yml`; `autogrowfast.js` 3 of 3, 0 mismatches. The 0.3.0 schema itself cannot be rebuilt (history was squashed at 0.4.1); the baseline revision to head with data in place is the earliest testable chain.
 
 - **Live refresh across devices** (INBOX 881, the owner 2026-10-11: "what if I make a change on my phone?? does it live update??"). A save on one device does not refresh another device's open list or note. Recommendation: an `entries` event on the existing jobs stream; the list re-fetches, and an open note that has no unsaved edits takes the new text, while one with edits keeps the 409 Keep mine / theirs prompt.
+
+
+## Placed from INBOX, 2026-10-12 (grammar in digest answers)
+
+- INBOX 1299. **The owner, 2026-10-12, verbatim.** "this response from the ask subtab
+     is great! i would make a small tweak or two like it probably should have
+     said instead \"A week on, by 9 August, you mentioned that you had just
+     recently begun playing League of Legends...\" small grammar issues like
+     that ... can we use the vendored grammar repos like harper to improve
+     composer responses?? maybe that cna be fore next pr". Fixed now: "every a
+     week", "Your the split ... note". Next PR (recommendation, taken): a
+     dated digest line after "A week on, by D," reports in the past ("you
+     mentioned that you had ..."), and the vendored Harper rules run over
+     composer output as a test-time lint first, then as a post-pass on lead
+     capitals ("tuesday") and missing articles ("go to gym").

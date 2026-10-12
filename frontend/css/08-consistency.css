@@ -3264,6 +3264,12 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
 /* One line, cut with an ellipsis, as Ask's results already were (below): at
    390 a note card's connection pills wrapped their words to two 12px lines
    inside a pill one line tall (qa-1005, qa1005-polish.js `linkpills`). */
+/* The chip's line-height is 1, so a clipping box exactly one em tall cut
+   the descenders of "g" and "y" (owner's screenshot, 2026-10-12). */
+#entry-list .link-connection > .chip.link > .ph-text,
+.entry-meta.note-meta > .chip > .ph-text {
+  line-height: 1.4;
+}
 #entry-list .link-connection > .chip.link > .ph-text {
   min-width: 0;
   overflow: hidden;

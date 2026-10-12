@@ -984,6 +984,10 @@ def _prose(label: str, held: list, bodies: list[str], i: int, today: date | None
         frame, opening = "did", f"At the {named}{on}"
     elif _HEARD.search(label):
         frame, opening = "heard", f"In your {named}" + (f", on {_day(written, today or written)}," if written else "")
+    elif re.match(r"(?:the|a|an|this|my|your)\b", named, re.I):
+        #: "Your the split follows this structure note" (owner, 2026-10-12):
+        #: a heading that is a sentence cannot stand between "Your" and "note".
+        frame, opening = "noted", "Your note" + (f" of {_day(written, today or written)}" if written else "")
     else:
         frame, opening = "noted", f"Your {named} note"
     clauses = [_clause(b, frame, i + n, n == 0) for n, b in enumerate(bodies)]
@@ -1049,7 +1053,9 @@ def _pattern(members: list[composer.NoteView], today: date) -> str:
     if span <= 9:
         return _vary("burst").format(count=realise.count_word(len(days)), span=_gap(max(span, 1)), age=_gap(max(age, 1)))
     if len(days) >= 3:
-        return _vary("cadence").format(every=_gap(max(1, round(span / (len(days) - 1)))), age=_gap(max(age, 1)))
+        #: "every a week" (owner, 2026-10-12): "every" takes the bare unit.
+        every = re.sub(r"^(?:about |nearly )?an? ", "", _gap(max(1, round(span / (len(days) - 1)))))
+        return _vary("cadence").format(every=every, age=_gap(max(age, 1)))
     return _vary("fresh").format(age=_gap(max(age, 1)))
 
 

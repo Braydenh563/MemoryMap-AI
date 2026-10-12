@@ -26,7 +26,6 @@ import io
 import pytest
 
 from memorymap.api import routes_files
-from memorymap.files import service as files_service
 from memorymap.core import pdfpages
 
 ONE_PAGE_PDF = (
@@ -66,7 +65,7 @@ def test_a_reading_is_stored_and_handed_back(client, monkeypatch):
         pytest.skip("the PDF rasteriser extra is not installed here")
 
     monkeypatch.setattr(
-        files_service,
+        routes_files,
         "_vision_read_page",
         lambda path, index, reader="vision": routes_files.OcrPageReadOut(
             page=index, text="The words on the page.", model="stub-vision"
@@ -91,7 +90,7 @@ def test_re_reading_a_page_replaces_it_rather_than_stacking(client, monkeypatch)
 
     texts = iter(["first attempt", "second, better attempt"])
     monkeypatch.setattr(
-        files_service,
+        routes_files,
         "_vision_read_page",
         lambda path, index, reader="vision": routes_files.OcrPageReadOut(
             page=index, text=next(texts), model="stub-vision"
@@ -115,7 +114,7 @@ def test_an_empty_reading_is_not_stored(client, monkeypatch):
         pytest.skip("the PDF rasteriser extra is not installed here")
 
     monkeypatch.setattr(
-        files_service,
+        routes_files,
         "_vision_read_page",
         lambda path, index, reader="vision": routes_files.OcrPageReadOut(
             page=index, text="", message="nothing found"
@@ -131,7 +130,7 @@ def test_a_range_read_stores_every_page_it_managed(client, monkeypatch):
         pytest.skip("the PDF rasteriser extra is not installed here")
 
     monkeypatch.setattr(
-        files_service,
+        routes_files,
         "_vision_read_page",
         lambda path, index, reader="vision": routes_files.OcrPageReadOut(
             page=index, text=f"page {index + 1}", model="stub-vision"
@@ -157,7 +156,7 @@ def test_deleting_a_page_read_removes_it(client, monkeypatch):
         pytest.skip("the PDF rasteriser extra is not installed here")
 
     monkeypatch.setattr(
-        files_service,
+        routes_files,
         "_vision_read_page",
         lambda path, index, reader="vision": routes_files.OcrPageReadOut(
             page=index, text="a reading worth deleting", model="stub-vision"
@@ -197,7 +196,7 @@ def test_deleting_one_page_leaves_the_others(client, monkeypatch):
         pytest.skip("the PDF rasteriser extra is not installed here")
 
     monkeypatch.setattr(
-        files_service,
+        routes_files,
         "_vision_read_page",
         lambda path, index, reader="vision": routes_files.OcrPageReadOut(
             page=index, text=f"page {index + 1}", model="stub-vision"
@@ -232,7 +231,7 @@ def test_media_page_reads_can_be_deleted_too(client, monkeypatch):
         pytest.skip("the PDF rasteriser extra is not installed here")
 
     monkeypatch.setattr(
-        files_service,
+        routes_files,
         "_vision_read_page",
         lambda path, index, reader="vision": routes_files.OcrPageReadOut(
             page=index, text="read from an upload", model="stub-vision"

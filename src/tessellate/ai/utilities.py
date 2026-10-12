@@ -520,12 +520,16 @@ def zone_for(place: str) -> str | None:
 
 #: "what time is it in am/pm", "the time in 12 hour": the clock in the
 #: 12-hour form (the owner, 2026-10-12: it could only say 18:53).
-_TWELVE = re.compile(r"\s+(?:(?:in|as|with|using)\s+)?(?:am\s*/?\s*pm|a\.m\.?/p\.m\.?|12[- ]?h(?:ou)?r?(?:\s+(?:time|clock|format))?)\s*$", re.I)
+_TWELVE = re.compile(r"(?: (?:in|as|with|using))? (?:am ?/ ?pm|am ?pm|a\.m\.?/p\.m\.?|12-?h(?:ou)?r?(?: (?:time|clock|format))?)$", re.I)
 
 
 def _twelve(text: str) -> tuple[str, bool]:
-    stripped = _TWELVE.sub("", text.strip())
-    return stripped, stripped != text.strip()
+    #: Whitespace is collapsed first (linear) and the pattern uses single
+    #: spaces, so there is no run of `\s` for it to backtrack over (CodeQL
+    #: flagged the first form as a polynomial regular expression).
+    squeezed = " ".join(text[:300].split())
+    stripped = _TWELVE.sub("", squeezed)
+    return stripped, stripped != squeezed
 
 
 def _hm(moment: datetime, twelve: bool) -> str:

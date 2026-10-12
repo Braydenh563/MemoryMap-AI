@@ -63,7 +63,8 @@ USE_WRITE_SECONDS = 3600.0
 _lock = threading.RLock()
 _changed = threading.Condition(_lock)
 _gate: dict = {"open": False, "reason": "off", "network": None, "checked": 0.0}
-_run_allowance: dict | None = None
+#: A holder rather than a bare module global: CodeQL read the global as unused.
+_run: dict[str, dict | None] = {"allowance": None}
 _pending: dict[str, dict] = {}
 _version = 0
 
@@ -237,21 +238,20 @@ _UNREAD = object()
 
 def refresh(data_dir: Path, network=_UNREAD, *, online: bool | None = None) -> dict:  # noqa: ANN001  # a netid.Network, None, or unread
     """Read the network again and decide whether the LAN port may be open."""
-    global _run_allowance
     if network is _UNREAD:
         network = netid.read()
     if online is None:
         online = network is not None or _online()
     with _lock:
         state = load(data_dir)
-        allowance = _run_allowance
+        allowance = _run["allowance"]
         # "Allow on this network" on a network that could not be read lasts
         # this run; once the same router answers with its hardware address,
         # it is remembered as the network the person allowed.
         if allowance is not None and network is not None and allowance.get("gateway") in ("", network.gateway):
             _remember(state, network)
             save(data_dir, state)
-            _run_allowance = None
+            _run["allowance"] = None
             allowance = None
         opened, reason = evaluate(state, network, allowance, online=online)
         if reason in ("new_network", "public_network") and network is not None and _note_untrusted(state, network):
@@ -309,11 +309,10 @@ def remember_current(data_dir: Path) -> dict:
 def allow_current(data_dir: Path) -> dict:
     """"Allow on this network": remembered when it can be told apart, else
     allowed until the app restarts."""
-    global _run_allowance
     network = netid.read()
     with _lock:
         if network is None:
-            _run_allowance = {"gateway": ""}
+            _run["allowance"] = {"gateway": ""}
         else:
             state = load(data_dir)
             _remember(state, network)
@@ -689,10 +688,9 @@ def forget_device(data_dir: Path, device_id: str) -> bool:
 
 
 def reset_for_tests() -> None:
-    global _run_allowance
     with _lock:
         _gate.update(open=False, reason="off", network=None, checked=0.0)
-        _run_allowance = None
+        _run["allowance"] = None
         _pending.clear()
         _used.update(at=0.0, written=0.0)
         _bump()

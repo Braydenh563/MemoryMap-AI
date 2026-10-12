@@ -44,7 +44,8 @@ KEY_FILE = "reminder_token.key"
 _key: bytes = secrets.token_bytes(32)
 #: The data folder `_key` was read from or written to; a different folder (a
 #: second notebook opened, a test's fresh one) loads its own key.
-_loaded_from: Path | None = None
+#: A holder rather than a bare module global: CodeQL read the global as unused.
+_loaded: dict[str, Path | None] = {"from": None}
 
 
 def _write(path: Path, key: bytes) -> None:
@@ -61,11 +62,11 @@ def _use(data_dir: str | os.PathLike[str] | None) -> None:
     A file that is missing, short or unreadable is replaced: the worst case
     is the old behaviour, buttons that end, never a token that cannot be
     checked."""
-    global _key, _loaded_from
+    global _key
     if data_dir is None:
         return
     folder = Path(data_dir)
-    if _loaded_from == folder:
+    if _loaded["from"] == folder:
         return
     path = folder / KEY_FILE
     try:
@@ -79,27 +80,27 @@ def _use(data_dir: str | os.PathLike[str] | None) -> None:
         except OSError:
             pass  # a key that cannot be saved still works for this run
     _key = key
-    _loaded_from = folder
+    _loaded["from"] = folder
 
 
 def rotate(data_dir: str | os.PathLike[str] | None = None) -> None:
     """Forget every token handed out so far (the notebook was locked)."""
-    global _key, _loaded_from
+    global _key
     _key = secrets.token_bytes(32)
-    _loaded_from = None
+    _loaded["from"] = None
     if data_dir is not None:
         try:
             _write(Path(data_dir) / KEY_FILE, _key)
-            _loaded_from = Path(data_dir)
+            _loaded["from"] = Path(data_dir)
         except OSError:
             pass  # rotated in memory; the old file is unusable without the old key
 
 
 def forget_process() -> None:
     """Drop what this process holds, as a restart does (tests, app reset)."""
-    global _key, _loaded_from
+    global _key
     _key = secrets.token_bytes(32)
-    _loaded_from = None
+    _loaded["from"] = None
 
 
 def _sign(reminder_id: int, expires: int) -> str:

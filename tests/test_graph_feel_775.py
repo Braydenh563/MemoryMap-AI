@@ -136,9 +136,10 @@ def test_an_open_panel_is_kept_clear_and_a_fitted_map_refits_round_it():
     assert 'for (const el of document.querySelectorAll(GC_FIT_OVERLAYS.join(","))) s.observer.observe(el);' in CANVAS
     # The owner, 2026-10-11: opening or closing the gear panel or the dock's
     # menu must not move a node or the camera, so those two never refit
-    # (graphmenustill.js measures it); the other panels still do.
+    # (graphmenustill.js measures it), and so must the help panel (2026-10-12:
+        # it moved the camera 215px); the other panels still do.
     assert "if (entries.some((entry) => entry.target.id !== s.boxId && !entry.target.matches(GC_FIT_MENUS))) gcRefitForPanels(s);" in CANVAS
-    assert 'const GC_FIT_MENUS = "#graph-options, #graph-card > .graph-overlay > .dock";' in CANVAS
+    assert 'const GC_FIT_MENUS = "#graph-options, #graph-help-panel, #graph-card > .graph-overlay > .dock";' in CANVAS
     refit = CANVAS[CANVAS.index("\nfunction gcRefitForPanels(") : CANVAS.index("\n}\n", CANVAS.index("\nfunction gcRefitForPanels("))]
     assert "s.userZoomed || s.intro || !s.zoom" in refit and "else if (s.fittedOnce) fitGraphToView(" in refit
 

@@ -374,7 +374,22 @@ def _listing(text: str, head: str, rest: str) -> dict | None:
     return None
 
 
+_NOTES_SCOPE = re.compile(r"\s+(?:in|from|within|across|inside) (?:all )?(?:of )?(?:my|the|your) (?:notes|notebook|entries)$", re.I)
+_MENTIONING = re.compile(r"(?:what|which) notes (?:mention|contain|include) (?P<topic>.+?)[?.!\s]*", re.I)
+_ASKED_FIND = re.compile(
+    r"(?:do i have (?:any ?thing|any notes?|notes?)|(?:are there|is there|have i got)(?: any)?(?: notes?)?(?: anything)?|any notes?|"
+    r"what notes (?:are about|do i have)|(?:show|give|get) me (?:everything|anything|all(?: of)? (?:my )?notes?))"
+    r"(?: (?:i )?(?:wrote|have|saved|made|took))? (?:on|about|for|regarding|mentioning|mention|with|containing) (?P<topic>.+?)[?.!\s]*",
+    re.I,
+)
+
+
 def _find(text: str) -> dict | None:
+    asked = _ASKED_FIND.fullmatch(text.strip()) or _MENTIONING.fullmatch(text.strip())
+    if asked and _note_topic(asked["topic"]):
+        about = _drop_article(_NOTES_SCOPE.sub("", asked["topic"].strip()))
+        if about:
+            return {"intent": "find", "about": about}
     low = text.lower()
     for heads, intent in ((_OPEN_HEADS, "open"), (_FIND_HEADS, "find")):
         head = next((h for h in heads if low.startswith(h)), None)
@@ -392,6 +407,7 @@ def _find(text: str) -> dict | None:
 def _found_object(intent: str, head: str, rest: str) -> dict | None:
     """What an open or a find names: "#12", "note 12", a target, or for a
     free find ("find dentist") its topic."""
+    rest = _NOTES_SCOPE.sub("", rest)
     number = re.fullmatch(r"(?:(?:note|entry) )?#?(\d{1,9})", rest, re.IGNORECASE)
     if number and (rest.startswith("#") or not rest.isdigit()):
         return {"intent": intent, "note_id": int(number.group(1))}
@@ -399,7 +415,7 @@ def _found_object(intent: str, head: str, rest: str) -> dict | None:
     if found and found.get("about"):
         return {"intent": intent, "about": found["about"]}
     if intent == "find" and head in _FREE_FIND and rest and _note_topic(rest):
-        about = _drop_article(rest)
+        about = _drop_article(_NOTES_SCOPE.sub("", rest))
         return {"intent": "find", "about": about} if about else None
     return None
 

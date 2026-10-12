@@ -2,7 +2,7 @@
 
 Generated 2026-10-12 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5879, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5475, test files 1215, tests 10842, plan headings 954.
+Counts: frontend functions 5879, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5475, test files 1216, tests 10843, plan headings 954.
 
 ## Frontend functions (5879)
 
@@ -10667,67 +10667,67 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 
 | Name | File:line |
 |---|---|
-| `Command` | src/tessellate/ai/commands.py:590 |
+| `Command` | src/tessellate/ai/commands.py:606 |
 | `__getattr__` | src/tessellate/ai/commands.py:61 |
-| `_ahead` | src/tessellate/ai/commands.py:908 |
-| `_append` | src/tessellate/ai/commands.py:529 |
-| `_attached` | src/tessellate/ai/commands.py:667 |
-| `_bin_reminder` | src/tessellate/ai/commands.py:1075 |
+| `_ahead` | src/tessellate/ai/commands.py:924 |
+| `_append` | src/tessellate/ai/commands.py:545 |
+| `_attached` | src/tessellate/ai/commands.py:683 |
+| `_bin_reminder` | src/tessellate/ai/commands.py:1091 |
 | `_cap` | src/tessellate/ai/commands.py:113 |
-| `_card` | src/tessellate/ai/commands.py:723 |
-| `_clip` | src/tessellate/ai/commands.py:1001 |
-| `_clock` | src/tessellate/ai/commands.py:758 |
-| `_confirm` | src/tessellate/ai/commands.py:901 |
-| `_content_words` | src/tessellate/ai/commands.py:634 |
-| `_delete` | src/tessellate/ai/commands.py:464 |
+| `_card` | src/tessellate/ai/commands.py:739 |
+| `_clip` | src/tessellate/ai/commands.py:1017 |
+| `_clock` | src/tessellate/ai/commands.py:774 |
+| `_confirm` | src/tessellate/ai/commands.py:917 |
+| `_content_words` | src/tessellate/ai/commands.py:650 |
+| `_delete` | src/tessellate/ai/commands.py:480 |
 | `_drop_article` | src/tessellate/ai/commands.py:118 |
-| `_existing_category` | src/tessellate/ai/commands.py:687 |
-| `_filed_notes` | src/tessellate/ai/commands.py:1005 |
-| `_find` | src/tessellate/ai/commands.py:377 |
+| `_existing_category` | src/tessellate/ai/commands.py:703 |
+| `_filed_notes` | src/tessellate/ai/commands.py:1021 |
+| `_find` | src/tessellate/ai/commands.py:387 |
 | `_fold` | src/tessellate/ai/commands.py:91 |
-| `_found_object` | src/tessellate/ai/commands.py:392 |
-| `_link` | src/tessellate/ai/commands.py:500 |
+| `_found_object` | src/tessellate/ai/commands.py:407 |
+| `_link` | src/tessellate/ai/commands.py:516 |
 | `_listing` | src/tessellate/ai/commands.py:363 |
-| `_meeting` | src/tessellate/ai/commands.py:415 |
+| `_meeting` | src/tessellate/ai/commands.py:431 |
 | `_move` | src/tessellate/ai/commands.py:294 |
-| `_navigate` | src/tessellate/ai/commands.py:438 |
+| `_navigate` | src/tessellate/ai/commands.py:454 |
 | `_new_note` | src/tessellate/ai/commands.py:327 |
 | `_note_then_tags` | src/tessellate/ai/commands.py:281 |
 | `_note_topic` | src/tessellate/ai/commands.py:356 |
-| `_notes_about` | src/tessellate/ai/commands.py:641 |
-| `_one_target` | src/tessellate/ai/commands.py:450 |
-| `_pin` | src/tessellate/ai/commands.py:476 |
-| `_plan_one` | src/tessellate/ai/commands.py:960 |
-| `_plan_read` | src/tessellate/ai/commands.py:1019 |
+| `_notes_about` | src/tessellate/ai/commands.py:657 |
+| `_one_target` | src/tessellate/ai/commands.py:466 |
+| `_pin` | src/tessellate/ai/commands.py:492 |
+| `_plan_one` | src/tessellate/ai/commands.py:976 |
+| `_plan_read` | src/tessellate/ai/commands.py:1035 |
 | `_reminder` | src/tessellate/ai/commands.py:193 |
-| `_reminder_note` | src/tessellate/ai/commands.py:788 |
-| `_rename` | src/tessellate/ai/commands.py:514 |
-| `_resolve_one` | src/tessellate/ai/commands.py:940 |
-| `_said` | src/tessellate/ai/commands.py:935 |
-| `_split_allowed` | src/tessellate/ai/commands.py:697 |
+| `_reminder_note` | src/tessellate/ai/commands.py:804 |
+| `_rename` | src/tessellate/ai/commands.py:530 |
+| `_resolve_one` | src/tessellate/ai/commands.py:956 |
+| `_said` | src/tessellate/ai/commands.py:951 |
+| `_split_allowed` | src/tessellate/ai/commands.py:713 |
 | `_split_last` | src/tessellate/ai/commands.py:126 |
-| `_start_meeting` | src/tessellate/ai/commands.py:1060 |
-| `_summarise` | src/tessellate/ai/commands.py:544 |
+| `_start_meeting` | src/tessellate/ai/commands.py:1076 |
+| `_summarise` | src/tessellate/ai/commands.py:560 |
 | `_tag` | src/tessellate/ai/commands.py:242 |
 | `_tag_these` | src/tessellate/ai/commands.py:271 |
 | `_tag_with` | src/tessellate/ai/commands.py:258 |
 | `_tags` | src/tessellate/ai/commands.py:174 |
 | `_target` | src/tessellate/ai/commands.py:148 |
-| `_title` | src/tessellate/ai/commands.py:678 |
-| `_untag` | src/tessellate/ai/commands.py:485 |
-| `_voice` | src/tessellate/ai/commands.py:890 |
-| `_when_words` | src/tessellate/ai/commands.py:754 |
-| `_which` | src/tessellate/ai/commands.py:710 |
-| `_which_note` | src/tessellate/ai/commands.py:924 |
-| `ask_when` | src/tessellate/ai/commands.py:917 |
-| `not_done` | src/tessellate/ai/commands.py:737 |
-| `parse` | src/tessellate/ai/commands.py:602 |
-| `plan` | src/tessellate/ai/commands.py:801 |
-| `read` | src/tessellate/ai/commands.py:569 |
-| `read_typed` | src/tessellate/ai/commands.py:559 |
-| `reminder_when` | src/tessellate/ai/commands.py:769 |
-| `run` | src/tessellate/ai/commands.py:1082 |
-| `summarise_done` | src/tessellate/ai/commands.py:745 |
+| `_title` | src/tessellate/ai/commands.py:694 |
+| `_untag` | src/tessellate/ai/commands.py:501 |
+| `_voice` | src/tessellate/ai/commands.py:906 |
+| `_when_words` | src/tessellate/ai/commands.py:770 |
+| `_which` | src/tessellate/ai/commands.py:726 |
+| `_which_note` | src/tessellate/ai/commands.py:940 |
+| `ask_when` | src/tessellate/ai/commands.py:933 |
+| `not_done` | src/tessellate/ai/commands.py:753 |
+| `parse` | src/tessellate/ai/commands.py:618 |
+| `plan` | src/tessellate/ai/commands.py:817 |
+| `read` | src/tessellate/ai/commands.py:585 |
+| `read_typed` | src/tessellate/ai/commands.py:575 |
+| `reminder_when` | src/tessellate/ai/commands.py:785 |
+| `run` | src/tessellate/ai/commands.py:1098 |
+| `summarise_done` | src/tessellate/ai/commands.py:761 |
 
 ### src/tessellate/ai/composer.py (145)
 
@@ -17280,7 +17280,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10842)
+## Tests (10843)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -17467,6 +17467,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_composer_688.py | 40 |
 | tests/test_composer_725.py | 23 |
 | tests/test_composer_741.py | 5 |
+| tests/test_composer_asked_finds.py | 1 |
 | tests/test_composer_bare_title.py | 2 |
 | tests/test_composer_brief.py | 13 |
 | tests/test_composer_commands.py | 3 |

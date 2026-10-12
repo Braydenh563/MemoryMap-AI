@@ -3446,6 +3446,14 @@ function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height, instant
     box.minY = Math.min(box.minY, n.y - r);
     box.maxY = Math.max(box.maxY, n.y + r);
   }
+  //: The Arc layout is one line of dots with its arcs rising above it, and the
+  //: arcs are not nodes, so the box was a strip and the line sat mid-screen
+  //: with the arcs cut off the top (owner, 2026-10-12: "it needs to fit a lot
+  //: lower on the screen"). The widest arc stands about a third of the line's
+  //: length over it; frame that too, so the line settles low and the arcs fit.
+  if (graphLayout() === "arc" && nodes.length === (typeof gcTab !== "undefined" && gcTab.nodes ? gcTab.nodes.length : nodes.length)) {
+    box.minY -= (box.maxX - box.minX) * 0.32;
+  }
   const tab = typeof gcTab !== "undefined" && gcTab.svg === svg;
   //: Fitted to the whole map is a view a panel may refit (`gcRefitForPanels`);
   //: framed on some of it (a topic) is a place the person was taken to.

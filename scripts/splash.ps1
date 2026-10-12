@@ -394,7 +394,16 @@ try {
       $n = [Math]::Max(1, @($st.rows).Count)
       $h = $ROW_TOP + $n * $ROW_STEP + 14
     }
-    if ($details.Visible) { $h = $EXPANDED_HEIGHT }
+    if ($details.Visible) {
+      # The log sits under the step list, wherever that ends, and the window
+      # grows to hold it: a fixed 560 left a gap, then put the log against the
+      # bottom edge of the screen (owner, 2026-10-12: "a little awkward").
+      $n = [Math]::Min($MAX_ROWS, [Math]::Max(1, @($st.rows).Count))
+      $logTop = $ROW_TOP + $n * $ROW_STEP + 16
+      $details.Location = New-Object System.Drawing.Point(30, $logTop)
+      $details.Size = New-Object System.Drawing.Size(460, 104)
+      $h = $logTop + 104 + 28
+    }
     $visibleLinks = ($st.showLinks -or $st.failed)
     $btnDetails.Visible = $visibleLinks
     $btnCopy.Visible    = $visibleLinks

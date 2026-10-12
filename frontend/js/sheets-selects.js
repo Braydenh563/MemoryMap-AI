@@ -1580,6 +1580,9 @@ document.addEventListener(
       details.querySelector(".doc-dock-menu-list")?.classList.remove("is-placed");
       return;
     }
+    //: One toolbar menu open at a time: a `<details>` never closes its
+    //: neighbours, so two lists stood over each other (owner, 2026-10-12).
+    for (const other of TOOLBAR_MENUS) if (other !== details && other.open) other.open = false;
     clampToolbarMenu(details);
   },
   true

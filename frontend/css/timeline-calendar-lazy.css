@@ -258,8 +258,16 @@
   }
 }
 
-/* The calendar's loading state: one placeholder the size of a month grid. */
+/* The calendar's loading state is the Timeline list's: five rows of the same
+   placeholder (07-whiteboard-misc.css `.timeline-feed > .skeleton`). */
 .timeline-cal-loading > .skeleton {
-  height: clamp(14rem, 50vh, 28rem);
-  margin-bottom: 0;
+  height: var(--control-h-body);
+  margin-bottom: var(--row-gap);
+}
+.timeline-cal-loading > .skeleton::before {
+  top: 50%;
+  translate: 0 -50%;
+}
+.timeline-cal-loading > .skeleton::after {
+  display: none;
 }

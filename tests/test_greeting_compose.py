@@ -42,7 +42,7 @@ def test_lines_are_name_ready_and_plain():
 def test_the_notebook_speaks_when_it_has_something_to_say():
     facts = NotebookFacts(total=40, today=0, days_since_last=6, recent_category="University")
     said = {gc.compose(_at(d, h), facts)[0] for d in range(1, 29) for h in (9, 15)}
-    assert "Welcome back after 6 days" in said
+    assert "It has been 6 days since your last note" in said
     assert "University on your mind lately" in said
     assert "A blank page awaits" in {gc.compose(_at(d, 9), NotebookFacts())[0] for d in range(1, 29)}
 

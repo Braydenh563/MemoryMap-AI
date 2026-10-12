@@ -9723,7 +9723,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/search-lazy.css | 153 |
 | frontend/css/settings-data-lazy.css | 60 |
 | frontend/css/tidy-lazy.css | 333 |
-| frontend/css/timeline-calendar-lazy.css | 265 |
+| frontend/css/timeline-calendar-lazy.css | 273 |
 | frontend/css/usage-lazy.css | 34 |
 | frontend/css/utilities-lazy.css | 116 |
 

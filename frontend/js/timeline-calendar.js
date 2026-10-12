@@ -150,11 +150,11 @@ async function paintTimelineCalendar() {
     timelineCalMount(box, timelineCalHead(span, first));
     //: The head is already mounted, so `showSkeletons(box)` saw a non-empty
     //: box and drew nothing (owner, 2026-10-12: no loading state). The
-    //: placeholder is the grid's own size, in a holder of its own.
+    //: placeholder is the Timeline list's own five rows, in a holder of its own.
     const loading = document.createElement("div");
     loading.className = "timeline-cal-loading";
     box.appendChild(loading);
-    showSkeletons(loading, 1);
+    showSkeletons(loading, 5);
     let read = null;
     try {
       read = await timelineCalFetch(url);

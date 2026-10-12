@@ -86,7 +86,7 @@ def _context_phrases(facts: NotebookFacts, slot: str) -> list[tuple[str, str]]:
     if facts.total == 0:
         return [("A blank page awaits", "."), ("Your first note is waiting", ".")]
     if facts.days_since_last is not None and facts.days_since_last >= 3:
-        out.append((f"Welcome back after {facts.days_since_last} days", "."))
+        out.append((f"It has been {facts.days_since_last} days since your last note", "."))
         out.append(("Good to have you back", "."))
     if facts.streak >= 3:
         out.append((f"Day {facts.streak} of your writing streak", "."))

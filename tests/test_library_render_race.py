@@ -58,7 +58,7 @@ const document = { activeElement: null, documentElement: { dataset: {} },
   createElement: () => el(), createDocumentFragment: () => el(),
   startViewTransition(cb) { pending.push(cb); } };
 const window = { matchMedia: () => ({ matches: false }) };
-let libraryItems = [], libraryBaseItems = [], libraryKind = "all", libraryTruncated = {};
+let libraryItems = [], libraryKind = "all", libraryTruncated = {};
 let librarySemanticIds = null, libraryPageSize = "all", libraryCurrentPage = 1;
 let libraryColumnsShown = 1, librarySelection = new Set();
 const LIBRARY_KINDS = [], LIBRARY_EMPTY_SAYS = {};

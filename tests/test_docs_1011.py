@@ -146,7 +146,9 @@ def test_the_panel_draws_a_row_with_children_as_a_disclosure():
 def test_breakpoints_are_kept_per_document_across_a_reload():
     code = (JS / "documents-code.js").read_text(encoding="utf-8")
     prelude = (
-        "const store = {}; globalThis.localStorage = { getItem: (k) => store[k] ?? null, setItem: (k, v) => { store[k] = String(v); } };\n"
+        "const store = {};\n"
+        #: Storage goes through prefs (720f66148): its `json` and `set` over the same store.
+        "const prefs = { json: (k, d) => { try { return store[k] ? JSON.parse(store[k]) : d; } catch { return d; } }, set: (k, v) => { store[k] = String(v); return true; } };\n"
         "const DOC_DEBUG = { breaks: new Map() };\n"
         + re.search(r"^const DOC_DEBUG_BREAKS_KEY = .*$", code, re.M).group(0) + "\n"
         + re.search(r"^const DOC_DEBUG_BREAKS_DOCS = .*$", code, re.M).group(0) + "\n"

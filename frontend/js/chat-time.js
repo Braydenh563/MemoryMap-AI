@@ -87,11 +87,17 @@ function stampChatTimes(messages) {
 
 //: The live side: a bubble that appears gets the time it appeared. A question
 //: is stamped at once; an answer's time is held until its meta row (cost line)
-//: lands, which `watch` waits for, so a stamp never sits under a half-streamed
-//: answer. Its own MutationObserver on the bubble's direct children only: the
-//: streaming text changes deeper down and never wakes it.
+//: lands, which the same observer waits for, so a stamp never sits under a
+//: half-streamed answer. One MutationObserver, on direct children only (the
+//: pane's bubbles, an answer's rows): the streaming text changes deeper down
+//: and never wakes it.
+const chatTimePane = document.getElementById("chat-messages");
 const chatTimeWatch = new MutationObserver((records) => {
   for (const record of records) {
+    if (record.target === chatTimePane) {
+      record.addedNodes.forEach(adoptChatBubble);
+      continue;
+    }
     const bubble = record.target;
     if (bubble.dataset.at && bubble.querySelector(":scope > .msg-meta:not(.msg-meta-solo)")) {
       paintChatTime(bubble, bubble.dataset.at);
@@ -106,10 +112,7 @@ function adoptChatBubble(bubble) {
   else chatTimeWatch.observe(bubble, { childList: true });
 }
 
-const chatTimePane = document.getElementById("chat-messages");
 if (chatTimePane) {
-  new MutationObserver((records) => {
-    for (const record of records) record.addedNodes.forEach(adoptChatBubble);
-  }).observe(chatTimePane, { childList: true });
+  chatTimeWatch.observe(chatTimePane, { childList: true });
   chatTimePane.querySelectorAll(":scope > .msg").forEach(adoptChatBubble);
 }

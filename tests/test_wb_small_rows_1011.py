@@ -82,7 +82,9 @@ def test_reset_style_takes_the_look_off_and_keeps_what_it_says():
     index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert 'data-wb-cmd="reset-style"' in index and 'id="wb-reset-style"' in index
     commands = (ROOT / "frontend" / "js" / "whiteboard-commands.js").read_text(encoding="utf-8")
-    assert 'id: "reset-style"' in commands and '{ cmd: "reset-style" }' in commands
+    #: In the command table (palette and menu); not on the keys sheet, which
+    #: lists what has a key, and Reset style has none (cfc684238).
+    assert 'id: "reset-style"' in commands and 'keys: "", surface: "both", needs: "selection", run: () => wbResetSelectedStyle()' in commands
     from memorymap.ai import help_chat
 
     assert any("Reset style" in t["body"] for t in help_chat.HELP_TOPICS)

@@ -508,15 +508,14 @@ const TIMELINE_PAGE = 300;
 //: rows a moment later as they did before.
 const TIMELINE_FIRST = 100;
 //: Which render a page belongs to: a page asked for before the range
-//: changed is dropped, not appended to the new range's rows.
-const timelineRenders = { n: 0 };
+//: changed is dropped, not appended to the new range's rows. `pagingFor`:
+//: the render a page is being fetched for (0: none); a page in flight for a
+//: superseded range must not stop the new range asking for its own.
+const timelineRenders = { n: 0, pagingFor: 0 };
 // Counts per day for the whole range (not just the loaded pages), which is
 // what the scrubber draws.
 let timelineDensity = {};
 let timelineNextCursor = null;
-//: The render a page is being fetched for (0: none). A page in flight for a
-//: superseded range must not stop the new range asking for its own.
-let timelinePagingFor = 0;
 let timelineRows = [];
 // By id, so a row that continues another can name it without a scan per row:
 // `find` per row is the shape that turns 1,500 rows into a million comparisons
@@ -691,9 +690,9 @@ function syncTimelineYears(range) {
 //: fetch that left it set would stop the feed paging for the rest of the
 //: session, and the only symptom would be a timeline that ends early.
 async function timelineLoadMore(limit = TIMELINE_PAGE) {
-  if (!timelineNextCursor || timelinePagingFor === timelineRenders.n) return;
+  if (!timelineNextCursor || timelineRenders.pagingFor === timelineRenders.n) return;
   const render = timelineRenders.n;
-  timelinePagingFor = render;
+  timelineRenders.pagingFor = render;
   try {
     const url = `${timelineQuery()}&limit=${limit}&cursor=${encodeURIComponent(timelineNextCursor)}`;
     const body = await apiJson(url).catch(() => null);
@@ -714,7 +713,7 @@ async function timelineLoadMore(limit = TIMELINE_PAGE) {
     else appendTimelineRows(fresh);
     drawTimelineScrubber();
   } finally {
-    if (timelinePagingFor === render) timelinePagingFor = 0;
+    if (timelineRenders.pagingFor === render) timelineRenders.pagingFor = 0;
   }
 }
 
@@ -1203,7 +1202,7 @@ async function renderTimelineDayStrip() {
   //: today, else the last; the arrow keys walk them (`timelineDayKeys`).
   const inView = (key) => key && key >= first && key <= end;
   const held = host.contains(document.activeElement) ? document.activeElement.dataset.key : null;
-  const stop = [timelineStripFocus, held, today].find(inView) || end;
+  const stop = [timelineMonth.focus, held, today].find(inView) || end;
   host.replaceChildren();
   for (let offset = 1 - TIMELINE_STRIP_DAYS; offset <= 0; offset += 1) {
     const key = timelineDayShift(end, offset);
@@ -1235,9 +1234,9 @@ async function renderTimelineDayStrip() {
   }
   //: A day picked in the month popover lands here with the focus on it, so a
   //: keyboard user who chose a day is on that day and Enter opens its page.
-  if (timelineStripFocus || held) {
+  if (timelineMonth.focus || held) {
     host.querySelector(`[data-key="${stop}"]`)?.focus({ preventScroll: true });
-    timelineStripFocus = null;
+    timelineMonth.focus = null;
   }
 }
 
@@ -1259,7 +1258,7 @@ function timelineDayKeys(event) {
   const key = timelineDayShift(current.dataset.key, moves[event.key]);
   if (key > timelineBucketKey(new Date(), "day")) return;
   timelineStripEnd = timelineDayShift(timelineStripEnd, moves[event.key]);
-  timelineStripFocus = key;
+  timelineMonth.focus = key;
   renderTimelineDayStrip();
 }
 
@@ -1274,8 +1273,7 @@ function timelineDayKeys(event) {
 //: today). The grid is a group of buttons with one Tab stop (roving), and the
 //: arrow keys walk it: left and right a day, up and down a week, Home and End
 //: the week's ends, Page Up and Page Down a month.
-let timelineMonthShown = null;
-let timelineStripFocus = null;
+const timelineMonth = { shown: null, focus: null };
 
 function timelineMonthStart(key) {
   return `${key.slice(0, 7)}-01`;
@@ -1293,7 +1291,7 @@ function timelineJumpToDay(key) {
   //: days around it show, unless that would pass today.
   const ahead = timelineDayShift(key, 3);
   timelineStripEnd = ahead > today ? today : ahead;
-  timelineStripFocus = key;
+  timelineMonth.focus = key;
   closeHelpPopovers();
   renderTimelineDayStrip();
 }
@@ -1302,7 +1300,7 @@ function timelineJumpToDay(key) {
 //: size); the dots arrive after, from the same endpoints the strip reads.
 function renderTimelineMonthPop(month, focusKey) {
   const today = timelineBucketKey(new Date(), "day");
-  timelineMonthShown = month;
+  timelineMonth.shown = month;
   const first = new Date(`${month}T00:00:00`);
   const dayCount = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
   const title = first.toLocaleDateString(undefined, { month: "long", year: "numeric" });
@@ -1342,7 +1340,7 @@ function renderTimelineMonthPop(month, focusKey) {
   }
   const lastKey = timelineDayShift(month, dayCount - 1);
   timelineDayPages(month, lastKey > today ? today : lastKey).then((hasPage) => {
-    if (!hasPage || timelineMonthShown !== month) return;
+    if (!hasPage || timelineMonth.shown !== month) return;
     for (const button of grid.querySelectorAll(".timeline-monthday")) {
       const has = hasPage(button.dataset.key);
       button.classList.toggle("is-written", has);
@@ -1404,8 +1402,8 @@ function timelineMonthKeys(event) {
     true
   );
   pop.addEventListener("keydown", timelineMonthKeys);
-  $("timeline-month-prev").addEventListener("click", () => renderTimelineMonthPop(timelineMonthShift(timelineMonthShown, -1), null));
-  $("timeline-month-next").addEventListener("click", () => renderTimelineMonthPop(timelineMonthShift(timelineMonthShown, 1), null));
+  $("timeline-month-prev").addEventListener("click", () => renderTimelineMonthPop(timelineMonthShift(timelineMonth.shown, -1), null));
+  $("timeline-month-next").addEventListener("click", () => renderTimelineMonthPop(timelineMonthShift(timelineMonth.shown, 1), null));
   const walk = (delta) => {
     timelineStripEnd = timelineDayShift(timelineStripEnd, delta * TIMELINE_STRIP_DAYS);
     renderTimelineDayStrip();

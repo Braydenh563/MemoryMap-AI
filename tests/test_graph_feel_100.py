@@ -347,7 +347,9 @@ def test_the_constellation_keeps_its_room_and_fades_in_once():
     assert ".art-holder {\n  min-block-size: 220px;\n}" in CSS_GRAPH
     assert "const height = 220;" in (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
     assert ".art-holder:empty {" in CSS_GRAPH
-    start = CSS_GRAPH.index("@starting-style {\n  .art-holder:not(:has(> .art-veil)) > canvas:not(.art-veil) {\n    opacity: 0;")
+    start = CSS_GRAPH.index("@starting-style {\n  .art-holder > canvas:not(.art-veil) {\n    opacity: 0;")
+    #: A theme change's sky, mounted after the veil that fades over it, starts opaque.
+    assert ".art-holder > .art-veil ~ canvas {\n    opacity: 1;" in CSS_GRAPH[start : start + 200]
     tail = CSS_GRAPH[start : start + 900]
     assert "@media (prefers-reduced-motion: reduce)" in tail
     assert ':root[data-motion="reduced"] .art-holder > canvas:not(.art-veil) {\n  transition: none;' in tail

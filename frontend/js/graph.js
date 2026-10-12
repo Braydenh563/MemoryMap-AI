@@ -4142,12 +4142,15 @@ function graphPanelRoom() {
 //: editor mounting, a picture arriving, the action row folding): placing
 //: only at known moments is what let a panel that grew afterwards hang
 //: past the map's bottom edge.
-let graphPopupResize = null;
+const graphLate = {
+  newAt: null,
+  popupResize: null,
+};
 function watchGraphPopupSize(popup, place) {
   if (typeof ResizeObserver !== "function" || popup.dataset.placeWatch) return;
   popup.dataset.placeWatch = "1";
   let frame = 0;
-  graphPopupResize = graphPopupResize || new ResizeObserver((entries) => {
+  graphLate.popupResize = graphLate.popupResize || new ResizeObserver((entries) => {
     if (frame) return;
     frame = requestAnimationFrame(() => {
       frame = 0;
@@ -4155,7 +4158,7 @@ function watchGraphPopupSize(popup, place) {
     });
   });
   popup.graphPlace = place;
-  graphPopupResize.observe(popup);
+  graphLate.popupResize.observe(popup);
 }
 
 // Clamp the popup inside the graph box. Called on open and again once the
@@ -4709,7 +4712,7 @@ function openGraphNewNote(event, linkFrom = null) {
     ? "This note will be linked to the one you grew it from."
     : "It joins the map as soon as you add it.";
   popup.classList.remove("hidden");
-  graphNewAt = event ? { x: event.clientX, y: event.clientY } : null;
+  graphLate.newAt = event ? { x: event.clientX, y: event.clientY } : null;
   placeGraphNewNote();
   watchGraphPopupSize(popup, placeGraphNewNote);
   $("graph-new-content").focus();
@@ -4718,7 +4721,6 @@ function openGraphNewNote(event, linkFrom = null) {
 //: Where New note was asked for, kept so a later size change (its fields
 //: settling, the tag row) places it again from the same point: measured,
 //: it grew 30px after opening and its foot went under the status bar.
-let graphNewAt = null;
 function placeGraphNewNote() {
   const popup = $("graph-new");
   if (popup.classList.contains("hidden")) return;
@@ -4731,8 +4733,8 @@ function placeGraphNewNote() {
   popup.style.maxHeight = `${Math.max(120, room - 16)}px`;
   const size = popup.getBoundingClientRect();
   // Centre it when there's no click position (toolbar button).
-  const rawX = graphNewAt ? graphNewAt.x - box.left + 12 : (box.width - size.width) / 2;
-  const rawY = graphNewAt ? graphNewAt.y - box.top + 12 : 60;
+  const rawX = graphLate.newAt ? graphLate.newAt.x - box.left + 12 : (box.width - size.width) / 2;
+  const rawY = graphLate.newAt ? graphLate.newAt.y - box.top + 12 : 60;
   popup.style.left = `${Math.min(Math.max(rawX, 8), Math.max(8, box.width - size.width - 8))}px`;
   popup.style.top = `${Math.min(Math.max(rawY, 8), Math.max(8, room - size.height - 8))}px`;
 }

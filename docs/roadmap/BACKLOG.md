@@ -4322,4 +4322,5 @@ First, in order:
 - Chord key: "s" is Settings (`CHORD_ACTIONS.s`), so "View the Stack" on "s" collides; pick a free letter.
 - Rename leftovers, only if the owner asks: release asset names (`ASSET_PREFIX = "MemoryMap-AI-Setup-"`, routes_update.py), the exe "MemoryMap AI.exe" and the Start-menu ID, each with a migration.
 - Unverified on Windows: the launcher splash (title lockup, centred links, `scripts/splash.ps1`; pwsh is not available here).
+- Graph load: it does not appear smoothly, it shifts or glitches in (owner, 2026-10-12). Record frames across the first second (node positions per frame, `graph-worker.js` settle, the canvas resize) and fade in once the layout has settled.
 

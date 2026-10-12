@@ -859,10 +859,10 @@ class TestTheWindowsSplash:
         assert '$form.FormBorderStyle = "None"' in t
         assert "New-RoundRegion" in t
 
-    def test_the_links_and_the_list_wait_for_a_slow_start_or_a_failure(self):
+    def test_the_links_show_at_once_and_the_list_after_a_second(self):
         t = self.text
-        assert "$SHOW_LINKS_AFTER = 10" in t
-        assert "$SHOW_LIST_AFTER  = 4" in t
+        assert "$SHOW_LINKS_AFTER = 0" in t
+        assert "$SHOW_LIST_AFTER  = 1" in t
         assert "$st.failed" in t
 
     def test_the_active_step_shows_its_elapsed_seconds(self):

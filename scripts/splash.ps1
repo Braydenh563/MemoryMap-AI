@@ -90,8 +90,8 @@ try {
   $ROW_STEP         = 22
   $MAX_ROWS         = 6
   $EXPANDED_HEIGHT  = 560
-  $SHOW_LIST_AFTER  = 4
-  $SHOW_LINKS_AFTER = 10
+  $SHOW_LIST_AFTER  = 1
+  $SHOW_LINKS_AFTER = 0
 
   # The mark is drawn once into a bitmap here, before the window exists, so the
   # first paint is a DrawImage and the logo is there with the window rather

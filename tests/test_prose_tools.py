@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.core import security
+from tessellate.core import security
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
@@ -67,7 +67,7 @@ def test_the_binary_is_served_as_wasm_and_gzipped_once(client) -> None:
     (audit 2026-10-05, FE-03); the bytes are the file's own."""
     import gzip
 
-    from memorymap.api.app import FRONTEND_DIR
+    from tessellate.api.app import FRONTEND_DIR
 
     with client.stream(
         "GET", "/vendor/harper/harper_wasm_slim_bg.wasm", headers={"Accept-Encoding": "gzip"}
@@ -424,7 +424,7 @@ def _r(text: str, props: str = "", deleted: bool = False) -> str:
 
 
 def test_a_word_file_with_tables_links_lists_and_revisions_reads_as_markdown(tmp_path) -> None:
-    from memorymap.core import docview
+    from tessellate.core import docview
 
     numbering = (
         '<w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:numFmt w:val="decimal"/></w:lvl></w:abstractNum>'

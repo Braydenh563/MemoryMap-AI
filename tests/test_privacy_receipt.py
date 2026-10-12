@@ -18,7 +18,7 @@ import sys
 
 import pytest
 
-from memorymap.core import egress
+from tessellate.core import egress
 
 
 @pytest.fixture(autouse=True)
@@ -108,9 +108,9 @@ def test_the_module_that_asked_is_named():
         "<updates>",
         "exec",
     )
-    exec(code, {"__name__": "memorymap.api.routes_update"})  # noqa: S102
+    exec(code, {"__name__": "tessellate.api.routes_update"})  # noqa: S102
     (row,) = egress.destinations()
-    assert row["via"] == "memorymap.api.routes_update"
+    assert row["via"] == "tessellate.api.routes_update"
     assert row["feature"] == "Update check"
 
 

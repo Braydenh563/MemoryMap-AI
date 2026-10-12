@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import tools
-from memorymap.ai.tools._common import ToolError
-from memorymap.core.database import Attachment, MediaUpload
+from tessellate.ai import tools
+from tessellate.ai.tools._common import ToolError
+from tessellate.core.database import Attachment, MediaUpload
 
 
 def _upload(session, name="scan.png", text=None, caption=None):
@@ -62,7 +62,7 @@ def test_an_empty_query_lists_what_there_is(session):
 def test_a_private_notes_attachment_is_not_searchable(session):
     """The same refusal a private note gets everywhere else, its attachments
     are part of it."""
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     entry = manager.create_entry(session, "secret", category_name=manager.UNCATEGORISED)
     entry.is_private = True
@@ -78,7 +78,7 @@ def test_a_private_notes_attachment_is_not_searchable(session):
 
 
 def test_reading_a_private_notes_attachment_is_refused(session):
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     entry = manager.create_entry(session, "secret", category_name=manager.UNCATEGORISED)
     entry.is_private = True
@@ -113,7 +113,7 @@ def test_a_vision_reading_beats_tesseracts(session):
 def test_the_two_id_spaces_are_kept_apart(session):
     """`upload` 1 and `attachment` 1 are different objects; `kind` is what
     tells them apart, and a wrong kind must not silently read the other."""
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     entry = manager.create_entry(session, "host", category_name=manager.UNCATEGORISED)
     attachment = Attachment(entry_id=entry.id, filename="att.pdf", stored_name="a1", size=1)
@@ -165,7 +165,7 @@ def test_read_file_with_a_query_returns_text_past_the_old_cap(session):
     this tool no matter what, the read always started at character zero and
     stopped at 2000, so `search_files` could point at the file correctly and
     `read_file` would still come back with nothing useful."""
-    from memorymap.ai.tools.files import FILE_TEXT_CHARS
+    from tessellate.ai.tools.files import FILE_TEXT_CHARS
 
     filler = "the quick brown fox jumps over the lazy dog. " * 100
     assert len(filler) > FILE_TEXT_CHARS

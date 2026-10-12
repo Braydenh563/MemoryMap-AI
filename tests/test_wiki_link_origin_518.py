@@ -12,8 +12,8 @@ from __future__ import annotations
 import numpy as np
 from sqlalchemy import select
 
-from memorymap.ai.embeddings import similar_pairs
-from memorymap.core.database import EntryLink
+from tessellate.ai.embeddings import similar_pairs
+from tessellate.core.database import EntryLink
 
 
 def _save(client, content):
@@ -79,7 +79,7 @@ def test_an_edit_that_keeps_the_name_offers_nothing(client):
 
 
 def test_the_fingerprint_sees_a_link_swapped_for_another(client, session):
-    from memorymap.api.routes_graph import _graph_fingerprint
+    from tessellate.api.routes_graph import _graph_fingerprint
 
     a, b, c = (_save(client, f"note {i}") for i in range(3))
     first = client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]}).json()
@@ -91,8 +91,8 @@ def test_the_fingerprint_sees_a_link_swapped_for_another(client, session):
 
 
 def test_graph_reads_each_notes_text_once_per_version(client, monkeypatch):
-    from memorymap.api import routes_graph
-    from memorymap.entry import manager
+    from tessellate.api import routes_graph
+    from tessellate.entry import manager
 
     notes = [_save(client, f"# Note {i}\n\nwords here") for i in range(5)]
     reads = []

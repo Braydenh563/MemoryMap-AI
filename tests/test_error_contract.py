@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-import memorymap.api.app as app_module
+import tessellate.api.app as app_module
 
 
 def _app_without_frontend_mount(tmp_path, monkeypatch):

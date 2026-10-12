@@ -9,7 +9,7 @@ with vectors chosen by the test, so similarity is exact.
 
 from __future__ import annotations
 
-from memorymap.ai import janitor
+from tessellate.ai import janitor
 from tests.test_janitor_knn import DeadOllama, DirectedEmbeddings, _note
 
 

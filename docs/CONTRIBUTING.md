@@ -35,7 +35,7 @@ pip install -r requirements.txt
 pip install -e .            # editable install, do not forget the dot
 ```
 
-Run the app with `python -m memorymap` and open <http://localhost:8000>, or use
+Run the app with `python -m tessellate` and open <http://localhost:8000>, or use
 `./start.sh` (`start.bat` on Windows), which does all of the above.
 
 `requirements.txt` includes `sentence-transformers`, which brings PyTorch (about

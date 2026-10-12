@@ -10,8 +10,8 @@ from __future__ import annotations
 import io
 import json
 
-from memorymap.ai import tools
-from memorymap.mcp_server import handle_request, offered_tools, serve
+from tessellate.ai import tools
+from tessellate.mcp_server import handle_request, offered_tools, serve
 
 
 def test_offered_tools_excludes_every_destructive_tool():
@@ -22,7 +22,7 @@ def test_offered_tools_excludes_every_destructive_tool():
 
 
 def test_offered_tools_excludes_a_tool_disabled_in_settings(app_state):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     deps.get_config().set_preference("disabled_tools", ["count_notes"])
     names = {spec.name for spec in offered_tools()}
@@ -208,8 +208,8 @@ def test_reading_an_unknown_or_malformed_resource_is_an_error_not_a_crash(app_st
 
 
 def test_a_private_note_is_neither_listed_nor_readable(app_state):
-    from memorymap.core import deps
-    from memorymap.core.database import Entry
+    from tessellate.core import deps
+    from tessellate.core.database import Entry
 
     note_id = _make_note("Private diary entry")
     with deps.get_db().session() as session:
@@ -222,7 +222,7 @@ def test_a_private_note_is_neither_listed_nor_readable(app_state):
 
 
 def test_resources_vanish_when_the_note_tools_are_turned_off(app_state):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     deps.get_config().set_preference("disabled_tools", ["get_note", "list_notes"])
     assert _rpc("resources/list")["result"]["resources"] == []
@@ -259,7 +259,7 @@ def test_startup_does_not_load_the_embedding_model(app_state):
     """OPEN ledger 319: `serve` builds the embedder lazily, so starting the
     tool server never loads a model (measured by hand with `-X importtime`:
     no sentence_transformers or torch import at startup)."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     serve(stdin=io.StringIO(""), stdout=io.StringIO())
     assert deps.get_embeddings()._st_model is None

@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import act_registry, acts, reading
-from memorymap.ai.tools import TOOLS
+from tessellate.ai import act_registry, acts, reading
+from tessellate.ai.tools import TOOLS
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "composer" / "access_1010.json").read_text(encoding="utf-8"))
 NOW = datetime.fromisoformat(DATA["now"])

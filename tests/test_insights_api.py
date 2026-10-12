@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from memorymap.api import routes_insights
-from memorymap.core import deps
-from memorymap.core.database import Entry, utcnow
+from tessellate.api import routes_insights
+from tessellate.core import deps
+from tessellate.core.database import Entry, utcnow
 
 
 def _save(client, content, **extra):
@@ -291,7 +291,7 @@ def test_all_tags_is_not_rescanned_for_an_unchanged_notebook(client, monkeypatch
     every Library tab open, every tag_cloud call, and every /tags call. Same
     fingerprint-cache pattern as routes_graph.py's pagerank: this pins that
     a second call within the same notebook version doesn't redo the scan."""
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     _save(client, "note one", tags=["work"])
 
@@ -319,7 +319,7 @@ def test_all_tags_is_not_rescanned_for_an_unchanged_notebook(client, monkeypatch
 def test_all_tags_cache_is_scoped_to_the_notebook_it_was_built_from(app_state, session):
     """The cache is process-global; restoring a backup must not be served
     the previous notebook's tag counts."""
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     fingerprint = manager._tag_fingerprint(session)
     assert str(app_state.data_dir) in fingerprint
@@ -348,7 +348,7 @@ def test_the_activity_counts_do_not_read_every_note_body(client):
     reads `entries.content` is the regression."""
     from sqlalchemy import event
 
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     for i in range(3):
         client.post("/entries", json={"content": f"a note about gardens {i}"})

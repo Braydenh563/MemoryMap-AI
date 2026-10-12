@@ -22,7 +22,7 @@ import tomllib
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SRC = ROOT / "src" / "memorymap"
+SRC = ROOT / "src" / "tessellate"
 
 #: Module -> `threading.Thread(` calls, 2026-09-26. Lower a number when a
 #: thread moves onto `core/jobs.py`; never raise one, never add a module.

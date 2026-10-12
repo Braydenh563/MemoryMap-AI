@@ -55,7 +55,7 @@ def _lines(text: str) -> list[str]:
 
 def _tree(trees: dict[Path, ast.Module], path: Path) -> ast.Module:
     """Each file is parsed once per build: the routes and the backend modules
-    both read src/memorymap/api, and parsing 15 MB of Python twice was most of
+    both read src/tessellate/api, and parsing 15 MB of Python twice was most of
     the generation time."""
     if path not in trees:
         trees[path] = ast.parse(_read(path), filename=str(path))
@@ -157,7 +157,7 @@ def _function_defs(tree: ast.Module) -> list[ast.AST]:
 
 def _routes(root: Path, trees: dict[Path, ast.Module]) -> list[tuple[str, str, str, str, int]]:
     rows = []
-    for path in sorted((root / "src" / "memorymap" / "api").glob("*.py")):
+    for path in sorted((root / "src" / "tessellate" / "api").glob("*.py")):
         rel = _rel(root, path)
         tree = _tree(trees, path)
         for node in _function_defs(tree):
@@ -190,7 +190,7 @@ def _backend_modules(root: Path) -> list[tuple[str, list[tuple[str, int]]]]:
     backend was most of the generation time (about 1.5 s of 2.5 s), and a
     module-level def is always a line that starts with `def`, `async def` or
     `class`. Checked against ast.parse on the tree when this was written."""
-    base = root / "src" / "memorymap"
+    base = root / "src" / "tessellate"
     groups = []
     for path in sorted(base.rglob("*.py")):
         if "vendor" in path.relative_to(base).parts:
@@ -303,7 +303,7 @@ def build(root: Path, date: str) -> str:
     out += [
         f"## Backend routes ({len(routes)})",
         "",
-        ("`@router.<method>(`, `@<name>_router.<method>(` and `@app.<method>(` decorators in `src/memorymap/api/*.py`, "
+        ("`@router.<method>(`, `@<name>_router.<method>(` and `@app.<method>(` decorators in `src/tessellate/api/*.py`, "
         "sorted by path. The line is the decorator's."),
         "",
     ]
@@ -316,7 +316,7 @@ def build(root: Path, date: str) -> str:
     out += [
         f"## Backend modules ({module_count})",
         "",
-        ("Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, "
+        ("Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, "
         "excluding `vendor/`, grouped by file."),
         "",
     ]

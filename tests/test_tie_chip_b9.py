@@ -8,7 +8,7 @@ subject and gets no chip.
 
 from datetime import date
 
-from memorymap.ai import composer_digest as digest
+from tessellate.ai import composer_digest as digest
 
 TODAY = date(2026, 10, 11)
 

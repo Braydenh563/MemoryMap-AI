@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import json
 
-from memorymap.ai import tools
-from memorymap.core.database import AuditLog, Entry, WhiteboardNode, WhiteboardObject, WhiteboardSketch
+from tessellate.ai import tools
+from tessellate.core.database import AuditLog, Entry, WhiteboardNode, WhiteboardObject, WhiteboardSketch
 
 RECT = "M 10 20 L 110 20 L 110 80 L 10 80 Z"
 

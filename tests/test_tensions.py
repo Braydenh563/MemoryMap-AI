@@ -21,8 +21,8 @@ from datetime import datetime, timedelta
 
 from sqlalchemy import select
 
-from memorymap.ai import tensions
-from memorymap.core.database import Entry, EntryLink
+from tessellate.ai import tensions
+from tessellate.core.database import Entry, EntryLink
 
 
 # --- Parsing a reply -------------------------------------------------------
@@ -146,8 +146,8 @@ def test_dismissing_a_pair_is_remembered(client, session):
     )
     assert response.status_code == 200
 
-    from memorymap.api.routes_entries import TENSION_DISMISSED_KEY, _tension_key
-    from memorymap.core import deps
+    from tessellate.api.routes_entries import TENSION_DISMISSED_KEY, _tension_key
+    from tessellate.core import deps
 
     stored = deps.get_config().get_preference(TENSION_DISMISSED_KEY, [])
     assert _tension_key(a.id, b.id) in stored
@@ -156,7 +156,7 @@ def test_dismissing_a_pair_is_remembered(client, session):
 def test_the_dismissed_key_does_not_depend_on_which_note_came_first():
     """A pair is one thing however it is named, or dismissing it once would
     leave the mirrored ordering still being offered."""
-    from memorymap.api.routes_entries import _tension_key
+    from tessellate.api.routes_entries import _tension_key
 
     assert _tension_key(7, 3) == _tension_key(3, 7)
 
@@ -171,12 +171,12 @@ def test_the_agent_has_a_tool_for_this_and_it_never_links_anything(client, sessi
     themselves is a claim a person has to agree with first, so the tool
     *reports*. `link_notes` is what writes one, and the user is in that loop.
     """
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     spec = tools.TOOLS["find_contradictions"]
     assert spec.destructive is False
     # Reported, not applied: the handler must not be able to create a link.
-    from memorymap.core.database import EntryLink
+    from tessellate.core.database import EntryLink
 
     result = spec.handler(session, {"limit": 3})
     assert "tensions" in result
@@ -186,7 +186,7 @@ def test_the_agent_has_a_tool_for_this_and_it_never_links_anything(client, sessi
 def test_the_tool_says_why_it_found_nothing(client, session):
     """Same honesty rule as the endpoint: a bare empty list renders "no model
     running" and "your notebook is consistent" identically."""
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     result = tools.TOOLS["find_contradictions"].handler(session, {})
     assert result["tensions"] == []

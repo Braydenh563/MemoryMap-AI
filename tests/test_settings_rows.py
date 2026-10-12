@@ -13,7 +13,7 @@ import json
 import re
 from pathlib import Path
 
-from memorymap.api.routes_settings import PreferencesBody
+from tessellate.api.routes_settings import PreferencesBody
 
 ROOT = Path(__file__).resolve().parents[1]
 ROWS_JS = (ROOT / "frontend" / "js" / "settings-rows.js").read_text(encoding="utf-8")

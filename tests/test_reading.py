@@ -10,7 +10,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 
-from memorymap.ai import reading
+from tessellate.ai import reading
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = json.loads((ROOT / "tests/fixtures/composer/reading_1010.json").read_text(encoding="utf-8"))
@@ -127,8 +127,8 @@ def test_the_quick_add_sweeps_misses():
 def test_my_birthday_is_the_one_the_notes_give(client, session):
     """OPEN-ledger row 459: no setting holds a birthday, so "on my birthday"
     reads the one a note gives; a month alone is no day."""
-    from memorymap.ai import personal
-    from memorymap.entry import manager
+    from tessellate.ai import personal
+    from tessellate.entry import manager
 
     assert personal.birthday([{"id": 1, "content": "My birthday is 3 December."}], NOW) == "2000-12-03"
     assert personal.birthday([{"id": 1, "content": "My birthday is in March."}], NOW) is None

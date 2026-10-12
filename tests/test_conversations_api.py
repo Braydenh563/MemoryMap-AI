@@ -6,7 +6,7 @@ coverage.)"""
 
 from __future__ import annotations
 
-from memorymap.ai import librarian
+from tessellate.ai import librarian
 
 
 def _save(client, content, **extra):
@@ -399,7 +399,7 @@ def test_a_chat_past_the_page_is_still_reachable_and_findable(client):
     could not be found by searching for its own words either. Same finding as
     INBOX 117 on documents, reminders and media, one list later.
     """
-    from memorymap.api import routes_conversations
+    from tessellate.api import routes_conversations
 
     size = routes_conversations.CONVERSATIONS_PAGE_SIZE
     oldest = client.post(

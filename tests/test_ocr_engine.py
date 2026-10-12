@@ -15,7 +15,7 @@ import sys
 
 import pytest
 
-from memorymap.core import deps, ocr
+from tessellate.core import deps, ocr
 
 
 @pytest.fixture(autouse=True)
@@ -180,7 +180,7 @@ def test_the_packages_row_is_installed_only_when_the_engine_can_read(monkeypatch
     """The OCR row showed a green tick when only the Python wrapper was there
     (`find_spec` of pytesseract), on a machine whose Library read nothing. It
     also meant the Install button was refused as "already installed"."""
-    from memorymap.core import extras
+    from tessellate.core import extras
 
     extra = extras.EXTRAS_BY_ID["ocr"]
     monkeypatch.setattr(extras.importlib.util, "find_spec", lambda name: object())
@@ -196,8 +196,8 @@ def test_read_again_really_reads_again(monkeypatch, client):
     """Found driving the workspace: with a reading already on the row,
     `extract_and_store`'s write-once guard made "Read again" a no-op, and the
     stored rectangles from the first look came back for the second."""
-    from memorymap.api import routes_files
-    from memorymap.core.database import PageRead
+    from tessellate.api import routes_files
+    from tessellate.core.database import PageRead
 
     #: Staged, not direct: a direct upload starts its own background read,
     #: which raced this test for the first answer (seen after a merge).

@@ -18,7 +18,7 @@ import sys
 import pytest
 from cryptography import x509
 
-from memorymap.core import lancert, netbind
+from tessellate.core import lancert, netbind
 
 NAMES = ["localhost", "127.0.0.1", "::1", "studio", "studio.local", "192.168.1.9", "2001:db8::5"]
 
@@ -260,7 +260,7 @@ def test_regenerate_reaches_the_running_listener(tmp_path):
 def test_new_address_makes_a_new_certificate(tmp_path, caplog):
     """After a DHCP change the phone must not meet a certificate without the address."""
     first = lancert.ensure(tmp_path, ["localhost", "192.168.1.9"])
-    with caplog.at_level("INFO", logger="memorymap.core.lancert"):
+    with caplog.at_level("INFO", logger="tessellate.core.lancert"):
         second = lancert.ensure(tmp_path, ["localhost", "192.168.1.9", "192.168.1.77"])
     assert second.fingerprint != first.fingerprint
     assert "192.168.1.77" in second.names

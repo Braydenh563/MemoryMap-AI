@@ -1,6 +1,6 @@
 """Comments stripped at serve time, and each asset stamped by its own bytes.
 
-Audit 2026-10-05, FE-01 and FE-02 (`src/memorymap/api/asset_strip.py`,
+Audit 2026-10-05, FE-01 and FE-02 (`src/tessellate/api/asset_strip.py`,
 `RevalidatedStatic` and `served_index_html` in `api/app.py`):
 
 - 64% of the CSS, about 46% of the JS and 39% of `index.html` was comment
@@ -29,10 +29,10 @@ from pathlib import Path
 
 import pytest
 
-from memorymap import __version__
-from memorymap.api import app as app_module
-from memorymap.api.app import FRONTEND_DIR, RevalidatedStatic, asset_hash
-from memorymap.api.asset_strip import strip_css, strip_html, strip_js
+from tessellate import __version__
+from tessellate.api import app as app_module
+from tessellate.api.app import FRONTEND_DIR, RevalidatedStatic, asset_hash
+from tessellate.api.asset_strip import strip_css, strip_html, strip_js
 
 # ------------------------------------------------------------ JS edge cases
 
@@ -161,7 +161,7 @@ def test_every_stripped_script_still_parses(tmp_path):
 
 
 _ACORN_CANDIDATES = [
-    os.environ.get("MEMORYMAP_ACORN", ""),
+    os.environ.get("TESSELLATE_ACORN", ""),
     "/opt/node-tools/node_modules/acorn",
 ]
 

@@ -13,9 +13,9 @@ import json
 from datetime import datetime, timedelta
 
 
-from memorymap.core import deps, events
-from memorymap.core.database import Entry, EntryLink, Reminder
-from memorymap.entry import manager, tidy
+from tessellate.core import deps, events
+from tessellate.core.database import Entry, EntryLink, Reminder
+from tessellate.entry import manager, tidy
 
 # --- the pure rules -------------------------------------------------------------
 
@@ -416,7 +416,7 @@ def test_the_badge_count_for_uncategorised_does_not_run_the_per_note_matcher(cli
     note against the others only to count it. The count is the number of
     uncategorised notes, whichever branch each row takes, so it needs no match;
     the review's own list still does."""
-    from memorymap.ai import lexical_filing
+    from tessellate.ai import lexical_filing
 
     for text in ("sourdough starter feeding", "sourdough loaf proving"):
         _save(client, text, category="Baking")
@@ -436,7 +436,7 @@ def test_the_duplicates_count_is_kept_until_the_notebook_changes(client, session
     """Audit 2026-10-10: the scan is quadratic and the badge asks on every
     redraw, so an unchanged notebook answers from the last scan; any new note,
     edit or deletion is a different notebook and scans again."""
-    from memorymap.entry import duplicates
+    from tessellate.entry import duplicates
 
     calls = []
     real = duplicates.find_duplicates
@@ -461,7 +461,7 @@ def test_the_duplicates_count_is_kept_until_the_notebook_changes(client, session
 def test_a_sensitive_note_is_listed_unticked_and_never_moved_by_itself(session, app_state):
     """WORLD_CLASS 23, decision 6: a note that reads as health is suggested
     in Tidy with its why, unticked, and the automatic run leaves it alone."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     for text in ("Dentist check-up booked for the 21st", "GP says blood pressure is fine", "Physio for the shoulder"):
         manager.create_entry(session, text, category_name="Health")

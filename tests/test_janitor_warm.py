@@ -4,7 +4,7 @@ log said "Chat with 'llama3.2' failed")."""
 
 from __future__ import annotations
 
-from memorymap.ai import janitor
+from tessellate.ai import janitor
 
 
 class _Models:

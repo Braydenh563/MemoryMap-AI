@@ -62,8 +62,8 @@ def test_a_changed_file_comes_in_again(client, vault):
 
 def test_a_note_made_private_is_not_brought_back_in_the_clear(client, app_state, vault):
     """Its text is encrypted, so it cannot be compared: its path is enough."""
-    from memorymap.core import deps
-    from memorymap.core.database import Entry
+    from tessellate.core import deps
+    from tessellate.core.database import Entry
 
     client.post("/import/directory", json={"path": str(vault)})
     with deps.get_db().session() as session:
@@ -79,8 +79,8 @@ def test_a_note_made_private_is_not_brought_back_in_the_clear(client, app_state,
 def test_one_failing_file_does_not_take_the_rest_with_it(client, vault, monkeypatch):
     """A failed flush poisons the session for every later file unless the
     failure is rolled back (the audit's code read)."""
-    from memorymap.api import routes_settings
-    from memorymap.core.database import Entry
+    from tessellate.api import routes_settings
+    from tessellate.core.database import Entry
 
     real = routes_settings.manager.create_entry
 

@@ -30,6 +30,6 @@ def test_the_audit_does_not_block_yet_and_writes_nothing() -> None:
 
 
 def test_the_app_never_reaches_for_an_advisory_database() -> None:
-    for path in (ROOT / "src" / "memorymap").rglob("*.py"):
+    for path in (ROOT / "src" / "tessellate").rglob("*.py"):
         text = path.read_text(encoding="utf-8")
         assert "pip_audit" not in text and "pip-audit" not in text, f"{path} reaches for pip-audit"

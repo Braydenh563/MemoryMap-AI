@@ -14,8 +14,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from memorymap.core import deps
-from memorymap.core.database import MediaUpload
+from tessellate.core import deps
+from tessellate.core.database import MediaUpload
 
 
 def _stat_counter(monkeypatch, media_dir: Path) -> list[Path]:

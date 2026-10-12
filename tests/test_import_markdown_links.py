@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
-from memorymap.core.database import EntryLink
+from tessellate.core.database import EntryLink
 
 
 def _upload(client, files):

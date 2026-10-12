@@ -28,7 +28,7 @@
 
   and this reads the whole file, not just the last line, so the window can draw
   every step that has happened with a tick beside it rather than one sentence
-  with no context. `src/memorymap/core/launch_status.py` is the same grammar in
+  with no context. `src/tessellate/core/launch_status.py` is the same grammar in
   Python, for the loading window that takes over from this one; the two are
   kept in step by tests/test_launcher_scripts.py.
 
@@ -172,7 +172,7 @@ try {
   $form.BackColor       = $bg
   $form.TopMost         = $true
   $form.ShowInTaskbar   = $true
-  $form.Text            = "Starting Tessellate"
+  $form.Text            = "Starting Tessellate Notes"
   $form.Region          = New-RoundRegion $WIDTH $COLLAPSED_HEIGHT 18
 
   if (-not $IconPath) {
@@ -201,9 +201,21 @@ try {
   $title.Text      = "Tessellate"
   $title.ForeColor = $ink
   $title.Font      = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]17), ([System.Drawing.FontStyle]::Bold)
-  $title.TextAlign = $centre
-  $title.Location  = New-Object System.Drawing.Point(0, 106)
-  $title.Size      = New-Object System.Drawing.Size($WIDTH, 32)
+  # The name with a small "notes" beside it (the owner, 2026-10-12: the
+  # name alone read like a game), centred as one lockup.
+  $note            = New-Object System.Windows.Forms.Label
+  $note.Text       = "notes"
+  $note.ForeColor  = $muted
+  $note.Font       = New-Object System.Drawing.Font -ArgumentList "Segoe UI", ([float]11)
+  $titleW = [System.Windows.Forms.TextRenderer]::MeasureText($title.Text, $title.Font).Width
+  $noteW  = [System.Windows.Forms.TextRenderer]::MeasureText($note.Text, $note.Font).Width
+  $lockX  = [int](($WIDTH - $titleW - $noteW) / 2)
+  $title.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+  $title.Location  = New-Object System.Drawing.Point($lockX, 106)
+  $title.Size      = New-Object System.Drawing.Size($titleW, 32)
+  $note.TextAlign  = [System.Drawing.ContentAlignment]::BottomLeft
+  $note.Location   = New-Object System.Drawing.Point(($lockX + $titleW), 106)
+  $note.Size       = New-Object System.Drawing.Size($noteW, 28)
 
   $tag             = New-Object System.Windows.Forms.Label
   $tag.Text        = "Your notes, pieced together"
@@ -328,7 +340,7 @@ try {
   $details.Size         = New-Object System.Drawing.Size(460, 88)
   $details.Visible      = $false
 
-  $form.Controls.AddRange(@($logo, $title, $tag, $status, $barTrack, $tip, $hint,
+  $form.Controls.AddRange(@($logo, $title, $note, $tag, $status, $barTrack, $tip, $hint,
                             $btnDetails, $btnCopy, $btnRetry, $btnCancel, $details))
   foreach ($i in 0..($MAX_ROWS - 1)) {
     $form.Controls.AddRange(@($rowMark[$i], $rowName[$i], $rowDetail[$i]))
@@ -479,7 +491,7 @@ try {
     # What a person is asked for when they report "it will not start": the
     # steps that ran, how long the current one has been going, the tail of the
     # log, and the launcher's own `--doctor` table. The doctor is run with
-    # MEMORYMAP_DOCTOR_OFFLINE=1 and a 20 second limit: a live one probes the
+    # TESSELLATE_DOCTOR_OFFLINE=1 and a 20 second limit: a live one probes the
     # port the app is about to bind and asks the git remote and the model
     # server, which in the middle of an install makes the thing being
     # diagnosed worse; the offline mode skips exactly those three rows
@@ -501,7 +513,7 @@ try {
           $psi.UseShellExecute = $false
           $psi.CreateNoWindow = $true
           $psi.RedirectStandardOutput = $true
-          $psi.EnvironmentVariables["MEMORYMAP_DOCTOR_OFFLINE"] = "1"
+          $psi.EnvironmentVariables["TESSELLATE_DOCTOR_OFFLINE"] = "1"
           $doc = [System.Diagnostics.Process]::Start($psi)
           if ($doc.WaitForExit(20000)) {
             $lines += ""

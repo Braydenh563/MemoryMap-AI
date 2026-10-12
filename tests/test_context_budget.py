@@ -23,9 +23,9 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import agent, context, librarian, tools
-from memorymap.ai.ollama_client import OllamaClient
-from memorymap.core.database import Entry
+from tessellate.ai import agent, context, librarian, tools
+from tessellate.ai.ollama_client import OllamaClient
+from tessellate.core.database import Entry
 
 WINDOWS = [2048, 4096, 8192, 16384, 32768, 131072]
 

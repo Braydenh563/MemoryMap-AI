@@ -20,8 +20,8 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 
-from memorymap.core import deps
-from memorymap.core.database import Category, Entry
+from tessellate.core import deps
+from tessellate.core.database import Category, Entry
 
 WRITERS = 6
 EACH = 12
@@ -29,7 +29,7 @@ EACH = 12
 
 @pytest.fixture()
 def parallel_app(app_state):
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
     from tests.fakes import FakeEmbeddingService, FakeOllama
 
     deps.override_ai(
@@ -86,8 +86,8 @@ def test_storing_a_vector_twice_replaces_it_rather_than_raising(session):
     """
     from sqlalchemy import func
 
-    from memorymap.core.database import EmbeddingRecord
-    from memorymap.entry import manager
+    from tessellate.core.database import EmbeddingRecord
+    from tessellate.entry import manager
     from tests.fakes import FakeEmbeddingService
 
     entry = manager.create_entry(session, "a note about gardens", tags=[])

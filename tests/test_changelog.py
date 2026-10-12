@@ -31,7 +31,7 @@ def test_it_is_the_real_file_not_a_copy(client):
 def test_a_missing_file_is_not_an_error(client, monkeypatch):
     """A packaged build may not ship it. Missing release notes are not worth a
     500: the About panel hides the control instead."""
-    import memorymap.api.app as app_module
+    import tessellate.api.app as app_module
 
     real_read = type(app_module.Path("x")).read_text
 

@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import composer, composer_tables
+from tessellate.ai import composer, composer_tables
 from tests.test_composer_688 import NOTES, TODAY, _note, assert_traceable
 
 
@@ -295,7 +295,7 @@ def test_a_composed_answers_next_questions_are_drawn_as_its_chips():
     chat_js = Path("frontend/js/chat-attach.js").read_text(encoding="utf-8")
     assert "composedNext = Array.isArray(event.next) ? event.next : [];" in chat_js
     assert "offerFollowups(bubble, question, answerRaw, meta?.composed ? composedNext : null);" in chat_js
-    routes = Path("src/memorymap/api/routes_chat.py").read_text(encoding="utf-8")
+    routes = Path("src/tessellate/api/routes_chat.py").read_text(encoding="utf-8")
     assert '"next": result["next"],' in routes
 
 

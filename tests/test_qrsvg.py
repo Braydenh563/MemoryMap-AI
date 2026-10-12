@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.core import qrsvg
+from tessellate.core import qrsvg
 
 #: `qrcode` 8.x, version 2, level M, mask 5, border 0, for this text.
 URL = "https://192.168.0.107:8443"
@@ -63,7 +63,7 @@ def test_svg_is_dark_on_light_with_a_quiet_zone():
 
 
 def test_route_draws_only_an_address_this_notebook_shows(client, monkeypatch):
-    from memorymap.api import routes_privacy
+    from tessellate.api import routes_privacy
 
     monkeypatch.setattr(
         routes_privacy.netbind, "describe",

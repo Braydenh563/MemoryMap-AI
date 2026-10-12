@@ -19,7 +19,7 @@ import json
 import re
 from pathlib import Path
 
-from memorymap.ai import help_chat
+from tessellate.ai import help_chat
 
 BANK = json.loads((Path(__file__).parent / "fixtures" / "help_questions.json").read_text())
 

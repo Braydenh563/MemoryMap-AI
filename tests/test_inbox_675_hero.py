@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import help_chat
+from tessellate.ai import help_chat
 
 ROOT = Path(__file__).resolve().parents[1]
 JS = ROOT / "frontend" / "js"

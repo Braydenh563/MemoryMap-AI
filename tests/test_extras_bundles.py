@@ -28,8 +28,8 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.api import routes_tasks
-from memorymap.core import extras, jobs
+from tessellate.api import routes_tasks
+from tessellate.core import extras, jobs
 
 
 @pytest.fixture(autouse=True)
@@ -222,7 +222,7 @@ def test_bulk_uninstall_removes_only_what_is_installed(client, fake_pip, monkeyp
 
 
 def test_a_loaded_voice_model_fails_its_row_and_not_the_batch(client, fake_pip, monkeypatch):
-    from memorymap.ai import voice
+    from tessellate.ai import voice
 
     _installed(monkeypatch, {"voice", "rapidocr"})
     monkeypatch.setattr(voice, "_loaded", ("base", object()))
@@ -325,7 +325,7 @@ def test_cancel_stops_the_rest_of_a_bulk(client, fake_pip, monkeypatch):
 
 
 def test_the_bulk_summary_reaches_the_history(client, fake_pip, monkeypatch):
-    from memorymap.core import taskhistory
+    from tessellate.core import taskhistory
 
     recorded = []
     monkeypatch.setattr(taskhistory, "record", lambda *a, **k: recorded.append(a))
@@ -420,7 +420,7 @@ def test_a_bulk_request_sends_allowlist_ids_and_never_a_package_name():
 
 def test_the_help_says_how_bundles_and_bulk_actions_work():
     """Help moves with the UI (standing order 13)."""
-    from memorymap.ai import help_topics_more
+    from tessellate.ai import help_topics_more
 
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     popover = html[html.index('id="packages-help"') :]

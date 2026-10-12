@@ -8,7 +8,7 @@ one back.
 
 from __future__ import annotations
 
-from memorymap.entry import topics
+from tessellate.entry import topics
 
 
 def _topic(tid, ids, name):

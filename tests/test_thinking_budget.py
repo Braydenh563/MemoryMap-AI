@@ -24,8 +24,8 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import presets
-from memorymap.ai.ollama_client import OllamaClient
+from tessellate.ai import presets
+from tessellate.ai.ollama_client import OllamaClient
 
 
 class _Client(OllamaClient):

@@ -12,7 +12,7 @@ from pathlib import Path
 from tests import _gold
 import pytest
 
-from memorymap.ai import composer_digest
+from tessellate.ai import composer_digest
 from tests.test_gold_answers import KEYS, NOTES, TODAY
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures/gold_narrated.json").read_text(encoding="utf-8"))

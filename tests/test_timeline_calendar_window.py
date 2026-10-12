@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timedelta
 
-from memorymap.core.database import Entry
+from tessellate.core.database import Entry
 
 
 def _save(client, content: str) -> dict:

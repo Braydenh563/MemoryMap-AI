@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from memorymap.ai import memory, tools
+from tessellate.ai import memory, tools
 
 
 def test_an_answered_proposal_goes_back_to_being_a_question(ai_client, session):

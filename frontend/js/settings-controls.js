@@ -74,7 +74,7 @@ $("account-allow-lan")?.addEventListener("change", async (event) => {
 //: password, off asks nothing; the answer is the new state, or null. Since
 //: INBOX 900 the launcher's supervisor opens or closes the LAN port while
 //: the app runs and the route waits for it, so `restart_required` is true
-//: only for a server started without it (a `MEMORYMAP_BIND` run).
+//: only for a server started without it (a `TESSELLATE_BIND` run).
 async function lanSwitch(wanted) {
   try {
     if (!wanted) {

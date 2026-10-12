@@ -15,7 +15,7 @@ import random
 import time
 from types import SimpleNamespace
 
-from memorymap.entry import paths, topics
+from tessellate.entry import paths, topics
 
 
 def _index(n, edges):
@@ -104,7 +104,7 @@ def test_structure_carries_named_topics_when_asked(client):
 
 
 def test_a_private_note_lends_no_words_to_a_name(client, session):
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     made = [_note(client, f"Zebra secret plan {i}") for i in range(3)]
     for i, a in enumerate(made):

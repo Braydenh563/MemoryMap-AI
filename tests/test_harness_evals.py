@@ -1,8 +1,8 @@
 """The agent harness, judged by a real model (AGENT_SKILLS_REFORM, "Harness
 robustness, 2026-10-04", INBOX 527).
 
-Same seam as `test_skills_evals.py`: MEMORYMAP_EVALS_URL and
-MEMORYMAP_EVALS_MODEL, read at import; without them every test here is
+Same seam as `test_skills_evals.py`: TESSELLATE_EVALS_URL and
+TESSELLATE_EVALS_MODEL, read at import; without them every test here is
 skipped and the module still collects (the last test needs no model).
 
 What is asserted is what the harness guarantees whatever the model says: a
@@ -21,12 +21,12 @@ import time
 
 import pytest
 
-EVALS_URL = os.environ.get("MEMORYMAP_EVALS_URL", "").strip()
-EVALS_MODEL = os.environ.get("MEMORYMAP_EVALS_MODEL", "").strip()
+EVALS_URL = os.environ.get("TESSELLATE_EVALS_URL", "").strip()
+EVALS_MODEL = os.environ.get("TESSELLATE_EVALS_MODEL", "").strip()
 
 needs_a_model = pytest.mark.skipif(
     not (EVALS_URL and EVALS_MODEL),
-    reason="no real model: export MEMORYMAP_EVALS_URL and MEMORYMAP_EVALS_MODEL",
+    reason="no real model: export TESSELLATE_EVALS_URL and TESSELLATE_EVALS_MODEL",
 )
 
 #: (request, the tools any one of which is the right first move, the tool
@@ -57,14 +57,14 @@ NOTES = [
 def notebook(app_state, fake_embeddings):
     from fastapi.testclient import TestClient
 
-    from memorymap.ai.openai_client import OpenAICompatClient
-    from memorymap.api.app import create_app
-    from memorymap.core import deps
-    from memorymap.entry import manager
+    from tessellate.ai.openai_client import OpenAICompatClient
+    from tessellate.api.app import create_app
+    from tessellate.core import deps
+    from tessellate.entry import manager
 
     client = OpenAICompatClient(base_url=EVALS_URL)
     if not client.is_running():
-        pytest.fail(f"MEMORYMAP_EVALS_URL is {EVALS_URL} and nothing is answering there")
+        pytest.fail(f"TESSELLATE_EVALS_URL is {EVALS_URL} and nothing is answering there")
     deps.override_ai(ollama=client)
     config = deps.get_config()
     config.set_preference("llm_provider", "openai")

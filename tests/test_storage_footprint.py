@@ -6,7 +6,7 @@ from __future__ import annotations
 import os
 from tests._app_js import with_pieces
 
-from memorymap.core import deps, diskspace
+from tessellate.core import deps, diskspace
 
 
 def _write(folder, name, size):
@@ -50,7 +50,7 @@ def test_storage_reports_the_three_folders(client):
 def test_storage_reports_what_the_installed_extras_weigh(client, monkeypatch):
     """The breakdown's last segment (BACKLOG section 26, the owner: see what an
     optional feature costs before deciding to keep it)."""
-    from memorymap.core import extras
+    from tessellate.core import extras
 
     first, second = extras.EXTRAS[0], extras.EXTRAS[1]
     monkeypatch.setattr(extras, "is_installed", lambda extra: extra.id in (first.id, second.id))

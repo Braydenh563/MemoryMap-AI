@@ -163,7 +163,7 @@ reported broken, reproduce it before theorising, and say plainly when you
 could not.
 
 For real-model checks, `scratchpad/llama-dev.sh serve` starts a small local
-model and prints `MEMORYMAP_EVALS_URL` and `MEMORYMAP_EVALS_MODEL`;
+model and prints `TESSELLATE_EVALS_URL` and `TESSELLATE_EVALS_MODEL`;
 `pytest -m evals` then runs the tests that need one. Without those variables
 every `evals` test is skipped, and `tests/test_skills_evals.py` asserts the
 suite and `scripts/gate.sh` never reach for the script.
@@ -176,8 +176,8 @@ suite and `scripts/gate.sh` never reach for the script.
 # on the same shell line.
 bash scratchpad/ui-sweeps/serve.sh 8781 /tmp/mm-me
 # or:
-setsid env PYTHONPATH=src MEMORYMAP_DATA_DIR=<scratch>/appdata \
-    .venv/bin/python -m uvicorn memorymap.api.app:create_app \
+setsid env PYTHONPATH=src TESSELLATE_DATA_DIR=<scratch>/appdata \
+    .venv/bin/python -m uvicorn tessellate.api.app:create_app \
     --factory --port 8781 > <scratch>/server.log 2>&1 < /dev/null &
 # then drive it: node script.js, requiring
 # /opt/node22/lib/node_modules/playwright, with PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
@@ -206,7 +206,7 @@ Password `testpassword123`; `THEME=dark` for dark.
 - Restart the server after any Python change: a stale uvicorn is why a
   correct fix "did not work" twice.
 - Local `css`/`js` URLs are stamped `?v=<version>-<file hash>` (`_stamp_for`
-  in `src/memorymap/api/app.py`; `tests/test_asset_cache_busting.py`), so
+  in `src/tessellate/api/app.py`; `tests/test_asset_cache_busting.py`), so
   the persistent desktop webview profile always fetches edited files. A
   report that keeps coming back on a current head is a real bug or a bad
   interaction shape, not a cache: reproduce it.

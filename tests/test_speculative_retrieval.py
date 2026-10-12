@@ -7,8 +7,8 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from memorymap.core import deps
-from memorymap.search import search_manager
+from tessellate.core import deps
+from tessellate.search import search_manager
 
 ROOT = Path(__file__).resolve().parents[1]
 

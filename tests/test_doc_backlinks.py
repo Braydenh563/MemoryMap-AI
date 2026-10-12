@@ -187,7 +187,7 @@ def test_a_private_note_is_never_a_backlink(client, session):
     """Set on the row rather than through the vault route: a private note is
     encrypted at rest, so its text would fail the LIKE anyway. The filter is
     asserted so that stays true by decision and not by side effect."""
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     target = _document(client, "Roadmap")
     note = _note(client, "The roadmap is secret.")

@@ -120,7 +120,7 @@ def test_the_latest_answer_reaches_a_follow_up_nearly_whole():
     make it as a note." The explanation is the previous answer, and clipping
     it to 600 characters meant "save that" saved a stump. The most recent
     answer travels nearly whole; older ones stay clipped hard."""
-    from memorymap.ai import librarian
+    from tessellate.ai import librarian
 
     turns = [
         {"question": f"q{i}", "answer": "old " * 500} for i in range(3)

@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import factgraph
+from tessellate.ai import factgraph
 
 SEED = json.loads((Path(__file__).parent / "fixtures" / "composer" / "phase6_seed.json").read_text(encoding="utf-8"))
 NOTES = {n["id"]: n for n in SEED["notes"]}

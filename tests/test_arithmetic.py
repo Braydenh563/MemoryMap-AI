@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import arithmetic, composer
+from tessellate.ai import arithmetic, composer
 
 
 @pytest.mark.parametrize(

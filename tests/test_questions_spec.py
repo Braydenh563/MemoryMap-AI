@@ -18,8 +18,8 @@ from pathlib import Path
 
 from sqlalchemy import select
 
-from memorymap.ai import facts, questions
-from memorymap.core.database import AuditLog, DerivedFact, Entry, EntryLink, utcnow
+from tessellate.ai import facts, questions
+from tessellate.core.database import AuditLog, DerivedFact, Entry, EntryLink, utcnow
 
 TWO = "Plans for the shed. When does the timber arrive this month? Who is fixing the roof on the shed?"
 ANSWER = "The timber is due to arrive this month on the twelfth, the yard rang about it."

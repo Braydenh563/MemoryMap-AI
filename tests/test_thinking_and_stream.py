@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from memorymap.ai.ollama_client import _ThinkTagSplitter, split_thinking
+from tessellate.ai.ollama_client import _ThinkTagSplitter, split_thinking
 
 
 def _save(client, content):

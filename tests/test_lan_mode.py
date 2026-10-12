@@ -1,6 +1,6 @@
 """LAN mode: "Allow other devices on this network" (WORLD_CLASS_PLAN §12, Brief 15).
 
-Brief 15's done-when, run against the real launcher (`python -m memorymap`)
+Brief 15's done-when, run against the real launcher (`python -m tessellate`)
 bound to 0.0.0.0 in a subprocess and reached over this machine's own
 network address, so the server sees a client that is not loopback exactly
 as it would see a phone: media URLs carry no session token and a `?token=`
@@ -30,8 +30,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from memorymap.api import routes_auth
-from memorymap.core import lantrust, netbind, vault
+from tessellate.api import routes_auth
+from tessellate.core import lantrust, netbind, vault
 
 ROOT = Path(__file__).resolve().parent.parent
 PASSWORD = "the owner's password"
@@ -228,7 +228,7 @@ def _through_host_check(server: tuple, host: str | None) -> tuple[int | None, bo
     (the status the middleware answered with, or None; whether the app ran)."""
     import asyncio
 
-    from memorymap.core import security
+    from tessellate.core import security
 
     ran = []
 
@@ -260,7 +260,7 @@ def test_the_guard_keys_on_the_address_the_request_arrived_at(monkeypatch):
     said, and one that came in on loopback never does. Off loopback a
     request with no Host at all is refused too: HTTP/1.1 requires one, so
     nothing legitimate on the network omits it."""
-    from memorymap.core import security
+    from tessellate.core import security
 
     monkeypatch.setattr(security, "_notebook_has_password", lambda: True)
     netbind.set_current(netbind.LOOPBACK)
@@ -306,7 +306,7 @@ def _free_port() -> int:
 
 def _start(tmp_path: Path, preferences: dict) -> tuple[subprocess.Popen, int, Path]:
     """The real launcher. The HTTPS port other devices use is `port + 1000`,
-    pinned through `MEMORYMAP_LAN_PORT` (see `_lan_port`)."""
+    pinned through `TESSELLATE_LAN_PORT` (see `_lan_port`)."""
     data = tmp_path / "data"
     data.mkdir(parents=True, exist_ok=True)
     (data / "preferences.json").write_text(json.dumps(preferences))
@@ -315,12 +315,12 @@ def _start(tmp_path: Path, preferences: dict) -> tuple[subprocess.Popen, int, Pa
     env = {
         **os.environ,
         "PYTHONPATH": str(ROOT / "src"),
-        "MEMORYMAP_DATA_DIR": str(data),
-        "MEMORYMAP_PORT": str(port),
-        "MEMORYMAP_LAN_PORT": str(_lan_port(port)),
+        "TESSELLATE_DATA_DIR": str(data),
+        "TESSELLATE_PORT": str(port),
+        "TESSELLATE_LAN_PORT": str(_lan_port(port)),
     }
     proc = subprocess.Popen(  # noqa: S603  # our own launcher, fixed argv
-        [sys.executable, "-m", "memorymap"],
+        [sys.executable, "-m", "tessellate"],
         cwd=str(tmp_path),
         env=env,
         stdout=log.open("w"),
@@ -619,9 +619,9 @@ def test_no_password_means_loopback_whatever_the_switch_says(app_state):
 
 
 def test_reset_password_turns_lan_mode_off(app_state, monkeypatch, capsys):
-    from memorymap import __main__ as launcher
-    from memorymap.core import deps
-    from memorymap.core.database import User
+    from tessellate import __main__ as launcher
+    from tessellate.core import deps
+    from tessellate.core.database import User
 
     with deps.get_db().session() as session:
         session.add(User(username="owner", password_hash="x"))
@@ -661,10 +661,10 @@ def test_a_second_notebook_on_this_computer_takes_the_next_lan_port(monkeypatch)
     """The owner, 2026-10-11: "what if multiple people are running memory map
     and want to connect over the same lan connection??" Two accounts on one
     computer: the second used to go local-only when 8443 was held."""
-    from memorymap.core import netbind
+    from tessellate.core import netbind
 
-    monkeypatch.delenv("MEMORYMAP_LAN_PORT", raising=False)
+    monkeypatch.delenv("TESSELLATE_LAN_PORT", raising=False)
     assert netbind.lan_port_candidates(8443)[:3] == [8443, 8444, 8445]
     assert len(netbind.lan_port_candidates(8443)) == netbind.LAN_PORT_TRIES
-    monkeypatch.setenv("MEMORYMAP_LAN_PORT", "9000")
+    monkeypatch.setenv("TESSELLATE_LAN_PORT", "9000")
     assert netbind.lan_port_candidates(9000) == [9000]

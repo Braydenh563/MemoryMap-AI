@@ -4,8 +4,8 @@ at once, Undo takes it back, and a look-alike question is never an act."""
 
 from __future__ import annotations
 
-from memorymap.ai import commands, intent
-from memorymap.entry import manager
+from tessellate.ai import commands, intent
+from tessellate.entry import manager
 from tests.test_composer_route_688 import _ask
 
 

@@ -13,8 +13,8 @@ import ipaddress
 
 import pytest
 
-from memorymap.core import privacy_http
-from memorymap.search import websearch
+from tessellate.core import privacy_http
+from tessellate.search import websearch
 
 
 # --- what we send ------------------------------------------------------------------
@@ -197,7 +197,7 @@ def test_pin_url_brackets_ipv6_and_keeps_an_explicit_port():
 #: real DNS: the first of these passed against the live answer for
 #: example.com before it was moved, which is a test that needs a network.
 def _resolves_to(monkeypatch, *addresses: str) -> None:
-    from memorymap.core import security
+    from tessellate.core import security
 
     monkeypatch.setattr(security, "_resolve", lambda host: list(addresses))
 
@@ -220,7 +220,7 @@ def test_assert_external_still_refuses_local_addresses(monkeypatch):
 
 def test_read_url_is_hidden_until_web_search_is_enabled(app_state):
     """It reaches the internet, so it lives behind the same opt-in as search."""
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     assert tools.tool_enabled("read_url") is False
     assert "read_url" not in {t["function"]["name"] for t in tools.ollama_tools()}
@@ -229,8 +229,8 @@ def test_read_url_is_hidden_until_web_search_is_enabled(app_state):
 def test_read_url_returns_the_page_text(app_state, session, monkeypatch):
     """The tool behind "Ask about this". Without it the model is handed a URL
     it cannot open, and answers from the address alone."""
-    from memorymap.ai import tools
-    from memorymap.core import deps
+    from tessellate.ai import tools
+    from tessellate.core import deps
 
     deps.get_config().set_preference("web_search_enabled", True)
     monkeypatch.setattr(
@@ -258,8 +258,8 @@ def test_read_url_returns_the_page_text(app_state, session, monkeypatch):
 def test_read_url_says_when_it_only_read_part_of_a_page(app_state, session, monkeypatch):
     """A truncated page reported as whole is how a model confidently answers
     from an article it only saw the top of."""
-    from memorymap.ai import tools
-    from memorymap.core import deps
+    from tessellate.ai import tools
+    from tessellate.core import deps
 
     deps.get_config().set_preference("web_search_enabled", True)
     long_page = "x" * (tools.READ_URL_MAX_CHARS + 500)
@@ -278,8 +278,8 @@ def test_read_url_says_when_it_only_read_part_of_a_page(app_state, session, monk
 
 
 def test_read_url_reports_a_refused_address_to_the_model(app_state, session, monkeypatch):
-    from memorymap.ai import tools
-    from memorymap.core import deps
+    from tessellate.ai import tools
+    from tessellate.core import deps
 
     deps.get_config().set_preference("web_search_enabled", True)
 

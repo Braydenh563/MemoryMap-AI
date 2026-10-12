@@ -20,7 +20,7 @@ from __future__ import annotations
 import io
 from pathlib import Path
 
-from memorymap.core import docview
+from tessellate.core import docview
 from tests._app_js import app_js_text
 
 
@@ -207,7 +207,7 @@ def test_the_preview_is_the_one_response_allowed_to_be_framed(client):
 
 
 def test_the_app_may_frame_blobs_and_itself_but_nothing_else():
-    from memorymap.core import security
+    from tessellate.core import security
 
     policy = security.build_csp([])
     assert "frame-src 'self' blob:" in policy

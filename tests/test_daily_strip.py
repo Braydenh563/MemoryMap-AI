@@ -78,7 +78,7 @@ def test_the_strip_has_its_styles_and_stays_flat():
 
 
 def test_the_guide_and_the_timeline_help_name_the_strip():
-    guide = (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8")
+    guide = (ROOT / "src" / "tessellate" / "ai" / "help_chat.py").read_text(encoding="utf-8")
     assert "the calendar strip shows the last seven days" in guide
     assert "The strip below shows the last seven days" in HTML
 

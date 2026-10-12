@@ -1,7 +1,7 @@
 """[[Name]] links to a note that opens with `# Name`, and to one created after
 the link was written (INBOX 517). Measured before: neither made a link."""
-from memorymap.core import deps
-from memorymap.core.database import EntryLink
+from tessellate.core import deps
+from tessellate.core.database import EntryLink
 
 
 def _links():

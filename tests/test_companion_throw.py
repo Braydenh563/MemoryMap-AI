@@ -23,7 +23,7 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 AV = (ROOT / "frontend" / "js" / "avatars.js").read_text(encoding="utf-8")
-HELP = (ROOT / "src" / "memorymap" / "ai" / "help_topics_more.py").read_text(encoding="utf-8")
+HELP = (ROOT / "src" / "tessellate" / "ai" / "help_topics_more.py").read_text(encoding="utf-8")
 
 
 def _fn(name: str) -> str:

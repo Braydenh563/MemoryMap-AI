@@ -25,9 +25,9 @@ import io
 
 import pytest
 
-from memorymap.api import routes_files
-from memorymap.api import routes_files as files_service
-from memorymap.core import pdfpages
+from tessellate.api import routes_files
+from tessellate.api import routes_files as files_service
+from tessellate.core import pdfpages
 
 ONE_PAGE_PDF = (
     b"%PDF-1.4\n"
@@ -207,8 +207,8 @@ def test_deleting_one_page_leaves_the_others(client, monkeypatch):
     # Fake a second page's reading directly, since this fixture PDF has only
     # one real page: the identity this test cares about is the (kind,
     # source_id, page) key, not whether the document actually has two pages.
-    from memorymap.core import deps
-    from memorymap.core.database import PageRead
+    from tessellate.core import deps
+    from tessellate.core.database import PageRead
 
     with deps.get_db().session() as session:
         session.add(PageRead(kind="attachment", source_id=attachment_id, page=1, text="page 2"))

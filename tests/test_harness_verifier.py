@@ -20,9 +20,9 @@ from __future__ import annotations
 import json
 import time
 
-from memorymap.ai import budget, skill_runner, skills, tools
-from memorymap.core import deps
-from memorymap.entry import manager
+from tessellate.ai import budget, skill_runner, skills, tools
+from tessellate.core import deps
+from tessellate.entry import manager
 from tests._skill_run import run_for_test
 
 
@@ -379,13 +379,13 @@ def test_a_second_move_is_not_a_second_correction(app_state, session):
 
 
 def _actions(session) -> list[str]:
-    from memorymap.core.database import AuditLog
+    from tessellate.core.database import AuditLog
 
     return [row.action for row in session.query(AuditLog).order_by(AuditLog.id.desc()).all()]
 
 
 def test_the_correction_carries_both_categories_and_the_note(app_state, session):
-    from memorymap.core.database import AuditLog
+    from tessellate.core.database import AuditLog
 
     _correct(session, "ring the landlord back", "Work", "House")
     row = (
@@ -400,7 +400,7 @@ def test_the_correction_carries_both_categories_and_the_note(app_state, session)
 
 
 def test_the_filing_prompt_carries_the_corrections_for_that_category(app_state, session):
-    from memorymap.ai import librarian
+    from tessellate.ai import librarian
 
     _correct(session, "ring the landlord back", "Work", "House")
     prompt = librarian.filing_prompt(session, "call the plumber", ["House", "Work"])
@@ -413,7 +413,7 @@ def test_the_filing_prompt_carries_the_corrections_for_that_category(app_state, 
 
 
 def test_a_category_with_no_corrections_adds_nothing_to_the_prompt(app_state, session):
-    from memorymap.ai import librarian
+    from tessellate.ai import librarian
 
     _correct(session, "ring the landlord back", "Work", "House")
     assert librarian.corrections_note(session, ["Ideas"]) == ""
@@ -429,7 +429,7 @@ def test_a_category_with_no_corrections_adds_nothing_to_the_prompt(app_state, se
 
 
 def _refile_as(monkeypatch, category: str, method: str) -> None:
-    from memorymap.api import routes_entries
+    from tessellate.api import routes_entries
 
     monkeypatch.setattr(
         routes_entries.janitor, "categorise", lambda *a, **k: (category, 81, method)
@@ -471,7 +471,7 @@ def test_a_refiling_that_was_not_the_ai_leaves_the_state_alone(client, session, 
 
 def test_only_the_last_few_corrections_ride_in_the_prompt(app_state, session):
     """A prompt made of examples has no room left for the note being filed."""
-    from memorymap.ai import librarian
+    from tessellate.ai import librarian
 
     for index in range(librarian.CORRECTIONS_REMEMBERED + 4):
         _correct(session, f"note {index}", "Work", "House")
@@ -542,7 +542,7 @@ def test_the_read_only_built_ins_say_they_change_nothing_and_are_checked():
 #:
 #: Two facts to hold, because both are easy to undo by "tidying" a constant.
 def test_the_token_allowance_is_one_step_s_worth_per_step() -> None:
-    from memorymap.ai import budget as run_budget
+    from tessellate.ai import budget as run_budget
 
     one = run_budget.RunBudget(tokens=20_000, steps=1)
     nine = run_budget.RunBudget(tokens=20_000, steps=9)
@@ -559,7 +559,7 @@ def test_the_token_allowance_is_one_step_s_worth_per_step() -> None:
 
 
 def test_no_limit_stays_no_limit_however_many_steps() -> None:
-    from memorymap.ai import budget as run_budget
+    from tessellate.ai import budget as run_budget
 
     off = run_budget.RunBudget(tokens=0, steps=9)
     assert off.allowance() == 0
@@ -576,7 +576,7 @@ def test_there_is_no_wall_clock_budget_by_default() -> None:
     runner's attempt caps already hold. A wall clock set in Settings is still
     honoured exactly; there just is not one out of the box.
     """
-    from memorymap.ai import budget as run_budget
+    from tessellate.ai import budget as run_budget
 
     assert run_budget.DEFAULT_SECONDS == 0
     fresh = run_budget.RunBudget()

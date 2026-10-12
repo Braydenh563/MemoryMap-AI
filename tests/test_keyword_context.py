@@ -13,7 +13,7 @@ purpose, no torch, no sentence-transformers (CLAUDE.md), and the one
 
 from __future__ import annotations
 
-from memorymap.ai.tools._common import _keyword_context
+from tessellate.ai.tools._common import _keyword_context
 
 
 def test_no_needle_falls_back_to_a_head_of_text_clip():

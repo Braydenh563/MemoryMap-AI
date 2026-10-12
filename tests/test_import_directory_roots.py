@@ -16,9 +16,9 @@ import os
 import pytest
 from sqlalchemy import select
 
-from memorymap.api import routes_settings
-from memorymap.core import deps
-from memorymap.core.database import Entry
+from tessellate.api import routes_settings
+from tessellate.core import deps
+from tessellate.core.database import Entry
 
 
 @pytest.fixture()

@@ -38,7 +38,7 @@ REPO_ROOT = Path(SPECPATH).resolve().parents[1]
 FRONTEND_DIR = REPO_ROOT / "frontend"
 MIGRATIONS_DIR = REPO_ROOT / "migrations"
 ALEMBIC_INI = REPO_ROOT / "alembic.ini"
-ENTRY_SCRIPT = REPO_ROOT / "src" / "memorymap" / "__main__.py"
+ENTRY_SCRIPT = REPO_ROOT / "src" / "tessellate" / "__main__.py"
 ICON = str(FRONTEND_DIR / "icon-512.png")
 
 # Every module of the app, by file: the same list, for the same reason, as
@@ -49,7 +49,7 @@ SRC_DIR = REPO_ROOT / "src"
 
 def _app_modules():
     found = []
-    for path in sorted((SRC_DIR / "memorymap").rglob("*.py")):
+    for path in sorted((SRC_DIR / "tessellate").rglob("*.py")):
         parts = list(path.relative_to(SRC_DIR).with_suffix("").parts)
         if parts[-1] == "__main__":
             continue
@@ -155,7 +155,7 @@ a = Analysis(
         (str(REPO_ROOT / "CHANGELOG.md"), "."),
         # The taxonomy pack filing reads (ai/taxonomy.py `DATA_DIR`): JSON
         # beside the module, so it goes where the module's package is.
-        (str(REPO_ROOT / "src" / "memorymap" / "ai" / "data" / "taxonomy"), "memorymap/ai/data/taxonomy"),
+        (str(REPO_ROOT / "src" / "tessellate" / "ai" / "data" / "taxonomy"), "memorymap/ai/data/taxonomy"),
     ],
     hiddenimports=[
         # uvicorn picks its event loop / protocol implementations at
@@ -188,10 +188,10 @@ a = Analysis(
         # Reached only through searxng_manager's importlib facade, so the
         # analysis cannot see them; the Windows spec had them after a real
         # support bundle showed the ModuleNotFoundError, this one never did.
-        "memorymap.search.searxng_settings",
-        "memorymap.search.searxng_docker",
-        "memorymap.search.searxng_install",
-        "memorymap.search.searxng_process",
+        "tessellate.search.searxng_settings",
+        "tessellate.search.searxng_docker",
+        "tessellate.search.searxng_install",
+        "tessellate.search.searxng_process",
         *APP_MODULES,
         *STDLIB_MODULES,
     ],

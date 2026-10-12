@@ -19,7 +19,7 @@ from pathlib import Path
 
 
 def _config_module():
-    for name in ("tessellate.core.config", "memorymap.core.config"):
+    for name in ("tessellate.core.config", "tessellate.core.config"):
         try:
             return importlib.import_module(name)
         except ImportError:

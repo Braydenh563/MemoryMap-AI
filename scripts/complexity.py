@@ -1,4 +1,4 @@
-"""Cyclomatic complexity and import cycles over `src/memorymap` (WORLD_CLASS_PLAN 26.2, decision 63).
+"""Cyclomatic complexity and import cycles over `src/tessellate` (WORLD_CLASS_PLAN 26.2, decision 63).
 
     python scripts/complexity.py            # functions over 15, worst first
     python scripts/complexity.py --cycles   # strongly connected import groups
@@ -24,7 +24,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
-PKG = SRC / "memorymap"
+PKG = SRC / "tessellate"
 THRESHOLD = 15
 
 

@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from memorymap.ai import librarian
-from memorymap.core import deps
+from tessellate.ai import librarian
+from tessellate.core import deps
 from tests.fakes import FakeOllama
 
 

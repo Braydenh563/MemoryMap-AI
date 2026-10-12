@@ -6,11 +6,11 @@ from __future__ import annotations
 
 import logging
 
-from memorymap.core import activity
+from tessellate.core import activity
 
 
 def test_health_carries_every_rule_14_field_dated(client):
-    logging.getLogger("memorymap.test").error("a planted failure")
+    logging.getLogger("tessellate.test").error("a planted failure")
     job = activity.start("generation", "Answering in Chat", stoppable=True)
     try:
         body = client.get("/debug/health").json()

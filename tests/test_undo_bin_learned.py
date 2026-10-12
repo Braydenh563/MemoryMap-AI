@@ -64,7 +64,7 @@ def test_a_correction_can_be_taken_back_by_its_id_only(ai_client, session):
     reply_4 = ai_client.delete(f"/learned/corrections/{made['id']}")
     assert reply_4.status_code == 404
     #: Any other row of the event log is out of reach.
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     row = manager.log_action(session, "queried", "chat", detail="x")
     session.commit()

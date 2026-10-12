@@ -1,7 +1,7 @@
 """INBOX 527: one agent turn against a real model, printed: the tools offered,
 every call, the answer. For reading why a turn went the way it did.
 
-    MEMORYMAP_EVALS_URL=... MEMORYMAP_EVALS_MODEL=... PYTHONPATH=src \
+    TESSELLATE_EVALS_URL=... TESSELLATE_EVALS_MODEL=... PYTHONPATH=src \
         .venv/bin/python scratchpad/harness_probe.py "Make a note: buy milk" ...
 """
 import json
@@ -13,14 +13,14 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from memorymap.ai import agent
-from memorymap.ai.openai_client import OpenAICompatClient
-from memorymap.api.app import create_app
-from memorymap.core import deps
-from memorymap.entry import manager
+from tessellate.ai import agent
+from tessellate.ai.openai_client import OpenAICompatClient
+from tessellate.api.app import create_app
+from tessellate.core import deps
+from tessellate.entry import manager
 
 logging.disable(logging.WARNING)
-URL, MODEL = os.environ["MEMORYMAP_EVALS_URL"], os.environ["MEMORYMAP_EVALS_MODEL"]
+URL, MODEL = os.environ["TESSELLATE_EVALS_URL"], os.environ["TESSELLATE_EVALS_MODEL"]
 data = Path(tempfile.mkdtemp())
 deps.init_app_state(data_dir=data)
 deps.override_ai(ollama=OpenAICompatClient(base_url=URL))

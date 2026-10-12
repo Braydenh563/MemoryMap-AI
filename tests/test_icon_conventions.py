@@ -153,7 +153,7 @@ def test_design_md_has_the_row_and_names_this_lint() -> None:
 
 PY = {
     p.relative_to(ROOT / "src").as_posix(): p.read_text(encoding="utf-8")
-    for p in sorted((ROOT / "src" / "memorymap").rglob("*.py"))
+    for p in sorted((ROOT / "src" / "tessellate").rglob("*.py"))
 }
 
 AI_ICON = "sparkle"

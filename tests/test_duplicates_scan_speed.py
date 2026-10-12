@@ -10,7 +10,7 @@ import time
 
 import pytest
 
-from memorymap.entry import duplicates
+from tessellate.entry import duplicates
 
 
 def _brute(texts: list[str], threshold: float) -> dict[tuple[int, int], float]:

@@ -9,11 +9,11 @@ from datetime import timedelta
 
 from sqlalchemy import select
 
-from memorymap.ai import composer, insights
-from memorymap.core.config import user_now
-from memorymap.core.database import DerivedFact, Entry
-from memorymap.core import deps
-from memorymap.entry import manager
+from tessellate.ai import composer, insights
+from tessellate.core.config import user_now
+from tessellate.core.database import DerivedFact, Entry
+from tessellate.core import deps
+from tessellate.entry import manager
 from tests.test_composer_route_688 import _ask
 from tests.test_insights import GOLF, TODAY
 

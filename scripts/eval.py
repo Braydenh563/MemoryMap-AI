@@ -50,8 +50,8 @@ def main() -> int:
     parser.add_argument("--verbose", action="store_true", help="Print every ask, not only the misses")
     args = parser.parse_args()
 
-    from memorymap.ai import agent, tools
-    from memorymap.core import deps
+    from tessellate.ai import agent, tools
+    from tessellate.core import deps
     from tests.eval import fixture, golden
 
     with tempfile.TemporaryDirectory(prefix="memorymap-eval-") as tmp:

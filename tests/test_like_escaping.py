@@ -22,11 +22,11 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "src" / "memorymap"
+SRC = ROOT / "src" / "tessellate"
 
 
 def test_escaping_and_unescaping_round_trips():
-    from memorymap.core.database import like_escape
+    from tessellate.core.database import like_escape
 
     assert like_escape("100%") == r"100\%"
     assert like_escape("a_b") == r"a\_b"

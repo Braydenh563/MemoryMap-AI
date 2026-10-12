@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.core import docexport
+from tessellate.core import docexport
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCUMENTS_JS = ROOT / "frontend" / "js" / "documents.js"

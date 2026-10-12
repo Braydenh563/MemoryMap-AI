@@ -19,7 +19,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-SRC = Path(__file__).resolve().parents[1] / "src" / "memorymap"
+SRC = Path(__file__).resolve().parents[1] / "src" / "tessellate"
 
 #: Calls that count as "says something": the logging methods, the project's
 #: own `_log*` helpers and the audit log.
@@ -27,27 +27,27 @@ _LOG_NAMES = {"debug", "info", "warning", "warn", "error", "exception", "critica
 
 SEED = frozenset(
     """
-src/memorymap/__main__.py::_bootloader_splash::1
-src/memorymap/ai/margin.py::_date_card::1
-src/memorymap/ai/provider.py::Provider.preferred_context::1
-src/memorymap/ai/tools/__init__.py::prefetch_web.one::1
-src/memorymap/ai/tools/__init__.py::with_relation_types::1
-src/memorymap/ai/vision_ocr.py::pdf_reader_or_none::1
-src/memorymap/ai/vision_ocr.py::pdf_vision_ocr_and_store::1
-src/memorymap/api/app.py::out_of_space_body::1
-src/memorymap/api/routes_chat.py::_attachment_readings::1
-src/memorymap/api/routes_chat.py::_composer_embed::1
-src/memorymap/api/routes_models.py::_tools_engine::1
-src/memorymap/core/docview.py::_docx_part::1
-src/memorymap/core/egress.py::_hook::1
-src/memorymap/core/ocr.py::extract_and_store::1
-src/memorymap/core/webclip.py::_read::1
-src/memorymap/entry/app_import.py::read_evernote::1
-src/memorymap/entry/link_facts.py::reason_for::1
-src/memorymap/search/chunks.py::current::1
-src/memorymap/search/chunks.py::meaning_scorer::1
-src/memorymap/search/engine.py::_backend_id::1
-src/memorymap/search/search_manager.py::_named_category::1
+src/tessellate/__main__.py::_bootloader_splash::1
+src/tessellate/ai/margin.py::_date_card::1
+src/tessellate/ai/provider.py::Provider.preferred_context::1
+src/tessellate/ai/tools/__init__.py::prefetch_web.one::1
+src/tessellate/ai/tools/__init__.py::with_relation_types::1
+src/tessellate/ai/vision_ocr.py::pdf_reader_or_none::1
+src/tessellate/ai/vision_ocr.py::pdf_vision_ocr_and_store::1
+src/tessellate/api/app.py::out_of_space_body::1
+src/tessellate/api/routes_chat.py::_attachment_readings::1
+src/tessellate/api/routes_chat.py::_composer_embed::1
+src/tessellate/api/routes_models.py::_tools_engine::1
+src/tessellate/core/docview.py::_docx_part::1
+src/tessellate/core/egress.py::_hook::1
+src/tessellate/core/ocr.py::extract_and_store::1
+src/tessellate/core/webclip.py::_read::1
+src/tessellate/entry/app_import.py::read_evernote::1
+src/tessellate/entry/link_facts.py::reason_for::1
+src/tessellate/search/chunks.py::current::1
+src/tessellate/search/chunks.py::meaning_scorer::1
+src/tessellate/search/engine.py::_backend_id::1
+src/tessellate/search/search_manager.py::_named_category::1
 """.split()
 )
 

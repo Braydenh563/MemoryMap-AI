@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.core import deps, events
-from memorymap.core.database import AuditLog
+from tessellate.core import deps, events
+from tessellate.core.database import AuditLog
 
 ROOT = Path(__file__).resolve().parents[1]
 COLUMNS = ["time", "actor", "action", "entity kind", "entity id", "title"]
@@ -65,7 +65,7 @@ def test_every_formula_lead_is_defanged_in_every_cell(client, lead):
 
 def test_events_about_private_notes_and_the_vault_are_left_out(client):
     public = client.post("/entries", json={"content": "an ordinary note"}).json()
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     with deps.get_db().session() as session:
         row = Entry(content="a private one", is_private=True)
@@ -90,7 +90,7 @@ def test_events_about_a_private_note_stay_out_after_it_is_purged(client):
     true}`) and the export leaves sealed events out by that flag."""
     from sqlalchemy import select
 
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     with deps.get_db().session() as session:
         row = Entry(content="a private one", is_private=True, is_deleted=True)
@@ -149,6 +149,6 @@ def test_the_activity_menu_offers_export_activity_and_the_help_says_so():
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     button = html.split('id="library-activity-export"', 1)[1].split("</button>", 1)[0]
     assert "Export activity" in button
-    help_text = (ROOT / "src" / "memorymap" / "ai" / "help_topics_more.py").read_text(encoding="utf-8")
-    help_chat = (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8")
+    help_text = (ROOT / "src" / "tessellate" / "ai" / "help_topics_more.py").read_text(encoding="utf-8")
+    help_chat = (ROOT / "src" / "tessellate" / "ai" / "help_chat.py").read_text(encoding="utf-8")
     assert "Export activity" in help_text + help_chat

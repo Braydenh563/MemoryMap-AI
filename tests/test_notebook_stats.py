@@ -20,9 +20,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from memorymap.ai import notebook_stats
-from memorymap.core import deps
-from memorymap.core.database import Category, Entry, EntryLink
+from tessellate.ai import notebook_stats
+from tessellate.core import deps
+from tessellate.core.database import Category, Entry, EntryLink
 
 
 def _note(session, content, tags=(), category=None):
@@ -325,7 +325,7 @@ def test_a_count_over_a_window_counts_the_window(client):
     `ai/recognise.py` and counted (CHAT_PLAN F1)."""
     from datetime import timedelta
 
-    from memorymap.core.database import utcnow
+    from tessellate.core.database import utcnow
 
     with _session() as session:
         _note(session, "new one")

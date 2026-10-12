@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import numpy as np
 
-from memorymap.ai.embeddings import EmbeddingService
-from memorymap.ai.ollama_client import OllamaError, ToolsUnsupportedError
+from tessellate.ai.embeddings import EmbeddingService
+from tessellate.ai.ollama_client import OllamaError, ToolsUnsupportedError
 
 # Three "topics" the fake embedder understands, one axis each. The 4th
 # axis is a catch-all so no vector is ever all-zero.
@@ -191,7 +191,7 @@ class FakeOllama:
         # Mimic the real client recovering a tool call the model wrote as
         # text (Wave O): one-shot, so the second round returns the answer.
         if self.text_tool_reply:
-            from memorymap.ai.ollama_client import extract_text_tool_calls
+            from tessellate.ai.ollama_client import extract_text_tool_calls
 
             offered = {t.get("function", {}).get("name") for t in tools}
             recovered, cleaned = extract_text_tool_calls(self.text_tool_reply, offered)

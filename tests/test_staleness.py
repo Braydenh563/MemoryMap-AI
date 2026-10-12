@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from memorymap.core.database import Entry, utcnow
-from memorymap.entry import staleness
+from tessellate.core.database import Entry, utcnow
+from tessellate.entry import staleness
 
 
 def _age(session, entry_id, days):

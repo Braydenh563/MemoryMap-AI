@@ -4,7 +4,7 @@ its child is the newest id on the map; ordered by its own id, its branch went
 to the end of the palette and every branch after it shifted. A branch is as
 old as its oldest topic (whiteboard-map.js `wbMapColors` agrees)."""
 
-from memorymap.api.routes_whiteboard import MAP_BRANCH_PALETTE, _map_branch_colors
+from tessellate.api.routes_whiteboard import MAP_BRANCH_PALETTE, _map_branch_colors
 
 
 def test_an_untouched_map_colours_its_branches_in_order():

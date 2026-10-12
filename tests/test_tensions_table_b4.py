@@ -15,8 +15,8 @@ from datetime import timedelta
 
 from sqlalchemy import select
 
-from memorymap.ai import facts, tensions
-from memorymap.core.database import AuditLog, DerivedTension, Entry, EntryLink, utcnow
+from tessellate.ai import facts, tensions
+from tessellate.core.database import AuditLog, DerivedTension, Entry, EntryLink, utcnow
 
 
 def _note(client, session, text, days_ago):
@@ -141,8 +141,8 @@ def test_the_listing_shows_what_a_person_may_open(client, session):
 
 
 def test_a_scan_records_what_it_found_and_never_asks_twice(client, session, monkeypatch):
-    from memorymap.api import routes_entries
-    from memorymap.core import deps
+    from tessellate.api import routes_entries
+    from tessellate.core import deps
 
     a = _note(client, session, "The launch is in May.", 90)
     b = _note(client, session, "The launch slipped to August.", 10)

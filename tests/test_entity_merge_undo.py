@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
-from memorymap.core.database import Entity, EntityMention
+from tessellate.core.database import Entity, EntityMention
 
 
 def _note(client, text: str) -> int:

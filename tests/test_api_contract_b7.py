@@ -16,10 +16,10 @@ from __future__ import annotations
 import inspect
 from datetime import timedelta
 
-from memorymap.api import paging
-from memorymap.api.app import create_app
-from memorymap.core import deps
-from memorymap.core.database import Entry
+from tessellate.api import paging
+from tessellate.api.app import create_app
+from tessellate.core import deps
+from tessellate.core.database import Entry
 from tests.test_list_limits import _routes
 
 
@@ -178,7 +178,7 @@ def test_capabilities_says_what_is_installed(client):
 
 
 def test_the_packaged_app_offers_its_own_mcp_flag_not_a_python_command(client, monkeypatch):
-    """`python -m memorymap.mcp_server` has no Python to run in behind a
+    """`python -m tessellate.mcp_server` has no Python to run in behind a
     frozen exe; the packaged app said "installed" with it anyway. It now
     answers with `--mcp`, which the exe does take (OPEN ledger 319)."""
     import sys
@@ -188,10 +188,10 @@ def test_the_packaged_app_offers_its_own_mcp_flag_not_a_python_command(client, m
     mcp = r.json()["features"]["mcp"]
     assert mcp["installed"] is True and mcp["command"] == "Tessellate --mcp"
     assert mcp["config"]["args"] == ["--mcp"] and "python" not in mcp["config"]["args"]
-    assert mcp["config"]["env"]["MEMORYMAP_DATA_DIR"]
+    assert mcp["config"]["env"]["TESSELLATE_DATA_DIR"]
     monkeypatch.delattr(sys, "frozen")
     r2 = client.get("/capabilities")
     source = r2.json()["features"]["mcp"]
-    assert source["installed"] is True and source["command"] == "python -m memorymap.mcp_server"
-    assert source["config"]["args"] == ["-m", "memorymap.mcp_server"]
-    assert source["config"]["env"]["MEMORYMAP_DATA_DIR"]
+    assert source["installed"] is True and source["command"] == "python -m tessellate.mcp_server"
+    assert source["config"]["args"] == ["-m", "tessellate.mcp_server"]
+    assert source["config"]["env"]["TESSELLATE_DATA_DIR"]

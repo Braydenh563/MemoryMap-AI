@@ -15,7 +15,7 @@ from __future__ import annotations
 import threading
 import time
 
-from memorymap.core import jobs
+from tessellate.core import jobs
 
 
 def test_a_lane_never_exceeds_its_width() -> None:
@@ -189,8 +189,8 @@ def test_every_in_background_helper_enqueues_rather_than_spawning() -> None:
     ones a bulk upload multiplies, and none of them may own a thread."""
     import inspect
 
-    from memorymap.ai import captioning, docreader, vision_ocr
-    from memorymap.core import ocr
+    from tessellate.ai import captioning, docreader, vision_ocr
+    from tessellate.core import ocr
 
     helpers = [
         ocr.extract_in_background,

@@ -13,7 +13,7 @@ import json
 
 import pytest
 
-from memorymap.ai import agent
+from tessellate.ai import agent
 
 
 def test_a_missing_id_says_to_search_rather_than_guess():

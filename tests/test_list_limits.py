@@ -21,7 +21,7 @@ import inspect
 
 from fastapi.routing import APIRoute
 
-from memorymap.api.app import create_app
+from tessellate.api.app import create_app
 
 #: A list route is allowed to return everything only when "everything" is a
 #: number the app itself fixes. One line per route, with the bound.

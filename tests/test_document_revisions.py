@@ -15,8 +15,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from memorymap.api import routes_documents
-from memorymap.core.database import DocumentRevision, utcnow
+from tessellate.api import routes_documents
+from tessellate.core.database import DocumentRevision, utcnow
 
 
 def _make(client, content="First version."):

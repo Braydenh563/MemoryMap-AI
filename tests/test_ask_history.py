@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 
-from memorymap.entry import manager
+from tessellate.entry import manager
 
 
 def _ask(client, question, **body):

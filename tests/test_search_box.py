@@ -15,8 +15,8 @@ from pathlib import Path
 import pytest
 from sqlalchemy import text as sa_text
 
-from memorymap.core import deps
-from memorymap.search.query import understand
+from tessellate.core import deps
+from tessellate.search.query import understand
 
 NOW = date(2026, 6, 3)
 
@@ -75,7 +75,7 @@ def test_kind_names_the_chat_kind():
 
 
 def _seed_one_of_each():
-    from memorymap.core.database import (
+    from tessellate.core.database import (
         AskTurn,
         Attachment,
         Bookmark,
@@ -112,7 +112,7 @@ def _seed_one_of_each():
 
 def test_every_kind_has_a_count_and_chat_is_one(client):
     body = client.get("/search?q=anything").json()
-    from memorymap.search import index
+    from tessellate.search import index
 
     assert "chat" in index.KINDS
     assert set(body["counts"]) == set(index.KINDS)
@@ -136,7 +136,7 @@ def test_a_chat_turn_and_an_ask_turn_are_both_chat(client):
 
 def test_the_route_pages(client):
     with deps.get_db().session() as session:
-        from memorymap.core.database import Entry
+        from tessellate.core.database import Entry
 
         for index in range(7):
             session.add(Entry(content=f"paging marmalade {index}"))
@@ -161,8 +161,8 @@ def test_limit_and_page_are_bounded(client):
 
 def test_a_chat_already_written_is_indexed_at_the_next_start(app_state):
     """A notebook indexed before chats were a kind: the boot reconcile adds them."""
-    from memorymap.core.database import Conversation
-    from memorymap.search import index
+    from tessellate.core.database import Conversation
+    from tessellate.search import index
 
     with deps.get_db().session() as session:
         session.add(Conversation(title="old", messages=json.dumps([{"role": "user", "content": "quokka"}])))
@@ -177,7 +177,7 @@ def test_a_chat_already_written_is_indexed_at_the_next_start(app_state):
 
 
 def test_a_deleted_conversation_leaves_the_index(client):
-    from memorymap.core.database import Conversation
+    from tessellate.core.database import Conversation
 
     with deps.get_db().session() as session:
         conv = Conversation(title="gone", messages=json.dumps([{"role": "user", "content": "axolotl"}]))
@@ -218,7 +218,7 @@ def test_the_box_is_lazy_and_opened_through_a_stand_in():
 
 
 def test_every_kind_the_index_holds_has_a_chip_and_an_opener():
-    from memorymap.search import index
+    from tessellate.search import index
 
     source = _text("search.js")
     kinds = source[source.index("const FINDER_KINDS = [") :]
@@ -260,7 +260,7 @@ def test_saved_searches_are_kept_in_preferences(client):
 def test_a_tag_alone_finds_every_note_it_is_on_not_the_newest_page(client):
     """`tag:` was applied after the newest 200 rows were read, so an older
     tagged note was never found by the tag alone (Brief 47's bench)."""
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     with deps.get_db().session() as session:
         for index in range(3):

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 
-from memorymap.core.activity import StreamNarrator
+from tessellate.core.activity import StreamNarrator
 
 
 def _said(events: list[dict]) -> list[str]:

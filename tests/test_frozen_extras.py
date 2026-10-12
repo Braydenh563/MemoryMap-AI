@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.core import extras
+from tessellate.core import extras
 
 
 @pytest.fixture(autouse=True)
@@ -29,7 +29,7 @@ def _clean_extras():
 
 @pytest.fixture
 def frozen(monkeypatch, tmp_path):
-    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("TESSELLATE_DATA_DIR", str(tmp_path))
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     return tmp_path
 

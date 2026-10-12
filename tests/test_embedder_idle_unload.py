@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import types
 
-from memorymap.ai.embeddings import EmbeddingService
+from tessellate.ai.embeddings import EmbeddingService
 
 
 def _service(minutes=60):

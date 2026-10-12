@@ -14,12 +14,12 @@ import re
 from pathlib import Path
 from tests._app_js import frontend_text
 
-SOURCE = Path("src/memorymap/__main__.py").read_text(encoding="utf-8")
+SOURCE = Path("src/tessellate/__main__.py").read_text(encoding="utf-8")
 
 
 def _parser() -> argparse.ArgumentParser:
     """The same shape as the real one: flags only, no positionals."""
-    parser = argparse.ArgumentParser(prog="memorymap")
+    parser = argparse.ArgumentParser(prog="tessellate")
     parser.add_argument("--desktop", action="store_true")
     parser.add_argument("--reset-password", action="store_true")
     parser.add_argument("--hidden-relaunch", action="store_true")
@@ -49,7 +49,7 @@ def test_the_fixed_argv_parses_in_both_install_types():
     # Frozen: argv is already correct as-is.
     assert _parser().parse_args(frozen_argv[1:]).desktop is True
     # Source: python.exe plus the script path.
-    source_argv = ["/usr/bin/python", "/src/memorymap/__main__.py", "--desktop"]
+    source_argv = ["/usr/bin/python", "/src/tessellate/__main__.py", "--desktop"]
     assert _parser().parse_args(source_argv[2:]).desktop is True
 
 
@@ -69,7 +69,7 @@ def test_restart_never_hands_windows_an_unquoted_argv(monkeypatch):
     `Popen` (which quotes), then this one exits."""
     import subprocess
 
-    from memorymap import __main__ as launcher
+    from tessellate import __main__ as launcher
 
     started: list = []
     monkeypatch.setattr(launcher.sys, "platform", "win32")
@@ -171,7 +171,7 @@ def test_the_setting_round_trips_through_preferences():
     """A field Pydantic doesn't know about is silently dropped, which is how a
     switch that looks like it saves doesn't: the same bug this file's
     console-mode tests exist for."""
-    settings = Path("src/memorymap/api/routes_settings.py").read_text(encoding="utf-8")
+    settings = Path("src/tessellate/api/routes_settings.py").read_text(encoding="utf-8")
     assert "close_to_tray: bool | None = None" in settings
     assert '"close_to_tray": config.get_preference("close_to_tray", True)' in settings
     html = Path("frontend/index.html").read_text(encoding="utf-8")

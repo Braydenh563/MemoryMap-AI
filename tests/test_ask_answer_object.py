@@ -22,7 +22,7 @@ import json
 import re
 from pathlib import Path
 
-from memorymap.entry import manager
+from tessellate.entry import manager
 from tests._app_js import app_js_text
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"

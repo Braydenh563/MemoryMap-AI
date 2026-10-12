@@ -13,9 +13,9 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
-from memorymap.ai import lexical_filing
-from memorymap.core.database import AuditLog, Category
-from memorymap.entry import manager, tidy
+from tessellate.ai import lexical_filing
+from tessellate.core.database import AuditLog, Category
+from tessellate.entry import manager, tidy
 
 
 def _notes(session, rows) -> None:

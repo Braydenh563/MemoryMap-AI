@@ -22,9 +22,9 @@ import json
 
 from sqlalchemy import select
 
-from memorymap.core import events
-from memorymap.core.database import AuditLog, Entry
-from memorymap.entry import manager
+from tessellate.core import events
+from tessellate.core.database import AuditLog, Entry
+from tessellate.entry import manager
 
 AI = "system:librarian"
 
@@ -179,8 +179,8 @@ def _pick(category: str, method: str = "llm"):
 
 
 def test_capture_filing_is_an_event_the_filer_owns_and_undo_reverses(client, session, monkeypatch):
-    from memorymap.ai import janitor
-    from memorymap.api import routes_entries
+    from tessellate.ai import janitor
+    from tessellate.api import routes_entries
 
     entry = manager.create_entry(session, "Repot the fig before it gets root bound")
     entry.filing_state = "pending"  # as a deferred save leaves it
@@ -203,8 +203,8 @@ def test_capture_filing_is_an_event_the_filer_owns_and_undo_reverses(client, ses
 
 
 def test_a_filing_that_changes_nothing_writes_nothing(session, monkeypatch):
-    from memorymap.ai import janitor
-    from memorymap.api import routes_entries
+    from tessellate.ai import janitor
+    from tessellate.api import routes_entries
 
     entry = manager.create_entry(session, "Repot the fig", category_name="Garden")
     entry.filing_state = "pending"
@@ -217,7 +217,7 @@ def test_a_filing_that_changes_nothing_writes_nothing(session, monkeypatch):
 
 
 def test_reevaluation_files_as_the_filer_with_values(client, session, monkeypatch):
-    from memorymap.ai import janitor
+    from tessellate.ai import janitor
 
     entry = manager.create_entry(session, "Repot the fig before it gets root bound")
     session.commit()
@@ -240,7 +240,7 @@ def test_private_text_under_a_rotated_key_is_not_written_back(session, monkeypat
     key of that day. After `rotate-vault-key` that text reads under nothing,
     so writing it back would leave a note nobody can open. The other fields
     still go back; the text stays, and the plan says so."""
-    from memorymap.core import crypto, vault
+    from tessellate.core import crypto, vault
 
     old_key, new_key = crypto.new_dek(), crypto.new_dek()
     entry = _note(session)
@@ -262,7 +262,7 @@ def test_private_text_under_a_rotated_key_is_not_written_back(session, monkeypat
 
 
 def test_private_text_under_the_current_key_is_put_back(session, monkeypatch):
-    from memorymap.core import crypto, vault
+    from tessellate.core import crypto, vault
 
     key = crypto.new_dek()
     entry = _note(session)

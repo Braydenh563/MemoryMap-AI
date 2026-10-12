@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from memorymap.core import netbind
+from tessellate.core import netbind
 
 
 def test_the_hint_is_one_netsh_line_for_the_private_profile_only():

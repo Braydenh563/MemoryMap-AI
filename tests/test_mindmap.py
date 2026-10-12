@@ -23,8 +23,8 @@ import json
 
 import pytest
 
-from memorymap.api.routes_whiteboard import MAP_BRANCH_PALETTE
-from memorymap.core.database import Entry, WhiteboardObject
+from tessellate.api.routes_whiteboard import MAP_BRANCH_PALETTE
+from tessellate.core.database import Entry, WhiteboardObject
 
 
 def _map(client, name="Thesis map", layout="tree-right"):
@@ -476,7 +476,7 @@ def test_a_topic_carries_no_facets_at_all(client):
 def test_a_private_notes_filing_stays_behind_the_boundary(client, session):
     """Its title already does (`_reference_label` renders "Private note"), and
     its category and its edit time are facts about it too."""
-    from memorymap.core import vault
+    from tessellate.core import vault
 
     vault.close()
     vault.create(session, "test-passphrase")
@@ -1231,7 +1231,7 @@ def test_a_map_a_tool_touched_becomes_a_chip_in_the_transcript():
     read a whole map showed a bare tool name and no way to open what it read,
     which is the failure that line exists to prevent.
     """
-    from memorymap.ai import agent
+    from tessellate.ai import agent
 
     rows = agent._touched_items(
         {"board_id": 7, "board_title": "Thesis map", "node_count": 12, "outline": "…"}
@@ -1243,14 +1243,14 @@ def test_a_created_map_is_named_from_title_when_there_is_no_board_title():
     """`create_mindmap` returns `title`, `read_mindmap` returns `board_title`.
     Both are the map's name, and a chip reading "map #12" for one of them
     would be the same bug wearing a different key."""
-    from memorymap.ai import agent
+    from tessellate.ai import agent
 
     rows = agent._touched_items({"board_id": 12, "title": "New map", "root_id": 3})
     assert rows == [{"kind": "map", "id": 12, "label": "New map"}]
 
 
 def test_a_result_with_no_board_id_still_contributes_nothing():
-    from memorymap.ai import agent
+    from tessellate.ai import agent
 
     assert agent._touched_items({"ok": True}) == []
 
@@ -1354,8 +1354,8 @@ def _prepared(**body):
     needs a running model to answer, and this is a test about what the model
     is *given*, not about what it says back.
     """
-    from memorymap.api import routes_chat
-    from memorymap.core import deps
+    from tessellate.api import routes_chat
+    from tessellate.core import deps
 
     session = deps.get_db().session()
     try:
@@ -1408,7 +1408,7 @@ def test_attaching_a_map_makes_the_turn_about_the_notebook(client):
     """Same override the other three attachment kinds already apply: "what do
     you think?" with a map clipped to it is a question about that map, however
     smalltalk-shaped it reads."""
-    from memorymap.ai import intent
+    from tessellate.ai import intent
 
     board = _map(client, name="Thesis")
     _node(client, board["id"], text="Argument")
@@ -1442,7 +1442,7 @@ def test_an_empty_map_says_it_is_empty_rather_than_nothing(client):
 
 def test_a_long_outline_is_truncated_to_the_budget(client):
     """Every character here is resent on every round of the turn."""
-    from memorymap.api import routes_chat
+    from tessellate.api import routes_chat
 
     board = _map(client, name="Huge")
     root = _node(client, board["id"], text="Root")

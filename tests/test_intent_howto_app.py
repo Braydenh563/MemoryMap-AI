@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import intent
+from tessellate.ai import intent
 
 
 @pytest.mark.parametrize(

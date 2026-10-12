@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from memorymap.api import run_sandbox
+from tessellate.api import run_sandbox
 
 JS = Path(__file__).resolve().parents[1] / "frontend" / "js" / "documents-code.js"
 

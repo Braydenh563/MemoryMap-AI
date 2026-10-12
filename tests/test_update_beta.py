@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap import __version__
-from memorymap.api import routes_update
+from tessellate import __version__
+from tessellate.api import routes_update
 
 
 @pytest.fixture(autouse=True)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import time
 
-from memorymap.core import deps, extras
+from tessellate.core import deps, extras
 
 
 def test_reset_failure_state_clears_cached_error(app_state):

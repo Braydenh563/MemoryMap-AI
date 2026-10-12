@@ -30,8 +30,8 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import lexical_filing, tagging
-from memorymap.entry import manager
+from tessellate.ai import lexical_filing, tagging
+from tessellate.entry import manager
 
 NOTES = json.loads((Path(__file__).parent / "fixtures" / "filing" / "notes.json").read_text(encoding="utf-8"))
 #: The floor this file holds: no step may file fewer right, and of the notes

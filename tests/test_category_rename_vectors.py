@@ -18,9 +18,9 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
-from memorymap.core import deps
-from memorymap.core.database import Category, EmbeddingRecord, Entry
-from memorymap.entry import manager
+from tessellate.core import deps
+from tessellate.core.database import Category, EmbeddingRecord, Entry
+from tessellate.entry import manager
 
 
 def _vector_count(session, entry_ids) -> int:

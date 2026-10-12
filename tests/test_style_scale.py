@@ -761,7 +761,7 @@ LITERAL_HEIGHT = re.compile(r"(?<![-\w])(?:min-|max-)?height:\s*[0-9.]+(?:rem|px
 
 
 def test_the_density_scale_is_three_tokens_and_the_bar_reads_them():
-    from memorymap.api.asset_strip import strip_for_path
+    from tessellate.api.asset_strip import strip_for_path
 
     tokens = (FRONTEND_DIR / "css" / "00-tokens-shell.css").read_text(encoding="utf-8")
     for decl in ("--control-h-dense: 1.75rem;", "--control-h-lg: 2rem;",
@@ -901,7 +901,7 @@ def test_every_declared_token_is_read():
     text = "\n".join(re.sub(r"/\*.*?\*/", "", p.read_text(encoding="utf-8"), flags=re.S) for p in CSS_DIR.glob("*.css"))
     other = "\n".join(
         p.read_text(encoding="utf-8", errors="ignore")
-        for pattern in ("frontend/js/*.js", "frontend/*.html", "frontend/*.js", "src/memorymap/**/*.py")
+        for pattern in ("frontend/js/*.js", "frontend/*.html", "frontend/*.js", "src/tessellate/**/*.py")
         for p in root.glob(pattern)
     )
     declared = set(re.findall(r"(?:^|[;{\s])(--[\w-]+)\s*:", text))

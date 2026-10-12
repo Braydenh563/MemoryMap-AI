@@ -16,8 +16,8 @@ import json
 
 import pytest
 
-from memorymap.core import vault
-from memorymap.core.database import Entry
+from tessellate.core import vault
+from tessellate.core.database import Entry
 
 TAG, SUGGESTED, DISCARDED = "zq-tagword", "zq-suggestedword", "zq-discardedword"
 
@@ -107,8 +107,8 @@ def test_answering_a_suggestion_on_a_private_note_works_like_tagging_it(client, 
 
 
 def test_the_model_and_search_never_see_them(client, session):
-    from memorymap.core import deps
-    from memorymap.search import search_manager
+    from tessellate.core import deps
+    from tessellate.search import search_manager
 
     entry_id = _private_note(client, session, "zarquon private words")
     for word in (TAG, SUGGESTED, DISCARDED, "zarquon"):
@@ -117,7 +117,7 @@ def test_the_model_and_search_never_see_them(client, session):
 
 
 def test_filing_makes_no_suggestions_for_a_private_note(client, session):
-    from memorymap.api import routes_entries
+    from tessellate.api import routes_entries
 
     #: A vocabulary tag the private note names, so a public note would be offered it.
     client.post("/entries", json={"content": "starter notes", "tags": ["sourdough"]})

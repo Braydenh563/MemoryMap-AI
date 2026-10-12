@@ -14,10 +14,10 @@ from __future__ import annotations
 import json
 import re
 
-from memorymap.ai import grounding
-from memorymap.ai.embeddings import paragraph_chunks
-from memorymap.core.database import Entry
-from memorymap.search import chunks
+from tessellate.ai import grounding
+from tessellate.ai.embeddings import paragraph_chunks
+from tessellate.core.database import Entry
+from tessellate.search import chunks
 from tests._app_js import app_js_text
 
 FILLER = "and the rest of the paragraph carries on with ordinary words about the week"
@@ -140,7 +140,7 @@ def test_no_backend_means_no_meaning_scorer(session):
 
 
 def test_the_ask_stream_sends_the_evidence_fields(ai_client, fake_ollama, session):
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     manager.create_entry(session, "The runner beans need netting before the pigeons find them")
     session.commit()

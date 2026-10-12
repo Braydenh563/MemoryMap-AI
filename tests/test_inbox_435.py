@@ -67,7 +67,7 @@ def test_an_unfiled_note_offers_one_tap_categories():
 
 
 def test_the_needle_caveat_says_it_is_offline_and_nothing_is_asked():
-    extras = (ROOT / "src" / "memorymap" / "core" / "extras.py").read_text(encoding="utf-8")
+    extras = (ROOT / "src" / "tessellate" / "core" / "extras.py").read_text(encoding="utf-8")
     assert "Runs offline, inside the app." in extras and "Nothing for you to do." in extras
 
 

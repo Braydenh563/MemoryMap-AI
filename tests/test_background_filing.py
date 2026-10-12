@@ -11,9 +11,9 @@ import time
 
 import pytest
 
-from memorymap.api import routes_entries
-from memorymap.core import jobs
-from memorymap.core.database import Entry
+from tessellate.api import routes_entries
+from tessellate.core import jobs
+from tessellate.core.database import Entry
 
 
 def _wait_settled(client, entry_id, timeout=10.0):
@@ -65,7 +65,7 @@ def test_filing_jobs_are_deduplicated_per_note(monkeypatch):
 
 
 def test_a_slow_model_does_not_hold_filing_past_the_deadline(monkeypatch):
-    from memorymap.ai import janitor
+    from tessellate.ai import janitor
 
     class _Slow:
         def chat(self, model, messages, mode=None):
@@ -79,7 +79,7 @@ def test_a_slow_model_does_not_hold_filing_past_the_deadline(monkeypatch):
 
 
 def test_filing_asks_the_model_in_quick_mode():
-    from memorymap.ai import janitor
+    from tessellate.ai import janitor
 
     seen = {}
 
@@ -101,7 +101,7 @@ def test_the_models_late_answer_replaces_the_stand_in(client):
     client.put(f"/entries/{created['id']}", json={"content": "late one"})
     late = routes_entries._LateFiling(created["id"], "default")
     # user_filed is set for a chosen category, so clear it: the stand-in is the AI's.
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     with deps.get_db().session() as s:
         row = s.get(Entry, created["id"])
@@ -115,7 +115,7 @@ def test_the_models_late_answer_replaces_the_stand_in(client):
 
 def test_a_note_moved_by_hand_keeps_its_place(client):
     created = client.post("/entries", json={"content": "moved one", "category": "Mine"}).json()
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     with deps.get_db().session() as s:
         s.get(Entry, created["id"]).user_filed = False
@@ -135,7 +135,7 @@ def test_an_answer_before_the_stand_in_is_used_instead():
 def test_a_late_reply_reaches_the_callback():
     import threading
 
-    from memorymap.ai import janitor
+    from tessellate.ai import janitor
 
     got = threading.Event()
 
@@ -154,8 +154,8 @@ def test_a_late_reply_reaches_the_callback():
 
 
 def test_the_wait_is_a_clamped_preference(monkeypatch):
-    from memorymap.ai import janitor
-    from memorymap.core import deps
+    from tessellate.ai import janitor
+    from tessellate.core import deps
 
     class _Cfg:
         def __init__(self, v):
@@ -196,7 +196,7 @@ def test_stop_rejects_an_unknown_action(client):
 
 
 def test_the_background_tasks_stop_files_every_pending_note(client, monkeypatch):
-    from memorymap.core import bgtasks
+    from tessellate.core import bgtasks
 
     monkeypatch.setattr(routes_entries, "_queue_filing", lambda entry: None)
     ids = [
@@ -211,7 +211,7 @@ def test_the_background_tasks_stop_files_every_pending_note(client, monkeypatch)
 
 
 def test_a_filing_says_who_decided_in_the_notes_history(client, monkeypatch):
-    from memorymap.ai import janitor
+    from tessellate.ai import janitor
 
     monkeypatch.setattr(janitor, "categorise", lambda *a, **k: ("Recipes", 88, "llm"))
     created = client.post("/entries", json={"content": "pasta bake", "defer_filing": True}).json()
@@ -224,14 +224,14 @@ def test_a_stopped_note_stays_open_to_re_evaluation(client, monkeypatch):
     monkeypatch.setattr(routes_entries, "_queue_filing", lambda entry: None)
     created = client.post("/entries", json={"content": "not now", "defer_filing": True}).json()
     client.post(f"/entries/{created['id']}/filing/stop", json={"action": "keep"})
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     with deps.get_db().session() as s:
         assert s.get(Entry, created["id"]).user_filed is False
 
 
 def test_a_cold_embedding_model_does_not_hold_the_stand_in(monkeypatch):
-    from memorymap.ai import janitor
+    from tessellate.ai import janitor
 
     class _Late:
         def waiting(self):
@@ -251,7 +251,7 @@ def test_a_cold_embedding_model_does_not_hold_the_stand_in(monkeypatch):
 
 
 def test_an_ai_change_names_its_model():
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     assert tools._ai_actor("add_tags", "granite4.1:3b") == "ai:add_tags@granite4.1:3b"
     assert tools._ai_actor("add_tags", None) == "ai:add_tags"
@@ -262,7 +262,7 @@ def test_a_new_notebook_files_its_first_note_without_loading_the_embedding_model
     """Nothing filed by meaning means nothing to compare against, so the note
     is never embedded on the way to Uncategorised: that embed was the model's
     cold load on a first launch (E2E first-run, 2026-10-06)."""
-    from memorymap.ai import janitor
+    from tessellate.ai import janitor
 
     class _ColdEmb:
         def embed_text(self, text):
@@ -281,7 +281,7 @@ def test_a_model_that_stalled_is_not_waited_for_again_note_after_note():
     """INBOX 1312: twenty notes against a model that never answers each waited
     its own 15 s in turn (about 300 s). After one miss the next ones file by
     meaning at once."""
-    from memorymap.ai import janitor
+    from tessellate.ai import janitor
 
     calls = []
 
@@ -304,7 +304,7 @@ def test_a_model_that_stalled_is_not_waited_for_again_note_after_note():
 
 
 def test_a_late_answer_shows_the_model_is_alive_and_ends_the_skipping():
-    from memorymap.ai import janitor
+    from tessellate.ai import janitor
 
     class _Slowish:
         def chat(self, model, messages, mode=None):
@@ -321,7 +321,7 @@ def test_a_late_answer_shows_the_model_is_alive_and_ends_the_skipping():
 
 
 def test_a_caller_that_waits_for_the_model_is_never_skipped():
-    from memorymap.ai import janitor
+    from tessellate.ai import janitor
 
     class _Once:
         n = 0
@@ -343,7 +343,7 @@ def test_only_a_few_inline_notes_wait_on_the_model_at_once(monkeypatch):
     each held a database connection through its wait and filled the pool."""
     import threading
 
-    from memorymap.ai import janitor
+    from tessellate.ai import janitor
 
     monkeypatch.setattr(janitor, "_model_slots", threading.BoundedSemaphore(2))
     asked = []
@@ -376,7 +376,7 @@ def test_only_a_few_inline_notes_wait_on_the_model_at_once(monkeypatch):
 
 
 def test_a_client_that_cannot_be_weakly_referenced_is_simply_never_skipped():
-    from memorymap.ai import janitor
+    from tessellate.ai import janitor
 
     class _Slotted:
         __slots__ = ()
@@ -401,7 +401,7 @@ def test_a_note_filed_inline_waits_for_the_model_no_longer_than_the_wait(client,
     monkeypatch.setattr(routes_entries, "_file_entry_now", spy)
     made = client.post("/entries", json={"content": "an inline note, no defer_filing"})
     assert made.status_code == 201
-    from memorymap.ai import janitor
+    from tessellate.ai import janitor
 
     assert seen == [janitor.filing_deadline()]
     assert janitor.filing_deadline() < janitor.BLOCKING_MODEL_DEADLINE_SECONDS

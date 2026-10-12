@@ -24,9 +24,9 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
-from memorymap.api import routes_auth
-from memorymap.api.this_computer import REFUSAL
-from memorymap.core import egress, lancert, lanlive, lanserve, lantrust, netbind, netid, origin, vault
+from tessellate.api import routes_auth
+from tessellate.api.this_computer import REFUSAL
+from tessellate.core import egress, lancert, lanlive, lanserve, lantrust, netbind, netid, origin, vault
 from tests.test_lan_mode import _Http, _lan_port, _network_address, _start, _stop
 
 PASSWORD = "the owner's password"
@@ -190,11 +190,11 @@ def test_turning_away_a_network_drops_the_connections_already_open():
 
 
 def test_a_phones_request_waits_for_this_computer_before_the_semantic_install(monkeypatch):
-    from memorymap.ai import embeddings
-    from memorymap.core import extras, jobs
+    from tessellate.ai import embeddings
+    from tessellate.core import extras, jobs
 
     origin.reset_for_tests()
-    monkeypatch.delenv("MEMORYMAP_NO_AUTO_INSTALL", raising=False)
+    monkeypatch.delenv("TESSELLATE_NO_AUTO_INSTALL", raising=False)
     started = []
     monkeypatch.setattr(extras, "start", lambda name, auto=False: (started.append(name), (False, "test"))[1])
     monkeypatch.setattr(jobs, "enqueue", lambda kind, func, *a, **k: func())
@@ -211,7 +211,7 @@ def test_a_phones_request_waits_for_this_computer_before_the_semantic_install(mo
 
 
 def test_a_job_queued_for_a_phone_runs_as_the_phone():
-    from memorymap.core import jobs
+    from tessellate.core import jobs
 
     with origin.acting_for(True):
         job = jobs._Job(1, "embed", print, (), {}, "x")
@@ -254,7 +254,7 @@ def _here(client) -> TestClient:
 
 
 def _phone(client) -> TestClient:
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     lantrust.set_flag(deps.get_config().data_dir, "ask_new_devices", False)
     phone = TestClient(client.app, base_url="https://192.168.0.50:8443", client=("192.168.0.50", 50001))
@@ -263,7 +263,7 @@ def _phone(client) -> TestClient:
 
 
 def test_trust_and_untrust_from_the_list_are_this_computers(lan_app):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     data_dir = deps.get_config().data_dir
     lantrust.refresh(data_dir, CAFE)  # seen, closed: listed as untrusted
@@ -296,7 +296,7 @@ def test_switching_off_signs_every_other_device_out(lan_app):
 
 
 def test_the_watch_tells_the_status_bar_the_switch_and_the_notice(lan_app):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     here = _here(lan_app)
     lantrust.mark_switched_off(deps.get_config().data_dir)
@@ -308,7 +308,7 @@ def test_the_watch_tells_the_status_bar_the_switch_and_the_notice(lan_app):
 
 
 def test_a_change_from_this_computer_starts_what_waited_and_a_phones_does_not(lan_app, monkeypatch):
-    from memorymap.core import jobs
+    from tessellate.core import jobs
 
     ran = []
     monkeypatch.setattr(jobs, "enqueue", lambda kind, func, *a, **k: func())

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 
-from memorymap.ai import agent, model_manager
+from tessellate.ai import agent, model_manager
 
 
 class _Session:
@@ -264,7 +264,7 @@ def test_a_tool_call_written_as_text_runs_without_a_re_prompt(monkeypatch, app_s
     is handed back, which is what "before any re-prompt" means here: one model
     call in, one tool run out. The count of model calls is the measurement.
     """
-    from memorymap.ai.provider import extract_text_tool_calls
+    from tessellate.ai.provider import extract_text_tool_calls
 
     text = '{"name": "search_notes", "arguments": {"query": "cats"}}'
     recovered, clean = extract_text_tool_calls(text, {"search_notes"})

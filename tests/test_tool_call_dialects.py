@@ -10,7 +10,7 @@ that ship with them. `tests/test_providers.py` covers the structured
 
 import pytest
 
-from memorymap.ai.provider import (
+from tessellate.ai.provider import (
     _ThinkTagSplitter,
     extract_text_tool_calls,
     split_thinking,

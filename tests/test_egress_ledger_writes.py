@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.core import egress
+from tessellate.core import egress
 
 SRC = str(Path(__file__).resolve().parents[1] / "src")
 
@@ -84,7 +84,7 @@ def test_the_writer_and_another_file_do_not_consume_each_others_difference(write
 
 
 def test_a_failed_write_is_carried_by_the_next_flush(writer, monkeypatch):
-    from memorymap.core import atomic_io
+    from tessellate.core import atomic_io
 
     sys.audit("socket.connect", None, ("93.184.216.34", 443))
     real = atomic_io.atomic_write_json
@@ -100,7 +100,7 @@ def test_a_failed_write_is_carried_by_the_next_flush(writer, monkeypatch):
 
 
 def test_the_flush_is_not_a_row_in_the_activity_panel(writer):
-    from memorymap.core import jobs
+    from tessellate.core import jobs
 
     sys.audit("socket.connect", None, ("93.184.216.34", 443))
     seen = []
@@ -122,7 +122,7 @@ CHILD = textwrap.dedent(
     import sys, time
     sys.path.insert(0, {src!r})
     from pathlib import Path
-    from memorymap.core import egress
+    from tessellate.core import egress
 
     egress.install()
     egress.FLUSH_DELAY = 0.05

@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from memorymap.ai import voice
-from memorymap.core import deps, recordings
-from memorymap.core.database import Recording, utcnow
+from tessellate.ai import voice
+from tessellate.core import deps, recordings
+from tessellate.core.database import Recording, utcnow
 
 WEBM_HEAD = b"\x1a\x45\xdf\xa3" + b"\x00" * 60
 

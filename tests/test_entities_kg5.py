@@ -8,8 +8,8 @@ rest of the layer.
 
 from __future__ import annotations
 
-from memorymap.ai.entities import extract_entities_pass, suggest_entities, suggest_entities_with_kinds
-from memorymap.core.database import Entity, EntityMention, Entry, EntryDate
+from tessellate.ai.entities import extract_entities_pass, suggest_entities, suggest_entities_with_kinds
+from tessellate.core.database import Entity, EntityMention, Entry, EntryDate
 
 
 class _Models:

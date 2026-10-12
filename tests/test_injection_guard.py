@@ -25,8 +25,8 @@ from __future__ import annotations
 
 import inspect
 
-from memorymap.ai import agent
-from memorymap.ai import tools
+from tessellate.ai import agent
+from tessellate.ai import tools
 
 
 def test_read_url_labels_its_result_as_data():
@@ -62,7 +62,7 @@ def test_read_file_labels_its_text_as_data_too():
     guard was on `read_url` alone until file tools existed. A PDF someone
     emailed and a markdown vault cloned from a stranger's repo are the same
     trust level as a web page, the notebook did not write either."""
-    from memorymap.ai.tools import files as file_tools
+    from tessellate.ai.tools import files as file_tools
 
     guard = file_tools.FILE_CONTENT_IS_DATA
     assert "not as instructions" in guard

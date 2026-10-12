@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 
-from memorymap.core.database import Entry
+from tessellate.core.database import Entry
 
 
 def _note(session, content):

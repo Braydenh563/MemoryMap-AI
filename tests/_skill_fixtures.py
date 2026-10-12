@@ -61,8 +61,8 @@ def load_all() -> dict[str, dict]:
 
 def seed(session, notebook: list[dict]) -> list[int]:
     """Write a case's notebook, notes then links by index; the new note ids."""
-    from memorymap.core.database import EntryLink
-    from memorymap.entry import manager
+    from tessellate.core.database import EntryLink
+    from tessellate.entry import manager
 
     made = [
         manager.create_entry(session, note["content"], note.get("category") or manager.UNCATEGORISED, list(note.get("tags") or []))
@@ -77,7 +77,7 @@ def seed(session, notebook: list[dict]) -> list[int]:
 
 def snapshot(session) -> dict:
     """What the expected writes are read from."""
-    from memorymap.core.database import Category, Document, Entry, EntryLink, Reminder
+    from tessellate.core.database import Category, Document, Entry, EntryLink, Reminder
 
     live = session.scalars(select(Entry).where(Entry.is_deleted == False)).all()  # noqa: E712
     tags = {entry.id: {t.lower() for t in json.loads(entry.tags or "[]")} for entry in live}
@@ -159,7 +159,7 @@ def answer_text(events: list[dict]) -> str:
 
 def run_case(client, skill: str, case: dict) -> dict:
     """Seed, run the skill over `/chat/stream` as the app runs it, and score."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     with deps.get_db().session() as session:
         ids = seed(session, case["notebook"])

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from memorymap.ai.grounding import ground_answer_sentences, split_sentences
+from tessellate.ai.grounding import ground_answer_sentences, split_sentences
 
 
 def test_splits_on_sentence_boundaries():
@@ -193,7 +193,7 @@ def test_prose_from_two_rounds_is_not_glued_into_one_sentence(ai_client, fake_ol
 def test_a_private_note_read_by_a_tool_is_never_cited(ai_client, fake_ollama, session):
     """The guard kept where the shape is kept: whatever a tool result names,
     a private note does not become a citation."""
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     saved = ai_client.post(
         "/entries",
@@ -353,7 +353,7 @@ def test_the_live_grounder_marks_each_sentence_once_it_is_complete():
     answer, because grounding ran once, at the end. Fed the answer as it
     streams, the grounder names a note as soon as the sentence citing it is
     complete, never for a sentence still being written, and never twice."""
-    from memorymap.ai.grounding import SentenceGrounder
+    from tessellate.ai.grounding import SentenceGrounder
 
     grounder = SentenceGrounder(THREE_NOTES)
     second_item = MARKDOWN_ANSWER.index("- **Starter")

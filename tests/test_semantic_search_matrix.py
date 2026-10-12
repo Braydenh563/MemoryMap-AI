@@ -20,9 +20,9 @@ import numpy as np
 import pytest
 from sqlalchemy import delete, event
 
-from memorymap.ai.embeddings import EmbeddingService
-from memorymap.core.database import EmbeddingRecord, Entry
-from memorymap.search import engine, search_manager
+from tessellate.ai.embeddings import EmbeddingService
+from tessellate.core.database import EmbeddingRecord, Entry
+from tessellate.search import engine, search_manager
 
 
 def _note(session, content):

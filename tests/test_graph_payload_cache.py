@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.api import routes_graph
-from memorymap.core import deps
-from memorymap.core.database import Attachment, Entry, WhiteboardObject
+from tessellate.api import routes_graph
+from tessellate.core import deps
+from tessellate.core.database import Attachment, Entry, WhiteboardObject
 
 
 @pytest.fixture()
@@ -97,7 +97,7 @@ def test_the_opt_in_layers_the_key_does_not_cover_are_built_every_time(client, b
 def test_locking_the_vault_rebuilds_a_private_notes_label(client, session, builds):
     """The key carries whether this request may read private text: the same
     notebook locked and unlocked is two payloads."""
-    from memorymap.core import vault
+    from tessellate.core import vault
 
     vault.close()
     vault.create(session, "test-passphrase")

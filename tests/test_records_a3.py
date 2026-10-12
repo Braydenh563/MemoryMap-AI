@@ -15,7 +15,7 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from memorymap.ai import records
+from tessellate.ai import records
 
 EVAL = json.loads((Path(__file__).parent / "fixtures/composer/records_1011.json").read_text(encoding="utf-8"))
 ZONE = ZoneInfo("Australia/Perth")
@@ -137,7 +137,7 @@ def test_records_answers_keep_the_house_style():
 
 
 def test_through_the_route_the_records_answer_without_search(client, session):
-    from memorymap.core.database import AskTurn
+    from tessellate.core.database import AskTurn
 
     session.add(AskTurn(question="what have I saved about courses & study?", answer="...", created_at=datetime.now(timezone.utc).replace(tzinfo=None)))
     session.commit()

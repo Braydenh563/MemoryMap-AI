@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import acts, help_chat
+from tessellate.ai import acts, help_chat
 
 ROOT = Path(__file__).resolve().parents[1]
 

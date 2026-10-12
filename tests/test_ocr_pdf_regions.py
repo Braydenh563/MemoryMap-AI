@@ -19,8 +19,8 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.api.routes_files import _pdf_regions_for
-from memorymap.core import pdfpages
+from tessellate.api.routes_files import _pdf_regions_for
+from tessellate.core import pdfpages
 
 TWO_PAGE_PDF = (
     b"%PDF-1.4\n"
@@ -76,7 +76,7 @@ def test_without_tesseract_it_points_at_the_button_and_not_at_an_install(
     vision model for scanned documents, and the workspace has a button for
     exactly that. A message naming a remedy the reader cannot act on is how a
     working feature gets reported as broken."""
-    monkeypatch.setattr("memorymap.core.ocr.tesseract_available", lambda: False)
+    monkeypatch.setattr("tessellate.core.ocr.tesseract_available", lambda: False)
     out = _pdf_regions_for(two_pages, 0, "", "")
     assert out.source == "none"
     assert "Read this page" in out.message
@@ -94,10 +94,10 @@ def test_with_tesseract_installed_both_readers_are_offered(two_pages: Path, monk
     the two answer different questions (is the binary here / did it find
     anything on *this* page), and a page it read successfully would not reach
     the `source == "none"` branch this message lives in at all."""
-    monkeypatch.setattr("memorymap.core.ocr.tesseract_available", lambda: True)
+    monkeypatch.setattr("tessellate.core.ocr.tesseract_available", lambda: True)
     # Both halves (op4-1005): a reader is named only when it can read.
-    monkeypatch.setattr("memorymap.core.ocr.packages_available", lambda: True)
-    monkeypatch.setattr("memorymap.core.ocr.extract_regions", lambda path: None)
+    monkeypatch.setattr("tessellate.core.ocr.packages_available", lambda: True)
+    monkeypatch.setattr("tessellate.core.ocr.extract_regions", lambda path: None)
     out = _pdf_regions_for(two_pages, 0, "", "")
     assert out.source == "none"
     assert "Read this page" in out.message
@@ -115,7 +115,7 @@ def test_a_stored_reading_stands_in_for_the_first_page_only(two_pages: Path, mon
     whole-page region. What is being pinned here is unchanged, page 2 gets
     nothing, because page 1's text is not page 2's.)
     """
-    monkeypatch.setattr("memorymap.core.ocr.tesseract_available", lambda: False)
+    monkeypatch.setattr("tessellate.core.ocr.tesseract_available", lambda: False)
     first = _pdf_regions_for(two_pages, 0, "Some text read earlier", "Read by a model")
     assert first.source == "reading"
     assert first.regions[0].text == "Some text read earlier"

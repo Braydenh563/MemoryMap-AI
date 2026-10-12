@@ -34,7 +34,7 @@ from collections import defaultdict
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parents[1] / "src"
-PACKAGE = "memorymap"
+PACKAGE = "tessellate"
 
 # Depth cap on the search. Every cycle found so far has been four modules
 # long; six leaves room for one that is longer without the walk blowing up on

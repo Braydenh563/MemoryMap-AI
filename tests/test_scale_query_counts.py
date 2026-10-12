@@ -21,11 +21,11 @@ from __future__ import annotations
 import numpy as np
 from sqlalchemy import event
 
-from memorymap.ai import tools
-from memorymap.ai.embeddings import vector_to_bytes
-from memorymap.api import routes_graph
-from memorymap.core.database import Category, EmbeddingRecord, Entry
-from memorymap.search import search_manager
+from tessellate.ai import tools
+from tessellate.ai.embeddings import vector_to_bytes
+from tessellate.api import routes_graph
+from tessellate.core.database import Category, EmbeddingRecord, Entry
+from tessellate.search import search_manager
 
 
 def _count_queries(session, fn):

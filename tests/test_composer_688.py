@@ -14,7 +14,7 @@ from datetime import date, timedelta
 
 import pytest
 
-from memorymap.ai import composer
+from tessellate.ai import composer
 from tests import _composer_eval as ev
 
 TODAY = date(2026, 10, 6)
@@ -456,7 +456,7 @@ def test_an_answer_no_model_wrote_says_so_in_its_support_notice() -> None:
     """INBOX 724: "this message needs to be altered as a model wasnt used"."""
     from pathlib import Path
 
-    routes = Path("src/memorymap/api/routes_chat.py").read_text(encoding="utf-8")
+    routes = Path("src/tessellate/api/routes_chat.py").read_text(encoding="utf-8")
     assert routes.count('"by_model": False') >= 1
     js = Path("frontend/js/capture-ask.js").read_text(encoding="utf-8")
     body = js[js.index("function renderAnswerSupport") :]

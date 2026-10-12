@@ -79,8 +79,8 @@ def untested_routes(app) -> set[str]:  # noqa: ANN001
 
 
 def _app(tmp_path, monkeypatch):  # noqa: ANN001
-    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path / "data"))
-    from memorymap.api.app import create_app
+    monkeypatch.setenv("TESSELLATE_DATA_DIR", str(tmp_path / "data"))
+    from tessellate.api.app import create_app
 
     return create_app()
 

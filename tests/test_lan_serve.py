@@ -20,7 +20,7 @@ import time
 import pytest
 import uvicorn
 
-from memorymap.core import lancert, lanserve
+from tessellate.core import lancert, lanserve
 
 
 async def _app(scope, receive, send):  # noqa: ANN001

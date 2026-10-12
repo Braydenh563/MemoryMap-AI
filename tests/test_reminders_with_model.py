@@ -12,7 +12,7 @@ import json
 
 import pytest
 
-from memorymap.ai import reading, tools
+from tessellate.ai import reading, tools
 
 
 def _seed(session):

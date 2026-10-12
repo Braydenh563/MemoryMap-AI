@@ -19,8 +19,8 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import select, text
 
-from memorymap.core.database import DatabaseManager, Entry
-from memorymap.entry import manager
+from tessellate.core.database import DatabaseManager, Entry
+from tessellate.entry import manager
 
 # The four hot list queries, spelled the way the ORM emits them. Kept as SQL
 # rather than driven through `manager` because EXPLAIN QUERY PLAN needs the

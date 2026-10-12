@@ -24,8 +24,8 @@ regresses, because they assert on the text rather than on the code path.
 
 from __future__ import annotations
 
-from memorymap.ai.embeddings import embedding_text
-from memorymap.core.database import Attachment, Category, Entry
+from tessellate.ai.embeddings import embedding_text
+from tessellate.core.database import Attachment, Category, Entry
 
 
 def _entry(session, **kwargs) -> Entry:

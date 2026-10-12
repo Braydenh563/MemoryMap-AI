@@ -18,7 +18,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from memorymap.ai import help_chat, help_topics_more
+from tessellate.ai import help_chat, help_topics_more
 from tests._css_paths import CSS_DIR
 
 ROOT = Path(__file__).resolve().parents[1]

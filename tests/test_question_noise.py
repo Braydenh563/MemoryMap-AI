@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import composer, intent, question_noise
+from tessellate.ai import composer, intent, question_noise
 from tests import _composer_eval as ev
 
 
@@ -221,7 +221,7 @@ def test_no_table_key_is_written_twice() -> None:
     from pathlib import Path
 
     for name in ("question_noise.py", "composer_tables.py"):
-        tree = ast.parse((Path("src/memorymap/ai") / name).read_text(encoding="utf-8"))
+        tree = ast.parse((Path("src/tessellate/ai") / name).read_text(encoding="utf-8"))
         seen: dict[tuple[str, object], int] = {}
         twice = []
         for node in ast.walk(tree):
@@ -243,7 +243,7 @@ def test_no_table_key_is_written_twice() -> None:
 
 
 def test_the_composer_imports_without_the_database_layer() -> None:
-    """Decision 9: `import memorymap.ai.composer` under 0.5 s. Measured cold:
+    """Decision 9: `import tessellate.ai.composer` under 0.5 s. Measured cold:
     0.75 to 0.94 s before the triage, 0.08 to 0.15 s after, because
     `grounding` no longer pulls in the embeddings and the search manager
     (and with them SQLAlchemy and the database models) at import."""
@@ -251,7 +251,7 @@ def test_the_composer_imports_without_the_database_layer() -> None:
     import sys
 
     code = (
-        "import sys, time; t = time.perf_counter(); import memorymap.ai.composer; "
+        "import sys, time; t = time.perf_counter(); import tessellate.ai.composer; "
         "print(time.perf_counter() - t, 'sqlalchemy' in sys.modules)"
     )
     runs = []
@@ -270,7 +270,7 @@ def test_a_long_run_of_stray_keys_is_stripped_in_linear_time():
     backslashes or slashes; the tail is now a scan from the end."""
     import time
 
-    from memorymap.ai.question_noise import strip_strays
+    from tessellate.ai.question_noise import strip_strays
 
     began = time.perf_counter()
     assert strip_strays("x" + "\\" * 50000 + "y").endswith("y")

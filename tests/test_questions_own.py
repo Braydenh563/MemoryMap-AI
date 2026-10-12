@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import json
 
-from memorymap.ai import facts
-from memorymap.core.database import DerivedFact, Entry, utcnow
+from tessellate.ai import facts
+from tessellate.core.database import DerivedFact, Entry, utcnow
 
 NOT_OWN = {
     "script": "ACT I\nSCENE 2. A street at night.\nKNIGHT: What daring deed hath led thee to this street?\nSQUIRE: A dragon, sire.",

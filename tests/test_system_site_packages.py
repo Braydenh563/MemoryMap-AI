@@ -38,7 +38,7 @@ def test_the_range_follows_requirements_txt():
 
 def test_the_launcher_calls_the_script_and_only_when_opted_in():
     text = (ROOT / "start.sh").read_text(encoding="utf-8")
-    assert 'MEMORYMAP_SYSTEM_SITE_PACKAGES:-0}" = "1"' in text
+    assert 'TESSELLATE_SYSTEM_SITE_PACKAGES:-0}" = "1"' in text
     assert "scripts/system_site_packages.py" in text
     assert "--system-site-packages" in text
 
@@ -49,9 +49,9 @@ def test_the_windows_launcher_reads_the_same_variable_and_calls_the_same_script(
     builds the usual environment, and no new flag was added to start.bat (the
     flag-order lint wants both launchers to carry the same flags)."""
     text = (ROOT / "start.bat").read_text(encoding="utf-8")
-    assert 'if "%MEMORYMAP_SYSTEM_SITE_PACKAGES%"=="1"' in text
+    assert 'if "%TESSELLATE_SYSTEM_SITE_PACKAGES%"=="1"' in text
     assert "scripts\\system_site_packages.py" in text
     assert 'set "MM_VENV_ARGS=--system-site-packages"' in text
     assert "!PYTHON! -m venv !MM_VENV_ARGS! .venv" in text
-    assert text.index("MEMORYMAP_SYSTEM_SITE_PACKAGES") < text.index("-m venv !MM_VENV_ARGS!")
+    assert text.index("TESSELLATE_SYSTEM_SITE_PACKAGES") < text.index("-m venv !MM_VENV_ARGS!")
     assert "Not sharing the system packages: !MM_SSP_REASON!." in text

@@ -5,9 +5,9 @@ discarded; a read still runs; a run that was not stopped writes as before."""
 
 from __future__ import annotations
 
-from memorymap.ai import tools
-from memorymap.core import activity
-from memorymap.core.database import Entry
+from tessellate.ai import tools
+from tessellate.core import activity
+from tessellate.core.database import Entry
 
 
 def _count(session) -> int:  # noqa: ANN001

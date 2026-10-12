@@ -10,7 +10,7 @@ installing it), plus every other point the 2026-09-21 survey found
 This is a class of bug, and a class needs a registry, not a list of asserts
 that each know one string. Two registries hold it:
 
-- `memorymap.core.extras.EXTRAS`: every optional *package* the app can
+- `tessellate.core.extras.EXTRAS`: every optional *package* the app can
   install for you, one allowlisted entry each (built before this session,
   reused rather than duplicated).
 - `REMEDIES` below: every other failure with a known fix that is not "pip
@@ -31,7 +31,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from memorymap.core.extras import EXTRAS
+from tessellate.core.extras import EXTRAS
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -46,27 +46,27 @@ def _read(rel_path: str) -> str:
 #: is not here on purpose; see WORLD_CLASS_PLAN.md section 21's table for why.
 REMEDIES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     (
-        "src/memorymap/ai/ollama_client.py",
+        "src/tessellate/ai/ollama_client.py",
         "embedding model is a chat model, not an embedding model",
         ("nomic-embed-text",),
     ),
     (
-        "src/memorymap/ai/ollama_client.py",
+        "src/tessellate/ai/ollama_client.py",
         "embedding model is selected but not downloaded",
         ("Settings, Models", "nomic-embed-text"),
     ),
     (
-        "src/memorymap/search/websearch.py",
+        "src/tessellate/search/websearch.py",
         "DuckDuckGo is rate-limiting and no SearXNG was found",
         ("SearXNG", "Settings, Web search"),
     ),
     (
-        "src/memorymap/core/docview.py",
+        "src/tessellate/core/docview.py",
         "a PDF has no text layer and pypdfium2 is not installed",
         ("Settings", "Packages"),
     ),
     (
-        "src/memorymap/ai/provider.py",
+        "src/tessellate/ai/provider.py",
         "the active model can't call tools (INBOX 272 part 1's own fix)",
         ("Settings, Models",),
     ),
@@ -146,9 +146,9 @@ def test_ollama_client_forwards_a_message_not_a_bare_event():
     nothing renders *wrong*, it renders *nothing*, which is exactly how this
     one survived until the 2026-09-21 survey.
     """
-    agent_src = _read("src/memorymap/ai/agent.py")
+    agent_src = _read("src/tessellate/ai/agent.py")
     assert '"message": tools_unsupported_message(agent_model, getattr(exc, "declared", True))' in agent_src
-    routes_src = _read("src/memorymap/api/routes_chat.py")
+    routes_src = _read("src/tessellate/api/routes_chat.py")
     # The branch that used to be `pass` must now yield the enriched event
     # before falling through to the plain-answer stream.
     assert "yield event(first)" in routes_src

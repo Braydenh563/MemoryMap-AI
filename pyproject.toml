@@ -6,7 +6,7 @@ requires = ["setuptools>=84.0.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "memorymap"
+name = "tessellate"
 version = "0.5.0"
 description = "Tessellate: a 100% offline, local-first AI notebook"
 readme = "README.md"
@@ -33,11 +33,12 @@ Issues = "https://github.com/Braydenh563/Tessellate/issues"
 Changelog = "https://github.com/Braydenh563/Tessellate/blob/main/CHANGELOG.md"
 
 [project.scripts]
-memorymap = "memorymap.__main__:main"
+tessellate = "tessellate.__main__:main"
+memorymap = "tessellate.__main__:main"  # brand: keep (the command before the rename)
 
 # Optional extras — install only the ones whose feature you want, e.g.
 #   pip install -e ".[voice]"     # local Whisper dictation for the 🎙 buttons
-#   pip install -e ".[desktop]"   # `python -m memorymap --desktop` app window
+#   pip install -e ".[desktop]"   # `python -m tessellate --desktop` app window
 [project.optional-dependencies]
 voice = ["faster-whisper"]
 desktop = ["pywebview", "pystray", "Pillow"]
@@ -47,7 +48,7 @@ where = ["src"]
 
 # The taxonomy pack (ai/taxonomy.py) is JSON read from beside the module.
 [tool.setuptools.package-data]
-"memorymap.ai" = ["data/taxonomy/*.json", "data/skill_rates.json"]
+"tessellate.ai" = ["data/taxonomy/*.json", "data/skill_rates.json"]
 
 [tool.ruff]
 target-version = "py311"
@@ -56,10 +57,10 @@ line-length = 100
 # is not ours to style: it lints with ~50 F401/F541/E402 findings, and CI runs
 # `ruff check .` from the repo root, so without this exclusion pulling in an
 # upstream update would fail the build for cosmetics in someone else's code.
-# Vendored Python under src/memorymap/vendor is excluded for the same reason;
+# Vendored Python under src/tessellate/vendor is excluded for the same reason;
 # docs/THIRD_PARTY.md lists every file there with its licence, and
 # tests/test_vendor_manifest.py holds that list to the folder.
-extend-exclude = [".claude/skills", "src/memorymap/vendor"]
+extend-exclude = [".claude/skills", "src/tessellate/vendor"]
 
 [tool.ruff.lint]
 # Ruff's default rules: pyflakes (F) + a curated pycodestyle subset (E). This
@@ -78,11 +79,11 @@ select = ["E4", "E7", "E9", "F", "BLE001", "T201"]
 [tool.ruff.lint.per-file-ignores]
 # T201 applies to `src` only; the command line there prints by design.
 "!src/**" = ["T201"]
-"src/memorymap/__main__.py" = ["T201"]
+"src/tessellate/__main__.py" = ["T201"]
 # `__all__` lists names this module resolves lazily through a PEP 562
 # module `__getattr__` (see the comment above it) rather than binding them
 # with a real import — the whole point being to not import the four split
 # modules back at load time, which is what made this file part of a cyclic
 # import. Pyflakes has no way to see through `__getattr__`, so every one of
 # those names reads as undefined here; F822 is the tradeoff for that.
-"src/memorymap/search/searxng_manager.py" = ["F822"]
+"src/tessellate/search/searxng_manager.py" = ["F822"]

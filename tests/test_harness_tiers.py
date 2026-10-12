@@ -17,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import agent
-from memorymap.ai.answer_trim import strip_prompt_metadata, trim_assistant_padding
+from tessellate.ai import agent
+from tessellate.ai.answer_trim import strip_prompt_metadata, trim_assistant_padding
 
 
 @pytest.mark.parametrize(
@@ -423,7 +423,7 @@ def test_filing_a_note_under_a_category_that_exists_is_not_offered_a_new_categor
     """Qwen2.5-3B, forced: "File the dentist note under Health" opened once
     with `create_category`. Where "Health" is already a category the round
     offers the note edit, not the category's creation."""
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     manager.get_or_create_category(session, "Health")
     session.commit()
@@ -438,7 +438,7 @@ def test_filing_under_a_category_that_exists_is_offered_no_category_tool(monkeyp
     opened once with `rename_category {"old": "note 2", "new": "Health"}`.
     Filing is an edit of the note; no tool that reshapes the category tree
     is the right first call when the category is already there."""
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     manager.get_or_create_category(session, "Health")
     session.commit()
@@ -454,7 +454,7 @@ def test_filing_under_a_category_that_does_not_exist_may_still_create_it(monkeyp
 
 
 def test_the_category_is_offered_again_on_the_round_after(monkeypatch, app_state, session):
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     manager.get_or_create_category(session, "Health")
     session.commit()

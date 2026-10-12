@@ -5,8 +5,8 @@ markup, and "some websites only show one or a couple words"."""
 
 from __future__ import annotations
 
-from memorymap.core import webclip
-from memorymap.search import websearch
+from tessellate.core import webclip
+from tessellate.search import websearch
 
 PROSE = " ".join(["The series follows a man pulled into a world of magic."] * 6)
 THEMED_BODY = '<body id="c" class="' + " ".join(f"tweak-header-{i}" for i in range(400)) + '">'

@@ -20,7 +20,7 @@ looking at is the one they just changed.
 
 from __future__ import annotations
 
-from memorymap.api.routes_whiteboard import (
+from tessellate.api.routes_whiteboard import (
     MAP_BRANCH_PALETTE,
     PREVIEW_ASPECT_RANGE,
     PREVIEW_CACHE_STATS,
@@ -230,7 +230,7 @@ def test_a_sketch_is_previewed_where_it_was_drawn_at_the_size_it_was_drawn():
     (`wbItemBBox`), and also carries the tool and the ink, which is what lets
     the thumbnail draw a rectangle as a rectangle rather than one generic wave.
     """
-    from memorymap.api.routes_whiteboard import _sketch_preview
+    from tessellate.api.routes_whiteboard import _sketch_preview
 
     class Row:
         def __init__(self, data, x=0.0, y=0.0):

@@ -43,4 +43,4 @@ def test_the_data_and_model_folders_belong_to_the_user_the_app_runs_as():
 
 
 def test_the_proxy_host_variable_is_offered_in_compose():
-    assert "MEMORYMAP_ALLOWED_HOSTS" in COMPOSE
+    assert "TESSELLATE_ALLOWED_HOSTS" in COMPOSE

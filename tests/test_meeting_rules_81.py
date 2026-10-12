@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import meeting_summary
-from memorymap.entry import meetings
+from tessellate.ai import meeting_summary
+from tessellate.entry import meetings
 
 SAMPLE = (Path(__file__).parent / "fixtures" / "meetings" / "launch_sync.txt").read_text()
 NOW = datetime(2026, 10, 7, 14, 0)
@@ -109,7 +109,7 @@ def test_the_route_answers_with_no_model(client) -> None:
 def test_the_route_keeps_the_list_when_the_model_fails(app_state, fake_ollama, monkeypatch) -> None:
     from fastapi.testclient import TestClient
 
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     def broken(*_a, **_k):
         raise RuntimeError("model went away")

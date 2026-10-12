@@ -16,8 +16,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from memorymap.core import reminder_notifier as rn
-from memorymap.core.database import utcnow
+from tessellate.core import reminder_notifier as rn
+from tessellate.core.database import utcnow
 
 
 def _row(id_, due, *, done=False, alert=None, text="Dentist"):
@@ -214,7 +214,7 @@ def test_several_at_once_are_one_summary_without_buttons(client, tmp_path):
 
 
 def test_the_session_check_is_signed_in_or_no_password(app_state, session, monkeypatch):
-    from memorymap.api import routes_auth
+    from tessellate.api import routes_auth
 
     assert routes_auth.notebook_open(session, app_state) is True
     monkeypatch.setattr(routes_auth, "_password_set", lambda s: True)
@@ -239,5 +239,5 @@ def test_the_apps_shutdown_stops_the_notifier_before_the_job_pool_waits_on_it():
     finally:
         rn._running["notifier"] = None
     rn.stop_running()  # nothing running: a no-op
-    app = (Path(__file__).resolve().parents[1] / "src" / "memorymap" / "api" / "app.py").read_text(encoding="utf-8")
+    app = (Path(__file__).resolve().parents[1] / "src" / "tessellate" / "api" / "app.py").read_text(encoding="utf-8")
     assert app.index("reminder_notifier.stop_running()") < app.index("jobs.shutdown(deadline=_JOB_SHUTDOWN_SECONDS)")

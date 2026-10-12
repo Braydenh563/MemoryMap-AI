@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import io
 
-from memorymap.core import deps, undo_bin
-from memorymap.entry import manager
+from tessellate.core import deps, undo_bin
+from tessellate.entry import manager
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"x" * 40
 

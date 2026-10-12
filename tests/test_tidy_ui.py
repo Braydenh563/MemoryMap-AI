@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from memorymap.ai import help_chat
+from tessellate.ai import help_chat
 
 ROOT = Path(__file__).resolve().parents[1]
 JS = ROOT / "frontend" / "js"
@@ -125,7 +125,7 @@ def test_every_review_button_says_what_it_changes_in_plain_words():
     with the thing it acts on, the same words the review's description uses
     (so the sheet never names a button it has not explained), and no review
     still says Name, Unlink or Apply alone."""
-    from memorymap.entry import tidy as rules
+    from tessellate.entry import tidy as rules
 
     table = _apply_table()
     assert set(table) == set(rules.REVIEWS)
@@ -145,7 +145,7 @@ def test_the_review_picker_is_an_overview_of_all_nine_not_a_dropdown():
     review (eleven since WORLD_CLASS 23 added the two category reviews)
     (icon, name, count, one line on what it finds), the empty ones last, a
     row opens its review and a back button returns."""
-    from memorymap.entry import tidy as rules
+    from tessellate.entry import tidy as rules
 
     tidy = _read("tidy.js")
     assert 'select.id = "tidy-review"' not in tidy and 'select.className = "inbox-kind"' not in tidy

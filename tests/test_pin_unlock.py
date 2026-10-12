@@ -13,8 +13,8 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 
-from memorymap.api import routes_auth
-from memorymap.core import deps, pinstore, vault
+from tessellate.api import routes_auth
+from tessellate.core import deps, pinstore, vault
 
 PASSWORD = "the owner's password"
 NEW_PASSWORD = "a brand new passphrase"
@@ -52,7 +52,7 @@ def fake():
 
 @pytest.fixture(autouse=True)
 def _clean(client):
-    from memorymap.core import lantrust
+    from tessellate.core import lantrust
 
     routes_auth._active_tokens.clear()
     routes_auth._media_tickets.clear()

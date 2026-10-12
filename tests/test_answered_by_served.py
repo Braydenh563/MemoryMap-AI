@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import json
 
-from memorymap.ai import tools
-from memorymap.ai.model_manager import served_name
+from tessellate.ai import tools
+from tessellate.ai.model_manager import served_name
 
 
 def _meta(client, question):

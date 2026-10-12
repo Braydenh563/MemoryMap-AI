@@ -9,7 +9,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
-import memorymap.core.database
+import tessellate.core.database
 
 
 # revision identifiers, used by Alembic.
@@ -41,7 +41,7 @@ def upgrade() -> None:
     sa.Column('match_info', sa.Text(), nullable=False),
     sa.Column('connected_ids', sa.Text(), nullable=False),
     sa.Column('pinned', sa.Boolean(), nullable=False),
-    sa.Column('created_at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('created_at', tessellate.core.database.DateTime(), nullable=False),
     sa.Column('workspace_id', sa.String(), server_default='default', nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
@@ -54,14 +54,14 @@ def upgrade() -> None:
     sa.Column('entity_type', sa.String(length=50), nullable=False),
     sa.Column('entity_id', sa.Integer(), nullable=True),
     sa.Column('detail', sa.Text(), nullable=True),
-    sa.Column('created_at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('created_at', tessellate.core.database.DateTime(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('categories',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=100), nullable=False),
     sa.Column('description', sa.Text(), nullable=True),
-    sa.Column('created_at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('created_at', tessellate.core.database.DateTime(), nullable=False),
     sa.Column('workspace_id', sa.String(), server_default='default', nullable=False),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('name')
@@ -74,8 +74,8 @@ def upgrade() -> None:
     sa.Column('title', sa.String(length=120), nullable=False),
     sa.Column('messages', sa.Text(), nullable=False),
     sa.Column('pinned', sa.Boolean(), nullable=False),
-    sa.Column('created_at', memorymap.core.database.DateTime(), nullable=False),
-    sa.Column('updated_at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('created_at', tessellate.core.database.DateTime(), nullable=False),
+    sa.Column('updated_at', tessellate.core.database.DateTime(), nullable=False),
     sa.Column('workspace_id', sa.String(), server_default='default', nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
@@ -86,8 +86,8 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('title', sa.String(length=200), nullable=False),
     sa.Column('content', sa.Text(), nullable=False),
-    sa.Column('created_at', memorymap.core.database.DateTime(), nullable=False),
-    sa.Column('updated_at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('created_at', tessellate.core.database.DateTime(), nullable=False),
+    sa.Column('updated_at', tessellate.core.database.DateTime(), nullable=False),
     sa.Column('workspace_id', sa.String(), server_default='default', nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
@@ -97,14 +97,14 @@ def upgrade() -> None:
     op.create_table('entities',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('name', sa.String(length=200), nullable=False),
-    sa.Column('created_at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('created_at', tessellate.core.database.DateTime(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('media_uploads',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('filename', sa.String(length=140), nullable=False),
     sa.Column('original_name', sa.String(length=300), nullable=False),
-    sa.Column('created_at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('created_at', tessellate.core.database.DateTime(), nullable=False),
     sa.Column('ocr_text', sa.Text(), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
@@ -117,7 +117,7 @@ def upgrade() -> None:
     op.create_table('user_preferences',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('content', sa.String(length=500), nullable=False),
-    sa.Column('created_at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('created_at', tessellate.core.database.DateTime(), nullable=False),
     sa.Column('active', sa.Boolean(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
@@ -125,7 +125,7 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('username', sa.String(length=100), nullable=False),
     sa.Column('password_hash', sa.String(length=200), nullable=False),
-    sa.Column('created_at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('created_at', tessellate.core.database.DateTime(), nullable=False),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('username')
     )
@@ -133,7 +133,7 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('kdf_salt', sa.LargeBinary(length=32), nullable=False),
     sa.Column('wrapped_dek', sa.LargeBinary(length=128), nullable=False),
-    sa.Column('created_at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('created_at', tessellate.core.database.DateTime(), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_table('entries',
@@ -146,13 +146,13 @@ def upgrade() -> None:
     sa.Column('parent_id', sa.Integer(), nullable=True),
     sa.Column('pinned', sa.Boolean(), nullable=False),
     sa.Column('user_filed', sa.Boolean(), nullable=False),
-    sa.Column('created_at', memorymap.core.database.DateTime(), nullable=False),
-    sa.Column('updated_at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('created_at', tessellate.core.database.DateTime(), nullable=False),
+    sa.Column('updated_at', tessellate.core.database.DateTime(), nullable=False),
     sa.Column('is_deleted', sa.Boolean(), nullable=False),
-    sa.Column('archived_at', memorymap.core.database.DateTime(), nullable=True),
+    sa.Column('archived_at', tessellate.core.database.DateTime(), nullable=True),
     sa.Column('is_private', sa.Boolean(), nullable=False),
-    sa.Column('deleted_at', memorymap.core.database.DateTime(), nullable=True),
-    sa.Column('entities_extracted_at', memorymap.core.database.DateTime(), nullable=True),
+    sa.Column('deleted_at', tessellate.core.database.DateTime(), nullable=True),
+    sa.Column('entities_extracted_at', tessellate.core.database.DateTime(), nullable=True),
     sa.Column('is_draft', sa.Boolean(), nullable=False),
     sa.Column('workspace_id', sa.String(), server_default='default', nullable=False),
     sa.ForeignKeyConstraint(['category_id'], ['categories.id'], ),
@@ -169,7 +169,7 @@ def upgrade() -> None:
     sa.Column('stored_name', sa.String(length=80), nullable=False),
     sa.Column('mime', sa.String(length=100), nullable=False),
     sa.Column('size', sa.Integer(), nullable=False),
-    sa.Column('created_at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('created_at', tessellate.core.database.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['entry_id'], ['entries.id'], ),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('stored_name')
@@ -178,7 +178,7 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('document_id', sa.Integer(), nullable=False),
     sa.Column('entry_id', sa.Integer(), nullable=False),
-    sa.Column('created_at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('created_at', tessellate.core.database.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['document_id'], ['documents.id'], ),
     sa.ForeignKeyConstraint(['entry_id'], ['entries.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -193,7 +193,7 @@ def upgrade() -> None:
     sa.Column('embedding', sa.LargeBinary(), nullable=False),
     sa.Column('dim', sa.Integer(), nullable=False),
     sa.Column('model_version', sa.String(length=200), nullable=False),
-    sa.Column('created_at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('created_at', tessellate.core.database.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['entry_id'], ['entries.id'], ),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('entry_id')
@@ -202,7 +202,7 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('entity_id', sa.Integer(), nullable=False),
     sa.Column('entry_id', sa.Integer(), nullable=False),
-    sa.Column('created_at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('created_at', tessellate.core.database.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['entity_id'], ['entities.id'], ),
     sa.ForeignKeyConstraint(['entry_id'], ['entries.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -211,9 +211,9 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('entry_id', sa.Integer(), nullable=False),
     sa.Column('phrase', sa.String(length=60), nullable=False),
-    sa.Column('at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('at', tessellate.core.database.DateTime(), nullable=False),
     sa.Column('precision', sa.String(length=10), nullable=False),
-    sa.Column('created_at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('created_at', tessellate.core.database.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['entry_id'], ['entries.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -224,7 +224,7 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('source_entry_id', sa.Integer(), nullable=False),
     sa.Column('target_entry_id', sa.Integer(), nullable=False),
-    sa.Column('created_at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('created_at', tessellate.core.database.DateTime(), nullable=False),
     sa.Column('reason', sa.Text(), nullable=True),
     sa.Column('reason_confidence', sa.Float(), nullable=True),
     sa.Column('link_type', sa.String(length=24), nullable=True),
@@ -241,7 +241,7 @@ def upgrade() -> None:
     sa.Column('entry_id', sa.Integer(), nullable=False),
     sa.Column('content', sa.Text(), nullable=False),
     sa.Column('tags', sa.Text(), nullable=False),
-    sa.Column('created_at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('created_at', tessellate.core.database.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['entry_id'], ['entries.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -252,11 +252,11 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('entry_id', sa.Integer(), nullable=True),
     sa.Column('text', sa.String(length=500), nullable=False),
-    sa.Column('due_at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('due_at', tessellate.core.database.DateTime(), nullable=False),
     sa.Column('done', sa.Boolean(), nullable=False),
     sa.Column('priority', sa.String(length=10), nullable=False),
     sa.Column('recurring', sa.String(length=10), nullable=False),
-    sa.Column('created_at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('created_at', tessellate.core.database.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['entry_id'], ['entries.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -271,8 +271,8 @@ def upgrade() -> None:
     sa.Column('height', sa.Float(), nullable=True),
     sa.Column('rotation', sa.Float(), nullable=True),
     sa.Column('group_id', sa.String(length=40), nullable=True),
-    sa.Column('created_at', memorymap.core.database.DateTime(), nullable=False),
-    sa.Column('updated_at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('created_at', tessellate.core.database.DateTime(), nullable=False),
+    sa.Column('updated_at', tessellate.core.database.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['board_id'], ['entries.id'], ),
     sa.ForeignKeyConstraint(['entry_id'], ['entries.id'], ),
     sa.PrimaryKeyConstraint('id')
@@ -292,8 +292,8 @@ def upgrade() -> None:
     sa.Column('height', sa.Float(), nullable=False),
     sa.Column('rotation', sa.Float(), nullable=True),
     sa.Column('group_id', sa.String(length=40), nullable=True),
-    sa.Column('created_at', memorymap.core.database.DateTime(), nullable=False),
-    sa.Column('updated_at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('created_at', tessellate.core.database.DateTime(), nullable=False),
+    sa.Column('updated_at', tessellate.core.database.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['board_id'], ['entries.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
@@ -308,8 +308,8 @@ def upgrade() -> None:
     sa.Column('y', sa.Float(), nullable=False),
     sa.Column('z', sa.Integer(), nullable=False),
     sa.Column('group_id', sa.String(length=40), nullable=True),
-    sa.Column('created_at', memorymap.core.database.DateTime(), nullable=False),
-    sa.Column('updated_at', memorymap.core.database.DateTime(), nullable=False),
+    sa.Column('created_at', tessellate.core.database.DateTime(), nullable=False),
+    sa.Column('updated_at', tessellate.core.database.DateTime(), nullable=False),
     sa.ForeignKeyConstraint(['board_id'], ['entries.id'], ),
     sa.PrimaryKeyConstraint('id')
     )

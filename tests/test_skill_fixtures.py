@@ -14,8 +14,8 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import skills, tools
-from memorymap.core import deps
+from tessellate.ai import skills, tools
+from tessellate.core import deps
 from tests import _skill_fixtures as fx
 
 FIXTURES = fx.load_all()
@@ -152,7 +152,7 @@ def test_the_agent_cannot_run_a_skill_held_back_from_the_small_class(app_state, 
     """OPEN row 557: the label was only in the picker; run_skill ran it anyway."""
     import json
 
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     table = tmp_path / "rates.json"
     table.write_text(json.dumps(RATES), encoding="utf-8")

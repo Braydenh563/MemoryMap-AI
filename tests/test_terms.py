@@ -72,7 +72,7 @@ def _surfaces() -> dict[str, str]:
     for path in sorted((ROOT / "frontend" / "js").glob("*.js")):
         strings = [a or b for a, b in _js_strings(path.read_text(encoding="utf-8"))]
         out[f"frontend/js/{path.name}"] = "\n".join(strings)
-    from memorymap.ai import help_chat
+    from tessellate.ai import help_chat
 
     out["the Guide"] = "\n".join(
         str(topic.get(key, "")) for topic in help_chat.HELP_TOPICS for key in ("title", "body")

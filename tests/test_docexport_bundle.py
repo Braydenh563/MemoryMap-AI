@@ -17,7 +17,7 @@ import io
 import zipfile
 
 
-from memorymap.core import docexport
+from tessellate.core import docexport
 
 PNG = bytes.fromhex(
     "89504e470d0a1a0a0000000d4948445200000001000000010806000000"
@@ -34,8 +34,8 @@ def _document_with_image(client, app_state) -> tuple[int, str]:
     #: The row as well as the file: `referenced_names` reads the text, but a
     #: bundle that carried a file with no upload row behind it would be
     #: testing something the app never produces.
-    from memorymap.core import deps
-    from memorymap.core.database import MediaUpload
+    from tessellate.core import deps
+    from tessellate.core.database import MediaUpload
 
     with deps.get_db().session() as session:
         session.add(MediaUpload(filename="dot.png", original_name="dot.png"))

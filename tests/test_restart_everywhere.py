@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-import memorymap.__main__ as entry
+import tessellate.__main__ as entry
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -31,7 +31,7 @@ def test_the_relaunch_carries_this_launch_but_not_repair_or_an_old_pid(monkeypat
     monkeypatch.setattr(sys, "argv", ["memorymap", "--desktop", "--reinstall", "--restart-after", "12"])
     monkeypatch.setattr(sys, "frozen", False, raising=False)
     argv = entry._relaunch_argv()
-    assert argv[:3] == [sys.executable, "-m", "memorymap"]
+    assert argv[:3] == [sys.executable, "-m", "tessellate"]
     assert argv[3:] == ["--desktop", "--restart-after", str(os.getpid())]
 
 
@@ -64,12 +64,12 @@ def test_waiting_ends_when_the_old_copy_is_gone():
 
 
 def test_the_route_restarts_any_launch_the_launcher_made(client, monkeypatch):
-    import memorymap.__main__  # noqa: F401
+    import tessellate.__main__  # noqa: F401
 
-    monkeypatch.setenv("MEMORYMAP_LAUNCHED", "1")
-    monkeypatch.delenv("MEMORYMAP_DESKTOP", raising=False)
+    monkeypatch.setenv("TESSELLATE_LAUNCHED", "1")
+    monkeypatch.delenv("TESSELLATE_DESKTOP", raising=False)
     calls = []
-    monkeypatch.setattr("memorymap.__main__.restart_app", lambda: calls.append(True))
+    monkeypatch.setattr("tessellate.__main__.restart_app", lambda: calls.append(True))
     restarted = client.post("/system/restart")
     assert restarted.json() == {"restarting": True}
     assert calls == [True]
@@ -101,10 +101,10 @@ def test_a_browser_launch_restarts_for_real(tmp_path):
     """The real launcher, started as `start.sh` starts it: Restart ends that
     process and a new one answers on the same port, with the same notebook."""
     port = _free_port()
-    env = {**os.environ, "PYTHONPATH": str(ROOT / "src"), "MEMORYMAP_DATA_DIR": str(tmp_path / "data"),
-           "MEMORYMAP_PORT": str(port), "NO_PROXY": "*"}
-    env.pop("MEMORYMAP_DESKTOP", None)
-    first = subprocess.Popen([sys.executable, "-m", "memorymap"], env=env, cwd=ROOT,
+    env = {**os.environ, "PYTHONPATH": str(ROOT / "src"), "TESSELLATE_DATA_DIR": str(tmp_path / "data"),
+           "TESSELLATE_PORT": str(port), "NO_PROXY": "*"}
+    env.pop("TESSELLATE_DESKTOP", None)
+    first = subprocess.Popen([sys.executable, "-m", "tessellate"], env=env, cwd=ROOT,
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     new_pid = None
     try:
@@ -128,7 +128,7 @@ def test_a_browser_launch_restarts_for_real(tmp_path):
             except OSError:
                 assert time.monotonic() < deadline, "the restarted copy never answered"
                 time.sleep(0.3)
-        from memorymap.core import instance_lock
+        from tessellate.core import instance_lock
 
         lock = instance_lock.read_lock(instance_lock.lock_path(tmp_path / "data"))
         new_pid = lock.pid if lock else None

@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import threading
 
-from memorymap.ai import voice
-from memorymap.core import activity, recordings
+from tessellate.ai import voice
+from tessellate.core import activity, recordings
 
 WEBM_HEAD = b"\x1a\x45\xdf\xa3" + b"\x00" * 60
 SEGMENTS = [

@@ -121,7 +121,7 @@ they live, because their wording is what a future session will search for.
 - An agent permission flow shown as a dialogue in chat and documents, with the
   agent's edit proposed as a suggestion you can accept.
 - An in-built browser with MCP tool abilities beside web search. (A stdio MCP
-  server over the app's own tools exists, `python -m memorymap.mcp_server`; this
+  server over the app's own tools exists, `python -m tessellate.mcp_server`; this
   is the other direction.)
 - A VS Code extension.
 - The status dot's "X" state in the top bar: it was never seen, and the AI status

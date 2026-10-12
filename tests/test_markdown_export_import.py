@@ -122,7 +122,7 @@ def test_markdown_roundtrip(client):
 
 
 def test_the_cli_export_writes_the_same_archive_as_the_route(client, tmp_path, monkeypatch):
-    """`python -m memorymap --export PATH` and the Settings download are one
+    """`python -m tessellate --export PATH` and the Settings download are one
     function, not two implementations. uninstall.sh --export calls the first
     so someone removing the app can take their notes out with no browser and
     no running server, and it has to be the same zip.
@@ -131,7 +131,7 @@ def test_the_cli_export_writes_the_same_archive_as_the_route(client, tmp_path, m
     binned = _save(client, "old thought")
     client.delete(f"/entries/{binned['id']}")
 
-    from memorymap.__main__ import _export_markdown
+    from tessellate.__main__ import _export_markdown
 
     target = tmp_path / "out" / "notes.zip"
     assert _export_markdown(str(target)) == 0
@@ -148,7 +148,7 @@ def test_the_cli_export_puts_the_default_name_inside_a_directory(client, tmp_pat
     """`--export .` is what someone types, and it must not try to write a
     zip over the directory itself."""
     _save(client, "buy milk")
-    from memorymap.__main__ import _export_markdown
+    from tessellate.__main__ import _export_markdown
 
     assert _export_markdown(str(tmp_path)) == 0
     assert (tmp_path / "memorymap-markdown.zip").exists()
@@ -158,7 +158,7 @@ def test_the_cli_export_reports_rather_than_raises_on_an_unwritable_path(client,
     """Someone exporting before an uninstall gets a sentence, not a
     traceback, and a non-zero code so the uninstaller stops."""
     _save(client, "buy milk")
-    from memorymap.__main__ import _export_markdown
+    from tessellate.__main__ import _export_markdown
 
     blocker = tmp_path / "blocker"
     blocker.write_text("not a directory", encoding="utf-8")
@@ -167,8 +167,8 @@ def test_the_cli_export_reports_rather_than_raises_on_an_unwritable_path(client,
 
 def test_a_note_exported_and_imported_again_keeps_its_date_and_pin(client):
     """Audit 2026-10-10: the words came back, the date and the pin did not."""
-    from memorymap.core import deps
-    from memorymap.core.database import Entry
+    from tessellate.core import deps
+    from tessellate.core.database import Entry
 
     made = client.post("/entries", json={"content": "dated and pinned note"}).json()
     session = deps.get_db().session()

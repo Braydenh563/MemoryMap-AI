@@ -4,7 +4,7 @@
 **Why this exists.** CLAUDE.md section 4: nothing in the suite may need a real
 speech model, and no mode of `scripts/gate.sh` may reach for a helper. The
 captions code (`ai/captions.py`) talks to whatever answers at
-`MEMORYMAP_CAPTIONS_URL`; this is the same shape as `fake_openai_server.py`
+`TESSELLATE_CAPTIONS_URL`; this is the same shape as `fake_openai_server.py`
 for the chat: a real `http.server` on a real port that speaks the one dialect
 the app uses, so the sliding window, the commit rule and the route are
 exercised end to end without a model.
@@ -33,7 +33,7 @@ docs/roadmap/agent-remaining/caption82-1010.md); `--fail-every N` answers 500
 to every Nth request, for the failure path.
 
 Run it:  python3 scratchpad/fake_captions_server.py --port 8178
-Point the app at it:  MEMORYMAP_CAPTIONS_URL=http://127.0.0.1:8178
+Point the app at it:  TESSELLATE_CAPTIONS_URL=http://127.0.0.1:8178
 """
 
 from __future__ import annotations

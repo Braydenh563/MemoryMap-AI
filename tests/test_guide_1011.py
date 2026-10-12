@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import composer, help_chat, reading  # noqa: F401  # composer registers the help line; reading sets the act reader ("how do i pin a note")
+from tessellate.ai import composer, help_chat, reading  # noqa: F401  # composer registers the help line; reading sets the act reader ("how do i pin a note")
 
 GOLD = json.loads((Path(__file__).parent / "fixtures" / "composer" / "guide_1011.json").read_text(encoding="utf-8"))["questions"]
 FLOOR = 1.0
@@ -64,7 +64,7 @@ def test_a_privacy_question_is_answered_yes_or_no_first():
 def test_how_to_use_the_app_in_chat_is_the_guide_s_even_with_a_note_word():
     """The Chromium after-run, 2026-10-11: in Chat "how do i export everything
     to markdown" and "why is the chat so slow" were searched for in the notes."""
-    from memorymap.ai import intent
+    from tessellate.ai import intent
 
     for asked in ("how do i export everything to markdown", "why is the chat so slow", "how do i export my notes", "How do I back up my notes?"):
         assert intent.classify(asked) == intent.ABOUT_APP, asked

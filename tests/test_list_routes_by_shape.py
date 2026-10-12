@@ -23,7 +23,7 @@ import typing
 from fastapi import APIRouter
 from fastapi.routing import APIRoute
 
-import memorymap.api as api
+import tessellate.api as api
 
 LISTY_CALLS = {"list", "sorted", "all", "_to_out_bulk", "scalars"}
 
@@ -67,7 +67,7 @@ OPEN: dict[str, str] = {}
 
 def _routes():
     for info in pkgutil.iter_modules(api.__path__):
-        module = importlib.import_module(f"memorymap.api.{info.name}")
+        module = importlib.import_module(f"tessellate.api.{info.name}")
         for value in vars(module).values():
             if isinstance(value, APIRouter):
                 yield from (r for r in value.routes if isinstance(r, APIRoute))

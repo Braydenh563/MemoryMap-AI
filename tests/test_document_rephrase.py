@@ -14,7 +14,7 @@ quotes half the time, and a fondness for handing back the original.
 
 from __future__ import annotations
 
-from memorymap.ai.drafter import _parse_rephrasings
+from tessellate.ai.drafter import _parse_rephrasings
 
 
 def test_numbered_lines_become_options():

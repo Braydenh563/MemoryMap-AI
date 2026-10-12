@@ -176,7 +176,7 @@ model in the same place.
 | `--version` | Print the version and exit |
 | `--help` | Show the list and exit |
 
-**Sharing the system's packages (opt-in).** On Windows, `set MEMORYMAP_SYSTEM_SITE_PACKAGES=1` and then `start.bat --reinstall` (the Windows launcher is checked as text only; it needs a run on a Windows machine). On Linux and macOS, `MEMORYMAP_SYSTEM_SITE_PACKAGES=1 ./start.sh --reinstall` builds `.venv` with `--system-site-packages`, so a torch you already installed system-wide is not downloaded again. It is refused, with the reason printed, when that torch is outside the range in `requirements.txt`.
+**Sharing the system's packages (opt-in).** On Windows, `set TESSELLATE_SYSTEM_SITE_PACKAGES=1` and then `start.bat --reinstall` (the Windows launcher is checked as text only; it needs a run on a Windows machine). On Linux and macOS, `TESSELLATE_SYSTEM_SITE_PACKAGES=1 ./start.sh --reinstall` builds `.venv` with `--system-site-packages`, so a torch you already installed system-wide is not downloaded again. It is refused, with the reason printed, when that torch is outside the range in `requirements.txt`.
 The risk is that a system package shadows the one the app was tested with and fails later in a way that looks unrelated; if anything misbehaves, run `./start.sh --reinstall` without the variable.
 
 **If it does not start, run `--doctor` first.** It prints one row per thing
@@ -238,13 +238,13 @@ without Ollama (needle). Both are pinned and checked against a sha256.
 
 ## Docker
 
-For a server or a NAS. From the repository root, `MEMORYMAP_FIRST_PASSWORD=choose-one docker compose -f docker/compose.yaml up -d`, then open `http://localhost:8000`.
+For a server or a NAS. From the repository root, `TESSELLATE_FIRST_PASSWORD=choose-one docker compose -f docker/compose.yaml up -d`, then open `http://localhost:8000`.
 
-- `MEMORYMAP_BIND` is the address inside the container (the image sets `0.0.0.0`; a plain launch stays on `127.0.0.1`). `MEMORYMAP_PORT` is the port (8000).
-- `MEMORYMAP_FIRST_PASSWORD` is used only while no password is set, is never logged and is removed from the process once read. Take it out of your compose file after the first start.
+- `TESSELLATE_BIND` is the address inside the container (the image sets `0.0.0.0`; a plain launch stays on `127.0.0.1`). `TESSELLATE_PORT` is the port (8000).
+- `TESSELLATE_FIRST_PASSWORD` is used only while no password is set, is never logged and is removed from the process once read. Take it out of your compose file after the first start.
 - Two volumes: `/data` (database, files, certificate, backups) and `/models` (downloaded models), so resetting a notebook never downloads a model again.
 - The compose file publishes the port on the host's loopback only. For other devices, put a reverse proxy with TLS in front.
-- Behind a reverse proxy, set `MEMORYMAP_ALLOWED_HOSTS` to the public name it forwards (`memory.example.com`; several are comma-separated, names only). Without it the app answers 421 to a Host that is not the container's own. A page on that name, on port 443 or 80, is then treated as the app's own page.
+- Behind a reverse proxy, set `TESSELLATE_ALLOWED_HOSTS` to the public name it forwards (`memory.example.com`; several are comma-separated, names only). Without it the app answers 421 to a Host that is not the container's own. A page on that name, on port 443 or 80, is then treated as the app's own page.
 - The default image has no torch (about 400 MB on disk): search by keyword and an Ollama embedder on the host (`OLLAMA_URL`). `--build-arg WITH_EMBEDDER=1` adds the built-in search model and CPU torch (about 1.6 GB).
 - What a container cannot do: the desktop window and tray, native file dialogs, the Start menu shortcuts and Repair, and the "Allow other devices" switch (use the port mapping instead).
 - Not built in the sandbox it was written in (no Docker daemon, needs device); `tests/test_docker_files.py` reads the files as text. Report what the first build says.
@@ -252,8 +252,8 @@ For a server or a NAS. From the repository root, `MEMORYMAP_FIRST_PASSWORD=choos
 ## Running it
 
 ```
-python -m memorymap             # a browser tab at http://localhost:8000
-python -m memorymap --desktop   # the same app in its own window
+python -m tessellate             # a browser tab at http://localhost:8000
+python -m tessellate --desktop   # the same app in its own window
 ```
 
 Without `pywebview`, `--desktop` falls back to a browser tab rather than
@@ -266,11 +266,11 @@ Other commands:
 
 | Command | What it does |
 | --- | --- |
-| `python -m memorymap --export PATH` | Write your notes to PATH as a Markdown zip, then exit |
-| `python -m memorymap --reset-password` | Clear a forgotten password so you can set a new one; private notes stay sealed (the lock screen's "Forgot your password?" does the same, or keeps them with a recovery key) |
-| `python -m memorymap --reinstall` | One-click repair: clears the app window's cached profile, then starts normally; what the installer's Repair shortcut runs, and your notes and settings are never touched |
-| `python -m memorymap --capture` | Open a one-line capture window on the running app: bind it to a key in your system settings |
-| `python -m memorymap.mcp_server` | A stdio MCP server for another program on this computer: the app's non-destructive tools, your notes as readable resources (`memorymap://note/<id>`, never a private note) and your skills as prompts |
+| `python -m tessellate --export PATH` | Write your notes to PATH as a Markdown zip, then exit |
+| `python -m tessellate --reset-password` | Clear a forgotten password so you can set a new one; private notes stay sealed (the lock screen's "Forgot your password?" does the same, or keeps them with a recovery key) |
+| `python -m tessellate --reinstall` | One-click repair: clears the app window's cached profile, then starts normally; what the installer's Repair shortcut runs, and your notes and settings are never touched |
+| `python -m tessellate --capture` | Open a one-line capture window on the running app: bind it to a key in your system settings |
+| `python -m tessellate.mcp_server` | A stdio MCP server for another program on this computer: the app's non-destructive tools, your notes as readable resources (`memorymap://note/<id>`, never a private note) and your skills as prompts |
 | `Tessellate --mcp` | The same server from the packaged app, which has no Python to run the line above with (live behaviour of the windowed exe: needs device) |
 
 ### Environment variables
@@ -280,15 +280,15 @@ install.
 
 | Variable | Default | What it does |
 | --- | --- | --- |
-| `MEMORYMAP_DATA_DIR` | `data` beside a source checkout; the per-user app folder when installed | Where your notes, preferences, uploads and backups live |
-| `MEMORYMAP_PORT` | `8000` | The port the server listens on (`--port` sets it for you) |
-| `MEMORYMAP_LAN_PORT` | `8443` | The HTTPS port other devices use, when Settings, Account & security allows them |
+| `TESSELLATE_DATA_DIR` | `data` beside a source checkout; the per-user app folder when installed | Where your notes, preferences, uploads and backups live |
+| `TESSELLATE_PORT` | `8000` | The port the server listens on (`--port` sets it for you) |
+| `TESSELLATE_LAN_PORT` | `8443` | The HTTPS port other devices use, when Settings, Account & security allows them |
 | `OLLAMA_URL` | `http://localhost:11434` | Where Ollama listens |
-| `MEMORYMAP_SEARXNG_PORT` | `8888` | The port for the SearXNG instance the app can run for web search |
-| `MEMORYMAP_NO_AUTO_INSTALL` | unset | Set it to stop the app installing the search model's package by itself |
-| `MEMORYMAP_EMBED_THREADS` | automatic | How many threads the built-in search model may use |
-| `MEMORYMAP_RAM_GB` | detected | Overrides the memory the app thinks it has, for a container |
-| `MEMORYMAP_EXTRAS_MIRROR` | unset | A mirror for the pinned downloads in Settings, Packages |
+| `TESSELLATE_SEARXNG_PORT` | `8888` | The port for the SearXNG instance the app can run for web search |
+| `TESSELLATE_NO_AUTO_INSTALL` | unset | Set it to stop the app installing the search model's package by itself |
+| `TESSELLATE_EMBED_THREADS` | automatic | How many threads the built-in search model may use |
+| `TESSELLATE_RAM_GB` | detected | Overrides the memory the app thinks it has, for a container |
+| `TESSELLATE_EXTRAS_MIRROR` | unset | A mirror for the pinned downloads in Settings, Packages |
 
 A model backend other than Ollama is chosen in **Settings, Models**, not here.
 

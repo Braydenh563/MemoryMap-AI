@@ -19,8 +19,8 @@ import zipfile
 
 import pytest
 
-from memorymap.api import routes_settings
-from memorymap.core import deps, logbuffer
+from tessellate.api import routes_settings
+from tessellate.core import deps, logbuffer
 from tests._app_js import app_js_text
 
 
@@ -179,7 +179,7 @@ def test_the_stream_tells_a_proxy_not_to_buffer_it(client, _brief_stream):
 def test_the_stream_is_behind_the_unlock_gate(client):
     """It carries every message the app has logged."""
     client.post("/auth/setup", json={"password": "a password"})
-    from memorymap.api import routes_auth
+    from tessellate.api import routes_auth
 
     routes_auth._active_tokens.clear()
     # 401s before any streaming begins, so this needs no shortened lifetime.
@@ -265,7 +265,7 @@ def test_the_bundle_still_builds_when_a_probe_fails(client, monkeypatch):
 
 def test_the_bundle_is_behind_the_unlock_gate(client):
     client.post("/auth/setup", json={"password": "a password"})
-    from memorymap.api import routes_auth
+    from tessellate.api import routes_auth
 
     routes_auth._active_tokens.clear()
     assert client.get("/support-bundle").status_code == 401
@@ -312,7 +312,7 @@ def _app_js() -> str:
 
 
 def _settings_js() -> str:
-    from memorymap.api.app import FRONTEND_DIR
+    from tessellate.api.app import FRONTEND_DIR
 
     return (FRONTEND_DIR / "js" / "settings.js").read_text(encoding="utf-8")
 
@@ -497,7 +497,7 @@ def test_the_records_endpoint_is_still_a_plain_list(client):
 
 
 def test_buffer_captures_and_caps(client):
-    logging.getLogger("memorymap.test").info("hello from the test")
+    logging.getLogger("tessellate.test").info("hello from the test")
 
     records = client.get("/logs").json()
     assert any("hello from the test" in r["message"] for r in records)
@@ -514,7 +514,7 @@ def test_ai_decisions_are_logged(client):
 
 
 def test_clear_endpoint(client):
-    logging.getLogger("memorymap.test").info("about to vanish")
+    logging.getLogger("tessellate.test").info("about to vanish")
     # Not inside the assert: `python -O` removes assert statements, taking the
     # clear with them and leaving a test that proves nothing.
     cleared = client.delete("/logs")

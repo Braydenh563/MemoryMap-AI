@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-SRC = Path(__file__).resolve().parents[1] / "src" / "memorymap"
+SRC = Path(__file__).resolve().parents[1] / "src" / "tessellate"
 _RAW = re.compile(r"\.fail\(\s*(?:str\()?(?:exc|error|err|e)\b")
 
 #: Sites that still pass a raw value. Delete a line when its site is reworded.

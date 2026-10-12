@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content, viewport-fit=cover">
-  <title>Tessellate</title>
+  <title>Tessellate Notes</title>
   <!-- The SVG is the icon; the PNG is the fallback for the handful of places
        that still won't take one: Safari's touch icon in particular, which
        also composites onto white, so the mark carries its own tile. -->
@@ -122,7 +122,7 @@
   <!-- One compact, sticky top bar: brand · tabs · controls. -->
   <header id="top-bar">
     <img id="brand-logo" src="/favicon.svg" alt="" aria-hidden="true" width="34" height="34">
-    <h1 title="Your offline, self-filing notebook">Tessellate</h1>
+    <h1 title="Your notes, pieced together" aria-label="Tessellate notes">Tessellate<span class="brand-note">notes</span></h1>
     <!-- Space switcher. It sits next to the wordmark, not among the controls
          on the right, because it is not a control, it says WHICH notebook
          everything else on the page is showing. Scope reads left, actions
@@ -392,7 +392,7 @@
          robust and secure"). The lock card's twin, shown in its place: one
          card, two paths. With the recovery key (`POST /auth/recover`) a new
          password is set and private notes are kept; without it, the same
-         reset `python -m memorymap --reset-password` does (`POST
+         reset `python -m tessellate --reset-password` does (`POST
          /auth/reset`, core/password_reset.py). Both answer only this
          computer; another device is told so before anything is typed
          (`reset_here` from /auth/status). Wired in account-recovery.js. -->
@@ -456,7 +456,7 @@
           </p>
           <p class="muted">In a terminal, in the app's folder:</p>
           <div class="row lock-forgot-command">
-            <pre class="code-block"><code id="lock-reset-command">python -m memorymap --reset-password</code></pre>
+            <pre class="code-block"><code id="lock-reset-command">python -m tessellate --reset-password</code></pre>
             <button type="button" id="lock-reset-copy" class="ghost small"
               title="Copy the command" aria-label="Copy the command"><i class="ph ph-copy ph-lead" aria-hidden="true"></i> Copy</button>
           </div>
@@ -13453,7 +13453,7 @@ Link to another note with [[its first few words]]."></textarea>
                   so the notebook is never open to your network without a
                   password. The same reset runs in a terminal:
                 </p>
-                <pre class="code-block"><code>python -m memorymap --reset-password</code></pre>
+                <pre class="code-block"><code>python -m tessellate --reset-password</code></pre>
               </div>
             </div>
           </section>

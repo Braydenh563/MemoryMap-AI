@@ -30,14 +30,14 @@ import requests
 
 from fakes_http import FakeResponse, sse
 
-from memorymap.ai import provider as provider_module
-from memorymap.ai.ollama_client import (
+from tessellate.ai import provider as provider_module
+from tessellate.ai.ollama_client import (
     OllamaClient,
     OllamaError,
     describe_http_error,
 )
-from memorymap.ai.openai_client import OpenAICompatClient
-from memorymap.ai.provider import (
+from tessellate.ai.openai_client import OpenAICompatClient
+from tessellate.ai.provider import (
     ProviderError,
     ToolsUnsupportedError,
     context_from_catalog_entry,
@@ -179,7 +179,7 @@ def test_a_backend_that_is_not_there_is_not_reported_as_running(monkeypatch):
     def refused(url, headers=None, timeout=None):
         raise requests.ConnectionError("refused")
 
-    monkeypatch.setattr("memorymap.ai.openai_client.requests.get", refused)
+    monkeypatch.setattr("tessellate.ai.openai_client.requests.get", refused)
     with pytest.raises(ProviderError):
         c.list_models()
 
@@ -197,7 +197,7 @@ def test_a_backend_that_answers_with_no_models_is_running_and_empty(monkeypatch)
             return FakeResponse(status=404)
         return FakeResponse(payload={"data": []})
 
-    monkeypatch.setattr("memorymap.ai.openai_client.requests.get", answers)
+    monkeypatch.setattr("tessellate.ai.openai_client.requests.get", answers)
     assert c.list_models() == []
 
 
@@ -214,7 +214,7 @@ def test_llama_server_props_beats_the_name_guess(monkeypatch):
         assert url == "http://localhost:8080/props"
         return FakeResponse(payload={"n_ctx": 16384})
 
-    monkeypatch.setattr("memorymap.ai.openai_client.requests.get", fake_get)
+    monkeypatch.setattr("tessellate.ai.openai_client.requests.get", fake_get)
     assert c.context_length("qwen3") == 16384
     assert c.is_llama_cpp() is True
 
@@ -228,7 +228,7 @@ def test_a_server_with_no_props_is_not_mistaken_for_llama_cpp(monkeypatch):
     def fake_get(url, headers=None, timeout=None):
         return FakeResponse(status=404, text="not found")
 
-    monkeypatch.setattr("memorymap.ai.openai_client.requests.get", fake_get)
+    monkeypatch.setattr("tessellate.ai.openai_client.requests.get", fake_get)
     # Falls through to the name-guess table, same as before this existed.
     assert c.context_length("qwen3") == known_context("qwen3")
     assert c.is_llama_cpp() is False
@@ -554,7 +554,7 @@ def test_unparseable_arguments_do_not_take_the_turn_down():
 
 
 def test_the_provider_preference_chooses_the_client(app_state):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     app_state.set_preference("llm_provider", "openai")
     app_state.set_preference("llm_base_url", "")
@@ -565,7 +565,7 @@ def test_the_provider_preference_chooses_the_client(app_state):
 
 
 def test_an_empty_base_url_means_the_default_for_that_provider(app_state):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     app_state.set_preference("llm_provider", "openai")
     app_state.set_preference("llm_base_url", "")
@@ -574,7 +574,7 @@ def test_an_empty_base_url_means_the_default_for_that_provider(app_state):
 
 def test_a_typo_in_the_preferences_file_costs_the_setting_not_the_app(app_state):
     """It is a JSON file the user is invited to edit by hand."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     app_state.set_preference("llm_provider", "lmstudio-ish-nonsense")
     assert isinstance(deps.build_llm_client(app_state), OllamaClient)
@@ -583,7 +583,7 @@ def test_a_typo_in_the_preferences_file_costs_the_setting_not_the_app(app_state)
 def test_the_ollama_env_var_still_wins_when_no_url_is_set(app_state):
     """`OLLAMA_URL` predates this setting, so it stays the default for that
     path rather than being overwritten by an empty preference."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     app_state.set_preference("llm_provider", "ollama")
     app_state.set_preference("llm_base_url", "")
@@ -656,7 +656,7 @@ def test_the_agent_can_ask_any_provider_for_its_window():
 def test_the_shared_helpers_are_still_importable_from_the_old_place():
     """They moved to `ai/provider.py` and are re-exported. Tests and modules
     that already import them from `ollama_client` keep working."""
-    from memorymap.ai import ollama_client
+    from tessellate.ai import ollama_client
 
     for name in ("extract_text_tool_calls", "split_thinking", "_ThinkTagSplitter"):
         assert hasattr(ollama_client, name)
@@ -666,7 +666,7 @@ def test_the_moved_helpers_were_moved_and_not_copied():
     """A copy is the failure mode this refactor exists to avoid, two gates
     that drift apart, and a tool-call bug fixed in one dialect and not the
     other."""
-    source = Path("src/memorymap/ai/ollama_client.py").read_text(encoding="utf-8")
+    source = Path("src/tessellate/ai/ollama_client.py").read_text(encoding="utf-8")
     assert "class _ToolTextGate" not in source
     assert "def extract_text_tool_calls" not in source
 
@@ -702,7 +702,7 @@ def _skip_show_probe(client, model="m"):
 def test_ollama_chat_retries_once_on_a_transient_500(monkeypatch):
     calls = _queued_post(
         monkeypatch,
-        "memorymap.ai.ollama_client",
+        "tessellate.ai.ollama_client",
         [
             FakeResponse(status=500, text="Internal Server Error"),
             FakeResponse(payload={"message": {"content": "hi"}}),
@@ -720,7 +720,7 @@ def test_ollama_chat_does_not_retry_a_non_transient_4xx(monkeypatch):
     only a 5xx from the backend itself is worth a silent resend."""
     calls = _queued_post(
         monkeypatch,
-        "memorymap.ai.ollama_client",
+        "tessellate.ai.ollama_client",
         [FakeResponse(status=400, text="model not found")],
     )
     client = OllamaClient(base_url="http://127.0.0.1:1")
@@ -735,7 +735,7 @@ def test_ollama_chat_gives_up_after_a_second_500(monkeypatch):
     should fail exactly like it always has."""
     calls = _queued_post(
         monkeypatch,
-        "memorymap.ai.ollama_client",
+        "tessellate.ai.ollama_client",
         [
             FakeResponse(status=500, text="Internal Server Error"),
             FakeResponse(status=500, text="Internal Server Error"),
@@ -754,7 +754,7 @@ def test_ollama_chat_stream_retries_once_on_a_transient_500(monkeypatch):
     line = json.dumps({"message": {"content": "hi"}, "done": True})
     calls = _queued_post(
         monkeypatch,
-        "memorymap.ai.ollama_client",
+        "tessellate.ai.ollama_client",
         [
             FakeResponse(status=500, text="Internal Server Error"),
             FakeResponse(lines=[line]),
@@ -808,7 +808,7 @@ def test_a_model_whose_tools_path_500s_falls_back_instead_of_failing(ollama, mon
     is what is broken and the caller can still answer."""
     monkeypatch.setattr(ollama, "_tools_path_is_broken", lambda *a, **k: True)
     monkeypatch.setattr(
-        "memorymap.ai.ollama_client.requests.post",
+        "tessellate.ai.ollama_client.requests.post",
         lambda *a, **k: (_ for _ in ()).throw(_server_error()),
     )
     with pytest.raises(ToolsUnsupportedError):
@@ -821,7 +821,7 @@ def test_a_real_outage_is_still_reported_as_one(ollama, monkeypatch):
     working model because the server hiccuped is worse than the error."""
     monkeypatch.setattr(ollama, "_tools_path_is_broken", lambda *a, **k: False)
     monkeypatch.setattr(
-        "memorymap.ai.ollama_client.requests.post",
+        "tessellate.ai.ollama_client.requests.post",
         lambda *a, **k: (_ for _ in ()).throw(_server_error()),
     )
     with pytest.raises(OllamaError) as caught:
@@ -835,7 +835,7 @@ def test_a_turn_that_offered_no_tools_never_probes(ollama, monkeypatch):
     probed = []
     monkeypatch.setattr(ollama, "_tools_path_is_broken", lambda *a, **k: probed.append(1) or True)
     monkeypatch.setattr(
-        "memorymap.ai.ollama_client.requests.post",
+        "tessellate.ai.ollama_client.requests.post",
         lambda *a, **k: (_ for _ in ()).throw(_server_error()),
     )
     with pytest.raises(OllamaError):

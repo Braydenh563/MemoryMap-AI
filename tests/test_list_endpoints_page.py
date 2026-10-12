@@ -26,7 +26,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-ROUTES = ROOT / "src" / "memorymap" / "api"
+ROUTES = ROOT / "src" / "tessellate" / "api"
 
 #: Lists whose size this app decides, with the reason each is bounded. Adding
 #: a row here is a claim that can be checked by reading the code it names.
@@ -100,7 +100,7 @@ def test_a_paged_list_says_how_many_there_are(client):
 def test_a_bookmark_past_the_page_is_still_reachable(client):
     """The same question INBOX 117 asked of documents, asked of the lists
     paged after it: is everything still reachable through `offset`?"""
-    from memorymap.api import routes_bookmarks
+    from tessellate.api import routes_bookmarks
 
     size = routes_bookmarks.BOOKMARKS_PAGE_SIZE
     for index in range(size + 3):

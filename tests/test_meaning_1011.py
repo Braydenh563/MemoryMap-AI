@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import meaning
+from tessellate.ai import meaning
 
 ROOT = Path(__file__).resolve().parents[1]
 JS = ROOT / "frontend/js"
@@ -134,7 +134,7 @@ class _Letters:
 
 
 def test_close_in_meaning_says_when_no_model_is_on(client, monkeypatch):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     class Off:
         def is_ready(self) -> bool:
@@ -147,7 +147,7 @@ def test_close_in_meaning_says_when_no_model_is_on(client, monkeypatch):
 
 
 def test_close_in_meaning_ranks_the_rows_by_cosine(client, monkeypatch):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     monkeypatch.setattr(deps, "get_embeddings", _Letters)
     token = client.post("/auth/setup", json={"password": "first-pass"}).json()["token"]

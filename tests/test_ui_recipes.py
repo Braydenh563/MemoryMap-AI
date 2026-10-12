@@ -4107,7 +4107,7 @@ def test_a_frame_is_one_kind_reached_three_ways() -> None:
     assert "wbCaptureBulkMoveOrigin(null, keys)" in wb[wb.index("function wbFrameDragOrigin(") :][:400]
     frame_rule = css[css.index(".wb-object-frame {") :][:600]
     assert "pointer-events: none;" in frame_rule and "background: transparent;" in frame_rule
-    guide = re.sub(r'"\s*\n\s*"', "", (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8"))
+    guide = re.sub(r'"\s*\n\s*"', "", (ROOT / "src" / "tessellate" / "ai" / "help_chat.py").read_text(encoding="utf-8"))
     assert "F frame" in guide and "title drags it and what is inside it" in guide
     assert "Ctrl+Shift+L locks the selection" in guide
 
@@ -4187,7 +4187,7 @@ def test_presenting_is_one_mode_with_one_bar() -> None:
     keys = wb[wb.index("let wbPresent = null;") :]
     assert "event.stopImmediatePropagation();" in keys and "}, true);" in keys
     assert ".wb-board-menu [data-wb-surface]" in (ROOT / "frontend" / "js" / "whiteboard-map.js").read_text(encoding="utf-8")
-    guide = (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8")
+    guide = (ROOT / "src" / "tessellate" / "ai" / "help_chat.py").read_text(encoding="utf-8")
     assert "Present frames: one frame" in guide
 
 
@@ -4257,7 +4257,7 @@ def test_a_comment_thread_is_one_popover_reached_three_ways() -> None:
     assert "wbPaintCommentMarks();" in wb[wb.index("function wbQueueSelectionBar()") :][:300]
     assert '".wb-comment-pin",' in wb[wb.index("const WB_INV_ZOOM_GRIPS") :][:200]
     assert "#library-view-whiteboard.wb-presenting .wb-comment-marks {\n  display: none;" in css
-    guide = re.sub(r'"\s*\n\s*"', "", (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8"))
+    guide = re.sub(r'"\s*\n\s*"', "", (ROOT / "src" / "tessellate" / "ai" / "help_chat.py").read_text(encoding="utf-8"))
     assert "Right-click an item, Comment…" in guide and "Comment… starts a thread" in guide
 
 
@@ -5201,7 +5201,7 @@ _NOT = re.compile(r":not\((?:[^()]|\([^()]*\))*\)")
 
 
 def _served_rules():
-    from memorymap.api.asset_strip import strip_for_path
+    from tessellate.api.asset_strip import strip_for_path
 
     for path in CSS:
         served = strip_for_path(path.name, path.read_bytes()).decode("utf-8")
@@ -5700,7 +5700,7 @@ class _ThisComputerScan(HTMLParser):
 
 
 def test_a_control_that_acts_on_this_computer_says_so_elsewhere() -> None:
-    from memorymap.api.this_computer import REFUSAL
+    from tessellate.api.this_computer import REFUSAL
 
     scan = _ThisComputerScan()
     scan.feed((ROOT / "frontend" / "index.html").read_text(encoding="utf-8"))

@@ -19,7 +19,7 @@ For when you have done this before and need the commands:
 
 ```
 # 1. Bump the version everywhere it lives (see the checklist below)
-#    src/memorymap/__init__.py, pyproject.toml, the ?v= stamps in
+#    src/tessellate/__init__.py, pyproject.toml, the ?v= stamps in
 #    frontend/index.html, capture.html and clip.html, and the README's
 #    "Version 0.x.y." line
 
@@ -29,7 +29,7 @@ For when you have done this before and need the commands:
 cp CHANGELOG.md docs/CHANGELOG.md
 
 # 3. Commit
-git add src/memorymap/__init__.py pyproject.toml README.md \
+git add src/tessellate/__init__.py pyproject.toml README.md \
   frontend/index.html frontend/capture.html frontend/clip.html \
   CHANGELOG.md docs/CHANGELOG.md
 git commit -m "Release 0.4.0" && git push
@@ -60,13 +60,13 @@ does not set them for you.
 
 ### 1. Bump the version everywhere it lives
 
-`__version__` in `src/memorymap/__init__.py` is the source of truth. It shows in
+`__version__` in `src/tessellate/__init__.py` is the source of truth. It shows in
 **Settings, About**, in the Windows installer's file properties, and is what the
 in-app update check (`GET /update/check`) compares against GitHub's latest
 release tag. **A tag that disagrees with it stops the release**: the first job
 of `release.yml` compares the two and fails before anything is built, and
 the workflow reads the installer's own version from this file too and passes it
-to `installer.iss` as `/DMyAppVersion` (which refuses a `MEMORYMAP_VERSION` that
+to `installer.iss` as `/DMyAppVersion` (which refuses a `TESSELLATE_VERSION` that
 says otherwise).
 
 The same number is written in four more places. Two have a lint that fails the
@@ -164,8 +164,8 @@ after the release exists:
 - **Smoke-tests the frozen app.** It starts the built executable on a scratch data
   folder and fails the release unless the app serves its page within a minute.
 - Runs Inno Setup against `packaging/windows/installer.iss` with
-  `/DMyAppVersion=` the version in `src/memorymap/__init__.py`; it refuses a
-  `MEMORYMAP_VERSION` (the tag) that differs.
+  `/DMyAppVersion=` the version in `src/tessellate/__init__.py`; it refuses a
+  `TESSELLATE_VERSION` (the tag) that differs.
 - Uploads `MemoryMap-AI-Setup-<version>-windows-x86_64.exe` to the release. The
   WiX `.msi` steps are present but switched off: its toolkit's licence terms
   stopped the release build.

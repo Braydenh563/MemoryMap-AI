@@ -30,8 +30,8 @@ def test_timezone_preference_drives_the_users_clock(client):
     browser reported, because the server may be running in UTC while the person
     is in Brisbane.
     """
-    from memorymap.core import deps
-    from memorymap.core.config import user_now
+    from tessellate.core import deps
+    from tessellate.core.config import user_now
 
     assert client.put("/preferences", json={"timezone": "Australia/Brisbane"}).status_code == 200
     assert client.get("/preferences").json()["timezone"] == "Australia/Brisbane"
@@ -47,8 +47,8 @@ def test_an_unknown_timezone_is_refused(client):
 
 def test_no_timezone_falls_back_to_the_server_clock(client):
     """The ordinary case, app and browser on one machine, must need no setup."""
-    from memorymap.core import deps
-    from memorymap.core.config import user_now
+    from tessellate.core import deps
+    from tessellate.core.config import user_now
 
     assert client.get("/preferences").json()["timezone"] == ""
     assert user_now(deps.get_config()).tzinfo is not None
@@ -56,7 +56,7 @@ def test_no_timezone_falls_back_to_the_server_clock(client):
 
 def test_the_agent_is_told_the_users_local_time(client):
     """The prompt line that "remind me in 10 minutes" is computed from."""
-    from memorymap.ai import agent
+    from tessellate.ai import agent
 
     client.put("/preferences", json={"timezone": "Australia/Brisbane"})
     messages = agent.build_agent_messages("remind me in 10 minutes", [])
@@ -68,7 +68,7 @@ def test_the_agent_is_told_the_users_local_time(client):
 def test_agent_prompt_includes_current_time_and_reminder_hint():
     """The other half of the same line: it also has to point at the tool
     that acts on it, or the model knows the time and not what to do with it."""
-    from memorymap.ai import agent
+    from tessellate.ai import agent
 
     messages = agent.build_agent_messages("remind me to fold washing in 10 minutes", [])
     system = messages[0]["content"]

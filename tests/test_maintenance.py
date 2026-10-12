@@ -13,9 +13,9 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.api import routes_files, routes_maintenance
-from memorymap.api.this_computer import REFUSAL
-from memorymap.core import doctor, maintenance
+from tessellate.api import routes_files, routes_maintenance
+from tessellate.api.this_computer import REFUSAL
+from tessellate.core import doctor, maintenance
 
 ROOT = Path(__file__).resolve().parents[1]
 START_SH = (ROOT / "start.sh").read_text(encoding="utf-8")

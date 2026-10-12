@@ -11,8 +11,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from memorymap.ai import model_manager
-from memorymap.core import deps, taskhistory, vault
+from tessellate.ai import model_manager
+from tessellate.core import deps, taskhistory, vault
 
 
 # --- one copy of each frontend file, however many test modules read it --------
@@ -55,7 +55,7 @@ Path.read_text = _read_text_once
 def app_state(tmp_path, monkeypatch):
     """Fresh singletons pointed at a temp dir. Yields the ConfigManager."""
     # Make sure a developer's real .env can't leak into tests.
-    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("TESSELLATE_DATA_DIR", str(tmp_path / "data"))
     deps.reset_app_state()
     model_manager.reset_jobs()
     # The vault's key is module-level too: a test that unlocked it left the
@@ -87,7 +87,7 @@ def client(app_state):
     """TestClient with ALL AI unavailable, proves capture and keyword
     search work with zero AI, and keeps results identical whether or not
     the developer happens to have Ollama running."""
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
     from tests.fakes import FakeEmbeddingService, FakeOllama
 
     deps.override_ai(
@@ -118,7 +118,7 @@ def fake_embeddings(app_state):
 @pytest.fixture()
 def ai_client(app_state, fake_ollama, fake_embeddings):
     """TestClient with working (fake) AI: full Phase 2 behaviour."""
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     return TestClient(create_app())
 
@@ -144,14 +144,14 @@ def capture_post(monkeypatch):
         sent.append({"url": url, "json": json})
         return queued.pop(0) if queued else FakeResponse(payload={})
 
-    monkeypatch.setattr("memorymap.ai.openai_client.requests.post", fake_post)
+    monkeypatch.setattr("tessellate.ai.openai_client.requests.post", fake_post)
     return type("Capture", (), {"sent": sent, "queue": queued})()
 
 
 @pytest.fixture
 def openai_client():
     """An `OpenAICompatClient` that can never reach the network."""
-    from memorymap.ai.openai_client import OpenAICompatClient
+    from tessellate.ai.openai_client import OpenAICompatClient
 
     c = OpenAICompatClient(base_url="http://localhost:1234/v1")
     c._catalog = []
@@ -176,7 +176,7 @@ def openai_client():
 
 @pytest.fixture(autouse=True)
 def _no_test_runs_pip(monkeypatch):
-    from memorymap.core import extras
+    from tessellate.core import extras
 
     # `extras.subprocess` is the one shared `subprocess` module, so a blanket
     # refusal broke every other Popen in the process: `platform.platform()`
@@ -263,7 +263,7 @@ def _forget_the_docker_probe():
     depends on the order they ran in. Cleared on both sides so a test is
     neither poisoned by its predecessor nor the thing that poisons its
     successor."""
-    from memorymap.search import searxng_docker
+    from tessellate.search import searxng_docker
 
     searxng_docker.forget_docker_daemon_state()
     yield
@@ -277,7 +277,7 @@ def _reset_the_librarian():
     it in the same process, in whatever order that run happened to have.
     Cleared on both sides, like `_forget_the_docker_probe` above. See
     tests/test_autonomous_state_isolation.py."""
-    from memorymap.ai import autonomous
+    from tessellate.ai import autonomous
 
     autonomous.reset_state()
     yield

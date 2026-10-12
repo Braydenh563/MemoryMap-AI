@@ -30,15 +30,15 @@ fi
 # --- Where the data actually is --------------------------------------
 # The same precedence start.sh uses, and for the same reason: this script
 # has to be able to name, measure and (only if asked) delete the right
-# folder on a machine where MEMORYMAP_DATA_DIR moved the notebook
+# folder on a machine where TESSELLATE_DATA_DIR moved the notebook
 # somewhere else entirely.
-DATA_DIR="${MEMORYMAP_DATA_DIR:-}"
+DATA_DIR="${TESSELLATE_DATA_DIR:-}"
 if [ -z "$DATA_DIR" ] && [ -f ".env" ]; then
-  DATA_DIR="$(grep -E '^MEMORYMAP_DATA_DIR=' ".env" 2>/dev/null | tail -n 1 | cut -d= -f2- | sed 's/^"//; s/"$//')"
+  DATA_DIR="$(grep -E '^TESSELLATE_DATA_DIR=' ".env" 2>/dev/null | tail -n 1 | cut -d= -f2- | sed 's/^"//; s/"$//')"
 fi
 [ -n "$DATA_DIR" ] || DATA_DIR="data"
 
-MM_PORT="${MEMORYMAP_PORT:-8000}"
+MM_PORT="${TESSELLATE_PORT:-8000}"
 
 # --- Flags -----------------------------------------------------------
 DRY_RUN=0
@@ -301,7 +301,7 @@ if [ -n "$EXPORT_TO" ]; then
     exit 1
   fi
   echo " ${TEAL}[..]${RESET} Exporting your notes to $EXPORT_TO..."
-  if ! .venv/bin/python -m memorymap --export "$EXPORT_TO"; then
+  if ! .venv/bin/python -m tessellate --export "$EXPORT_TO"; then
     echo " ${RED}[x]${RESET} The export failed, so nothing was removed."
     exit 1
   fi

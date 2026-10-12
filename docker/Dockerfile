@@ -39,18 +39,18 @@ WORKDIR /app
 # reset of the notebook never re-downloads gigabytes.
 ENV PATH=/venv/bin:$PATH \
     PYTHONPATH=/app/src \
-    MEMORYMAP_DATA_DIR=/data \
+    TESSELLATE_DATA_DIR=/data \
     HF_HOME=/models/hf \
     SENTENCE_TRANSFORMERS_HOME=/models/hf \
     OLLAMA_URL=http://host.docker.internal:11434
 VOLUME ["/data", "/models"]
 EXPOSE 8000 8443
 USER mm
-# MEMORYMAP_BIND widens the bind inside the container (the bridge is not
-# loopback) and MEMORYMAP_FIRST_PASSWORD seeds a password when none is set.
+# TESSELLATE_BIND widens the bind inside the container (the bridge is not
+# loopback) and TESSELLATE_FIRST_PASSWORD seeds a password when none is set.
 # Publish the port on the host's loopback (compose.yaml) and put TLS in front
 # for other devices. Behind a proxy that forwards its own name, list it in
-# MEMORYMAP_ALLOWED_HOSTS (comma-separated, names only) or the app answers 421.
-ENV MEMORYMAP_BIND=0.0.0.0 \
-    MEMORYMAP_PORT=8000
-CMD ["python", "-m", "memorymap"]
+# TESSELLATE_ALLOWED_HOSTS (comma-separated, names only) or the app answers 421.
+ENV TESSELLATE_BIND=0.0.0.0 \
+    TESSELLATE_PORT=8000
+CMD ["python", "-m", "tessellate"]

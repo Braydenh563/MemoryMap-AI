@@ -4,11 +4,11 @@ maxims lint, decision 52), grounding (every eval clause traced) and acts
 (each with an inverse, decision 53). Brief 68 prints decision 58's six
 columns (understanding, grounding, structure, variety, follow-up, repair),
 the engine's number beside a model's: the model column reads "not run" when
-no `MEMORYMAP_EVALS_URL` model is set (CLAUDE.md section 4).
+no `TESSELLATE_EVALS_URL` model is set (CLAUDE.md section 4).
 
     PYTHONPATH=src:. python scratchpad/parity.py
 """
-from memorymap.ai import realise, validate
+from tessellate.ai import realise, validate
 from tests import _composer_eval as E
 from tests.test_realise import FLOOR_QUESTIONS, HELP_QUESTIONS, _chat
 
@@ -33,7 +33,7 @@ def structure() -> tuple[int, int, int]:
 
 
 def acts() -> tuple[int, int]:
-    from memorymap.ai import acts as registry
+    from tessellate.ai import acts as registry
 
     writes = [a for a in registry.ACTS.values() if a.writes]
     return sum(1 for a in writes if a.inverse), len(writes)
@@ -47,7 +47,7 @@ def understanding() -> tuple[int, int]:
     from datetime import datetime
     from pathlib import Path
 
-    from memorymap.ai import acts as registry, filters, reading
+    from tessellate.ai import acts as registry, filters, reading
 
     root = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "composer"
     right = total = 0
@@ -104,7 +104,7 @@ def repair_rate() -> tuple[int, int]:
     from datetime import datetime
     from pathlib import Path
 
-    from memorymap.ai import reading
+    from tessellate.ai import reading
 
     data = json.loads((Path(__file__).resolve().parents[1] / "tests/fixtures/composer/reading_1010.json").read_text(encoding="utf-8"))
     clock = datetime.fromisoformat(data["now"])
@@ -131,7 +131,7 @@ def scorecard() -> None:
     """Decision 58's six columns, the engine's number beside a model's."""
     import os
 
-    model = "run pytest -m evals" if os.environ.get("MEMORYMAP_EVALS_URL") else "not run (no model)"
+    model = "run pytest -m evals" if os.environ.get("TESSELLATE_EVALS_URL") else "not run (no model)"
     u, ut = understanding()
     g, gt = grounding_caught()
     n, found, grounded = structure()

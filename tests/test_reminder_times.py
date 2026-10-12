@@ -26,7 +26,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from memorymap.ai import reminder_parser
+from tessellate.ai import reminder_parser
 
 
 # --- the reported sentence --------------------------------------------------
@@ -280,7 +280,7 @@ def test_the_rules_are_tried_before_the_model(ai_client, monkeypatch):
 
 
 def test_a_reminder_that_is_only_a_time_keeps_a_name():
-    from memorymap.ai import when
+    from tessellate.ai import when
 
     now = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
     parsed = when.parse_reminder_text("tomorrow at 5pm", now)
@@ -288,7 +288,7 @@ def test_a_reminder_that_is_only_a_time_keeps_a_name():
 
 
 def test_the_placeholder_example_reads_its_priority_too():
-    from memorymap.ai import when
+    from tessellate.ai import when
 
     now = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
     parsed = when.parse_reminder_text("Call mum tomorrow evening, high priority", now)

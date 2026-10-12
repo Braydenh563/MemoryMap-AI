@@ -2,7 +2,7 @@
 
 import asyncio
 
-from memorymap.core import first_password, netbind
+from tessellate.core import first_password, netbind
 
 
 def test_bind_defaults_to_loopback_and_survives_junk():
@@ -24,7 +24,7 @@ def test_first_password_is_taken_once_and_blank_is_none(monkeypatch):
 
 
 def test_seed_only_when_no_password_and_never_logs_it(tmp_path, monkeypatch, caplog):
-    from memorymap.core.database import DatabaseManager, User
+    from tessellate.core.database import DatabaseManager, User
 
     db = DatabaseManager(tmp_path / "m.db")
     secret = "correct horse battery"
@@ -38,7 +38,7 @@ def test_seed_only_when_no_password_and_never_logs_it(tmp_path, monkeypatch, cap
 
 
 def test_explicit_bind_skips_the_no_password_403_and_default_keeps_it(monkeypatch):
-    from memorymap.core import security
+    from tessellate.core import security
 
     monkeypatch.setattr(security, "_notebook_has_password", lambda: False)
     monkeypatch.setattr(netbind, "_current", "0.0.0.0")
@@ -94,7 +94,7 @@ def test_a_proxied_origin_on_the_standard_port_is_this_app_s_own_page(monkeypatc
     scheme http and Host `memory.example.com` while the browser's Origin is
     `https://memory.example.com` (port 443): without this every write behind
     a proxy was refused as another site."""
-    from memorymap.core import security
+    from tessellate.core import security
 
     monkeypatch.delenv(netbind.ALLOWED_HOSTS_ENV, raising=False)
     assert not security._is_same_site("https://memory.example.com", "memory.example.com", "http")

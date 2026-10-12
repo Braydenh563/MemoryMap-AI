@@ -10,7 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scratchpad"))
 import restate_share  # noqa: E402
 
-from memorymap.ai import composer_digest, insights  # noqa: E402
+from tessellate.ai import composer_digest, insights  # noqa: E402
 
 Q1 = "What have I saved about courses & study?"
 
@@ -72,8 +72,8 @@ def test_through_the_route_the_line_and_its_row_arrive(client, session):
     from datetime import datetime
 
     import _gold
-    from memorymap.core.database import Entry
-    from memorymap.entry import manager
+    from tessellate.core.database import Entry
+    from tessellate.entry import manager
 
     for n in _gold.load()["notes"]:
         made = manager.create_entry(session, n["content"], category_name=n["category"], tags=n["tags"])

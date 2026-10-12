@@ -9,7 +9,7 @@ and the grounding rule went first.
 
 from __future__ import annotations
 
-from memorymap.ai import context
+from tessellate.ai import context
 
 
 def test_cjk_counts_a_token_a_character():

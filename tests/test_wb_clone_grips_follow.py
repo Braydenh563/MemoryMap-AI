@@ -70,6 +70,6 @@ def test_a_note_card_gets_the_arrows_and_they_make_a_new_note():
     assert '"/entries"' in made and '"noteMade"' in made and "wbRecordGesture" in made
     assert "sourceAnchor" in made and 'endCap: "arrow"' in made and "wbEditNodeText(made.id)" in made
     assert "New note ${dir.words}, joined (Alt+Shift+Arrow)" in WB
-    from memorymap.ai import help_chat
+    from tessellate.ai import help_chat
 
     assert any("a note card's arrows make a new note" in t["body"] for t in help_chat.HELP_TOPICS)

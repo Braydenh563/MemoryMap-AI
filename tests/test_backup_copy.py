@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from memorymap.core import backup, deps
+from tessellate.core import backup, deps
 
 CANARY = b"CANARY-PRIVATE-KEY-0xDEADBEEF"
 
@@ -95,7 +95,7 @@ def test_the_copy_folder_gets_the_database_and_its_record_and_no_secret(client, 
     """Backups and exports never carry secrets (reminder token key, LAN
     certificates and keys, the API key): the second copy is the database file
     and its record, nothing else, whatever else sits in the data folder."""
-    from memorymap.core import lancert
+    from tessellate.core import lancert
 
     folder = tmp_path / "drive"
     folder.mkdir()

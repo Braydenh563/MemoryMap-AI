@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import realise, tools
+from tessellate.ai import realise, tools
 from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]

@@ -24,8 +24,8 @@ def document_text(words: int = DOC_WORDS) -> str:
 
 
 def build(session, uploads_dir: Path) -> dict:  # noqa: ANN001
-    from memorymap.core.database import Document, WhiteboardObject
-    from memorymap.entry import manager
+    from tessellate.core.database import Document, WhiteboardObject
+    from tessellate.entry import manager
 
     made = notebook500.build(session, uploads_dir)
     board = manager.create_entry(session, "Budget board", category_name="Work")

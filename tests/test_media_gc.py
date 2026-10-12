@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.core import vault
+from tessellate.core import vault
 
 
 def _upload(ai_client, name="photo.png"):
@@ -107,7 +107,7 @@ def test_a_locked_private_note_blocks_deletion_of_everything(ai_client, session)
     orphan, since the pass as a whole can no longer prove the list is
     complete.
     """
-    from memorymap.core import vault
+    from tessellate.core import vault
 
     vault.close()
     vault.create(session, "test-passphrase")
@@ -317,7 +317,7 @@ def test_the_gallery_reads_only_rows_that_could_name_a_file(ai_client):
     the others are not loaded."""
     from sqlalchemy import event
 
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     uploaded = _upload(ai_client)
     ai_client.post("/entries", json={"content": f"uses it ![i]({uploaded['url']})"})

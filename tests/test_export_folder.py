@@ -12,9 +12,9 @@ import zipfile
 
 import pytest
 
-from memorymap.core import deps
-from memorymap.core.database import Entry
-from memorymap.entry import export_folder
+from tessellate.core import deps
+from tessellate.core.database import Entry
+from tessellate.entry import export_folder
 from tests.fixtures import notebook500
 
 #: Measured on the four-core sandbox under three other agents' load; the cap

@@ -13,8 +13,8 @@ import json
 
 import pytest
 
-from memorymap.ai import agent, tools
-from memorymap.ai.provider import loads_lenient, normalise_tool_calls
+from tessellate.ai import agent, tools
+from tessellate.ai.provider import loads_lenient, normalise_tool_calls
 
 
 @pytest.mark.parametrize(
@@ -190,7 +190,7 @@ def test_the_tools_stream_retries_a_503_once(openai_client, capture_post):
 def test_a_second_5xx_is_still_an_error(openai_client, capture_post):
     from fakes_http import FakeResponse
 
-    from memorymap.ai.provider import ProviderError
+    from tessellate.ai.provider import ProviderError
 
     capture_post.queue.extend([FakeResponse(status=500), FakeResponse(status=500)])
     with pytest.raises(ProviderError):
@@ -253,8 +253,8 @@ def test_two_searches_in_one_reply_both_run(monkeypatch, app_state):
 def test_three_pages_in_one_reply_are_fetched_side_by_side(monkeypatch, app_state, session):
     import time
 
-    from memorymap.core import deps
-    from memorymap.search import websearch
+    from tessellate.core import deps
+    from tessellate.search import websearch
 
     deps.get_config().set_preference("web_search_enabled", True)
     fetched = []

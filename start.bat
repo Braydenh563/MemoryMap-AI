@@ -73,14 +73,16 @@ set "MM_ARGS=%*"
 
 REM --- Where the data actually is --------------------------------------
 REM  The same precedence the app itself uses, see core\config.py: an
-REM  explicit MEMORYMAP_DATA_DIR in the environment, else one set in .env,
+REM  explicit TESSELLATE_DATA_DIR in the environment, else one set in .env,
 REM  else the "data" folder beside this script. Resolved this early because
 REM  three separate things below need it before any Python exists to be
 REM  asked: the launcher log, the doctor's disk and size rows, and the line
 REM  that tells someone where their notes actually are.
-set "MM_DATA_DIR=%MEMORYMAP_DATA_DIR%"
+set "MM_DATA_DIR=%TESSELLATE_DATA_DIR%"
+if not defined MM_DATA_DIR set "MM_DATA_DIR=%MEMORYMAP_DATA_DIR%"  & REM brand: keep (the name before the rename)
 if not defined MM_DATA_DIR if exist ".env" (
-  for /f "tokens=1,* delims==" %%A in ('findstr /B /C:"MEMORYMAP_DATA_DIR=" ".env" 2^>nul') do set "MM_DATA_DIR=%%B"
+  for /f "tokens=1,* delims==" %%A in ('findstr /B /C:"TESSELLATE_DATA_DIR=" ".env" 2^>nul') do set "MM_DATA_DIR=%%B"
+  if not defined MM_DATA_DIR for /f "tokens=1,* delims==" %%A in ('findstr /B /C:"MEMORYMAP_DATA_DIR=" ".env" 2^>nul') do set "MM_DATA_DIR=%%B"  & REM brand: keep
 )
 if not defined MM_DATA_DIR set "MM_DATA_DIR=data"
 REM  Unquoted SET on purpose: the replacement removes double quotes, and a
@@ -97,7 +99,7 @@ REM
 REM  Both forms of the desktop flag are accepted: the bare word "desktop"
 REM  is what start-desktop.bat has always passed, and --desktop is what
 REM  anyone who has read --help will type.
-set "MM_PORT=%MEMORYMAP_PORT%"
+set "MM_PORT=%TESSELLATE_PORT%"
 if not defined MM_PORT set "MM_PORT=8000"
 set "MM_NO_BROWSER=0"
 set "MM_NO_UPDATE=0"
@@ -218,9 +220,9 @@ if defined MM_PORT_BAD (
 )
 
 REM  Set rather than passed on the command line: it has to survive the
-REM  relaunch below AND reach "python -m memorymap", which reads it in
+REM  relaunch below AND reach "python -m tessellate", which reads it in
 REM  __main__.py. One variable, two readers, no argument plumbing.
-set "MEMORYMAP_PORT=!MM_PORT!"
+set "TESSELLATE_PORT=!MM_PORT!"
 set "MM_URL=http://localhost:!MM_PORT!"
 
 if /i "!MM_ACTION!"=="help" (
@@ -286,7 +288,7 @@ REM  single current value: a window that opens late - the Python loading
 REM  window, handed the same file - can then render every step that already
 REM  happened with a tick beside it, instead of showing an empty list and
 REM  only learning about the steps still to come. See scripts\splash.ps1
-REM  for the Windows renderer and src\memorymap\core\launch_status.py for
+REM  for the Windows renderer and src\tessellate\core\launch_status.py for
 REM  the parser both Python surfaces share. state is active, done or failed.
 set "MM_STEP_UPDATE=1"
 set "MM_STEP_PYTHON=2"
@@ -612,7 +614,7 @@ if not exist "%VENV_PY%" (
   REM  Refused with a reason when the system torch is outside requirements.txt's
   REM  range; scripts\system_site_packages.py decides.
   set "MM_VENV_ARGS="
-  if "%MEMORYMAP_SYSTEM_SITE_PACKAGES%"=="1" (
+  if "%TESSELLATE_SYSTEM_SITE_PACKAGES%"=="1" (
     set "MM_SSP_ANSWER="
     for /f "usebackq delims=" %%A in (`!PYTHON! scripts\system_site_packages.py 2^>nul`) do set "MM_SSP_ANSWER=%%A"
     !PYTHON! scripts\system_site_packages.py >nul 2>nul
@@ -622,7 +624,7 @@ if not exist "%VENV_PY%" (
       echo        Building the usual self-contained environment instead.
     ) else (
       set "MM_VENV_ARGS=--system-site-packages"
-      echo        Sharing this computer's installed packages ^(MEMORYMAP_SYSTEM_SITE_PACKAGES=1^).
+      echo        Sharing this computer's installed packages ^(TESSELLATE_SYSTEM_SITE_PACKAGES=1^).
     )
   )
   !PYTHON! -m venv !MM_VENV_ARGS! .venv
@@ -683,7 +685,7 @@ REM  dies with "No module named memorymap" - reported after a rename from
 REM  MemoryMap-AI-v0 to MemoryMap-AI. Asking the venv directly costs one
 REM  interpreter start and catches a move, a rename, and a half-deleted venv.
 if "!NEED_INSTALL!"=="0" (
-  "%VENV_PY%" -c "import memorymap" >nul 2>nul
+  "%VENV_PY%" -c "import tessellate" >nul 2>nul
   if errorlevel 1 (
     echo  !ESC![1;38;5;73m[2/4]!ESC![0m The app folder moved since it was installed - relinking it...
     set "NEED_INSTALL=1"
@@ -741,7 +743,7 @@ if "!NEED_INSTALL!"=="1" (
     if "!MM_PIP_NET!"=="0" echo  !ESC![1;33m[!]!ESC![0m Could not update dependencies:
     if "!MM_PIP_NET!"=="0" type "!MM_PIP_LOG!" 2>nul
     del /q "!MM_PIP_LOG!" >nul 2>nul
-    "%VENV_PY%" -c "import memorymap" >nul 2>nul
+    "%VENV_PY%" -c "import tessellate" >nul 2>nul
     if errorlevel 1 (
       call :status !MM_STEP_DEPS! "Dependencies" "Could not install" "failed"
       set "MM_FAIL_MSG=First-time setup needs an internet connection to install dependencies."
@@ -770,14 +772,14 @@ REM  antivirus quarantine, a disk-cleanup tool) leaves NEED_INSTALL at 0
 REM  and this is the only place left that notices before the traceback
 REM  does, at step 4, with no repair and no explanation.
 REM
-REM  `import memorymap` alone is not enough - it is a five-line package
+REM  `import tessellate` alone is not enough - it is a five-line package
 REM  with no submodule imports of its own, so it stays importable no
-REM  matter which real dependency is gone. `memorymap.api.app` is the
+REM  matter which real dependency is gone. `tessellate.api.app` is the
 REM  actual entry point start.bat's own launch line loads, so importing it
 REM  here walks the real chain and catches a missing python-dotenv,
 REM  requests, cryptography or any other transitive dependency the shallow
 REM  check would have let straight through to a bare traceback.
-"%VENV_PY%" -c "import memorymap.api.app" >nul 2>nul
+"%VENV_PY%" -c "import tessellate.api.app" >nul 2>nul
 if errorlevel 1 (
   if defined MM_AUTO_REPAIRED (
     call :status !MM_STEP_DEPS! "Dependencies" "Still broken after a repair" "failed"
@@ -849,7 +851,7 @@ if defined MM_DESKTOP (
   echo  !ESC![1;38;5;73mYour notes:!ESC![0m   !MM_DATA_DIR!
   echo  !ESC![1;38;5;73mNext time:!ESC![0m    open a terminal there and run start-desktop.bat again
   echo.
-  "%VENV_PY%" -m memorymap --desktop
+  "%VENV_PY%" -m tessellate --desktop
   REM  Exit code 42 (RELAUNCHED_HIDDEN_EXIT_CODE, __main__.py) means "User
   REM  view" handed off to a separate, console-less pythonw.exe process and
   REM  this one exited on purpose - its job here is done. Falling through to
@@ -896,7 +898,7 @@ if defined MM_DESKTOP (
   REM  No second window is coming in browser mode - the tab is the app - so
   REM  the splash closes here rather than being handed on.
   if defined MM_SPLASH_FILE del /q "!MM_SPLASH_FILE!" >nul 2>nul
-  "%VENV_PY%" -m memorymap
+  "%VENV_PY%" -m tessellate
 )
 
 echo.
@@ -1047,7 +1049,7 @@ call :row x "Python" "!MM_PYVER! at !MM_PYPATH!" "This app is tested on 3.11 to 
 REM  2. The venv, asked the only question that matters: can it import the
 REM  things the server cannot start without. A .venv folder that exists and
 REM  a .venv that works are not the same thing after a move, a rename or a
-REM  half-finished pip. `memorymap.api.app` (not a bare `import memorymap`,
+REM  half-finished pip. `tessellate.api.app` (not a bare `import tessellate`,
 REM  which is a five-line package with no imports of its own) is the
 REM  actual module start.bat's own launch line loads first, so this walks
 REM  the app's real import chain - the same check step 2b above uses to
@@ -1058,7 +1060,7 @@ if exist ".venv\Scripts\python.exe" goto :doctor_venv_present
 call :row warn ".venv" "not built yet" "Normal before the first run. start.bat builds it."
 goto :doctor_disk
 :doctor_venv_present
-".venv\Scripts\python.exe" -c "import memorymap.api.app" >nul 2>nul
+".venv\Scripts\python.exe" -c "import tessellate.api.app" >nul 2>nul
 if errorlevel 1 goto :doctor_venv_broken
 call :row ok ".venv" "the app imports cleanly"
 goto :doctor_disk
@@ -1078,11 +1080,11 @@ if not defined MM_FREE_MB goto :doctor_disk_unknown
 if !MM_FREE_MB! LSS 1024 goto :doctor_disk_low
 call :row ok "Disk" "!MM_FREE_MB! MB free on !MM_DATA_DIR!"
 goto :doctor_port
-REM  MEMORYMAP_DOCTOR_OFFLINE=1 (the splash's Copy diagnostics): the rows that
+REM  TESSELLATE_DOCTOR_OFFLINE=1 (the splash's Copy diagnostics): the rows that
 REM  would touch the port the app is about to bind, the git remote or the model
 REM  server are not run. An environment variable rather than a flag, because
 REM  the flag-order lint wants both launchers' help to list the same flags.
-if "%MEMORYMAP_DOCTOR_OFFLINE%"=="1" (
+if "%TESSELLATE_DOCTOR_OFFLINE%"=="1" (
   call :row ok "Port !MM_PORT!" "not checked in offline diagnostics"
   goto :doctor_updates
 )
@@ -1120,7 +1122,7 @@ if "!MM_UPDATE_PLAN!"=="off" goto :doctor_updates_off
 if not exist ".git" goto :doctor_updates_nogit
 where git >nul 2>nul
 if errorlevel 1 goto :doctor_updates_nobin
-if "%MEMORYMAP_DOCTOR_OFFLINE%"=="1" goto :doctor_updates_offline
+if "%TESSELLATE_DOCTOR_OFFLINE%"=="1" goto :doctor_updates_offline
 git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=5 ls-remote --exit-code origin HEAD >nul 2>nul
 if errorlevel 1 goto :doctor_updates_quiet
 call :row ok "Updates" "the git remote answered"
@@ -1171,7 +1173,7 @@ if /i "!MM_PROVIDER!"=="ollama" goto :doctor_ollama
 call :row ok "Provider" "!MM_PROVIDER! at !MM_LLM_URL!"
 goto :doctor_notes
 :doctor_ollama
-if "%MEMORYMAP_DOCTOR_OFFLINE%"=="1" (
+if "%TESSELLATE_DOCTOR_OFFLINE%"=="1" (
   call :row ok "Ollama" "not asked in offline diagnostics"
   goto :doctor_notes
 )
@@ -1280,7 +1282,7 @@ echo whenever requirements.txt changes, pulls the latest code first, skipped
 echo silently if offline, then starts the server.
 echo.
 echo Your notes: !MM_DATA_DIR!
-echo Set MEMORYMAP_DATA_DIR, in the environment or in .env, to move them.
+echo Set TESSELLATE_DATA_DIR, in the environment or in .env, to move them.
 echo.
 echo To remove what this script installed, see uninstall.bat --help.
 exit /b 0
@@ -1366,7 +1368,7 @@ echo(                      !MM_ROW_FIX!
 call :log "       what to try: %~4"
 exit /b 0
 
-REM --- Subroutine: read __version__ out of src\memorymap\__init__.py ----
+REM --- Subroutine: read __version__ out of src\tessellate\__init__.py ----
 REM  Called with the name of the variable to set (e.g. `call :read_version
 REM  MM_VERSION_BEFORE`) - batch has no return value, only "set a variable
 REM  in the caller's scope", which `set "%~1=..."` under
@@ -1426,6 +1428,6 @@ exit /b 0
 
 :read_version
 set "MM_VER_TMP="
-for /f "tokens=1,2,* delims= " %%A in ('findstr /B "__version__" "src\memorymap\__init__.py" 2^>nul') do set "MM_VER_TMP=%%C"
+for /f "tokens=1,2,* delims= " %%A in ('findstr /B "__version__" "src\tessellate\__init__.py" 2^>nul') do set "MM_VER_TMP=%%C"
 set "%~1=!MM_VER_TMP!"
 exit /b 0

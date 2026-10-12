@@ -17,7 +17,7 @@ import json
 
 import pytest
 
-from memorymap.ai import agent, context, librarian, tools
+from tessellate.ai import agent, context, librarian, tools
 
 # Ollama defaults to a 4096-token window unless the model declares otherwise,
 # and ~4 characters per token is close enough to reason with.
@@ -189,7 +189,7 @@ def test_a_vague_request_to_do_something_gets_everything(app_state):
 def test_the_user_can_turn_the_focus_off(app_state):
     """A keyword rule's honest failure is a phrasing it doesn't know, so the
     escape hatch has to be reachable without editing code."""
-    from memorymap.ai import agent as agent_module
+    from tessellate.ai import agent as agent_module
 
     assert agent_module._focus("what did I save?") is not None
     app_state.set_preference("tool_focus", "all")
@@ -199,8 +199,8 @@ def test_the_user_can_turn_the_focus_off(app_state):
 def test_focusing_never_blocks_a_tool_from_running(app_state, session, fake_ollama):
     """Unlike a skill's allowlist, this is an economy and not a policy: a tool
     left out because a cue didn't fire must still work if it is called."""
-    from memorymap.ai import agent as agent_module
-    from memorymap.core import deps
+    from tessellate.ai import agent as agent_module
+    from tessellate.core import deps
 
     fake_ollama.tool_script = [
         [{"name": "list_reminders", "arguments": {}}]  # no cue for this question
@@ -237,7 +237,7 @@ def test_the_clock_in_the_prompt_is_stable_across_a_tool_loop(monkeypatch):
     minute is the same string for all of them."""
     from datetime import datetime, timedelta, timezone
 
-    from memorymap.core import config
+    from tessellate.core import config
 
     base = datetime(2026, 7, 28, 18, 55, 10, 123456, tzinfo=timezone.utc)
 
@@ -265,7 +265,7 @@ def test_a_very_long_note_is_cut_short_with_a_way_to_read_the_rest():
 def test_an_ordinary_note_is_left_exactly_as_it_is():
     """Most notes are a line or two; nothing should touch them but the fence
     that marks them as quoted data (INBOX 430, `ai/fence.py`)."""
-    from memorymap.ai import fence
+    from tessellate.ai import fence
 
     note = {"id": 7, "category": "Work", "content": "the ferry leaves at 8"}
     assert librarian.note_for_prompt(note) == fence.fence("note", "the ferry leaves at 8")
@@ -340,7 +340,7 @@ def test_the_measurement_is_of_the_list_as_it_is_actually_sent(app_state):
 def test_an_unknown_window_falls_back_to_the_cautious_number():
     """Being wrong towards 4096 wastes headroom; being wrong the other way
     drops the system prompt off the front."""
-    from memorymap.ai.ollama_client import OllamaClient
+    from tessellate.ai.ollama_client import OllamaClient
 
     client = OllamaClient(base_url="http://127.0.0.1:1")  # nothing listening
     assert client.context_length("whatever") is None
@@ -350,7 +350,7 @@ def test_an_unknown_window_falls_back_to_the_cautious_number():
 def test_the_window_is_asked_for_once_per_model():
     """It cannot change without the model being re-pulled, and the answer is
     needed on every round."""
-    from memorymap.ai.ollama_client import OllamaClient
+    from tessellate.ai.ollama_client import OllamaClient
 
     client = OllamaClient(base_url="http://127.0.0.1:1")
     client.context_length("a-model")
@@ -367,7 +367,7 @@ def test_a_backend_that_cannot_report_its_window_still_works(app_state):
     Caught by three existing tests whose local fake predates the method, which
     is exactly the signal that a hard requirement had been added.
     """
-    from memorymap.ai.ollama_client import OllamaClient
+    from tessellate.ai.ollama_client import OllamaClient
 
     class NoWindowReporting:
         """A client from before this existed, or a non-Ollama one."""
@@ -600,7 +600,7 @@ def test_a_small_model_spends_under_a_quarter_of_its_window_on_fixed_cost(sessio
     The threshold is deliberately loose. This exists to catch a prompt growing
     back by a third, not to argue about fifty tokens.
     """
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     for i in range(20):
         session.add(

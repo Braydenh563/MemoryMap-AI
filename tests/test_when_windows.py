@@ -8,7 +8,7 @@ from datetime import date, datetime
 
 import pytest
 
-from memorymap.ai import when
+from tessellate.ai import when
 
 NOW = datetime(2026, 10, 6, 14, 30)
 TODAY = NOW.date()

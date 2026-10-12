@@ -21,9 +21,9 @@ import io
 import pytest
 from fastapi import HTTPException
 
-from memorymap.api import routes_files
-from memorymap.api import routes_files as files_service
-from memorymap.core import ocr
+from tessellate.api import routes_files
+from tessellate.api import routes_files as files_service
+from tessellate.core import ocr
 
 PNG = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x00"

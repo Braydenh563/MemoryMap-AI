@@ -17,7 +17,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scratchpad"))
 import restate_share  # noqa: E402
 
-from memorymap.ai import composer_digest  # noqa: E402
+from tessellate.ai import composer_digest  # noqa: E402
 
 #: Measured 2026-10-11: 33/82 before INBOX 870 was 42%; after, 33%.
 RESTATE_CEILING = 0.35
@@ -56,7 +56,7 @@ def test_jokes_get_no_staleness_line():
 
 
 def test_the_wording_varies_with_the_question():
-    from memorymap.ai.composer_digest import _BASE
+    from tessellate.ai.composer_digest import _BASE
 
     assert all(isinstance(_BASE[k], tuple) and len(_BASE[k]) >= 2 for k in ("gap", "stale", "burst", "cadence", "landed"))
 

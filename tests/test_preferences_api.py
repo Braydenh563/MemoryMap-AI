@@ -10,7 +10,7 @@ import csv
 import io
 import sys
 
-from memorymap.core import deps
+from tessellate.core import deps
 
 
 def _save(client, content, **extra):
@@ -167,7 +167,7 @@ def test_show_console_on_startup_defaults_to_dev_view(client):
 
 
 def test_console_mode_route_saves_the_preference_even_off_the_desktop_app(client):
-    """Not running as the desktop app (no MEMORYMAP_DESKTOP=1, which the
+    """Not running as the desktop app (no TESSELLATE_DESKTOP=1, which the
     test client never sets), still saves the preference for next launch,
     just doesn't try to restart anything live."""
     body = client.post(
@@ -185,7 +185,7 @@ def test_console_mode_route_does_not_restart_when_nothing_actually_changed(
     the default it's asking about: must not trigger a restart. A route
     that always restarts on any POST would bounce the app the user just
     opened for confirming a choice they hadn't changed."""
-    # Imported (and, transitively, uvicorn along with it, memorymap.__main__
+    # Imported (and, transitively, uvicorn along with it, tessellate.__main__
     # does `import uvicorn` at module level) BEFORE sys.platform is patched
     # below: this is the same module the route imports lazily, and if THIS
     # is the first time anything in the whole test session imports it, doing
@@ -193,13 +193,13 @@ def test_console_mode_route_does_not_restart_when_nothing_actually_changed(
     # own module-level `signal.SIGBREAK` reference: real on Windows, absent
     # on Linux: blow up at import time, taking every test after this one
     # down with a confusing unrelated-looking collection error.
-    import memorymap.__main__  # noqa: F401
+    import tessellate.__main__  # noqa: F401
 
-    monkeypatch.setenv("MEMORYMAP_DESKTOP", "1")
+    monkeypatch.setenv("TESSELLATE_DESKTOP", "1")
     monkeypatch.setattr(sys, "platform", "win32")
     restarted = []
     monkeypatch.setattr(
-        "memorymap.__main__.restart_in_console_mode",
+        "tessellate.__main__.restart_in_console_mode",
         lambda hidden: restarted.append(hidden),
     )
 
@@ -229,13 +229,13 @@ def test_restart_route_is_a_no_op_without_the_launcher(client):
 def test_restart_route_restarts_on_the_desktop_app(client, monkeypatch):
     """The mechanism is the same one console-mode switching already uses, 
     this call just doesn't change what it's restarting into."""
-    import memorymap.__main__  # noqa: F401  # see the console-mode test above
+    import tessellate.__main__  # noqa: F401  # see the console-mode test above
 
-    monkeypatch.setenv("MEMORYMAP_DESKTOP", "1")
+    monkeypatch.setenv("TESSELLATE_DESKTOP", "1")
     monkeypatch.setattr(sys, "platform", "win32")
     restarted = []
     monkeypatch.setattr(
-        "memorymap.__main__.restart_in_console_mode",
+        "tessellate.__main__.restart_in_console_mode",
         lambda hidden: restarted.append(hidden),
     )
 
@@ -291,7 +291,7 @@ def test_auto_stale_review_preference_was_silently_dropped_before_this_fix(clien
     (not just the GET echo, which the round-trip test above already covers)
     is what would have caught the original bug: the field simply never
     reached `body.model_dump()` to be saved at all."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     assert deps.get_config().get_preference("auto_stale_review_enabled", False) is False
     client.put("/preferences", json={"auto_stale_review_enabled": True})
@@ -314,8 +314,8 @@ def test_response_mode_was_silently_dropped_before_this_fix(client):
     itself updates its own <select> client-side regardless of whether the
     save actually worked, so this was invisible until the next reload
     silently reverted to the default."""
-    from memorymap.ai import presets
-    from memorymap.core import deps
+    from tessellate.ai import presets
+    from tessellate.core import deps
 
     assert deps.get_config().get_preference("response_mode", presets.DEFAULT_MODE) == "normal"
     client.put("/preferences", json={"response_mode": "detailed"})
@@ -342,7 +342,7 @@ def test_saving_an_autonomous_preference_wakes_the_scheduler(client, monkeypatch
     once per scheduled tick, up to six hours away, so switching one off
     (or back on) silently did nothing until then. Saving one now has to wake
     the loop so the change is read on the very next tick."""
-    from memorymap.ai import autonomous
+    from tessellate.ai import autonomous
 
     woken = []
     monkeypatch.setattr(autonomous, "wake", lambda: woken.append(True))

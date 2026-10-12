@@ -9,12 +9,12 @@ Two measurements, both `evals` and skipped without one:
 * **Zero invalid calls over the built-in skills**: every built-in run under
   small-model mode; at least 80% finish with no step stalled or failed, and
   no run makes a call the harness refused for its arguments or its name.
-  `MEMORYMAP_EVALS_SKILLS` (comma separated names) narrows the set, for a
+  `TESSELLATE_EVALS_SKILLS` (comma separated names) narrows the set, for a
   machine where a full pass takes hours.
 
 A fake transport calls whatever its script says, so either number measured
 against one would be a measurement of the script (Brief 13, "Left" 1): these
-need `MEMORYMAP_EVALS_URL` and `MEMORYMAP_EVALS_MODEL`, read here at import
+need `TESSELLATE_EVALS_URL` and `TESSELLATE_EVALS_MODEL`, read here at import
 exactly as `tests/test_skills_evals.py` reads them. The fixture's own shape
 is checked without a model, so the module always collects a test.
 """
@@ -28,15 +28,15 @@ from pathlib import Path
 
 import pytest
 
-EVALS_URL = os.environ.get("MEMORYMAP_EVALS_URL", "").strip()
-EVALS_MODEL = os.environ.get("MEMORYMAP_EVALS_MODEL", "").strip()
+EVALS_URL = os.environ.get("TESSELLATE_EVALS_URL", "").strip()
+EVALS_MODEL = os.environ.get("TESSELLATE_EVALS_MODEL", "").strip()
 FIXTURE = json.loads(
     (Path(__file__).parent / "fixtures" / "chat" / "loose_ends.json").read_text(encoding="utf-8")
 )
 
 needs_a_model = pytest.mark.skipif(
     not (EVALS_URL and EVALS_MODEL),
-    reason="no real model: export MEMORYMAP_EVALS_URL and MEMORYMAP_EVALS_MODEL to run these",
+    reason="no real model: export TESSELLATE_EVALS_URL and TESSELLATE_EVALS_MODEL to run these",
 )
 
 #: Brief 13's done-when.
@@ -60,7 +60,7 @@ def test_the_fixture_is_seventy_notes_with_eight_planted_loose_ends():
         others = [m for m in notes if m is not note and note["anchor"].lower() in m["content"].lower()]
         assert not others, f"anchor {note['anchor']!r} is not unique"
     # The skill is the one the fixture is for, and still pages the notebook.
-    from memorymap.ai import skills
+    from tessellate.ai import skills
 
     skill = next(s for s in skills.BUILTIN_SKILLS if s["name"] == "Find loose ends")
     assert "list_notes" in json.dumps(skill["steps"])
@@ -68,12 +68,12 @@ def test_the_fixture_is_seventy_notes_with_eight_planted_loose_ends():
 
 @pytest.fixture()
 def real_model(app_state, fake_embeddings):
-    from memorymap.ai.openai_client import OpenAICompatClient
-    from memorymap.core import deps
+    from tessellate.ai.openai_client import OpenAICompatClient
+    from tessellate.core import deps
 
     client = OpenAICompatClient(base_url=EVALS_URL)
     if not client.is_running():
-        pytest.fail(f"MEMORYMAP_EVALS_URL is {EVALS_URL} and nothing is answering there.")
+        pytest.fail(f"TESSELLATE_EVALS_URL is {EVALS_URL} and nothing is answering there.")
     deps.override_ai(ollama=client)
     config = deps.get_config()
     config.set_preference("llm_provider", "openai")
@@ -86,9 +86,9 @@ def real_model(app_state, fake_embeddings):
 def _client(notes: list[dict]):
     from fastapi.testclient import TestClient
 
-    from memorymap.api.app import create_app
-    from memorymap.core import deps
-    from memorymap.entry import manager
+    from tessellate.api.app import create_app
+    from tessellate.core import deps
+    from tessellate.entry import manager
 
     ids = {}
     with deps.get_db().session() as session:
@@ -144,9 +144,9 @@ def _finished(events: list[dict]) -> bool:
 @pytest.mark.evals
 @needs_a_model
 def test_the_built_in_skills_finish_with_no_invalid_call(real_model):
-    from memorymap.ai import skills
+    from tessellate.ai import skills
 
-    wanted = {s.strip() for s in os.environ.get("MEMORYMAP_EVALS_SKILLS", "").split(",") if s.strip()}
+    wanted = {s.strip() for s in os.environ.get("TESSELLATE_EVALS_SKILLS", "").split(",") if s.strip()}
     chosen = [s["name"] for s in skills.BUILTIN_SKILLS if not wanted or s["name"] in wanted]
     client, _ids = _client([n for n in FIXTURE["notes"]][:20])
     finished, invalid = 0, []

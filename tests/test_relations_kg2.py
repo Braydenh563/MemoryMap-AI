@@ -11,7 +11,7 @@ import random
 import time
 from datetime import datetime, timedelta
 
-from memorymap.ai.relations import MIN_CONFIDENCE, NoteFacts, recognise
+from tessellate.ai.relations import MIN_CONFIDENCE, NoteFacts, recognise
 
 
 def _notes(n, facts=None):
@@ -146,7 +146,7 @@ def _note(client, content):
 
 
 def _mention(session, name, *entry_ids):
-    from memorymap.core.database import Entity, EntityMention
+    from tessellate.core.database import Entity, EntityMention
 
     entity = Entity(name=name)
     session.add(entity)
@@ -189,7 +189,7 @@ def test_a_dismissed_structural_pair_stays_dismissed(client, session):
 
 
 def test_a_private_note_is_never_in_a_structural_pair(client, session):
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     a = _note(client, "Kiln rota for October")
     b = _note(client, "Private thoughts")
@@ -204,13 +204,13 @@ def test_a_private_note_is_never_in_a_structural_pair(client, session):
 
 
 def test_no_decisions_means_no_reweighting(session):
-    from memorymap.ai import learning
+    from tessellate.ai import learning
 
     assert learning.signal_weights(session) == {}
 
 
 def test_accepts_raise_a_signal_and_dismissals_lower_one_within_bounds(session):
-    from memorymap.ai import learning
+    from tessellate.ai import learning
 
     for i in range(6):
         learning.record(session, kind="accept_link", subject={"a": i, "b": i + 100, "signals": ["tags"]})

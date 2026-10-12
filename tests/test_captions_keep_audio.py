@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import captions
-from memorymap.core import activity, recordings
+from tessellate.ai import captions
+from tessellate.core import activity, recordings
 
 from tests.test_captions import CHUNK, fake
 
@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 @pytest.fixture(autouse=True)
 def _clean(monkeypatch):
-    monkeypatch.delenv("MEMORYMAP_CAPTIONS_URL", raising=False)
+    monkeypatch.delenv("TESSELLATE_CAPTIONS_URL", raising=False)
     captions._probe.update(at=0.0, url="", ok=False)
     captions._sessions.clear()
     activity.clear()
@@ -36,7 +36,7 @@ def _clean(monkeypatch):
 @pytest.fixture()
 def helper(monkeypatch):
     server = fake.serve()
-    monkeypatch.setenv("MEMORYMAP_CAPTIONS_URL", f"http://127.0.0.1:{server.server_address[1]}")
+    monkeypatch.setenv("TESSELLATE_CAPTIONS_URL", f"http://127.0.0.1:{server.server_address[1]}")
     yield server
     server.shutdown()
 
@@ -92,8 +92,8 @@ def test_on_writes_a_recording_pointing_at_the_note_with_timed_lines(client, hel
 
 
 def _row(recording_id: int):
-    from memorymap.core import deps
-    from memorymap.core.database import Recording
+    from tessellate.core import deps
+    from tessellate.core.database import Recording
 
     with deps.get_db().session() as session:
         row = session.get(Recording, recording_id)

@@ -33,8 +33,8 @@ def body(note: dict) -> str:
 
 
 def seed(session) -> list[int]:
-    from memorymap.ai import lexical_filing
-    from memorymap.entry import manager
+    from tessellate.ai import lexical_filing
+    from tessellate.entry import manager
 
     lexical_filing.forget_corpus()
     ids = [
@@ -61,7 +61,7 @@ def _quoted_only(tag: str, text: str) -> bool:
 
 def junk(tag: str, note: dict, vocabulary: set[str]) -> str:
     """Why a suggestion is junk, or ""."""
-    from memorymap.ai import lexical_filing
+    from tessellate.ai import lexical_filing
 
     low = tag.casefold()
     have = {t.casefold() for t in note.get("have", [])}
@@ -78,7 +78,7 @@ def junk(tag: str, note: dict, vocabulary: set[str]) -> str:
 
 def measure(session, suggest=None) -> dict:
     """The numbers, and each note's suggestions under "rows"."""
-    from memorymap.ai import lexical_filing, tagging
+    from tessellate.ai import lexical_filing, tagging
 
     ids = seed(session)
     suggest = suggest or (lambda content, have, entry_id: tagging.suggest(session, content, have=have, exclude_entry_id=entry_id))

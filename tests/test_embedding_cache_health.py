@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import embeddings
-from memorymap.core import embedmodels
+from tessellate.ai import embeddings
+from tessellate.core import embedmodels
 
 BGE = "BAAI/bge-small-en-v1.5"
 WEIGHT_BYTES = 120 * 1024 * 1024  # sparse on disk, so the test costs nothing
@@ -240,7 +240,7 @@ def test_the_rows_say_files_missing_with_reinstall():
 def test_reinstall_clears_an_incomplete_model_even_when_search_uses_it(tmp_path, monkeypatch, app_state):
     """`remove` refuses the model in use; a broken one cannot be used, and
     fetching over the top of it resumes the same short files."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     root = _cache(tmp_path, weights=0)
     assert deps.get_model_manager().embedding_st_model() == BGE

@@ -28,11 +28,11 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import lexical_filing, taxonomy
-from memorymap.entry import manager
+from tessellate.ai import lexical_filing, taxonomy
+from tessellate.entry import manager
 from tests.test_filing_accuracy import NOTES, _seed
 
-DATA = Path(__file__).resolve().parents[1] / "src" / "memorymap" / "ai" / "data" / "taxonomy"
+DATA = Path(__file__).resolve().parents[1] / "src" / "tessellate" / "ai" / "data" / "taxonomy"
 HELD_OUT = json.loads(
     (Path(__file__).parent / "fixtures" / "filing" / "notes_b.json").read_text(encoding="utf-8")
 )

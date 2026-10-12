@@ -17,8 +17,8 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.api import routes_files, routes_tasks
-from memorymap.core import deps, filejobs
+from tessellate.api import routes_files, routes_tasks
+from tessellate.core import deps, filejobs
 
 
 def test_a_reading_in_flight_is_listed():

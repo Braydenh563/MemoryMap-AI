@@ -14,7 +14,7 @@ import sys
 sys.path.insert(0, "tests")
 import _gold  # noqa: E402
 
-from memorymap.ai import composer, composer_digest  # noqa: E402
+from tessellate.ai import composer, composer_digest  # noqa: E402
 from datetime import date  # noqa: E402
 
 FIXTURE = _gold.load()

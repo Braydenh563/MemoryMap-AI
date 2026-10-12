@@ -45,7 +45,7 @@ use, and none of them is your notes:
 | What | When | What goes out |
 | --- | --- | --- |
 | Model downloads | You press Download in Settings, Models | The model name, to Ollama's registry, or to Hugging Face for an `hf.co` name. Ollama does the fetching |
-| The search model | Once, the first time search by meaning needs it | The `sentence-transformers` package from PyPI and `BAAI/bge-small-en-v1.5` from Hugging Face. `MEMORYMAP_NO_AUTO_INSTALL` stops it, and an Ollama embedding model avoids it |
+| The search model | Once, the first time search by meaning needs it | The `sentence-transformers` package from PyPI and `BAAI/bge-small-en-v1.5` from Hugging Face. `TESSELLATE_NO_AUTO_INSTALL` stops it, and an Ollama embedding model avoids it |
 | Optional packages and SearXNG | You press Install in Settings, Packages, or Start SearXNG in Settings, Web search | pip downloads; Run Python files (Pyodide) from GitHub and Tool calling without Ollama (needle) from Hugging Face, both checked against a sha256; SearXNG's source from GitHub |
 | Web search | Only while Settings, Web search is on, which also covers the reader view and page clipping | Your search words, or the address of the page you open. Never your notes |
 | The update check | Only if you turn on Settings, About, Updates, Check GitHub for a newer version, or press Check for updates | A request to GitHub's releases API, with no data about you. The first start asks once whether to check automatically (in the terminal for `start.sh`, in the app otherwise), and until you answer nothing about updating touches the network, a launcher copy's pull included |
@@ -135,7 +135,7 @@ notebook. Then:
 - turning it on asks for your current password, and takes effect at the next
   start;
 - the network side is **HTTPS on its own port**, 8443 beside the usual 8000
-  (`MEMORYMAP_LAN_PORT` overrides it). This computer keeps plain http on its own
+  (`TESSELLATE_LAN_PORT` overrides it). This computer keeps plain http on its own
   port;
 - the certificate is made on this computer the first time the switch is on, with
   no network involved, and kept in your data folder, readable by you only. It is
@@ -154,7 +154,7 @@ request from the network before a password exists is refused.
 
 Tessellate is single-user by design: one notebook and one password, all on this
 machine. To keep separate notebooks, use a different data folder
-(`MEMORYMAP_DATA_DIR`), or Spaces inside one notebook, rather than a second
+(`TESSELLATE_DATA_DIR`), or Spaces inside one notebook, rather than a second
 account.
 
 - **The password is optional on a computer only you use.** Settings, Account &
@@ -249,7 +249,7 @@ locked the old encryption key.
 terminal:
 
 ```
-python -m memorymap --reset-password
+python -m tessellate --reset-password
 ```
 
 Both ask you to confirm (type RESET), then clear the password so you can set a

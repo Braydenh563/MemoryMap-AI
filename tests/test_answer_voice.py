@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import composer_digest
+from tessellate.ai import composer_digest
 from tests.test_gold_answers import NOTES, TODAY
 
 ROOT = Path(__file__).resolve().parent.parent

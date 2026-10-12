@@ -8,10 +8,10 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import model_manager
-from memorymap.core import activity, jobruns
+from tessellate.ai import model_manager
+from tessellate.core import activity, jobruns
 
-SRC = Path(__file__).resolve().parents[1] / "src" / "memorymap"
+SRC = Path(__file__).resolve().parents[1] / "src" / "tessellate"
 
 
 @pytest.fixture(autouse=True)
@@ -101,7 +101,7 @@ def test_a_finished_job_is_an_answer_not_an_error(client):
 
 
 def test_stop_the_model_asks_ollama_to_unload_it(monkeypatch):
-    from memorymap.ai import ollama_client
+    from tessellate.ai import ollama_client
 
     sent = {}
 

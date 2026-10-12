@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import composer
+from tessellate.ai import composer
 
 SEED = json.loads((Path(__file__).parent / "fixtures" / "composer" / "phase6_seed.json").read_text(encoding="utf-8"))
 TODAY = date.fromisoformat(SEED["today"])
@@ -74,7 +74,7 @@ def test_summarise_returns_a_brief_without_raising():
 
 
 def test_last_friday_is_in_the_past():
-    from memorymap.ai import when
+    from tessellate.ai import when
 
     got = when.resolve("last friday", NOW)
     assert got is not None and got < NOW
@@ -83,7 +83,7 @@ def test_last_friday_is_in_the_past():
 
 @pytest.mark.parametrize("phrase", ["since March", "the week before last"])
 def test_unread_time_phrases_resolve_to_windows(phrase):
-    from memorymap.ai import when
+    from tessellate.ai import when
 
     window = when.window(phrase, NOW)
     assert window is not None
@@ -136,7 +136,7 @@ _FACT_NOTE = {
 
 
 def test_facts_yield_the_listed_kinds_with_spans():
-    from memorymap.ai import factgraph
+    from tessellate.ai import factgraph
 
     facts = factgraph.facts(_FACT_NOTE)
     content = _FACT_NOTE["content"]
@@ -213,13 +213,13 @@ def test_no_insight_on_two_notes():
     ],
 )
 def test_shift_person_pairs(said, shifted):
-    from memorymap.ai import realise
+    from tessellate.ai import realise
 
     assert realise.shift_person(said) == shifted
 
 
 def test_no_shift_inside_a_quoted_fact():
-    from memorymap.ai import realise
+    from tessellate.ai import realise
 
     assert realise.shift_person("I am sure", quoted=True) == "I am sure"
 
@@ -237,7 +237,7 @@ def test_no_shift_inside_a_quoted_fact():
     ],
 )
 def test_relative_day(day, said):
-    from memorymap.ai import realise
+    from tessellate.ai import realise
 
     assert realise.relative_day(day, TODAY) == said
 
@@ -313,7 +313,7 @@ def test_a_picture_caption_is_quoted_as_content():
 
 
 def test_parse_a_reminder_command():
-    from memorymap.ai import commands
+    from tessellate.ai import commands
 
     cmd = commands.parse("remind me to call Sam on Friday", NOW)
     assert (cmd.verb, cmd.object) == ("remind", "call Sam")
@@ -322,14 +322,14 @@ def test_parse_a_reminder_command():
 
 
 def test_delete_requires_confirmation():
-    from memorymap.ai import commands
+    from tessellate.ai import commands
 
     cmd = commands.parse("delete the gym note", NOW)
     assert cmd.verb == "delete" and cmd.confirm is True
 
 
 def test_archive_is_not_a_verb():
-    from memorymap.ai import commands
+    from tessellate.ai import commands
 
     assert "archive" not in commands.VERBS
     assert commands.parse("archive the gym note", NOW) is None

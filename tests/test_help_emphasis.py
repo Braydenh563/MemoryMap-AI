@@ -83,7 +83,7 @@ def test_locations_are_strong_and_control_names_are_code() -> None:
 
 
 def test_emphasis_is_added_at_draw_time_never_stored_in_the_text_the_model_reads() -> None:
-    from memorymap.ai.help_chat import HELP_TOPICS
+    from tessellate.ai.help_chat import HELP_TOPICS
 
     for topic in HELP_TOPICS:
         body = topic["body"]

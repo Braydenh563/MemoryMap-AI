@@ -28,7 +28,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai.grounding import ground_answer_sentences, note_passage_scores, split_sentences
+from tessellate.ai.grounding import ground_answer_sentences, note_passage_scores, split_sentences
 
 CASES = json.loads(
     (Path(__file__).parent / "fixtures" / "chat" / "grounding_cases.json").read_text(

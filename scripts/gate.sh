@@ -280,7 +280,7 @@ changed_tests() {
   while read -r f; do
     case "$f" in
       tests/test_*.py) [ -f "$f" ] && echo "$f" ;;
-      src/memorymap/*.py|src/memorymap/*/*.py|frontend/js/*.js|frontend/sw.js|frontend/css/*.css)
+      src/tessellate/*.py|src/tessellate/*/*.py|frontend/js/*.js|frontend/sw.js|frontend/css/*.css)
         stem="$(basename "$f")"; stem="${stem%.*}"
         ls tests/test_"${stem}"*.py 2>/dev/null
         case "$stem" in routes_*) ls tests/test_"${stem#routes_}"*.py 2>/dev/null ;; esac

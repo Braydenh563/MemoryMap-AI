@@ -20,8 +20,8 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import help_chat
-from memorymap.ai.help_topics_more import HELP_GROUPS, TOPIC_META
+from tessellate.ai import help_chat
+from tessellate.ai.help_topics_more import HELP_GROUPS, TOPIC_META
 
 #: (feature, words every one of which some entry's body must contain, a
 #: question in the words a person would use).

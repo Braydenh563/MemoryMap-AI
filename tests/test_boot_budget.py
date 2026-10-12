@@ -21,7 +21,7 @@ import gzip
 import re
 from pathlib import Path
 
-from memorymap.api.asset_strip import strip_for_path
+from tessellate.api.asset_strip import strip_for_path
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
 INDEX = FRONTEND / "index.html"

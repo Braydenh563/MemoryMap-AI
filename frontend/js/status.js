@@ -914,7 +914,7 @@ function toastCloseButton(note, timer) {
 //: notice, and it is the whole message plus severity that must match, not
 //: just the timing, so two different toasts arriving close together both
 //: still show.
-//: Where a support bundle goes; the same string as `memorymap.SUPPORT_EMAIL`
+//: Where a support bundle goes; the same string as `tessellate.SUPPORT_EMAIL`
 //: (tests/test_support_email.py keeps them equal).
 const SUPPORT_EMAIL = "brayden.hoyle@outlook.com";
 

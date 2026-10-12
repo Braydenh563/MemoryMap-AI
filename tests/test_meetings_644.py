@@ -11,8 +11,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from memorymap.ai import meeting_summary
-from memorymap.entry import meetings, properties
+from tessellate.ai import meeting_summary
+from tessellate.entry import meetings, properties
 
 NOTE = (
     "---\ntype: Meeting\ndate: 2026-10-07 14:00\nattendees: [Sam, Priya]\n---\n"
@@ -269,7 +269,7 @@ def test_none_is_an_empty_answer() -> None:
 def test_summarise_with_a_model(app_state, fake_ollama) -> None:
     from fastapi.testclient import TestClient
 
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     client = TestClient(create_app())
     note = _make(client)

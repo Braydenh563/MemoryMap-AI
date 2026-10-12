@@ -48,7 +48,7 @@ def test_the_server_keeps_the_words_it_is_given(client):
 def test_a_word_survives_a_restart(app_state, client):
     """The point of the report: *last night*. A preference read by a new
     process has to come back off disk, not out of the process that wrote it."""
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
     from fastapi.testclient import TestClient
 
     client.put("/preferences", json={"writing_dictionary": ["idk"]})

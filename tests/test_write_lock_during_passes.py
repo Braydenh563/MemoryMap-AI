@@ -19,8 +19,8 @@ import sqlite3
 import threading
 import time
 
-from memorymap.ai import entities, facts
-from memorymap.core import deps
+from tessellate.ai import entities, facts
+from tessellate.core import deps
 from tests.fakes import FakeOllama
 
 #: How long the fake model takes per call. Long enough that a save blocked
@@ -128,7 +128,7 @@ def test_a_locked_database_is_a_503_that_says_so(client):
 
     from fastapi.testclient import TestClient
 
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     app = create_app()
 

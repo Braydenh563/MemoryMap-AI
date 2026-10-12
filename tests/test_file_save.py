@@ -25,8 +25,8 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.api import routes_files
-from memorymap.api.routes_files import EXPORTS_DIRNAME, _within_exports, safe_filename
+from tessellate.api import routes_files
+from tessellate.api.routes_files import EXPORTS_DIRNAME, _within_exports, safe_filename
 
 
 def _save(client, filename: str, data: bytes):
@@ -161,7 +161,7 @@ def test_health_says_whether_this_is_the_desktop_window(client, monkeypatch):
     """The frontend asks rather than sniffing the user agent, so this field is
     the whole mechanism for picking server-save over a download."""
     assert client.get("/health").json()["desktop"] is False
-    monkeypatch.setenv("MEMORYMAP_DESKTOP", "1")
+    monkeypatch.setenv("TESSELLATE_DESKTOP", "1")
     assert client.get("/health").json()["desktop"] is True
 
 
@@ -238,7 +238,7 @@ def test_open_exports_folder_creates_the_folder_before_trying_to_open_it(
 ):
     """However the OS call itself goes, the folder it's pointed at has to be
     real first: nothing to reveal is worse than nothing happening."""
-    monkeypatch.setenv("MEMORYMAP_DESKTOP", "1")
+    monkeypatch.setenv("TESSELLATE_DESKTOP", "1")
     monkeypatch.setattr(routes_files.subprocess, "Popen", lambda *a, **k: None)
     monkeypatch.setattr(routes_files.sys, "platform", "linux")
     exports = app_state.data_dir / EXPORTS_DIRNAME

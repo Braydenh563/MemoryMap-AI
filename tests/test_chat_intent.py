@@ -11,7 +11,7 @@ import json
 
 import pytest
 
-from memorymap.ai import intent
+from tessellate.ai import intent
 
 
 @pytest.mark.parametrize(

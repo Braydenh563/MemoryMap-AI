@@ -8,7 +8,7 @@ import re
 
 import pytest
 
-from memorymap.ai import intent, question_noise
+from tessellate.ai import intent, question_noise
 
 #: Row 543: "think", "plan" and "idea" are note words, so a one-line reply
 #: of agreement was searched for. Each is the person answering, not asking.
@@ -36,7 +36,7 @@ def test_a_monthly_repeat_from_the_31st_keeps_its_day(client):
     the 28th. The day it was set for is kept (BYMONTHDAY) from the first
     roll on, so March is the 31st again; a day the store collapsed to
     "monthly" keeps its rule when the month may not hold it."""
-    from memorymap.ai import recognise as rec
+    from tessellate.ai import recognise as rec
 
     assert rec.stored_repeat("FREQ=MONTHLY;BYMONTHDAY=31") == "FREQ=MONTHLY;BYMONTHDAY=31"
     assert rec.stored_repeat("FREQ=MONTHLY;BYMONTHDAY=5") == "monthly"
@@ -59,7 +59,7 @@ def test_the_guide_with_no_model_says_how_it_read_a_typo(asked, plain):
     """Row 404: the Guide's no-model answer said nothing of the repair, and
     answered the misspelt question worse than the plain one (row 417: "The
     Reminders tab groups items..." rather than the steps)."""
-    from memorymap.ai import composer_ack, help_chat
+    from tessellate.ai import composer_ack, help_chat
 
     typed = help_chat.offline_answer(asked)["content"]
     clean = help_chat.offline_answer(plain)["content"]
@@ -78,7 +78,7 @@ def test_a_real_word_no_note_holds_is_not_put_right_to_one_that_does():
     from datetime import date
     from pathlib import Path
 
-    from memorymap.ai import composer
+    from tessellate.ai import composer
 
     notes = json.loads((Path(__file__).parent / "fixtures" / "composer" / "showcase_725.json").read_text(encoding="utf-8"))["notes"]
     said = composer.compose("what do I know about rust", notes, today=date(2026, 10, 1))
@@ -94,7 +94,7 @@ def test_a_next_question_chip_names_the_subject_not_the_word_notes(question):
     from datetime import date
     from pathlib import Path
 
-    from memorymap.ai import composer
+    from tessellate.ai import composer
 
     notes = json.loads((Path(__file__).parent / "fixtures" / "composer" / "showcase_725.json").read_text(encoding="utf-8"))["notes"]
     chips = composer.compose(question, notes, today=date(2026, 10, 1))["next"]
@@ -127,7 +127,7 @@ def test_days_until_a_day_a_note_names(question, lead):
     this month."""
     from datetime import date
 
-    from memorymap.ai import composer
+    from tessellate.ai import composer
 
     said = composer.compose(question, _DATED, today=date(2026, 10, 11))
     assert lead in said["text"], said["text"]
@@ -137,7 +137,7 @@ def test_days_until_a_day_a_note_names(question, lead):
 def test_days_until_something_no_note_dates_is_not_counted():
     from datetime import date
 
-    from memorymap.ai import composer
+    from tessellate.ai import composer
 
     said = composer.compose("how many days until the standup", _DATED, today=date(2026, 10, 11))
     assert "days from today" not in said["text"], said["text"]
@@ -153,7 +153,7 @@ def test_what_is_still_open_lists_the_unticked_items(question):
     many are open and lists only those."""
     from datetime import date
 
-    from memorymap.ai import composer
+    from tessellate.ai import composer
 
     said = composer.compose(question, _DATED, today=date(2026, 10, 11))["text"]
     assert "Two of three items are still open on **Harbor launch**:" in said, said

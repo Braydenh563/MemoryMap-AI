@@ -16,8 +16,8 @@ import time
 
 import pytest
 
-from memorymap.api import routes_auth
-from memorymap.core import security, vault
+from tessellate.api import routes_auth
+from tessellate.core import security, vault
 from tests._app_js import FRONTEND_DIR, frontend_text
 
 
@@ -247,7 +247,7 @@ def test_custom_css_does_not_inject_a_style_tag():
     content. This asserts the shape of the fix so a later edit cannot quietly
     put the <style> tag back on the main path.
     """
-    from memorymap.api.app import FRONTEND_DIR
+    from tessellate.api.app import FRONTEND_DIR
 
     # applyCustomCss/applyCustomCssLegacy moved to settings.js with the rest
     # of appearance (§88.3 item 4, the app.js split's fourth and last file).
@@ -285,7 +285,7 @@ def test_the_real_page_needs_no_hash_at_all():
     So the page yielding *no* hashes is now the healthy state, and a hash
     reappearing means an inline block has come back.
     """
-    from memorymap.api.app import FRONTEND_DIR
+    from tessellate.api.app import FRONTEND_DIR
 
     assert security.inline_script_hashes(FRONTEND_DIR / "index.html") == []
 
@@ -371,7 +371,7 @@ def test_searxng_is_published_to_loopback_only():
     An exposed SearXNG is worse than an exposed port: it is an unauthenticated
     proxy to the internet, and a log of everything the owner has searched.
     """
-    from memorymap.search import searxng_manager
+    from tessellate.search import searxng_manager
 
     spec = searxng_manager._publish_spec()
     assert spec.startswith("127.0.0.1:")
@@ -383,7 +383,7 @@ def test_a_container_from_an_older_version_is_replaced(monkeypatch):
     command only protects people who never started SearXNG. Anyone who ran an
     earlier version has one published on 0.0.0.0 that `docker start` would
     keep that way forever."""
-    from memorymap.search import searxng_manager
+    from tessellate.search import searxng_manager
 
     class _Result:
         returncode = 0
@@ -395,7 +395,7 @@ def test_a_container_from_an_older_version_is_replaced(monkeypatch):
 
 
 def test_a_loopback_container_is_left_alone(monkeypatch):
-    from memorymap.search import searxng_manager
+    from tessellate.search import searxng_manager
 
     class _Result:
         returncode = 0
@@ -409,7 +409,7 @@ def test_a_loopback_container_is_left_alone(monkeypatch):
 def test_an_unreadable_container_is_not_destroyed_on_a_guess(monkeypatch):
     """Failing to inspect is not evidence of exposure, and removing a
     container on a guess costs the user their working search."""
-    from memorymap.search import searxng_manager
+    from tessellate.search import searxng_manager
 
     class _Result:
         returncode = 1
@@ -423,7 +423,7 @@ def test_an_unreadable_container_is_not_destroyed_on_a_guess(monkeypatch):
 def test_a_container_with_no_recorded_host_ip_counts_as_exposed(monkeypatch):
     """An empty HostIp is how docker records "all interfaces", the same thing
     the bare `-p 8888:8080` form produces."""
-    from memorymap.search import searxng_manager
+    from tessellate.search import searxng_manager
 
     class _Result:
         returncode = 0
@@ -445,7 +445,7 @@ def test_sqlite_runs_in_wal_mode(app_state):
     """Without it, one background write blocks every read, and FastAPI serves
     from a threadpool, so the janitor filing a note during a page load is
     routine rather than rare."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     with deps.get_db().engine.connect() as connection:
         mode = connection.exec_driver_sql("PRAGMA journal_mode").scalar()
@@ -455,7 +455,7 @@ def test_sqlite_runs_in_wal_mode(app_state):
 def test_the_private_note_key_uses_a_slow_kdf():
     """The difference only matters if the database file is ever copied off the
     machine: which is exactly the scenario private notes exist for."""
-    from memorymap.core import crypto
+    from tessellate.core import crypto
 
     assert crypto.SCRYPT_N >= 2**14
     assert crypto.KEY_BYTES == 32

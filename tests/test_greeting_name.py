@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.api.routes_insights import (
+from tessellate.api.routes_insights import (
     _greets_a_stranger,
     _name_like_words,
     _repair_misspelt_name,
@@ -75,7 +75,7 @@ def test_any_name_is_refused_when_none_is_saved():
 def test_a_greeting_that_names_you_twice_falls_back(ai_client, fake_ollama, monkeypatch):
     """Reported with granite4.1:3b: "Braiden, nice to meet you under the
     stars, Brayden!". One right, one wrong, the wrong one as the first word."""
-    from memorymap.api import routes_insights
+    from tessellate.api import routes_insights
 
     monkeypatch.setattr(routes_insights, "NAME_USE_CHANCE", 1.0)
     ai_client.put("/preferences", json={"display_name": "Brayden"})
@@ -86,7 +86,7 @@ def test_a_greeting_that_names_you_twice_falls_back(ai_client, fake_ollama, monk
 
 
 def test_a_misspelt_opening_name_is_repaired(ai_client, fake_ollama, monkeypatch):
-    from memorymap.api import routes_insights
+    from tessellate.api import routes_insights
 
     monkeypatch.setattr(routes_insights, "NAME_USE_CHANCE", 1.0)
     ai_client.put("/preferences", json={"display_name": "Brayden"})

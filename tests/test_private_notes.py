@@ -13,9 +13,9 @@ import json
 import pytest
 from sqlalchemy import select
 
-from memorymap.ai import agent, tools
-from memorymap.core import crypto, vault
-from memorymap.core.database import EmbeddingRecord, Entry
+from tessellate.ai import agent, tools
+from tessellate.core import crypto, vault
+from tessellate.core.database import EmbeddingRecord, Entry
 
 
 @pytest.fixture(autouse=True)
@@ -110,7 +110,7 @@ def test_a_private_note_has_its_embedding_removed(client, session):
 
 
 def test_private_notes_are_kept_out_of_search(client, session):
-    from memorymap.search import search_manager
+    from tessellate.search import search_manager
 
     _make_private(client, session, "pineapple submarine, a very distinctive phrase")
     client.post("/entries", json={"content": "an ordinary public note"})
@@ -244,7 +244,7 @@ def test_an_existing_notebook_upgrades_without_a_reset(tmp_path):
     but no vault row and no is_private column.
     """
     import bcrypt
-    from memorymap.core.database import DatabaseManager, Entry, User, Vault
+    from tessellate.core.database import DatabaseManager, Entry, User, Vault
 
     db_path = tmp_path / "existing.db"
     manager = DatabaseManager(db_path)
@@ -357,8 +357,8 @@ def test_a_locked_vault_hands_out_no_private_text_anywhere(client, session):
     lesson is worth more than the test: a privacy check that greps a response
     must first subtract whatever the caller put into the request.
     """
-    from memorymap.core import deps
-    from memorymap.search import search_manager
+    from tessellate.core import deps
+    from tessellate.search import search_manager
 
     secret = "zarquonsecret"
     made = _make_private(client, session, f"a private thought about {secret}")

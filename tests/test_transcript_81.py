@@ -9,8 +9,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from memorymap.ai import voice
-from memorymap.core import transcript
+from tessellate.ai import voice
+from tessellate.core import transcript
 
 HERE = Path(__file__).parent / "fixtures" / "meetings"
 SEGMENTS = json.loads((HERE / "launch_sync.segments.json").read_text())

@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import intent, utilities
+from tessellate.ai import intent, utilities
 
 EVAL = json.loads((Path(__file__).parent / "fixtures/composer/utilities_1011.json").read_text(encoding="utf-8"))
 NOW = datetime(2026, 10, 11, 10, 0)

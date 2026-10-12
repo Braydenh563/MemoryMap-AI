@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import dataclasses
 
-from memorymap.ai import tools
-from memorymap.ai.tools import contracts
+from tessellate.ai import tools
+from tessellate.ai.tools import contracts
 
 
 def _note(session, content, **extra):

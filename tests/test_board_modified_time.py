@@ -17,7 +17,7 @@ from datetime import datetime
 import pytest
 from sqlalchemy import select, text
 
-from memorymap.core.database import Entry, WhiteboardObject
+from tessellate.core.database import Entry, WhiteboardObject
 
 THEN = datetime(2026, 9, 1, 12, 0, 0)
 
@@ -46,7 +46,7 @@ def test_the_fixture_starts_at_the_old_time(client, old_map):
 
 
 def test_opening_listing_exporting_searching_and_indexing_leave_the_time_alone(client, session, old_map):
-    from memorymap.search import index
+    from tessellate.search import index
 
     client.get(f"/whiteboard/boards/{old_map}/tree")
     client.get(f"/whiteboard/boards/{old_map}/export")
@@ -88,7 +88,7 @@ def test_a_persons_new_topic_moves_the_time(client, old_map):
 def test_a_notes_updated_at_still_moves_as_before(client, session):
     """Notes are not boards: the rule is kept to the entry that has `edited_at`
     and a stamp (`lexical_filing`) keyed on `updated_at`."""
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     note = manager.create_entry(session, "A plain note", category_name="Work")
     session.execute(text("UPDATE entries SET updated_at = :t WHERE id = :i"), {"t": THEN, "i": note.id})

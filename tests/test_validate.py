@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import composer, validate
+from tessellate.ai import composer, validate
 from tests import _composer_eval as E
 
 
@@ -116,8 +116,8 @@ class _Says:
 def test_the_model_path_runs_the_same_validators(ai_client, fake_ollama, session, monkeypatch, said, flagged):
     """Decision 53 on the route: the model's plain answer is checked against
     the notes it was given; a number in none of them is said under it."""
-    from memorymap.core import deps
-    from memorymap.entry import manager
+    from tessellate.core import deps
+    from tessellate.entry import manager
     from tests.test_composer_route_688 import _ask
 
     manager.create_entry(session, "# Harbor launch plan\n\nShip Harbor to the public on the 14th of next month.")

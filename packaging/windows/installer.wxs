@@ -61,7 +61,7 @@
          upgrade behaviour Inno gives installer.iss's .exe via its fixed
          AppId. Version here must be strictly numeric major.minor.build
          (Windows Installer's own rule, unlike Inno's free-form AppVersion
-         string); MEMORYMAP_VERSION as set by the release workflow already
+         string); TESSELLATE_VERSION as set by the release workflow already
          satisfies that (e.g. "0.1.0"). -->
     <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
 

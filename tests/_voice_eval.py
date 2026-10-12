@@ -23,7 +23,7 @@ import ast
 import re
 from datetime import date, timedelta
 
-from memorymap.ai import composer, composer_voice
+from tessellate.ai import composer, composer_voice
 from tests import _composer_eval
 
 EM_DASH = chr(0x2014)

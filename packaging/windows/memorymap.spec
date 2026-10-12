@@ -24,7 +24,7 @@ REPO_ROOT = Path(SPECPATH).resolve().parents[1]
 FRONTEND_DIR = REPO_ROOT / "frontend"
 MIGRATIONS_DIR = REPO_ROOT / "migrations"
 ALEMBIC_INI = REPO_ROOT / "alembic.ini"
-ENTRY_SCRIPT = REPO_ROOT / "src" / "memorymap" / "__main__.py"
+ENTRY_SCRIPT = REPO_ROOT / "src" / "tessellate" / "__main__.py"
 ICON = str(FRONTEND_DIR / "icon.ico")
 CHANGELOG = REPO_ROOT / "CHANGELOG.md"
 
@@ -48,13 +48,13 @@ TZDATA_FILES = collect_data_files("tzdata")
 # `importlib.import_module("x")`, and this app reaches several of its own
 # modules only that way (to keep `core/` free of import cycles, ARCH-10).
 # Measured on a build of this spec: 198 of 200 modules bundled, and one of the
-# two missing was `memorymap.ai.needle_provider`, which `ai/tool_fallback.py`
+# two missing was `tessellate.ai.needle_provider`, which `ai/tool_fallback.py`
 # imports by name, so the needle extra (tool calling without Ollama) raised
 # ModuleNotFoundError on every packaged install. The searxng facades below
 # were the same bug found earlier by a support bundle. Listing the package's
 # files makes the next such module impossible to miss;
 # tests/test_frozen_packaging.py checks the list against what is imported by
-# name. `memorymap.__main__` is left out on purpose: it is the entry script,
+# name. `tessellate.__main__` is left out on purpose: it is the entry script,
 # and a second copy under its package name is what `routes_settings.
 # _desktop_entry` takes care never to import.
 SRC_DIR = REPO_ROOT / "src"
@@ -62,7 +62,7 @@ SRC_DIR = REPO_ROOT / "src"
 
 def _app_modules():
     found = []
-    for path in sorted((SRC_DIR / "memorymap").rglob("*.py")):
+    for path in sorted((SRC_DIR / "tessellate").rglob("*.py")):
         parts = list(path.relative_to(SRC_DIR).with_suffix("").parts)
         if parts[-1] == "__main__":
             continue
@@ -169,7 +169,7 @@ a = Analysis(
         (str(CHANGELOG), "."),
         # The taxonomy pack filing reads (ai/taxonomy.py `DATA_DIR`): JSON
         # beside the module, so it goes where the module's package is.
-        (str(REPO_ROOT / "src" / "memorymap" / "ai" / "data" / "taxonomy"), "memorymap/ai/data/taxonomy"),
+        (str(REPO_ROOT / "src" / "tessellate" / "ai" / "data" / "taxonomy"), "memorymap/ai/data/taxonomy"),
         *TZDATA_FILES,
     ],
     hiddenimports=[
@@ -212,13 +212,13 @@ a = Analysis(
         # the same "picked by name at runtime" shape as every entry above,
         # and confirmed missing from a real packaged build by a support
         # bundle: "ModuleNotFoundError: No module named
-        # 'memorymap.search.searxng_docker'". None of the four is ever
+        # 'tessellate.search.searxng_docker'". None of the four is ever
         # imported by its own name anywhere else in this app, so PyInstaller's
         # static analysis has no path to any of them without this.
-        "memorymap.search.searxng_settings",
-        "memorymap.search.searxng_docker",
-        "memorymap.search.searxng_install",
-        "memorymap.search.searxng_process",
+        "tessellate.search.searxng_settings",
+        "tessellate.search.searxng_docker",
+        "tessellate.search.searxng_install",
+        "tessellate.search.searxng_process",
         *APP_MODULES,
         *STDLIB_MODULES,
     ],

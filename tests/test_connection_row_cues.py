@@ -25,7 +25,7 @@ import subprocess
 import pytest
 from tests._app_js import app_js_text
 
-from memorymap.core import vault
+from tessellate.core import vault
 
 
 def test_a_note_row_carries_its_category_and_its_date(client):

@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.api.run_sandbox import PY_RUNNER, RUN_SANDBOX_HTML, RUN_SANDBOX_PY_HTML
+from tessellate.api.run_sandbox import PY_RUNNER, RUN_SANDBOX_HTML, RUN_SANDBOX_PY_HTML
 
 ROOT = Path(__file__).resolve().parents[1]
 JS = ROOT / "frontend" / "js"

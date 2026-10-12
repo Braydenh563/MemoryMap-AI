@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai.tools import WRITE_TOOLS
+from tessellate.ai.tools import WRITE_TOOLS
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
 
@@ -140,7 +140,7 @@ UTILITIES = {
 
 
 def test_every_utility_has_its_way_in_and_a_guide_topic():
-    from memorymap.ai import help_chat
+    from tessellate.ai import help_chat
 
     topics = {topic["id"] for topic in help_chat.HELP_TOPICS}
     gone = [
@@ -181,7 +181,7 @@ console.log(JSON.stringify(out));
 
 
 def test_the_manual_search_finds_every_named_control(tmp_path):
-    from memorymap.ai import help_chat
+    from tessellate.ai import help_chat
 
     node = shutil.which("node")
     if not node:  # pragma: no cover - node is in the sandbox and in CI

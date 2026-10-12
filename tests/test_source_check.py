@@ -10,8 +10,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from memorymap.ai import agent
-from memorymap.ai.source_check import Sources, heads_up, sources_from_messages, unbacked_claims
+from tessellate.ai import agent
+from tessellate.ai.source_check import Sources, heads_up, sources_from_messages, unbacked_claims
 
 CASES = json.loads(
     (Path(__file__).parent / "fixtures" / "chat" / "source_check_cases.json").read_text(encoding="utf-8")

@@ -17,7 +17,7 @@ import re
 
 import pytest
 
-from memorymap.ai import help_chat
+from tessellate.ai import help_chat
 
 
 def _first(question: str) -> str | None:
@@ -284,7 +284,7 @@ def test_the_guide_can_write_out_a_whole_controls_entry():
     """Online, the reply cap decides whether "list the whiteboard keys" ends
     mid-list. Four characters a token is the usual English estimate; keys and
     punctuation run denser, so three is the conservative one."""
-    from memorymap.ai import presets
+    from tessellate.ai import presets
 
     longest = max(len(t["body"]) for t in help_chat.HELP_TOPICS)
     assert presets.resolve(presets.GUIDE_MODE).max_output_tokens >= longest / 3
@@ -293,7 +293,7 @@ def test_the_guide_can_write_out_a_whole_controls_entry():
 def test_both_guide_routes_answer_in_the_guide_preset(ai_client, fake_ollama, monkeypatch):
     """`answer` asked for "quick" while `answer_stream` asked for the Guide's
     own preset, so the fallback path had Quick's cap and no thinking."""
-    from memorymap.ai import presets
+    from tessellate.ai import presets
 
     modes: list[str | None] = []
     original = type(fake_ollama).chat
@@ -313,7 +313,7 @@ def test_no_guide_topic_sits_at_the_reply_budget():
     Guide's reply cap holds (board library, whiteboard keys, board format, mind
     map features) are each two topics along their natural seam, so a later help
     edit has room: every body is under 1,600."""
-    from memorymap.ai import presets
+    from tessellate.ai import presets
 
     budget = presets.resolve(presets.GUIDE_MODE).max_output_tokens * 3
     by_id = {t["id"]: len(t["body"]) for t in help_chat.HELP_TOPICS}

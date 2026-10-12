@@ -30,11 +30,11 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import captioning
-from memorymap.api import routes_files
-from memorymap.api import routes_files as files_service
-from memorymap.core import deps, pdfpages
-from memorymap.core.database import PageRead
+from tessellate.ai import captioning
+from tessellate.api import routes_files
+from tessellate.api import routes_files as files_service
+from tessellate.core import deps, pdfpages
+from tessellate.core.database import PageRead
 
 #: The same hand-written one-page PDF `test_ocr_page_reads_persist.py` uses: 
 #: pdfium repairs the missing xref table, so this is a real, openable document

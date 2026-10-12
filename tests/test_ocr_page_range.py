@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.api.routes_files import MAX_RANGE_PAGES, _parse_page_spec
+from tessellate.api.routes_files import MAX_RANGE_PAGES, _parse_page_spec
 
 
 @pytest.mark.parametrize(

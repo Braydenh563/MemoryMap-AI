@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.core import deps
-from memorymap.search import websearch
+from tessellate.core import deps
+from tessellate.search import websearch
 from tests.test_composer_route_688 import _ask
 
 PAGE = {

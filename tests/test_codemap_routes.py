@@ -14,7 +14,7 @@ def _generator():
 
 
 def test_routes_on_named_routers_are_mapped(tmp_path):
-    api = tmp_path / "src" / "memorymap" / "api"
+    api = tmp_path / "src" / "tessellate" / "api"
     api.mkdir(parents=True)
     (api / "x.py").write_text(
         "@media_router.get('/m')\ndef m(): ...\n"

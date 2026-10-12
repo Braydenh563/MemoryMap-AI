@@ -25,7 +25,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.search import searxng_install, searxng_manager
+from tessellate.search import searxng_install, searxng_manager
 
 
 @pytest.fixture(autouse=True)

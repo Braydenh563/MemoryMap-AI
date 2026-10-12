@@ -72,7 +72,7 @@ def test_topic_chip_is_left_off_when_a_tag_says_the_same():
      ("my notes", None, None), ("wz", None, None), ("cat", None, None)],
 )
 def test_a_misspelled_place_is_read_as_its_nearest_name(place, zone, said):
-    from memorymap.ai import utilities
+    from tessellate.ai import utilities
 
     assert utilities.zone_for(place) == zone
     assert utilities.place_name_for(place) == said
@@ -81,7 +81,7 @@ def test_a_misspelled_place_is_read_as_its_nearest_name(place, zone, said):
 def test_the_answer_names_the_place_as_read():
     from datetime import datetime, timezone
 
-    from memorymap.ai import utilities
+    from tessellate.ai import utilities
 
     out = utilities._clock("what's the time in westen australia", datetime(2026, 10, 11, tzinfo=timezone.utc))
     assert "Perth, Western Australia" in out[0][1]
@@ -108,7 +108,7 @@ def test_chart_ticks_are_round_and_cover_the_top():
 
 # Row 1058: a debugger's variable showed one level, never its children.
 def test_python_variables_carry_their_children():
-    from memorymap.api import run_sandbox
+    from tessellate.api import run_sandbox
 
     space: dict = {}
     exec(run_sandbox.PY_RUNNER, space)  # noqa: S102  # the runner is this repo's own text
@@ -172,7 +172,7 @@ def test_breakpoints_are_kept_per_document_across_a_reload():
 
 # Row 1065: a console line that never ended lost the run's namespace.
 def test_an_overtime_python_line_is_interrupted_not_its_worker_ended():
-    from memorymap.api import run_sandbox
+    from tessellate.api import run_sandbox
 
     page = run_sandbox.RUN_SANDBOX_PY_HTML
     assert "new Uint8Array(new SharedArrayBuffer(1))" in page
@@ -559,9 +559,9 @@ def test_help_search_orders_each_group_by_its_match():
 
 # Row 1095: a document import and a meeting summary are listed while they run.
 def test_long_request_work_registers_with_the_activity_list():
-    docs = (ROOT / "src/memorymap/api/routes_documents.py").read_text(encoding="utf-8")
+    docs = (ROOT / "src/tessellate/api/routes_documents.py").read_text(encoding="utf-8")
     assert re.search(r'with activity\.track\("import", .*\n\s+viewed = docview\.extract\(', docs)
-    meetings = (ROOT / "src/memorymap/api/routes_meetings.py").read_text(encoding="utf-8")
+    meetings = (ROOT / "src/tessellate/api/routes_meetings.py").read_text(encoding="utf-8")
     assert re.search(r'with activity\.track\("generation", "Summarising a meeting".*\n\s+written = meeting_summary', meetings)
 
 

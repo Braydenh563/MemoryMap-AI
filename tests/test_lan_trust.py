@@ -8,7 +8,7 @@ connection opened); core/lantrust.py decides. Every failure reads as closed.
 
 from __future__ import annotations
 
-from memorymap.core import lantrust, netid
+from tessellate.core import lantrust, netid
 
 ROUTE = (
     "Iface\tDestination\tGateway \tFlags\tRefCnt\tUse\tMetric\tMask\t\tMTU\tWindow\tIRTT\n"
@@ -181,8 +181,8 @@ import threading  # noqa: E402
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
-from memorymap.api import routes_auth  # noqa: E402
-from memorymap.core import netbind, vault  # noqa: E402
+from tessellate.api import routes_auth  # noqa: E402
+from tessellate.core import netbind, vault  # noqa: E402
 
 PASSWORD = "the owner's password"
 
@@ -300,7 +300,7 @@ def test_turning_off_asking_needs_the_password_and_on_does_not(lan_app):
 
 
 def lantrust_dir(client):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     return deps.get_config().data_dir
 
@@ -356,7 +356,7 @@ def test_addresses_put_the_phones_network_first_and_drop_virtual_adapters():
 
 
 def _signed_in_phone(client) -> TestClient:
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     lantrust.set_flag(deps.get_config().data_dir, "ask_new_devices", False)
     phone = _phone(client)
@@ -367,7 +367,7 @@ def _signed_in_phone(client) -> TestClient:
 def test_a_phone_cannot_loosen_the_lan_options(lan_app):
     """A phone with the password used to turn "Allow on any network" on and
     "Ask before a new device signs in" off; the safer direction stays open."""
-    from memorymap.api.this_computer import REFUSAL
+    from tessellate.api.this_computer import REFUSAL
 
     phone = _signed_in_phone(lan_app)
     for body in (
@@ -382,7 +382,7 @@ def test_a_phone_cannot_loosen_the_lan_options(lan_app):
 
 
 def test_a_phone_cannot_allow_the_network_it_is_on(lan_app):
-    from memorymap.api.this_computer import REFUSAL
+    from tessellate.api.this_computer import REFUSAL
 
     phone = _signed_in_phone(lan_app)
     refused = phone.post("/auth/lan-networks/allow", json={"current_password": PASSWORD})

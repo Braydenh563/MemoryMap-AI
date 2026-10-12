@@ -14,7 +14,7 @@ import sqlite3
 
 import pytest
 
-from memorymap.core import deps
+from tessellate.core import deps
 
 
 def _dump(db_path):
@@ -51,7 +51,7 @@ def test_a_500_note_notebook_comes_back_row_for_row(seeded, tmp_path):
     config = deps.get_config()
     sealed = seeded.post("/backups/bundle", json={"password": "hunter2hunter2"})
     assert sealed.status_code == 200
-    from memorymap.core import backup
+    from tessellate.core import backup
 
     live_copy = tmp_path / "before.db"
     backup.snapshot(config.db_path, live_copy)

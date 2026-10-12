@@ -380,7 +380,7 @@ def test_the_physics_sliders_are_disabled_under_tree_layouts():
     not run one. Left enabled they are two controls that move, save, and change
     nothing: which reads as a broken app rather than a setting that does not
     apply here."""
-    from memorymap.api.app import FRONTEND_DIR
+    from tessellate.api.app import FRONTEND_DIR
 
     # setGraphPhysicsEnabled's *definition* moved out of app.js into
     # frontend/js/graph.js in the frontend refactor path's graph-view extraction
@@ -410,7 +410,7 @@ def test_the_path_endpoint_stays_cheap_by_default(ai_client, monkeypatch):
     """It began computing similarity edges across the whole notebook on every
     call, while its docstring still promised something cacheable and safe to
     re-issue."""
-    from memorymap.api import routes_graph
+    from tessellate.api import routes_graph
 
     calls: list[int] = []
     monkeypatch.setattr(
@@ -439,8 +439,8 @@ def _count_calls(monkeypatch, module, name):
 
 def test_pagerank_is_not_recomputed_for_an_unchanged_notebook(ai_client, monkeypatch):
     """Fifteen passes over every node and edge, on every single graph load."""
-    from memorymap.api import routes_graph
-    from memorymap.entry import paths
+    from tessellate.api import routes_graph
+    from tessellate.entry import paths
 
     ai_client.post("/entries", json={"content": "one"})
     ai_client.post("/entries", json={"content": "two"})
@@ -462,7 +462,7 @@ def test_the_cache_is_scoped_to_the_notebook_it_was_built_from(app_state, sessio
     """The cache is process-global and the counts in its key are not unique, 
     two notebooks with three notes each collide trivially. Restoring a backup
     must not be served the previous notebook's centrality."""
-    from memorymap.api import routes_graph
+    from tessellate.api import routes_graph
 
     first = routes_graph._graph_fingerprint(session)
     assert str(app_state.data_dir) in first
@@ -472,7 +472,7 @@ def test_focus_mode_reuses_the_full_graphs_similarity_sweep(ai_client, monkeypat
     """`/graph/local` is meant to be the cheap one and was paying the whole
     notebook's cost. It still needs the global sweep, a similarity edge can
     join two notes at opposite ends, but it should not repeat it."""
-    from memorymap.api import routes_graph
+    from tessellate.api import routes_graph
 
     made = ai_client.post("/entries", json={"content": "kayak repair"}).json()
     ai_client.post("/entries", json={"content": "kayak paddle"})
@@ -489,7 +489,7 @@ def test_focus_mode_reuses_the_full_graphs_similarity_sweep(ai_client, monkeypat
 def test_switching_embedding_model_invalidates_the_similarity_cache(ai_client, monkeypatch):
     """Vectors from two backends live in different spaces, so a model switch
     has to recompute even though no note changed."""
-    from memorymap.api import routes_graph
+    from tessellate.api import routes_graph
 
     ai_client.post("/entries", json={"content": "a note"})
     calls = _count_calls(monkeypatch, routes_graph, "similar_pairs")
@@ -505,7 +505,7 @@ def test_switching_embedding_model_invalidates_the_similarity_cache(ai_client, m
 
 def _deps_backend_id_patch(monkeypatch):
     """Pretend the user switched embedding model."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     service = deps.get_embeddings()
     monkeypatch.setattr(service, "backend_id", lambda: "some-other-model")

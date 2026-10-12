@@ -11,13 +11,13 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from memorymap.core import deps
-from memorymap.core.database import Entry
+from tessellate.core import deps
+from tessellate.core.database import Entry
 
 
 @pytest.fixture()
 def board_client(app_state):
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
     from tests.fakes import FakeEmbeddingService, FakeOllama
 
     deps.override_ai(
@@ -160,7 +160,7 @@ def test_a_sketch_round_trips_on_its_own_board(board_client, session):
 def test_an_enormous_sketch_is_refused_rather_than_stored(board_client):
     """The stroke list arrives as text and nothing bounded it, so a runaway
     client could fill the notebook's disk one PUT at a time."""
-    from memorymap.api.routes_whiteboard import MAX_SKETCH_CHARS
+    from tessellate.api.routes_whiteboard import MAX_SKETCH_CHARS
 
     too_big = board_client.post(
         "/whiteboard/sketches", json={"data": "x" * (MAX_SKETCH_CHARS + 1)}
@@ -277,7 +277,7 @@ def test_a_board_says_when_it_last_changed(board_client, session):
     because drawing on a board never touches its note."""
     from datetime import datetime, timedelta
 
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     created = board_client.post("/whiteboard/boards", json={"name": "Trip plan"}).json()
     entry = session.get(Entry, created["id"])
@@ -547,7 +547,7 @@ def test_a_legacy_traversing_url_still_cannot_delete_an_outside_file(board_clien
     by anything that skips it) must still not be able to unlink whatever it
     names. Deleting an object unlinks nothing now (the test below), so this
     holds by construction; kept so a later change cannot bring it back."""
-    from memorymap.core.database import WhiteboardObject
+    from tessellate.core.database import WhiteboardObject
 
     outsider = deps.get_config().data_dir / "SURVIVOR.txt"
     outsider.write_text("important")
@@ -645,7 +645,7 @@ def test_moving_a_card_keeps_it_on_its_board(ai_client, session):
 
 def test_the_frontend_sends_the_board_when_it_moves_a_card():
     """The guard for the half of that bug that lives in the browser."""
-    from memorymap.api.app import FRONTEND_DIR
+    from tessellate.api.app import FRONTEND_DIR
 
     # The whiteboard subsystem moved out of app.js into its own file, loaded
     # by a second <script> tag, see index.html, so this comment now lives

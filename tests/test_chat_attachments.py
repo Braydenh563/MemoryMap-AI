@@ -55,10 +55,10 @@ def test_the_caption_and_the_reading_travel_with_the_picture(client):
     """"the captions arent viewable under the image cards", they are the
     reason to show a caption at all, and the same two readings the Library
     tile shows, so one picture reads the same way everywhere."""
-    from memorymap.core.database import MediaUpload
+    from tessellate.core.database import MediaUpload
 
     upload = _upload(client)
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     with deps.get_db().session() as session:
         row = session.get(MediaUpload, upload["id"])
@@ -78,10 +78,10 @@ def test_a_vision_reading_wins_over_the_offline_one(client):
     """Same precedence the Library tile uses, the AI reading is the one the
     app keeps working with, and showing both in one line would read as one
     doubled transcription."""
-    from memorymap.core.database import MediaUpload
+    from tessellate.core.database import MediaUpload
 
     upload = _upload(client)
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     with deps.get_db().session() as session:
         row = session.get(MediaUpload, upload["id"])
@@ -197,7 +197,7 @@ def test_the_ids_are_persisted_by_the_send_path():
 
 
 def test_a_turn_remembers_which_notes_were_clipped_to_it(ai_client, session):
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     note = Entry(content="The wifi password is on the router")
     session.add(note)
@@ -222,7 +222,7 @@ def test_a_private_or_binned_note_loses_its_chip(ai_client, session):
     """Same treatment as a deleted upload, the chip disappears. Listing a
     private note's first line in a conversation would put it back on screen in
     the one place the private-notebook rule cannot reach."""
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     private = Entry(content="Therapy notes", is_private=True)
     binned = Entry(content="Old shopping list", is_deleted=True)
@@ -243,8 +243,8 @@ def test_the_model_is_told_what_the_pictures_in_an_attached_note_say(session):
     not. A note's content carries `/media/<filename>` and nothing else, so a
     note whose whole point was a photographed whiteboard reached the model as a
     sentence and a link."""
-    from memorymap.api.routes_chat import _media_readings
-    from memorymap.core.database import MediaUpload
+    from tessellate.api.routes_chat import _media_readings
+    from tessellate.core.database import MediaUpload
 
     session.add(
         MediaUpload(
@@ -266,8 +266,8 @@ def test_a_picture_with_no_reading_yet_contributes_nothing(session):
     """"If they already exist" is the operative half: nothing here generates a
     caption or runs vision OCR. Captioning may not have run, may be off, or may
     have no model: and a chat turn is the worst place to start one."""
-    from memorymap.api.routes_chat import _media_readings
-    from memorymap.core.database import MediaUpload
+    from tessellate.api.routes_chat import _media_readings
+    from tessellate.core.database import MediaUpload
 
     session.add(MediaUpload(filename="blank.png", original_name="blank.png"))
     session.commit()
@@ -283,8 +283,8 @@ def test_the_model_is_told_whats_inside_a_notes_own_attached_file(client, sessio
     separate list on the note. Round-tripped through the real upload route
     so this exercises the same stored_name/uploads_dir path the reader
     uses, not a hand-built row."""
-    from memorymap.api.routes_chat import _attachment_readings
-    from memorymap.core.database import Entry
+    from tessellate.api.routes_chat import _attachment_readings
+    from tessellate.core.database import Entry
 
     entry = Entry(content="See the attached notes.")
     session.add(entry)
@@ -302,8 +302,8 @@ def test_the_model_is_told_whats_inside_a_notes_own_attached_file(client, sessio
 
 
 def test_a_note_with_no_attachments_gets_no_attachment_reading(session):
-    from memorymap.api.routes_chat import _attachment_readings
-    from memorymap.core.database import Entry
+    from tessellate.api.routes_chat import _attachment_readings
+    from tessellate.core.database import Entry
 
     entry = Entry(content="Nothing attached here.")
     session.add(entry)
@@ -322,7 +322,7 @@ def test_a_retrieved_note_that_is_mostly_a_picture_brings_its_reading(
     was mostly in the image and the ai didnt read that." Only hand-attached
     notes carried their pictures' readings, so a retrieved note that was one
     screenshot of typed ideas reached the model as a link."""
-    from memorymap.core.database import MediaUpload
+    from tessellate.core.database import MediaUpload
 
     session.add(
         MediaUpload(
@@ -342,7 +342,7 @@ def test_a_retrieved_note_that_is_mostly_a_picture_brings_its_reading(
 def test_a_retrieved_note_with_words_of_its_own_does_not(ai_client, fake_ollama, session):
     """The budget half: a note that says plenty itself keeps its allowance for
     its own words, not for an incidental picture."""
-    from memorymap.core.database import MediaUpload
+    from tessellate.core.database import MediaUpload
 
     session.add(MediaUpload(filename="side123.png", original_name="side.png", ocr_text="SIDEBAR READING"))
     session.commit()

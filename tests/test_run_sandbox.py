@@ -9,7 +9,7 @@ Chromium by `scratchpad/ui-sweeps/docrun.js`.
 
 from __future__ import annotations
 
-from memorymap.api import run_sandbox
+from tessellate.api import run_sandbox
 
 
 def _directives(policy: str) -> dict[str, str]:
@@ -60,7 +60,7 @@ def test_the_runner_only_obeys_its_parent_and_tags_every_message():
 def test_the_apps_own_policy_is_not_widened_for_it():
     """Running code is the sandbox page's business: the notebook's own policy
     keeps no eval, no blob scripts and no blob workers."""
-    from memorymap.core import security
+    from tessellate.core import security
 
     d = _directives(security.build_csp([]))
     assert "'unsafe-eval'" not in d["script-src"] and "blob:" not in d["script-src"]
@@ -75,7 +75,7 @@ def _install_fake_pyodide():
     it, with stand-in files: these tests are about what the server serves."""
     import json
 
-    from memorymap.core import extra_downloads, extras
+    from tessellate.core import extra_downloads, extras
 
     extra = extras.EXTRAS_BY_ID["pyodide"]
     target = extra_downloads.folder(extra)

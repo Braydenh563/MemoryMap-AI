@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.core import native_imports as ni
+from tessellate.core import native_imports as ni
 from tests.native_binaries import elf64, macho64, macho_fat, pe64
 
 CLEAN_LIBC = ["malloc", "free", "memcpy", "fopen", "pthread_create", "__cxa_atexit"]

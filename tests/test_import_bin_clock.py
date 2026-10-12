@@ -12,10 +12,10 @@ import io
 import zipfile
 from datetime import timedelta
 
-from memorymap.api.routes_settings import _parse_frontmatter
-from memorymap.core import deps
-from memorymap.core.database import Entry, utcnow
-from memorymap.entry import app_import, export_folder, manager
+from tessellate.api.routes_settings import _parse_frontmatter
+from tessellate.core import deps
+from tessellate.core.database import Entry, utcnow
+from tessellate.entry import app_import, export_folder, manager
 
 
 def _zip_of(session) -> bytes:

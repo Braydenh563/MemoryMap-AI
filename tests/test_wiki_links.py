@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from memorymap.entry import manager
+from tessellate.entry import manager
 
 
 def _make(client, content):
@@ -67,7 +67,7 @@ def test_editing_a_note_resolves_new_links(client):
 
 def test_private_notes_are_not_link_targets(client, session):
     """A link would reveal that a private note exists, and what it's called."""
-    from memorymap.core import vault
+    from tessellate.core import vault
 
     vault.close()
     vault.create(session, "test-passphrase")

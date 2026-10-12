@@ -13,8 +13,8 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from memorymap.ai import tools
-from memorymap.entry import manager, timewords
+from tessellate.ai import tools
+from tessellate.entry import manager, timewords
 
 # A Tuesday, so weekday arithmetic has something to be wrong about.
 NOW = datetime(2026, 7, 28, 10, 30)
@@ -149,8 +149,8 @@ def test_a_private_notes_phrases_are_not_lifted_into_a_plain_table(client, sessi
     one thing the encryption is for. A note is marked private *after* it is
     created, so this has to be cleared out then, exactly like its embedding.
     """
-    from memorymap.core import vault
-    from memorymap.core.database import EntryDate
+    from tessellate.core import vault
+    from tessellate.core.database import EntryDate
 
     # Tests don't go through setup/unlock, so open the vault by hand.
     vault.close()

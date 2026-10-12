@@ -30,7 +30,7 @@ import re
 from datetime import date
 from pathlib import Path
 
-from memorymap.ai import composer
+from tessellate.ai import composer
 
 FIXTURE = Path(__file__).parent / "fixtures" / "composer" / "showcase_725.json"
 
@@ -96,7 +96,7 @@ def shifted_failure(part: tuple, content: str, on: date) -> str | None:
     """A sentence said back in the second person (CHAT_PLAN decision 33):
     its original is in the note, and the realiser's rules, run again on it,
     give exactly what was said. None when both hold."""
-    from memorymap.ai import realise
+    from tessellate.ai import realise
 
     text, original = part[1], part[3]
     again = realise.shift_person(original)
@@ -112,7 +112,7 @@ def rederived_insights(question: str, notes: list[dict], on: date) -> set[str]:
     """Every insight line the rules give over these notes for the question's
     subject (CHAT_PLAN decision 32): a measured sentence counts as measured
     only when running the rule again gives it word for word."""
-    from memorymap.ai import insights
+    from tessellate.ai import insights
 
     terms = composer.subject_terms(question)
     subjects = {composer._asked_span(question, terms), *terms} - {""}
@@ -145,7 +145,7 @@ def trace_failures(result: dict, question: str, notes: list[dict], on: date, ask
         elif kind == "help":
             #: The help register (CHAT_PLAN decision 36): a sentence of the
             #: app's own Help topic it names.
-            from memorymap.ai import help_chat
+            from tessellate.ai import help_chat
 
             body = next((t["body"] for t in help_chat.HELP_TOPICS if t["id"] == part[2]), "")
             if text not in body:
@@ -182,7 +182,7 @@ def trace_failures(result: dict, question: str, notes: list[dict], on: date, ask
         elif kind == "reading":
             #: How a misspelt question was read (Brief 90): the repair, run
             #: again on the question, gives the same words.
-            from memorymap.ai import composer_ack, question_noise
+            from tessellate.ai import composer_ack, question_noise
 
             reads = {
                 composer_ack.reading_of(question_noise.repair(question_noise.tidy(" ".join(q.split())), known=composer._note_words(notes)))
@@ -199,7 +199,7 @@ def trace_failures(result: dict, question: str, notes: list[dict], on: date, ask
         elif kind == "computed":
             #: Worked out from the question alone (CHAT_PLAN decision 41): the
             #: utility, run again, says the same sentence.
-            from memorymap.ai import utilities
+            from tessellate.ai import utilities
 
             again = [t for k, t in (utilities.answer(question, salt=result.get("salt", "")) or []) if k == "computed"]
             if text not in again and not text.startswith(("It is ", "Today is ")):
@@ -329,7 +329,7 @@ def run(data: dict | None = None, voice: str = "natural") -> list[dict]:
 def _tokens(messages: list[dict]) -> tuple[int, int]:
     """(whole prompt, the notes message) in tokens, at the app's own measure
     (`context.CHARS_PER_TOKEN`, the same chars/4 the stats event reports)."""
-    from memorymap.ai import context
+    from tessellate.ai import context
 
     total = sum(len(m["content"]) for m in messages) // context.CHARS_PER_TOKEN
     return total, len(messages[-1]["content"]) // context.CHARS_PER_TOKEN
@@ -340,7 +340,7 @@ def context_rows(data: dict | None = None) -> list[dict]:
     the composer's brief (`composer.brief`): the plain librarian prompt the
     Ask box and Chat's Ask mode send (`librarian.build_messages`), unbudgeted
     so the two are measured on the same notes."""
-    from memorymap.ai import librarian
+    from tessellate.ai import librarian
 
     data = data or load()
     rows = []
@@ -402,7 +402,7 @@ def opener(result: dict) -> str:
 
 def joiner_phrases() -> set[str]:
     """Every wording, in either voice, of the joining and opening phrases."""
-    from memorymap.ai import composer_tables
+    from tessellate.ai import composer_tables
 
     keys = set(JOINERS)
     for voice in composer_tables.VOICES:
@@ -699,7 +699,7 @@ def run_conversation() -> list[dict]:
     """Every conversational turn of `noise_741.json`, in order, each replied
     to with the turn before's reply passed in, as Chat does: the kind of
     reply, whether a search would have fired, and the reply itself."""
-    from memorymap.ai import intent
+    from tessellate.ai import intent
 
     rows: list[dict] = []
     previous = ""
@@ -770,7 +770,7 @@ def _fixture(name: str) -> dict:
 def run_insights() -> list[dict]:
     """Each insight row: the line the engine says, and the line the row's own
     numbers give (the template filled from `expect`, not from the engine)."""
-    from memorymap.ai import composer_tables, insights
+    from tessellate.ai import composer_tables, insights
 
     data = _fixture("insights_1010.json")
     on = date.fromisoformat(data["today"])
@@ -871,7 +871,7 @@ def dialogues_summary(rows: list[dict]) -> dict:
 def run_acts() -> list[dict]:
     from datetime import datetime
 
-    from memorymap.ai import commands
+    from tessellate.ai import commands
 
     data = _fixture("acts_1010.json")
     now = datetime.fromisoformat(data["now"])

@@ -226,8 +226,8 @@ def test_rotate_vault_key_interrupted_leaves_notes_readable_with_the_old_key(
     """Simulates a failure partway through re-encryption (a corrupt row, a
     crash mid-loop) and proves nothing was committed: the vault row and every
     note's ciphertext are untouched, and the OLD password still opens them."""
-    from memorymap.api import routes_auth
-    from memorymap.core import crypto
+    from tessellate.api import routes_auth
+    from tessellate.core import crypto
 
     headers = _setup(client)
     entry = client.post(
@@ -268,7 +268,7 @@ def test_unlock_throttles_a_run_of_wrong_passwords(client, monkeypatch):
     binds localhost, but people put it behind tunnels to reach it from a
     phone, a server log showed a public address arriving through a proxy , 
     and a four-character floor is PIN territory without a throttle."""
-    from memorymap.api import routes_auth
+    from tessellate.api import routes_auth
 
     monkeypatch.setattr(routes_auth, "_failed_unlocks", [])
     _setup(client)
@@ -283,7 +283,7 @@ def test_unlock_throttles_a_run_of_wrong_passwords(client, monkeypatch):
 
 
 def test_unlock_forgives_once_the_wait_has_passed(client, monkeypatch):
-    from memorymap.api import routes_auth
+    from tessellate.api import routes_auth
 
     monkeypatch.setattr(routes_auth, "_failed_unlocks", [])
     _setup(client)

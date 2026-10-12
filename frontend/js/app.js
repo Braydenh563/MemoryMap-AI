@@ -1941,7 +1941,7 @@ const lazyModuleLoads = new Map();
 
 //: **The stamp is read off the page, never rebuilt from `__version__`.** Every
 //: local URL carries `?v=<version>`, and `RevalidatedStatic`
-//: (src/memorymap/api/app.py) rewrites it in index.html's served body to
+//: (src/tessellate/api/app.py) rewrites it in index.html's served body to
 //: `?v=<version>-<hash of that file>`, so an edited file is a new URL and an
 //: unchanged one keeps its cache across launches (audit 2026-10-05, FE-02).
 //: A script inserted later (a lazy bundle, a worker) takes its own file's

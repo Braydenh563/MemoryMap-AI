@@ -19,7 +19,7 @@ import sqlite3
 import pytest
 from fastapi.testclient import TestClient
 
-from memorymap.core import backup, deps, vault
+from tessellate.core import backup, deps, vault
 
 #: One query per kind: what a person would call losing it. Ordered by id so
 #: two notebooks compare as plain lists.
@@ -68,10 +68,10 @@ def _files(data_dir):
 
 def _new_app(data_dir, monkeypatch):
     """A second app on its own empty data folder, as on a new machine."""
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
     from tests.fakes import FakeEmbeddingService, FakeOllama
 
-    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(data_dir))
+    monkeypatch.setenv("TESSELLATE_DATA_DIR", str(data_dir))
     vault.close()
     deps.reset_app_state()
     deps.init_app_state(data_dir=data_dir)

@@ -56,7 +56,7 @@ def test_no_copy_sends_anyone_to_a_section_that_is_not_there():
     OCR files: other messages still carry it and are not this change's to fix."""
     assert "Install the “OCR” extra" not in app_js_text()
     for name in ("api/routes_files.py", "core/ocr.py", "core/extras.py"):
-        path = ROOT / "src" / "memorymap" / name
+        path = ROOT / "src" / "tessellate" / name
         body = path.read_text(encoding="utf-8")
         assert not re.search(r"Settings\s*→\s*Optional extras", body), path.name
 

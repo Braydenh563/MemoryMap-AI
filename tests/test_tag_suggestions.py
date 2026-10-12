@@ -23,9 +23,9 @@ from __future__ import annotations
 
 import json
 
-from memorymap.ai import tagging
-from memorymap.core.database import EntryLink
-from memorymap.entry import manager
+from tessellate.ai import tagging
+from tessellate.core.database import EntryLink
+from tessellate.entry import manager
 from tests import _tag_eval
 
 #: The floors this file holds; a step may not fall below them.

@@ -56,7 +56,7 @@ companion) is a surface onto the same notebook and the same engine.
    before pyspellchecker). The Gemini branch's networkx, whoosh, pint,
    langdetect, dateutil and friends go; flashtext, porter stemmer and
    simpleeval (or an ast evaluator of our own) stay only where a test shows
-   the gain. Import time of `memorymap.ai.composer` is a measured budget
+   the gain. Import time of `tessellate.ai.composer` is a measured budget
    (under 0.5 s); boot gzip is a measured budget (`test_static_compression`).
 2. **The forks.** The ArtCraft suite (storytold/wordcraft, designcraft,
    deckcraft, gridcraft, photocraft, lightcraft, pdfcraft, soundcraft,

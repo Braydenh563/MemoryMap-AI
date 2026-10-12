@@ -94,7 +94,7 @@ def test_it_is_reachable_without_going_to_the_dashboard():
     assert '"ph:microphone Record a meeting or lecture"' in JS
     assert "recordMeeting: { keys:" in JS
     assert "recordMeeting: openMeetingRecorder," in JS
-    launcher = Path("src/memorymap/__main__.py").read_text(encoding="utf-8")
+    launcher = Path("src/tessellate/__main__.py").read_text(encoding="utf-8")
     assert '"Record a meeting"' in launcher
 
 

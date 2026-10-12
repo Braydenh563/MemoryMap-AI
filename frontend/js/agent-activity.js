@@ -590,7 +590,7 @@ function appendAgentLog(record) {
   // Settings → Logs); this panel is a tail of one specific thing.
   const logger = record.logger || "";
   const isAgent =
-    logger.startsWith("memorymap.ai") ||
+    logger.startsWith("tessellate.ai") ||
     logger.includes("autonomous") ||
     logger.includes("agent");
   if (!isAgent) return;

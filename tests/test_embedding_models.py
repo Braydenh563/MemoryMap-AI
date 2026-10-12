@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.core import embedmodels, taskhistory
+from tessellate.core import embedmodels, taskhistory
 
 
 @pytest.fixture(autouse=True)

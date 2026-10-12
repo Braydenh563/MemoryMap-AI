@@ -25,9 +25,9 @@ import json
 
 import pytest
 
-from memorymap.ai import passive_capture
-from memorymap.core import deps
-from memorymap.core.database import Conversation
+from tessellate.ai import passive_capture
+from tessellate.core import deps
+from tessellate.core.database import Conversation
 
 
 @pytest.fixture
@@ -66,7 +66,7 @@ def test_it_writes_a_draft_and_not_a_note(session, chat_with, app_state):
     written = passive_capture.capture_pass(session, _Model(), _Ollama(), config)
 
     assert written == 1
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     entry = session.query(Entry).order_by(Entry.id.desc()).first()
     assert entry.is_draft is True, "a capture must arrive as a draft, never a filed note"

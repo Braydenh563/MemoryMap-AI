@@ -15,8 +15,8 @@ import json
 
 import pytest
 
-from memorymap.ai import agent, tools
-from memorymap.core import vault
+from tessellate.ai import agent, tools
+from tessellate.core import vault
 
 
 def _save(client, content, **extra):
@@ -283,7 +283,7 @@ def test_restore_note_refuses_a_deleted_private_note(ai_client, session, unlocke
 
     # And it must actually still be deleted, refusing to read it should not
     # have restored it as a side effect.
-    from memorymap.entry import manager as entry_manager
+    from tessellate.entry import manager as entry_manager
 
     entry = entry_manager.get_entry(session, private["id"])
     assert entry.is_deleted is True
@@ -327,7 +327,7 @@ def test_the_agent_stops_adding_tool_results_once_the_budget_is_spent(
             "go through all my notes",
             [],
             model_manager=__import__(
-                "memorymap.core.deps", fromlist=["deps"]
+                "tessellate.core.deps", fromlist=["deps"]
             ).get_model_manager(),
             ollama=fake_ollama,
         )
@@ -355,7 +355,7 @@ def test_a_normal_turn_is_not_affected_by_the_budget(ai_client, session, fake_ol
     fake_ollama.tool_script = [[{"name": "count_notes", "arguments": {}}]]
     fake_ollama.librarian_reply = "You have one note."
 
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     events = list(
         agent.run_agent(

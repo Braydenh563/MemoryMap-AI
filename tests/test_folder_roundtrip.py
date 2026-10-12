@@ -15,9 +15,9 @@ import zipfile
 
 import pytest
 
-from memorymap.api.routes_settings import _parse_frontmatter
-from memorymap.core import deps
-from memorymap.entry import app_import, export_folder
+from tessellate.api.routes_settings import _parse_frontmatter
+from tessellate.core import deps
+from tessellate.entry import app_import, export_folder
 from tests.fixtures import notebook500
 
 
@@ -173,7 +173,7 @@ def test_a_note_with_no_sidecar_reads_its_front_matter(exported):
 def test_the_route_takes_a_memorymap_folder(exported):
     from fastapi.testclient import TestClient
 
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     _, data = exported
     client = TestClient(create_app())
@@ -188,8 +188,8 @@ def test_a_connector_and_a_map_reference_come_back_joined_to_their_items(client,
     connector came back joined to whatever had its old numbers and a map's
     note node pointed at another note. The export also writes each end by
     place; the import turns it into the new ids."""
-    from memorymap.core.database import Entry, WhiteboardNode, WhiteboardObject, WhiteboardSketch
-    from memorymap.entry import manager
+    from tessellate.core.database import Entry, WhiteboardNode, WhiteboardObject, WhiteboardSketch
+    from tessellate.entry import manager
 
     session = deps.get_db().session()
     note = manager.create_entry(session, "Joined note")
@@ -245,7 +245,7 @@ def test_a_note_binned_long_ago_comes_in_with_a_fresh_bin_period(exported):
 
     from sqlalchemy import select
 
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     before, data = exported
     session, _, written = _import(data)
@@ -256,7 +256,7 @@ def test_a_note_binned_long_ago_comes_in_with_a_fresh_bin_period(exported):
         for entry in binned:
             stamp = entry.deleted_at if entry.deleted_at.tzinfo else entry.deleted_at.replace(tzinfo=timezone.utc)
             assert stamp > floor, (entry.id, entry.deleted_at)
-        from memorymap.entry import manager
+        from tessellate.entry import manager
 
         assert manager.purge_expired_deleted(session, 30) == 0  # the start-up purge keeps them
     finally:

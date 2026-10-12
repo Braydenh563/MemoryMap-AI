@@ -16,8 +16,8 @@ import time
 import pytest
 from sqlalchemy import select
 
-from memorymap.core import deps, embedmodels, embedswitch, jobstore
-from memorymap.core.database import EmbeddingRecord, StagedEmbedding
+from tessellate.core import deps, embedmodels, embedswitch, jobstore
+from tessellate.core.database import EmbeddingRecord, StagedEmbedding
 from tests.fakes import FakeEmbeddingService
 
 

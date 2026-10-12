@@ -13,8 +13,8 @@ import json
 
 import pytest
 
-from memorymap.core import activity, jobruns, taskhistory
-from memorymap.core import jobs as pool
+from tessellate.core import activity, jobruns, taskhistory
+from tessellate.core import jobs as pool
 
 
 @pytest.fixture(autouse=True)

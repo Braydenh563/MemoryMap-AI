@@ -24,7 +24,7 @@ import pytest
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-from memorymap.api import routes_auth
+from tessellate.api import routes_auth
 
 #: Paths that must stay reachable without a token, each for a stated reason.
 #: A path is matched exactly; a prefix entry ends in `/`.
@@ -157,7 +157,7 @@ def _routes(app):
 @pytest.fixture()
 def locked_client(app_state):
     """A notebook with a password set and nobody unlocked."""
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     client = TestClient(create_app())
     made = client.post("/auth/setup", json={"password": "correct horse battery"})
@@ -207,7 +207,7 @@ def test_sign_in_off_opens_no_route_by_itself(locked_client, address):
     `/auth/auto-session`; it never makes the gate itself wave a tokenless
     caller through, from loopback or from anywhere else. A gate that did
     would open every route to any page that can reach the port."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     deps.get_config().set_preference("ask_password_on_open", False)
     caller = TestClient(

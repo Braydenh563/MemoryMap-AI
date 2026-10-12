@@ -12,7 +12,7 @@ import pytest
 from fastapi import HTTPException
 from starlette.requests import Request
 
-from memorymap.api.this_computer import is_another_device, this_computer_only
+from tessellate.api.this_computer import is_another_device, this_computer_only
 
 HOST_ONLY = {
     "routes_auth": {"/lan-certificate", "/recovery-key/save"},
@@ -55,7 +55,7 @@ def test_a_tunnel_on_this_computer_is_another_device():
 
 @pytest.mark.parametrize("module", sorted(HOST_ONLY))
 def test_every_act_on_the_computer_carries_the_guard(module):
-    router = importlib.import_module(f"memorymap.api.{module}").router
+    router = importlib.import_module(f"tessellate.api.{module}").router
     guarded = set()
     for route in router.routes:
         calls = {getattr(d.dependency, "__name__", "") for d in getattr(route, "dependencies", [])}

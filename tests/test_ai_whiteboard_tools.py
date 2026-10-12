@@ -11,8 +11,8 @@ import json
 
 import pytest
 
-from memorymap.ai import tools
-from memorymap.core.database import Entry, WhiteboardNode, WhiteboardObject, WhiteboardSketch
+from tessellate.ai import tools
+from tessellate.core.database import Entry, WhiteboardNode, WhiteboardObject, WhiteboardSketch
 
 
 def _note(session, content="a note"):

@@ -13,7 +13,7 @@ from __future__ import annotations
 import io
 import zipfile
 
-from memorymap.core import backup, deps, lancert
+from tessellate.core import backup, deps, lancert
 
 CANARY = b"CANARY-PRIVATE-KEY-0xDEADBEEF"
 

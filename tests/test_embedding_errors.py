@@ -11,8 +11,8 @@ from __future__ import annotations
 import pytest
 import requests
 
-from memorymap.ai import ollama_client
-from memorymap.ai.ollama_client import OllamaClient, OllamaError
+from tessellate.ai import ollama_client
+from tessellate.ai.ollama_client import OllamaClient, OllamaError
 
 
 class _FakeResponse:

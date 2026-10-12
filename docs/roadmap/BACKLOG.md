@@ -424,7 +424,7 @@ this stage. What shipped instead, since the alternative is a user on a
 six-month-old build with no way to know it: `update_check_enabled`
 preference (off by default, same reasoning as `web_search_enabled`, see
 `core/config.py`), a `GET /update/check` endpoint that compares
-`memorymap.__version__` against GitHub's `releases/latest` tag numerically
+`tessellate.__version__` against GitHub's `releases/latest` tag numerically
 (never lexically: "0.10.0" has to sort after "0.9.0"), and Settings → About
 wiring: the checkbox, a "Check now" button, and a silent check on startup
 that only ever toasts when a newer version genuinely exists. Two real bugs
@@ -459,7 +459,7 @@ webview is also where the genuine embedded browser from §3 becomes possible.
 PyInstaller can build either, a one-file executable that runs from a USB
 stick with `data/` beside it, or a real OS-integrated install (Start Menu
 entry, `/Applications`, an uninstaller). They want different things from
-`MEMORYMAP_DATA_DIR`: portable mode wants data relative to the executable by
+`TESSELLATE_DATA_DIR`: portable mode wants data relative to the executable by
 default (so the whole thing is one folder you can move); an installed app
 wants a proper per-user data directory (`%APPDATA%`, `~/Library/Application
 Support`, `~/.local/share`) so it survives a reinstall. Worth picking the
@@ -526,7 +526,7 @@ recurring causes are now written up as invariants in `docs/ARCHITECTURE.md` §10
 
 ~~**Port 8888 being taken was a dead end.**~~ **fixed.** `start()` now
 settles a port first (the wanted one, else 8080/8081/8890/8899, or
-`MEMORYMAP_SEARXNG_PORT`).
+`TESSELLATE_SEARXNG_PORT`).
 
 **SearXNG itself now installs, starts, answers its JSON API, passes
 `websearch.probe_searxng`, and returns real results on a user's own
@@ -1670,7 +1670,7 @@ and the tray menu is Open / View Logs (opens Settings → Logs, the third
 AskUserQuestion answer this session) / Restart (`os.execv`, same process
 re-launched rather than a second one spawned) / Quit (`window.destroy()`,
 which is what actually unblocks the `webview.start()` call and lets the
-process exit). See `memorymap.__main__._start_tray`. `pystray` + `Pillow`
+process exit). See `tessellate.__main__._start_tray`. `pystray` + `Pillow`
 ride along with the existing `desktop` extra in `core/extras.py`, same
 button that already installs `pywebview`, and the Windows installer's
 PyInstaller spec bundles both, so this is always on for anyone who used the
@@ -1857,7 +1857,7 @@ them are close to being built:
   odysseus's actual MCP implementation and split this into two: expose (no
   new trust model needed, build first) and consume (needs the trust model
   this paragraph already flagged, build second). **The expose half is built**
-  (`src/memorymap/mcp_server.py`, a stdio server over the tool registry,
+  (`src/tessellate/mcp_server.py`, a stdio server over the tool registry,
   checked 2026-10-04); consuming external servers is still open **(needs
   owner)**: it needs the trust model decided first.
 - **A VS Code extension.** **Next:** nothing is buildable until the owner states a purpose; the HTTP tool API (`GET /chat/tools`, `POST /chat/tools/execute`, WORLD_CLASS_PLAN B8) is the surface an extension would call. No stated purpose yet beyond the idea itself,
@@ -1925,7 +1925,7 @@ the fourth, links to objects, is built too (checked 2026-10-05, below).
   - `dragEndNode`'s own hit-test (app.js) loops `for (const node of
     wbState.nodes)`, an object is never even considered as a drop target
     for the live drag-to-link gesture.
-  - `add_whiteboard_link` (`src/memorymap/ai/tools/__init__.py`) does
+  - `add_whiteboard_link` (`src/tessellate/ai/tools/__init__.py`) does
     `session.get(WhiteboardNode, ...)` for both ends: passing an object's
     id raises "No whiteboard card with id …", not a working link.
   - The link sketch's own data shape (`sourceId`/`targetId`) has no
@@ -4185,7 +4185,7 @@ libraries read, 2026-10-10".
   plus the slim Python base (about 125 MB): about 400 MB on disk, roughly 150
   MB pulled. With `sentence-transformers` and CPU torch (769 MB for torch
   alone in this repository's own venv, 1.5 GB for the whole venv): about 1.6
-  GB. Volume layout: `/data` (`MEMORYMAP_DATA_DIR`: database, files, the LAN
+  GB. Volume layout: `/data` (`TESSELLATE_DATA_DIR`: database, files, the LAN
   certificate, backups) and `/models` (`HF_HOME` and
   `SENTENCE_TRANSFORMERS_HOME`: the embedder, Whisper, RapidOCR, the Pyodide
   and needle downloads), so a notebook reset never re-downloads a model.
@@ -4195,7 +4195,7 @@ libraries read, 2026-10-10".
   widens it only when the LAN preference is on and a password exists; a
   browser reaching the container through Docker's bridge is "the network",
   and an app with no password answers every network request 403 (SEC-01).
-  So the image needs `MEMORYMAP_BIND` (default unchanged), a first-password
+  So the image needs `TESSELLATE_BIND` (default unchanged), a first-password
   environment variable or `--set-password` (today only `--reset-password`
   exists), and a decision on TLS (a reverse proxy in front, with plain http
   inside the compose network). **What the Windows launcher does that a
@@ -4277,7 +4277,7 @@ Brief 43. Each row: the probe (command), the number, the cause, the fix shape an
 | 5 | Exports re-imported: markdown now round-trips date and pin; `GET /export/json` has no import route at all; the HTML, docx and PDF round trips are unverified because markitdown, python-docx and a PDF writer are not installed in the sandbox | JSON export was built as a take-away; `POST /import/document` needs the `documents` extra | An "Import a MemoryMap JSON export" door beside Import markdown; run the docx and PDF diff on a machine with the extra | M |
 | 6 | Launcher update rollback: `start.sh` self-updates by `git pull --ff-only`; there is no way back to the previous version, and rolled-back code against a newer-stamped database logs "Can't locate revision" and carries on | No release pinning or previous-version record; the safety copy now covers the data only | Record the head before a pull; a `--rollback` flag that checks it out and says which backup to restore | M |
 | 7 | Attachments are accepted by extension only (`ATTACHMENT_SUFFIXES`, routes_files.py:94); the media upload at routes_files.py:3483 has a magic-number check, attachments do not | The suffix allowlist predates the sniffing helper | Run the media check on attachments whose suffix claims an image, PDF or archive | S |
-| 8 | The vendored engines broke the base branch's gates: `ruff` reports 1,140 errors in `src/memorymap/vendor/` (whoosh, networkx), `test_plan_hygiene` finds a conflict marker at `vendor/networkx/conftest.py:3`, `test_outbound_inventory` finds `vendor/vaderSentiment.py` and `vendor/whoosh/compat.py` able to open connections and unlisted, `test_readme_freshness` says the README's tool count (67) is stale; CodeQL's config does not ignore `vendor/` | Brief 39's vendoring landed without the exclusions the lints and the CodeQL config need | `extend-exclude` vendor in pyproject, `paths-ignore` it in `.github/codeql/codeql-config.yml`, add the two modules to `INVENTORY` as imported and never called, delete the marker, fix the README count | S |
+| 8 | The vendored engines broke the base branch's gates: `ruff` reports 1,140 errors in `src/tessellate/vendor/` (whoosh, networkx), `test_plan_hygiene` finds a conflict marker at `vendor/networkx/conftest.py:3`, `test_outbound_inventory` finds `vendor/vaderSentiment.py` and `vendor/whoosh/compat.py` able to open connections and unlisted, `test_readme_freshness` says the README's tool count (67) is stale; CodeQL's config does not ignore `vendor/` | Brief 39's vendoring landed without the exclusions the lints and the CodeQL config need | `extend-exclude` vendor in pyproject, `paths-ignore` it in `.github/codeql/codeql-config.yml`, add the two modules to `INVENTORY` as imported and never called, delete the marker, fix the README count | S |
 | 9 | `tests/test_chat_intent.py`: `classify("what can you do?")` returns `smalltalk`, not `about_app`; the capability prompt lacks "asking what you can do" (2 failures on the base) | The composer branch's change to intent.py or the composer tables (other agent's files) | Reproduce against `main`, then restore the capability route | S |
 | 10 | `axe.js`, light, 1440 px: 7 `label-content-name-mismatch` left after the select fix: `#status-notes`, `#entry-attach-existing`, `button[title="Add this note to a document"]`, `Sort results` (find), `Small model mode`, `Run Embeddings backfill now`, `How Atlas writes its answers`, a heatmap day button (`data-key`) | Icon-and-count buttons whose aria-label drops the visible count or word | Put the visible text first in each aria-label (status.js is another agent's file) | S |
 | 11 | `server rss` 285 MB with 5,000 notes after boot and a full list load (target 300); the page heap is 15 MB | The server holds the engines and caches; nothing measured per component | Profile with tracemalloc at 5,000 and 20,000 notes before it crosses 300 | S |

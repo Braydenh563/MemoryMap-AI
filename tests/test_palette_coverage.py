@@ -27,7 +27,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from memorymap.ai import act_registry
+from tessellate.ai import act_registry
 from tests.test_catalogue_reveal import _feature_rows, _list_literal, _palette_rows, _targets
 
 JS = Path(__file__).resolve().parents[1] / "frontend" / "js"

@@ -23,7 +23,7 @@ from collections import defaultdict
 from pathlib import Path
 
 SRC = Path(__file__).resolve().parents[1] / "src"
-PACKAGE = "memorymap"
+PACKAGE = "tessellate"
 
 #: The ratchet. Lower these when a group shrinks; never raise them.
 MAX_LARGEST_GROUP = 15

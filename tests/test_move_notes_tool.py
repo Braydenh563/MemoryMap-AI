@@ -5,7 +5,7 @@ Undo posts back the call the result carried."""
 
 from __future__ import annotations
 
-from memorymap.ai import tools
+from tessellate.ai import tools
 
 
 def _note(client, text, category="Garden"):
@@ -84,7 +84,7 @@ def test_a_note_already_there_is_said_not_moved(client):
 
 
 def _session(client):  # noqa: ANN001
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     return deps.get_db().session()
 
@@ -94,7 +94,7 @@ def test_the_agent_loop_parks_a_move_for_the_users_yes_and_never_runs_it(monkeyp
     saying what will move, and the handler is never reached until the click."""
     import pytest
 
-    from memorymap.ai import agent
+    from tessellate.ai import agent
     from tests.test_agent_recovery import _FakeModels, _FakeOllama, _Session
 
     call = {"name": "move_notes", "arguments": {"ids": [1, 2], "category": "Travel"}}

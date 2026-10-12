@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.api import routes_auth
-from memorymap.core import deps
-from memorymap.core.database import User
+from tessellate.api import routes_auth
+from tessellate.core import deps
+from tessellate.core.database import User
 
 
 @pytest.fixture(autouse=True)

@@ -38,7 +38,7 @@ def test_markdown_import_returns_the_ids_it_made(client):
 
 
 def test_document_import_returns_the_ids_it_made(client, monkeypatch):
-    from memorymap.api import routes_settings
+    from tessellate.api import routes_settings
 
     monkeypatch.setattr(routes_settings.importer, "markitdown_available", lambda: True)
     monkeypatch.setattr(

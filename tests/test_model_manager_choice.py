@@ -1,7 +1,7 @@
 """Choosing an installed chat model when the stored one is missing (the owner,
 2026-10-07: "the app should detect and smart choose the available models")."""
 
-from memorymap.ai.model_manager import choose_installed_chat_model
+from tessellate.ai.model_manager import choose_installed_chat_model
 
 GB = 1024**3
 
@@ -27,8 +27,8 @@ def test_only_vision_or_ocr_models_choose_nothing():
 
 
 def _warm(app_state, installed, preferences=None):
-    from memorymap.ai import janitor
-    from memorymap.core import deps
+    from tessellate.ai import janitor
+    from tessellate.core import deps
     from tests.fakes import FakeOllama
 
     fake = FakeOllama(running=True)

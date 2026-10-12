@@ -9,7 +9,7 @@ text between the previous <h3 and the next <h3 / </section>. 'popover' = a data-
 import glob
 import re
 
-from memorymap.api.routes_settings import PreferencesBody
+from tessellate.api.routes_settings import PreferencesBody
 from pathlib import Path
 
 html = Path("frontend/index.html").read_text(encoding="utf-8").split("\n")

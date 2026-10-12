@@ -8,9 +8,9 @@ when the upload row is gone.
 
 from __future__ import annotations
 
-from memorymap.ai import captioning
-from memorymap.core import deps
-from memorymap.core.database import MediaUpload
+from tessellate.ai import captioning
+from tessellate.core import deps
+from tessellate.core.database import MediaUpload
 
 
 def _upload(session, filename="a.png") -> int:
@@ -138,7 +138,7 @@ def test_caption_and_store_records_which_model_wrote_it(app_state, session, fake
 def test_caption_and_store_records_a_completed_task(app_state, session, fake_ollama, tmp_path):
     """Reported directly: captioning never showed up in Settings →
     Background tasks, success or failure, as if it had never run."""
-    from memorymap.core import taskhistory
+    from tessellate.core import taskhistory
 
     taskhistory.clear()
     upload_id = _upload(session)
@@ -158,7 +158,7 @@ def test_caption_and_store_records_a_failed_task_when_the_model_produces_nothing
 ):
     """The reported bug: a captioning call failing outright (a 500 from the
     backend) left no trace anywhere but the log console."""
-    from memorymap.core import taskhistory
+    from tessellate.core import taskhistory
 
     def _broken_chat(model, messages):
         raise RuntimeError("500 Server Error")
@@ -184,7 +184,7 @@ def test_caption_and_store_does_not_record_a_task_with_no_vision_model(
     """Not a failure worth a history entry, every upload on a notebook
     with no vision model installed would otherwise fill the ring with the
     same expected, non-actionable line."""
-    from memorymap.core import taskhistory
+    from tessellate.core import taskhistory
 
     taskhistory.clear()
     upload_id = _upload(session)

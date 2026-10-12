@@ -27,7 +27,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.core import extra_downloads, extras
+from tessellate.core import extra_downloads, extras
 from tests.native_binaries import elf64
 
 
@@ -267,7 +267,7 @@ def test_only_https_or_a_loopback_mirror_is_fetched():
 
 
 def test_a_mirror_changes_only_the_address_never_the_hash(client, monkeypatch, server):
-    """`MEMORYMAP_EXTRAS_MIRROR` is for a machine with no internet (and for
+    """`TESSELLATE_EXTRAS_MIRROR` is for a machine with no internet (and for
     the browser sweep): the same file name from a local folder, still held to
     the pinned sha256."""
     archive = _tar_bz2(PYODIDE_FILES)
@@ -349,7 +349,7 @@ def test_a_download_extra_never_reaches_pip(client, monkeypatch, server):
 
 
 def test_the_install_reaches_the_task_history(client, monkeypatch, server):
-    from memorymap.core import taskhistory
+    from tessellate.core import taskhistory
 
     _point_at(monkeypatch, "pyodide", server, {"core.tar.bz2": _tar_bz2(PYODIDE_FILES)})
     extras.start("pyodide")

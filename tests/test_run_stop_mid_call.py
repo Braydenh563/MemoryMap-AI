@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import threading
 
-from memorymap.ai import budget
-from memorymap.core import activity, deps
-from memorymap.core.database import Entry
+from tessellate.ai import budget
+from tessellate.core import activity, deps
+from tessellate.core.database import Entry
 from tests._skill_run import run_for_test
 from tests.fakes import FakeOllama
 

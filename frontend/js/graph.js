@@ -1360,7 +1360,7 @@ function graphNodeUnder(dragged, event) {
 
 //: The kinds of connection a link can carry.
 //:
-//: **Mirrors `LINK_TYPES` in src/memorymap/core/database.py, and
+//: **Mirrors `LINK_TYPES` in src/tessellate/core/database.py, and
 //: `tests/test_link_types.py` fails the build if the two drift.** Duplicated
 //: rather than fetched because this list is needed to draw a dialog before any
 //: request has been made, and a picker that has to wait on the network to know

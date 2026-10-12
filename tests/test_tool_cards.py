@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import json
 
-from memorymap.ai import cards, tools
+from tessellate.ai import cards, tools
 
 
 # --- coverage ----------------------------------------------------------------

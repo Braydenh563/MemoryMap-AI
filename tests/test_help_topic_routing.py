@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import help_chat
+from tessellate.ai import help_chat
 from tests._app_js import app_js_text
 
 #: (question, the id that must be in the top three). One id, not a set: if two

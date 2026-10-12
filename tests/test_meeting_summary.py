@@ -7,7 +7,7 @@ gracefully); `ai_client` runs with the fake Ollama for the happy path.
 
 from __future__ import annotations
 
-from memorymap.ai import librarian
+from tessellate.ai import librarian
 
 
 def test_summarize_with_working_model(ai_client, fake_ollama):
@@ -39,7 +39,7 @@ def test_summarize_rejects_empty_text_without_calling_the_model(client):
 
 
 def test_summarize_meeting_function_strips_none(fake_ollama):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     fake_ollama.librarian_reply = "none"
     result = librarian.summarize_meeting(
@@ -49,7 +49,7 @@ def test_summarize_meeting_function_strips_none(fake_ollama):
 
 
 def test_summarize_meeting_function_returns_the_reply(fake_ollama):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     fake_ollama.librarian_reply = "**Decisions**\n- Use SQLite"
     result = librarian.summarize_meeting(

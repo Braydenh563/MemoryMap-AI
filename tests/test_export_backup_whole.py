@@ -13,7 +13,7 @@ import io
 import sqlite3
 import zipfile
 
-from memorymap.core import deps
+from tessellate.core import deps
 
 
 def test_the_backup_has_every_note_and_every_attachment(client, tmp_path):

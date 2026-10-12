@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import time
 
-from memorymap.ai import margin
-from memorymap.core import deps
-from memorymap.core.database import DerivedFact
+from tessellate.ai import margin
+from tessellate.core import deps
+from tessellate.core.database import DerivedFact
 
 
 def _note(client, text: str) -> int:
@@ -110,7 +110,7 @@ def test_with_the_model_down_it_still_answers_fast(client):
 
 
 def test_the_switch_turns_it_off(client):
-    from memorymap.ai import facts
+    from tessellate.ai import facts
 
     facts.set_switches(deps.get_config(), {"margin_reader": False})
     body = client.post("/editor/read", json={"paragraph": BOILER}).json()

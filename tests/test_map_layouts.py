@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from memorymap.api.routes_whiteboard import BOARD_LAYOUTS
+from tessellate.api.routes_whiteboard import BOARD_LAYOUTS
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")

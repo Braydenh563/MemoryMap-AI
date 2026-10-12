@@ -13,9 +13,9 @@ import json
 
 import pytest
 
-from memorymap.core import deps, vault
-from memorymap.core.database import AskTurn, Conversation
-from memorymap.entry import manager
+from tessellate.core import deps, vault
+from tessellate.core.database import AskTurn, Conversation
+from tessellate.entry import manager
 
 SECRET = "# Zebrasecret plan\n\nMy bank PIN is 4417, the spare key is at Quokkatown station."
 QUOTE = "the spare key is at Quokkatown station"

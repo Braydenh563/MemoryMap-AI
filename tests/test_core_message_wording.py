@@ -1,7 +1,7 @@
 """The messages that `core/`, `ai/`, `entry/` and `search/` write for a person.
 
 `tests/test_server_detail_wording.py` holds every literal `detail=` string in
-`src/memorymap/api/`. It cannot see a route that passes a *computed* message
+`src/tessellate/api/`. It cannot see a route that passes a *computed* message
 (`detail=str(exc)`, `detail=reason`, `detail=info["error"]`): those sentences
 are written elsewhere, and `frontend/js/status.js` `plainHttpError` shows them
 in a toast as they arrive (INBOX 472, "found, not fixed"). This reads the
@@ -31,7 +31,7 @@ import pytest
 
 from tests.test_server_detail_wording import API, _pieces, collect, label, problems, route_sources
 
-SRC = Path(__file__).resolve().parents[1] / "src" / "memorymap"
+SRC = Path(__file__).resolve().parents[1] / "src" / "tessellate"
 
 
 @dataclass(frozen=True)
@@ -127,7 +127,7 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     (
         "search/searxng_process.py",
         "Every port Tessellate tried for SearXNG was already in use ({}). Free "
-        "one of them, or choose another port with the MEMORYMAP_SEARXNG_PORT "
+        "one of them, or choose another port with the TESSELLATE_SEARXNG_PORT "
         "setting, and press Start again.",
     ): (
         "the setting's name is the way out a person with every port taken "
@@ -410,7 +410,7 @@ TRANSPORT_TEXT = "HTTPConnectionPool(host='127.0.0.1', port=11434): Max retries 
 
 
 def _boom(*_args, **_kwargs):
-    from memorymap.ai.ollama_client import OllamaError
+    from tessellate.ai.ollama_client import OllamaError
 
     raise OllamaError(f"Chat with 'x' failed: {TRANSPORT_TEXT}")
 
@@ -421,7 +421,7 @@ def _sentence(detail: str) -> None:
 
 
 def test_a_model_failure_in_improve_writing_is_a_sentence(ai_client, monkeypatch, caplog):
-    from memorymap.ai import librarian
+    from tessellate.ai import librarian
 
     caplog.set_level("WARNING")
     monkeypatch.setattr(librarian, "improve_writing", _boom)
@@ -433,7 +433,7 @@ def test_a_model_failure_in_improve_writing_is_a_sentence(ai_client, monkeypatch
 
 
 def test_a_model_failure_in_generate_title_is_a_sentence(ai_client, monkeypatch, caplog):
-    from memorymap.ai import librarian
+    from tessellate.ai import librarian
 
     caplog.set_level("WARNING")
     note = ai_client.post("/entries", json={"content": "buy milk and eggs"}).json()
@@ -445,7 +445,7 @@ def test_a_model_failure_in_generate_title_is_a_sentence(ai_client, monkeypatch,
 
 
 def test_a_model_failure_in_the_chat_summary_is_a_sentence(ai_client, monkeypatch, caplog):
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     caplog.set_level("WARNING")
     monkeypatch.setattr(tools, "summarise_turns", _boom)
@@ -485,7 +485,7 @@ def test_a_confirmed_tool_that_fails_answers_with_a_sentence_for_the_person(ai_c
 
 
 def test_a_clip_that_cannot_be_transcribed_does_not_show_the_exception(client, monkeypatch, caplog):
-    from memorymap.ai import voice
+    from tessellate.ai import voice
 
     caplog.set_level("WARNING")
     monkeypatch.setattr(voice, "whisper_available", lambda: True)
@@ -503,7 +503,7 @@ def test_a_clip_that_cannot_be_transcribed_does_not_show_the_exception(client, m
 
 
 def test_a_document_that_cannot_be_converted_does_not_show_the_exception(client, monkeypatch, caplog):
-    from memorymap.api import routes_settings
+    from tessellate.api import routes_settings
 
     caplog.set_level("WARNING")
     monkeypatch.setattr(routes_settings.importer, "markitdown_available", lambda: True)
@@ -520,8 +520,8 @@ def test_a_document_that_cannot_be_converted_does_not_show_the_exception(client,
 
 
 def test_the_install_hints_name_what_to_install():
-    from memorymap.ai import voice
-    from memorymap.entry import importer
+    from tessellate.ai import voice
+    from tessellate.entry import importer
 
     for hint, name in ((voice.INSTALL_HINT, "Voice notes"), (importer.INSTALL_HINT, "Import documents")):
         assert name in hint and "Settings, Packages" in hint

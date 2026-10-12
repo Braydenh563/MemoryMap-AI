@@ -16,7 +16,7 @@ import re
 from collections import Counter
 from pathlib import Path
 
-from memorymap.api.asset_strip import strip_js
+from tessellate.api.asset_strip import strip_js
 
 JS = Path(__file__).resolve().parents[1] / "frontend" / "js"
 

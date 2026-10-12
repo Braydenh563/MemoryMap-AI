@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from memorymap.core import ocr
+from tessellate.core import ocr
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 32
 BOX = {"x": 0.1, "y": 0.1, "w": 0.5, "h": 0.2}
@@ -38,8 +38,8 @@ def _attach(client) -> int:
 
 def _strip_words_from_the_cache(attachment_id: int) -> None:
     """Make the stored cache look like one written before words were kept."""
-    from memorymap.core import deps
-    from memorymap.core.database import PageRead
+    from tessellate.core import deps
+    from tessellate.core.database import PageRead
 
     with deps.get_db().session() as session:
         row = session.query(PageRead).filter(PageRead.kind == "attachment", PageRead.source_id == attachment_id).one()

@@ -13,7 +13,7 @@ import socket
 
 import pytest
 
-from memorymap.search import searxng_manager
+from tessellate.search import searxng_manager
 
 
 # --- the port question, answered --------------------------------------------
@@ -237,7 +237,7 @@ def test_every_port_taken_names_them_all_and_the_way_out(app_state, monkeypatch)
     assert "Every port" in str(caught.value)
     assert "8899" in str(caught.value)
     assert "Free one of them" in str(caught.value)
-    assert "MEMORYMAP_SEARXNG_PORT" in str(caught.value)
+    assert "TESSELLATE_SEARXNG_PORT" in str(caught.value)
 
 
 # --- the reason a command failed, not the last thing it printed -------------
@@ -254,7 +254,7 @@ def test_pips_upgrade_notice_is_never_reported_as_the_failure(caplog):
     update, run: …pip install --upgrade pip". pip prints that on almost every
     run and it is always last, so the last line was the wrong line to take, 
     and it sent people off to fix pip, which was never the problem."""
-    caplog.set_level("WARNING", logger="memorymap.searxng")
+    caplog.set_level("WARNING", logger="tessellate.searxng")
     result = _Result(
         stdout=(
             "Collecting searxng\n"
@@ -274,7 +274,7 @@ def test_pips_upgrade_notice_is_never_reported_as_the_failure(caplog):
 
 
 def test_the_error_line_beats_the_hints_printed_after_it(caplog):
-    caplog.set_level("WARNING", logger="memorymap.searxng")
+    caplog.set_level("WARNING", logger="tessellate.searxng")
     result = _Result(stderr="ERROR: no space left on device\nhint: free some up\n")
     message = searxng_manager._reason(result, "Couldn't install.")
     assert "no space left" not in message
@@ -290,7 +290,7 @@ def test_a_command_that_said_nothing_useful_gets_no_invented_reason():
 def test_a_configured_port_is_used_instead_of_the_default(monkeypatch):
     """"Is there a way to change the port if it is full?? maybe like 8080."" """
     monkeypatch.setattr(searxng_manager, "_chosen_port", None)
-    monkeypatch.setenv("MEMORYMAP_SEARXNG_PORT", "8080")
+    monkeypatch.setenv("TESSELLATE_SEARXNG_PORT", "8080")
     assert searxng_manager.host_port() == 8080
     # An IP literal, never localhost: the probe must dial the exact address
     # SearXNG binds (SEARXNG_BIND_ADDRESS=127.0.0.1). On Windows, localhost
@@ -301,14 +301,14 @@ def test_a_configured_port_is_used_instead_of_the_default(monkeypatch):
 def test_nonsense_in_the_port_variable_falls_back_rather_than_crashing(monkeypatch):
     monkeypatch.setattr(searxng_manager, "_chosen_port", None)
     for junk in ("", "eight", "0", "99999", "8080; rm -rf /"):
-        monkeypatch.setenv("MEMORYMAP_SEARXNG_PORT", junk)
+        monkeypatch.setenv("TESSELLATE_SEARXNG_PORT", junk)
         assert searxng_manager.host_port() == searxng_manager.DEFAULT_PORT, junk
 
 
 def test_a_taken_port_moves_along_instead_of_failing(monkeypatch):
     """The old advice was "close whatever has it", which assumes you can."""
     monkeypatch.setattr(searxng_manager, "_chosen_port", None)
-    monkeypatch.delenv("MEMORYMAP_SEARXNG_PORT", raising=False)
+    monkeypatch.delenv("TESSELLATE_SEARXNG_PORT", raising=False)
     monkeypatch.setattr(searxng_manager.websearch, "probe_searxng", lambda url: False)
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as holder:
         holder.bind(("127.0.0.1", searxng_manager.DEFAULT_PORT))
@@ -324,7 +324,7 @@ def test_a_searxng_already_answering_wins_over_a_free_port(monkeypatch):
     """Ours, from a previous run. Taking a different port would start a
     second copy beside it."""
     monkeypatch.setattr(searxng_manager, "_chosen_port", None)
-    monkeypatch.delenv("MEMORYMAP_SEARXNG_PORT", raising=False)
+    monkeypatch.delenv("TESSELLATE_SEARXNG_PORT", raising=False)
     monkeypatch.setattr(
         searxng_manager.websearch,
         "probe_searxng",
@@ -485,7 +485,7 @@ def test_the_daemon_probe_is_not_respawned_for_every_status_call(monkeypatch):
     `DAEMON_PROBE_TIMEOUT` for it, holding a threadpool worker the whole
     time. The answer changes when somebody opens an application, so it is
     worth remembering for a few seconds."""
-    from memorymap.search import searxng_docker
+    from tessellate.search import searxng_docker
 
     searxng_docker.forget_docker_daemon_state()
     monkeypatch.setattr(searxng_manager.shutil, "which", lambda name: "/usr/bin/docker")
@@ -515,7 +515,7 @@ def test_a_daemon_that_cannot_be_run_at_all_is_asked_again(monkeypatch):
     is the answer most likely to be wrong in a moment (a daemon coming up),
     and it is the one that costs nothing to repeat because it failed without
     waiting for the timeout. So it is deliberately not remembered."""
-    from memorymap.search import searxng_docker
+    from tessellate.search import searxng_docker
 
     searxng_docker.forget_docker_daemon_state()
     monkeypatch.setattr(searxng_manager.shutil, "which", lambda name: "/usr/bin/docker")
@@ -536,7 +536,7 @@ def test_a_start_waiting_on_searxng_gives_up_when_a_reinstall_begins(app_state, 
     out its whole `SOURCE_START_TIMEOUT` against a virtualenv being rebuilt
     underneath it, then blame SearXNG for writing no output. The wait is now
     asked, between polls, whether an install has begun, and the error says so."""
-    from memorymap.search import searxng_process
+    from tessellate.search import searxng_process
 
     monkeypatch.setattr(searxng_manager, "source_installed", lambda d: True)
     monkeypatch.setattr(searxng_manager, "docker_available", lambda: False)

@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import act_registry, composer, help_chat, reading
+from tessellate.ai import act_registry, composer, help_chat, reading
 
 #: Importing `reading` sets the Guide's reader hook on the act registry (act_registry.py).
 READER_LOADED = reading.__name__

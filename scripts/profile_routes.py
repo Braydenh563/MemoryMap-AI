@@ -47,14 +47,14 @@ async def _starlette_inline(func, *args, **kwargs):  # noqa: ANN001, ANN202
 
 
 async def main(data_dir: str, runs: int) -> None:
-    os.environ["MEMORYMAP_DATA_DIR"] = data_dir
+    os.environ["TESSELLATE_DATA_DIR"] = data_dir
     import anyio.to_thread
     import httpx
     import starlette.concurrency
 
     anyio.to_thread.run_sync = _anyio_inline
     starlette.concurrency.run_in_threadpool = _starlette_inline
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     app = create_app()
     transport = httpx.ASGITransport(app=app)
@@ -77,7 +77,7 @@ async def main(data_dir: str, runs: int) -> None:
         stats = pstats.Stats(prof)
         # The app's own functions only: the middleware chain wraps every call and
         # would take the top of a raw list.
-        stats.sort_stats("cumulative").print_stats(r"src/memorymap/(?!api/(app|versioning|routes_auth)|core/security)", 14)
+        stats.sort_stats("cumulative").print_stats(r"src/tessellate/(?!api/(app|versioning|routes_auth)|core/security)", 14)
 
 
 if __name__ == "__main__":

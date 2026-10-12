@@ -8,8 +8,8 @@ asked about an error.
 import re
 from pathlib import Path
 
-import memorymap
-from memorymap.ai import help_chat
+import tessellate
+from tessellate.ai import help_chat
 from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,11 +20,11 @@ HTML = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
 
 def test_the_frontend_and_backend_agree_on_the_address():
     match = re.search(r'^const SUPPORT_EMAIL = "([^"]+)";', APP, re.M)
-    assert match and match.group(1) == memorymap.SUPPORT_EMAIL
+    assert match and match.group(1) == tessellate.SUPPORT_EMAIL
 
 
 def test_atlas_points_an_error_at_the_bundle_and_the_address():
-    assert memorymap.SUPPORT_EMAIL in help_chat.SYSTEM_PROMPT
+    assert tessellate.SUPPORT_EMAIL in help_chat.SYSTEM_PROMPT
     assert "Logs" in help_chat.SYSTEM_PROMPT and "support bundle" in help_chat.SYSTEM_PROMPT
 
 

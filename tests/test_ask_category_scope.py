@@ -12,8 +12,8 @@ category the notebook has, named as where the notes are ("notes in Health",
 
 from __future__ import annotations
 
-from memorymap.entry import manager
-from memorymap.search import search_manager
+from tessellate.entry import manager
+from tessellate.search import search_manager
 
 
 def _note(session, content, category):
@@ -56,7 +56,7 @@ def test_widening_a_scoped_question_stays_in_the_category(session, fake_embeddin
     read as the topic "notes in Health", which matched a note in Ideas that
     only says "notes"); a question scoped to a category keeps its answer there
     (tests-e2e/specs/ask-search.spec.js, Ask's own suggestion)."""
-    from memorymap.api import routes_chat
+    from tessellate.api import routes_chat
 
     health = _seed(session)
     stray = _note(session, "Notes about notes: keep each note small", "Ideas")

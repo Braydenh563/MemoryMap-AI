@@ -16,9 +16,9 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import translate
-from memorymap.core import extra_downloads, extras
-from memorymap.core.security import build_csp
+from tessellate.ai import translate
+from tessellate.core import extra_downloads, extras
+from tessellate.core.security import build_csp
 from tests.test_extras_download import _point_at, _Server
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -119,7 +119,7 @@ def test_install_unpacks_the_gzipped_model_and_serves_only_listed_files(client, 
 def test_the_files_need_no_token_but_the_status_does(client, monkeypatch, server):
     """A Worker's fetch carries no token, so the public engine and model are
     open; what is installed is behind the unlock like every other route."""
-    from memorymap.api import routes_auth
+    from tessellate.api import routes_auth
 
     _install(client, monkeypatch, server)
     try:

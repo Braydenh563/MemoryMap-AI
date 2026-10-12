@@ -52,7 +52,7 @@ def test_words_the_notebook_does_not_know_offer_nothing(client):
 
 
 def test_nothing_is_written_and_no_model_is_asked(client):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     _seed(client)
     before = client.get("/entries").json()

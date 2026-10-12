@@ -18,8 +18,8 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import arithmetic, needle_provider, question_noise, utilities
-from memorymap.entry import manager
+from tessellate.ai import arithmetic, needle_provider, question_noise, utilities
+from tessellate.entry import manager
 from tests.test_needle_provider import TOOLS, _install_fake_needle
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -148,7 +148,7 @@ def test_a_place_is_read_as_its_zone(place, zone):
 
 
 def test_the_time_tool_takes_a_place(session, app_state):
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     there = tools.execute_tool(session, "get_current_time", {"place": "Tokyo"})
     assert there["zone"] == "Asia/Tokyo" and there["iso"].endswith("+09:00")
@@ -239,7 +239,7 @@ def test_an_unsaid_result_is_said_by_its_label_and_an_error_by_its_reason():
 
 
 def test_the_route_asks_needle_only_when_the_engine_has_no_answer():
-    source = (ROOT / "src" / "memorymap" / "api" / "routes_chat.py").read_text(encoding="utf-8")
+    source = (ROOT / "src" / "tessellate" / "api" / "routes_chat.py").read_text(encoding="utf-8")
     helper = source[source.index("def _tools_provider(") : source.index("def _stream_lines(")]
     assert "not _engine_answers(req, prepared)" in helper
 

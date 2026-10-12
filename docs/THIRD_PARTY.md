@@ -4,9 +4,9 @@ Tessellate is AGPL-3.0 and runs offline, so what it borrows ships inside the
 repository rather than being fetched. This page credits every library vendored
 into it, with the version and licence it came under; each one's licence text
 sits beside it. `tests/test_vendor_manifest.py` fails the build when a file
-under `src/memorymap/vendor/` or `frontend/vendor/` is missing from this page.
+under `src/tessellate/vendor/` or `frontend/vendor/` is missing from this page.
 
-## Python (`src/memorymap/vendor/`)
+## Python (`src/tessellate/vendor/`)
 
 | Library | Files | Version | Licence | Source | Used by |
 | --- | --- | --- | --- | --- | --- |
@@ -35,7 +35,7 @@ under `src/memorymap/vendor/` or `frontend/vendor/` is missing from this page.
 ## Optional downloads (Settings, Packages)
 
 Never in the repository: each is fetched on an Install press from the pinned
-address in `src/memorymap/core/extras.py`, checked against its sha256, and
+address in `src/tessellate/core/extras.py`, checked against its sha256, and
 unpacked into `<data dir>/extras/<id>/` with its licence beside it.
 
 | Library | Files | Version | Licence | Source | Used by |

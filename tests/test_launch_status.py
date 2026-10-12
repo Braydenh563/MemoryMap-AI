@@ -1,4 +1,4 @@
-"""`memorymap.core.launch_status`: the launcher status protocol, parsed.
+"""`tessellate.core.launch_status`: the launcher status protocol, parsed.
 
 The file it reads is written by a shell script and a batch file, appended a
 line at a time, and deleted underneath the reader the moment the loading
@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.core import launch_status as ls
+from tessellate.core import launch_status as ls
 
 
 class TestParseLine:
@@ -135,7 +135,7 @@ class TestTheBarReachesTheEnd:
     """
 
     def test_a_step_that_is_never_written_holds_the_bar_back(self):
-        from memorymap.core import launch_status as ls
+        from tessellate.core import launch_status as ls
 
         without_update = ls.parse(
             "\n".join(
@@ -281,7 +281,7 @@ class TestEveryLaunchPathFinishesItsSteps:
     }
 
     def test_every_step_before_start_is_finished_at_handover(self):
-        from memorymap.core import launch_status as ls
+        from tessellate.core import launch_status as ls
 
         for name, lines in self.CASES.items():
             rows = ls.summarise(ls.parse("\n".join(lines)))
@@ -294,7 +294,7 @@ class TestEveryLaunchPathFinishesItsSteps:
     def test_a_failure_stops_the_bar_where_it_failed(self):
         """The one case that must *not* reach the end: a real error is the bar
         telling the truth, and `percent` counts a failed step as not done."""
-        from memorymap.core import launch_status as ls
+        from tessellate.core import launch_status as ls
 
         failed = ls.parse(
             "\n".join(
@@ -310,7 +310,7 @@ class TestEveryLaunchPathFinishesItsSteps:
     def test_the_child_does_not_reopen_a_step_its_parent_finished(self):
         """The regression itself, as arithmetic: the seed line in the child is
         what took a finished launch back to three of five."""
-        from memorymap.core import launch_status as ls
+        from tessellate.core import launch_status as ls
 
         rest = [
             "2|5|Python|Using the existing environment|done",
@@ -361,8 +361,8 @@ class TestTheSplashEndsOnAFinishedList:
         return path
 
     def test_the_last_step_is_ticked_before_the_file_goes(self, tmp_path, monkeypatch):
-        from memorymap import __main__ as main
-        from memorymap.core import launch_status as ls
+        from tessellate import __main__ as main
+        from tessellate.core import launch_status as ls
 
         monkeypatch.setattr(main.time, "sleep", lambda _s: None)
         path = self._history(
@@ -388,8 +388,8 @@ class TestTheSplashEndsOnAFinishedList:
     def test_a_failed_launch_is_not_quietly_completed(self, tmp_path, monkeypatch):
         """The one thing this must never do: a launch that broke has to keep
         showing where it broke."""
-        from memorymap import __main__ as main
-        from memorymap.core import launch_status as ls
+        from tessellate import __main__ as main
+        from tessellate.core import launch_status as ls
 
         monkeypatch.setattr(main.time, "sleep", lambda _s: None)
         path = self._history(
@@ -407,7 +407,7 @@ class TestTheSplashEndsOnAFinishedList:
     def test_an_already_finished_list_is_left_alone(self, tmp_path, monkeypatch):
         """Browser mode already ticks its own last step. Appending a second
         done row for it would be harmless but dishonest about what happened."""
-        from memorymap import __main__ as main
+        from tessellate import __main__ as main
 
         monkeypatch.setattr(main.time, "sleep", lambda _s: None)
         lines = [
@@ -424,7 +424,7 @@ class TestTheSplashEndsOnAFinishedList:
     def test_a_missing_file_is_not_an_error(self, tmp_path, monkeypatch):
         """A launch that got this far must not fail on a splash that is
         already gone."""
-        from memorymap import __main__ as main
+        from tessellate import __main__ as main
 
         monkeypatch.setattr(main.time, "sleep", lambda _s: None)
         main._finish_splash_start_step(str(tmp_path / "never-existed.txt"))

@@ -181,7 +181,7 @@ def test_the_no_chats_line_sits_under_its_heading():
 
 def test_first_setup_says_it_needs_the_internet_once():
     """Brief 40: a fresh clone on a train met pip errors with no warning."""
-    from memorymap.core import extras
+    from tessellate.core import extras
 
     js = frontend_text("onboarding.js")
     assert "The first setup downloads the search model and the packages you chose" in js

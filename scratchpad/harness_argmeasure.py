@@ -6,10 +6,10 @@ import logging
 import tempfile
 from pathlib import Path
 
-from memorymap.ai import tools
-from memorymap.ai.provider import normalise_tool_calls
-from memorymap.core import deps
-from memorymap.entry import manager
+from tessellate.ai import tools
+from tessellate.ai.provider import normalise_tool_calls
+from tessellate.core import deps
+from tessellate.entry import manager
 
 logging.disable(logging.WARNING)
 deps.init_app_state(data_dir=Path(tempfile.mkdtemp()))

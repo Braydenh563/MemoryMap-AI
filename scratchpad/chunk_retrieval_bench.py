@@ -33,10 +33,10 @@ from pathlib import Path
 
 import numpy as np
 
-from memorymap.ai.embeddings import EmbeddingService
-from memorymap.core import deps
-from memorymap.core.database import Entry
-from memorymap.search import chunks, search_manager
+from tessellate.ai.embeddings import EmbeddingService
+from tessellate.core import deps
+from tessellate.core.database import Entry
+from tessellate.search import chunks, search_manager
 
 DIM = 384
 

@@ -33,7 +33,7 @@ def _content(i: int) -> str:
 
 
 def _note(session, i: int):  # noqa: ANN001, ANN202
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     name = CATEGORIES[i % len(CATEGORIES)][0]
     entry = manager.create_entry(session, _content(i), category_name=name, tags=[f"tag{i % 7}", "shared"] if i % 4 else [],
@@ -57,7 +57,7 @@ def _note(session, i: int):  # noqa: ANN001, ANN202
 
 
 def _attach(session, entry, uploads_dir: Path, name: str, payload: bytes, i: int) -> None:  # noqa: ANN001
-    from memorymap.core.database import Attachment
+    from tessellate.core.database import Attachment
 
     stored = f"{uuid.UUID(int=entry.id * 1000 + i).hex}{Path(name).suffix}"
     (uploads_dir / stored).write_bytes(payload)
@@ -67,7 +67,7 @@ def _attach(session, entry, uploads_dir: Path, name: str, payload: bytes, i: int
 
 
 def _links_and_reminders(session, entries: list) -> None:  # noqa: ANN001
-    from memorymap.core.database import EntryLink, Reminder
+    from tessellate.core.database import EntryLink, Reminder
 
     for i, entry in enumerate(entries):
         if i % 3 == 0:
@@ -86,7 +86,7 @@ def _links_and_reminders(session, entries: list) -> None:  # noqa: ANN001
 
 
 def _documents(session, entries: list) -> None:  # noqa: ANN001
-    from memorymap.core.database import Document, DocumentLink, Reminder
+    from tessellate.core.database import Document, DocumentLink, Reminder
 
     for d in range(5):
         when = BASE + timedelta(days=d)
@@ -101,8 +101,8 @@ def _documents(session, entries: list) -> None:  # noqa: ANN001
 
 
 def _boards(session, entries: list) -> None:  # noqa: ANN001
-    from memorymap.core.database import WhiteboardNode, WhiteboardObject, WhiteboardSketch
-    from memorymap.entry import manager
+    from tessellate.core.database import WhiteboardNode, WhiteboardObject, WhiteboardSketch
+    from tessellate.entry import manager
 
     for b in range(3):
         board = manager.create_entry(session, f"Board {b}", category_name="Work")
@@ -127,7 +127,7 @@ def _boards(session, entries: list) -> None:  # noqa: ANN001
 
 def build(session, uploads_dir: Path, count: int = 500) -> dict:  # noqa: ANN001
     """Make the notebook. Returns what it made, for the test's counts."""
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     for name, colour, description in CATEGORIES:
         category = manager.get_or_create_category(session, name)

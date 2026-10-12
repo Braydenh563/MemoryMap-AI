@@ -2,7 +2,7 @@
 the owner: "we should reference all the vendored repos and libraries
 somewhere to give them credit").
 
-docs/THIRD_PARTY.md names each library under src/memorymap/vendor/ and
+docs/THIRD_PARTY.md names each library under src/tessellate/vendor/ and
 frontend/vendor/ with its licence. A Python module vendored here also needs
 its licence file beside it (`<name>.LICENSE.txt`); the browser bundles are held
 to the same by tests/test_vendor_licences.py. A file that arrives without a
@@ -15,7 +15,7 @@ from __future__ import annotations
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PY_VENDOR = ROOT / "src" / "memorymap" / "vendor"
+PY_VENDOR = ROOT / "src" / "tessellate" / "vendor"
 WEB_VENDOR = ROOT / "frontend" / "vendor"
 CREDITS = (ROOT / "docs" / "THIRD_PARTY.md").read_text(encoding="utf-8")
 
@@ -38,10 +38,10 @@ def test_every_python_module_under_vendor_is_credited_with_a_licence() -> None:
         if path.name in ("__init__.py", "__pycache__") or path.name.endswith(".LICENSE.txt"):
             continue
         assert path.suffix == ".py" and path.is_file(), (
-            f"src/memorymap/vendor/{path.name}: vendor single pure-Python modules only"
+            f"src/tessellate/vendor/{path.name}: vendor single pure-Python modules only"
         )
         row = _credited(path.name)
-        assert row, f"src/memorymap/vendor/{path.name} has no row in docs/THIRD_PARTY.md"
+        assert row, f"src/tessellate/vendor/{path.name} has no row in docs/THIRD_PARTY.md"
         licence = PY_VENDOR / f"{path.stem}.LICENSE.txt"
         assert licence.is_file(), f"{path.name} has no {licence.name} beside it"
         assert f"`{licence.name}`" in row, f"the credits row for {path.name} does not name {licence.name}"

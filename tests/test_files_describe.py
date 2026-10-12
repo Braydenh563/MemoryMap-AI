@@ -20,9 +20,9 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import captioning
-from memorymap.api import routes_files
-from memorymap.core import deps
+from tessellate.ai import captioning
+from tessellate.api import routes_files
+from tessellate.core import deps
 
 
 class _Ollama:

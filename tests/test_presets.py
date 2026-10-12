@@ -22,8 +22,8 @@ import json
 
 import pytest
 
-from memorymap.ai import librarian, presets
-from memorymap.ai.ollama_client import OllamaClient
+from tessellate.ai import librarian, presets
+from tessellate.ai.ollama_client import OllamaClient
 
 from fakes_http import FakeResponse
 
@@ -226,7 +226,7 @@ def test_the_hint_reaches_the_system_prompt():
 
 
 def test_the_agent_prompt_gets_it_too():
-    from memorymap.ai import agent
+    from tessellate.ai import agent
 
     quick = agent.build_agent_messages("q", [], mode="quick")
     assert librarian.length_hint("quick") in quick[0]["content"]
@@ -244,7 +244,7 @@ def test_the_hint_is_counted_in_the_budget():
     """
     from pathlib import Path
 
-    source = Path("src/memorymap/ai/agent.py").read_text(encoding="utf-8")
+    source = Path("src/tessellate/ai/agent.py").read_text(encoding="utf-8")
     # `context.weighted_len` since ARCH-15 (CJK counts about a token a
     # character); the pieces measured are what this guards, not the measure.
     measurement = source.split("system_chars = context.weighted_len(")[1].split("budget = context.plan")[0]

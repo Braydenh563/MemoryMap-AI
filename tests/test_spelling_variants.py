@@ -9,9 +9,9 @@ from datetime import date
 
 import pytest
 
-from memorymap.ai import composer, variants
-from memorymap.core.database import Entry
-from memorymap.search import engine, search_manager
+from tessellate.ai import composer, variants
+from tessellate.core.database import Entry
+from tessellate.search import engine, search_manager
 
 PAIRS = [
     ("organise", "organize"), ("organised", "organized"), ("organisation", "organization"),

@@ -3,7 +3,7 @@ an entity only private notes ever named is a 404, not a name with zero notes."""
 
 from __future__ import annotations
 
-from memorymap.core.database import Entity, EntityMention
+from tessellate.core.database import Entity, EntityMention
 
 
 def _entity(session, name, entry_ids):
@@ -23,7 +23,7 @@ def test_an_entity_named_only_by_a_private_note_is_a_404(client, session):
 
     # The mentions are lifted when a note goes private, so write the shape a
     # note made private by an older build leaves behind.
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     session.get(Entry, note["id"]).is_private = True
     session.commit()
@@ -36,7 +36,7 @@ def test_an_entity_with_one_visible_note_still_opens(client, session):
     public = client.post("/entries", json={"content": "Sam Lee came by"}).json()
     private = client.post("/entries", json={"content": "Sam Lee and the secret"}).json()
     entity_id = _entity(session, "Sam Lee", [public["id"], private["id"]])
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     session.get(Entry, private["id"]).is_private = True
     session.commit()

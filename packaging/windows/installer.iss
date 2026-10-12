@@ -23,21 +23,21 @@
 ; brand: keep-next
 #define MyAppDirName "MemoryMap AI"
 
-; **The version is src\memorymap\__init__.py's `__version__`, never typed
-; here.** It used to come from MEMORYMAP_VERSION with a hard-coded "0.1.0"
+; **The version is src\tessellate\__init__.py's `__version__`, never typed
+; here.** It used to come from TESSELLATE_VERSION with a hard-coded "0.1.0"
 ; fallback, so a build whose environment forgot the variable was an installer
 ; that called itself 0.1.0 in Add/Remove Programs. The caller reads
 ; `__version__` and passes it as /DMyAppVersion=<it> (both workflows do); a
 ; build without it stops here rather than guessing. An ISPP line reader
 ; (FileOpen/FileRead in a #sub) did the reading first and found nothing on
 ; CI's Windows runner, so the reading moved to the caller, where it is one
-; tested line of PowerShell. release.yml also passes MEMORYMAP_VERSION from
+; tested line of PowerShell. release.yml also passes TESSELLATE_VERSION from
 ; the tag, and a tag that disagrees with the code stops the build.
 #ifndef MyAppVersion
-  #error Pass /DMyAppVersion=<__version__ from src\memorymap\__init__.py> to ISCC
+  #error Pass /DMyAppVersion=<__version__ from src\tessellate\__init__.py> to ISCC
 #endif
-#if GetEnv("MEMORYMAP_VERSION") != "" && GetEnv("MEMORYMAP_VERSION") != MyAppVersion
-  #error MEMORYMAP_VERSION (the release tag) does not match __version__ in src\memorymap\__init__.py
+#if GetEnv("TESSELLATE_VERSION") != "" && GetEnv("TESSELLATE_VERSION") != MyAppVersion
+  #error TESSELLATE_VERSION (the release tag) does not match __version__ in src\tessellate\__init__.py
 #endif
 #define MyAppPublisher "Tessellate"
 #define MyAppURL "https://github.com/Braydenh563/Tessellate"
@@ -45,7 +45,7 @@
 
 [Setup]
 AppId={{B4C6E3F1-6E6A-4B7E-9C1D-3F6A2E8D9C40}
-AppName={#MyAppName}
+AppName={#MyAppName} Notes
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
@@ -168,7 +168,7 @@ Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; Flags: nowait runaso
 ;
 ; What does go: a `data` folder inside the install folder, which builds
 ; before 0.3.3 wrote the window's cache and the launch log into when Windows
-; started them there (__main__.py read MEMORYMAP_DATA_DIR with a bare "data"
+; started them there (__main__.py read TESSELLATE_DATA_DIR with a bare "data"
 ; fallback; core/config.resolved_data_dir replaced it). Never notes: the
 ; database always went to AppData. Only the two folders by name, so anything
 ; else someone put there stays.

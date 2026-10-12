@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.api import routes_update
+from tessellate.api import routes_update
 
 
 @pytest.fixture(autouse=True)
@@ -26,7 +26,7 @@ def _clean_update_state():
 
 
 def test_a_fresh_notebook_has_not_answered_and_checks_nothing(tmp_path):
-    from memorymap.core.config import ConfigManager
+    from tessellate.core.config import ConfigManager
 
     config = ConfigManager(tmp_path / "fresh")
     assert config.get_preference("update_choice_made") is False

@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import sqlite3
 
-from memorymap.api import app as app_module
-from memorymap.core import backup
+from tessellate.api import app as app_module
+from tessellate.core import backup
 from tests._app_js import app_js_text
 
 
@@ -76,14 +76,14 @@ def test_a_file_too_damaged_to_open_stops_with_the_way_back_named(tmp_path, monk
     error the launcher's loading window and the log show."""
     import pytest
 
-    from memorymap.core import deps, startup_status
+    from tessellate.core import deps, startup_status
 
     data = tmp_path / "data"
     data.mkdir()
     (data / "backups").mkdir()
     (data / "backups" / "memorymap-20991231-000000.db").write_bytes(b"x")
     (data / "memorymap.db").write_bytes(b"not a notebook at all" * 500)
-    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(data))
+    monkeypatch.setenv("TESSELLATE_DATA_DIR", str(data))
     deps.reset_app_state()
     try:
         with pytest.raises(backup.DamagedNotebookError) as caught:

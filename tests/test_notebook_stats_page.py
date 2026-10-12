@@ -10,9 +10,9 @@ from __future__ import annotations
 import json
 from datetime import datetime, timedelta, timezone
 
-from memorymap.ai import notebook_stats
-from memorymap.core import deps
-from memorymap.core.database import Category, Entry, EntryLink, Reminder
+from tessellate.ai import notebook_stats
+from tessellate.core import deps
+from tessellate.core.database import Category, Entry, EntryLink, Reminder
 
 
 def _session():
@@ -176,7 +176,7 @@ def test_the_first_day_follows_the_choice_then_the_locale_then_monday(client):
 
 def test_words_added_to_older_notes_by_edits_are_counted_apart(client):
     """Ledger 1525: the week's edits to notes made before it, read from the revisions."""
-    from memorymap.core.database import EntryRevision
+    from tessellate.core.database import EntryRevision
 
     monday = datetime(2026, 10, 12, 9, 0, tzinfo=timezone.utc)
     with _session() as session:

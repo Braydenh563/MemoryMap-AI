@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from memorymap.ai import acts
+from tessellate.ai import acts
 
 ROOT = Path(__file__).resolve().parents[1]
 ROWS = json.loads((ROOT / "tests/fixtures/composer/board_acts_1010.json").read_text(encoding="utf-8"))["rows"]

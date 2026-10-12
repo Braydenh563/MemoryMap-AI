@@ -2,7 +2,7 @@
 
 Tessellate includes a local MCP (Model Context Protocol) server, so a client such as Claude Desktop or Claude Code can search and work with your notes. Tessellate is designed to pair with a local AI model (Ollama, LM Studio or llama.cpp recommended) but works without one; the MCP server does not use Tessellate's own model at all, because the client brings its own.
 
-The code is `src/memorymap/mcp_server.py`.
+The code is `src/tessellate/mcp_server.py`.
 
 ## What it exposes
 
@@ -77,11 +77,11 @@ The list follows the registry, so it grows as the app does: `tools/list` from yo
 
 ## Start it
 
-You do not normally start it by hand: the client launches it. It speaks stdio, one JSON-RPC message per line, and uses the same notebook as the app (set `MEMORYMAP_DATA_DIR` to the same folder).
+You do not normally start it by hand: the client launches it. It speaks stdio, one JSON-RPC message per line, and uses the same notebook as the app (set `TESSELLATE_DATA_DIR` to the same folder).
 
 | Install | Command |
 | --- | --- |
-| Source checkout | `python -m memorymap.mcp_server` (with `PYTHONPATH=src` from the repo root, or the venv that has the app's packages) |
+| Source checkout | `python -m tessellate.mcp_server` (with `PYTHONPATH=src` from the repo root, or the venv that has the app's packages) |
 | Packaged app | `Tessellate --mcp` |
 
 The app need not be running. Settings, Tools it can use shows the exact config for your install, with this interpreter and your data folder filled in. Copy that rather than the examples below if they differ.
@@ -95,9 +95,9 @@ All three take the same `command`, `args` and `env` shape. Source checkout, with
   "mcpServers": {
     "tessellate": {
       "command": "/path/to/MemoryMap-AI/.venv/bin/python",
-      "args": ["-m", "memorymap.mcp_server"],
+      "args": ["-m", "tessellate.mcp_server"],
       "env": {
-        "MEMORYMAP_DATA_DIR": "/path/to/your/data",
+        "TESSELLATE_DATA_DIR": "/path/to/your/data",
         "PYTHONPATH": "/path/to/MemoryMap-AI/src"
       }
     }
@@ -105,7 +105,7 @@ All three take the same `command`, `args` and `env` shape. Source checkout, with
 }
 ```
 
-`PYTHONPATH` is needed only when the app is not installed into that Python. The in-app snippet uses the interpreter that is running the app and sets `MEMORYMAP_DATA_DIR`.
+`PYTHONPATH` is needed only when the app is not installed into that Python. The in-app snippet uses the interpreter that is running the app and sets `TESSELLATE_DATA_DIR`.
 
 Packaged app (the in-app snippet fills in the real executable path):
 
@@ -115,14 +115,14 @@ Packaged app (the in-app snippet fills in the real executable path):
     "tessellate": {
       "command": "/path/to/Tessellate",
       "args": ["--mcp"],
-      "env": { "MEMORYMAP_DATA_DIR": "/path/to/your/data" }
+      "env": { "TESSELLATE_DATA_DIR": "/path/to/your/data" }
     }
   }
 }
 ```
 
 - **Claude Desktop:** Settings, Developer, Edit config opens `claude_desktop_config.json`; merge the `mcpServers` entry in and restart Claude Desktop.
-- **Claude Code:** `claude mcp add tessellate -e MEMORYMAP_DATA_DIR=/path/to/your/data -- /path/to/python -m memorymap.mcp_server`, or put the same entry in a project `.mcp.json`.
+- **Claude Code:** `claude mcp add tessellate -e TESSELLATE_DATA_DIR=/path/to/your/data -- /path/to/python -m tessellate.mcp_server`, or put the same entry in a project `.mcp.json`.
 - **Other clients:** any client that can launch a stdio server takes the same command, arguments and environment. The server speaks MCP protocol versions 2025-06-18, 2025-03-26 and 2024-11-05.
 
 ## Security model
@@ -137,10 +137,10 @@ Packaged app (the in-app snippet fills in the real executable path):
 ## Troubleshooting
 
 - **The client says the server failed to start:** run the same command in a terminal. It should wait silently for input; press Ctrl+C to exit. An import error means the `python` in the config lacks the app's packages: use the app's venv or set `PYTHONPATH`.
-- **Notes are missing or it shows an empty notebook:** `MEMORYMAP_DATA_DIR` is not the folder the app uses. Settings, Tools it can use shows the right one.
+- **Notes are missing or it shows an empty notebook:** `TESSELLATE_DATA_DIR` is not the folder the app uses. Settings, Tools it can use shows the right one.
 - **`Tessellate --mcp` says it needs standard input and output:** it was run by hand in a window. A client has to launch it.
 - **A tool you expect is absent:** it is destructive, interactive or chat-only, or switched off in Settings, Tools. Restart the client after changing it.
 - **Changes in the app do not show up:** the server opens a fresh database session per call, so reloading the client's tool list is enough; restart it if a switch changed.
-- **Quick check:** `printf '{"jsonrpc":"2.0","id":1,"method":"tools/list"}\n' | python -m memorymap.mcp_server` prints the tool list as one JSON line.
+- **Quick check:** `printf '{"jsonrpc":"2.0","id":1,"method":"tools/list"}\n' | python -m tessellate.mcp_server` prints the tool list as one JSON line.
 
 Related: [INSTALL.md](INSTALL.md#running-it) lists the launcher commands, [DOCKER.md](DOCKER.md) the container setup.

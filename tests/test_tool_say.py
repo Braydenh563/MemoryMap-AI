@@ -19,7 +19,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import tool_say, tools
+from tessellate.ai import tool_say, tools
 
 ROOT = Path(__file__).resolve().parents[1]
 GOLD = json.loads((ROOT / "tests" / "fixtures" / "composer" / "tool_results_1011.json").read_text(encoding="utf-8"))["tools"]
@@ -106,7 +106,7 @@ def test_the_shapes_are_the_ones_promised():
 def test_needle_says_the_tools_results_through_it(app_state):
     """`needle_provider._said_by_tools`: each tool message said by
     `tool_say`, with the arguments its call was made with."""
-    from memorymap.ai import needle_provider
+    from tessellate.ai import needle_provider
 
     case = GOLD["search_notes"][0]
     messages = [
@@ -124,7 +124,7 @@ def test_a_scoped_count_is_not_said_as_no_notes():
     are tagged harbor" with needle answered "You have no notes."."""
     from datetime import date
 
-    from memorymap.ai import realise
+    from tessellate.ai import realise
 
     result = GOLD["count_notes"][0]["result"]
     assert realise.tool_answer("count_notes", result, date(2026, 10, 11))["text"] == "You have two notes."
@@ -190,7 +190,7 @@ def test_each_family_leads_with_a_sentence_then_its_shape(family):
 def test_two_calls_in_one_turn_are_two_answers_each_with_its_lead(app_state):
     """needle often calls twice (find, then act): each result is said in
     its own paragraph block, never one run-on or a JSON list."""
-    from memorymap.ai import needle_provider
+    from tessellate.ai import needle_provider
 
     find, made = GOLD["search_notes"][0], GOLD["create_note"][0]
     messages = [

@@ -12,11 +12,11 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from memorymap.ai import filing_certainty
-from memorymap.ai.filing_certainty import CAP, calibrate
-from memorymap.api.app import create_app
-from memorymap.core import deps
-from memorymap.entry import manager
+from tessellate.ai import filing_certainty
+from tessellate.ai.filing_certainty import CAP, calibrate
+from tessellate.api.app import create_app
+from tessellate.core import deps
+from tessellate.entry import manager
 from tests.fakes import FakeEmbeddingService, FakeOllama
 
 # --- the pure calibration ------------------------------------------------------
@@ -142,7 +142,7 @@ def sure_work_client(app_state):
 def _let_health_file():
     """These two notes read as dental health, which decision 6 holds on
     every path; the calibration under test needs them filed."""
-    from memorymap.ai import lexical_filing
+    from tessellate.ai import lexical_filing
 
     deps.get_config().set_preference(lexical_filing.PREF_AUTO_FILE_SENSITIVE, True)
 

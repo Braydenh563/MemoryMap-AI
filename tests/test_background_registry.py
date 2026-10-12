@@ -18,7 +18,7 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
-SRC = Path(__file__).resolve().parents[1] / "src" / "memorymap"
+SRC = Path(__file__).resolve().parents[1] / "src" / "tessellate"
 
 #: The modules whose job is to start work.
 OWNERS = {"core/jobs.py", "core/jobruns.py", "core/background.py"}

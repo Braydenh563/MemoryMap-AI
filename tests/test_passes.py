@@ -15,7 +15,7 @@ import time
 
 import pytest
 
-from memorymap.core import jobs, passes
+from tessellate.core import jobs, passes
 
 
 @pytest.fixture(autouse=True)

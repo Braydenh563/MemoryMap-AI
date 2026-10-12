@@ -12,7 +12,7 @@ from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
-from memorymap.ai import reading
+from tessellate.ai import reading
 
 DATA = json.loads((Path(__file__).parent / "fixtures" / "composer" / "spoken_1010.json").read_text(encoding="utf-8"))
 NOW = datetime.fromisoformat(DATA["now"])
@@ -59,7 +59,7 @@ def test_small_talk_between_is_not_leaned_on():
 
 
 def test_chat_with_no_model_acts_on_a_spoken_followup(ai_client, fake_ollama, session):
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     fake_ollama.running = False
     tools.execute_tool(session, "create_note", {"content": "Passport renewal: forms in the drawer"})
@@ -78,7 +78,7 @@ def test_chat_with_no_model_acts_on_a_spoken_followup(ai_client, fake_ollama, se
 def test_the_other_one_reads_the_titles_chat_sends(ai_client, fake_ollama, session):
     """OPEN row 564: chat-attach.js puts each answer's note titles on its
     history turn, and "the other one" names the title the turn did not."""
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     fake_ollama.running = False
     tools.execute_tool(session, "create_note", {"content": "Passport renewal: forms in the drawer"})

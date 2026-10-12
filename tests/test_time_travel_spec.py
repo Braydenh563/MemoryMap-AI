@@ -18,9 +18,9 @@ import json
 import time
 from datetime import date, datetime, timedelta, timezone
 
-from memorymap.ai import timetravel
-from memorymap.core.database import EntryRevision
-from memorymap.entry import manager
+from tessellate.ai import timetravel
+from tessellate.core.database import EntryRevision
+from tessellate.entry import manager
 
 T0 = datetime(2026, 3, 1, 9, 0, tzinfo=timezone.utc)
 

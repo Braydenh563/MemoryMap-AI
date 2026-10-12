@@ -23,7 +23,7 @@ const DIR = path.join(config.DATA_ROOT, "draft-recovery");
 function startServer() {
   const child = spawn(
     config.PYTHON,
-    ["-m", "uvicorn", "memorymap.api.app:create_app", "--factory", "--port", String(PORT)],
+    ["-m", "uvicorn", "tessellate.api.app:create_app", "--factory", "--port", String(PORT)],
     {
       cwd: path.join(__dirname, "..", ".."),
       detached: true,
@@ -31,8 +31,8 @@ function startServer() {
       env: {
         ...process.env,
         PYTHONPATH: "src",
-        MEMORYMAP_DATA_DIR: DIR,
-        MEMORYMAP_NO_AUTO_INSTALL: "1",
+        TESSELLATE_DATA_DIR: DIR,
+        TESSELLATE_NO_AUTO_INSTALL: "1",
         HF_HUB_OFFLINE: "1",
         TRANSFORMERS_OFFLINE: "1",
       },

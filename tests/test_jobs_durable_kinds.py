@@ -14,8 +14,8 @@ import time
 
 import pytest
 
-from memorymap.ai import autonomous, model_manager
-from memorymap.core import deps, jobs, jobstore, passes
+from tessellate.ai import autonomous, model_manager
+from tessellate.core import deps, jobs, jobstore, passes
 
 
 def _spy(monkeypatch):
@@ -181,7 +181,7 @@ def test_the_stream_carries_the_panels_rows(client, monkeypatch):
     sent at once and again when a row changes, not each look."""
     import json
 
-    from memorymap.api import routes_tasks
+    from tessellate.api import routes_tasks
 
     rows = [[{"kind": "pull", "label": "Downloading tiny:1b"}]]
     looks = []

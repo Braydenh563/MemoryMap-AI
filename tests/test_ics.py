@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from memorymap.core import ics_import
+from tessellate.core import ics_import
 
 FIELDS = ("text", "due_at", "priority", "recurring", "alert_minutes", "done")
 REPEATS = ("none", "daily", "weekly", "monthly", "FREQ=WEEKLY;INTERVAL=2")

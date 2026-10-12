@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import capability, realise
+from tessellate.ai import capability, realise
 
 
 @pytest.mark.parametrize(
@@ -66,7 +66,7 @@ def _ask(client, question):
 
 
 def test_the_gold_personal_and_random_questions(client, session):
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     for note in GOLD["notes"]:
         manager.create_entry(session, note)
@@ -83,7 +83,7 @@ def test_the_gold_personal_and_random_questions(client, session):
 
 
 def test_a_fact_about_the_person_carries_its_note(client, session):
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     about = manager.create_entry(session, "# About me\n\nI live in Perth and I work part time at the cafe.").id
     session.commit()
@@ -107,7 +107,7 @@ def test_a_fact_about_the_person_carries_its_note(client, session):
     ],
 )
 def test_what_a_note_says_of_its_writer(note, key, said):
-    from memorymap.ai import personal
+    from tessellate.ai import personal
 
     found = personal.facts([{"id": 1, "content": note, "created_at": "2026-10-01T10:00:00"}])
     assert any(f.key == key and f.said == said for f in found), [(f.key, f.said) for f in found]
@@ -116,14 +116,14 @@ def test_what_a_note_says_of_its_writer(note, key, said):
 def test_an_age_is_worked_out_from_a_birth_year():
     from datetime import date
 
-    from memorymap.ai import personal
+    from tessellate.ai import personal
 
     notes = [{"id": 1, "content": "I was born in 1998.", "created_at": "2026-01-05T10:00:00"}]
     assert personal.answer("how old am i", notes, date(2026, 10, 11))["text"].startswith("You're about 28: you were born in 1998")
 
 
 def test_a_question_about_someone_else_is_not_personal():
-    from memorymap.ai import personal
+    from tessellate.ai import personal
 
     for question in ("where does sam live", "what did i say about the dentist", "who is jess", "what's the capital of my essay"):
         assert personal.asked(question) is None, question

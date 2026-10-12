@@ -21,9 +21,9 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
-from memorymap.core import deps
-from memorymap.core.database import Entry, EntryLink
-from memorymap.entry import manager
+from tessellate.core import deps
+from tessellate.core.database import Entry, EntryLink
+from tessellate.entry import manager
 
 
 def _notes_in(session, space: str) -> tuple[Entry, Entry]:
@@ -86,7 +86,7 @@ def test_filing_a_note_without_a_request_makes_the_category_in_its_space(app_sta
     category the note's own space cannot list, which is a note that has quietly
     left the sidebar.
     """
-    from memorymap.core.database import Category
+    from tessellate.core.database import Category
 
     db = deps.get_db()
     with db.session() as session:

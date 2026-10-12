@@ -23,8 +23,8 @@ from __future__ import annotations
 
 import json
 
-from memorymap.ai import librarian, tagging
-from memorymap.entry import manager
+from tessellate.ai import librarian, tagging
+from tessellate.entry import manager
 
 LECTURES = (
     "Lecture notes on thermodynamics and entropy",
@@ -58,7 +58,7 @@ def test_no_model_never_offers_a_tag_the_note_has_no_word_for(session) -> None:
 
 
 def test_a_models_tags_are_kept_only_when_the_note_has_their_words(session, monkeypatch) -> None:
-    from memorymap.api import routes_entries
+    from tessellate.api import routes_entries
 
     _notebook(session)
     entry = manager.create_entry(session, "Lentil dal with cumin and a tin of tomatoes", category_name="Cooking")

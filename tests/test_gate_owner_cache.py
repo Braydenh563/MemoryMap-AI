@@ -5,8 +5,8 @@ from __future__ import annotations
 
 from sqlalchemy import delete, event
 
-from memorymap.core import deps
-from memorymap.core.database import User
+from tessellate.core import deps
+from tessellate.core.database import User
 
 
 def test_a_new_password_gates_the_very_next_request(client):

@@ -11,8 +11,8 @@ from pathlib import Path
 
 from tests._app_js import with_pieces
 
-from memorymap.ai import day_digest
-from memorymap.core.database import Category, DerivedFact, Entry, Reminder
+from tessellate.ai import day_digest
+from tessellate.core.database import Category, DerivedFact, Entry, Reminder
 
 ROOT = Path(__file__).resolve().parents[1]
 NOW = datetime(2026, 10, 10, 14, 0, tzinfo=timezone.utc)

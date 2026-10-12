@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.api import routes_tasks
-from memorymap.core import extras
+from tessellate.api import routes_tasks
+from tessellate.core import extras
 
 
 @pytest.fixture(autouse=True)
@@ -247,7 +247,7 @@ def test_reinstalling_voice_while_its_model_is_loaded_is_refused(monkeypatch):
     """Windows locks the loaded .pyd/DLL exclusively; pip can run and still
     fail to replace it. Refusing up front says why, instead of a cryptic pip
     error nobody reading it would connect to "I used the mic earlier"."""
-    from memorymap.ai import voice
+    from tessellate.ai import voice
 
     monkeypatch.setattr(voice, "_loaded", ("base", object()))
     started, message = extras.start("voice", reinstall=True)
@@ -256,7 +256,7 @@ def test_reinstalling_voice_while_its_model_is_loaded_is_refused(monkeypatch):
 
 
 def test_removing_voice_while_its_model_is_loaded_is_refused(monkeypatch):
-    from memorymap.ai import voice
+    from tessellate.ai import voice
 
     monkeypatch.setattr(voice, "_loaded", ("base", object()))
     started, message = extras.remove("voice")
@@ -275,7 +275,7 @@ def test_voice_actions_are_unblocked_once_nothing_is_loaded(client, monkeypatch)
     its real "WARNING: Skipping faster-whisper as it is not installed." output
     through the shared `_state` global, failing on an assertion that had
     nothing to do with faster-whisper at all."""
-    from memorymap.ai import voice
+    from tessellate.ai import voice
 
     monkeypatch.setattr(voice, "_loaded", None)
     monkeypatch.setattr(extras, "_dispatch", _no_dispatch)
@@ -292,7 +292,7 @@ def test_the_guard_leaves_other_extras_alone(monkeypatch):
     against the real network (reported: it raced a later, unrelated test in
     `test_tasks.py` for control of the shared `taskhistory` singleton and
     intermittently made that one fail depending on how long pip took)."""
-    from memorymap.ai import voice
+    from tessellate.ai import voice
 
     monkeypatch.setattr(voice, "_loaded", ("base", object()))
     monkeypatch.setattr(extras, "_dispatch", _no_dispatch)
@@ -345,7 +345,7 @@ def test_a_failed_install_reason_reaches_the_history_card(client, monkeypatch):
     """`taskhistory` is what the Background tasks "Recently finished" card
     reads: it must carry the real reason itself, not a pointer to a log the
     card never renders."""
-    from memorymap.core import taskhistory
+    from tessellate.core import taskhistory
 
     monkeypatch.setattr(extras.subprocess, "Popen", _FailingPip)
     extras._run_install(extras.EXTRAS_BY_ID["voice"])
@@ -362,14 +362,14 @@ def test_a_failed_install_reaches_settings_logs(client, monkeypatch):
     output through `logging` (which backs Settings → Logs, `core/logbuffer`)
     and `_run_install` did not, so a failed *install*, the case actually
     reported: still never showed up there no matter what the panel said."""
-    from memorymap.core import logbuffer
+    from tessellate.core import logbuffer
 
     before = logbuffer.latest_seq()
     monkeypatch.setattr(extras.subprocess, "Popen", _FailingPip)
     extras._run_install(extras.EXTRAS_BY_ID["voice"])
 
     new_records = logbuffer.since(before)
-    ours = [r for r in new_records if r["logger"] == "memorymap.extras"]
+    ours = [r for r in new_records if r["logger"] == "tessellate.extras"]
     assert ours, "pip's failure never reached the memorymap.extras logger"
     assert ours[-1]["level"] == "ERROR"
     assert "No matching distribution found for faster-whisper" in ours[-1]["message"]
@@ -378,7 +378,7 @@ def test_a_failed_install_reaches_settings_logs(client, monkeypatch):
 def test_a_successful_install_also_reaches_settings_logs(client, monkeypatch):
     """The success path needs the same wiring, `_run_uninstall` logged both
     outcomes, `_run_install` logged neither."""
-    from memorymap.core import logbuffer
+    from tessellate.core import logbuffer
 
     class _Capture:
         def __init__(self, command, **kwargs):
@@ -391,7 +391,7 @@ def test_a_successful_install_also_reaches_settings_logs(client, monkeypatch):
     monkeypatch.setattr(extras.subprocess, "Popen", _Capture)
     extras._run_install(extras.EXTRAS_BY_ID["voice"])
 
-    ours = [r for r in logbuffer.since(before) if r["logger"] == "memorymap.extras"]
+    ours = [r for r in logbuffer.since(before) if r["logger"] == "tessellate.extras"]
     assert ours, "a successful install never reached Settings -> Logs either"
     assert ours[-1]["level"] == "INFO"
 
@@ -622,7 +622,7 @@ def test_a_frozen_build_installs_extras_into_its_own_folder(monkeypatch, tmp_pat
     own interpreter, and puts that folder on `sys.path`."""
     import sys
 
-    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("TESSELLATE_DATA_DIR", str(tmp_path))
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     target = extras.frozen_extras_dir()
     assert target == (tmp_path / "python-extras" / f"cp{sys.version_info.major}{sys.version_info.minor}").resolve()
@@ -743,7 +743,7 @@ def test_a_cancelled_install_leaves_nothing_behind(client, monkeypatch, tmp_path
 def test_packages_picked_in_setup_install_on_first_launch(client, monkeypatch, app_state):
     from pathlib import Path
 
-    from memorymap.api import app as app_module
+    from tessellate.api import app as app_module
 
     started = []
     monkeypatch.setattr(extras, "start_bulk", lambda action, ids=None, bundle="": (started.append((action, ids)), (True, "ok"))[1])
@@ -759,7 +759,7 @@ def test_a_pick_from_setup_is_kept_when_another_install_is_running(client, monke
     launch with an install already in hand lost what Setup was asked for."""
     from pathlib import Path
 
-    from memorymap.api import app as app_module
+    from tessellate.api import app as app_module
 
     monkeypatch.setattr(extras, "start_bulk", lambda action, ids=None, bundle="": (False, "Another install is already running."))
     pending = Path(app_state.data_dir) / "pending-extras.txt"
@@ -771,7 +771,7 @@ def test_a_pick_from_setup_is_kept_when_another_install_is_running(client, monke
 def test_a_pick_from_setup_that_names_only_retired_packages_is_cleared(client, monkeypatch, app_state):
     from pathlib import Path
 
-    from memorymap.api import app as app_module
+    from tessellate.api import app as app_module
 
     pending = Path(app_state.data_dir) / "pending-extras.txt"
     pending.write_text("docx", encoding="utf-8")

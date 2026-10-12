@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import time
 
-from memorymap.ai import lexical_filing
-from memorymap.ai.lexical_filing import tokens
+from tessellate.ai import lexical_filing
+from tessellate.ai.lexical_filing import tokens
 
 
 def _wait_settled(client, entry_id, timeout=240.0):
@@ -77,8 +77,8 @@ def test_a_clear_lead_files_even_when_a_stray_word_splits_the_share(session):
     because "oil" and "hot" also sit in other categories' notes and the share
     rule alone abstained. The decision (WORLD_CLASS 23) files on a lead
     (`FILE_LEAD`); a close race still abstains."""
-    from memorymap.ai import lexical_filing
-    from memorymap.entry import manager
+    from tessellate.ai import lexical_filing
+    from tessellate.entry import manager
 
     for content, category in (
         ("Sourdough loaf, 70% hydration, baked in a hot oven", "Cooking"),
@@ -125,11 +125,11 @@ def test_moving_a_words_filed_note_is_a_correction(client):
 
 
 def test_it_stays_fast_on_a_large_notebook(client):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     words = "alpha beta gamma delta epsilon zeta eta theta iota kappa".split()
     with deps.get_db().session() as session:
-        from memorymap.entry import manager
+        from tessellate.entry import manager
 
         for i in range(800):
             manager.create_entry(session, f"{words[i % 10]} note {i} about {words[(i * 3) % 10]}", category_name=f"C{i % 8}")

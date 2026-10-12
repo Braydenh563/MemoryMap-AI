@@ -23,10 +23,10 @@ install-locked: ## Install the exact versions from the lockfile
 	pip install -e .
 
 run: ## Start the app at http://localhost:8000
-	python -m memorymap
+	python -m tessellate
 
 desktop: ## Start the app in its own window (needs pywebview)
-	python -m memorymap --desktop
+	python -m tessellate --desktop
 
 test: ## Run the test suite (fully offline)
 	python -m pytest

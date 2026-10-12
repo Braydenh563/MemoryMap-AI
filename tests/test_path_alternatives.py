@@ -8,8 +8,8 @@ walks through the same note twice.
 
 from __future__ import annotations
 
-from memorymap.entry import paths
-from memorymap.entry.paths import Connections, Step
+from tessellate.entry import paths
+from tessellate.entry.paths import Connections, Step
 
 
 class FakeIndex(Connections):

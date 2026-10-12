@@ -1,6 +1,6 @@
 """Complexity and import cycles, ratcheted (WORLD_CLASS_PLAN 26.2, decision 63).
 
-`scripts/complexity.py` walks `src/memorymap` for cyclomatic complexity and
+`scripts/complexity.py` walks `src/tessellate` for cyclomatic complexity and
 import cycles. The seed `complexity_seed.json` holds every function over 15
 on 2026-10-10 with the number it had (260 functions; the worst is
 `_note_facts` and `_stream_lines` at 105). A function over 15 that is not in

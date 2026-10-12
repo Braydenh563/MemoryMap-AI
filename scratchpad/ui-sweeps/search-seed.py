@@ -1,6 +1,6 @@
 """Seed one of each search kind into a data dir (Brief 47's sweep, search.js).
 
-    MEMORYMAP_DATA_DIR=<dir> PYTHONPATH=src .venv/bin/python scratchpad/ui-sweeps/search-seed.py
+    TESSELLATE_DATA_DIR=<dir> PYTHONPATH=src .venv/bin/python scratchpad/ui-sweeps/search-seed.py
 
 Through the ORM, so the index's flush hook writes every row as the app would.
 Each thing carries its own word ("quillnote", "quilldoc", ...) so a sweep can
@@ -9,8 +9,8 @@ find exactly one hit per kind. Idempotent: a second run adds nothing.
 import json
 from datetime import datetime
 
-from memorymap.core import deps
-from memorymap.core.database import (
+from tessellate.core import deps
+from tessellate.core.database import (
     AskTurn,
     Attachment,
     Bookmark,

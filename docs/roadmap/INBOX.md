@@ -258,7 +258,7 @@ with its owner named in the entry.
      fallbacks for existing installs, as its own last commit.
 
 1297. **Owner review, from the ledger (tagsearch-1011).** Read
-     `src/memorymap/ai/data/taxonomy/memorymap_everyday.json` (about 630 general
+     `src/tessellate/ai/data/taxonomy/memorymap_everyday.json` (about 630 general
      words added to 23 pack topics; the pack file is untouched) and say keep,
      trim or drop. Recommendation: keep; no model it files 0.417 to 0.617 on the
      120 notes and 0.458 to 0.667 on 48 held-out ones (`tests/test_everyday_vocabulary.py`).

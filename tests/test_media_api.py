@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.api import routes_files
-from memorymap.core import pdfpages
+from tessellate.api import routes_files
+from tessellate.core import pdfpages
 
 
 def test_media_upload_does_not_process_a_staged_upload_by_default(ai_client, monkeypatch):
@@ -84,7 +84,7 @@ def test_ocr_media_retries_extraction(ai_client, monkeypatch):
     re-reads the image: this only checks the retry actually ran and its
     result made it back onto the row (see test_ocr.py for extract_text
     itself)."""
-    import memorymap.core.ocr as ocr_module
+    import tessellate.core.ocr as ocr_module
 
     monkeypatch.setattr(ocr_module, "extract_text", lambda path: "retried text")
     monkeypatch.setattr(ocr_module, "unavailable_reason", lambda *_args, **_kwargs: "")
@@ -595,7 +595,7 @@ def test_pdf_info_422s_for_a_non_pdf(ai_client):
 
 
 def test_pdf_info_without_the_extra_says_so(ai_client, monkeypatch):
-    from memorymap.core import pdfpages
+    from tessellate.core import pdfpages
 
     monkeypatch.setattr(pdfpages, "available", lambda: False)
     stored = _upload_pdf(ai_client)
@@ -608,7 +608,7 @@ def test_pdf_info_without_the_extra_says_so(ai_client, monkeypatch):
 def test_pdf_info_on_an_unopenable_pdf_says_so_not_probably_a_scan(ai_client, monkeypatch):
     """Same misdiagnosis this session already fixed in `docview.py`, checked
     here too since this is a second, independent path to the same file."""
-    from memorymap.core import pdfpages
+    from tessellate.core import pdfpages
 
     monkeypatch.setattr(pdfpages, "available", lambda: True)
     monkeypatch.setattr(pdfpages, "page_count", lambda p: 0)
@@ -619,7 +619,7 @@ def test_pdf_info_on_an_unopenable_pdf_says_so_not_probably_a_scan(ai_client, mo
 
 
 def test_pdf_page_404s_out_of_range(ai_client, monkeypatch):
-    from memorymap.core import pdfpages
+    from tessellate.core import pdfpages
 
     monkeypatch.setattr(pdfpages, "available", lambda: True)
     monkeypatch.setattr(pdfpages, "render_page", lambda p, i: None)
@@ -655,8 +655,8 @@ def test_a_page_by_page_reading_reaches_the_gallery_row(ai_client):
     two were never joined, so a document with every page read still said "No
     text yet" in the library. The list endpoint now falls back to the joined
     page text, in page order."""
-    from memorymap.core import deps
-    from memorymap.core.database import MediaUpload, PageRead
+    from tessellate.core import deps
+    from tessellate.core.database import MediaUpload, PageRead
 
     with deps.get_db().session() as session:
         upload = MediaUpload(filename="paged.pdf", original_name="paged.pdf")
@@ -678,8 +678,8 @@ def test_a_whole_file_reading_still_wins_over_the_page_join(ai_client):
     """The fallback is a fallback: a reading stored on the row itself is the
     one the user last made of the whole document, and must not be replaced by
     older per-page fragments."""
-    from memorymap.core import deps
-    from memorymap.core.database import MediaUpload, PageRead
+    from tessellate.core import deps
+    from tessellate.core.database import MediaUpload, PageRead
 
     with deps.get_db().session() as session:
         upload = MediaUpload(
@@ -704,8 +704,8 @@ def _seed_uploads(count):
     """Rows straight through the model: this is about how the gallery is
     read, not about the upload path (covered above), and hundreds of real
     uploads would also write hundreds of files to disk."""
-    from memorymap.core import deps
-    from memorymap.core.database import MediaUpload
+    from tessellate.core import deps
+    from tessellate.core.database import MediaUpload
 
     session = deps.get_db().session()
     session.add_all(

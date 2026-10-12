@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 from sqlalchemy import select
 
-from memorymap.core.database import EntryLink
+from tessellate.core.database import EntryLink
 
 
 def _pair(client, name):

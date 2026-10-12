@@ -41,7 +41,7 @@ def test_numbers_and_dates_roll_up(client):
 
 
 def test_a_rollup_covers_every_match_not_only_the_drawn_rows(client, monkeypatch):
-    from memorymap.api import routes_entries
+    from tessellate.api import routes_entries
 
     monkeypatch.setattr(routes_entries, "QUERY_ROWS_MAX", 2)
     for cost in (1, 2, 3, 4):
@@ -53,7 +53,7 @@ def test_a_rollup_covers_every_match_not_only_the_drawn_rows(client, monkeypatch
 
 
 def test_a_private_note_is_not_rolled_up(client, session):
-    from memorymap.core.database import Entry, EntryProperty
+    from tessellate.core.database import Entry, EntryProperty
 
     made = _note(client, "---\ntype: Bill\ncost: 5\n---\n# Open")
     hidden = _note(client, "---\ntype: Bill\ncost: 50\n---\n# Hidden")

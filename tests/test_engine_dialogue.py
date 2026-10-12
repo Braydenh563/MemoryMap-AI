@@ -6,10 +6,10 @@ from __future__ import annotations
 
 from datetime import datetime, time
 
-from memorymap.ai import composer, recognise
-from memorymap.core import deps
-from memorymap.core.config import user_now
-from memorymap.entry import manager
+from tessellate.ai import composer, recognise
+from tessellate.core import deps
+from tessellate.core.config import user_now
+from tessellate.entry import manager
 from tests import _composer_eval
 from tests.test_composer_route_688 import _ask
 

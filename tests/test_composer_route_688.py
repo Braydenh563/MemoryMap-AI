@@ -11,8 +11,8 @@ from __future__ import annotations
 import json
 from datetime import date
 
-from memorymap.ai import composer
-from memorymap.entry import manager
+from tessellate.ai import composer
+from tessellate.entry import manager
 
 
 #: "the 14th of next month", pinned to the day the note was written (B3).
@@ -154,7 +154,7 @@ def test_small_talk_with_only_the_tool_fallback_is_answered_by_the_app(client, s
     """The 2026-10-10 triage, decision 8 (routes_chat `conversational`): the
     tools-only extra writes no prose, so "thanks" with no model server is
     answered by `composer.social`, never handed to it, even in Agent mode."""
-    from memorymap.ai import tool_fallback
+    from tessellate.ai import tool_fallback
 
     monkeypatch.setattr(tool_fallback, "for_tools", lambda _primary: _NeedleStandIn())
     out = _ask(client, "thanks", use_tools=True)
@@ -163,7 +163,7 @@ def test_small_talk_with_only_the_tool_fallback_is_answered_by_the_app(client, s
 
 
 def test_a_notes_question_with_no_model_is_still_composed(client, session, monkeypatch):
-    from memorymap.ai import tool_fallback
+    from tessellate.ai import tool_fallback
 
     monkeypatch.setattr(tool_fallback, "for_tools", lambda _primary: _NeedleStandIn())
     _seed(session)

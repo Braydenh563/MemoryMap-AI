@@ -41,5 +41,5 @@
 # there is no line in `.claude/skills/` this repo's own code depends on
 # CodeQL continuing to watch.
 paths-ignore:
-  - src/memorymap/search/searxng_settings.py
+  - src/tessellate/search/searxng_settings.py
   - .claude/skills

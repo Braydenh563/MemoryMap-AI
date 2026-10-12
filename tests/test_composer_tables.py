@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import composer, composer_tables
+from tessellate.ai import composer, composer_tables
 from tests import _composer_eval as ev
 from tests.test_composer_688 import NOTES, TODAY, _note, ask
 

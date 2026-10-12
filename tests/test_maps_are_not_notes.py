@@ -17,9 +17,9 @@ import json
 
 import pytest
 
-from memorymap.core.database import Entry, EntryLink
-from memorymap.entry import manager
-from memorymap.search import search_manager
+from tessellate.core.database import Entry, EntryLink
+from tessellate.entry import manager
+from tessellate.search import search_manager
 
 
 @pytest.fixture
@@ -86,7 +86,7 @@ def test_graph_expansion_does_not_walk_to_a_map(session, notebook):
 
 
 def test_the_notebook_statistics_count_notes_only(session, notebook):
-    from memorymap.ai import notebook_stats
+    from tessellate.ai import notebook_stats
 
     answer = notebook_stats.answer("how many notes do I have?", session)
     assert answer is not None
@@ -94,7 +94,7 @@ def test_the_notebook_statistics_count_notes_only(session, notebook):
 
 
 def test_the_ai_reading_tools_see_notes_only(session, notebook):
-    from memorymap.ai.tools import _count_notes, _list_notes, _search_notes
+    from tessellate.ai.tools import _count_notes, _list_notes, _search_notes
 
     assert _count_notes(session, {})["total"] == len(notebook["notes"])
     listed = {row["id"] for row in _list_notes(session, {}).get("notes", [])}

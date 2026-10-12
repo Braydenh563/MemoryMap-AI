@@ -1,7 +1,7 @@
 """Live captions against a real whisper.cpp `whisper-server`.
 
-Skipped unless `MEMORYMAP_CAPTIONS_URL` names one (CLAUDE.md section 4; the
-same shape as `MEMORYMAP_EVALS_URL` in test_skills_evals.py). Nothing in the
+Skipped unless `TESSELLATE_CAPTIONS_URL` names one (CLAUDE.md section 4; the
+same shape as `TESSELLATE_EVALS_URL` in test_skills_evals.py). Nothing in the
 suite starts, builds or downloads it, and no mode of scripts/gate.sh reaches
 for one. What a real model hears, and how fast, is a report, not an assertion.
 """
@@ -15,13 +15,13 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import captions
+from tessellate.ai import captions
 
-URL = os.environ.get("MEMORYMAP_CAPTIONS_URL", "").strip()
+URL = os.environ.get("TESSELLATE_CAPTIONS_URL", "").strip()
 ROOT = Path(__file__).resolve().parents[1]
 
 needs_a_helper = pytest.mark.skipif(
-    not URL, reason="no captions helper: export MEMORYMAP_CAPTIONS_URL (a whisper-server on this machine)"
+    not URL, reason="no captions helper: export TESSELLATE_CAPTIONS_URL (a whisper-server on this machine)"
 )
 
 
@@ -37,7 +37,7 @@ def test_a_real_helper_answers_a_window_and_the_status_sees_it():
 def test_the_captions_seam_is_the_only_thing_that_reaches_a_helper():
     assert "captions:" in (ROOT / "pytest.ini").read_text(encoding="utf-8")
     gate = (ROOT / "scripts" / "gate.sh").read_text(encoding="utf-8")
-    assert "MEMORYMAP_CAPTIONS" not in gate and "whisper-server" not in gate
+    assert "TESSELLATE_CAPTIONS" not in gate and "whisper-server" not in gate
     for path in (ROOT / "tests").rglob("test_*.py"):
         if path.name == Path(__file__).name:
             continue

@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.core import filetypes
+from tessellate.core import filetypes
 
 ROOT = Path(__file__).resolve().parents[1]
 JS = ROOT / "frontend" / "js"
@@ -253,7 +253,7 @@ def test_explain_is_prose_and_tests_ask_for_the_run_panels_harness(ai_client, fa
 
 
 def test_with_no_model_it_says_what_needs_one(ai_client, fake_ollama, monkeypatch):
-    from memorymap.ai import tool_fallback
+    from tessellate.ai import tool_fallback
 
     doc = _code_doc(ai_client)
     fake_ollama.running = False
@@ -263,7 +263,7 @@ def test_with_no_model_it_says_what_needs_one(ai_client, fake_ollama, monkeypatc
 
 
 def test_with_needle_a_request_picks_one_of_the_panels_tools(ai_client, fake_ollama, monkeypatch):
-    from memorymap.ai import tool_fallback
+    from tessellate.ai import tool_fallback
 
     class Needle:
         def __init__(self):
@@ -295,7 +295,7 @@ def test_the_asks_that_need_a_model_say_so_and_fix_and_the_tools_do_not():
     tools = re.findall(r'data-assist-tool="(\w+)"', index)
     assert tools == ["quick_fix", "format_code", "run_tests", "find_usages"]
     #: Every tool the panel offers needle is one the browser can run.
-    from memorymap.ai import code_assist
+    from tessellate.ai import code_assist
 
     kit = (JS / "documents-codekit.js").read_text(encoding="utf-8")
     for name in code_assist.TOOL_NAMES:

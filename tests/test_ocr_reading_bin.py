@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import io
 
-from memorymap.api import routes_files
+from tessellate.api import routes_files
 
 PNG = bytes.fromhex(
     "89504e470d0a1a0a0000000d4948445200000001000000010806000000"

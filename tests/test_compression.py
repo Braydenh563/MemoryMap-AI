@@ -14,7 +14,7 @@ import gzip
 
 from starlette.middleware.gzip import DEFAULT_EXCLUDED_CONTENT_TYPES
 
-from memorymap.api.app import create_app
+from tessellate.api.app import create_app
 
 
 def test_a_large_json_response_is_compressed(client):

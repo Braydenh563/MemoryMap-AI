@@ -15,8 +15,8 @@ import threading
 import pytest
 from sqlalchemy import text
 
-from memorymap.ai import autonomous
-from memorymap.core import deps, taskhistory
+from tessellate.ai import autonomous
+from tessellate.core import deps, taskhistory
 
 
 @pytest.fixture(autouse=True)
@@ -36,7 +36,7 @@ def test_creating_the_app_starts_the_scheduler(app_state, monkeypatch):
     started: list[bool] = []
     monkeypatch.setattr(autonomous, "start", lambda: started.append(True))
 
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     create_app()
     assert started == [True]
@@ -72,7 +72,7 @@ def test_wake_interrupts_the_sleep_instead_of_waiting_out_the_interval(
     ran = threading.Event()
     monkeypatch.setattr(autonomous, "_run_optimization", ran.set)
     #: The pass runs on the pool (Brief 9): a fresh one, as below.
-    from memorymap.core import jobs
+    from tessellate.core import jobs
 
     jobs.shutdown(deadline=0.5)
 
@@ -105,7 +105,7 @@ def test_a_second_run_is_refused_while_one_is_going(app_state, monkeypatch):
     monkeypatch.setattr(autonomous, "_run_optimization", slow_pass)
     #: Run now queues the pass on the pool (Brief 9); a fresh one, since an
     #: earlier test's app may have left a pass on the lane.
-    from memorymap.core import jobs
+    from tessellate.core import jobs
 
     jobs.shutdown(deadline=0.5)
 
@@ -164,7 +164,7 @@ def test_vacuum_survives_a_session_that_has_already_written(app_state, session):
     anything has touched the database first, which is the state the background
     pass actually leaves behind after tagging and linking notes.
     """
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     session.add(Entry(content="something to make a transaction"))
     session.flush()
@@ -383,7 +383,7 @@ def test_editing_a_note_never_stops_an_unattended_pass(app_state):
     confirmation: and this pass abandons itself on any `confirm`, because
     there is nobody to ask. So the first note it tried to edit killed the run.
     """
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     assert tools.TOOLS["edit_note"].destructive is False
     assert tools.TOOLS["delete_note"].destructive is True
@@ -406,7 +406,7 @@ def test_the_background_pass_runs_the_link_reason_audit(app_state, monkeypatch):
         calls.append(limit)
         return 0
 
-    monkeypatch.setattr("memorymap.ai.links.audit_vague_links", fake_audit)
+    monkeypatch.setattr("tessellate.ai.links.audit_vague_links", fake_audit)
     autonomous._working.set()
     autonomous._run_optimization()
 
@@ -422,7 +422,7 @@ def test_the_link_reason_audit_has_its_own_off_switch(app_state, monkeypatch):
     reasons keep being rewritten"."""
     calls: list[int] = []
     monkeypatch.setattr(
-        "memorymap.ai.links.audit_vague_links",
+        "tessellate.ai.links.audit_vague_links",
         lambda session, model, ollama, limit=50: calls.append(limit),
     )
     deps.get_config().set_preference("auto_link_reason_audit", False)
@@ -444,7 +444,7 @@ def test_the_link_reason_audit_has_its_own_off_switch(app_state, monkeypatch):
 def test_the_background_pass_tags_a_stale_orphaned_note(app_state, session):
     from datetime import timedelta
 
-    from memorymap.core.database import Entry, utcnow
+    from tessellate.core.database import Entry, utcnow
 
     entry = Entry(content="a note nobody has touched in months")
     session.add(entry)
@@ -458,7 +458,7 @@ def test_the_background_pass_tags_a_stale_orphaned_note(app_state, session):
 
     session.expire_all()
     refreshed = session.get(Entry, entry.id)
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     assert "stale" in manager.entry_tags(refreshed)
 
@@ -469,7 +469,7 @@ def test_the_stale_review_has_its_own_off_switch(app_state, session):
     for on that one note."""
     from datetime import timedelta
 
-    from memorymap.core.database import Entry, utcnow
+    from tessellate.core.database import Entry, utcnow
 
     entry = Entry(content="a note nobody has touched in months")
     session.add(entry)
@@ -483,7 +483,7 @@ def test_the_stale_review_has_its_own_off_switch(app_state, session):
 
     session.expire_all()
     refreshed = session.get(Entry, entry.id)
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     assert "stale" not in manager.entry_tags(refreshed)
 
@@ -491,8 +491,8 @@ def test_the_stale_review_has_its_own_off_switch(app_state, session):
 def test_the_stale_review_does_not_retag_a_note_twice(app_state, session, monkeypatch):
     from datetime import timedelta
 
-    from memorymap.core.database import Entry, utcnow
-    from memorymap.entry import manager
+    from tessellate.core.database import Entry, utcnow
+    from tessellate.entry import manager
 
     entry = Entry(content="already flagged once")
     session.add(entry)
@@ -513,7 +513,7 @@ def test_the_stale_review_does_not_retag_a_note_twice(app_state, session, monkey
         return real_update(session, entry, **kwargs)
 
     monkeypatch.setattr(
-        "memorymap.entry.manager.update_entry", counting_update
+        "tessellate.entry.manager.update_entry", counting_update
     )
     app_state.set_preference("auto_stale_review_enabled", True)
     autonomous._working.set()
@@ -526,7 +526,7 @@ def test_a_card_whose_note_was_purged_is_swept_up(ai_client, session):
     """No cascade on `whiteboard_nodes.entry_id`, so purging a note from the
     recycle bin left a card on the board pointing at nothing, visible, not
     removable through the UI, and it makes the board look broken."""
-    from memorymap.core.database import Entry, WhiteboardNode
+    from tessellate.core.database import Entry, WhiteboardNode
 
     def _note(content):
         entry = Entry(content=content)

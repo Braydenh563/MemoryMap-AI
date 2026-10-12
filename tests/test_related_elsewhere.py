@@ -12,9 +12,9 @@ much the app actually holds.
 
 from __future__ import annotations
 
-from memorymap.api.routes_chat import _related_elsewhere
-from memorymap.core.database import Conversation, Document, Reminder
-from memorymap.core import deps
+from tessellate.api.routes_chat import _related_elsewhere
+from tessellate.core.database import Conversation, Document, Reminder
+from tessellate.core import deps
 from datetime import datetime, timezone
 
 
@@ -112,7 +112,7 @@ def test_the_stream_offers_related_items_when_no_note_matched(ai_client, monkeyp
     finally:
         session.close()
 
-    from memorymap.api import routes_chat
+    from tessellate.api import routes_chat
 
     real_prepare = routes_chat._prepare
 
@@ -147,7 +147,7 @@ def test_the_stream_offers_related_items_when_no_note_matched(ai_client, monkeyp
 
 
 def test_no_related_event_when_nothing_else_matches_either(ai_client, monkeypatch):
-    from memorymap.api import routes_chat
+    from tessellate.api import routes_chat
 
     real_prepare = routes_chat._prepare
 
@@ -182,7 +182,7 @@ def test_one_query_per_kind_however_many_words_the_question_has(session, monkeyp
     """
     from sqlalchemy import event
 
-    from memorymap.api.routes_chat import _related_elsewhere
+    from tessellate.api.routes_chat import _related_elsewhere
 
     statements: list[str] = []
 

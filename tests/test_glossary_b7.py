@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import glossary
+from tessellate.ai import glossary
 
 #: Twenty ways a notebook says (or implies) what its abbreviations are.
 NOTES = [
@@ -90,7 +90,7 @@ def _notes(*texts):
 def test_the_answer_says_what_it_stands_for_and_how_it_knows():
     from datetime import date
 
-    from memorymap.ai import composer_digest
+    from tessellate.ai import composer_digest
 
     said = composer_digest.answer("what does HCI stand for?", _notes("Human Computer Interaction (HCI) lecture 2.", "HCI quiz Friday."), today=date(2026, 10, 11))
     assert said["text"].startswith("HCI is short for Human Computer Interaction, from your note of 1 September.")
@@ -105,7 +105,7 @@ def test_the_answer_says_what_it_stands_for_and_how_it_knows():
 def test_the_route_searches_and_answers_with_the_notes_own_abbreviations(client, session):
     """"What's due in CC" finds the note that only says Cloud Computing, and
     "what does CC stand for?" is answered from the notes, with no model."""
-    from memorymap.entry import manager
+    from tessellate.entry import manager
     from tests.test_composer_route_688 import _ask
 
     manager.create_entry(session, "Intro to Cloud Computing: the assignment is due 20 October.")

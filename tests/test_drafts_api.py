@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 
-from memorymap.ai import drafter
+from tessellate.ai import drafter
 
 
 def test_first_draft_uses_the_first_draft_prompt(ai_client, fake_ollama):
@@ -245,7 +245,7 @@ def test_the_stream_offline_keeps_the_draft_and_names_the_way_out(
 def test_translate_kind_names_the_language_and_keeps_the_rules():
     """INBOX 405: translation is a rewrite into another language, carried in
     the kind (`translate-es`) so the request shape does not change."""
-    from memorymap.ai import drafter
+    from tessellate.ai import drafter
 
     system = drafter.build_messages("Hola", "", "", "translate-es", "", "")[0]["content"]
     assert "into Spanish" in system
@@ -254,7 +254,7 @@ def test_translate_kind_names_the_language_and_keeps_the_rules():
 
 
 def test_an_unknown_translate_code_is_dropped_not_interpolated():
-    from memorymap.ai import drafter
+    from tessellate.ai import drafter
 
     system = drafter.build_messages("x", "", "", "translate-{evil}", "", "")[0]["content"]
     assert "evil" not in system

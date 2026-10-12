@@ -172,7 +172,7 @@ def test_the_table_holds_the_editors_and_the_owners_typos():
 
 
 def test_help_moves_with_it():
-    from memorymap.ai import help_chat
+    from tessellate.ai import help_chat
 
     ids = [t["id"] for t in help_chat.topics_for("how do I turn off autocorrect")]
     assert ids and ids[0] == "autocorrect"

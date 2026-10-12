@@ -54,7 +54,7 @@
 //   file to find out whether it parses is not a check, it is execution.
 // - Python, TOML, XML and YAML: `POST /documents/check-syntax`, which uses
 //   `ast.parse`, `tomllib`, `defusedxml` and PyYAML's composer
-//   (`src/memorymap/core/syntaxcheck.py`). Offline, stateless, capped.
+//   (`src/tessellate/core/syntaxcheck.py`). Offline, stateless, capped.
 //
 // Only for code: a markdown document is prose, and its checker is the
 // writing panel's. Plain view turns these off with the highlighting, because

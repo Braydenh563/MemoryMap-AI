@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from memorymap.core import window_hook
+from tessellate.core import window_hook
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -50,7 +50,7 @@ def test_a_failing_toggle_reports_not_available(client):
 
 
 def test_the_desktop_launcher_registers_the_window_toggle():
-    main = (ROOT / "src" / "memorymap" / "__main__.py").read_text(encoding="utf-8")
+    main = (ROOT / "src" / "tessellate" / "__main__.py").read_text(encoding="utf-8")
     assert 'getattr(window, "toggle_fullscreen", None)' in main
     assert "window_hook.set_fullscreen_handler(toggle_fullscreen)" in main
 

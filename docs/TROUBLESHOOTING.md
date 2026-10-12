@@ -37,7 +37,7 @@ expected, because the build is not code-signed yet. Click **More info**, then
 
 Tessellate serves on port 8000. If something else has it, `--doctor` says so, and
 `--port N` starts the app on another one (`./start.sh --port 8010`). For the
-packaged apps and `python -m memorymap`, set `MEMORYMAP_PORT` instead. An
+packaged apps and `python -m tessellate`, set `TESSELLATE_PORT` instead. An
 already-running Tessellate on that port is not an error: open it, and use Settings,
 Background tasks, Quit Tessellate if you want it closed.
 
@@ -48,7 +48,7 @@ Other devices, Allow other devices on this network**. Turning it on asks for you
 current password and takes effect at the next start.
 
 The address to open on the other device is `https://` followed by this
-computer's network address and port 8443 (`MEMORYMAP_LAN_PORT` changes it). This
+computer's network address and port 8443 (`TESSELLATE_LAN_PORT` changes it). This
 computer keeps plain `http://localhost:8000`. The certificate is made on this
 computer and signed by itself, so a phone or browser warns the first time:
 compare the SHA-256 fingerprint in the warning's certificate details with the one
@@ -67,7 +67,7 @@ running, and Settings, Background tasks lists the job. Search falls back to
 keywords until it finishes, and nothing else waits for it.
 
 To avoid the download, pick an Ollama embedding model (`nomic-embed-text`) in the
-same place, or set `MEMORYMAP_NO_AUTO_INSTALL` to stop the automatic install.
+same place, or set `TESSELLATE_NO_AUTO_INSTALL` to stop the automatic install.
 
 ## Windows: "torch_xpu.dll ... WinError 127" and search falls back to keywords
 
@@ -137,7 +137,7 @@ Everything you need is in **Settings, Web search**:
 
 - **The port line** says whether port 8888 is free, held by a working SearXNG
   (fine, Tessellate will use it), or held by something else, which is the only
-  case you have to fix. `MEMORYMAP_SEARXNG_PORT` picks another port.
+  case you have to fix. `TESSELLATE_SEARXNG_PORT` picks another port.
 - **What SearXNG reported** is a fold with the instance's own output: the actual
   traceback, not a guess. It is kept in `searxng/searxng.log` in your data folder
   too.
@@ -153,7 +153,7 @@ Press **Forgot your password?** on the lock screen, on the computer the notebook
 lives on. With your recovery key (shown when you set up, or made in Settings,
 Account & security) you choose a new password and keep your private notes.
 Without it, "I don't have it" resets the password, as
-`python -m memorymap --reset-password` does in a terminal: ordinary notes,
+`python -m tessellate --reset-password` does in a terminal: ordinary notes,
 documents, boards and settings are kept; **private notes stay sealed**, because
 only the password or the recovery key opens them. The reset also turns off
 "Allow other devices on this network". More in

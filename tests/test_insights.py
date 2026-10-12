@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import composer, composer_tables, factgraph, insights
+from tessellate.ai import composer, composer_tables, factgraph, insights
 from tests import _composer_eval
 
 SEED = json.loads((Path(__file__).parent / "fixtures" / "composer" / "phase6_seed.json").read_text(encoding="utf-8"))
@@ -124,7 +124,7 @@ def test_every_template_follows_the_copy_rules(rule):
 
 
 def test_the_patterns_route(client, session):
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     for content in ("# Golf\n\nGolf after work, a good round.", "# Golf two\n\nGolf range session.", "# Golf three\n\nGolf again."):
         manager.create_entry(session, content)

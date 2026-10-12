@@ -31,7 +31,7 @@ def test_first_call_is_a_stamp_with_no_ids(client):
 
 
 def test_an_edit_after_the_stamp_comes_back_and_an_old_one_does_not(client, monkeypatch):
-    from memorymap.api import routes_entries
+    from tessellate.api import routes_entries
 
     monkeypatch.setattr(routes_entries, "CHANGES_OVERLAP_SECONDS", 0.01)
     old = _note(client, "old note")
@@ -87,7 +87,7 @@ def test_a_bad_stamp_is_refused_plainly(client):
 
 
 def test_more_than_the_cap_says_more(client, monkeypatch):
-    from memorymap.api import routes_entries
+    from tessellate.api import routes_entries
 
     monkeypatch.setattr(routes_entries, "CHANGES_IDS_MAX", 2)
     stamp = client.get("/entries/changes").json()["since"]

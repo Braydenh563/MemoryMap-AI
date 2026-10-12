@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from sqlalchemy import func, select
 
-from memorymap.ai import facts
-from memorymap.core.database import DerivedFact
+from tessellate.ai import facts
+from tessellate.core.database import DerivedFact
 
 
 def _entry(client, content: str) -> dict:
@@ -78,8 +78,8 @@ def test_the_night_switch_is_read_before_every_pass(ai_client, fake_ollama):
 
 
 def test_the_master_switch_stops_the_resurfacing_runner(ai_client, fake_ollama, session):
-    from memorymap.ai import resurface
-    from memorymap.core.database import NoteScore
+    from tessellate.ai import resurface
+    from tessellate.core.database import NoteScore
 
     for i in range(3):
         _entry(ai_client, f"a note about bread number {i}")

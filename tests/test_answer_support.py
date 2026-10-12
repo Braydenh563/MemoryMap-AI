@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from memorymap.ai import grounding
+from tessellate.ai import grounding
 from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -93,7 +93,7 @@ def test_the_stream_sends_support_beside_the_sentences():
     never appears, silently, which is the shape `test_lazy_bundle_calls.py`
     exists for in another corner of the app.
     """
-    source = (ROOT / "src" / "memorymap" / "api" / "routes_chat.py").read_text(encoding="utf-8")
+    source = (ROOT / "src" / "tessellate" / "api" / "routes_chat.py").read_text(encoding="utf-8")
     emits = re.findall(r'\{\s*"type":\s*"grounding".*?\}', source, re.S)
     assert emits, "no grounding event found in routes_chat.py"
     without = [e for e in emits if '"support"' not in e]
@@ -144,7 +144,7 @@ def test_a_turn_with_no_grounding_carries_no_support(client):
 def test_a_reopened_ask_turn_carries_its_support(client, session):
     import json
 
-    from memorymap.core.database import AskTurn
+    from tessellate.core.database import AskTurn
 
     marks = _thin_marks()
     turn = AskTurn(question="how do I keep a starter", answer=THIN, grounding=json.dumps(marks))

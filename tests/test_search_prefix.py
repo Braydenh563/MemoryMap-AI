@@ -13,9 +13,9 @@ threshold nor the premise can quietly move back.
 
 import time
 
-from memorymap.search import query as query_understanding
-from memorymap.search import search_manager
-from memorymap.search.engine import _match_expression
+from tessellate.search import query as query_understanding
+from tessellate.search import search_manager
+from tessellate.search.engine import _match_expression
 
 
 def test_a_three_letter_word_is_tried_as_a_prefix():
@@ -38,7 +38,7 @@ def test_the_threshold_is_shared_not_copied():
     its own constant, which is how the two stages stopped agreeing."""
     engine_source = (
         __import__("pathlib").Path(__file__).resolve().parent.parent
-        / "src" / "memorymap" / "search" / "engine.py"
+        / "src" / "tessellate" / "search" / "engine.py"
     ).read_text(encoding="utf-8")
     assert "PREFIX_MIN_LEN" in engine_source
     assert "len(term) >= 4" not in engine_source

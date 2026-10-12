@@ -8,8 +8,8 @@ so the same press can be undone and the learning is not lost to a mis-click.
 
 from __future__ import annotations
 
-from memorymap.ai import learning
-from memorymap.core import deps
+from tessellate.ai import learning
+from tessellate.core import deps
 
 
 def _note(client, text):
@@ -17,7 +17,7 @@ def _note(client, text):
 
 
 def _entity(session, name, *entry_ids):
-    from memorymap.core.database import Entity, EntityMention
+    from tessellate.core.database import Entity, EntityMention
 
     entity = Entity(name=name)
     session.add(entity)

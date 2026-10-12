@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai.tools import _coerce
+from tessellate.ai.tools import _coerce
 
 NUMBER = {"type": "number"}
 

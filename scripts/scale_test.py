@@ -33,9 +33,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from sqlalchemy import select  # noqa: E402
 
-from memorymap.ai.embeddings import vector_to_bytes  # noqa: E402
-from memorymap.core import deps  # noqa: E402
-from memorymap.core.database import Category, EmbeddingRecord, Entry  # noqa: E402
+from tessellate.ai.embeddings import vector_to_bytes  # noqa: E402
+from tessellate.core import deps  # noqa: E402
+from tessellate.core.database import Category, EmbeddingRecord, Entry  # noqa: E402
 
 FAKE_BACKEND = "fake:keywords-v1"
 
@@ -111,7 +111,7 @@ def build_notebook(session, n: int) -> None:
     session.commit()
     print(f"  wired {thread_count} reply threads in {time.perf_counter() - t0:.1f}s")
 
-    from memorymap.core.database import EntryLink
+    from tessellate.core.database import EntryLink
 
     t0 = time.perf_counter()
     link_count = min(2000, n // 10)
@@ -226,10 +226,10 @@ def main() -> None:
         build_notebook(session, n)
         report_storage(session, Path(tmp) / "data", n)
 
-        from memorymap.ai import tools as ai_tools
-        from memorymap.api import routes_graph
-        from memorymap.entry import manager
-        from memorymap.search import search_manager
+        from tessellate.ai import tools as ai_tools
+        from tessellate.api import routes_graph
+        from tessellate.entry import manager
+        from tessellate.search import search_manager
 
         # A note with tags AND embeddings AND some links, so every path below
         # actually does the work it's meant to rather than short-circuiting

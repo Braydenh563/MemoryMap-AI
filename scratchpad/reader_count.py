@@ -28,28 +28,28 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-ALLOWED = {"src/memorymap/ai/recognise.py", "src/memorymap/entry/timewords.py"}
+ALLOWED = {"src/tessellate/ai/recognise.py", "src/tessellate/entry/timewords.py"}
 
 # Hand verdicts, 2026-10-10 (Brief 64), for the files the scan finds. A new file
 # in the scan with no verdict prints "unjudged": judge it, then add it here.
 VERDICT = {
-    "src/memorymap/ai/when.py": "reader: words to a date or window (resolve, parse_reminder_text, _AGO)",
-    "src/memorymap/ai/reminder_parser.py": "reader: parse_relative, 'in 30 mins' to a datetime",
-    "src/memorymap/search/query.py": "reader: today, yesterday, this/last week|month|year, 'N units back' to a date range",
-    "src/memorymap/ai/notebook_stats.py": "not a reader since Brief 65: weekday names for the busiest-day answer (windows read by recognise)",
-    "src/memorymap/api/routes_vision.py": "reader (keyword): _period, 'this week' in text to a date range",
-    "src/memorymap/ai/composer.py": "not a reader since ledger row 453: its cue and window patterns are recognise.looks_dated and without_windows",
-    "src/memorymap/ai/question_noise.py": "not a reader: hr, hrs, mins in the slang map",
-    "src/memorymap/ai/source_check.py": "not a reader: weekday and month names in a stop list of non-names",
+    "src/tessellate/ai/when.py": "reader: words to a date or window (resolve, parse_reminder_text, _AGO)",
+    "src/tessellate/ai/reminder_parser.py": "reader: parse_relative, 'in 30 mins' to a datetime",
+    "src/tessellate/search/query.py": "reader: today, yesterday, this/last week|month|year, 'N units back' to a date range",
+    "src/tessellate/ai/notebook_stats.py": "not a reader since Brief 65: weekday names for the busiest-day answer (windows read by recognise)",
+    "src/tessellate/api/routes_vision.py": "reader (keyword): _period, 'this week' in text to a date range",
+    "src/tessellate/ai/composer.py": "not a reader since ledger row 453: its cue and window patterns are recognise.looks_dated and without_windows",
+    "src/tessellate/ai/question_noise.py": "not a reader: hr, hrs, mins in the slang map",
+    "src/tessellate/ai/source_check.py": "not a reader: weekday and month names in a stop list of non-names",
     # Brief 65 (F1), 2026-10-10: the readers above delegate to ai/recognise.py.
-    "src/memorymap/ai/realise.py": "not a reader: weekday names for writing a date",
-    "src/memorymap/ai/utilities.py": "not a reader: weekday names for writing a date (units and date questions read by recognise)",
-    "src/memorymap/ai/factgraph.py": "not a reader: time-unit names a count is not (dates, money, durations read by recognise)",
+    "src/tessellate/ai/realise.py": "not a reader: weekday names for writing a date",
+    "src/tessellate/ai/utilities.py": "not a reader: weekday names for writing a date (units and date questions read by recognise)",
+    "src/tessellate/ai/factgraph.py": "not a reader: time-unit names a count is not (dates, money, durations read by recognise)",
     # Brief 67 (F3), 2026-10-10.
     # 2026-10-12 (the week-start setting): the three first days a week can start on.
-    "src/memorymap/api/routes_settings.py": "not a reader: the week_start choices (monday, saturday, sunday) of a setting",
-    "src/memorymap/core/config.py": "not a reader: _WEEK_CHOICES, the week_start setting's first-day names to weekday numbers",
-    "src/memorymap/ai/commands.py": "not a reader: _TIME_FIRST, the words that open a reminder's time part (weekday words included), to split it from the task; the date is read by when, which delegates to recognise",
+    "src/tessellate/api/routes_settings.py": "not a reader: the week_start choices (monday, saturday, sunday) of a setting",
+    "src/tessellate/core/config.py": "not a reader: _WEEK_CHOICES, the week_start setting's first-day names to weekday numbers",
+    "src/tessellate/ai/commands.py": "not a reader: _TIME_FIRST, the words that open a reminder's time part (weekday words included), to split it from the task; the date is read by when, which delegates to recognise",
 }
 
 WEEKDAYS = "monday|tuesday|wednesday|thursday|friday|saturday|sunday"
@@ -169,7 +169,7 @@ def js_scan(path: Path):
 
 def collect():
     files = []
-    for p in sorted((ROOT / "src/memorymap").rglob("*.py")):
+    for p in sorted((ROOT / "src/tessellate").rglob("*.py")):
         rel = p.relative_to(ROOT).as_posix()
         if "/vendor/" in rel or "__pycache__" in rel:
             continue

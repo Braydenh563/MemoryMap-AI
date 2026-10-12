@@ -12,10 +12,10 @@ from __future__ import annotations
 
 import time
 
-from memorymap.ai.embeddings import EmbeddingService
-from memorymap.core import jobs
-from memorymap.entry import manager
-from memorymap.search import search_manager
+from tessellate.ai.embeddings import EmbeddingService
+from tessellate.core import jobs
+from tessellate.entry import manager
+from tessellate.search import search_manager
 
 
 class _Models:
@@ -56,7 +56,7 @@ def test_a_loaded_or_fake_model_is_used_as_before(fake_embeddings):
 
 
 def test_with_no_meaning_search_a_category_named_whole_is_that_category(session, app_state):
-    from memorymap.core import deps
+    from tessellate.core import deps
     from tests.fakes import FakeEmbeddingService
 
     deps.override_ai(embeddings=FakeEmbeddingService(available=False))
@@ -68,7 +68,7 @@ def test_with_no_meaning_search_a_category_named_whole_is_that_category(session,
 
 
 def test_why_says_the_search_read_words_only():
-    from memorymap.ai import why
+    from tessellate.ai import why
 
     lines = why.lines(intent="notes", mode="keyword", matched=2, used=2, composed=True, loading=True, marks={})
     assert any("the search by meaning was still loading, so it read words only" in line["text"] for line in lines)
@@ -77,8 +77,8 @@ def test_why_says_the_search_read_words_only():
 def test_through_the_route_a_cold_model_answers_at_once_and_says_so(client, session, monkeypatch):
     import json
 
-    from memorymap.ai import composer_digest
-    from memorymap.core import deps
+    from tessellate.ai import composer_digest
+    from tessellate.core import deps
 
     manager.create_entry(session, "Went to the gym after work.", category_name="Fitness")
     session.commit()

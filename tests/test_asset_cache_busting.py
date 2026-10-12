@@ -20,7 +20,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from memorymap import __version__
+from tessellate import __version__
 
 INDEX = Path(__file__).resolve().parents[1] / "frontend" / "index.html"
 

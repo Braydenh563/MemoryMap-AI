@@ -110,7 +110,7 @@ def asset_urls() -> list[str]:
 
 def static_mime_types() -> dict[str, str]:
     """`STATIC_MIME_TYPES` from `api/app.py`, read without importing it."""
-    tree = ast.parse((ROOT / "src" / "memorymap" / "api" / "app.py").read_text(encoding="utf-8"))
+    tree = ast.parse((ROOT / "src" / "tessellate" / "api" / "app.py").read_text(encoding="utf-8"))
     for node in tree.body:
         target = getattr(node, "target", None) or (getattr(node, "targets", None) or [None])[0]
         if isinstance(target, ast.Name) and target.id == "STATIC_MIME_TYPES":
@@ -123,10 +123,10 @@ def expected_type(url: str, types: dict[str, str]) -> str | None:
 
 
 def source_version() -> str:
-    text = (ROOT / "src" / "memorymap" / "__init__.py").read_text(encoding="utf-8")
+    text = (ROOT / "src" / "tessellate" / "__init__.py").read_text(encoding="utf-8")
     match = re.search(r'^__version__ = "([^"]+)"', text, re.MULTILINE)
     if not match:
-        raise ValueError("src/memorymap/__init__.py has no __version__")
+        raise ValueError("src/tessellate/__init__.py has no __version__")
     return match.group(1)
 
 
@@ -263,7 +263,7 @@ def check_api(base: str, data_dir: Path | None, password: str, expect_note: bool
     served = health.json().get("version")
     want = source_version()
     if served != want:
-        fail(f"GET /health: version {served!r}, but src/memorymap/__init__.py says {want!r}")
+        fail(f"GET /health: version {served!r}, but src/tessellate/__init__.py says {want!r}")
 
     token = sign_in(base, password, fail)
     if not token:

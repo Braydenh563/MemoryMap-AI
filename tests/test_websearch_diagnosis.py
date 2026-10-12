@@ -19,8 +19,8 @@ import logging
 import pytest
 import requests
 
-from memorymap.core import deps
-from memorymap.search import websearch
+from tessellate.core import deps
+from tessellate.search import websearch
 
 
 class _Response:
@@ -249,7 +249,7 @@ def test_searxng_only_still_refuses_to_fall_back():
 
 
 def test_the_settings_copy_no_longer_calls_searxng_optional():
-    from memorymap.api.app import FRONTEND_DIR
+    from tessellate.api.app import FRONTEND_DIR
 
     html = (FRONTEND_DIR / "index.html").read_text(encoding="utf-8")
     block = html.split("Your SearXNG instance", 1)[1][:1600]
@@ -266,7 +266,7 @@ def test_the_settings_copy_no_longer_calls_searxng_optional():
 #: a challenge page got the error and nothing else, while `discover_searxng`
 #: sat one call away.
 def test_a_rate_limited_duckduckgo_looks_for_a_searxng_and_uses_it(monkeypatch):
-    from memorymap.search import websearch
+    from tessellate.search import websearch
 
     websearch.clear_cache()
     monkeypatch.setattr(
@@ -292,7 +292,7 @@ def test_a_rate_limited_duckduckgo_looks_for_a_searxng_and_uses_it(monkeypatch):
 def test_it_only_goes_looking_for_a_challenge_not_for_a_dead_network(monkeypatch):
     """A timeout means the network is down, and probing four local ports on a
     machine with no network is four more timeouts before the same message."""
-    from memorymap.search import websearch
+    from tessellate.search import websearch
 
     websearch.clear_cache()
     monkeypatch.setattr(
@@ -310,7 +310,7 @@ def test_it_only_goes_looking_for_a_challenge_not_for_a_dead_network(monkeypatch
 
 
 def test_with_no_searxng_anywhere_the_message_says_what_to_do(monkeypatch):
-    from memorymap.search import websearch
+    from tessellate.search import websearch
 
     websearch.clear_cache()
     monkeypatch.setattr(
@@ -331,7 +331,7 @@ def test_the_rate_limit_message_names_the_way_out(monkeypatch):
     to say what would make this work, and this app has a one-press SearXNG
     install (`/websearch/searxng/install`), so it points at that rather than
     leaving them to find it."""
-    from memorymap.search import websearch
+    from tessellate.search import websearch
 
     class _Challenge:
         status_code = 200

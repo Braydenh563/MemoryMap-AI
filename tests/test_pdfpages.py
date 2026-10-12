@@ -16,8 +16,8 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import vision_ocr
-from memorymap.core import pdfpages
+from tessellate.ai import vision_ocr
+from tessellate.core import pdfpages
 
 # The smallest legal PDF that still renders text, built by hand so the suite
 # carries no binary fixture.
@@ -161,7 +161,7 @@ def test_the_reader_survives_a_file_it_cannot_open(tmp_path):
 
 @needs_pdfium
 def test_the_extras_catalogue_offers_it(one_page):
-    from memorymap.core import extras
+    from tessellate.core import extras
 
     entry = extras.EXTRAS_BY_ID["pdfpages"]
     assert entry.module == "pypdfium2"

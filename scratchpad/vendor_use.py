@@ -32,7 +32,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
 VENDOR = FRONTEND / "vendor"
-SRC = ROOT / "src" / "memorymap"
+SRC = ROOT / "src" / "tessellate"
 THIRD_PARTY = ROOT / "docs" / "THIRD_PARTY.md"
 
 #: THIRD_PARTY.md's "Library" cell -> the key `collect()` reports it under.
@@ -470,7 +470,7 @@ def frontend_scripts() -> dict[str, str]:
 
 
 def python_sources() -> dict[str, str]:
-    """src/memorymap/**/*.py without the vendored copies."""
+    """src/tessellate/**/*.py without the vendored copies."""
     out = {}
     for path in sorted(SRC.rglob("*.py")):
         rel = path.relative_to(SRC).as_posix()
@@ -788,15 +788,15 @@ WORDLIST_CAPABILITIES = (
         ("frontend/js/timeline.js", "frontend/js/sheets-selects.js"),
         r"wordlist|docSpell",
     ),
-    ("Guide fuzzy match (help_chat.py)", ("src/memorymap/ai/help_chat.py",), r"wordlist|en\.txt"),
+    ("Guide fuzzy match (help_chat.py)", ("src/tessellate/ai/help_chat.py",), r"wordlist|en\.txt"),
     (
         "question noise real-word check (question_noise.py)",
-        ("src/memorymap/ai/question_noise.py",),
+        ("src/tessellate/ai/question_noise.py",),
         r"wordlist|en\.txt",
     ),
     (
         "search typo tolerance",
-        ("src/memorymap/api/routes_search.py", "src/memorymap/core/search.py"),
+        ("src/tessellate/api/routes_search.py", "src/tessellate/core/search.py"),
         r"wordlist|en\.txt",
     ),
 )

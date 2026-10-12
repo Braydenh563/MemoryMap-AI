@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 
-from memorymap.ai import plan_writes
+from tessellate.ai import plan_writes
 
 
 def _events(client, question, **body):

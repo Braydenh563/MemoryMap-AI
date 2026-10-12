@@ -14,8 +14,8 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from memorymap.core.database import DatabaseManager, Entry, _ensure_alembic_baseline
-from memorymap.entry import manager
+from tessellate.core.database import DatabaseManager, Entry, _ensure_alembic_baseline
+from tessellate.entry import manager
 
 
 def _edited(client, entry_id):

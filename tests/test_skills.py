@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import agent, skill_runner, skills, tools
+from tessellate.ai import agent, skill_runner, skills, tools
 from tests._app_js import app_js_text
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -333,7 +333,7 @@ def test_the_agent_refuses_a_tool_the_skill_did_not_declare(
 ):
     """The allowlist is a safety property, not only a prompt, a model that
     calls something it was never offered doesn't get to run it."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     fake_ollama.tool_script = [
         [{"name": "create_note", "arguments": {"content": "sneaky"}}]
@@ -450,7 +450,7 @@ def test_a_network_failure_mid_step_stops_the_run_instead_of_repeating(
     so the step was ticked done and the run moved on to repeat the identical
     failure on every later step. It must stop and name the real reason
     instead, the same way running out of rounds already does."""
-    from memorymap.ai import agent
+    from tessellate.ai import agent
 
     def offline(session, question, notes, *args, **kwargs):
         yield {"type": "answer", "delta": "Ollama doesn't seem to be running.", "offline": True}
@@ -739,7 +739,7 @@ def test_a_step_that_produces_nothing_is_reported_as_the_failure(
     ai_client, fake_ollama, monkeypatch
 ):
     """"A skill that fails halfway should say which step it stopped at."""
-    from memorymap.ai import agent
+    from tessellate.ai import agent
 
     def only_failures(session, question, notes, *args, **kwargs):
         yield {"type": "tool", "label": "nope", "ok": False, "error": "it broke"}
@@ -786,7 +786,7 @@ def test_a_skill_can_say_when_it_applies():
     """The description says what a skill *is*; this says when to reach for it.
     Without it a model reading the skill list can see that a skill exists and
     has no basis at all for choosing it."""
-    from memorymap.ai import skills, tools
+    from tessellate.ai import skills, tools
 
     skill = skills.normalise(
         {
@@ -800,7 +800,7 @@ def test_a_skill_can_say_when_it_applies():
 
 
 def test_when_to_use_is_optional_so_old_skills_still_load():
-    from memorymap.ai import skills, tools
+    from tessellate.ai import skills, tools
 
     assert skills.normalise({"name": "n", "prompt": "p"}, set(tools.TOOLS))["when_to_use"] == ""
 
@@ -808,7 +808,7 @@ def test_when_to_use_is_optional_so_old_skills_still_load():
 def test_the_skill_list_tells_the_model_what_running_one_commits_to(app_state, session):
     """A skill that changes notes is a different proposition from one that only
     reads them, and the name alone does not say which."""
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     app_state.set_preference(
         "skills",
@@ -830,7 +830,7 @@ def test_the_skill_list_tells_the_model_what_running_one_commits_to(app_state, s
 
 
 def test_a_read_only_skill_says_it_changes_nothing(app_state, session):
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     app_state.set_preference(
         "skills",
@@ -846,7 +846,7 @@ def test_the_model_is_told_how_to_start_a_skill(app_state, session):
     one will narrate having done so. §33's plan is built now, so the note has
     to say the opposite: leaving the old sentence in beside a working
     `run_skill` would be worse than either state on its own."""
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     note = tools.TOOLS["list_skills"].handler(session, {})["note_to_model"]
     assert "cannot start" not in note.lower()
@@ -854,7 +854,7 @@ def test_the_model_is_told_how_to_start_a_skill(app_state, session):
 
 
 def test_the_agent_can_save_a_when_to_use(app_state, session):
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     tools.TOOLS["save_skill"].handler(
         session,
@@ -885,7 +885,7 @@ AUDIT_SKILLS = [
 
 
 def _builtin(name):
-    from memorymap.ai import skills, tools
+    from tessellate.ai import skills, tools
 
     return next(s for s in skills.builtins(set(tools.TOOLS)) if s["name"] == name)
 
@@ -901,7 +901,7 @@ def test_each_audit_skill_is_valid_and_says_when_to_use_it(name):
 def test_every_tool_an_audit_skill_names_actually_exists(name):
     """A skill naming a tool that isn't in the registry loses it silently at
     run time: the run then fails on the step that needed it."""
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     assert set(_builtin(name)["tools"]) <= set(tools.TOOLS)
 
@@ -909,7 +909,7 @@ def test_every_tool_an_audit_skill_names_actually_exists(name):
 @pytest.mark.parametrize("name", AUDIT_SKILLS)
 def test_no_audit_skill_exceeds_the_limits(name):
     """One step per turn, so a skill longer than the cap cannot finish."""
-    from memorymap.ai import skills
+    from tessellate.ai import skills
 
     skill = _builtin(name)
     assert len(skill["steps"]) <= skills.MAX_STEPS
@@ -920,7 +920,7 @@ def test_the_health_check_cannot_change_anything():
     """"Audit" and "clean up" are two requests. The audit is safe by
     construction rather than by instruction: it is offered no tool that could
     write, so a model that ignores "do not change anything" still can't."""
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     skill = _builtin("Notebook health check")
     assert not (set(skill["tools"]) & tools.WRITE_TOOLS)
@@ -965,7 +965,7 @@ def test_fixing_links_can_both_add_and_remove():
 
 
 def test_the_audit_skills_are_offered_alongside_the_others(app_state, session):
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     listed = tools.TOOLS["list_skills"].handler(session, {})
     names = {s["name"] for s in listed["skills"]}
@@ -1116,7 +1116,7 @@ def test_no_shipped_step_names_a_tool_it_does_not_check_for():
     The one exception is the step that *forbids* the call, where requiring it
     would be the opposite of what the step is for.
     """
-    from memorymap.ai import skills as skills_mod
+    from tessellate.ai import skills as skills_mod
 
     tools = {t for sk in skills_mod.BUILTIN_SKILLS for t in (sk.get("tools") or [])}
     offenders = []
@@ -1134,7 +1134,7 @@ def test_a_step_may_not_ask_for_a_note_before_anything_has_listed_one():
     """The owner: "How can related notes be called if the model doesnt even
     know what notes there are to pick from". The first step of a skill whose
     first tool takes a note id has to be the listing, not the id."""
-    from memorymap.ai import skills as skills_mod
+    from tessellate.ai import skills as skills_mod
 
     needs_an_id = {"get_note", "related_notes", "link_notes", "unlink_notes", "tag_note"}
     for skill in skills_mod.BUILTIN_SKILLS:

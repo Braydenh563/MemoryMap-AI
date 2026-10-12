@@ -30,7 +30,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from memorymap.api.asset_strip import strip_css, strip_html, strip_js
+from tessellate.api.asset_strip import strip_css, strip_html, strip_js
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
 URL = re.compile(r"""https?://([^\s"'`)<>/:]+)[^\s"'`)<>]*""")

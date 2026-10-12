@@ -37,7 +37,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
-SRC = ROOT / "src" / "memorymap"
+SRC = ROOT / "src" / "tessellate"
 JS_DIR = ROOT / "frontend" / "js"
 CSS_DIR = ROOT / "frontend" / "css"
 INDEX = ROOT / "frontend" / "index.html"
@@ -361,7 +361,7 @@ def section1(full: bool) -> str:
             maxcx = max((r[3] for r in rows), default=0)
             per_file.append((rel(p), total, len(rows), f"{longest[0]} ({longest[2]})", over, maxcx, sum(r[3] for r in rows)))
         per_file.sort(key=lambda r: -r[1])
-        out.append(f"### 1.{1 if lang == 'python' else 2} {'Python (src/memorymap, vendor excluded)' if lang == 'python' else 'JavaScript (frontend/js)'}")
+        out.append(f"### 1.{1 if lang == 'python' else 2} {'Python (src/tessellate, vendor excluded)' if lang == 'python' else 'JavaScript (frontend/js)'}")
         tot_lines = sum(r[1] for r in per_file)
         tot_fns = sum(r[2] for r in per_file)
         out.append(f"{len(per_file)} files, {tot_lines} lines, {tot_fns} functions, {sum(r[4] for r in per_file)} over 80 lines, summed complexity {sum(r[6] for r in per_file)}.\n")
@@ -541,7 +541,7 @@ def section3() -> str:
                 skipped_routes += 1
             else:
                 pc.append((n, f, ln))
-    out.append(f"\n### 3.2 Python defs in src/memorymap: {len(py_rows)} defined, {len(pc)} candidates (excluded as called by a framework: dunder methods, {skipped_routes} decorated defs such as route handlers and validators, and SQLAlchemy type hooks)\n")
+    out.append(f"\n### 3.2 Python defs in src/tessellate: {len(py_rows)} defined, {len(pc)} candidates (excluded as called by a framework: dunder methods, {skipped_routes} decorated defs such as route handlers and validators, and SQLAlchemy type hooks)\n")
     out.append(table(["def", "file:line", "uses in tests"], [(n, f"{f}:{ln}", c[n] - prod[n]) for n, f, ln in sorted(pc, key=lambda r: (r[1], r[2]))]) if pc else "(none)")
     return "\n".join(out)
 
@@ -668,7 +668,7 @@ def section5(full: bool) -> str:
     tot = Counter()
     for c in by_file.values():
         tot.update(c)
-    out.append("### 5.1 TODO, FIXME, XXX, HACK (src/memorymap, frontend/js, frontend/css, index.html; vendor excluded)\n")
+    out.append("### 5.1 TODO, FIXME, XXX, HACK (src/tessellate, frontend/js, frontend/css, index.html; vendor excluded)\n")
     out.append(f"Totals: TODO {tot['TODO']}, FIXME {tot['FIXME']}, XXX {tot['XXX']}, HACK {tot['HACK']}.\n")
     if by_file:
         out.append(table(["file", "TODO", "FIXME", "XXX", "HACK"], [(f, c["TODO"], c["FIXME"], c["XXX"], c["HACK"]) for f, c in sorted(by_file.items(), key=lambda kv: -sum(kv[1].values()))]))
@@ -677,7 +677,7 @@ def section5(full: bool) -> str:
     for title, files in (
         ("frontend/js", js_files()),
         ("frontend/css", sorted(CSS_DIR.glob("*.css"))),
-        ("src/memorymap (vendor excluded)", [p for p in SRC.rglob("*") if p.is_file() and p.suffix == ".py" and "vendor" not in p.parts]),
+        ("src/tessellate (vendor excluded)", [p for p in SRC.rglob("*") if p.is_file() and p.suffix == ".py" and "vendor" not in p.parts]),
     ):
         top = sorted(files, key=lambda p: -p.stat().st_size)[:10]
         out.append(f"{title}:\n")

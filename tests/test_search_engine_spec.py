@@ -18,7 +18,7 @@ import pytest
 
 @pytest.fixture
 def five_thousand(session):
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     for i in range(5000):
         manager.create_entry(session, f"note {i} about topic{i % 50} and thing{i % 7}", tags=[f"t{i % 9}"])
@@ -27,8 +27,8 @@ def five_thousand(session):
 
 
 def test_every_hit_carries_three_scores(session):
-    from memorymap.entry import manager
-    from memorymap.search import engine
+    from tessellate.entry import manager
+    from tessellate.search import engine
 
     manager.create_entry(session, "bubble tea is a drink", tags=[])
     session.commit()
@@ -41,14 +41,14 @@ def test_every_hit_carries_three_scores(session):
 
 
 def test_the_index_covers_every_kind(session):
-    from memorymap.search import engine
+    from tessellate.search import engine
 
     counts = engine.index_counts(session)
     assert {"note", "document", "board", "file", "bookmark", "reminder"} <= set(counts)
 
 
 def test_operators_parse():
-    from memorymap.search.query import understand
+    from tessellate.search.query import understand
 
     u = understand('tag:work kind:document in:personal before:2026-01-01 has:file is:pinned "exact phrase" -not')
     assert u.filters["tag"] == ["work"]
@@ -59,7 +59,7 @@ def test_operators_parse():
 
 
 def test_keyword_search_is_fast_on_five_thousand(five_thousand):
-    from memorymap.search import engine
+    from tessellate.search import engine
 
     t = time.perf_counter()
     hits = engine.search(five_thousand, "topic7 thing3", ctx=None, hybrid=False)
@@ -70,7 +70,7 @@ def test_keyword_search_is_fast_on_five_thousand(five_thousand):
 def test_similarity_does_not_scan_every_vector(five_thousand, monkeypatch):
     """The matrix is built once and updated by events; a request must not
     select every EmbeddingRecord row."""
-    from memorymap.search import engine
+    from tessellate.search import engine
 
     calls = []
     monkeypatch.setattr(engine, "_load_all_vectors", lambda *a, **k: calls.append(1))

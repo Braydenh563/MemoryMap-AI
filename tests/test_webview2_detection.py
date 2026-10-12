@@ -19,14 +19,14 @@ import pytest
 
 @pytest.fixture
 def main_module(monkeypatch):
-    """Import memorymap.__main__ fresh each time, so per-test winreg fakes
+    """Import tessellate.__main__ fresh each time, so per-test winreg fakes
     do not leak between cases through Python's module cache.
     """
     monkeypatch.setattr(sys, "argv", ["memorymap"])
     for name in list(sys.modules):
-        if name == "memorymap.__main__" or name.startswith("memorymap.__main__."):
+        if name == "tessellate.__main__" or name.startswith("tessellate.__main__."):
             del sys.modules[name]
-    import memorymap.__main__ as m
+    import tessellate.__main__ as m
 
     return m
 

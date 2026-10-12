@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-SRC = Path(__file__).resolve().parent.parent / "src" / "memorymap"
+SRC = Path(__file__).resolve().parent.parent / "src" / "tessellate"
 FLAG = re.compile(r"%[-#][a-zA-Z]")
 
 

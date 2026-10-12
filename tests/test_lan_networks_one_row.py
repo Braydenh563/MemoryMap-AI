@@ -16,8 +16,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from memorymap.api.this_computer import REFUSAL
-from memorymap.core import lantrust, netid
+from tessellate.api.this_computer import REFUSAL
+from tessellate.core import lantrust, netid
 from tests.test_lan_live import PASSWORD, _here, _phone, lan_app  # noqa: F401  # the fixture
 
 FULL = netid.Network("192.168.0.1", "aa:bb:cc:dd:ee:01", "192.168.0.0/24", category="private", name="Telstra140043")
@@ -103,7 +103,7 @@ def test_trust_takes_only_records_known_to_be_the_same_router(tmp_path):
 
 
 def test_the_panel_lists_one_row_and_a_phone_still_cannot_touch_it(lan_app):  # noqa: F811
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     data_dir = deps.get_config().data_dir
     here, phone = _here(lan_app), _phone(lan_app)

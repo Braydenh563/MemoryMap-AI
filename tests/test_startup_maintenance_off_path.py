@@ -12,7 +12,7 @@ import threading
 
 from fastapi.testclient import TestClient
 
-from memorymap.api import app as app_module
+from tessellate.api import app as app_module
 
 
 def test_create_app_does_not_wait_for_the_maintenance(app_state, monkeypatch):

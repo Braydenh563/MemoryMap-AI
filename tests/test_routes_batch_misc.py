@@ -6,7 +6,7 @@ bench and tidy stops, the review queue, map nodes and the device verdict
 
 from __future__ import annotations
 
-from memorymap.api import routes_tidy
+from tessellate.api import routes_tidy
 
 
 def _category_id(client, name):

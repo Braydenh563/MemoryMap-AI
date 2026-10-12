@@ -16,7 +16,7 @@ from __future__ import annotations
 import io
 from pathlib import Path
 
-from memorymap.core import pdfpages
+from tessellate.core import pdfpages
 
 
 def _upload_pdf(client) -> int:

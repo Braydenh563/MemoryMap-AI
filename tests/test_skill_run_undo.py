@@ -19,10 +19,10 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
-from memorymap.ai import skill_runner
-from memorymap.core import events
-from memorymap.core.database import AuditLog, Entry
-from memorymap.entry import manager
+from tessellate.ai import skill_runner
+from tessellate.core import events
+from tessellate.core.database import AuditLog, Entry
+from tessellate.entry import manager
 from tests._app_js import app_js_text
 
 TAG = "ai:tag_note@qwen"

@@ -106,7 +106,7 @@ def test_a_relation_type_delete_and_restore_reach_every_space(client):
 
 
 def test_a_space_deleted_by_moving_comes_back_with_exactly_its_rows(client, session):
-    from memorymap.core.database import Category, Entry
+    from tessellate.core.database import Category, Entry
 
     source = client.post("/spaces", json={"name": "Old", "icon": "ph-star"}).json()["id"]
     target = client.post("/spaces", json={"name": "New"}).json()["id"]

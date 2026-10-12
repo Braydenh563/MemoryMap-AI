@@ -1,4 +1,4 @@
-"""The engine's budgets (Brief 39): `import memorymap.ai.composer` cold under
+"""The engine's budgets (Brief 39): `import tessellate.ai.composer` cold under
 0.2 s, `compose()` under 50 ms on the 20-note Phase 6 seed, no network."""
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ import time
 from datetime import date
 from pathlib import Path
 
-from memorymap.ai import composer
+from tessellate.ai import composer
 
 ROOT = Path(__file__).resolve().parents[1]
 SEED = json.loads((ROOT / "tests" / "fixtures" / "composer" / "phase6_seed.json").read_text(encoding="utf-8"))
@@ -21,7 +21,7 @@ QUESTIONS = (
 
 
 def test_the_composer_imports_cold_in_under_a_fifth_of_a_second():
-    code = "import time; t = time.perf_counter(); import memorymap.ai.composer; print(time.perf_counter() - t)"
+    code = "import time; t = time.perf_counter(); import tessellate.ai.composer; print(time.perf_counter() - t)"
     #: Best of five: a cold import on a loaded machine is noisy, and the
     #: budget is about what the import does, not about the machine's worst moment.
     best = min(

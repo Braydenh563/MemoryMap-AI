@@ -14,7 +14,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from memorymap.api import run_sandbox
+from tessellate.api import run_sandbox
 
 ROOT = Path(__file__).resolve().parents[1]
 JS = ROOT / "frontend" / "js"
@@ -167,7 +167,7 @@ def test_previews_are_runs_that_make_a_page():
 
 
 def test_svg_is_a_document_type_that_edits_as_xml():
-    from memorymap.core import filetypes, syntaxcheck
+    from tessellate.core import filetypes, syntaxcheck
 
     assert filetypes.normalise("svg") == "svg"
     assert "svg" in syntaxcheck.languages()
@@ -260,7 +260,7 @@ def test_a_long_run_is_a_job_in_activity_and_stops_from_it(client):
     """DOCUMENTS_PLAN 25 row 9 (decision 70): the panel lists a run still
     going, `/activity` shows it with Stop, Stop reaches the tab on its next
     renewal, and the end of the run takes the row away."""
-    from memorymap.core import activity
+    from tessellate.core import activity
 
     activity.clear()
     started = client.post("/documents/run-jobs", json={"label": "Running sketch.js"}).json()
@@ -279,8 +279,8 @@ def test_a_long_run_is_a_job_in_activity_and_stops_from_it(client):
 
 
 def test_run_jobs_are_bounded_and_leased(client):
-    from memorymap.api import run_sandbox as rs
-    from memorymap.core import activity
+    from tessellate.api import run_sandbox as rs
+    from tessellate.core import activity
 
     activity.clear()
     codes = [client.post("/documents/run-jobs", json={}).status_code for _ in range(rs.RUN_JOB_MAX + 1)]

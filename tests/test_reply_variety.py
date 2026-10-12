@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import composer, composer_replies, phrasing, vocative
+from tessellate.ai import composer, composer_replies, phrasing, vocative
 
 PROMPTS = json.loads((Path(__file__).parent / "fixtures" / "reply_variety_prompts.json").read_text(encoding="utf-8"))
 OPENER_FLOOR = 0.95
@@ -123,7 +123,7 @@ def test_nothing_found_varies_across_a_conversation(voice):
 
 @pytest.mark.parametrize("key", ["nothing", "none_found", "nothing_ask"])
 def test_nothing_found_has_eight_wordings_a_voice(key):
-    from memorymap.ai import composer_tables
+    from tessellate.ai import composer_tables
 
     for voice in composer_tables.VOICES:
         assert len(composer_tables.VOICE_VARIANTS[voice][key]) >= 8, (key, voice)
@@ -133,7 +133,7 @@ def test_nothing_found_has_eight_wordings_a_voice(key):
 def test_clarifying_and_confirming_vary(family):
     """An act's Confirm line and its "which note?" were one sentence each:
     eight a voice now, and fifty acts in a row open differently."""
-    from memorymap.ai import commands
+    from tessellate.ai import commands
 
     table = getattr(composer_replies, family)
     assert all(len(table[voice]) >= 8 for voice in ("natural", "professional"))

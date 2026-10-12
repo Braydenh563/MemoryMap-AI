@@ -9,7 +9,7 @@ gone (or whose boot grace has run out) is stale and is taken over.
 
 Everything that decides is a pure function here, tested without a server,
 a window or a launcher script. Nothing in this file runs `start.sh`,
-`start.bat` or `python -m memorymap` (CLAUDE.md's trap about scripts that can
+`start.bat` or `python -m tessellate` (CLAUDE.md's trap about scripts that can
 delete things).
 """
 
@@ -22,7 +22,7 @@ import pytest
 
 from fastapi.testclient import TestClient
 
-from memorymap.core import instance_lock as il
+from tessellate.core import instance_lock as il
 
 
 
@@ -31,7 +31,7 @@ def _no_reminder_notifier(monkeypatch):
     """`_run_desktop` starts the reminder notifier; a test of the window must
     not post a real notification or leave a thread polling another test's
     database."""
-    from memorymap.core import reminder_notifier
+    from tessellate.core import reminder_notifier
 
     monkeypatch.setattr(reminder_notifier, "pick_backend", lambda: None)
 
@@ -152,7 +152,7 @@ def test_the_new_window_setting_defaults_to_off(client):
 
 
 def test_the_focus_route_needs_the_lock_token(app_state, tmp_path):
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     focused = []
     il.claim(tmp_path, 8000)
@@ -173,7 +173,7 @@ def test_the_focus_route_needs_the_lock_token(app_state, tmp_path):
 def test_the_focus_route_says_when_there_is_no_window(app_state, tmp_path):
     """A server started in browser mode has no window to bring forward; the
     second launch is then told so and opens a window onto it instead."""
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     il.claim(tmp_path, 8000)
     try:
@@ -185,7 +185,7 @@ def test_the_focus_route_says_when_there_is_no_window(app_state, tmp_path):
 
 
 def test_the_focus_route_refuses_when_nothing_was_claimed(app_state):
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     il.release()
     client = TestClient(create_app())
@@ -198,12 +198,12 @@ def test_the_focus_route_refuses_when_nothing_was_claimed(app_state):
 # tests use, and with the probes replaced, so nothing here opens a socket to a
 # real server or starts one.
 
-import memorymap.__main__ as launcher  # noqa: E402
+import tessellate.__main__ as launcher  # noqa: E402
 from tests.test_desktop_launcher import _fake_webview  # noqa: E402
 
 
 def _running_lock(tmp_path, monkeypatch, port=8765):
-    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("TESSELLATE_DATA_DIR", str(tmp_path))
     lock = il.new_lock(port, pid=1, now=0.0)
     il.write_lock(il.lock_path(tmp_path), lock)
     monkeypatch.setattr(il, "answers", lambda p, host="127.0.0.1", timeout=1.5: p == port)
@@ -239,7 +239,7 @@ def test_a_second_launch_opens_a_window_onto_a_windowless_server(monkeypatch, tm
 
 
 def test_the_new_window_setting_opens_another_window_onto_the_same_server(monkeypatch, tmp_path):
-    from memorymap.core.config import ConfigManager
+    from tessellate.core.config import ConfigManager
 
     lock, started = _running_lock(tmp_path, monkeypatch)
     ConfigManager(str(tmp_path)).set_preference("new_window_on_launch", True)
@@ -255,7 +255,7 @@ def test_the_new_window_setting_opens_another_window_onto_the_same_server(monkey
 
 
 def test_a_stale_lock_launches_normally_and_is_replaced(monkeypatch, tmp_path):
-    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("TESSELLATE_DATA_DIR", str(tmp_path))
     il.write_lock(il.lock_path(tmp_path), il.new_lock(8765, pid=1, now=0.0))
     monkeypatch.setattr(il, "answers", lambda p, host="127.0.0.1", timeout=1.5: False)
     monkeypatch.setattr(il, "pid_alive", lambda pid: False)
@@ -293,8 +293,8 @@ def test_every_abrupt_exit_lets_go_of_the_lock(tmp_path, monkeypatch):
     `_stop_background_work` first, so that is where the lock goes. Left
     behind, it named a dead pid that Windows soon reuses, and a restart's
     new process could read the dying server as live."""
-    from memorymap import __main__ as launcher
-    from memorymap.core import bgtasks
+    from tessellate import __main__ as launcher
+    from tessellate.core import bgtasks
 
     monkeypatch.setattr(bgtasks, "stop_all", lambda *a, **k: None)
     il.claim(tmp_path, 8123)
@@ -313,7 +313,7 @@ def test_the_lock_is_claimed_before_the_window_shows(monkeypatch, tmp_path):
     and a second of imports later, so both launches read "none" and both
     started a server on one data directory. It now happens before the
     window exists."""
-    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("TESSELLATE_DATA_DIR", str(tmp_path))
     monkeypatch.setattr(launcher, "_run_server", lambda: None)
     monkeypatch.setattr(launcher, "_desktop_port", lambda: 8765)
     monkeypatch.setattr(launcher, "PORT", 8000)
@@ -333,7 +333,7 @@ def test_the_lock_is_claimed_before_the_window_shows(monkeypatch, tmp_path):
     assert seen["lock"] is not None, "no lock existed when the window opened"
     assert seen["lock"].pid == os.getpid() and seen["lock"].port == 8765
     assert launcher.PORT == 8765, "the lock names a port the server does not use"
-    assert os.environ["MEMORYMAP_PORT"] == "8765"
+    assert os.environ["TESSELLATE_PORT"] == "8765"
     assert il.read_lock(il.lock_path(tmp_path)) is None, "released when the window closed"
 
 

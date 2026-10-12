@@ -13,7 +13,7 @@ import time
 
 import pytest
 
-from memorymap.api import routes_update
+from tessellate.api import routes_update
 
 
 @pytest.fixture(autouse=True)
@@ -341,7 +341,7 @@ def test_an_asset_pointing_off_the_release_hosts_is_never_downloaded(
 
 
 def test_the_allowed_hosts_are_https_only():
-    from memorymap.api.routes_update import _download_url_is_allowed
+    from tessellate.api.routes_update import _download_url_is_allowed
 
     assert _download_url_is_allowed(
         "https://objects.githubusercontent.com/x/MemoryMap-AI-Setup-1.0.0.exe"

@@ -9,8 +9,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from pathlib import Path
 
-from memorymap.ai import offers
-from memorymap.core.database import Category, Entry
+from tessellate.ai import offers
+from tessellate.core.database import Category, Entry
 
 ROOT = Path(__file__).resolve().parents[1]
 NOW = datetime(2026, 10, 10, 14, 0, tzinfo=timezone.utc)

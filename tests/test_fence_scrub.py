@@ -8,7 +8,7 @@ when a marker is split across deltas.
 
 import json
 
-from memorymap.ai.fence import AnswerScrubber
+from tessellate.ai.fence import AnswerScrubber
 
 
 def _scrub(deltas):

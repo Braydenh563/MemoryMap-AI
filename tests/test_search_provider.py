@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.search import websearch
+from tessellate.search import websearch
 
 
 @pytest.fixture(autouse=True)
@@ -144,7 +144,7 @@ def test_the_search_route_uses_the_chosen_engine(client, monkeypatch):
 
 def test_the_agent_tool_uses_the_same_choice(session, app_state, monkeypatch):
     """Two readers of one setting is how the tool ended up ignoring it."""
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     seen = {}
 
@@ -164,7 +164,7 @@ def test_the_agent_tool_uses_the_same_choice(session, app_state, monkeypatch):
 
 
 def test_websearch_tool_hidden_until_opted_in(client):
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     names = [t["function"]["name"] for t in tools.ollama_tools()]
     assert "web_search" not in names
@@ -175,7 +175,7 @@ def test_websearch_tool_hidden_until_opted_in(client):
 
 
 def test_websearch_tool_refuses_when_disabled(client, session):
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     # web_search is gated off until the online opt-in, routed through the
     # shared tool_enabled check → "turned off" message.

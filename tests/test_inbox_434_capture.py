@@ -78,7 +78,7 @@ def test_the_palettes_enter_does_not_reach_the_box_it_opens():
 
 
 def test_inline_tags_are_read_from_the_text():
-    from memorymap.entry.tagnames import inline_tags
+    from tessellate.entry.tagnames import inline_tags
 
     text = (
         "Recipe #cooking and #soup\n# Heading\n#42 https://a.com/p#sec &#39; ##x "

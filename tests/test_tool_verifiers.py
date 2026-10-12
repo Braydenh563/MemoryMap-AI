@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import tools
-from memorymap.ai.tools import contracts, verify
+from tessellate.ai import tools
+from tessellate.ai.tools import contracts, verify
 
 
 def test_every_write_tool_has_a_verifier():
@@ -59,11 +59,11 @@ def test_every_verifier_has_a_false_claim_case():
 
 @pytest.mark.parametrize("name", sorted(FALSE_CLAIMS))
 def test_a_verifier_refuses_what_the_notebook_does_not_show(app_state, name):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     args, result = dict(FALSE_CLAIMS[name][0]), dict(FALSE_CLAIMS[name][1])
     if name == "delete_document":
-        from memorymap.core.database import Document
+        from tessellate.core.database import Document
 
         with deps.get_db().session() as session:
             document = Document(title="Kept", content="x")
@@ -76,8 +76,8 @@ def test_a_verifier_refuses_what_the_notebook_does_not_show(app_state, name):
 
 
 def test_a_deleted_item_still_there_is_refused(app_state):
-    from memorymap.core import deps
-    from memorymap.entry import manager
+    from tessellate.core import deps
+    from tessellate.entry import manager
 
     with deps.get_db().session() as session:
         entry = manager.create_entry(session, "on a board", "Work", [])
@@ -87,7 +87,7 @@ def test_a_deleted_item_still_there_is_refused(app_state):
 
 
 def test_a_deleted_skill_still_saved_is_refused(app_state):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     deps.get_config().set_preference("skills", [{"name": "Mine", "prompt": "x"}])
     with deps.get_db().session() as session:
@@ -97,7 +97,7 @@ def test_a_deleted_skill_still_saved_is_refused(app_state):
 
 def test_a_true_claim_passes_through_execute_tool(app_state):
     """The happy path is untouched: a real write comes back as written."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     with deps.get_db().session() as session:
         made = tools.execute_tool(session, "create_document", {"title": "Plan", "content": "Steps."})
@@ -107,7 +107,7 @@ def test_a_true_claim_passes_through_execute_tool(app_state):
 
 
 def test_a_verifier_fault_never_costs_the_write(app_state, monkeypatch):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     def broken(*_args):
         raise RuntimeError("checker bug")

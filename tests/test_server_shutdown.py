@@ -41,7 +41,7 @@ import socket
 import threading
 import time
 
-from memorymap.__main__ import _stop_lingering_worker_threads
+from tessellate.__main__ import _stop_lingering_worker_threads
 
 
 def _free_port() -> int:
@@ -142,7 +142,7 @@ def test_a_leftover_non_daemon_worker_thread_is_cleared_by_the_fix(app_state) ->
     the proof never depends on scheduling luck. If this fails,
     `_stop_lingering_worker_threads` (called from `_run_server`) has become a
     no-op, not a broken test."""
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     for _ in range(_REPRODUCE_ATTEMPTS):
         before = _anyio_worker_threads()

@@ -12,8 +12,8 @@ import json
 
 import pytest
 
-from memorymap.ai import ollama_client as oc
-from memorymap.ai.provider import ToolsUnsupportedError, tools_unsupported_message
+from tessellate.ai import ollama_client as oc
+from tessellate.ai.provider import ToolsUnsupportedError, tools_unsupported_message
 
 TOOLS = [{"type": "function", "function": {"name": "search_notes", "parameters": {"type": "object", "properties": {}}}}]
 OK_BODY = {"message": {"role": "assistant", "content": "done", "tool_calls": []}, "done": True}

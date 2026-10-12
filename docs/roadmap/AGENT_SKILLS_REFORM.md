@@ -26,7 +26,7 @@ open.
 
 ## What the code actually does today
 
-`src/memorymap/ai/skill_runner.py` (466 lines) runs a skill as a fixed list of
+`src/tessellate/ai/skill_runner.py` (466 lines) runs a skill as a fixed list of
 prose steps. Per step it opens a tool loop with a round budget, then closes the
 step on one of five outcomes: `done`, `stalled` (ran out of rounds), `failed`
 (a tool errored and there was no answer), a no-op (`not answer and not
@@ -146,8 +146,8 @@ has. One decision, recorded on 2026-09-20 so it is not remade:
 1. **A real model reaches the tests through two environment variables, not a
    pytest option.** WORLD_CLASS_PLAN 9 guessed at `pytest -m evals --real`. A
    custom option needs a `conftest` hook that every run of the suite then
-   carries, and it cannot say *which* model answered. `MEMORYMAP_EVALS_URL`
-   and `MEMORYMAP_EVALS_MODEL`, read at import time by the eval module, need
+   carries, and it cannot say *which* model answered. `TESSELLATE_EVALS_URL`
+   and `TESSELLATE_EVALS_MODEL`, read at import time by the eval module, need
    no plugin, name the model in the failure message, and make "every eval
    skipped" the default rather than a flag somebody has to remember not to
    pass.
@@ -344,8 +344,8 @@ retry were not looked at in a browser (no UI changed: they are answer text).
 
 ## Placed from Brief 40, 2026-10-10 (does the MCP server work)
 
-**Measured.** `python -m memorymap.mcp_server` under the project venv with a
-scratch `MEMORYMAP_DATA_DIR` answered `initialize`, `tools/list` and two
+**Measured.** `python -m tessellate.mcp_server` under the project venv with a
+scratch `TESSELLATE_DATA_DIR` answered `initialize`, `tools/list` and two
 `tools/call`s (`list_categories`, `search_notes`) correctly in 1.6 s with the
 embedder cached. It lists **56** tools of the registry's 67: the 9 destructive
 ones are withheld by design and two more are turned off by the
@@ -426,7 +426,7 @@ moved to HISTORY.md ("Moved from the plans, 2026-10-11 (AGENT_SKILLS_REFORM
 Phase E, Brief 54)"). **Open: the measured table.** No llama-server or model
 file in the agent sandbox (`llama-dev.sh check`: both missing), so no rate is
 measured and `ai/data/skill_rates.json` ships empty (nothing is labelled). To
-fill it: `MEMORYMAP_EVALS_RATES=/tmp/rates.json pytest -m evals
+fill it: `TESSELLATE_EVALS_RATES=/tmp/rates.json pytest -m evals
 tests/test_skills_evals.py -k fixture` on the dev model, copy its `classes`
 into the shipped file, and the rows here:
 

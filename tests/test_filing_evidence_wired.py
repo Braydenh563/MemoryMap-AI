@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import janitor, learning, librarian
-from memorymap.entry import manager
+from tessellate.ai import janitor, learning, librarian
+from tessellate.entry import manager
 
 
 def _filed(session, text, category, *, private=False):
@@ -66,7 +66,7 @@ def test_a_correction_that_reads_like_the_note_is_in_the_prompt_once(app_state, 
 
 def test_the_switch_that_silences_corrections_silences_the_evidence(app_state, session, monkeypatch):
     _filed(session, "fixed the flaky retry in the payments worker", "Work")
-    monkeypatch.setattr("memorymap.ai.facts.runner_enabled", lambda name: False)
+    monkeypatch.setattr("tessellate.ai.facts.runner_enabled", lambda name: False)
     prompt = librarian.filing_prompt(session, "payments worker retry", ["Work"])
     assert "is in Work" not in prompt
 

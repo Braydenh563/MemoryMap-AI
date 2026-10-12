@@ -10,9 +10,9 @@ from datetime import date, datetime
 from pathlib import Path
 
 from tests import _gold
-from memorymap.ai import verdicts
-from memorymap.core.database import Entry
-from memorymap.entry import manager
+from tessellate.ai import verdicts
+from tessellate.core.database import Entry
+from tessellate.entry import manager
 from tests.test_composer_route_688 import _ask
 
 ROOT = Path(__file__).resolve().parents[1]

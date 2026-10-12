@@ -14,7 +14,7 @@ import time
 
 import pytest
 
-from memorymap.ai import followups
+from tessellate.ai import followups
 
 N = 20_000
 BUDGET = 0.02  # seconds; the quadratic forms took 0.5 to 10 s

@@ -1,7 +1,7 @@
 """The taxonomy pack's own tests (WORLD_CLASS_PLAN 23, decision 1: "its
 tests come with it"), carried from the pack's `test_memorymap_taxonomy.py`
 (5.0.0, 64 methods) with only the imports and the data paths changed: the
-pack's JSON is under `src/memorymap/ai/data/taxonomy/`, its provenance copy
+pack's JSON is under `src/tessellate/ai/data/taxonomy/`, its provenance copy
 of the original vocabulary under `tests/fixtures/taxonomy/`. The names the
 pack exposes as module constants are read through the module's lazy
 attributes, so importing it reads no data.
@@ -11,8 +11,8 @@ import json
 import unittest
 from pathlib import Path
 
-from memorymap.ai import taxonomy
-from memorymap.ai.taxonomy import (
+from tessellate.ai import taxonomy
+from tessellate.ai.taxonomy import (
     DATA_DIR, analyze_note, audit_taxonomy, build_alias_index, extract_categories,
     extract_dynamic_categories, extract_entities, extract_keywords, extract_occupations,
     merge_reviewed_topic_terms, merge_taxonomy, normalize_text, reload_taxonomy,

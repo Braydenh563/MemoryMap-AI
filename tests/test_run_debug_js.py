@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.api import run_sandbox
+from tessellate.api import run_sandbox
 
 ROOT = Path(__file__).resolve().parents[1]
 CM_JS = ROOT / "frontend" / "vendor" / "codemirror" / "codemirror.min.js"

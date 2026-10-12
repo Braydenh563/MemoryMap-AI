@@ -12,8 +12,8 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from memorymap.ai import speakers, voice
-from memorymap.core import transcript
+from tessellate.ai import speakers, voice
+from tessellate.core import transcript
 
 HERE = Path(__file__).parent / "fixtures" / "meetings"
 SEGMENTS = transcript.clean(json.loads((HERE / "launch_sync.segments.json").read_text()))
@@ -70,7 +70,7 @@ def _recording(client) -> int:
 
 
 def test_with_a_model_the_transcript_carries_speakers(app_state, fake_ollama, monkeypatch) -> None:
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     monkeypatch.setattr(voice, "whisper_available", lambda: True)
     monkeypatch.setattr(voice, "transcribe_segments", lambda path, model_size="base": SEGMENTS)
@@ -100,7 +100,7 @@ def test_with_no_model_nothing_is_labelled(client, monkeypatch) -> None:
 
 def test_a_speaker_is_renamed_everywhere_without_a_model(app_state, fake_ollama, monkeypatch) -> None:
     """Ledger 1514: PUT /recordings/{id}/speakers changes one label on every turn it names."""
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     monkeypatch.setattr(voice, "whisper_available", lambda: True)
     monkeypatch.setattr(voice, "transcribe_segments", lambda path, model_size="base": SEGMENTS)

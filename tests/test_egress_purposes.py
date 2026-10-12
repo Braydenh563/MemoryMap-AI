@@ -10,7 +10,7 @@ import threading
 
 import pytest
 
-from memorymap.core import egress
+from tessellate.core import egress
 
 
 @pytest.fixture(autouse=True)
@@ -85,9 +85,9 @@ def test_the_ledger_on_disk_keeps_purposes_across_flushes(tmp_path):
 
 
 def test_the_outbound_call_sites_name_their_purpose():
-    from memorymap.api import routes_update
-    from memorymap.core import webclip
-    from memorymap.search import searxng_install, websearch
+    from tessellate.api import routes_update
+    from tessellate.core import webclip
+    from tessellate.search import searxng_install, websearch
 
     for func in (
         websearch.search_web,
@@ -110,10 +110,10 @@ def test_the_address_guard_names_the_feature_it_checked_for():
     def record():  # where `_record` sits, so `_caller` skips the same frames
         seen.append(egress._caller())
 
-    guard = {"__name__": "memorymap.core.security", "record": record}
+    guard = {"__name__": "tessellate.core.security", "record": record}
     exec("def check():\n    return record()", guard)
-    feature = {"__name__": "memorymap.core.webclip", "check": guard["check"]}
+    feature = {"__name__": "tessellate.core.webclip", "check": guard["check"]}
     exec("def fetch():\n    return check()", feature)
     feature["fetch"]()
     guard["check"]()
-    assert seen == ["memorymap.core.webclip", "memorymap.core.security"]
+    assert seen == ["tessellate.core.webclip", "tessellate.core.security"]

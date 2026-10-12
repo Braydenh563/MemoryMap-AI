@@ -130,7 +130,7 @@ def test_windows_msi_filename_carries_name_version_platform_and_arch():
     job = _job("build-windows-installer")
     msi_step = job[job.index("Build the .msi installer") : job.index("Upload installers to the release")]
     assert "MemoryMap-AI-" in msi_step, "the MSI filename is missing the app name"
-    assert "$env:MEMORYMAP_VERSION" in msi_step, "the MSI filename is missing the version"
+    assert "$env:TESSELLATE_VERSION" in msi_step, "the MSI filename is missing the version"
     assert "windows-x86_64" in msi_step, "the MSI filename is missing the platform/arch"
     assert msi_step.count(".msi") >= 1, "the built file is missing the .msi extension"
 
@@ -189,7 +189,7 @@ def test_installer_wxs_matches_the_exe_installer_on_name_publisher_and_version()
         "the MSI's manufacturer must match the .exe installer's AppPublisher"
     )
     # Both installers take their version from the same workflow output
-    # (needs.resolve-version.outputs.version / $MEMORYMAP_VERSION), so a
+    # (needs.resolve-version.outputs.version / $TESSELLATE_VERSION), so a
     # release always ships an .exe and an .msi carrying the same number.
     assert "$(var.Version)" in text, "the MSI's version must come from the build-time Version variable"
 
@@ -225,7 +225,7 @@ def test_installer_wxs_is_per_machine_with_a_start_menu_shortcut_and_no_data_del
 # it is plain Python, not a PyInstaller build).
 
 INSTALLER_ISS = (ROOT / "packaging" / "windows" / "installer.iss").read_text(encoding="utf-8")
-MAIN_PY = ROOT / "src" / "memorymap" / "__main__.py"
+MAIN_PY = ROOT / "src" / "tessellate" / "__main__.py"
 
 
 def test_a_repair_shortcut_exists_beside_the_ordinary_one():

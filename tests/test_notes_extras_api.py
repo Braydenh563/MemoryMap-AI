@@ -11,7 +11,7 @@ import io
 
 import pytest
 
-from memorymap.core import deps
+from tessellate.core import deps
 from tests._app_js import app_js_text
 
 
@@ -217,7 +217,7 @@ def test_rename_file_collision_is_rejected(client):
 
 
 def test_rename_file_on_private_note_is_refused(client, session):
-    from memorymap.core import vault
+    from tessellate.core import vault
 
     vault.close()
     vault.create(session, "test-passphrase")
@@ -366,7 +366,7 @@ def test_builtin_template_names_match_the_frontend():
     to one side without the other fails the build."""
     import re
 
-    from memorymap.api.routes_settings import BUILTIN_TEMPLATE_NAMES
+    from tessellate.api.routes_settings import BUILTIN_TEMPLATE_NAMES
 
     app_js = app_js_text()
     block = app_js[app_js.index("const BUILTIN_TEMPLATES = [") :]

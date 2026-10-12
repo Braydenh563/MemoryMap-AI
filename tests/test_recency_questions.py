@@ -6,7 +6,7 @@ edited)."""
 import time
 from pathlib import Path
 
-from memorymap.search import search_manager
+from tessellate.search import search_manager
 
 
 def test_a_recency_question_is_read_as_an_order():
@@ -35,7 +35,7 @@ def test_the_prompt_dates_each_note():
     from datetime import datetime, timezone
     from types import SimpleNamespace
 
-    from memorymap.api import routes_chat
+    from tessellate.api import routes_chat
 
     entry = SimpleNamespace(
         created_at=datetime(2026, 9, 3, 10, tzinfo=timezone.utc),
@@ -48,7 +48,7 @@ def test_the_prompt_dates_each_note():
 
 
 def test_the_newest_is_marked_in_the_prompt():
-    from memorymap.ai import librarian
+    from tessellate.ai import librarian
 
     notes = [
         {"content": "the newest", "category": "Misc", "written": "Saturday 3 October 2026, 09:56", "newest": True},
@@ -64,7 +64,7 @@ def test_the_recency_pattern_stays_linear_on_long_whitespace():
     # CodeQL 443: `\s*[?.!]?\s*$` backtracked polynomially on a run of tabs.
     import time
 
-    from memorymap.search.search_manager import _RECENCY_ASK, is_recency_ask
+    from tessellate.search.search_manager import _RECENCY_ASK, is_recency_ask
 
     # CodeQL 445: the same after "what did I add lately" and a run of tabs.
     for hostile in ("wrote last" + "\t" * 20000 + "x", "what\tdid\ti\tadd\tlately" + "\t" * 20000 + "x"):
@@ -96,7 +96,7 @@ def test_a_notes_time_words_reach_the_model_with_their_dates():
     and read it as this week's Friday."""
     from datetime import datetime
 
-    from memorymap.ai import librarian
+    from tessellate.ai import librarian
 
     note = {
         "category": "Academics",
@@ -115,11 +115,11 @@ def test_every_note_path_carries_time_words_with_their_distance():
     and the digest all say what a note's time words meant, relative to today."""
     from datetime import date
 
-    from memorymap.core.config import days_from_today
+    from tessellate.core.config import days_from_today
 
     assert days_from_today(date(2026, 9, 25), date(2026, 10, 3)) == "8 days ago"
     assert days_from_today(date(2026, 10, 4), date(2026, 10, 3)) == "tomorrow"
-    root = Path(__file__).resolve().parent.parent / "src" / "memorymap"
+    root = Path(__file__).resolve().parent.parent / "src" / "tessellate"
     assert "librarian._dates_hint(note)" in (root / "ai" / "agent.py").read_text(encoding="utf-8")
     assert '"when": days_from_today(' in (root / "ai" / "tools" / "_common.py").read_text(encoding="utf-8")
     assert "days_from_today(d.at.date(), now.date())" in (root / "api" / "routes_insights.py").read_text(encoding="utf-8")
@@ -129,7 +129,7 @@ def test_every_note_path_carries_time_words_with_their_distance():
 def test_with_no_ai_a_recency_question_lists_the_newest_notes():
     """With no model, "What have I saved recently?" said the notes did not
     share enough with the question to quote; the answer is the list."""
-    from memorymap.ai import extractive
+    from tessellate.ai import extractive
 
     notes = [
         {"id": 3, "content": "Grocery list: milk and eggs\nfor Friday", "written": "Saturday 3 October 2026, 09:10"},

@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import budget, skills
-from memorymap.core import deps
+from tessellate.ai import budget, skills
+from tessellate.core import deps
 from tests._skill_run import run_for_test
 
 

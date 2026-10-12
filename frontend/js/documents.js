@@ -6618,7 +6618,7 @@ function docRevealBlock(blockId) {
 // The model is pure string work with no DOM and no app globals, so
 // `tests/test_doc_comments.py` runs it in node, the same way the table,
 // frontmatter, columns and block-reference models are tested. The footnote
-// conversion exists twice, here and in `src/memorymap/core/docexport.py`
+// conversion exists twice, here and in `src/tessellate/core/docexport.py`
 // (the server exports cannot call into this file), and that test runs both
 // over one fixture and asserts the two agree byte for byte.
 

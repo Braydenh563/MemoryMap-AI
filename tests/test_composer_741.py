@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import re
 
-from memorymap.ai import composer
+from tessellate.ai import composer
 from tests.test_composer_688 import _note, assert_traceable, TODAY
 
 UNTITLED = [

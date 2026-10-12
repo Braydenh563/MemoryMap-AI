@@ -40,5 +40,5 @@ def test_the_lock_form_waits_while_the_device_is_pending():
 
 
 def test_the_server_still_marks_a_held_device():
-    source = (Path(__file__).resolve().parents[1] / "src/memorymap/api/routes_auth.py").read_text(encoding="utf-8")
+    source = (Path(__file__).resolve().parents[1] / "src/tessellate/api/routes_auth.py").read_text(encoding="utf-8")
     assert '"device_pending": decision is None' in source

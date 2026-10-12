@@ -15,8 +15,8 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from memorymap.core.database import Entry
-from memorymap.entry import manager
+from tessellate.core.database import Entry
+from tessellate.entry import manager
 
 TODAY = datetime.now().replace(hour=10, minute=0, second=0, microsecond=0)
 

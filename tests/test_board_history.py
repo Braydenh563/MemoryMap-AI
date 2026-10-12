@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 
-from memorymap.core.database import AuditLog
+from tessellate.core.database import AuditLog
 
 
 def _board(client, name="History board", kind="board"):
@@ -92,7 +92,7 @@ def test_moments_group_a_sitting_and_count_what_it_did(client):
 def test_moments_split_after_two_minutes_and_page(client, app_state):
     from datetime import timedelta
 
-    from memorymap.core.deps import get_db
+    from tessellate.core.deps import get_db
 
     board = _board(client)
     bid = board["id"]
@@ -195,7 +195,7 @@ def test_a_compacted_moment_is_listed_but_not_shown(client):
     a = _sketch(client, bid, {"d": _rect(0, 0), "label": "x"})
     first = _last_event(client)
     client.put(f"/whiteboard/sketches/{a['id']}", json={"data": json.dumps({"d": _rect(0, 0), "label": "y"}), "board_id": bid, "x": 0, "y": 0, "z": 1})
-    from memorymap.core.deps import get_db
+    from tessellate.core.deps import get_db
 
     session = get_db().session()
     try:

@@ -13,9 +13,9 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import capability, intent
-from memorymap.core import deps
-from memorymap.search import websearch
+from tessellate.ai import capability, intent
+from tessellate.core import deps
+from tessellate.search import websearch
 from tests.test_composer_route_688 import _ask
 
 EVAL = json.loads((Path(__file__).parent / "fixtures/composer/capability_1011.json").read_text(encoding="utf-8"))

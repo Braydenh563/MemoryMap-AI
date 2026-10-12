@@ -23,8 +23,8 @@ import time
 import pytest
 from sqlalchemy import event
 
-from memorymap.core import deps
-from memorymap.entry import manager
+from tessellate.core import deps
+from tessellate.entry import manager
 
 #: route: (statement budget, seconds). Measured 2026-10-05 on the fixture
 #: below; the statement figure in each comment is what was measured.
@@ -95,7 +95,7 @@ def test_each_route_stays_inside_its_budget(notebook, path):
 
 def test_a_deliberate_regression_is_caught(notebook, monkeypatch):
     """The gate's own proof: the same route made N+1 fails its budget."""
-    from memorymap.api import routes_entries
+    from tessellate.api import routes_entries
 
     real = routes_entries._to_out_bulk
 

@@ -17,7 +17,7 @@ import re
 import time
 from pathlib import Path
 
-from memorymap.api import routes_entries
+from tessellate.api import routes_entries
 
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend"

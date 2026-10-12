@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import time
 
-from memorymap.ai import tagging
+from tessellate.ai import tagging
 
 
 def _settled(client, entry_id, timeout=10.0):

@@ -11,8 +11,8 @@ import json
 import zipfile
 from pathlib import Path
 
-from memorymap.core.database import Entry, EntryDate
-from memorymap.entry import app_import
+from tessellate.core.database import Entry, EntryDate
+from tessellate.entry import app_import
 
 ROOT = Path(__file__).resolve().parents[1]
 SET = json.loads((ROOT / "tests/fixtures/import/dated_1010.json").read_text(encoding="utf-8"))

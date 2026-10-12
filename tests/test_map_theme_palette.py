@@ -17,7 +17,7 @@ Three things the first half of the theme left open, each gated here:
 
 from __future__ import annotations
 
-from memorymap.api.routes_whiteboard import (
+from tessellate.api.routes_whiteboard import (
     MAP_APP_DEFAULT_PINS,
     MAP_BRANCH_PALETTE,
     MAP_BRANCH_PALETTES,
@@ -93,7 +93,7 @@ def test_eight_curated_palettes_and_the_picker_offers_each():
     import re
     from pathlib import Path
 
-    from memorymap.api.routes_whiteboard import MAP_THEME_FIELDS
+    from tessellate.api.routes_whiteboard import MAP_THEME_FIELDS
 
     assert len(MAP_BRANCH_PALETTES) == 8
     assert set(MAP_BRANCH_PALETTES) - {"classic"} == set(MAP_THEME_FIELDS["palette"])

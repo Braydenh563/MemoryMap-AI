@@ -5,9 +5,9 @@ from __future__ import annotations
 
 from datetime import date
 
-from memorymap.ai import composer
-from memorymap.core.database import MediaUpload
-from memorymap.entry import manager
+from tessellate.ai import composer
+from tessellate.core.database import MediaUpload
+from tessellate.entry import manager
 from tests.test_composer_route_688 import _ask
 
 TODAY = date(2026, 10, 6)

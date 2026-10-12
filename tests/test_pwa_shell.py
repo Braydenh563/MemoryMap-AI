@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap import __version__
+from tessellate import __version__
 
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend"
@@ -432,7 +432,7 @@ def test_the_install_prompt_is_held_and_the_row_follows_installed_state():
 
 
 def test_the_install_row_has_a_guide_topic():
-    from memorymap.ai import help_topics_more as more
+    from tessellate.ai import help_topics_more as more
 
     topic = next(t for t in more.EXTRA_TOPICS if t["id"] == "install-app") if hasattr(more, "EXTRA_TOPICS") else None
     if topic is None:  # the list's name is not part of this test's contract

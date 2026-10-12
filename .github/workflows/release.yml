@@ -63,14 +63,14 @@ jobs:
             VERSION="${GITHUB_REF_NAME#v}"
           fi
           # The tag must say what the code says: the app reports
-          # src/memorymap/__init__.py's __version__ (About, /health, the
+          # src/tessellate/__init__.py's __version__ (About, /health, the
           # updater's comparison), and installer.iss stamps the installer
           # with it. A tag that disagrees stops the release here, before
           # anything is built or published, rather than shipping v0.4.0
           # that calls itself 0.3.32 and offers itself as an update forever.
-          CODE=$(sed -nE 's/^__version__ = "([^"]+)"/\1/p' src/memorymap/__init__.py)
+          CODE=$(sed -nE 's/^__version__ = "([^"]+)"/\1/p' src/tessellate/__init__.py)
           if [ "$VERSION" != "$CODE" ]; then
-            echo "::error::release version $VERSION does not match __version__ $CODE in src/memorymap/__init__.py"
+            echo "::error::release version $VERSION does not match __version__ $CODE in src/tessellate/__init__.py"
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -172,8 +172,8 @@ jobs:
       - name: Smoke test the frozen app
         shell: bash
         env:
-          MEMORYMAP_DATA_DIR: ${{ runner.temp }}/mm-smoke
-          MEMORYMAP_PORT: "8765"
+          TESSELLATE_DATA_DIR: ${{ runner.temp }}/mm-smoke
+          TESSELLATE_PORT: "8765"
         # The same smoke package-check.yml runs (packaging/frozen_smoke.py):
         # every asset, the lazy bundles included, and the API on a fresh
         # data dir. A release that cannot serve one of them does not happen.
@@ -182,7 +182,7 @@ jobs:
           pid=$!
           failed=0
           python packaging/frozen_smoke.py --base http://127.0.0.1:8765 \
-            --data-dir "$MEMORYMAP_DATA_DIR" --log "$MEMORYMAP_DATA_DIR/logs/desktop-stdio.log" || failed=1
+            --data-dir "$TESSELLATE_DATA_DIR" --log "$TESSELLATE_DATA_DIR/logs/desktop-stdio.log" || failed=1
           kill $pid || true
           exit $failed
 
@@ -192,10 +192,10 @@ jobs:
       - name: Build the .exe installer (Inno Setup)
         shell: pwsh
         env:
-          MEMORYMAP_VERSION: ${{ needs.resolve-version.outputs.version }}
+          TESSELLATE_VERSION: ${{ needs.resolve-version.outputs.version }}
         run: |
-          $version = (Select-String -Path src\memorymap\__init__.py -Pattern '^__version__ = "([^"]+)"').Matches[0].Groups[1].Value
-          if (-not $version) { throw "no __version__ line in src\memorymap\__init__.py" }
+          $version = (Select-String -Path src\tessellate\__init__.py -Pattern '^__version__ = "([^"]+)"').Matches[0].Groups[1].Value
+          if (-not $version) { throw "no __version__ line in src\tessellate\__init__.py" }
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$version" packaging\windows\installer.iss
           if ($LASTEXITCODE -ne 0) { throw "ISCC exited $LASTEXITCODE" }
 
@@ -223,12 +223,12 @@ jobs:
         if: false
         shell: pwsh
         env:
-          MEMORYMAP_VERSION: ${{ needs.resolve-version.outputs.version }}
+          TESSELLATE_VERSION: ${{ needs.resolve-version.outputs.version }}
         run: |
           wix build packaging\windows\installer.wxs -arch x64 `
-            -d Version=$env:MEMORYMAP_VERSION `
+            -d Version=$env:TESSELLATE_VERSION `
             -d DistDir="dist\MemoryMap AI" `
-            -o "dist\installer\MemoryMap-AI-$env:MEMORYMAP_VERSION-windows-x86_64.msi"
+            -o "dist\installer\MemoryMap-AI-$env:TESSELLATE_VERSION-windows-x86_64.msi"
 
       - name: Upload installers to the release
         uses: softprops/action-gh-release@v3
@@ -287,8 +287,8 @@ jobs:
       - name: Smoke test the frozen app
         shell: bash
         env:
-          MEMORYMAP_DATA_DIR: ${{ runner.temp }}/mm-smoke
-          MEMORYMAP_PORT: "8765"
+          TESSELLATE_DATA_DIR: ${{ runner.temp }}/mm-smoke
+          TESSELLATE_PORT: "8765"
         run: |
           "dist/MemoryMap AI/MemoryMap AI" &
           pid=$!
@@ -301,7 +301,7 @@ jobs:
             sleep 1
           done
           echo "the frozen app did not answer within 60 s"
-          cat "$MEMORYMAP_DATA_DIR/logs/desktop-stdio.log" 2>/dev/null || true
+          cat "$TESSELLATE_DATA_DIR/logs/desktop-stdio.log" 2>/dev/null || true
           kill $pid || true
           exit 1
 

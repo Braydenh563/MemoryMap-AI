@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import composer, starter_acts
+from tessellate.ai import composer, starter_acts
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = json.loads((ROOT / "tests" / "fixtures" / "composer" / "agent_starters_1010.json").read_text("utf-8"))
@@ -119,7 +119,7 @@ def test_a_question_that_is_no_starter_is_not_read():
 def test_every_note_is_read_as_many_notes():
     """The sweep's typed request (deepen72b.js) was answered with quotes:
     "every note" was not a head the grammar knew."""
-    from memorymap.ai import commands
+    from tessellate.ai import commands
 
     read = commands.read("tag every note about the harbor survey with harbor", datetime.now())
     assert read == {"intent": "tag", "about": "harbor survey", "single": False, "tags": ["harbor"]}

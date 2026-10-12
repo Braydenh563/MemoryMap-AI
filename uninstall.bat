@@ -31,15 +31,15 @@ cd /d "%~dp0"
 REM --- Where the data actually is --------------------------------------
 REM  The same precedence start.bat uses: this script has to be able to
 REM  name, measure and (only if asked) delete the right folder on a
-REM  machine where MEMORYMAP_DATA_DIR moved the notebook elsewhere.
-set "DATA_DIR=%MEMORYMAP_DATA_DIR%"
+REM  machine where TESSELLATE_DATA_DIR moved the notebook elsewhere.
+set "DATA_DIR=%TESSELLATE_DATA_DIR%"
 if not defined DATA_DIR if exist ".env" (
-  for /f "tokens=1,* delims==" %%K in ('findstr /B /C:"MEMORYMAP_DATA_DIR=" ".env" 2^>nul') do set "DATA_DIR=%%L"
+  for /f "tokens=1,* delims==" %%K in ('findstr /B /C:"TESSELLATE_DATA_DIR=" ".env" 2^>nul') do set "DATA_DIR=%%L"
 )
 if not defined DATA_DIR set "DATA_DIR=data"
 set DATA_DIR=!DATA_DIR:"=!
 
-set "MM_PORT=%MEMORYMAP_PORT%"
+set "MM_PORT=%TESSELLATE_PORT%"
 if not defined MM_PORT set "MM_PORT=8000"
 
 REM --- Flags -----------------------------------------------------------
@@ -207,7 +207,7 @@ endlocal
 exit /b 1
 :do_export
 echo  !ESC![1;38;5;73m[..]!ESC![0m Exporting your notes to !EXPORT_TO!...
-".venv\Scripts\python.exe" -m memorymap --export "!EXPORT_TO!"
+".venv\Scripts\python.exe" -m tessellate --export "!EXPORT_TO!"
 if not errorlevel 1 goto :no_export
 echo  !ESC![1;31m[x]!ESC![0m The export failed, so nothing was removed.
 pause

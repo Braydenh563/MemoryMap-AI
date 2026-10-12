@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.core import filetypes
+from tessellate.core import filetypes
 
 
 @pytest.mark.parametrize(

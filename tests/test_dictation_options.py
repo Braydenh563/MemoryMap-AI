@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from memorymap.ai import voice
-from memorymap.core import deps
+from tessellate.ai import voice
+from tessellate.core import deps
 from tests._app_js import app_js_text
 
 
@@ -106,7 +106,7 @@ def test_settings_has_the_three_controls_and_help_names_them():
     js = app_js_text() + Path("frontend/js/settings-packages.js").read_text(encoding="utf-8")
     for key in ("voice_skip_silence", "voice_language", "voice_vocabulary"):
         assert key in js
-    from memorymap.ai import help_topics_more
+    from tessellate.ai import help_topics_more
 
     import re
 

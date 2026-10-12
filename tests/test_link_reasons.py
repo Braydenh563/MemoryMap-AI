@@ -17,11 +17,11 @@ from datetime import datetime, timedelta
 import numpy as np
 import pytest
 
-from memorymap.ai import links, tools
-from memorymap.ai.embeddings import vector_to_bytes
-from memorymap.core import deps
-from memorymap.core.database import AuditLog, Entry, EntryDate, EntryLink, EmbeddingRecord
-from memorymap.entry import manager
+from tessellate.ai import links, tools
+from tessellate.ai.embeddings import vector_to_bytes
+from tessellate.core import deps
+from tessellate.core.database import AuditLog, Entry, EntryDate, EntryLink, EmbeddingRecord
+from tessellate.entry import manager
 
 
 @pytest.fixture(autouse=True)
@@ -253,7 +253,7 @@ def test_the_audit_link_reasons_skill_names_only_that_tool(session):
     claim rather than a promise. The assertion is the intent rather than a
     list, so the next tool added has to argue for itself.
     """
-    from memorymap.ai import skills
+    from tessellate.ai import skills
 
     skill = skills.find(deps.get_config(), "Audit link reasons", known_tools=set(tools.TOOLS))
     assert skill is not None
@@ -558,7 +558,7 @@ def test_generate_link_reason_refuses_a_private_note(ai_client, fake_ollama, ses
     `test_generate_title_refuses_a_private_note`, search, embeddings, janitor,
     chat linking). A private note's content must not reach the model this
     way."""
-    from memorymap.core import crypto, vault
+    from tessellate.core import crypto, vault
 
     vault.close()
     vault.create(session, "test-passphrase")
@@ -762,7 +762,7 @@ def test_suggestion_reasons_are_generated_per_pair(ai_client, fake_ollama):
 
 
 def test_suggestion_reasons_skip_a_private_note(ai_client, session):
-    from memorymap.core import crypto, vault
+    from tessellate.core import crypto, vault
 
     vault.close()
     vault.create(session, "test-passphrase")

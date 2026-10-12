@@ -49,7 +49,7 @@ rebuilt existing work here.
 
 - **A board is already an `Entry`.** `WhiteboardNode.board_id`,
   `WhiteboardSketch.board_id` and `WhiteboardObject.board_id` are all
-  `ForeignKey("entries.id")` (`src/memorymap/core/database.py` ~930-1010). A
+  `ForeignKey("entries.id")` (`src/tessellate/core/database.py` ~930-1010). A
   board *is* a note row. So "the mindmap as a whole is its own object that can
   be attached to, linked to and referenced" is **already true at the data
   layer**: it inherits linking, tags, categories, the graph, the timeline and
@@ -239,11 +239,11 @@ Recorded because Coggle is the reference the user actually meant:
 
 ## 6. Files this will touch
 
-- `src/memorymap/core/database.py`, board `type`/`layout`, node `parent_id`,
+- `src/tessellate/core/database.py`, board `type`/`layout`, node `parent_id`,
   new `kind` values. One Alembic migration.
-- `src/memorymap/api/routes_whiteboard.py`, map CRUD, layout endpoint, node
+- `src/tessellate/api/routes_whiteboard.py`, map CRUD, layout endpoint, node
   tree endpoints, export; extend `_board_preview` for map structure.
-- `src/memorymap/ai/tools*.py`, the four map tools, contract-shaped.
+- `src/tessellate/ai/tools*.py`, the four map tools, contract-shaped.
 - `frontend/js/whiteboard.js` (and `frontend/js/graph.js` for layout precedent): the
   map mode, keyboard editing, auto-layout, collapse.
 - `frontend/js/library.js`, the Maps filter and the upgraded preview.

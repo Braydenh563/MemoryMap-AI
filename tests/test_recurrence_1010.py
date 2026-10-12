@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import recognise as rec
+from tessellate.ai import recognise as rec
 
 FIXTURE = json.loads((Path(__file__).parent / "fixtures" / "composer" / "recurrence_1010.json").read_text(encoding="utf-8"))
 NOW = datetime.fromisoformat(FIXTURE["now"])

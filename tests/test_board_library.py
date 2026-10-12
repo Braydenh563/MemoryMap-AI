@@ -17,7 +17,7 @@ import json
 
 import pytest
 
-from memorymap.api.routes_board_library import transform_path
+from tessellate.api.routes_board_library import transform_path
 
 
 def _board(client, name="Library board", kind="board"):

@@ -179,7 +179,7 @@ def test_the_scope_chip_says_the_same_wherever_it_is_made():
 
 @pytest.mark.parametrize("topic", ["companion", "themes", "settings-reset"])
 def test_help_says_sizes_stay_on_the_device(topic):
-    from memorymap.ai.help_topics_more import MORE_TOPICS
+    from tessellate.ai.help_topics_more import MORE_TOPICS
 
     body = next(t["body"] for t in MORE_TOPICS if t["id"] == topic)
     assert "On this device" in body

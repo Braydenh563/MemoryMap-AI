@@ -4,7 +4,7 @@ asking, and taken away to the bin in one press."""
 
 from __future__ import annotations
 
-from memorymap.entry.sample_notebook import SAMPLE_NOTES, SAMPLE_TAG
+from tessellate.entry.sample_notebook import SAMPLE_NOTES, SAMPLE_TAG
 
 
 def test_the_sample_notes_arrive_filed_tagged_and_linked(client):

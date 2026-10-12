@@ -23,8 +23,8 @@ import zipfile
 
 import pytest
 
-from memorymap.core import crypto, vault
-from memorymap.core.database import Entry
+from tessellate.core import crypto, vault
+from tessellate.core.database import Entry
 
 PLAIN_A = "alpha note kept in the default space"
 PLAIN_B = "beta note kept in the work space"

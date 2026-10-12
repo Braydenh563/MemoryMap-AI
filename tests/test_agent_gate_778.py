@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from memorymap.core import deps
+from tessellate.core import deps
 
 
 def _status(client) -> dict:

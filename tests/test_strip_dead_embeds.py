@@ -12,7 +12,7 @@ delete confirm offers it as a tickbox, ticked).
 
 from __future__ import annotations
 
-from memorymap.api.routes_files import _embed_pattern
+from tessellate.api.routes_files import _embed_pattern
 
 
 def _upload(client, name="pic.png"):

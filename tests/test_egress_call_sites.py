@@ -11,7 +11,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-SRC = Path(__file__).resolve().parents[1] / "src" / "memorymap"
+SRC = Path(__file__).resolve().parents[1] / "src" / "tessellate"
 
 _CALL = re.compile(
     r"requests\.(get|post|put|delete|head|request|Session)|httpx\.|urlopen|urllib\.request"

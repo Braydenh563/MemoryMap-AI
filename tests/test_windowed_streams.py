@@ -10,10 +10,10 @@ from pathlib import Path
 
 import pytest
 
-import memorymap.__main__ as entry
+import tessellate.__main__ as entry
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = (ROOT / "src" / "memorymap" / "__main__.py").read_text(encoding="utf-8")
+SOURCE = (ROOT / "src" / "tessellate" / "__main__.py").read_text(encoding="utf-8")
 
 
 #: pytest re-installs its own capture streams at the start of every test
@@ -22,7 +22,7 @@ SOURCE = (ROOT / "src" / "memorymap" / "__main__.py").read_text(encoding="utf-8"
 #: guard saw a real stream.
 @pytest.fixture
 def no_console(monkeypatch, tmp_path):
-    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("TESSELLATE_DATA_DIR", str(tmp_path))
     return tmp_path
 
 

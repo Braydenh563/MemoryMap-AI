@@ -15,8 +15,8 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from memorymap.core import deps, jobs
-from memorymap.core.database import EmbeddingRecord
+from tessellate.core import deps, jobs
+from tessellate.core.database import EmbeddingRecord
 from tests.fakes import FakeEmbeddingService, FakeOllama
 
 
@@ -60,7 +60,7 @@ def _embed_jobs_in_flight() -> bool:
 
 @pytest.fixture()
 def gated(app_state):
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     assert _wait(lambda: not _embed_jobs_in_flight(), 60), "an earlier embed job never finished"
     fake = GatedEmbeddings()

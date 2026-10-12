@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import gzip
 
-from memorymap import __version__
+from tessellate import __version__
 from tests._app_js import APP_JS, app_js_files
 
 

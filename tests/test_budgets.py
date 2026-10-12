@@ -29,9 +29,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from memorymap.ai import model_manager
-from memorymap.api import routes_bench
-from memorymap.core import deps, taskhistory, vault
+from tessellate.ai import model_manager
+from tessellate.api import routes_bench
+from tessellate.core import deps, taskhistory, vault
 from tests.fixtures import budget_notebook
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -54,7 +54,7 @@ def notebook(tmp_path_factory):
 
     data = tmp_path_factory.mktemp("budgets") / "data"
     mp = pytest.MonkeyPatch()
-    mp.setenv("MEMORYMAP_DATA_DIR", str(data))
+    mp.setenv("TESSELLATE_DATA_DIR", str(data))
     deps.reset_app_state()
     model_manager.reset_jobs()
     vault.close()
@@ -64,7 +64,7 @@ def notebook(tmp_path_factory):
     session = deps.get_db().session()
     made = budget_notebook.build(session, deps.get_config().uploads_dir)
     session.close()
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     yield TestClient(create_app()), {"board": made["board_id"], "document": made["document_id"]}
     vault.close()

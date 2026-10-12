@@ -8,7 +8,7 @@ from datetime import date
 
 import pytest
 
-from memorymap.ai import realise
+from tessellate.ai import realise
 
 TODAY = date(2026, 10, 6)
 
@@ -155,7 +155,7 @@ HELP_QUESTIONS = ("how do I set a reminder", "how do I export my notes", "how do
 
 
 def _chat(question: str, voice: str) -> list[dict]:
-    from memorymap.ai import composer
+    from tessellate.ai import composer
 
     data = E.load()
     entry = next((e for e in data["questions"] if e["question"] == question), None)

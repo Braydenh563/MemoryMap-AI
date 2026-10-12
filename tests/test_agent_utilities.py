@@ -11,8 +11,8 @@ import json
 import pytest
 from pathlib import Path
 
-from memorymap.ai import acts, agent, tools, validate
-from memorymap.core.database import Reminder
+from tessellate.ai import acts, agent, tools, validate
+from tessellate.core.database import Reminder
 
 #: Importing `acts` registers propose_act's runner on the act registry (act_registry.py).
 ACTS_LOADED = acts.__name__

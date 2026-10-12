@@ -25,8 +25,8 @@ import io
 from pathlib import Path
 from unittest.mock import patch
 
-from memorymap.core import deps
-from memorymap.entry import manager
+from tessellate.core import deps
+from tessellate.entry import manager
 
 
 def _note_with_file(client, session, name="photo.png"):
@@ -84,7 +84,7 @@ def test_a_row_with_no_stored_size_is_backfilled_exactly_once(ai_client, session
     """A pre-existing attachment from before `size` was maintained: NULL/0
     in the column, a real file on disk. The first read has to stat it (there
     is nowhere else to get the number); every read after must not."""
-    from memorymap.core.database import Attachment
+    from tessellate.core.database import Attachment
 
     entry = _note_with_file(ai_client, session)
     attachment_id = ai_client.get(f"/entries/{entry.id}").json()["attachments"][0]["id"]

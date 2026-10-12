@@ -25,7 +25,7 @@
 #   4. An upgrade: the latest published release is installed silently into
 #      a path with a space and a non-ASCII letter and writes a note; this
 #      build is installed over it with no /DIR (the updater's way); the
-#      upgraded app, started with *no* MEMORYMAP_DATA_DIR (the Start Menu's
+#      upgraded app, started with *no* TESSELLATE_DATA_DIR (the Start Menu's
 #      way), reports this version, finds the note, has the newest Alembic
 #      revision, keeps its notes and log in %APPDATA%\MemoryMap AI and its
 #      shortcuts right, holds no stale file, and downloaded no packages.
@@ -44,7 +44,7 @@ on:
       - "packaging/**"
       - "requirements*.txt"
       - "pyproject.toml"
-      - "src/memorymap/**"
+      - "src/tessellate/**"
       - "frontend/**"
       - "migrations/**"
       - "alembic.ini"
@@ -94,22 +94,22 @@ jobs:
       - name: Smoke test, every asset and the API on a fresh data dir
         shell: bash
         env:
-          MEMORYMAP_DATA_DIR: ${{ runner.temp }}/mm-smoke
-          MEMORYMAP_PORT: "8765"
+          TESSELLATE_DATA_DIR: ${{ runner.temp }}/mm-smoke
+          TESSELLATE_PORT: "8765"
         run: |
           find "dist/MemoryMap AI" | sort > "$RUNNER_TEMP/bundle-before.txt"
           "dist/MemoryMap AI/MemoryMap AI.exe" > "$RUNNER_TEMP/smoke-stdio.log" 2>&1 &
           pid=$!
           failed=0
           python packaging/frozen_smoke.py --base http://127.0.0.1:8765 \
-            --data-dir "$MEMORYMAP_DATA_DIR" --log "$MEMORYMAP_DATA_DIR/logs/desktop-stdio.log" || failed=1
+            --data-dir "$TESSELLATE_DATA_DIR" --log "$TESSELLATE_DATA_DIR/logs/desktop-stdio.log" || failed=1
           kill $pid || true
           sleep 2
           # A traceback in the app's own output is a failure even when every
           # request answered: it is what a support bundle would show first.
           # packaging/traceback_check.py skips a traceback named in
           # packaging/benign_tracebacks.txt (empty today) and fails the rest.
-          python packaging/traceback_check.py "$RUNNER_TEMP/smoke-stdio.log" "$MEMORYMAP_DATA_DIR/logs/desktop-stdio.log" || failed=1
+          python packaging/traceback_check.py "$RUNNER_TEMP/smoke-stdio.log" "$TESSELLATE_DATA_DIR/logs/desktop-stdio.log" || failed=1
           # The running app must not write inside its own bundle: the
           # uninstaller removes only what it installed, and a per-machine
           # install folder is read-only to the person anyway.
@@ -132,24 +132,24 @@ jobs:
       - name: The frozen exe installs two optional packages (--install-extras pdfpages,pyodide)
         shell: pwsh
         env:
-          MEMORYMAP_DATA_DIR: ${{ runner.temp }}\mm-extras
+          TESSELLATE_DATA_DIR: ${{ runner.temp }}\mm-extras
         run: |
           $exe = Join-Path $PWD "dist\MemoryMap AI\MemoryMap AI.exe"
           $p = Start-Process -FilePath $exe -ArgumentList "--install-extras","pdfpages,pyodide" -Wait -PassThru
           Write-Host "exit code: $($p.ExitCode)"
-          Get-ChildItem "$env:MEMORYMAP_DATA_DIR\python-extras" -Recurse -Depth 1 -ErrorAction SilentlyContinue | Select-Object -First 20 FullName
-          $log = "$env:MEMORYMAP_DATA_DIR\logs\desktop-stdio.log"
+          Get-ChildItem "$env:TESSELLATE_DATA_DIR\python-extras" -Recurse -Depth 1 -ErrorAction SilentlyContinue | Select-Object -First 20 FullName
+          $log = "$env:TESSELLATE_DATA_DIR\logs\desktop-stdio.log"
           if (Test-Path $log) { Get-Content $log -Tail 40 }
           if ($p.ExitCode -ne 0) { throw "--install-extras pdfpages,pyodide exited $($p.ExitCode)" }
-          $pdfium = Get-ChildItem "$env:MEMORYMAP_DATA_DIR\python-extras\*\pypdfium2\__init__.py" -ErrorAction SilentlyContinue
+          $pdfium = Get-ChildItem "$env:TESSELLATE_DATA_DIR\python-extras\*\pypdfium2\__init__.py" -ErrorAction SilentlyContinue
           if (-not $pdfium) { throw "pypdfium2 is not in the data folder's python-extras" }
-          if (-not (Test-Path "$env:MEMORYMAP_DATA_DIR\extras\pyodide\pyodide.asm.wasm")) { throw "Pyodide is not in the data folder's extras" }
+          if (-not (Test-Path "$env:TESSELLATE_DATA_DIR\extras\pyodide\pyodide.asm.wasm")) { throw "Pyodide is not in the data folder's extras" }
 
       - name: The running app sees the package and its release notes
         shell: bash
         env:
-          MEMORYMAP_DATA_DIR: ${{ runner.temp }}/mm-extras
-          MEMORYMAP_PORT: "8766"
+          TESSELLATE_DATA_DIR: ${{ runner.temp }}/mm-extras
+          TESSELLATE_PORT: "8766"
         run: |
           "dist/MemoryMap AI/MemoryMap AI.exe" &
           pid=$!
@@ -173,20 +173,20 @@ jobs:
             sleep 1
           done
           python -c "import json; d=json.load(open('extras.json', encoding='utf-8')); print('remove:', d['outcome'], d['step']); assert d['outcome'] == 'completed', d" || failed=1
-          ls "$MEMORYMAP_DATA_DIR"/python-extras/*/pypdfium2 2>/dev/null && { echo "pypdfium2 is still on disk after Remove"; failed=1; }
+          ls "$TESSELLATE_DATA_DIR"/python-extras/*/pypdfium2 2>/dev/null && { echo "pypdfium2 is still on disk after Remove"; failed=1; }
           kill $pid || true
           exit $failed
 
       - name: Install Inno Setup
         run: choco install innosetup --no-progress -y
 
-      # No MEMORYMAP_VERSION: the version is read from __version__ here and
+      # No TESSELLATE_VERSION: the version is read from __version__ here and
       # passed in, and the file name proves installer.iss used it.
       - name: Build the .exe installer (Inno Setup)
         shell: pwsh
         run: |
-          $version = (Select-String -Path src\memorymap\__init__.py -Pattern '^__version__ = "([^"]+)"').Matches[0].Groups[1].Value
-          if (-not $version) { throw "no __version__ line in src\memorymap\__init__.py" }
+          $version = (Select-String -Path src\tessellate\__init__.py -Pattern '^__version__ = "([^"]+)"').Matches[0].Groups[1].Value
+          if (-not $version) { throw "no __version__ line in src\tessellate\__init__.py" }
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$version" packaging\windows\installer.iss
           if ($LASTEXITCODE -ne 0) { throw "ISCC exited $LASTEXITCODE" }
           $want = "dist\installer\MemoryMap-AI-Setup-$version-windows-x86_64.exe"
@@ -226,7 +226,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $ErrorActionPreference = "Stop"
-          Remove-Item Env:MEMORYMAP_DATA_DIR -ErrorAction SilentlyContinue
+          Remove-Item Env:TESSELLATE_DATA_DIR -ErrorAction SilentlyContinue
           gh release download --repo $env:GITHUB_REPOSITORY --pattern "MemoryMap-AI-Setup-*-windows-x86_64.exe" --dir previous
           if ($LASTEXITCODE -ne 0) { throw "could not download the latest release's installer" }
           $setup = Get-ChildItem "previous\MemoryMap-AI-Setup-*.exe" | Select-Object -First 1
@@ -236,7 +236,7 @@ jobs:
           if ($p.ExitCode -ne 0) { throw "the previous release's setup exited $($p.ExitCode)" }
           $exe = Join-Path $dir "MemoryMap AI.exe"
           if (-not (Test-Path $exe)) { throw "the previous release did not install into $dir" }
-          $env:MEMORYMAP_PORT = "8768"
+          $env:TESSELLATE_PORT = "8768"
           $app = Start-Process -FilePath $exe -WorkingDirectory $env:RUNNER_TEMP -PassThru
           python packaging/frozen_smoke.py --base http://127.0.0.1:8768 --seed
           $seeded = $LASTEXITCODE
@@ -246,7 +246,7 @@ jobs:
 
       # This build over it, silently and with no /DIR, as the updater runs it:
       # the installer has to find the previous install by itself. The
-      # upgraded app is started with no MEMORYMAP_DATA_DIR, as the Start Menu
+      # upgraded app is started with no TESSELLATE_DATA_DIR, as the Start Menu
       # starts it, and must report this version, find the note, have brought
       # the database to the newest Alembic revision, keep its notes and log
       # in %APPDATA%\MemoryMap AI, and hold no file the previous release had
@@ -256,8 +256,8 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = "Stop"
-          Remove-Item Env:MEMORYMAP_DATA_DIR -ErrorAction SilentlyContinue
-          $version = (Select-String -Path src\memorymap\__init__.py -Pattern '^__version__ = "([^"]+)"').Matches[0].Groups[1].Value
+          Remove-Item Env:TESSELLATE_DATA_DIR -ErrorAction SilentlyContinue
+          $version = (Select-String -Path src\tessellate\__init__.py -Pattern '^__version__ = "([^"]+)"').Matches[0].Groups[1].Value
           $setup = "dist\installer\MemoryMap-AI-Setup-$version-windows-x86_64.exe"
           $dir = Join-Path $env:RUNNER_TEMP "Tessellate Jos$([char]0x00E9) test"
           $p = Start-Process -FilePath $setup -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait -PassThru
@@ -289,7 +289,7 @@ jobs:
           }
 
           $data = Join-Path $env:APPDATA "MemoryMap AI"  # brand: keep, the notes stay in the old folder
-          $env:MEMORYMAP_PORT = "8767"
+          $env:TESSELLATE_PORT = "8767"
           $app = Start-Process -FilePath $exe -WorkingDirectory $env:RUNNER_TEMP -PassThru
           python packaging/frozen_smoke.py --base http://127.0.0.1:8767 --only api --expect-note --data-dir "$data" --log (Join-Path $data "logs\desktop-stdio.log")
           $smoke = $LASTEXITCODE

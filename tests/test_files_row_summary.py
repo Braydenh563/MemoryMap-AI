@@ -23,8 +23,8 @@ from __future__ import annotations
 import io
 from pathlib import Path
 
-from memorymap.core import deps
-from memorymap.core.database import PageRead
+from tessellate.core import deps
+from tessellate.core.database import PageRead
 from tests._app_js import app_js_text
 
 LIBRARY = Path("frontend/js/library.js").read_text(encoding="utf-8")

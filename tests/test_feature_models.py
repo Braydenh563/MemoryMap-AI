@@ -22,8 +22,8 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import model_manager as mm
-from memorymap.core import deps
+from tessellate.ai import model_manager as mm
+from tessellate.core import deps
 from tests._app_js import app_js_text
 
 

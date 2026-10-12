@@ -10,7 +10,7 @@ import re
 from datetime import datetime
 from pathlib import Path
 
-from memorymap.ai import question_noise, reading
+from tessellate.ai import question_noise, reading
 
 ROOT = Path(__file__).resolve().parents[1]
 GOLD = json.loads((ROOT / "tests" / "fixtures" / "composer" / "routing_1011.json").read_text(encoding="utf-8"))
@@ -42,7 +42,7 @@ def _answer(client, question):
 
 
 def test_through_the_route_a_typed_request_lists_with_its_links(client, session):
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     manager.create_entry(session, "# Dentist\n\nCheck-up booked for the 21st.", tags=["health"])
     manager.create_entry(session, "# Harbor launch\n\nShip the app on the 14th.", tags=["harbor"])
@@ -56,7 +56,7 @@ def test_through_the_route_a_typed_request_lists_with_its_links(client, session)
 def test_a_listing_by_category_or_tag_lists_only_those(client, session):
     """Row 442 (P12): "list my work notes" answered "I found two notes about
     list my work"; it lists the Work notes, and a tag the same way."""
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     harbor = manager.create_entry(session, "# Harbor launch\n\nShip the app on the 14th.", tags=["harbor"], category_name="Work").id
     standup = manager.create_entry(session, "# Standup\n\nSync rewrite is behind.", tags=["team"], category_name="Work").id

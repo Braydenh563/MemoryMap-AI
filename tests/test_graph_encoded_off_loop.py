@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from fastapi.responses import Response
 
-from memorymap.api import routes_graph
+from tessellate.api import routes_graph
 
 
 def test_the_graph_route_hands_back_bytes_not_a_dict(client, session):

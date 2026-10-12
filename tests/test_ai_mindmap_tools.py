@@ -23,9 +23,9 @@ import json
 
 import pytest
 
-from memorymap.ai import tools
-from memorymap.ai.tools._common import ToolError
-from memorymap.core.database import Entry, WhiteboardObject, WhiteboardSketch
+from tessellate.ai import tools
+from tessellate.ai.tools._common import ToolError
+from tessellate.core.database import Entry, WhiteboardObject, WhiteboardSketch
 
 
 def _note(session, content="a note", private=False):
@@ -242,7 +242,7 @@ def test_the_map_tools_are_registered_and_gated_like_the_board_tools(session):
     in `/chat/tools`), and in the whiteboard cue group, a question about a
     map that was offered the board tools and not these answers by placing
     cards on a canvas."""
-    from memorymap.ai import toolwords
+    from tessellate.ai import toolwords
 
     for name in ("read_mindmap", "create_mindmap", "add_map_node", "link_map_nodes"):
         assert name in tools.TOOLS
@@ -311,8 +311,8 @@ def test_map_from_note_refuses_a_private_note_and_a_board(session):
 
 
 def test_map_from_note_is_a_write_with_a_verifier_and_a_cue():
-    from memorymap.ai import act_registry
-    from memorymap.ai.tools import verify
+    from tessellate.ai import act_registry
+    from tessellate.ai.tools import verify
 
     assert "map_from_note" in tools.WRITE_TOOLS and "map_from_note" in verify.VERIFIERS
     cue = dict(act_registry.TOOL_CUES)["map_from_note"]

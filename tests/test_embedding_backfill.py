@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
-from memorymap.ai import embeddings
-from memorymap.core import vault
-from memorymap.core.database import EmbeddingRecord
+from tessellate.ai import embeddings
+from tessellate.core import vault
+from tessellate.core.database import EmbeddingRecord
 
 
 def _factory(session):
@@ -93,7 +93,7 @@ def test_backfill_does_nothing_without_a_ready_model(client, session, fake_embed
 def test_wal_and_busy_timeout_are_set(app_state):
     """WAL lets reads continue during a write; the timeout stops a moment of
     contention surfacing as a broken save."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     with deps.get_db().engine.connect() as connection:
         assert connection.exec_driver_sql("PRAGMA journal_mode").scalar() == "wal"
@@ -110,7 +110,7 @@ def test_repeated_embeds_of_the_same_text_are_cached():
     """
     import numpy as np
 
-    from memorymap.ai.embeddings import EmbeddingService
+    from tessellate.ai.embeddings import EmbeddingService
 
     service = EmbeddingService(model_manager=None, ollama_client=None)
     calls = []
@@ -131,7 +131,7 @@ def test_repeated_embeds_of_the_same_text_are_cached():
 def test_different_text_is_not_served_from_the_cache():
     import numpy as np
 
-    from memorymap.ai.embeddings import EmbeddingService
+    from tessellate.ai.embeddings import EmbeddingService
 
     service = EmbeddingService(model_manager=None, ollama_client=None)
     calls = []
@@ -151,8 +151,8 @@ def test_the_cache_is_bounded():
     """It exists to collapse duplicate work in one request, not to grow."""
     import numpy as np
 
-    from memorymap.ai import embeddings as emb
-    from memorymap.ai.embeddings import EmbeddingService
+    from tessellate.ai import embeddings as emb
+    from tessellate.ai.embeddings import EmbeddingService
 
     service = EmbeddingService(model_manager=None, ollama_client=None)
     service._embed_uncached = lambda text: np.array([1.0], dtype="float32")
@@ -163,7 +163,7 @@ def test_the_cache_is_bounded():
 
 def test_stop_ends_the_backfill_between_batches_and_keeps_what_was_embedded(client, session, fake_embeddings, monkeypatch):
     """INBOX 1294: the backfill was one call with no step to stop at."""
-    from memorymap.core import passes
+    from tessellate.core import passes
 
     for i in range(3):
         client.post("/entries", json={"content": f"note {i}"})

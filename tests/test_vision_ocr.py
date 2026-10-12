@@ -11,9 +11,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from memorymap.ai import vision_ocr
-from memorymap.core import deps, taskhistory
-from memorymap.core.database import MediaUpload
+from tessellate.ai import vision_ocr
+from tessellate.core import deps, taskhistory
+from tessellate.core.database import MediaUpload
 
 
 def _upload(session, filename="a.png") -> int:
@@ -245,7 +245,7 @@ def test_pdf_vision_ocr_and_store_leaves_a_text_layer_pdf_alone(
 ):
     """A model asked to transcribe a page whose text is already exact can only
     make it worse: so the expensive path is for scans only."""
-    from memorymap.core import docview
+    from tessellate.core import docview
 
     upload_id = _pdf_upload(session)
     pdf = tmp_path / "scan.pdf"
@@ -373,7 +373,7 @@ def test_vision_ocr_text_cuts_the_loop_before_it_is_stored(app_state, session, f
 
 
 def test_a_looped_caption_is_cut_too(tmp_path, fake_ollama):
-    from memorymap.ai import captioning
+    from tessellate.ai import captioning
 
     fake_ollama.librarian_reply = "A whiteboard with " + "arrows and boxes, " * 60
     image_path = tmp_path / "photo.png"

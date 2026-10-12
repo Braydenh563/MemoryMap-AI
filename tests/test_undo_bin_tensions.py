@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from memorymap.ai import tensions
-from memorymap.core.database import Entry, EntryLink, utcnow
+from tessellate.ai import tensions
+from tessellate.core.database import Entry, EntryLink, utcnow
 
 
 def _pair(client, session):

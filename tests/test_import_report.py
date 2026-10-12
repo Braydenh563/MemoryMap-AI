@@ -14,10 +14,10 @@ import zipfile
 
 import pytest
 
-from memorymap.api.routes_settings import _parse_frontmatter
-from memorymap.core import activity, deps
-from memorymap.core.database import Entry
-from memorymap.entry import app_import, export_folder
+from tessellate.api.routes_settings import _parse_frontmatter
+from tessellate.core import activity, deps
+from tessellate.core.database import Entry
+from tessellate.entry import app_import, export_folder
 from tests.fixtures import notebook500
 
 BAD = {

@@ -28,9 +28,9 @@ def test_a_counted_answer_is_counted_quickly_on_a_bigger_notebook(client):
     answers well under 300 ms server-side (measured about 15 ms on 96 notes
     over HTTP; the 829 to 1,416 ms in the plan was the probe's 150 ms poll
     on a loaded machine plus the first reply it could not see)."""
-    from memorymap.ai import notebook_stats
-    from memorymap.core import deps
-    from memorymap.core.database import Entry
+    from tessellate.ai import notebook_stats
+    from tessellate.core import deps
+    from tessellate.core.database import Entry
 
     with deps.get_db().session() as session:
         session.add_all(Entry(content=f"note {i} about the harbor survey and the budget", tags='["work", "t%d"]' % (i % 9)) for i in range(400))

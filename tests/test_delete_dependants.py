@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from sqlalchemy import func, select
 
-from memorymap.core.database import (
+from tessellate.core.database import (
     DocumentBookmark,
     DocumentLink,
     EntryBookmark,

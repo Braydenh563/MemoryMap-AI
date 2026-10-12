@@ -23,8 +23,8 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai.ollama_client import OllamaClient
-from memorymap.ai.openai_client import OpenAICompatClient
+from tessellate.ai.ollama_client import OllamaClient
+from tessellate.ai.openai_client import OpenAICompatClient
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -158,7 +158,7 @@ def test_an_agent_turn_runs_both_native_calls_and_answers(ollama_server, monkeyp
     words."""
     import json
 
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     module, url = ollama_server
     monkeypatch.setenv("FAKE_OLLAMA_CALLS", "2")

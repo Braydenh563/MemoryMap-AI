@@ -14,11 +14,11 @@ import json
 
 from sqlalchemy import delete, func, select
 
-from memorymap.ai import chunks as chunk_rules
-from memorymap.ai import embeddings as embeddings_module
-from memorymap.ai.embeddings import paragraph_chunks
-from memorymap.core.database import ChunkVector, EmbeddingRecord, Entry
-from memorymap.search import chunks, search_manager
+from tessellate.ai import chunks as chunk_rules
+from tessellate.ai import embeddings as embeddings_module
+from tessellate.ai.embeddings import paragraph_chunks
+from tessellate.core.database import ChunkVector, EmbeddingRecord, Entry
+from tessellate.search import chunks, search_manager
 
 FILLER = "this paragraph keeps going with some ordinary words about the day and what happened"
 
@@ -160,7 +160,7 @@ def test_a_chunk_does_not_outlive_its_note_vector(session, fake_embeddings):
     )
     assert long_note.id not in [entry.id for entry, _score in found]
     # And the orphan pass removes the rows themselves.
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     embeddings_module.clean_orphaned_vectors(deps.get_db().session)
     session.expire_all()
@@ -168,19 +168,19 @@ def test_a_chunk_does_not_outlive_its_note_vector(session, fake_embeddings):
 
 
 def test_making_a_note_private_deletes_its_paragraph_vectors(session, fake_embeddings, monkeypatch):
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     long_note = _note(session, f"{SHOPPING}\n\n{JOKES}")
     fake_embeddings.store_for_entry(session, long_note)
     assert _chunk_count(session, long_note.id) == 2
-    monkeypatch.setattr("memorymap.core.vault.key", lambda: b"k" * 32)
+    monkeypatch.setattr("tessellate.core.vault.key", lambda: b"k" * 32)
     assert manager.set_private(session, long_note, True)
     session.commit()
     assert _chunk_count(session, long_note.id) == 0
 
 
 def test_the_backfill_gives_old_long_notes_paragraphs(session, fake_embeddings):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     body = "\n\n".join([SHOPPING, JOKES, RACE, SHOPPING.replace("milk", "bread")])
     note = _note(session, body)

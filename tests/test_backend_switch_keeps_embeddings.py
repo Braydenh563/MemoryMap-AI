@@ -10,7 +10,7 @@ sentence-transformers model never uses the chat client at all.
 
 from __future__ import annotations
 
-from memorymap.core import deps
+from tessellate.core import deps
 
 
 def test_a_backend_switch_keeps_the_loaded_embedding_model(app_state):

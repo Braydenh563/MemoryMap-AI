@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import json
 
-from memorymap import mcp_server
-from memorymap.ai import tools
-from memorymap.core import deps
+from tessellate import mcp_server
+from tessellate.ai import tools
+from tessellate.core import deps
 
 
 #: Answers that change from one call to the next, so two calls can never match.

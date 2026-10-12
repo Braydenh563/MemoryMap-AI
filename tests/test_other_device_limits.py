@@ -15,8 +15,8 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from memorymap.api import routes_auth
-from memorymap.core import netbind
+from tessellate.api import routes_auth
+from tessellate.core import netbind
 
 PHONE = ("192.168.0.50", 50000)
 PASSWORD = "testpassword123"
@@ -24,8 +24,8 @@ PASSWORD = "testpassword123"
 
 @pytest.fixture()
 def app(app_state):
-    from memorymap.api.app import create_app
-    from memorymap.core import deps
+    from tessellate.api.app import create_app
+    from tessellate.core import deps
     from tests.fakes import FakeEmbeddingService, FakeOllama
 
     deps.override_ai(ollama=FakeOllama(running=False), embeddings=FakeEmbeddingService(available=False))
@@ -50,7 +50,7 @@ def here(app):
 
 @pytest.fixture()
 def phone(app, here):
-    from memorymap.core import deps, lantrust
+    from tessellate.core import deps, lantrust
 
     #: These tests are about what a signed-in phone may change, not about the
     #: new-device question (tests/test_lan_trust.py holds that).
@@ -64,7 +64,7 @@ def phone(app, here):
 def test_health_says_the_desktop_only_to_this_computer(app, monkeypatch):
     """A phone read `desktop: true` and so saved exports onto this computer's
     disk and offered "Open folder" there, which opened Explorer."""
-    monkeypatch.setenv("MEMORYMAP_DESKTOP", "1")
+    monkeypatch.setenv("TESSELLATE_DESKTOP", "1")
     mine = TestClient(app).get("/health").json()
     theirs = TestClient(app, client=PHONE).get("/health").json()
     assert mine["desktop"] is True and mine["this_computer"] is True
@@ -115,7 +115,7 @@ def test_the_phone_cannot_turn_the_network_on_or_remake_its_certificate(phone):
 def test_a_short_old_pin_cannot_open_the_notebook_to_the_network(app, session):
     """Unlock still takes a 4-character password from before the 8-character
     floor; putting the notebook on a network (a campus wifi) does not."""
-    from memorymap.core.database import User
+    from tessellate.core.database import User
 
     here = TestClient(app)
     here.post("/auth/setup", json={"password": PASSWORD})
@@ -191,7 +191,7 @@ def test_the_phone_keeps_every_ordinary_preference(phone):
 
 
 def test_an_imported_settings_file_skips_host_settings_from_a_phone(phone):
-    from memorymap.api.routes_settings import SETTINGS_FILE_KIND, SETTINGS_FILE_VERSION
+    from tessellate.api.routes_settings import SETTINGS_FILE_KIND, SETTINGS_FILE_VERSION
 
     payload = {
         "kind": SETTINGS_FILE_KIND,

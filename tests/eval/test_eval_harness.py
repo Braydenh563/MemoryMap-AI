@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.core import deps
+from tessellate.core import deps
 from tests.eval import fixture, golden, scoring
 
 #: What the suite must not drop below. **Measured, not chosen**: the set
@@ -78,7 +78,7 @@ def test_the_golden_set_is_the_size_it_claims_to_be():
 
 
 def test_every_golden_ask_names_a_real_tool():
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     unknown = sorted({case.tool for case in golden.GOLDEN} - set(tools.TOOLS))
     assert not unknown, f"golden asks name tools that do not exist: {unknown}"

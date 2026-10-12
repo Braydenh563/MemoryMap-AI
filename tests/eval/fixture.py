@@ -26,7 +26,7 @@ from datetime import timedelta
 
 from sqlalchemy.orm import Session
 
-from memorymap.entry import manager
+from tessellate.entry import manager
 
 
 @dataclass
@@ -88,7 +88,7 @@ DOCUMENTS = [
 
 def build(session: Session) -> Notebook:
     """Fill an empty notebook and return what is in it."""
-    from memorymap.core.database import Document, MediaUpload, Reminder, WhiteboardNode, utcnow
+    from tessellate.core.database import Document, MediaUpload, Reminder, WhiteboardNode, utcnow
 
     book = Notebook()
 

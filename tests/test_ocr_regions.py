@@ -19,7 +19,7 @@ import types
 from pathlib import Path
 
 
-from memorymap.core import ocr
+from tessellate.core import ocr
 
 
 class _FakeImage:

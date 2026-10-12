@@ -6,10 +6,10 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import composer
-from memorymap.ai.ollama_client import OllamaError
-from memorymap.api import routes_chat
-from memorymap.entry import manager
+from tessellate.ai import composer
+from tessellate.ai.ollama_client import OllamaError
+from tessellate.api import routes_chat
+from tessellate.entry import manager
 from tests import _composer_eval
 from tests.test_composer_route_688 import _ask
 
@@ -31,7 +31,7 @@ def test_every_identity_line_names_atlas(kind, voice):
     ],
 )
 def test_a_how_to_is_answered_by_its_help_topics_own_sentence(question, topic):
-    from memorymap.ai import help_chat
+    from tessellate.ai import help_chat
 
     result = composer.compose(question, [], voice="help")
     help_part = result["parts"][0]
@@ -72,7 +72,7 @@ class _Dies:
 
 def test_a_model_that_dies_before_its_first_word_leaves_the_composed_answer(ai_client, fake_ollama, session, monkeypatch):
     _seed(session)
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     monkeypatch.setattr(deps, "get_ollama", lambda: _Dies(fake_ollama))
     out = _ask(ai_client, "What is the Harbor launch plan?", notes_only=True, use_tools=False, answer_from="ai")

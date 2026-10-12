@@ -3,7 +3,7 @@
 `scratchpad/fake_captions_server.py` stands in for whisper.cpp's
 `whisper-server` (CLAUDE.md section 4: the suite never reaches for a real
 one). The real thing is `tests/test_captions_live.py`, skipped without
-`MEMORYMAP_CAPTIONS_URL`.
+`TESSELLATE_CAPTIONS_URL`.
 """
 
 from __future__ import annotations
@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import captions
-from memorymap.core import activity
+from tessellate.ai import captions
+from tessellate.core import activity
 
 ROOT = Path(__file__).resolve().parents[1]
 _spec = importlib.util.spec_from_file_location("fake_captions_server", ROOT / "scratchpad" / "fake_captions_server.py")
@@ -26,8 +26,8 @@ CHUNK = 250 * captions.BYTES_PER_MS  # what the page sends
 
 @pytest.fixture(autouse=True)
 def _clean(monkeypatch):
-    monkeypatch.delenv("MEMORYMAP_CAPTIONS_URL", raising=False)
-    monkeypatch.delenv("MEMORYMAP_CAPTIONS_MODEL", raising=False)
+    monkeypatch.delenv("TESSELLATE_CAPTIONS_URL", raising=False)
+    monkeypatch.delenv("TESSELLATE_CAPTIONS_MODEL", raising=False)
     captions._probe.update(at=0.0, url="", ok=False)
     captions._sessions.clear()
     activity.clear()
@@ -39,7 +39,7 @@ def _clean(monkeypatch):
 @pytest.fixture()
 def helper(monkeypatch):
     server = fake.serve()
-    monkeypatch.setenv("MEMORYMAP_CAPTIONS_URL", f"http://127.0.0.1:{server.server_address[1]}")
+    monkeypatch.setenv("TESSELLATE_CAPTIONS_URL", f"http://127.0.0.1:{server.server_address[1]}")
     yield server
     server.shutdown()
 
@@ -61,13 +61,13 @@ def test_status_without_a_helper_says_so(client):
 
 
 def test_status_with_a_helper_names_the_model(client, helper, monkeypatch):
-    monkeypatch.setenv("MEMORYMAP_CAPTIONS_MODEL", "base.en")
+    monkeypatch.setenv("TESSELLATE_CAPTIONS_MODEL", "base.en")
     assert client.get("/voice/status").json()["captions"] == {"available": True, "model": "base.en", "hint": None}
 
 
 def test_a_helper_on_another_host_is_refused(client, monkeypatch):
     # Audio leaving the machine would break the offline rule.
-    monkeypatch.setenv("MEMORYMAP_CAPTIONS_URL", "http://example.com:8178")
+    monkeypatch.setenv("TESSELLATE_CAPTIONS_URL", "http://example.com:8178")
     body = client.get("/voice/status").json()["captions"]
     assert body["available"] is False and "on this computer" in body["hint"]
     reply = client.post("/voice/captions/start")
@@ -75,7 +75,7 @@ def test_a_helper_on_another_host_is_refused(client, monkeypatch):
 
 
 def test_a_helper_that_is_not_answering_is_unavailable(client, monkeypatch):
-    monkeypatch.setenv("MEMORYMAP_CAPTIONS_URL", "http://127.0.0.1:9")
+    monkeypatch.setenv("TESSELLATE_CAPTIONS_URL", "http://127.0.0.1:9")
     body = client.get("/voice/status").json()["captions"]
     assert body["available"] is False and "isn't answering" in body["hint"]
 
@@ -142,7 +142,7 @@ def test_the_window_is_cut_to_the_encoder_context(client, helper):
 
 def test_a_failing_helper_shows_an_error_then_ends_the_run_keeping_the_text(client, monkeypatch):
     server = fake.serve(fail_every=1)
-    monkeypatch.setenv("MEMORYMAP_CAPTIONS_URL", f"http://127.0.0.1:{server.server_address[1]}")
+    monkeypatch.setenv("TESSELLATE_CAPTIONS_URL", f"http://127.0.0.1:{server.server_address[1]}")
     try:
         sid = client.post("/voice/captions/start").json()["id"]
         pcm = fake.tone_words(list(range(10)))

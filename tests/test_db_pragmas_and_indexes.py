@@ -23,7 +23,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import select, text
 
-from memorymap.core.database import (
+from tessellate.core.database import (
     Attachment,
     AuditLog,
     Category,

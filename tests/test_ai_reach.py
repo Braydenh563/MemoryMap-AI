@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import json
 
-from memorymap.ai import tools
-from memorymap.core import deps
+from tessellate.ai import tools
+from tessellate.core import deps
 
 
 def _doc(client, title, content):
@@ -216,7 +216,7 @@ def test_the_new_tools_are_offered_to_the_model(app_state):
 def test_none_of_the_new_tools_leak_a_private_note(client, session):
     """Documents and chats are separate stores, but a tool added later is
     exactly where the private-note rule gets forgotten."""
-    from memorymap.core import vault
+    from tessellate.core import vault
 
     vault.close()
     vault.create(session, "test-passphrase")

@@ -27,8 +27,8 @@ from datetime import timedelta
 import pytest
 from sqlalchemy import event
 
-from memorymap.core import deps
-from memorymap.core.database import (
+from tessellate.core import deps
+from tessellate.core.database import (
     AuditLog,
     Conversation,
     Document,

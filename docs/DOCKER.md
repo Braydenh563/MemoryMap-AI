@@ -9,10 +9,10 @@ The files are `docker/Dockerfile` and `docker/compose.yaml`. The image was not b
 From the repository root:
 
 ```
-MEMORYMAP_FIRST_PASSWORD=choose-a-long-one docker compose -f docker/compose.yaml up -d --build
+TESSELLATE_FIRST_PASSWORD=choose-a-long-one docker compose -f docker/compose.yaml up -d --build
 ```
 
-Open `http://localhost:8000` and sign in with that password. `MEMORYMAP_FIRST_PASSWORD` is used only while the notebook has no password, is never logged, and is dropped from the process once read. After the first start, stop passing it: the password lives in the notebook.
+Open `http://localhost:8000` and sign in with that password. `TESSELLATE_FIRST_PASSWORD` is used only while the notebook has no password, is never logged, and is dropped from the process once read. After the first start, stop passing it: the password lives in the notebook.
 
 Logs: `docker compose -f docker/compose.yaml logs -f`. Stop: `docker compose -f docker/compose.yaml down` (volumes are kept).
 
@@ -45,9 +45,9 @@ Check the volume name with `docker volume ls` first. To restore, extract the arc
 
 ## Port and network exposure
 
-`compose.yaml` publishes `127.0.0.1:8000:8000`: reachable from the Docker host only. Inside the container `MEMORYMAP_BIND=0.0.0.0` (the bridge is not loopback), which is why the loopback publish matters.
+`compose.yaml` publishes `127.0.0.1:8000:8000`: reachable from the Docker host only. Inside the container `TESSELLATE_BIND=0.0.0.0` (the bridge is not loopback), which is why the loopback publish matters.
 
-**LAN caveat.** Changing the mapping to `8000:8000` puts the notebook, over plain http, on every network the host is on. Do not do that. For other devices, keep the loopback publish and put a reverse proxy with TLS (Caddy, nginx, Traefik) in front. Then set `MEMORYMAP_ALLOWED_HOSTS` to the public name the proxy forwards (`notes.example.com`, several comma-separated, names only), or the app answers 421. The "Allow other devices" switch does not apply in a container; use the port mapping and the proxy instead. Set a strong password before you expose it at all.
+**LAN caveat.** Changing the mapping to `8000:8000` puts the notebook, over plain http, on every network the host is on. Do not do that. For other devices, keep the loopback publish and put a reverse proxy with TLS (Caddy, nginx, Traefik) in front. Then set `TESSELLATE_ALLOWED_HOSTS` to the public name the proxy forwards (`notes.example.com`, several comma-separated, names only), or the app answers 421. The "Allow other devices" switch does not apply in a container; use the port mapping and the proxy instead. Set a strong password before you expose it at all.
 
 ## Environment variables
 
@@ -55,16 +55,16 @@ Those the image or compose file sets, and the ones the code reads that make sens
 
 | Variable | Default in the image | What it does |
 | --- | --- | --- |
-| `MEMORYMAP_DATA_DIR` | `/data` | Where the notebook lives |
-| `MEMORYMAP_BIND` | `0.0.0.0` | Address the server binds inside the container (unset elsewhere: `127.0.0.1`) |
-| `MEMORYMAP_PORT` | `8000` | Port inside the container; change the mapping to match |
-| `MEMORYMAP_FIRST_PASSWORD` | unset (compose passes it through from your shell) | Seeds a password while none is set |
-| `MEMORYMAP_ALLOWED_HOSTS` | unset (compose passes it through) | Host names a reverse proxy forwards |
+| `TESSELLATE_DATA_DIR` | `/data` | Where the notebook lives |
+| `TESSELLATE_BIND` | `0.0.0.0` | Address the server binds inside the container (unset elsewhere: `127.0.0.1`) |
+| `TESSELLATE_PORT` | `8000` | Port inside the container; change the mapping to match |
+| `TESSELLATE_FIRST_PASSWORD` | unset (compose passes it through from your shell) | Seeds a password while none is set |
+| `TESSELLATE_ALLOWED_HOSTS` | unset (compose passes it through) | Host names a reverse proxy forwards |
 | `OLLAMA_URL` | `http://host.docker.internal:11434` | Where Ollama is |
 | `HF_HOME`, `SENTENCE_TRANSFORMERS_HOME` | `/models/hf` | Model cache, on the models volume |
-| `MEMORYMAP_RAM_GB` | detected | Overrides the memory the app thinks it has; set it if a container limit is lower than the host's |
-| `MEMORYMAP_EMBED_THREADS` | `1` | Threads for the built-in search model |
-| `MEMORYMAP_LAN_PORT` | `8443` | HTTPS port for LAN mode; not used in a container |
+| `TESSELLATE_RAM_GB` | detected | Overrides the memory the app thinks it has; set it if a container limit is lower than the host's |
+| `TESSELLATE_EMBED_THREADS` | `1` | Threads for the built-in search model |
+| `TESSELLATE_LAN_PORT` | `8443` | HTTPS port for LAN mode; not used in a container |
 
 The default image has no torch (search by keyword, plus an Ollama embedder). `--build-arg WITH_EMBEDDER=1` (or `WITH_EMBEDDER: "1"` in compose) adds the built-in search model and CPU torch, about 1.1 GB more.
 
@@ -93,11 +93,11 @@ The volumes are reused, so the notebook and downloaded models stay. Take a backu
 
 ## Troubleshooting
 
-- **421 Misdirected Request:** you reached it by a name the app does not know. Add the name to `MEMORYMAP_ALLOWED_HOSTS`.
+- **421 Misdirected Request:** you reached it by a name the app does not know. Add the name to `TESSELLATE_ALLOWED_HOSTS`.
 - **Cannot reach it from another device:** by design, the port is loopback only. See the network section.
 - **Model not found or Connect fails:** from inside the container, `localhost` is the container. Use `host.docker.internal`, and check the server listens beyond loopback.
 - **On Linux, `host.docker.internal` does not resolve:** keep the `extra_hosts` line in `compose.yaml`.
-- **Locked out:** `docker compose -f docker/compose.yaml exec memorymap python -m memorymap --reset-password` clears the password (private notes stay sealed), then set a new one with `MEMORYMAP_FIRST_PASSWORD` on the next start.
+- **Locked out:** `docker compose -f docker/compose.yaml exec memorymap python -m tessellate --reset-password` clears the password (private notes stay sealed), then set a new one with `TESSELLATE_FIRST_PASSWORD` on the next start.
 - **Permission error on `/data`:** the container runs as uid 1000 (`mm`). If you swap the volume for a bind mount, `chown 1000:1000` the folder.
 - **Not available in a container:** the desktop window and tray, native file dialogs, and shortcuts.
 

@@ -19,7 +19,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from memorymap.api.routes_whiteboard import _is_one_emoji
+from tessellate.api.routes_whiteboard import _is_one_emoji
 
 ROOT = Path(__file__).resolve().parents[1]
 JS = ROOT / "frontend" / "js"

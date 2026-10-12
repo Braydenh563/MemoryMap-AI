@@ -49,7 +49,7 @@ def test_the_card_offers_both_paths_and_the_command():
         'id="lock-recovery-key"',
         'id="lock-recovery-new"',
         'id="lock-recovery-confirm"',
-        "python -m memorymap --reset-password",
+        "python -m tessellate --reset-password",
         'id="lock-reset-copy"',
         "type RESET to confirm",
         'id="lock-reset-submit" type="button" class="danger lock-forgot-action" disabled',
@@ -87,7 +87,7 @@ def test_the_key_leaves_the_page_when_the_dialog_closes():
 def test_the_key_is_put_nowhere_else():
     """Not stored, not logged, not in an attribute the Guide reads (help-chat.js
     reads `title`, `aria-label` and `.help-body`, inside a tab only)."""
-    from memorymap.api.asset_strip import strip_js
+    from tessellate.api.asset_strip import strip_js
 
     code = strip_js(RECOVERY_JS)
     for forbidden in ("localStorage.setItem(\"recovery", "prefs.set(\"recovery", "sessionStorage", "console.", "setAttribute(\"title\"", ".title =", "aria-label"):
@@ -116,7 +116,7 @@ def test_settings_names_the_button_for_what_it_does():
 def test_the_key_file_never_goes_through_save_file():
     """INBOX 671: `saveFile` writes into the data dir's exports in the desktop
     window; the key goes to a native Save dialog there, a download elsewhere."""
-    from memorymap.api.asset_strip import strip_js
+    from tessellate.api.asset_strip import strip_js
 
     assert "saveFile(" not in strip_js(RECOVERY_JS)
     saver = _function(RECOVERY_JS, "saveRecoveryKeyFile")

@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.api.routes_whiteboard import BOARD_LAYOUTS, MAP_BRANCH_PALETTE
+from tessellate.api.routes_whiteboard import BOARD_LAYOUTS, MAP_BRANCH_PALETTE
 
 ROOT = Path(__file__).resolve().parents[1]
 LIB = ROOT / "frontend" / "board-library"

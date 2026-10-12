@@ -13,7 +13,7 @@ qualifier is worse than a greeting nobody minded.
 
 import pytest
 
-from memorymap.ai.answer_trim import trim_assistant_padding
+from tessellate.ai.answer_trim import trim_assistant_padding
 
 
 @pytest.mark.parametrize(

@@ -1,6 +1,6 @@
 """Should the launcher build .venv with --system-site-packages?
 
-Opt-in only (`MEMORYMAP_SYSTEM_SITE_PACKAGES=1 ./start.sh`), for a machine
+Opt-in only (`TESSELLATE_SYSTEM_SITE_PACKAGES=1 ./start.sh`), for a machine
 that already has a large package such as CUDA torch installed system-wide
 and where a second 1 GB copy in .venv is the thing to avoid. The risk is the
 usual one: a system package that is too old or too new for requirements.txt

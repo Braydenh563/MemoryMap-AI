@@ -15,7 +15,7 @@ from datetime import date
 import pytest
 
 from tests import _gold
-from memorymap.ai import composer, composer_digest
+from tessellate.ai import composer, composer_digest
 
 FIXTURE = _gold.load()
 TODAY = date.fromisoformat(FIXTURE["today"])
@@ -277,7 +277,7 @@ def test_the_owners_question_counts_every_note_on_the_topic(question, subject):
     """"What have I saved about X" is a topic asked about as a whole: the
     route widens it to every note on X, so the count is not capped at the
     five a search ranked."""
-    from memorymap.ai import composer_overview
+    from tessellate.ai import composer_overview
 
     assert composer_overview.topic(question) == subject
 

@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import vocative
+from tessellate.ai import vocative
 
 GOLD = json.loads((Path(__file__).parent / "fixtures" / "vocatives_gold.json").read_text(encoding="utf-8"))
 KNOWN = frozenset(GOLD["known"])
@@ -61,7 +61,7 @@ def test_the_controls_keep_their_words():
 def test_a_nickname_is_never_corrected_or_searched():
     """Taken off before `repair` reads the question, so "brotato" never
     becomes "brother" or "potato" in a question about the dentist."""
-    from memorymap.ai import question_noise
+    from tessellate.ai import question_noise
 
     for message in ("brotato what's on today", "hey brotatockiibidyrizzler, what's due this week"):
         read = question_noise.repair(vocative.split(message, known=KNOWN).question)
@@ -97,7 +97,7 @@ def _stream(client, question, history=()):
 
 
 def test_a_call_through_the_route_answers_and_offers_three_asks(client):
-    from memorymap.ai import composer, composer_replies
+    from tessellate.ai import composer, composer_replies
 
     text, offers = _stream(client, "yo brotatockiibidyrizzler")
     lines = {line.replace("{name}", "Brotatockiibidyrizzler") for line in composer_replies.CALL["natural"]}
@@ -108,7 +108,7 @@ def test_a_call_through_the_route_answers_and_offers_three_asks(client):
 
 
 def test_a_nickname_on_small_talk_is_small_talk(client):
-    from memorymap.ai import composer
+    from tessellate.ai import composer
 
     text, _offers = _stream(client, "thanks legend")
     assert any(text.startswith(line) for line in composer.SOCIAL["thanks"]), text

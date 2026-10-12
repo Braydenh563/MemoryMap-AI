@@ -15,9 +15,9 @@ import logging
 import threading
 import time
 
-from memorymap import __version__
-from memorymap.core import deps, logbuffer, taskhistory
-from memorymap.entry import manager
+from tessellate import __version__
+from tessellate.core import deps, logbuffer, taskhistory
+from tessellate.entry import manager
 
 
 def test_shape_on_an_empty_notebook(client):
@@ -61,7 +61,7 @@ def test_counts_reflect_real_rows(client, session):
         f"/entries/{entry.id}/files",
         files={"file": ("a.txt", io.BytesIO(b"hi"), "text/plain")},
     )
-    from memorymap.core.database import Document, Reminder, utcnow
+    from tessellate.core.database import Document, Reminder, utcnow
 
     session.add(Document(title="doc", content="body"))
     session.add(Reminder(text="water plants", due_at=utcnow()))
@@ -91,7 +91,7 @@ def test_a_running_job_shows_up_in_the_queue(client, session):
     """Same list `/tasks` already renders: proven by asking the running
     reindex job to report itself through both endpoints and getting the
     same shape back."""
-    from memorymap.ai import model_manager
+    from tessellate.ai import model_manager
 
     # An empty notebook re-indexes nothing and the job finishes before this
     # test can ever observe it "running", one entry gives the stub embedder
@@ -144,7 +144,7 @@ def test_a_finished_job_with_a_duration_shows_up_in_latency(client):
 
 
 def test_recent_errors_are_the_tail_of_the_log(client):
-    logger = logging.getLogger("memorymap.test_debug_health")
+    logger = logging.getLogger("tessellate.test_debug_health")
     logger.error("a deliberate test error")
     logger.warning("a deliberate test warning")
     logger.info("an info line the health page must not surface")

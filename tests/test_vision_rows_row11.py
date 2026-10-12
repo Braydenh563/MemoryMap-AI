@@ -20,7 +20,7 @@ def _note(client, text, **extra):
 
 
 def test_the_review_queue_holds_unsure_and_uncategorised_filings(client, session):
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     unsure = _note(client, "Maybe a recipe, maybe a plan")
     settled = _note(client, "Filed by hand", category="Plans")
@@ -50,8 +50,8 @@ def test_notes_filter_and_dashboard_offer_the_queue():
 
 
 def test_the_filing_style_reaches_the_filing_prompt(client, session):
-    from memorymap.ai import librarian
-    from memorymap.core import deps
+    from tessellate.ai import librarian
+    from tessellate.core import deps
 
     plain = librarian.filing_prompt(session, "a note", ["Work"])
     assert "File by" not in plain
@@ -68,7 +68,7 @@ def test_the_filing_style_reaches_the_filing_prompt(client, session):
 
 
 def test_most_opened_counts_this_month_only(client, session):
-    from memorymap.core.database import EntryOpen, utcnow
+    from tessellate.core.database import EntryOpen, utcnow
 
     a = _note(client, "Opened twice")
     b = _note(client, "Opened once")
@@ -87,7 +87,7 @@ def test_most_opened_counts_this_month_only(client, session):
 
 
 def test_tidy_proposes_near_names_and_old_empty_categories(client, session):
-    from memorymap.core.database import Category, utcnow
+    from tessellate.core.database import Category, utcnow
 
     _note(client, "one", category="Recipes")
     _note(client, "two", category="Recipes")
@@ -109,7 +109,7 @@ def test_tidy_proposes_near_names_and_old_empty_categories(client, session):
 
 
 def test_a_counting_question_is_read_without_a_model():
-    from memorymap.api.routes_vision import parse_chart_question
+    from tessellate.api.routes_vision import parse_chart_question
 
     today = date(2026, 10, 15)
     asked = parse_chart_question("How many notes per category this month?", today)

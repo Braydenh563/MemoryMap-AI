@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from datetime import timedelta, timezone
 
-from memorymap.core.database import utcnow
+from tessellate.core.database import utcnow
 
 
 def test_a_typed_phrase_comes_back_as_a_date_and_a_time_on_the_persons_clock(client):

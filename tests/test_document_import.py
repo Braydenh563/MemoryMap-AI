@@ -66,7 +66,7 @@ def test_an_empty_file_is_refused_rather_than_making_a_blank_document(client):
 
 
 def test_an_oversized_file_is_refused_before_it_is_stored(client):
-    from memorymap.api import routes_documents
+    from tessellate.api import routes_documents
 
     big = b"x" * (routes_documents.MAX_IMPORT_BYTES + 1024)
     response = _post(client, "huge.txt", big)
@@ -79,7 +79,7 @@ def test_import_is_matched_before_the_document_id_route():
     """`/documents/import` would otherwise be read as a document id, the same
     trap `/documents/file-types` sits above. FastAPI matches in declaration
     order, so this is a property of the source, not of the request."""
-    from memorymap.api import routes_documents
+    from tessellate.api import routes_documents
 
     paths = [route.path for route in routes_documents.router.routes]
     assert paths.index("/documents/import") < paths.index("/documents/{document_id}")
@@ -109,7 +109,7 @@ def test_a_file_named_dockerfile_or_makefile_imports_as_code(client):
 
 
 def test_the_suffix_of_a_bare_name_is_the_one_the_viewer_knows():
-    from memorymap.core import docview
+    from tessellate.core import docview
 
     assert docview.effective_suffix("Dockerfile") == ".dockerfile"
     assert docview.effective_suffix("makefile") == ".mk"

@@ -6,7 +6,7 @@ help info as well in case users ask it questions for help"."""
 
 from __future__ import annotations
 
-from memorymap.ai import help_chat, librarian
+from tessellate.ai import help_chat, librarian
 
 
 def test_a_how_to_question_about_the_app_gets_the_help():

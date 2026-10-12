@@ -13,9 +13,9 @@ from __future__ import annotations
 import os
 import time
 
-from memorymap.ai import skill_folder, skills, tools
-from memorymap.core import deps
-from memorymap.mcp_server import handle_request
+from tessellate.ai import skill_folder, skills, tools
+from tessellate.core import deps
+from tessellate.mcp_server import handle_request
 
 SKILL = """---
 description: Lists what is still open this week
@@ -111,7 +111,7 @@ def test_api_v1_is_locked_like_the_bare_api(app_state):
     """With a password set and no session, `/api/v1` answers 401 as `/` does."""
     from fastapi.testclient import TestClient
 
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     raw = TestClient(create_app())
     raw.post("/auth/setup", json={"password": "testpassword123"})

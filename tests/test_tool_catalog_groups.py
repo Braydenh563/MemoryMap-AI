@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from memorymap.ai import tools
+from tessellate.ai import tools
 
 GROUPS = {"read", "write", "confirm", "online"}
 

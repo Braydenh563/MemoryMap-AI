@@ -3,7 +3,7 @@
 `frontend/js/status.js` `plainHttpError` passes a server `detail` string
 straight to the person's toast, so every one is user-facing copy, not a log
 line (INBOX 472). This parses every `HTTPException(..., detail=...)` and
-every `{"detail": ...}` error body in `src/memorymap/api/*.py` with `ast`
+every `{"detail": ...}` error body in `src/tessellate/api/*.py` with `ast`
 (plus the two helpers that take the message as an argument, `get_or_404` and
 `_transcribe_upload`) and fails on a literal that:
 
@@ -27,15 +27,15 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-API = ROOT / "src" / "memorymap" / "api"
+API = ROOT / "src" / "tessellate" / "api"
 #: Route bodies moved out of `api/` into a service (Brief 61). Their
 #: `HTTPException` details still reach the person through the route, so they
 #: are held to the same rules.
 SERVICES = tuple(
     path
     for path in (
-        ROOT / "src" / "memorymap" / "files" / "service.py",
-        ROOT / "src" / "memorymap" / "whiteboard" / "service.py",
+        ROOT / "src" / "tessellate" / "files" / "service.py",
+        ROOT / "src" / "tessellate" / "whiteboard" / "service.py",
     )
     if path.exists()
 )

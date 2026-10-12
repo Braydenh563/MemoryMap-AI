@@ -857,8 +857,8 @@ should fix the class and add the lint that keeps it fixed.
 | F2 | 25 list endpoints, 3 accept `limit` | `grep -n "^def list_" -A 6 src/memorymap/api/routes_*.py \| grep -c limit` | Every list is O(notebook). A 5k-note notebook makes the Library, Timeline and Graph tabs multi-second. (MODERNISATION_AUDIT D4.) | Cursor pagination on all 25 with one helper, `?limit=&cursor=`, `next_cursor` in the body; the frontend's list renderers page on scroll. Lint: a test enumerates routers and asserts every `list_*` takes `limit`. |
 | F4 | **Re-measured 2026-09-13: 147 broad handlers, of which 52 say nothing at all.** `scratchpad/probe_excepts.py` reports both numbers, because the grep below counts every handler and the ones that cost something are the silent subset: a handler that logs with `exc_info` is the fix, not the flaw. Original figure: 88 `except Exception:` / bare `except:` in `src/` | `grep -rn "except Exception:\|except:" src/memorymap --include=*.py \| wc -l` | Failures become silence (the "features that never ran once" shape). | Each one either re-raises as the error contract, logs with `exc_info` to the logbuffer, or is narrowed. Lint: ruff `BLE001` enabled with a per-site `# noqa: BLE001 <reason>`. |
 | F5 | 13 raw `fetch()` calls beside `api()` | `grep -n 'fetch(\`\|fetch("' frontend/js/*.js \| grep -v "api\b"` | Each re-implements the auth header, the error contract and the offline path; one is `/chat/stream`, the most important call in the app. | `api.stream()` and `api.upload()` helpers; the 13 sites move onto them. Lint: no bare `fetch(` outside `api.js`. |
-| F7 | Threads in 16 modules share SQLAlchemy sessions created per call | `grep -rln "threading.Thread" src/memorymap` | SQLite is fine with this only while each thread opens its own session and nobody passes ORM objects across; nothing enforces it, and the "Could not refresh instance" 500 seen this session was exactly that shape. | B2 job runtime: one worker, jobs get a fresh session, results are plain dicts. Lint: `Thread(` allowed only in `core/jobs.py`. |
-| F10 | Extracted text, captions and OCR live in three columns with three UIs | `grep -n "vision_ocr_text\|ocr_text\|caption" src/memorymap/api/routes_files.py \| wc -l` | The Files card shows one, hides one, and the search indexes some; the owner's "only the first line" report was one symptom. | One `readings` table (`media_id, kind, page, text, model, ts`), one renderer, all kinds indexed (B3). |
+| F7 | Threads in 16 modules share SQLAlchemy sessions created per call | `grep -rln "threading.Thread" src/tessellate` | SQLite is fine with this only while each thread opens its own session and nobody passes ORM objects across; nothing enforces it, and the "Could not refresh instance" 500 seen this session was exactly that shape. | B2 job runtime: one worker, jobs get a fresh session, results are plain dicts. Lint: `Thread(` allowed only in `core/jobs.py`. |
+| F10 | Extracted text, captions and OCR live in three columns with three UIs | `grep -n "vision_ocr_text\|ocr_text\|caption" src/tessellate/api/routes_files.py \| wc -l` | The Files card shows one, hides one, and the search indexes some; the owner's "only the first line" report was one symptom. | One `readings` table (`media_id, kind, page, text, model, ts`), one renderer, all kinds indexed (B3). |
 | F11 | The graph, dashboard constellation and map thumbnails are three renderers | `grep -c "forceSimulation" frontend/js/graph.js frontend/js/dashboard.js frontend/js/whiteboard.js` | Three physics, three colour maps, three sets of bugs. | GRAPH_PLAN §3: one renderer with `size: "pane" | "tile" | "full"`. |
 | F12 | Frontend state lives in module globals, DOM and localStorage with no single owner | MODERNISATION_AUDIT C2 | Every "the list did not refresh" bug. | A small store: `state.get/set/subscribe` per slice, renderers subscribe; introduced slice by slice (notes list first). |
 
@@ -1382,7 +1382,7 @@ no lever behind it.
 
 ## 16. The backend, read for structure, silent failure and lag (2026-09-08)
 
-Static probes over `src/memorymap` (`scratchpad/probe_backend.py`), each
+Static probes over `src/tessellate` (`scratchpad/probe_backend.py`), each
 number reproducible. Security is in §12 and was not repeated; nothing new
 was found there beyond what §12 lists.
 
@@ -1476,7 +1476,7 @@ FlashText; superseded by the pack below).
    (5.0.0: `memorymap_taxonomy.json` 527 categories and 6,478 assignments,
    `memorymap_occupations.json` 1,109 roles, `memorymap_entities.json`,
    `memorymap_facets.json`, `memorymap_context_rules.json` as a spec, 64 passing
-   tests) lands as JSON under `src/memorymap/ai/data/taxonomy/` (about 470 KB),
+   tests) lands as JSON under `src/tessellate/ai/data/taxonomy/` (about 470 KB),
    loaded lazily on the first filing, matched by the vendored FlashText as
    **candidate generation only**. Its module's API shape (`analyze_note`,
    `extract_categories`, `extract_occupations`, `extract_entities`,
@@ -1781,7 +1781,7 @@ The next year's local agents (coding agents, desktop assistants) will want
 a memory. Tessellate already has the tools (58 in `ai/tools/`), the
 permission gates and the audit log. Build: a versioned `/api/v1` contract
 generated from the routers (schema behind auth, B7), and an MCP server in
-`src/memorymap/mcp/` exposing the same tools with the same "asks first"
+`src/tessellate/mcp/` exposing the same tools with the same "asks first"
 rules, so any local agent can read and write the notebook and every write
 lands in the event log with the agent named. Gate: the MCP server passes
 the same tool tests as the in-app agent; an external write shows in the
@@ -1825,7 +1825,7 @@ first note and a first question, measured by time to first answer.
    artifacts `.github/workflows/release.yml` produces: the Windows `.exe`
    (`packaging/windows/installer.iss`'s `OutputBaseFilename`,
    `MemoryMap-AI-Setup-{#MyAppVersion}-windows-x86_64`), the Windows `.msi`
-   (`MemoryMap-AI-$env:MEMORYMAP_VERSION-windows-x86_64.msi`, built by
+   (`MemoryMap-AI-$env:TESSELLATE_VERSION-windows-x86_64.msi`, built by
    `packaging/windows/installer.wxs`), and the Linux `.tar.gz` and `.zip`
    (`MemoryMap-AI-${VERSION}-linux-x86_64.{tar.gz,zip}`). `x86_64` rather
    than Inno's own `x64` spelling: it is what `uname -m` prints and what
@@ -3075,7 +3075,7 @@ Entries are the owner's words, then the recommendation. Bugs come first, then de
 ### Bugs
 
 - "I pressed a restart button and it failed: {"[1007/230819.346:ERROR:ui\gfx\win\window_impl.cc:172] Failed to unregister class Chrome_WidgetWin_0. Error = 1411"}"
-  Recommendation: the desktop restart path (`src/memorymap/__main__.py`, the webview start) treats this unregister error as non-fatal and relaunches; reproduce it on Windows, which this sandbox cannot run. No brief carries it; Brief 17 (launchers) is the nearest.
+  Recommendation: the desktop restart path (`src/tessellate/__main__.py`, the webview start) treats this unregister error as non-fatal and relaunches; reproduce it on Windows, which this sandbox cannot run. No brief carries it; Brief 17 (launchers) is the nearest.
 - "this didnt work "https://192.168.0.107:8443", on my phone it said the page was unsecure, and then I clicked continue, and it said "safari can't open the page because the connection was lost.". I do have a vpn/custom dns sever through adguard active but that shouldnt be a hindrance. also the security needs to be improved if possible for this to work on phone."
   Recommendation: phone access over HTTPS, with the "connection was lost" cause found on iOS Safari, a one-page trust guide with a QR code, and a local CA option. Also carried by Brief 40 (the phone over HTTPS) and Brief 15 (network hardening).
 - "it says the connection isnt secure and the page cant be reached" / "on brave browser on my phone"
@@ -3211,36 +3211,36 @@ Brief 45 part 1, numbers only. Produced by `python scratchpad/census/census.py` 
 
 ### 24.1 Size and complexity
 
-#### 1.1 Python (src/memorymap, vendor excluded)
+#### 1.1 Python (src/tessellate, vendor excluded)
 223 files, 131372 lines, 3674 functions, 128 over 80 lines, summed complexity 20809.
 
 | file | lines | functions | longest (lines) | over 80 | max cx | sum cx |
 | --- | --- | --- | --- | --- | --- | --- |
-| src/memorymap/api/routes_whiteboard.py | 5428 | 128 | _board_preview (198) | 7 | 35 | 851 |
-| src/memorymap/ai/question_noise.py | 5242 | 14 | repair (43) | 0 | 23 | 121 |
-| src/memorymap/ai/tools/__init__.py | 4878 | 90 | execute_tool (115) | 6 | 31 | 669 |
-| src/memorymap/api/routes_files.py | 3931 | 91 | analyse_attachment (181) | 6 | 47 | 544 |
-| src/memorymap/api/routes_entries.py | 3835 | 107 | list_entries (145) | 11 | 41 | 674 |
-| src/memorymap/entry/manager.py | 3519 | 138 | _hard_delete (179) | 2 | 24 | 561 |
-| src/memorymap/ai/agent.py | 3153 | 49 | run_agent (416) | 5 | 78 | 486 |
-| src/memorymap/api/routes_settings.py | 3015 | 82 | get_preferences (137) | 2 | 26 | 383 |
-| src/memorymap/ai/composer.py | 2980 | 90 | compose (191) | 4 | 74 | 932 |
-| src/memorymap/core/database.py | 2729 | 25 | _ensure_alembic_baseline (102) | 3 | 10 | 95 |
-| src/memorymap/api/routes_chat.py | 2609 | 55 | _stream_lines (289) | 5 | 86 | 440 |
-| src/memorymap/__main__.py | 2582 | 62 | _start_tray (330) | 5 | 20 | 269 |
-| src/memorymap/ai/help_chat.py | 2480 | 15 | _matching_topics (74) | 0 | 26 | 108 |
-| src/memorymap/ai/composer_tables.py | 2034 | 2 | _build (16) | 0 | 8 | 10 |
-| src/memorymap/core/extras.py | 1840 | 48 | _run_install (139) | 1 | 23 | 293 |
-| src/memorymap/ai/skills.py | 1774 | 25 | normalise (110) | 1 | 33 | 198 |
-| src/memorymap/api/routes_graph.py | 1765 | 43 | _build_graph (321) | 3 | 45 | 324 |
-| src/memorymap/ai/skill_runner.py | 1587 | 26 | _run_one_step (425) | 2 | 53 | 236 |
-| src/memorymap/search/engine.py | 1499 | 48 | search (145) | 2 | 69 | 363 |
-| src/memorymap/api/app.py | 1475 | 47 | _register_error_handlers (163) | 4 | 21 | 166 |
-| src/memorymap/ai/help_topics_more.py | 1458 | 0 | - (0) | 0 | 0 | 0 |
-| src/memorymap/ai/librarian.py | 1447 | 33 | build_messages (116) | 1 | 15 | 190 |
-| src/memorymap/api/routes_documents.py | 1447 | 45 | import_document (99) | 2 | 16 | 157 |
-| src/memorymap/ai/provider.py | 1440 | 48 | extract_text_tool_calls (150) | 1 | 30 | 254 |
-| src/memorymap/api/routes_auth.py | 1433 | 53 | rotate_vault_key (142) | 1 | 15 | 210 |
+| src/tessellate/api/routes_whiteboard.py | 5428 | 128 | _board_preview (198) | 7 | 35 | 851 |
+| src/tessellate/ai/question_noise.py | 5242 | 14 | repair (43) | 0 | 23 | 121 |
+| src/tessellate/ai/tools/__init__.py | 4878 | 90 | execute_tool (115) | 6 | 31 | 669 |
+| src/tessellate/api/routes_files.py | 3931 | 91 | analyse_attachment (181) | 6 | 47 | 544 |
+| src/tessellate/api/routes_entries.py | 3835 | 107 | list_entries (145) | 11 | 41 | 674 |
+| src/tessellate/entry/manager.py | 3519 | 138 | _hard_delete (179) | 2 | 24 | 561 |
+| src/tessellate/ai/agent.py | 3153 | 49 | run_agent (416) | 5 | 78 | 486 |
+| src/tessellate/api/routes_settings.py | 3015 | 82 | get_preferences (137) | 2 | 26 | 383 |
+| src/tessellate/ai/composer.py | 2980 | 90 | compose (191) | 4 | 74 | 932 |
+| src/tessellate/core/database.py | 2729 | 25 | _ensure_alembic_baseline (102) | 3 | 10 | 95 |
+| src/tessellate/api/routes_chat.py | 2609 | 55 | _stream_lines (289) | 5 | 86 | 440 |
+| src/tessellate/__main__.py | 2582 | 62 | _start_tray (330) | 5 | 20 | 269 |
+| src/tessellate/ai/help_chat.py | 2480 | 15 | _matching_topics (74) | 0 | 26 | 108 |
+| src/tessellate/ai/composer_tables.py | 2034 | 2 | _build (16) | 0 | 8 | 10 |
+| src/tessellate/core/extras.py | 1840 | 48 | _run_install (139) | 1 | 23 | 293 |
+| src/tessellate/ai/skills.py | 1774 | 25 | normalise (110) | 1 | 33 | 198 |
+| src/tessellate/api/routes_graph.py | 1765 | 43 | _build_graph (321) | 3 | 45 | 324 |
+| src/tessellate/ai/skill_runner.py | 1587 | 26 | _run_one_step (425) | 2 | 53 | 236 |
+| src/tessellate/search/engine.py | 1499 | 48 | search (145) | 2 | 69 | 363 |
+| src/tessellate/api/app.py | 1475 | 47 | _register_error_handlers (163) | 4 | 21 | 166 |
+| src/tessellate/ai/help_topics_more.py | 1458 | 0 | - (0) | 0 | 0 | 0 |
+| src/tessellate/ai/librarian.py | 1447 | 33 | build_messages (116) | 1 | 15 | 190 |
+| src/tessellate/api/routes_documents.py | 1447 | 45 | import_document (99) | 2 | 16 | 157 |
+| src/tessellate/ai/provider.py | 1440 | 48 | extract_text_tool_calls (150) | 1 | 30 | 254 |
+| src/tessellate/api/routes_auth.py | 1433 | 53 | rotate_vault_key (142) | 1 | 15 | 210 |
 
 (top 25 of 223 files by lines; `--full` lists all)
 
@@ -3280,16 +3280,16 @@ Brief 45 part 1, numbers only. Produced by `python scratchpad/census/census.py` 
 #### 1.3 Ten most complex Python functions
 | function | file:line | lines | cx |
 | --- | --- | --- | --- |
-| _stream_lines | src/memorymap/api/routes_chat.py:2083 | 289 | 86 |
-| run_agent | src/memorymap/ai/agent.py:2738 | 416 | 78 |
-| compose | src/memorymap/ai/composer.py:2655 | 191 | 74 |
-| collect | src/memorymap/api/routes_tasks.py:50 | 356 | 71 |
-| search | src/memorymap/search/engine.py:1077 | 145 | 69 |
-| follow_on | src/memorymap/ai/composer.py:2173 | 105 | 62 |
-| _retrieve | src/memorymap/search/search_manager.py:1053 | 215 | 57 |
-| _run_one_step | src/memorymap/ai/skill_runner.py:848 | 425 | 53 |
-| restore_board | src/memorymap/api/routes_board_history.py:334 | 129 | 49 |
-| analyse_attachment | src/memorymap/api/routes_files.py:446 | 181 | 47 |
+| _stream_lines | src/tessellate/api/routes_chat.py:2083 | 289 | 86 |
+| run_agent | src/tessellate/ai/agent.py:2738 | 416 | 78 |
+| compose | src/tessellate/ai/composer.py:2655 | 191 | 74 |
+| collect | src/tessellate/api/routes_tasks.py:50 | 356 | 71 |
+| search | src/tessellate/search/engine.py:1077 | 145 | 69 |
+| follow_on | src/tessellate/ai/composer.py:2173 | 105 | 62 |
+| _retrieve | src/tessellate/search/search_manager.py:1053 | 215 | 57 |
+| _run_one_step | src/tessellate/ai/skill_runner.py:848 | 425 | 53 |
+| restore_board | src/tessellate/api/routes_board_history.py:334 | 129 | 49 |
+| analyse_attachment | src/tessellate/api/routes_files.py:446 | 181 | 47 |
 
 #### 1.4 Ten most complex JavaScript functions
 | function | file:line | lines | cx |
@@ -3327,7 +3327,7 @@ Brief 45 part 1, numbers only. Produced by `python scratchpad/census/census.py` 
 | agentTimeline | frontend/js/chat-agent.js:504 | 488 | 43 |
 | mapPreview | frontend/js/note-cards.js:386 | 467 | 69 |
 | nameMarkBuddyBuild | frontend/js/avatars.js:8526 | 444 | 47 |
-| _run_one_step | src/memorymap/ai/skill_runner.py:848 | 425 | 53 |
+| _run_one_step | src/tessellate/ai/skill_runner.py:848 | 425 | 53 |
 | docCodeScan | frontend/js/documents-code.js:2906 | 425 | 132 |
 | cmdPaletteAsk | frontend/js/palette.js:831 | 418 | 42 |
 
@@ -3338,34 +3338,34 @@ Brief 45 part 1, numbers only. Produced by `python scratchpad/census/census.py` 
 
 | normalised lines | places | file:line |
 | --- | --- | --- |
-| 41 | 2 | src/memorymap/ai/composer_tables.py:1578, src/memorymap/ai/composer_tables.py:1808 |
-| 37 | 2 | src/memorymap/ai/question_noise.py:152, src/memorymap/ai/question_noise.py:4410 |
-| 21 | 2 | src/memorymap/api/routes_files.py:774, src/memorymap/api/routes_files.py:1675 |
-| 19 | 2 | src/memorymap/api/routes_auth.py:630, src/memorymap/api/routes_auth.py:738 |
-| 18 | 2 | src/memorymap/ai/ollama_client.py:764, src/memorymap/ai/ollama_client.py:889 |
+| 41 | 2 | src/tessellate/ai/composer_tables.py:1578, src/tessellate/ai/composer_tables.py:1808 |
+| 37 | 2 | src/tessellate/ai/question_noise.py:152, src/tessellate/ai/question_noise.py:4410 |
+| 21 | 2 | src/tessellate/api/routes_files.py:774, src/tessellate/api/routes_files.py:1675 |
+| 19 | 2 | src/tessellate/api/routes_auth.py:630, src/tessellate/api/routes_auth.py:738 |
+| 18 | 2 | src/tessellate/ai/ollama_client.py:764, src/tessellate/ai/ollama_client.py:889 |
 | 18 | 2 | frontend/js/notes-list.js:1963, frontend/js/notes-list.js:2290 |
 | 17 | 2 | frontend/js/documents-code.js:1626, frontend/js/documents-prose.js:1718 |
 | 17 | 2 | frontend/js/whiteboard.js:17005, frontend/js/whiteboard.js:17937 |
-| 16 | 2 | src/memorymap/ai/ollama_client.py:799, src/memorymap/ai/openai_client.py:896 |
+| 16 | 2 | src/tessellate/ai/ollama_client.py:799, src/tessellate/ai/openai_client.py:896 |
 | 16 | 2 | frontend/js/library.js:3953, frontend/js/library.js:7191 |
-| 14 | 2 | src/memorymap/api/routes_library.py:392, src/memorymap/api/routes_library.py:506 |
+| 14 | 2 | src/tessellate/api/routes_library.py:392, src/tessellate/api/routes_library.py:506 |
 | 14 | 2 | frontend/js/whiteboard.js:5176, frontend/js/whiteboard.js:5304 |
-| 13 | 2 | src/memorymap/ai/ollama_client.py:688, src/memorymap/ai/openai_client.py:825 |
-| 13 | 2 | src/memorymap/api/routes_files.py:2617, src/memorymap/api/routes_files.py:3069 |
-| 13 | 2 | src/memorymap/api/routes_settings.py:2693, src/memorymap/api/routes_settings.py:2852 |
+| 13 | 2 | src/tessellate/ai/ollama_client.py:688, src/tessellate/ai/openai_client.py:825 |
+| 13 | 2 | src/tessellate/api/routes_files.py:2617, src/tessellate/api/routes_files.py:3069 |
+| 13 | 2 | src/tessellate/api/routes_settings.py:2693, src/tessellate/api/routes_settings.py:2852 |
 | 13 | 2 | frontend/js/library.js:10293, frontend/js/whiteboard.js:10319 |
 | 13 | 2 | frontend/js/whiteboard.js:13581, frontend/js/whiteboard.js:13719 |
-| 12 | 3 | src/memorymap/api/routes_auth.py:978, src/memorymap/api/routes_auth.py:1060, src/memorymap/api/routes_auth.py:1262 |
-| 12 | 2 | src/memorymap/ai/ollama_client.py:728, src/memorymap/ai/openai_client.py:855 |
+| 12 | 3 | src/tessellate/api/routes_auth.py:978, src/tessellate/api/routes_auth.py:1060, src/tessellate/api/routes_auth.py:1262 |
+| 12 | 2 | src/tessellate/ai/ollama_client.py:728, src/tessellate/ai/openai_client.py:855 |
 | 12 | 2 | frontend/js/documents.js:8487, frontend/js/documents.js:9001 |
 | 12 | 2 | frontend/js/suggestions-inbox.js:114, frontend/js/tidy.js:158 |
 | 11 | 3 | frontend/js/documents-prose.js:390, frontend/js/documents.js:6287, frontend/js/documents.js:15013 |
 | 11 | 3 | frontend/js/library.js:8423, frontend/js/library.js:8579, frontend/js/library.js:8767 |
-| 11 | 2 | src/memorymap/api/routes_entries.py:1284, src/memorymap/api/routes_entries.py:2545 |
-| 11 | 2 | src/memorymap/api/routes_whiteboard.py:5344, src/memorymap/api/routes_whiteboard.py:5417 |
-| 11 | 2 | src/memorymap/core/extras.py:1153, src/memorymap/core/extras.py:1334 |
-| 11 | 2 | src/memorymap/core/security.py:333, src/memorymap/core/security.py:353 |
-| 11 | 2 | src/memorymap/search/engine.py:771, src/memorymap/search/engine.py:811 |
+| 11 | 2 | src/tessellate/api/routes_entries.py:1284, src/tessellate/api/routes_entries.py:2545 |
+| 11 | 2 | src/tessellate/api/routes_whiteboard.py:5344, src/tessellate/api/routes_whiteboard.py:5417 |
+| 11 | 2 | src/tessellate/core/extras.py:1153, src/tessellate/core/extras.py:1334 |
+| 11 | 2 | src/tessellate/core/security.py:333, src/tessellate/core/security.py:353 |
+| 11 | 2 | src/tessellate/search/engine.py:771, src/tessellate/search/engine.py:811 |
 | 11 | 2 | frontend/js/categories-panel.js:68, frontend/js/tag-manager.js:458 |
 | 11 | 2 | frontend/js/categories-panel.js:225, frontend/js/tag-manager.js:581 |
 
@@ -3379,50 +3379,50 @@ Corpus: identifier tokens in frontend/ (js, html, css), src/ and tests/, vendor 
 
 (none)
 
-#### 3.2 Python defs in src/memorymap: 3674 defined, 40 candidates (excluded as called by a framework: dunder methods, 346 decorated defs such as route handlers and validators, and SQLAlchemy type hooks)
+#### 3.2 Python defs in src/tessellate: 3674 defined, 40 candidates (excluded as called by a framework: dunder methods, 346 decorated defs such as route handlers and validators, and SQLAlchemy type hooks)
 
 | def | file:line | uses in tests |
 | --- | --- | --- |
-| capture_signals | src/memorymap/__main__.py:585 | 0 |
-| scheduler_alive | src/memorymap/ai/autonomous.py:249 | 2 |
-| phrase_options | src/memorymap/ai/composer.py:263 | 13 |
-| _yes_no_wrapped | src/memorymap/ai/composer.py:455 | 0 |
-| today_line | src/memorymap/ai/composer_voice.py:490 | 1 |
-| title_for | src/memorymap/ai/composer_voice.py:639 | 3 |
-| suggested_searches | src/memorymap/ai/composer_voice.py:667 | 1 |
-| suggest_entities | src/memorymap/ai/entities.py:104 | 5 |
-| extract_concepts | src/memorymap/ai/fast_matcher.py:31 | 0 |
-| unfence | src/memorymap/ai/fence.py:61 | 3 |
-| note_passage_scores | src/memorymap/ai/grounding.py:298 | 2 |
-| feature_model | src/memorymap/ai/model_manager.py:484 | 14 |
-| reset_jobs | src/memorymap/ai/model_manager.py:831 | 7 |
-| reset_for_tests | src/memorymap/ai/needle_provider.py:185 | 38 |
-| forget_ollama_binary | src/memorymap/ai/offline.py:47 | 2 |
-| is_llama_cpp | src/memorymap/ai/openai_client.py:319 | 2 |
-| extract_categories | src/memorymap/ai/taxonomy.py:98 | 0 |
-| notebook_began | src/memorymap/ai/timetravel.py:154 | 0 |
-| budget_for_window | src/memorymap/ai/tools/__init__.py:4487 | 5 |
-| reset_for_tests | src/memorymap/api/routes_update.py:171 | 38 |
-| backup_if_due | src/memorymap/core/backup.py:250 | 4 |
-| strip_comments | src/memorymap/core/docexport.py:97 | 1 |
-| handle_starttag | src/memorymap/core/docview.py:193 | 17 |
-| handle_endtag | src/memorymap/core/docview.py:234 | 16 |
-| handle_data | src/memorymap/core/docview.py:262 | 5 |
-| reset_for_tests | src/memorymap/core/embedmodels.py:795 | 38 |
-| reset_for_tests | src/memorymap/core/embedswitch.py:389 | 38 |
-| payload_bytes | src/memorymap/core/events.py:591 | 6 |
-| reset_for_tests | src/memorymap/core/extras.py:1796 | 38 |
-| queued_count | src/memorymap/core/jobs.py:407 | 3 |
-| running_count | src/memorymap/core/jobs.py:411 | 2 |
-| reset_for_tests | src/memorymap/core/passes.py:263 | 38 |
-| is_open | src/memorymap/core/vault.py:68 | 10 |
-| has_recovery | src/memorymap/core/vault.py:235 | 0 |
-| handle_starttag | src/memorymap/core/webclip.py:206 | 17 |
-| handle_endtag | src/memorymap/core/webclip.py:230 | 16 |
-| handle_data | src/memorymap/core/webclip.py:244 | 5 |
-| set_category | src/memorymap/entry/manager.py:226 | 2 |
-| vectors_by_id | src/memorymap/search/engine.py:1396 | 7 |
-| sources_for_kind | src/memorymap/search/index.py:198 | 1 |
+| capture_signals | src/tessellate/__main__.py:585 | 0 |
+| scheduler_alive | src/tessellate/ai/autonomous.py:249 | 2 |
+| phrase_options | src/tessellate/ai/composer.py:263 | 13 |
+| _yes_no_wrapped | src/tessellate/ai/composer.py:455 | 0 |
+| today_line | src/tessellate/ai/composer_voice.py:490 | 1 |
+| title_for | src/tessellate/ai/composer_voice.py:639 | 3 |
+| suggested_searches | src/tessellate/ai/composer_voice.py:667 | 1 |
+| suggest_entities | src/tessellate/ai/entities.py:104 | 5 |
+| extract_concepts | src/tessellate/ai/fast_matcher.py:31 | 0 |
+| unfence | src/tessellate/ai/fence.py:61 | 3 |
+| note_passage_scores | src/tessellate/ai/grounding.py:298 | 2 |
+| feature_model | src/tessellate/ai/model_manager.py:484 | 14 |
+| reset_jobs | src/tessellate/ai/model_manager.py:831 | 7 |
+| reset_for_tests | src/tessellate/ai/needle_provider.py:185 | 38 |
+| forget_ollama_binary | src/tessellate/ai/offline.py:47 | 2 |
+| is_llama_cpp | src/tessellate/ai/openai_client.py:319 | 2 |
+| extract_categories | src/tessellate/ai/taxonomy.py:98 | 0 |
+| notebook_began | src/tessellate/ai/timetravel.py:154 | 0 |
+| budget_for_window | src/tessellate/ai/tools/__init__.py:4487 | 5 |
+| reset_for_tests | src/tessellate/api/routes_update.py:171 | 38 |
+| backup_if_due | src/tessellate/core/backup.py:250 | 4 |
+| strip_comments | src/tessellate/core/docexport.py:97 | 1 |
+| handle_starttag | src/tessellate/core/docview.py:193 | 17 |
+| handle_endtag | src/tessellate/core/docview.py:234 | 16 |
+| handle_data | src/tessellate/core/docview.py:262 | 5 |
+| reset_for_tests | src/tessellate/core/embedmodels.py:795 | 38 |
+| reset_for_tests | src/tessellate/core/embedswitch.py:389 | 38 |
+| payload_bytes | src/tessellate/core/events.py:591 | 6 |
+| reset_for_tests | src/tessellate/core/extras.py:1796 | 38 |
+| queued_count | src/tessellate/core/jobs.py:407 | 3 |
+| running_count | src/tessellate/core/jobs.py:411 | 2 |
+| reset_for_tests | src/tessellate/core/passes.py:263 | 38 |
+| is_open | src/tessellate/core/vault.py:68 | 10 |
+| has_recovery | src/tessellate/core/vault.py:235 | 0 |
+| handle_starttag | src/tessellate/core/webclip.py:206 | 17 |
+| handle_endtag | src/tessellate/core/webclip.py:230 | 16 |
+| handle_data | src/tessellate/core/webclip.py:244 | 5 |
+| set_category | src/tessellate/entry/manager.py:226 | 2 |
+| vectors_by_id | src/tessellate/search/engine.py:1396 | 7 |
+| sources_for_kind | src/tessellate/search/index.py:198 | 1 |
 
 ### 24.4 Coupling of the classic scripts
 
@@ -3513,7 +3513,7 @@ Anywhere (top 15 pairs by name count):
 
 ### 24.5 Counts
 
-#### 5.1 TODO, FIXME, XXX, HACK (src/memorymap, frontend/js, frontend/css, index.html; vendor excluded)
+#### 5.1 TODO, FIXME, XXX, HACK (src/tessellate, frontend/js, frontend/css, index.html; vendor excluded)
 
 Totals: TODO 0, FIXME 0, XXX 0, HACK 0.
 
@@ -3549,20 +3549,20 @@ frontend/css:
 | frontend/css/06-timeline-dialogs.css | 148530 | 4200 |
 | frontend/css/10-responsive.css | 120837 | 3002 |
 
-src/memorymap (vendor excluded):
+src/tessellate (vendor excluded):
 
 | file | bytes | lines |
 | --- | --- | --- |
-| src/memorymap/api/routes_whiteboard.py | 240186 | 5428 |
-| src/memorymap/ai/tools/__init__.py | 213773 | 4878 |
-| src/memorymap/ai/question_noise.py | 186754 | 5242 |
-| src/memorymap/api/routes_files.py | 185904 | 3931 |
-| src/memorymap/api/routes_entries.py | 173879 | 3835 |
-| src/memorymap/ai/agent.py | 154772 | 3153 |
-| src/memorymap/entry/manager.py | 149080 | 3519 |
-| src/memorymap/core/database.py | 147726 | 2729 |
-| src/memorymap/ai/help_chat.py | 147179 | 2480 |
-| src/memorymap/api/routes_settings.py | 142810 | 3015 |
+| src/tessellate/api/routes_whiteboard.py | 240186 | 5428 |
+| src/tessellate/ai/tools/__init__.py | 213773 | 4878 |
+| src/tessellate/ai/question_noise.py | 186754 | 5242 |
+| src/tessellate/api/routes_files.py | 185904 | 3931 |
+| src/tessellate/api/routes_entries.py | 173879 | 3835 |
+| src/tessellate/ai/agent.py | 154772 | 3153 |
+| src/tessellate/entry/manager.py | 149080 | 3519 |
+| src/tessellate/core/database.py | 147726 | 2729 |
+| src/tessellate/ai/help_chat.py | 147179 | 2480 |
+| src/tessellate/api/routes_settings.py | 142810 | 3015 |
 
 #### 5.3 Backend routes with no test file naming their path
 
@@ -3570,21 +3570,21 @@ src/memorymap (vendor excluded):
 
 | route file | untested routes |
 | --- | --- |
-| src/memorymap/api/routes_documents.py | 12 |
-| src/memorymap/api/routes_entries.py | 10 |
-| src/memorymap/api/routes_board_library.py | 6 |
-| src/memorymap/api/routes_conversations.py | 6 |
-| src/memorymap/api/routes_whiteboard.py | 4 |
-| src/memorymap/api/routes_meetings.py | 3 |
-| src/memorymap/api/routes_properties.py | 2 |
-| src/memorymap/api/routes_reminders.py | 2 |
-| src/memorymap/api/routes_tidy.py | 2 |
-| src/memorymap/api/routes_bench.py | 1 |
-| src/memorymap/api/routes_categories.py | 1 |
-| src/memorymap/api/routes_files.py | 1 |
-| src/memorymap/api/routes_learned.py | 1 |
-| src/memorymap/api/routes_mentions.py | 1 |
-| src/memorymap/api/routes_questions.py | 1 |
+| src/tessellate/api/routes_documents.py | 12 |
+| src/tessellate/api/routes_entries.py | 10 |
+| src/tessellate/api/routes_board_library.py | 6 |
+| src/tessellate/api/routes_conversations.py | 6 |
+| src/tessellate/api/routes_whiteboard.py | 4 |
+| src/tessellate/api/routes_meetings.py | 3 |
+| src/tessellate/api/routes_properties.py | 2 |
+| src/tessellate/api/routes_reminders.py | 2 |
+| src/tessellate/api/routes_tidy.py | 2 |
+| src/tessellate/api/routes_bench.py | 1 |
+| src/tessellate/api/routes_categories.py | 1 |
+| src/tessellate/api/routes_files.py | 1 |
+| src/tessellate/api/routes_learned.py | 1 |
+| src/tessellate/api/routes_mentions.py | 1 |
+| src/tessellate/api/routes_questions.py | 1 |
 
 #### 5.4 CSS class and id names in frontend/css used by no markup or script
 
@@ -3669,7 +3669,7 @@ Static counts, from the code (`python scratchpad/ui-sweeps/measure-*.py`):
   hold at least one. Not run with reminders or bookmarks present.
 - **Settings** (`measure-settings-help.py`): `PreferencesBody` has 72 fields
   (86 distinct keys are read or written through `get_preference` and
-  `set_preference` in `src/memorymap/`; the plan's 179 is not a count of
+  `set_preference` in `src/tessellate/`; the plan's 179 is not a count of
   either). `index.html` holds 105 `data-help-for` popovers, 69 of them
   inside the Settings modal. By the script's rule (a popover in the same
   `<h3>` block as the control, else a muted line within four lines): 31 keys
@@ -3690,7 +3690,7 @@ Static counts, from the code (`python scratchpad/ui-sweeps/measure-*.py`):
   `wb*Undo*` set in `whiteboard.js`, `docUndo*` in `documents.js`, `undoDraft`
   in `chat-agent.js`, `inlineAiUndo`, `undoSkillRun`, `undoImport`, the
   activity feed's `activityUndo*`, and `undo-store.js` (IndexedDB).
-- **Search index** (`src/memorymap/search/index.py:46`): `KINDS = ("note",
+- **Search index** (`src/tessellate/search/index.py:46`): `KINDS = ("note",
   "document", "board", "map", "file", "bookmark", "reminder")`, eight
   sources registered (lines 665 to 746; two for `file`). `GET /search` calls
   `engine.search` (`routes_search.py`), not `search_manager._retrieve`, which
@@ -3886,15 +3886,15 @@ part built; sync (B6) designed only.
 ### 26.2 Decisions, 2026-10-10 (do not re-decide)
 
 55. **Routes are thin.** A route parses, calls one service function, shapes
-    the answer. Services live in `src/memorymap/<domain>/service.py`
+    the answer. Services live in `src/tessellate/<domain>/service.py`
     (board, document, file, chat, settings), each tested directly; the
     route tests stay as they are and prove no behaviour changed. Extraction
     order: whiteboard, files, entries, chat.
 56. **Data is data.** Tables (`question_noise`, `composer_tables`, the help
-    topics) are JSON under `src/memorymap/data/` (the taxonomy stays under
-    `src/memorymap/ai/data/taxonomy/`, 23.1), loaded
+    topics) are JSON under `src/tessellate/data/` (the taxonomy stays under
+    `src/tessellate/ai/data/taxonomy/`, 23.1), loaded
     lazily and cached; `tests/test_import_time.py` caps `import
-    memorymap.ai.composer` at 0.2 s cold and the app's import at 1.5 s.
+    tessellate.ai.composer` at 0.2 s cold and the app's import at 1.5 s.
 57. **No silent swallow.** `except Exception` ends in a log line with the
     reason and the way out, or becomes a named exception;
     `tests/test_no_silent_except.py` ratchets 21 to 0. `print` outside the
@@ -3929,7 +3929,7 @@ Machine: 4 cores at load average 4 to 9 from other sessions, so every wall time 
 
 | Measure | Number | Note |
 | --- | --- | --- |
-| `import memorymap.api.app`, cold | 2.9 to 3.8 s (3.3 s under `-X importtime`), 205 `memorymap` modules, torch not loaded | decision 56 caps this at 1.5 s: not met |
+| `import tessellate.api.app`, cold | 2.9 to 3.8 s (3.3 s under `-X importtime`), 205 `memorymap` modules, torch not loaded | decision 56 caps this at 1.5 s: not met |
 | Heaviest `memorymap` imports (cumulative / self) | `ai.autonomous` 767 / 0 ms (pulls `ai.agent` 503), `ai.help_chat` 271 / 261, `api.routes_search` 226 / 226, `api.routes_chat` 148, `core.database` 145, `api.routes_documents` 146, `api.routes_whiteboard` 135, `api.routes_files` 129 | `fastapi.openapi.models` 128 |
 | Import of single modules | `ai.composer` 0.11 s, `ai.question_noise` 0.02 s (cap 0.2 s: met), `ai.agent` 0.94 s, `search.engine` 0.62 s | standalone, after `ai.agent`'s own deps |
 | Resident memory, empty notebook | 11 MB bare interpreter; 108 MB after import; 129 MB after startup; 130 MB after 5 s idle | embedder not loaded at startup (torch and sentence_transformers absent from `sys.modules`) |

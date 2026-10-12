@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import os
 
-from memorymap.core import backup, deps
+from tessellate.core import backup, deps
 
 
 def test_each_backup_records_what_made_it_and_that_it_was_checked(app_state):

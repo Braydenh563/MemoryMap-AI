@@ -169,7 +169,7 @@ def test_live_captions_have_doors_where_people_look():
     access them"): a Captions button in the voice note dialog and the
     Recordings bar, the Tools and features row, the palette, and a Guide
     topic that answers the question in its own words."""
-    from memorymap.ai import help_chat
+    from tessellate.ai import help_chat
 
     assert 'id="meeting-captions"' in HTML and 'id="recordings-captions"' in HTML
     bar = HTML.split('data-dock-name="library-recordings"')[1].split("</section>")[0]

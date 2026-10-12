@@ -7,7 +7,7 @@ endpoint, only a skill whose steps and toolbox are right.
 
 from __future__ import annotations
 
-from memorymap.ai import skills, tools
+from tessellate.ai import skills, tools
 
 NAME = "Write a document from a tag"
 

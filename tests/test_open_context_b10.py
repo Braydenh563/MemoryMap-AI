@@ -11,8 +11,8 @@ import json
 
 import pytest
 
-from memorymap.ai import composer_digest
-from memorymap.entry import manager
+from tessellate.ai import composer_digest
+from tessellate.entry import manager
 
 
 def _turn(client, question: str, **extra) -> str:

@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from memorymap.ai import help_chat
+from tessellate.ai import help_chat
 from tests._app_js import app_js_text
 
 
@@ -567,7 +567,7 @@ def _guide_model(ai_client, fake_ollama) -> str:
 def test_the_guide_takes_the_utility_model_when_one_is_set(ai_client, fake_ollama):
     """The case the copy describes, and the only one of the three in which
     "your utility model" is the whole truth."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     manager = deps.get_model_manager()
     manager.set_chat_model("big-chat-model")
@@ -584,7 +584,7 @@ def test_the_guide_falls_back_to_the_chat_model_when_no_utility_model_is_chosen(
     fix in `help_chat`; the fix, if the reader wants a different model, is to
     choose one, and this pins that the fallback is the chat model and not
     something else."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     manager = deps.get_model_manager()
     manager.set_chat_model("big-chat-model")
@@ -598,7 +598,7 @@ def test_the_guide_keeps_the_utility_model_when_smart_routing_is_off(
     """The owner's decision, 2026-09-24 (WORLD_CLASS_PLAN section 20): the
     routing switch moves background jobs onto the chat model; the Guide is a
     panel you type into, so it keeps the utility model either way."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     manager = deps.get_model_manager()
     manager.set_chat_model("big-chat-model")
@@ -617,7 +617,7 @@ def test_the_streamed_guide_turn_does_not_turn_thinking_off(ai_client, fake_olla
     `presets.GUIDE_MODE` is Quick's brevity with `think` left unset, and unset
     means the field is never sent, so a reasoning model reasons and an
     ordinary one is unaffected."""
-    from memorymap.ai import presets
+    from tessellate.ai import presets
 
     fake_ollama.chat_modes.clear()
     response = ai_client.post("/help/ask/stream", json={"question": "how do I save a note?"})
@@ -636,7 +636,7 @@ def test_the_guide_preset_is_not_on_the_mode_picker():
     reader to weigh up in the chat dock. `routes_chat` builds the picker from
     `MODES` and `routes_settings` refuses a preference outside it, so both stay
     three long."""
-    from memorymap.ai import presets
+    from tessellate.ai import presets
 
     assert presets.GUIDE_MODE not in presets.MODES
     assert presets.GUIDE_MODE in presets.INTERNAL_MODES
@@ -689,8 +689,8 @@ def test_the_guide_preset_sends_no_thinking_toggle_to_ollama():
     been drawn on an Ollama backend. `GUIDE_MODE` sends nothing, and nothing
     means "whatever the model does by default".
     """
-    from memorymap.ai import presets
-    from memorymap.ai.ollama_client import OllamaClient
+    from tessellate.ai import presets
+    from tessellate.ai.ollama_client import OllamaClient
 
     class _Thinker(OllamaClient):
         def supports(self, model, capability):

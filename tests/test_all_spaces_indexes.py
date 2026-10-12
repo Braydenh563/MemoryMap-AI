@@ -17,7 +17,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import event, text
 
-from memorymap.core import deps
+from tessellate.core import deps
 
 #: Route, and the table whose rows it lists.
 LISTS = [

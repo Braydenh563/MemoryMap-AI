@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-SRC = Path(__file__).resolve().parents[1] / "src" / "memorymap"
+SRC = Path(__file__).resolve().parents[1] / "src" / "tessellate"
 _IMPORT = re.compile(r"^\s*(?:import|from)\s+(?:scipy|sklearn)\b", re.M)
 
 

@@ -6,7 +6,7 @@ import sqlite3
 
 import pytest
 
-from memorymap.core import backup, deps
+from tessellate.core import backup, deps
 
 
 def _save(client, content, **extra):
@@ -185,7 +185,7 @@ def test_every_start_holds_the_folder_to_the_retention_number(app_state):
     the start-up housekeeping prunes even on a day no backup is due."""
     import os
 
-    from memorymap.api import app as app_module
+    from tessellate.api import app as app_module
 
     config = deps.get_config()
     config.db_path.touch()

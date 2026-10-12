@@ -16,7 +16,7 @@ from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 
-from memorymap.core.database import Base, DatabaseManager, _ensure_alembic_baseline
+from tessellate.core.database import Base, DatabaseManager, _ensure_alembic_baseline
 
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = "8a8a14407cc0"

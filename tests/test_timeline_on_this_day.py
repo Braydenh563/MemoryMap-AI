@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from memorymap.core.database import Entry
+from tessellate.core.database import Entry
 
 
 def _at(session, client, text, when):

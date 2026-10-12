@@ -10,10 +10,10 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import composer, intent, utilities
-from memorymap.core import deps
-from memorymap.core.config import user_now
-from memorymap.entry import manager
+from tessellate.ai import composer, intent, utilities
+from tessellate.core import deps
+from tessellate.core.config import user_now
+from tessellate.entry import manager
 from tests.test_composer_route_688 import _ask
 
 SEED = json.loads((Path(__file__).parent / "fixtures" / "composer" / "phase6_seed.json").read_text(encoding="utf-8"))

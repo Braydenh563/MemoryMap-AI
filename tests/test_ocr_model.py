@@ -13,7 +13,7 @@ broken here.
 
 from __future__ import annotations
 
-from memorymap.ai import model_manager as mm
+from tessellate.ai import model_manager as mm
 
 
 class _FakeOllama:
@@ -138,8 +138,8 @@ def test_the_picker_refuses_a_model_that_is_not_installed(client):
 def test_the_reader_is_none_when_nothing_can_do_the_job(monkeypatch):
     """Returning None rather than a reader that always fails is what lets
     docview fall through to its own message, which names the missing piece."""
-    from memorymap.ai import vision_ocr
-    from memorymap.core import pdfpages
+    from tessellate.ai import vision_ocr
+    from tessellate.core import pdfpages
 
     monkeypatch.setattr(pdfpages, "available", lambda: False)
     assert vision_ocr.pdf_reader_or_none() is None
@@ -153,7 +153,7 @@ def test_both_entry_points_pass_a_reader_rather_than_omitting_it():
     from pathlib import Path
 
     for name in ("routes_files.py", "routes_documents.py"):
-        text = (Path("src/memorymap/api") / name).read_text(encoding="utf-8")
+        text = (Path("src/tessellate/api") / name).read_text(encoding="utf-8")
         assert "docview.extract(" in text
         assert "pdf_reader_or_none()" in text, name
 

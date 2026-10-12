@@ -19,8 +19,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from memorymap.ai import docreader
-from memorymap.core.database import Attachment
+from tessellate.ai import docreader
+from tessellate.core.database import Attachment
 
 
 class _Ollama:
@@ -53,7 +53,7 @@ def _attach(client, text=b"# Agents\n\nSome readable content about tools.", name
 
 
 def test_the_text_is_extracted_and_the_document_described(client, session, monkeypatch):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     monkeypatch.setattr(deps, "get_ollama", _Ollama)
     monkeypatch.setattr(deps, "get_model_manager", _Models)
@@ -66,7 +66,7 @@ def test_the_text_is_extracted_and_the_document_described(client, session, monke
 
 
 def test_with_no_model_the_text_is_still_extracted(client, session, monkeypatch):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     monkeypatch.setattr(deps, "get_ollama", _NoOllama)
     monkeypatch.setattr(deps, "get_model_manager", _Models)
@@ -79,7 +79,7 @@ def test_with_no_model_the_text_is_still_extracted(client, session, monkeypatch)
 
 
 def test_an_existing_reading_is_never_overwritten(client, session, monkeypatch):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     monkeypatch.setattr(deps, "get_ollama", _Ollama)
     monkeypatch.setattr(deps, "get_model_manager", _Models)
@@ -99,7 +99,7 @@ def test_a_missing_row_is_not_an_error(monkeypatch):
 
 
 def test_an_image_attachment_is_left_to_the_image_path(client, session, monkeypatch):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     monkeypatch.setattr(deps, "get_ollama", _Ollama)
     monkeypatch.setattr(deps, "get_model_manager", _Models)
@@ -115,7 +115,7 @@ def test_an_image_attachment_is_left_to_the_image_path(client, session, monkeypa
 def test_the_upload_route_starts_the_pass(client, monkeypatch):
     seen = []
     monkeypatch.setattr(docreader, "read_in_background", lambda fid: seen.append(fid))
-    from memorymap.api import routes_files
+    from tessellate.api import routes_files
 
     monkeypatch.setattr(routes_files.docreader, "read_in_background", lambda fid: seen.append(fid))
     file_id = _attach(client)
@@ -136,9 +136,9 @@ def test_a_description_typed_while_the_model_ran_is_kept(client, session, monkey
     after the upload, and a description typed in between must survive it.
     The fake model call writes the typed value mid-call, which is exactly the
     window the real one leaves open."""
-    from memorymap.ai import captioning
-    from memorymap.api import routes_files
-    from memorymap.core import deps
+    from tessellate.ai import captioning
+    from tessellate.api import routes_files
+    from tessellate.core import deps
 
     monkeypatch.setattr(deps, "get_ollama", _Ollama)
     monkeypatch.setattr(deps, "get_model_manager", _Models)

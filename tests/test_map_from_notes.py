@@ -11,7 +11,7 @@ kept as a cross-link. Laid out on both sides, balanced by weight.
 
 from __future__ import annotations
 
-from memorymap.api.routes_map_from_notes import MAX_FANOUT, build_tree, layout_both_sides
+from tessellate.api.routes_map_from_notes import MAX_FANOUT, build_tree, layout_both_sides
 
 
 def _note(i, category="Work", tags=()):

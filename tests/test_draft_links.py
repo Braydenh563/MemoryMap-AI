@@ -12,7 +12,7 @@ note grew an edge to something a reader cannot reach from anywhere else.
 
 from __future__ import annotations
 
-from memorymap.entry import manager
+from tessellate.entry import manager
 
 
 def _draft(session, text):

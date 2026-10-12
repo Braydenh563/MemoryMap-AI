@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import utilities
+from tessellate.ai import utilities
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "tests/fixtures/utilities/counts_1010.md"
@@ -79,7 +79,7 @@ def test_no_count_of_its_own_in_the_documents_bundle():
 
 
 def test_a_window_in_the_documents_search_is_a_window(client, session):
-    from memorymap.core.database import Document
+    from tessellate.core.database import Document
 
     token = client.post("/auth/setup", json={"password": "first-pass"}).json()["token"]
     headers = {"X-Auth-Token": token}

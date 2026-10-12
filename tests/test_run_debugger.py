@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import sys
 
-from memorymap.api import run_sandbox
+from tessellate.api import run_sandbox
 
 PROGRAM = """def double(n):
     m = n * 2

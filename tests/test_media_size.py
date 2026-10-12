@@ -47,8 +47,8 @@ def test_a_row_predating_the_column_is_backfilled_from_the_real_file(client):
     genuinely on disk. `list_media` has to find that real size the first
     time the row is listed, same as it always did, the change is that it
     only ever does this once per row (`test_media_size_backfill.py`)."""
-    from memorymap.core import deps
-    from memorymap.core.database import MediaUpload
+    from tessellate.core import deps
+    from tessellate.core.database import MediaUpload
 
     stored = deps.get_config().data_dir / "media"
     stored.mkdir(parents=True, exist_ok=True)
@@ -70,8 +70,8 @@ def test_a_row_whose_file_was_never_written_reports_zero_rather_than_failing(cli
     whole Library, not one tile. Covers a row backfilled against a filename
     that never existed (a stat that fails), distinct from the happy path
     above (a stat that succeeds)."""
-    from memorymap.core import deps
-    from memorymap.core.database import MediaUpload
+    from tessellate.core import deps
+    from tessellate.core.database import MediaUpload
 
     with deps.get_db().session() as session:
         row = MediaUpload(filename="never-written.png", original_name="vanishing.png")

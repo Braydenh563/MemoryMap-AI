@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import help_chat, intent, question_noise
+from tessellate.ai import help_chat, intent, question_noise
 
 BANK = json.loads((Path(__file__).parent / "fixtures" / "owner_typos.json").read_text(encoding="utf-8"))
 IDS = [entry["typed"] for entry in BANK]
@@ -110,7 +110,7 @@ def test_the_speller_changes_only_what_it_is_sure_of(typed, meant):
 
 
 def test_a_split_word_is_joined_and_a_run_on_pair_is_recut_only_into_words():
-    from memorymap.ai import spelling
+    from tessellate.ai import spelling
 
     assert spelling.rejoin(["thes", "ebuttons"]) == ["these", "buttons"]
     assert spelling.rejoin(["kombucha", "scoby"]) == ["kombucha", "scoby"]
@@ -137,21 +137,21 @@ def _ack(text: str) -> str:
 
 
 def test_a_repaired_question_is_answered_with_how_it_was_read():
-    from memorymap.ai import composer
+    from tessellate.ai import composer
 
     result = composer.compose("wehn did i go to the gym", NOTES)
     assert result["text"].startswith(_ack(result["text"])) and "when did i go to the gym" in _ack(result["text"])
 
 
 def test_a_question_that_needed_no_repair_is_not_acknowledged():
-    from memorymap.ai import composer
+    from tessellate.ai import composer
 
     assert "“" not in composer.compose("when did i go to the gym", NOTES)["text"].split("\n\n", 1)[0]
 
 
 @pytest.mark.parametrize("voice", ["natural", "professional"])
 def test_the_acknowledgement_is_never_the_same_words_twice_in_a_row(voice):
-    from memorymap.ai import composer
+    from tessellate.ai import composer
 
     dialogue = composer.Dialogue.from_history([])
     opened = []
@@ -164,7 +164,7 @@ def test_the_acknowledgement_is_never_the_same_words_twice_in_a_row(voice):
 
 
 def test_the_acknowledgement_skips_the_last_one_used_even_across_a_plain_turn():
-    from memorymap.ai import composer
+    from tessellate.ai import composer
 
     dialogue = composer.Dialogue.from_history([])
     first = _ack(composer.compose("wehn did i go to the gym", NOTES, dialogue=dialogue)["text"]).split("“")[0]
@@ -177,7 +177,7 @@ def test_the_acknowledgement_skips_the_last_one_used_even_across_a_plain_turn():
 
 @pytest.mark.parametrize("typo", ["redeisgn", "knoe", "thier", "suer", "noficiations", "proffesionalising", "westen", "wierd", "ahve", "hwo", "liks", "odf", "mut", "everythign", "becaus", "ehte", "compoiser", "ot", "eb", "coule", "speach", "everythinf", "liek", "ther", "ist", "bototm", "restert", "typeos", "linal", "capble", "tis", "abutton", "loit", "cor"])
 def test_the_owners_misspellings_are_not_in_the_word_list(typo):
-    from memorymap.ai import spelling
+    from tessellate.ai import spelling
 
     assert not spelling.is_word(typo)
 

@@ -14,9 +14,9 @@ from datetime import datetime
 
 from sqlalchemy import delete, select
 
-from memorymap.core import deps, jobruns
-from memorymap.core.database import Entry, EntryDate
-from memorymap.entry import redate
+from tessellate.core import deps, jobruns
+from tessellate.core.database import Entry, EntryDate
+from tessellate.entry import redate
 
 
 def _stale(client, session, text: str) -> int:
@@ -94,7 +94,7 @@ def test_a_private_note_is_not_read(client, session):
 
 
 def test_start_up_queues_the_pass_only_while_notes_are_unread(client, monkeypatch):
-    from memorymap.core import jobs
+    from tessellate.core import jobs
 
     queued: list[str] = []
     monkeypatch.setattr(jobs, "enqueue", lambda kind, *a, **k: queued.append(kind))

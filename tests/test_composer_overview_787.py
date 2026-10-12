@@ -18,7 +18,7 @@ from datetime import date, datetime
 
 import pytest
 
-from memorymap.ai import composer, composer_overview
+from tessellate.ai import composer, composer_overview
 from tests._composer_eval import trace_failures
 
 TODAY = date(2026, 10, 10)
@@ -95,7 +95,7 @@ def test_games_notes_answers_in_its_first_sentence_and_groups_by_the_thread():
     assert "**League**" in result["text"]
     assert not trace_failures(result, "games notes", _notes(), TODAY)
     #: Decision 52's maxims hold: no day said twice, no capital after a comma.
-    from memorymap.ai import validate
+    from tessellate.ai import validate
 
     assert not validate.report(result, "games notes")["findings"]
 
@@ -164,7 +164,7 @@ def test_a_picture_with_several_lines_is_said_once_not_a_sentence_a_line():
 
 
 def test_the_notice_under_a_composed_answer_shows_only_when_pictures_carry_it():
-    from memorymap.api.routes_chat import _composed_support
+    from tessellate.api.routes_chat import _composed_support
 
     quoted = {"grounding": [{"said": "quoted"}, {"said": "picture"}], "support": {"low": True}}
     pictured = {"grounding": [{"said": "picture"}, {"said": "picture"}, {"said": "quoted"}], "support": {"low": False}}
@@ -173,7 +173,7 @@ def test_the_notice_under_a_composed_answer_shows_only_when_pictures_carry_it():
 
 
 def test_the_route_reads_every_note_of_the_topic_and_joins_a_pictures_lines(client, session):
-    from memorymap.core.database import Entry, MediaUpload
+    from tessellate.core.database import Entry, MediaUpload
 
     session.add(MediaUpload(filename="s1.png", original_name="stats.png", caption="The image shows a game screen.",
                             vision_ocr_text="Ranked Solo/Duo\nGold II"))
@@ -212,7 +212,7 @@ def test_a_conversation_varies_the_lead_and_never_mismatches_its_halves():
 
 
 def test_a_count_and_a_day_are_two_values_and_a_day_said_twice_is_one():
-    from memorymap.ai import validate
+    from tessellate.ai import validate
 
     def parts(*measures):
         out = []

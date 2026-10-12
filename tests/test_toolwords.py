@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import agent, tools, toolwords
+from tessellate.ai import agent, tools, toolwords
 
 CORE = set(tools.CORE_TOOLS) | {"web_search", "read_url"}
 
@@ -203,7 +203,7 @@ def test_the_note_is_only_added_when_the_list_was_actually_narrowed():
     """On a broad request the model already has everything, so a note saying
     the list is partial would simply be untrue."""
     source = (
-        __import__("pathlib").Path("src/memorymap/ai/agent.py")
+        __import__("pathlib").Path("src/tessellate/ai/agent.py")
         .read_text(encoding="utf-8")
     )
     block = source.split("focused_only = allowed_tools is None")[1][:500]

@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai.openai_client import OpenAICompatClient
+from tessellate.ai.openai_client import OpenAICompatClient
 
 
 class _Prefs:
@@ -40,7 +40,7 @@ class _Prefs:
 
 @pytest.fixture
 def client(monkeypatch):
-    import memorymap.core.deps as deps
+    import tessellate.core.deps as deps
 
     c = OpenAICompatClient(base_url="http://localhost:1234/v1")
     c._catalog = []
@@ -100,7 +100,7 @@ def test_the_route_cleans_what_the_box_sends():
     """The number arrives from a text box, so "", "auto", a negative and a
     paste all reach the route. None of them may fail the whole Settings save,
     which carries every other field on the screen in the same PUT."""
-    from memorymap.api.routes_settings import (
+    from tessellate.api.routes_settings import (
         _MAX_SETTABLE_CONTEXT,
         _validated_context_windows,
     )
@@ -132,6 +132,6 @@ def test_an_infinite_window_means_auto():
     the cleaner did not catch (the final scan, 2026-10-06). The route's model
     types the field as int, so this is the cleaner's own contract: a value
     that reaches it some other way means auto, never an exception."""
-    from memorymap.api.routes_settings import _validated_context_windows
+    from tessellate.api.routes_settings import _validated_context_windows
 
     assert _validated_context_windows({"m": float("inf"), "n": float("-inf")}) == {"m": None, "n": None}

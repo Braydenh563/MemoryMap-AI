@@ -12,11 +12,11 @@ from __future__ import annotations
 
 import logging
 
-from memorymap.api import routes_entries
+from tessellate.api import routes_entries
 
 
 def test_no_model_suggests_the_notebooks_own_tags_without_a_traceback(client, caplog):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     for text in ("Netting the beans in the garden", "Garden beds need compost", "Garden tomatoes staked"):
         client.post("/entries", json={"content": text, "tags": ["garden"]})
@@ -53,7 +53,7 @@ def test_a_turned_down_tag_is_listed_and_can_be_restored(client, session):
     that list and offers it again."""
     import json
 
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     made = client.post("/entries", json={"content": "Snapshot of the local model stack"}).json()
     row = session.get(Entry, made["id"])

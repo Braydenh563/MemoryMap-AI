@@ -9,8 +9,8 @@ import json
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from memorymap.ai import filters
-from memorymap.core.database import Category, Entry, EntryLink
+from tessellate.ai import filters
+from tessellate.core.database import Category, Entry, EntryLink
 
 ROOT = Path(__file__).resolve().parents[1]
 SET = json.loads((ROOT / "tests/fixtures/composer/filters_1010.json").read_text(encoding="utf-8"))

@@ -10,7 +10,7 @@
 // app ships `/vendor/d3.v7.min.js` (no CDN: the offline rule), it is a UMD
 // bundle, so `importScripts` puts `d3` on this worker's own global. The CSP
 // already allows it: `worker-src 'self'` is set in
-// `src/memorymap/core/security.py` (checked before writing this, not assumed, 
+// `src/tessellate/core/security.py` (checked before writing this, not assumed, 
 // a directive missing there fails silently, which is the "policy silently
 // refusing the work" shape CLAUDE.md names).
 //

@@ -17,8 +17,8 @@ from datetime import timedelta
 
 from sqlalchemy import func, select
 
-from memorymap.ai import facts
-from memorymap.core.database import DerivedFact, Entry, utcnow
+from tessellate.ai import facts
+from tessellate.core.database import DerivedFact, Entry, utcnow
 
 
 def _note(session, content, days_ago=0):

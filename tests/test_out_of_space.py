@@ -25,7 +25,7 @@ import errno
 
 import pytest
 
-from memorymap.core import deps, diskspace
+from tessellate.core import deps, diskspace
 
 
 def _no_space(*_args, **_kwargs):
@@ -53,7 +53,7 @@ def test_unlocking_survives_a_full_disk(client, monkeypatch):
     `POST /auth/unlock` answered 507 because of the audit row written beside
     it, while every read endpoint behind the lock was working perfectly.
     """
-    from memorymap.api import routes_auth
+    from tessellate.api import routes_auth
 
     client.post("/auth/setup", json={"password": "a-real-password"})
     #: Patched where `unlock` looks it up, not where it is defined: the

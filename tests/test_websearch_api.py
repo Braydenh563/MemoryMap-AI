@@ -9,7 +9,7 @@ is the happy-path plumbing underneath both.)
 
 from __future__ import annotations
 
-from memorymap.search import websearch
+from tessellate.search import websearch
 
 FAKE_DDG_PAGE = """
 <div class="result">

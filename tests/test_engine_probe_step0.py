@@ -14,8 +14,8 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import composer
-from memorymap.entry import manager
+from tessellate.ai import composer
+from tessellate.entry import manager
 from tests.test_composer_route_688 import _ask
 
 NOTES_ONLY = {"notes_only": True, "use_tools": False, "answer_from": "notes"}
@@ -111,10 +111,10 @@ def test_p8_the_first_answer_does_not_import_the_embedding_stack():
     """0.6 to 1.8 s on the first call: `grounding.paragraph_ordinal` imported
     `embeddings` (the model manager, the database models, SQLAlchemy)."""
     code = (
-        "import sys, time; from datetime import date; from memorymap.ai import composer; "
+        "import sys, time; from datetime import date; from tessellate.ai import composer; "
         "t = time.perf_counter(); "
         "composer.compose('when is the dentist', [{'id': 1, 'content': '# Dentist\\n\\nCheck-up booked for the 21st.', 'created_at': '2026-10-01'}], today=date(2026, 10, 6)); "
-        "print('memorymap.ai.embeddings' in sys.modules, 'sqlalchemy' in sys.modules, round(time.perf_counter() - t, 3))"
+        "print('tessellate.ai.embeddings' in sys.modules, 'sqlalchemy' in sys.modules, round(time.perf_counter() - t, 3))"
     )
     root = Path(__file__).resolve().parents[1]
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=root, env={"PYTHONPATH": str(root / "src")}, check=True)

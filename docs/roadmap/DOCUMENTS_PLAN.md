@@ -400,7 +400,7 @@ plans, 2026-09-13". The python-docx row is closed too: `core/extras.py` has
 blocks,connections}.js`, served as-is, `test_frontend_load_order.py`
 enforces order), `frontend/js/editor.js` (the adapter), `frontend/vendor/
 codemirror/`, `index.html` (`.doc-dock`), `05-sidebars-themes.css`,
-`07-whiteboard-misc.css`, `src/memorymap/api/routes_documents.py`
+`07-whiteboard-misc.css`, `src/tessellate/api/routes_documents.py`
 (properties, comments, block ids), `core/docview.py` (export), tests
 under `tests/test_documents_*.py`, `scratchpad/ui-sweeps/editor.js`.
 
@@ -753,7 +753,7 @@ re-derived: **the file is rendered in the browser, from the pane that is
 already rendered, with a stylesheet of its own and its images as `data:` URIs.**
 
 **Why not on the server.** There is no markdown-to-HTML renderer in
-`src/memorymap/` (checked again before this was written) and this plan forbids
+`src/tessellate/` (checked again before this was written) and this plan forbids
 adding a dependency for one. Writing a second renderer in Python would mean two
 renderers that have to agree about tables, callouts, columns, embeds, block ids
 and comments-as-footnotes, and the one on the server would be the one nobody
@@ -1455,7 +1455,7 @@ Entries are the owner's words, then the recommendation. Bugs come first.
 - "The note capture subtab formatting toolbar wont open :("
   Recommendation: reproduce from the Notes Capture subtab, then fix the toolbar's open state and measure it. No brief carries it; Brief 42 is the nearest.
 - "Gemini might have removed the spell checker??" (the owner's words in the Gemini thread: "you removed spellchecker.py")
-  Recommendation: keep src/memorymap/vendor spellchecker.py and make Brief 35 (unused vendoring gone) leave it in, with a test that it loads; writing checks are Brief 42 (DOCUMENTS_PLAN section 21).
+  Recommendation: keep src/tessellate/vendor spellchecker.py and make Brief 35 (unused vendoring gone) leave it in, with a test that it loads; writing checks are Brief 42 (DOCUMENTS_PLAN section 21).
 - "I saved a website as a bookmark but the icon didnt change"
   Recommendation: a saved bookmark takes the site's icon at save time and refreshes it on the next fetch; the link card in Brief 42 shows it. No brief carries the bug itself; Brief 42 (link cards) is the nearest.
 

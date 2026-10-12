@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_a_custom_address_nothing_answers_is_named(client):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     fake = deps.get_ollama()
     assert client.get("/models/status").json()["unreachable_hint"] is None

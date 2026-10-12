@@ -29,8 +29,8 @@ import json
 
 import pytest
 
-from memorymap.ai import skills, tools
-from memorymap.core import deps
+from tessellate.ai import skills, tools
+from tessellate.core import deps
 
 
 def _events(client, question, **body):
@@ -296,7 +296,7 @@ def test_an_unhandled_error_before_the_first_event_still_answers(
     not about what raised (skill_runner.run_skill itself is a thin wrapper;
     almost anything under it could), it's that whatever does must still
     reach the user as a real event, not silence."""
-    from memorymap.ai import skill_runner
+    from tessellate.ai import skill_runner
 
     _save({"name": "Tidy up", "prompt": "Tidy the notebook.", "tools": ["search_notes"]})
 
@@ -317,7 +317,7 @@ def test_an_unhandled_error_mid_run_still_reaches_done(
     """Same failure, later: something breaks after the plan/first step has
     already streamed. The stream must still end cleanly rather than cutting
     off with the rest of the run rendered as if it simply stopped."""
-    from memorymap.ai import skill_runner
+    from tessellate.ai import skill_runner
 
     _save({"name": "Tidy up", "prompt": "Tidy the notebook.", "tools": ["search_notes"]})
 
@@ -645,7 +645,7 @@ def test_small_model_mode_off_offers_the_whole_skill_allowlist(
 def test_a_step_with_no_named_tool_still_gets_the_skills_tools(app_state):
     """The fallback that stops small-model mode from making a `tool_called`
     step impossible: offered nothing, it could never call anything."""
-    from memorymap.ai import skill_runner
+    from tessellate.ai import skill_runner
 
     spec = {"text": "x", "expects": "tool_called", "tools": []}
     assert skill_runner._step_tools(spec, ["a", "b"], True) == ["a", "b"]
@@ -656,7 +656,7 @@ def test_a_step_with_no_named_tool_still_gets_the_skills_tools(app_state):
 def test_auto_small_model_mode_reads_the_size_off_the_models_name(app_state):
     """Free, offline, and works for every backend, `/api/show` is Ollama's
     alone. An unrecognised name means "no idea", and no idea means off."""
-    from memorymap.ai.model_manager import ModelManager, parameter_count
+    from tessellate.ai.model_manager import ModelManager, parameter_count
 
     assert parameter_count("qwen3.5:4b") == 4.0
     assert parameter_count("llama-3.2-3b-instruct") == 3.0

@@ -16,9 +16,9 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from memorymap.api import routes_auth
-from memorymap.core import reminder_token
-from memorymap.core.database import utcnow
+from tessellate.api import routes_auth
+from tessellate.core import reminder_token
+from tessellate.core.database import utcnow
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -61,7 +61,7 @@ def test_rotating_the_key_ends_every_token():
 @pytest.fixture()
 def locked_notebook(app_state):
     """A notebook with a password, and a reminder in it made by the owner."""
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     app = create_app()
     owner = TestClient(app)
@@ -94,9 +94,9 @@ def test_done_works_after_the_tab_is_closed(locked_notebook):
     answered = _act(stranger, reminder["id"], token, "done")
     assert answered.status_code == 200 and answered.json() == {"ok": True, "action": "done"}
     # Looked at through a fresh session of the owner's: done, and only that one.
-    from memorymap.core.database import Reminder
+    from tessellate.core.database import Reminder
 
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     with deps.get_db().session() as session:
         assert session.get(Reminder, reminder["id"]).done is True
@@ -108,8 +108,8 @@ def test_snooze_moves_it_ten_minutes_on_and_keeps_it_open(locked_notebook):
     token = owner.post(f"/reminders/{reminder['id']}/notification-token").json()["token"]
     before = utcnow()
     assert _act(stranger, reminder["id"], token, "snooze").status_code == 200
-    from memorymap.core import deps
-    from memorymap.core.database import Reminder
+    from tessellate.core import deps
+    from tessellate.core.database import Reminder
 
     with deps.get_db().session() as session:
         row = session.get(Reminder, reminder["id"])

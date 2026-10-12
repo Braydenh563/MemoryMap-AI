@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import threading
 
-from memorymap.core import background
+from tessellate.core import background
 
 
 def test_a_thread_is_listed_while_it_runs_and_dropped_when_it_returns():

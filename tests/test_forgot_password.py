@@ -22,8 +22,8 @@ import sqlite3
 import pytest
 from fastapi.testclient import TestClient
 
-from memorymap.api import routes_auth
-from memorymap.core import crypto, deps, netbind, vault
+from tessellate.api import routes_auth
+from tessellate.core import crypto, deps, netbind, vault
 
 PASSWORD = "the owner's password"
 NEW_PASSWORD = "a brand new passphrase"
@@ -47,8 +47,8 @@ def _clean():
 def _devices_already_allowed(client):
     """These tests are about sessions and the vault, so the phone here is one
     this computer already allowed; holding a new device is test_lan_trust.py's."""
-    from memorymap.core import deps
-    from memorymap.core import lantrust
+    from tessellate.core import deps
+    from tessellate.core import lantrust
 
     lantrust.set_flag(deps.get_config().data_dir, "ask_new_devices", False)
     yield
@@ -308,7 +308,7 @@ def test_reset_needs_the_typed_word(client):
 
 
 def _state(app_state) -> dict:
-    from memorymap.core.database import Entry, User, Vault
+    from tessellate.core.database import Entry, User, Vault
     from sqlalchemy import func, select
 
     with deps.get_db().session() as session:
@@ -325,7 +325,7 @@ def _state(app_state) -> dict:
 def test_the_app_and_the_terminal_reset_share_one_function():
     import inspect
 
-    from memorymap import __main__ as launcher
+    from tessellate import __main__ as launcher
 
     assert "password_reset.reset_password(" in inspect.getsource(launcher._reset_password)
     assert "password_reset.reset_password(" in inspect.getsource(routes_auth.reset)
@@ -343,7 +343,7 @@ def test_both_doors_leave_the_same_notebook(client, app_state, monkeypatch, door
         answer = _local(client).post("/auth/reset", json={"confirm": "RESET"})
         assert answer.status_code == 200, answer.text
     else:
-        from memorymap import __main__ as launcher
+        from tessellate import __main__ as launcher
 
         monkeypatch.setattr("builtins.input", lambda prompt="": "RESET")
         assert launcher._reset_password() == 0
@@ -371,7 +371,7 @@ def test_a_reset_notebook_can_still_re_key(client, session):
     key, the sealed notes (made under the vault the reset removed) made every
     re-key a 500, for good. They are left exactly as they are now, and every
     note the current key opens moves across."""
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     old_note, _key = _notebook(client)
     local = _local(client)
@@ -473,7 +473,7 @@ def test_the_migration_goes_up_and_down_on_an_existing_notebook(tmp_path):
     """An existing notebook from before: a vault row without the recovery
     columns. Up adds them (null), down takes them away, and the password's
     wrap of the key is untouched both ways."""
-    from memorymap.core.database import DatabaseManager
+    from tessellate.core.database import DatabaseManager
 
     db_path = tmp_path / "old.db"
     manager = DatabaseManager(db_path)
@@ -517,7 +517,7 @@ def test_the_migration_goes_up_and_down_on_an_existing_notebook(tmp_path):
 
 def _desktop(monkeypatch, chosen):
     """The desktop window, with its Save dialog faked to answer `chosen`."""
-    from memorymap.core import desktop_dialog
+    from tessellate.core import desktop_dialog
 
     asked = {}
 
@@ -525,7 +525,7 @@ def _desktop(monkeypatch, chosen):
         asked.update(filename=filename, start=start)
         return chosen
 
-    monkeypatch.setenv("MEMORYMAP_DESKTOP", "1")
+    monkeypatch.setenv("TESSELLATE_DESKTOP", "1")
     monkeypatch.setattr(desktop_dialog, "save_dialog", fake)
     return asked
 
@@ -580,14 +580,14 @@ def test_a_cancelled_dialog_writes_nothing(client, app_state, monkeypatch):
 
 def test_the_save_route_is_desktop_only_and_behind_the_lock(client, monkeypatch):
     local, token, key = _unlocked(client)
-    monkeypatch.delenv("MEMORYMAP_DESKTOP", raising=False)
+    monkeypatch.delenv("TESSELLATE_DESKTOP", raising=False)
     assert local.post("/auth/recovery-key/save", json={"text": key}, headers=_auth(token)).status_code == 409
     _desktop(monkeypatch, None)
     assert local.post("/auth/recovery-key/save", json={"text": key}).status_code == 401
 
 
 def test_the_dialog_starts_in_documents(monkeypatch, tmp_path):
-    from memorymap.core import desktop_dialog
+    from tessellate.core import desktop_dialog
 
     monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
     assert desktop_dialog.documents_folder() == tmp_path
@@ -599,7 +599,7 @@ def test_the_dialog_speaks_both_pywebview_dialects(monkeypatch, tmp_path):
     import sys
     import types
 
-    from memorymap.core import desktop_dialog
+    from tessellate.core import desktop_dialog
 
     calls = []
 

@@ -10,11 +10,11 @@ import threading
 
 from fastapi.testclient import TestClient
 
-from memorymap.core import background
+from tessellate.core import background
 
 
 def test_a_quit_asks_every_registered_thread_to_stop(app_state):
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     asked = threading.Event()
     background.start("test-watch", lambda: asked.wait(10), stop=asked.set)

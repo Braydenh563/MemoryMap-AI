@@ -215,7 +215,7 @@ def test_the_dismiss_recipe_is_in_the_design_system():
 
 
 def test_the_guide_says_the_banners_can_be_closed():
-    text = (ROOT / "src" / "memorymap" / "ai" / "help_topics_more.py").read_text(encoding="utf-8")
+    text = (ROOT / "src" / "tessellate" / "ai" / "help_topics_more.py").read_text(encoding="utf-8")
     assert "close button" in text and "new session" in text
 
 

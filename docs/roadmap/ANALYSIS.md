@@ -850,7 +850,7 @@ this *idea* once (claude-obsidian's transaction/dirfd layer) and correctly
 judged it solved a problem this app doesn't have, because SQLite's own
 transactions cover concurrent note writes. **That dismissal doesn't reach
 this case.** `core.config.ConfigManager.set_preference`
-(`src/memorymap/core/config.py:148`) persists preferences with a plain
+(`src/tessellate/core/config.py:148`) persists preferences with a plain
 `self.preferences_path.write_text(json.dumps(...))`, no tmp file, no fsync,
 no atomic rename: and `preferences.json` holds `llm_api_key`, a secret, plus
 every setting the user has ever changed. It is the one piece of live state in
@@ -860,13 +860,13 @@ a truncated or half-written file. The docstring one line above the write
 already promises *"a crash never loses a settings change"*, the promise and
 the code disagree. Fix is odysseus's own two functions, ~15 lines, applied at
 this one call site; grepped for other direct `write_text`/`open(..., "w")`
-calls in `src/memorymap/` and found none else touching live user state (the
+calls in `src/tessellate/` and found none else touching live user state (the
 other three are a searxng pid file and a source-bootstrap shim, not user
 data).
 
 ### Worth building: features, ranked by fit, and what actually happened
 
-1. ~~MCP support~~ **Built**: `src/memorymap/mcp_server.py` exposes the tool
+1. ~~MCP support~~ **Built**: `src/tessellate/mcp_server.py` exposes the tool
    registry over stdio, checked before writing this update rather than
    re-scoping it from nothing.
 2. ~~Passive memory extraction from chat~~ **Built**,
@@ -1795,7 +1795,7 @@ file. Comes in clean, notice kept.
 
 **What exists in Tessellate today, checked before proposing anything
 (grepped "writing check", "proofread," and spelling/grammar in
-`src/memorymap/ai` and `frontend/js/documents.js`, per the brief).** Three
+`src/tessellate/ai` and `frontend/js/documents.js`, per the brief).** Three
 separate things answer to "writing help," and the document editor's own
 comment block (`frontend/js/documents.js`, the "editor's own instruments"
 section starting around line 10005) states the design on purpose: "No
@@ -1808,7 +1808,7 @@ a hand-checked spelling table plus a Damerau-Levenshtein suggester
 spacing/repetition/sentence-length pass, and a UK/US spelling-variant
 setting. Real grammatical judgement is handed off on purpose to the local
 model instead: three fixed presets and a custom instruction in
-`src/memorymap/ai/librarian.py`'s `IMPROVE_MODES`/`improve_writing`
+`src/tessellate/ai/librarian.py`'s `IMPROVE_MODES`/`improve_writing`
 ("proofread," "rewrite," "concise"), one model round trip per click, which
 `help_chat.py`'s `writing-checks` topic describes honestly as "Ask the AI
 for wordings... two or three alternatives to pick from." So there is
@@ -1849,7 +1849,7 @@ own protocols); only the WASM core and its JS wrapper are relevant.
 **Where it would land.** `frontend/js/documents.js`'s writing-checks pipeline
 (the finding list feeding the Suggestions panel, `DOC_AUTOCORRECT`, and
 the `rule` field the findings menu switches on around line 10872) and the
-`writing-checks` help topic in `src/memorymap/ai/help_chat.py`, which
+`writing-checks` help topic in `src/tessellate/ai/help_chat.py`, which
 would go from accurately describing "spelling, spacing and sentence
 length" to accurately describing real grammar, still with no network call
 and no change to the existing "ask the AI for wordings" escape hatch for
@@ -1885,13 +1885,13 @@ Svelte, Solid, Preact, React Native).
 **Licence.** MIT, confirmed in `LICENSE`. Comes in clean with notice.
 
 **What exists in Tessellate today.** Grepped "avatar" across
-`frontend/js/*.js` and `src/memorymap`: the app has no per-person avatars at
+`frontend/js/*.js` and `src/tessellate`: the app has no per-person avatars at
 all. What it has is two fixed icon glyphs, a user-icon box for the
 person's own chat bubble and a p5.js-rendered app emblem for the
 assistant's, both in `frontend/js/app.js` (`msg-avatar`,
 `renderEmblem`). This is a single-user, no-account app, so there was never
 a need for "whose avatar is this" in the chat, but named people are a real
-thing the app already extracts: `src/memorymap/ai/entities.py` pulls
+thing the app already extracts: `src/tessellate/ai/entities.py` pulls
 "real people, projects, things" a note mentions into named entities, and
 the graph (`GRAPH_PLAN.md`) draws every entity as a node.
 
@@ -1959,7 +1959,7 @@ and KnowNote's roadmap does: "quiz generation from documents" (marked
 in-development, not built, in KnowNote's own README) and "one-click PPT
 generation from notes" (also in development). Both are plausible,
 lightweight prompts over material Tessellate's own librarian and drafter
-modules (`src/memorymap/ai/librarian.py`, `drafter.py`) already have
+modules (`src/tessellate/ai/librarian.py`, `drafter.py`) already have
 access to; neither is implemented in KnowNote itself yet, so there is
 nothing built to look at, only the idea.
 
@@ -1975,7 +1975,7 @@ own, more mature versions of (`search/`, `ai/provider.py`,
 
 **Where it would land.** A "quiz me on this note/tag" or "turn these notes
 into slides" action would be a Chat/agent skill
-(`src/memorymap/ai/skills.py`, `skill_runner.py`) rather than a new
+(`src/tessellate/ai/skills.py`, `skill_runner.py`) rather than a new
 surface, callable the same way any other skill is today.
 
 **Size: S** for a single quiz-generation skill as a proof of concept
@@ -2037,7 +2037,7 @@ are all things Tessellate already has in its own shape.
 
 **Where it would land.** Surflets maps to a new capability on the
 whiteboard or as a chat-generated artifact (closest existing hook:
-`src/memorymap/ai/skills.py`'s tool-calling agent, which already runs
+`src/tessellate/ai/skills.py`'s tool-calling agent, which already runs
 code-adjacent tools); this is speculative and not scoped, a research
 line, not a plan item, until someone decides whether "the agent writes a
 small runnable applet into a note" is a feature Tessellate actually wants,
@@ -2080,7 +2080,7 @@ recorded here as a fact about what the README says, not a legal opinion.
 **(a) ideas and UX patterns.** Clawd-Code's `SKILL.md`-based slash-command
 skill runtime (markdown frontmatter declaring a description, an
 `allowed-tools` list, and named arguments) was checked against
-`src/memorymap/ai/skills.py` specifically, since it is the one plausibly
+`src/tessellate/ai/skills.py` specifically, since it is the one plausibly
 relevant idea. Tessellate's own skill system is already ahead of it on the
 exact axis that matters: `skills.py`'s own docstring records that skills
 used to be "just presaved mini prompts" and were rebuilt in a session to
@@ -2103,7 +2103,7 @@ is already implemented and further along here than in either source.
 
 **Asked:** "can we vendor pytesseract in the application or smth to make
 it easier?" Checked against the running code (`ocr` across
-`src/memorymap` and `frontend`, the `ocr-workspace` help topic,
+`src/tessellate` and `frontend`, the `ocr-workspace` help topic,
 `packaging/windows/memorymap.spec`, `packaging/linux/memorymap.spec`,
 `packaging/windows/installer.iss`, `requirements.txt`, `docs/INSTALL.md`)
 before proposing anything, per this file's rule and the owner's "check the
@@ -2112,11 +2112,11 @@ running app first" standing order.
 **What exists today, and it is more than the question assumed.**
 `pytesseract` is not currently installed by default; `requirements.txt`
 lists it as a commented-out optional extra (`pip install pytesseract
-Pillow`), and `src/memorymap/core/extras.py`'s `Extra(id="ocr", ...)`
+Pillow`), and `src/tessellate/core/extras.py`'s `Extra(id="ocr", ...)`
 entry is the in-app installer for exactly that half, one click from
 Settings, a background job, honest about needing a restart. The **system
 `tesseract` binary itself** is the real gap `pytesseract` alone can never
-close (no PyPI wheel ships it), and `src/memorymap/core/ocr.py` already
+close (no PyPI wheel ships it), and `src/tessellate/core/ocr.py` already
 has an automated, non-interactive installer for it too:
 `attempt_binary_install` tries winget (Windows, the UB-Mannheim package),
 `brew` (macOS), then `apt-get`/`dnf`/`pacman` in order (Linux), all with
@@ -2398,7 +2398,7 @@ completeness, not re-argued.
   (`ntfy`); native installs exist but are the secondary path per its own
   README ("Quick Start" is `docker compose up -d --build`). Tessellate is one
   process, SQLite, no required sidecar service, `start-desktop.sh`/`.bat`
-  (`src/memorymap/__main__.py`) plus the installer scripts CLAUDE.md §5
+  (`src/tessellate/__main__.py`) plus the installer scripts CLAUDE.md §5
   already documents at length (cache-busting, the `_BOOT_TOKEN` splice).
   Verdict: Tessellate's packaging is simpler by design and stays simpler
   here too; nothing to take.
@@ -2715,7 +2715,7 @@ written to a stated rule set, in the file's own words: every closed set is an
 enum, every number has bounds, *"no correct call ever needs a value the user
 did not say"*, and an enum value must not hide inside a likely query word
 (*"a room named office poisons an off action, so this home has a study"*).
-Checked against Tessellate: the 15 tools in `src/memorymap/ai/tools/__init__.py`
+Checked against Tessellate: the 15 tools in `src/tessellate/ai/tools/__init__.py`
 carry exactly two `"enum"` keys between them (the reminder priority, line
 3265), no numeric bounds anywhere, and `create_reminder` requires `due_at` as
 an ISO datetime the model must synthesise (line 1502), which is the clearest
@@ -3036,7 +3036,7 @@ folder mechanism: `frontend/index.html:8988` is an
 Obsidian vault, which reads every file once and cannot be reopened later
 without picking again. **The part that decides this route, and the part this
 session cannot verify:** the desktop window is pywebview
-(`src/memorymap/__main__.py`), which is Edge WebView2 on Windows, WKWebView on
+(`src/tessellate/__main__.py`), which is Edge WebView2 on Windows, WKWebView on
 macOS and WebKitGTK on Linux. Only the first of those three is Chromium, so a
 File System Access feature would work in a browser tab and on Windows, and be
 absent in the desktop window on the other two platforms. That is a read of
@@ -4203,7 +4203,7 @@ along on every desktop row; the gaps are Docker, supply chain and macOS.
 | --- | --- | --- | --- |
 | `Odysseus.spec`, `build-windows-portable.ps1`, `launcher.py` | PyInstaller onedir, `console=False`, `upx=True`, `hiddenimports=[]`, 9 data dirs/files. `launcher.py`: tkinter splash on a thread before app imports, `NullWriter` for windowless streams (l.25), `multiprocessing.freeze_support()` (l.22), pystray tray, browser opened after a fixed 3.5 s sleep | `packaging/windows/memorymap.spec` 289 lines lists every module by file (a hidden-import guard, measured 198/200 before), `installer.iss` 408, `installer.wxs` 157, `frozen_smoke.py` 400, `package-check.yml` 299 | **have**; theirs is the weaker design (fixed sleep, no import list, no smoke) |
 | `build-macos-app.sh` (179 lines) | Builds `dist/Odysseus.app` that runs the checkout's own venv (no Python bundled), install path baked in, `osascript` dialogs, port 7860 (7000 is held by AirPlay Receiver), `.icns` from `sips`, `.dmg` by `hdiutil` UDZO. Opens the UI in a chrome-less window with Chrome, Edge, Brave or Chromium `--app=URL` (l.109), else the default browser | Nothing for macOS: BACKLOG §79 says Gatekeeper needs a paid account and notarization. `start-desktop.sh` is the macOS path | **adapt**: a launcher the person builds on their own Mac is never quarantined, so Gatekeeper never sees it. `packaging/macos/make-app.sh` (S) plus the `--app=` window as the fallback when pywebview is absent (also Linux). Unverified without a Mac |
-| `install-service.sh` + `odysseus-ui.service` (19 lines) | Copies a unit with `YOURUSER` placeholders and `--host 0.0.0.0`, port 7000 (the app now defaults to 7011): stale and unsafe as shipped | Nothing; INSTALL.md has Docker for "a server or a NAS" | **adapt**: a user unit (`systemctl --user`), bound to 127.0.0.1, generated with real paths by `python -m memorymap --print-unit` (S). Decline their copy |
+| `install-service.sh` + `odysseus-ui.service` (19 lines) | Copies a unit with `YOURUSER` placeholders and `--host 0.0.0.0`, port 7000 (the app now defaults to 7011): stale and unsafe as shipped | Nothing; INSTALL.md has Docker for "a server or a NAS" | **adapt**: a user unit (`systemctl --user`), bound to 127.0.0.1, generated with real paths by `python -m tessellate --print-unit` (S). Decline their copy |
 | `Dockerfile` (132 lines) | `python:3.14-slim`, 21 apt packages (build-essential, cmake, git, nodejs, npm, chromium, tmux, nmap, ping, ssh, gosu...), Docker CLI tarball, agent-browser from npm; second stage only builds patched Real-ESRGAN wheels; `INSTALL_OPTIONAL` build arg keeps AGPL PyMuPDF out by default; no `HEALTHCHECK` | `docker/Dockerfile` 52 lines, slim 3.13, `WITH_EMBEDDER` arg (same idea), non-root `mm`, two volumes, no HEALTHCHECK | **have**; ours is a tenth of the surface, which is the point. Two defects of ours below |
 | `docker/entrypoint.sh` (155 lines) | `PUID`/`PGID` pattern: create the user, `chown` bind mounts on every start, skip recursive repair when a mount maps to a broad root such as `/home` or `/srv` (l.54, l.87), `gosu` so SIGTERM reaches uvicorn | Named volumes, `USER mm`; **no `mkdir`/`chown` for `/data` or `/models`** | **take** the cure, not the script: `RUN mkdir /data /models && chown mm:mm` before `USER` so the named volume inherits the owner (unverified: no daemon). Likely first-run `Permission denied` today |
 | `docker-compose.yml` (189 lines, 4 services) | odysseus + chromadb + searxng (pinned by tag and digest, with the issue number that forced it) + ntfy; `image:` GHCR with `build: .` as fallback; loopback port binds; searxng `cap_drop: ALL` | `docker/compose.yaml` 25 lines, one service | **have**. **Defect, measured**: our `build.context: ../..` resolves to `/home/user` (`docker compose -f docker/compose.yaml config`), so the build cannot find `docker/Dockerfile`. Fix is `..` |
@@ -4227,7 +4227,7 @@ their ROADMAP asks for "degraded-state reporting" for each of them.
 | `requirements.txt` split | 36 packages, **4 carry any version bound** (`httpcore`, `pydantic`, `pydantic-settings`, `mcp<2`); `-optional` 9 packages with a licence reason on each (PyMuPDF AGPL, kokoro pinned with `python_version >= "3.11" and < "3.13"`); `-dev` is `-r requirements.txt` plus xdist; Dependabot groups pip, npm, actions and docker weekly | 19 packages, each with an upper bound by the file's own rule; `make lock` for exact pins; extras in `pyproject` | **have**; ours is the safer shape. One rule to copy: `markitdown==0.1.6` is "a release more than 30 days old" (their issue #485), a dependency-age floor against a poisoned fresh release. **adapt** (S): one line in `docs/CONTRIBUTING.md` and a Dependabot `cooldown` |
 | `package.json` | Private; dev only: `@playwright/test ^1.62.1` and `@antithesishq/bombadil ^0.7.0` (a property-based UI explorer: `tests/bombadil-spec.ts`, 107 lines of `always`/`eventually` rules over a random click walk) | `tests-e2e/` Playwright, 11 specs; `scratchpad/ui-sweeps/e2e648-crawl.js` presses every visible non-destructive button and flags dead ones and endless spinners | **have**; decline the dependency |
 | Two version numbers | `APP_VERSION = "1.0.3"` (`src/constants.py:8`) is the release; `HARNESS_VERSION` (0.20.19) is the behaviour build and must match `APP_BUILD_VERSION` (`tests/test_harness_version.py`). `/api/version` returns version, build and `source_commit` (`app.py:961`, `git rev-parse HEAD` with a 2 s timeout, `ODYSSEUS_SOURCE_COMMIT` override, "unknown" without `.git`); a footer under the Settings nav shows it to admins and hides "unknown" (`tests/test_settings_sidebar_build_provenance.py`) | `/health` returns `version` only (`api/app.py:1301`); no commit, no start time. CLAUDE.md §5 records "a stale uvicorn is why a correct fix did not work twice" | **take** (S): `source_commit` and `started_at` in `/health` and About; frozen builds stamp the commit at build time. Answers "is this the code I just changed" without a terminal |
-| Environment variables | `.env.example` has 3 live keys; the rest of the 117 `ODYSSEUS_*` reads are in a **generated** page, `website/configuration-reference.md` (286 lines, 81 for operators, 36 internal), built by an AST walk that also finds reads through helper functions and inside script strings; `tests/test_env_reference.py` fails when the page is stale or a variable lacks a note | 11 distinct `MEMORYMAP_*` names in `src`; all but `MEMORYMAP_DESKTOP` (internal) appear in INSTALL, PRIVACY, TROUBLESHOOTING or ARCHITECTURE | **decline** the generator at this size; **adapt** (S) a 15-line test that every `MEMORYMAP_*` read in `src` is named in `docs/` |
+| Environment variables | `.env.example` has 3 live keys; the rest of the 117 `ODYSSEUS_*` reads are in a **generated** page, `website/configuration-reference.md` (286 lines, 81 for operators, 36 internal), built by an AST walk that also finds reads through helper functions and inside script strings; `tests/test_env_reference.py` fails when the page is stale or a variable lacks a note | 11 distinct `MEMORYMAP_*` names in `src`; all but `TESSELLATE_DESKTOP` (internal) appear in INSTALL, PRIVACY, TROUBLESHOOTING or ARCHITECTURE | **decline** the generator at this size; **adapt** (S) a 15-line test that every `MEMORYMAP_*` read in `src` is named in `docs/` |
 | `config/` | One file: `config/searxng/settings.yml`, a template with a `__SEARXNG_SECRET__` placeholder substituted by the compose entrypoint, so no secret lives in the repository | `search/searxng_docker.py` writes its own | **have** |
 | Libraries worth a look | `nh3` (Rust HTML sanitizer) for LLM-written report HTML; `croniter`, `icalendar`, `caldav`, `pyotp`; `qrcode[pil]` (server-side QR; SAN-162 dropped the vendored browser QR bundle); `rapidocr`; `markitdown`; `psd-tools` | Our clips become Markdown text server-side, so no untrusted HTML reaches the DOM; OCR is Tesseract or RapidOCR; no QR library | `nh3`, `psd-tools`: **decline**. `qrcode` (BSD, pure Python, has an SVG factory) is **take** only if the "trust this notebook on your phone" QR (WORLD_CLASS_PLAN, Placed from Brief 40) is built |
 
@@ -4283,7 +4283,7 @@ Research, CalDAV, OCR, graph, whiteboard, timeline) are not repeated.
 | Security: documentation | `THREAT_MODEL.md` (7,797 bytes): trust boundary, a role by capability table, the reserved-username sentinel, and a **Known gaps** list with issue numbers; `SECURITY.md` has a "publishing a fork" `git grep` for key patterns | `docs/SECURITY.md` (75 lines) has scope notes but no gap list; gaps live in WORLD_CLASS_PLAN 12 | **adapt** (S): a short "Known gaps" list in `docs/SECURITY.md` |
 | Backup | `scripts/odysseus-backup`: SQLite `.backup` API, `verify PATH` walks the tarball read-only, `restore --yes`; skips `deep_research/` and `mail-attachments/` unless asked | `core/backup.py:186` `verify_copy` at creation; integrity check before replace (`:294`); sealed bundles | **have**; a read-only "check this backup" before restoring is optional (S) |
 | Readiness | `src/readiness.py`: `/api/ready` is 503 unless the database answers and `data/` is writable; `/api/health` is liveness | `/health` (liveness), `/debug/health` (counts) | **adapt** with the Docker `HEALTHCHECK`: `/health` is enough; add `data_dir_writable` to it (S) |
-| Command line | 22 `scripts/odysseus-*` CLIs, 5,214 lines, all JSON, `odysseus <name>` dispatcher (git style), bash and zsh completions (92 and 72 lines); most read SQLite directly | `--export`, `--capture`, `memorymap.mcp_server` (210 lines, non-destructive tools only) | **adapt** (S): `python -m memorymap tool NAME --json` over `mcp_server.offered_tools()`, so a script gets the registry's rules. **Decline** the direct-DB pattern: their own Codex README forbids it for agents because it bypasses Settings |
+| Command line | 22 `scripts/odysseus-*` CLIs, 5,214 lines, all JSON, `odysseus <name>` dispatcher (git style), bash and zsh completions (92 and 72 lines); most read SQLite directly | `--export`, `--capture`, `tessellate.mcp_server` (210 lines, non-destructive tools only) | **adapt** (S): `python -m tessellate tool NAME --json` over `mcp_server.offered_tools()`, so a script gets the registry's rules. **Decline** the direct-DB pattern: their own Codex README forbids it for agents because it bypasses Settings |
 | External agents | `integrations/claude`, `integrations/codex`: the app serves a skill zip behind a scoped token; the skill is an intent router ("reminder at 5pm is a todo with a due date, not a calendar event") and a 403 rule ("treat 403 as an intentional restriction") | Settings has an MCP row with a connection snippet (`renderMcpSnippet`, `skills.js:912`) | **adapt** (S): add a `SKILL.md` to that row: note vs reminder vs board vs document, and "a refused tool is the person's choice". No tokens: stdio keeps the local boundary |
 | Dev loop | `scripts/odysseus-dev`: ports derived from the worktree path hash, own data dir, never adopts another checkout's index, readiness by `/api/ready`, detached with a recorded stop handle, `--from-pr N`; `odysseus-smoke`: one scenario per area, a table that prints `NOT RUN` and `NOT COVERED` with the reason (`tests/smoke/areas.py`) | `scratchpad/ui-sweeps/serve.sh PORT DIR` by hand; `tests-e2e` 11 specs; agents are told their port | **adapt** (S): port from `sha1(path)`, and a coverage table with declared gaps beside `tests-e2e` |
 | Reminders and notes | `routes/note/` (943 lines): a Keep-style flat `Note` (17 columns), `repeat`, `ai_classification` gated by a content hash, a button that spawns a chat to "solve this todo"; ntfy delivery with retry (`src/builtin_actions.py`, 2026-10-07) | Reminders with tray and browser notifications; checklists feed the Unfinished widget; no general tasks (BACKLOG §17) | **decline**: ours is richer and a task system is a decision, not a copy |
@@ -4420,7 +4420,7 @@ and are read per file.
 | Surface | Today |
 | --- | --- |
 | Dictation | `toggleDictation` (`frontend/js/media.js:630`) records the whole clip with `getUserMedia({ audio: true })` (no noise-suppression constraint), uploads it on the second press; `ai/voice.py:87` calls `model.transcribe(path)` with no `vad_filter`, no `language`, no `initial_prompt`, model `base`. The Extra is `faster-whisper` (`core/extras.py:401`). |
-| Captions | `ai/captions.py` talks to an optional external `whisper-server` (whisper.cpp dialect) at `MEMORYMAP_CAPTIONS_URL`; `frontend/js/captions.js:142` opens the mic the same way. No installer fetches the helper. |
+| Captions | `ai/captions.py` talks to an optional external `whisper-server` (whisper.cpp dialect) at `TESSELLATE_CAPTIONS_URL`; `frontend/js/captions.js:142` opens the mic the same way. No installer fetches the helper. |
 | Read aloud | The browser's `speechSynthesis` (`media.js:702`, `documents-prose.js:1010`), local voices only. No downloadable voice, no Extra. |
 | Search | SQLite FTS5 (`search/engine.py`), BM25 sentence scoring (`ai/composer.py`), embeddings through `sentence-transformers` (`core/embedmodels.py`; torch is forbidden, so semantic search is an opt-in Extra). |
 | Editor | CodeMirror 6 vendored (`frontend/vendor/codemirror`), emmet, js-beautify, Harper (grammar, WASM), a hand-written Mermaid subset (`documents.js:8977`), a hand-written maths renderer (decision: no KaTeX, `documents.js:6979`). |

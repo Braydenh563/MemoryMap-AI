@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.core import syntaxcheck
+from tessellate.core import syntaxcheck
 
 
 def _check(client, language: str, text: str):

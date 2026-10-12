@@ -9,7 +9,7 @@ three) is the route answering once.
 
 from __future__ import annotations
 
-from memorymap.entry.query import parse
+from tessellate.entry.query import parse
 
 
 def test_the_grammar():
@@ -48,7 +48,7 @@ def test_type_and_props_and_negation(client):
 
 
 def test_links_rel_entity_and_words(client, session):
-    from memorymap.core.database import Entity, EntityMention
+    from tessellate.core.database import Entity, EntityMention
 
     target = _note(client, "# Kiln plan\n\nbody")
     holder = _note(client, "# Firing\n\nsee [[Kiln plan]] for the fire")
@@ -69,7 +69,7 @@ def test_links_rel_entity_and_words(client, session):
 
 
 def test_a_private_note_is_never_matched_by_its_words(client, session):
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     made = _note(client, "secret kiln words")
     session.get(Entry, made["id"]).is_private = True

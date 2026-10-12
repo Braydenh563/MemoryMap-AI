@@ -11,9 +11,9 @@ from datetime import datetime
 import pytest
 from sqlalchemy import select
 
-from memorymap.ai import acts, commands, help_chat
-from memorymap.core.database import Entry, EntryLink, Reminder
-from memorymap.entry import manager
+from tessellate.ai import acts, commands, help_chat
+from tessellate.core.database import Entry, EntryLink, Reminder
+from tessellate.entry import manager
 
 NOW = datetime(2026, 10, 10, 12, 0)
 
@@ -143,10 +143,10 @@ def test_a_reminder_is_said_back_with_the_note_it_comes_from(client, session, mo
     """INBOX 734 on the route: the card says "Remind you on Friday at 9: call
     the dentist", names the Dentist note and attaches the reminder to it; the
     words after the colon are the person's own (grounded in what they typed)."""
-    from memorymap.api import routes_chat
+    from tessellate.api import routes_chat
     from tests.test_composer_route_688 import _ask
 
-    monkeypatch.setattr("memorymap.core.config.user_now", lambda _config: NOW)
+    monkeypatch.setattr("tessellate.core.config.user_now", lambda _config: NOW)
     monkeypatch.setattr(routes_chat, "user_now", lambda _config: NOW)
     _seed(session)
     dentist = session.scalars(select(Entry).where(Entry.content.like("# Dentist%"))).one()

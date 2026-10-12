@@ -11,9 +11,9 @@ import json
 import re
 from pathlib import Path
 
-from memorymap.core import deps
-from memorymap.core.database import Recording
-from memorymap.search import index
+from tessellate.core import deps
+from tessellate.core.database import Recording
+from tessellate.search import index
 
 ROOT = Path(__file__).resolve().parents[1]
 WEBM_HEAD = b"\x1a\x45\xdf\xa3" + b"\x00" * 60

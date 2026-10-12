@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import json
 
-from memorymap.ai import lexical_filing, taxonomy
-from memorymap.core import deps
-from memorymap.entry import manager
+from tessellate.ai import lexical_filing, taxonomy
+from tessellate.core import deps
+from tessellate.entry import manager
 
 
 def _notes(session, rows) -> None:
@@ -128,7 +128,7 @@ def test_the_hold_applies_to_the_embedder_and_the_model_too(session, monkeypatch
     """Decision 6 on every path (INBOX 770): a category the embedder's
     nearest notes or the chat model chose is held exactly like one the
     words would have filed."""
-    from memorymap.ai import janitor
+    from tessellate.ai import janitor
 
     text = "The physio exercises are working: the knee held up on the run"
     assert lexical_filing.holds_sensitive(text, None) == "Rehabilitation & Recovery"

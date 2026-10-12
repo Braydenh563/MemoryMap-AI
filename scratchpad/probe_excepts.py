@@ -1,4 +1,4 @@
-"""Count the broad excepts in src/memorymap and say which say nothing at all.
+"""Count the broad excepts in src/tessellate and say which say nothing at all.
 
 WORLD_CLASS_PLAN section 10, F4. The row's `grep` counts every broad handler;
 what actually costs something is the subset that catches and then says
@@ -9,7 +9,7 @@ import ast
 import pathlib
 import sys
 
-root = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "src/memorymap")
+root = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "src/tessellate")
 broad = 0
 sites = []
 for f in sorted(root.rglob("*.py")):

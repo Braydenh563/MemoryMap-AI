@@ -24,8 +24,8 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.core import security
-from memorymap.core.security import check_backend_url
+from tessellate.core import security
+from tessellate.core.security import check_backend_url
 
 
 @pytest.fixture(autouse=True)
@@ -157,7 +157,7 @@ def test_a_backend_on_the_internet_is_allowed_but_flagged():
 def test_the_default_backends_are_local():
     """Whatever else changes, the out-of-the-box configuration must not send
     anything anywhere."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     for url in deps.DEFAULT_BASE_URLS.values():
         ok, _, is_local = check_backend_url(url)
@@ -214,7 +214,7 @@ def test_the_warning_persists_across_reloads(ai_client, app_state):
     app_state.set_preference("local_only_ai", False)
     app_state.set_preference("llm_provider", "openai")
     app_state.set_preference("llm_base_url", "https://api.openai.com/v1")
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     deps.reload_llm_client()
 
@@ -227,7 +227,7 @@ def test_a_local_backend_says_nothing_at_all(ai_client, app_state):
     """No warning fatigue: the ordinary case is silent."""
     app_state.set_preference("llm_provider", "ollama")
     app_state.set_preference("llm_base_url", "")
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     deps.reload_llm_client()
 
@@ -297,7 +297,7 @@ def test_a_hand_edited_preferences_file_cannot_bypass_the_lock(app_state):
     a copied config brings with it. Checking only at the endpoint would mean an
     address that never passed through it is used anyway, silently, every turn.
     """
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     app_state.set_preference("local_only_ai", True)
     app_state.set_preference("llm_provider", "openai")
@@ -311,7 +311,7 @@ def test_a_hand_edited_preferences_file_cannot_bypass_the_lock(app_state):
 def test_the_app_still_starts_with_a_refused_address(app_state):
     """Falling back rather than refusing to start: the app has to open so the
     setting can be fixed from inside it."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     app_state.set_preference("local_only_ai", True)
     app_state.set_preference("llm_base_url", "https://api.openai.com/v1")

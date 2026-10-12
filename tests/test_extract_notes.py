@@ -11,8 +11,8 @@ from __future__ import annotations
 
 import json
 
-from memorymap.ai import extractor
-from memorymap.entry import manager
+from tessellate.ai import extractor
+from tessellate.entry import manager
 
 
 def _save(client, content, **extra):
@@ -25,7 +25,7 @@ def _save(client, content, **extra):
 
 
 def test_propose_split_parses_the_models_json(fake_ollama):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     fake_ollama.extract_split_reply = json.dumps(
         {"notes": [{"title": "A", "content": "first topic"}, {"title": "B", "content": "second topic"}]}
@@ -36,7 +36,7 @@ def test_propose_split_parses_the_models_json(fake_ollama):
 
 
 def test_propose_split_caps_at_max_extract_notes(fake_ollama):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     too_many = [{"title": f"T{i}", "content": f"content {i}"} for i in range(extractor.MAX_EXTRACT_NOTES + 5)]
     fake_ollama.extract_split_reply = json.dumps({"notes": too_many})
@@ -45,7 +45,7 @@ def test_propose_split_caps_at_max_extract_notes(fake_ollama):
 
 
 def test_propose_split_raises_on_unparsable_reply(fake_ollama):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     fake_ollama.extract_split_reply = "not json at all"
     try:
@@ -81,7 +81,7 @@ def test_merge_leaves_different_topic_notes_apart(fake_embeddings):
 
 
 def test_offline_falls_back_to_one_plain_note(client, session):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     result = extractor.build_extraction(
         session, "some thoughts to save", deps.get_embeddings(), deps.get_model_manager(), deps.get_ollama()
@@ -94,7 +94,7 @@ def test_offline_falls_back_to_one_plain_note(client, session):
 
 
 def test_unparsable_split_reply_falls_back_to_one_note_not_an_error(ai_client, fake_ollama, session):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     fake_ollama.extract_split_reply = "not json"
     result = extractor.build_extraction(
@@ -183,7 +183,7 @@ def test_preview_links_back_to_explicit_source_notes(ai_client, fake_ollama):
 
 
 def test_a_private_source_note_is_excluded_entirely(ai_client, fake_ollama, session):
-    from memorymap.core import vault
+    from tessellate.core import vault
 
     vault.close()
     vault.create(session, "test-passphrase")

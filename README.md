@@ -2,7 +2,9 @@
 
 <img src="frontend/icon-512.png" alt="Tessellate" width="120">
 
-# Tessellate
+# Tessellate <sub><sup>notes</sup></sub>
+
+<i>Your notes, pieced together</i>
 
 <sub>Formerly MemoryMap AI</sub>
 
@@ -353,7 +355,7 @@ in Ollama and pick it in the same place.
 ## Privacy
 
 Everything lives in one folder: `memorymap.db` (your notes), `preferences.json`,
-`uploads/` and `backups/` (a snapshot once a day). Set `MEMORYMAP_DATA_DIR` to
+`uploads/` and `backups/` (a snapshot once a day). Set `TESSELLATE_DATA_DIR` to
 put it elsewhere. Settings, Import & export exports your notes as JSON, CSV or
 Markdown, the whole notebook as a folder (each note as Markdown with its
 attachments and a `.json` file of every field, plus documents and boards,
@@ -382,7 +384,7 @@ vulnerability, see [SECURITY.md](SECURITY.md).
 
 Each interaction has a time budget, held by a test that fails when it is
 exceeded (`tests/test_budgets.py` for the server, `tests-e2e/specs/budgets.spec.js`
-in a real browser; the table is `BUDGETS` in `src/memorymap/api/routes_bench.py`).
+in a real browser; the table is `BUDGETS` in `src/tessellate/api/routes_bench.py`).
 Measured in headless Chromium on a four-core machine under load, on a 500-note
 notebook with a board of 500 objects and a document of 50,000 words. Each
 measured figure is the slowest of four runs' medians; the budget is 1.5 times it.

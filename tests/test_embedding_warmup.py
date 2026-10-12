@@ -13,7 +13,7 @@ import threading
 
 import pytest
 
-from memorymap.ai import embeddings
+from tessellate.ai import embeddings
 
 
 class _Service:

@@ -33,7 +33,7 @@ import re
 import sys
 from collections import Counter
 
-from memorymap.ai import composer
+from tessellate.ai import composer
 from tests import _composer_eval as E
 
 QUESTIONS = [

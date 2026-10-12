@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import composer
+from tessellate.ai import composer
 from tests.test_composer_688 import NOTES, TODAY, _note, assert_traceable
 
 

@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import json
 
-from memorymap.entry import manager
+from tessellate.entry import manager
 
 HEADING_AND_LIST_ANSWER = (
     "## Overview\n"

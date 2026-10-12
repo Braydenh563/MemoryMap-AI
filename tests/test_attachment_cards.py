@@ -30,7 +30,7 @@ from pathlib import Path
 
 from tests._app_js import LAZY_PIECES, app_js_files
 
-from memorymap.entry import manager
+from tessellate.entry import manager
 
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend"

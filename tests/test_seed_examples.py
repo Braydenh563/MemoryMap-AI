@@ -31,7 +31,7 @@ def test_wiki_links_resolve(client, session):
     resolving (sync_wiki_links never raises on a miss), so this checks the
     actual link count rather than trusting the content alone."""
     client.post("/entries/seed-examples")
-    from memorymap.core.database import EntryLink
+    from tessellate.core.database import EntryLink
 
     links = session.query(EntryLink).all()
     assert len(links) == 2, "Both [[Local-first, always]] mentions should have resolved"

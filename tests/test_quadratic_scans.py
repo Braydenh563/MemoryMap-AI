@@ -48,7 +48,7 @@ _LABEL_PUMPS = {
 
 @pytest.mark.parametrize("text", _LABEL_PUMPS.values(), ids=_LABEL_PUMPS.keys())
 def test_plain_label_is_linear_on_unclosed_markup(text):
-    from memorymap.entry.manager import plain_label
+    from tessellate.entry.manager import plain_label
 
     assert _timed(lambda: plain_label(text, 80)) < BUDGET
 
@@ -59,7 +59,7 @@ def _old_label_links(first: str) -> str:
 
 
 def test_label_links_match_the_old_patterns():
-    from memorymap.entry.manager import _md_links
+    from tessellate.entry.manager import _md_links
 
     def _label_links(text):
         return _md_links(_md_links(text, True), False)
@@ -92,13 +92,13 @@ _METADATA_PUMPS = {
 
 @pytest.mark.parametrize("text", _METADATA_PUMPS.values(), ids=_METADATA_PUMPS.keys())
 def test_strip_prompt_metadata_is_linear_on_whitespace_runs(text):
-    from memorymap.ai.answer_trim import strip_prompt_metadata
+    from tessellate.ai.answer_trim import strip_prompt_metadata
 
     assert _timed(lambda: strip_prompt_metadata(text)) < BUDGET
 
 
 def test_strip_prompt_metadata_matches_the_old_patterns():
-    from memorymap.ai.answer_trim import strip_prompt_metadata
+    from tessellate.ai.answer_trim import strip_prompt_metadata
 
     old = (
         (re.compile(r"\((?:note\s+)?id[:\s#]*\d+\)\s*\[[^\]\n]{1,40}\]\s*", re.I), ""),
@@ -155,13 +155,13 @@ _TITLE_PUMPS = {
 
 @pytest.mark.parametrize("text", _TITLE_PUMPS.values(), ids=_TITLE_PUMPS.keys())
 def test_question_title_is_linear_on_a_long_first_line(text):
-    from memorymap.ai.questions import _title
+    from tessellate.ai.questions import _title
 
     assert _timed(lambda: _title(text)) < BUDGET
 
 
 def test_question_title_matches_the_old_pattern():
-    from memorymap.ai.questions import _title
+    from tessellate.ai.questions import _title
 
     def reference(content: str) -> str:
         first = (content or "").strip().split("\n", 1)[0].strip().lstrip("#").strip()

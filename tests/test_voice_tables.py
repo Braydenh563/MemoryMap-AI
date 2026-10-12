@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import realise
+from tessellate.ai import realise
 
 ROOT = Path(__file__).resolve().parents[1]
 JS = ROOT / "frontend/js"

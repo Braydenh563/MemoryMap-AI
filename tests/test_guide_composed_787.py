@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import help_chat, reading
+from tessellate.ai import help_chat, reading
 
 #: Importing `reading` wires the Guide's reader and the composer's help line.
 READER_LOADED = reading.__name__

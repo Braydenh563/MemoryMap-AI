@@ -7,9 +7,9 @@ from pathlib import Path
 
 from sqlalchemy import select
 
-from memorymap.ai.embeddings import EmbeddingService
-from memorymap.core import deps
-from memorymap.core.database import EmbeddingRecord
+from tessellate.ai.embeddings import EmbeddingService
+from tessellate.core import deps
+from tessellate.core.database import EmbeddingRecord
 from tests.fakes import FakeOllama
 
 
@@ -104,7 +104,7 @@ def test_switch_embedding_backend_reindexes_everything(ai_client, fake_embedding
 
     # Through the model switch since INBOX 700 (`core/embedswitch.py`): the
     # new set is staged beside the old and swapped in, then the setting saved.
-    from memorymap.core import embedswitch
+    from tessellate.core import embedswitch
 
     deadline = time.monotonic() + 10
     while embedswitch.status()["running"] and time.monotonic() < deadline:
@@ -264,7 +264,7 @@ def test_a_rebuild_also_rebuilds_the_keyword_index(ai_client, fake_embeddings):
         # A drifted index: one row taken out behind the flush hook's back,
         # and one row for a note that does not exist.
         session.execute(sa_text("DELETE FROM search_index WHERE kind = 'note'"))
-        from memorymap.search import index
+        from tessellate.search import index
 
         ghost = index._rowid(index.source_for("notes"), 999999)
         session.execute(
@@ -307,7 +307,7 @@ def test_a_rebuild_does_not_change_which_backend_is_in_use(ai_client, fake_embed
 def test_a_second_rebuild_while_one_runs_is_refused(ai_client, fake_embeddings, monkeypatch):
     """409, not a second thread racing the first over the same rows."""
     monkeypatch.setattr(
-        "memorymap.api.routes_models.jobs.reindex_status",
+        "tessellate.api.routes_models.jobs.reindex_status",
         lambda: {"status": "running", "done": 1, "total": 9},
     )
     response = ai_client.post("/models/reindex")
@@ -319,7 +319,7 @@ def test_status_names_the_model_an_openai_server_actually_runs(client, monkeypat
     """Owner, packaged app: the chat header said llama3.2, not installed,
     while the server's own loaded model answered. On an OpenAI-dialect
     server the loaded model is what runs; report it."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     config = deps.get_config()
     config.set_preference("llm_provider", "openai")
@@ -386,8 +386,8 @@ def test_status_never_waits_on_a_capability_probe(client, monkeypatch):
     import threading
     import time
 
-    from memorymap.ai.ollama_client import OllamaClient
-    from memorymap.core import deps
+    from tessellate.ai.ollama_client import OllamaClient
+    from tessellate.core import deps
 
     ollama = OllamaClient("http://127.0.0.1:9")
     monkeypatch.setattr(deps, "get_ollama", lambda: ollama)
@@ -435,7 +435,7 @@ def test_a_launch_with_no_waiting_notes_queues_no_filing_row(client, monkeypatch
     # Every page load queued the stand-in retry as a "Filing a note" job even
     # on an empty notebook, so the bell and Activity said a note was being
     # filed when there was none (scan 2026-10-11).
-    from memorymap.core import jobs
+    from tessellate.core import jobs
 
     queued: list[str] = []
     monkeypatch.setattr(jobs, "enqueue", lambda kind, *a, **k: queued.append(kind))
@@ -447,7 +447,7 @@ def test_a_launch_with_no_waiting_notes_queues_no_filing_row(client, monkeypatch
 def test_a_launch_with_no_model_running_does_not_queue_a_warm_up_row(client, monkeypatch):
     # "Warming up the filing model" showed in the bell and Activity on every
     # launch of a notebook with no model, for a job that returned at once.
-    from memorymap.core import jobs
+    from tessellate.core import jobs
 
     queued: list[str] = []
     monkeypatch.setattr(jobs, "enqueue", lambda kind, *a, **k: queued.append(kind))
@@ -457,11 +457,11 @@ def test_a_launch_with_no_model_running_does_not_queue_a_warm_up_row(client, mon
 
 
 def test_a_launch_with_a_stand_in_note_retries_its_filing(client, monkeypatch):
-    from memorymap.core import jobs
+    from tessellate.core import jobs
 
     queued: list[str] = []
     monkeypatch.setattr(jobs, "enqueue", lambda kind, *a, **k: queued.append(kind))
-    from memorymap.api import routes_entries
+    from tessellate.api import routes_entries
 
     monkeypatch.setattr(routes_entries, "stand_ins_waiting", lambda: 2)
     monkeypatch.setattr(deps.get_ollama().__class__, "is_running", lambda self: True, raising=False)
@@ -480,9 +480,9 @@ def test_status_serves_the_last_answer_while_the_runner_is_slow(client, monkeypa
     import threading
     import time
 
-    from memorymap.ai.ollama_client import OllamaClient
-    from memorymap.api import routes_models
-    from memorymap.core import deps
+    from tessellate.ai.ollama_client import OllamaClient
+    from tessellate.api import routes_models
+    from tessellate.core import deps
 
     ollama = OllamaClient("http://127.0.0.1:9")
     monkeypatch.setattr(deps, "get_ollama", lambda: ollama)
@@ -524,8 +524,8 @@ def test_status_serves_the_last_answer_while_the_runner_is_slow(client, monkeypa
 def test_status_reports_a_runner_that_goes_away_when_it_answers(client, monkeypatch):
     """The budget only ever hides lateness: a runner that refuses the
     connection is reported as down on that same poll."""
-    from memorymap.ai.ollama_client import OllamaClient, OllamaError
-    from memorymap.core import deps
+    from tessellate.ai.ollama_client import OllamaClient, OllamaError
+    from tessellate.core import deps
 
     ollama = OllamaClient("http://127.0.0.1:9")
     monkeypatch.setattr(deps, "get_ollama", lambda: ollama)
@@ -548,8 +548,8 @@ def test_a_start_up_choice_is_said_with_its_reason_until_one_is_picked(client, m
     "was running llama3.2, which is not installed any more". Never chosen
     reads as never chosen; a start-up choice carries its why until a model
     is picked by hand."""
-    from memorymap.api import app as app_module
-    from memorymap.core import deps
+    from tessellate.api import app as app_module
+    from tessellate.core import deps
 
     ollama = deps.get_ollama()
     monkeypatch.setattr(ollama, "is_running", lambda: True)

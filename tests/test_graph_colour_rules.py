@@ -55,7 +55,7 @@ def test_a_note_on_a_map_lists_the_map(client):
 
 
 def test_structure_is_served_from_the_cache_until_the_notebook_changes(client, monkeypatch):
-    from memorymap.api import routes_graph
+    from tessellate.api import routes_graph
 
     client.post("/entries", json={"content": "one note so the index is not empty"})
     calls = {"n": 0}
@@ -81,8 +81,8 @@ def test_the_payload_stays_small_at_scale(client):
     import gzip
     import json as _json
 
-    from memorymap.core import deps
-    from memorymap.entry import manager
+    from tessellate.core import deps
+    from tessellate.entry import manager
 
     with deps.get_db().session() as session:
         for i in range(2000):

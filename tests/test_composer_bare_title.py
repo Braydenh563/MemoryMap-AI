@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import composer
+from tessellate.ai import composer
 
 NOTE = {"id": 2, "content": "Work", "category": "Uncategorised", "tags": [], "created_at": "2026-10-11T23:23:47Z"}
 

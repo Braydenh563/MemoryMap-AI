@@ -10,8 +10,8 @@ case-insensitively, and the first spelling a note was given is the one kept.
 
 from __future__ import annotations
 
-from memorymap.entry import manager
-from memorymap.entry.tagnames import normalise_tags
+from tessellate.entry import manager
+from tessellate.entry.tagnames import normalise_tags
 
 
 def test_normalise_tags_rules():

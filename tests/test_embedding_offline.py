@@ -13,8 +13,8 @@ import types
 
 import pytest
 
-from memorymap.ai import embeddings
-from memorymap.core import embedmodels
+from tessellate.ai import embeddings
+from tessellate.core import embedmodels
 
 
 class _FakeST:
@@ -68,7 +68,7 @@ def test_a_model_on_disk_that_will_not_load_is_fetched_again_once(fake_st, monke
 def test_the_fix_is_a_visible_task_and_the_person_is_asked_only_after_two_failed_fixes(fake_st, monkeypatch):
     """INBOX 1289: "Fixing search by meaning", keyword search meanwhile, and no
     "Reinstall" until two fixes have failed."""
-    from memorymap.core import jobruns
+    from tessellate.core import jobruns
 
     fake_st.local_works = False
     fake_st.online_works = False
@@ -95,7 +95,7 @@ def test_the_fix_is_a_visible_task_and_the_person_is_asked_only_after_two_failed
 
 
 def test_a_model_never_downloaded_downloads_as_a_visible_task(fake_st, monkeypatch):
-    from memorymap.core import jobruns
+    from tessellate.core import jobruns
 
     fake_st.local_works = False
     monkeypatch.setattr(embedmodels, "is_downloaded", lambda repo: False)

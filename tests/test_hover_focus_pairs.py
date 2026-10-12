@@ -47,7 +47,7 @@ def _split_top(text: str) -> list[str]:
 
 
 def _selector_lists() -> list[list[str]]:
-    from memorymap.api.asset_strip import strip_for_path
+    from tessellate.api.asset_strip import strip_for_path
 
     lists = []
     for path in CSS_FILES:

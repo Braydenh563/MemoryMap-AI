@@ -7,8 +7,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from memorymap.ai import greeting_compose as gc
-from memorymap.ai.greeting_compose import NotebookFacts
+from tessellate.ai import greeting_compose as gc
+from tessellate.ai.greeting_compose import NotebookFacts
 
 ZONE = timezone(timedelta(hours=8))
 
@@ -48,7 +48,7 @@ def test_the_notebook_speaks_when_it_has_something_to_say():
 
 
 def test_facts_come_from_the_notes(session):
-    from memorymap.core.database import Category, Entry
+    from tessellate.core.database import Category, Entry
 
     uni = Category(name="university")
     session.add(uni)

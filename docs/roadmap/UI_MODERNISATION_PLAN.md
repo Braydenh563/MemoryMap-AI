@@ -150,7 +150,7 @@ survive its archiving; the numbering is that file's.
    already one or two sentences, not a wall of prose.
 
 3. **Account & security's "If you forget your password" pair (the two
-   paragraphs around `python -m memorymap --reset-password`) stays
+   paragraphs around `python -m tessellate --reset-password`) stays
    inline, decided in commit `9f32b22`.** Same reasoning as decision 2,
    applied to a destructive command instead of a per-row caveat: the text
    describes irrecoverable private-note loss right next to the command

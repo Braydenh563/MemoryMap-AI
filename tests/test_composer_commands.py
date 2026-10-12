@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from memorymap.ai import commands
+from tessellate.ai import commands
 
 #: Tuesday 6 October 2026, 10:00 at UTC+10.
 NOW = datetime(2026, 10, 6, 10, 0, tzinfo=timezone(timedelta(hours=10)))

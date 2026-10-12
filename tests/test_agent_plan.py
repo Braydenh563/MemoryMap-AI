@@ -24,8 +24,8 @@ import json
 
 import pytest
 
-from memorymap.ai import skill_runner, skills
-from memorymap.core import deps
+from tessellate.ai import skill_runner, skills
+from tessellate.core import deps
 
 
 def _events(client, question, **body):

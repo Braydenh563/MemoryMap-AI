@@ -44,5 +44,5 @@ def test_the_pointer_is_replayed_after_each_step():
 
 
 def test_help_says_so():
-    help_text = (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8")
+    help_text = (ROOT / "src" / "tessellate" / "ai" / "help_chat.py").read_text(encoding="utf-8")
     assert "a drag to an edge pans" in help_text

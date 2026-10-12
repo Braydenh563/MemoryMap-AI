@@ -16,8 +16,8 @@ from __future__ import annotations
 
 import inspect
 
-from memorymap.ai import tools
-from memorymap.entry import manager
+from tessellate.ai import tools
+from tessellate.entry import manager
 
 
 def _untagged(session):
@@ -59,7 +59,7 @@ def test_the_filter_still_names_null(session):
     2026-09-20, when `count_notes` grew the same filter: the two have to agree
     about what "untagged" means, because a skill's postcondition counts what
     its steps listed, so the shared function is where this check follows it."""
-    from memorymap.ai import tools as tool_module
+    from tessellate.ai import tools as tool_module
 
     source = inspect.getsource(tool_module._scope_filters)
     assert "Entry.tags.is_(None)" in source, (

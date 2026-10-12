@@ -13,8 +13,8 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from memorymap.api import routes_auth
-from memorymap.core import vault
+from tessellate.api import routes_auth
+from tessellate.core import vault
 
 PASSWORD = "the owner's password"
 
@@ -294,7 +294,7 @@ def test_the_notebook_folder_is_private_to_its_owner(tmp_path):
     notebook is made 0700, which closes everything inside it."""
     import stat
 
-    from memorymap.core.config import ConfigManager
+    from tessellate.core.config import ConfigManager
 
     fresh = tmp_path / "new-notebook"
     ConfigManager(fresh)

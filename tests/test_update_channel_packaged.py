@@ -10,8 +10,8 @@ all (the owner, 2026-09-14, with a screenshot of the switch on).
 
 import sys
 
-from memorymap.api import routes_update
-from memorymap.core import deps
+from tessellate.api import routes_update
+from tessellate.core import deps
 
 
 def _config(monkeypatch, prefs):

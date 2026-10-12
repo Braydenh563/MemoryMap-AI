@@ -193,7 +193,7 @@ console.log(JSON.stringify({{ n: list.length, newest: list[0].label, second: lis
 def test_the_surfaces_are_there_and_help_names_them() -> None:
     assert 'id="recent-changes-list"' in INDEX and 'data-help-for="recent-changes-help"' in INDEX
     assert re.search(r"apiJson = async \(path, options = \{\}\) => \{[\s\S]{0,400}settingsPrefsSeen", STATUS)
-    guide = (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8")
+    guide = (ROOT / "src" / "tessellate" / "ai" / "help_chat.py").read_text(encoding="utf-8")
     assert "Recent changes" in guide, "the Guide names the list"
 
 
@@ -229,7 +229,7 @@ def test_the_suggestion_list_is_as_wide_as_its_box_and_never_narrower_than_its_d
 
 
 def test_put_preferences_can_unset_a_setting_back_to_its_default(client) -> None:
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     assert client.put("/preferences", json={"recycle_bin_days": 9}).status_code == 200
     assert deps.get_config().get_preference("recycle_bin_days", None) == 9

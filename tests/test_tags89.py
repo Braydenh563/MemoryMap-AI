@@ -88,8 +88,8 @@ def test_a_muted_note_offers_nothing_and_unmuting_brings_them_back(client) -> No
 
 
 def test_a_muted_note_is_not_given_new_suggestions_when_filed(client, session) -> None:
-    from memorymap.api import routes_entries
-    from memorymap.core.database import Entry
+    from tessellate.api import routes_entries
+    from tessellate.core.database import Entry
 
     for text in ("Biology lecture: mitosis", "Biology: the Krebs cycle"):
         client.post("/entries", json={"content": text, "tags": ["biology"]})
@@ -116,7 +116,7 @@ def test_turning_it_off_is_undoable() -> None:
 
 
 def test_the_guide_and_the_popover_say_so() -> None:
-    source = (ROOT / "src/memorymap/ai/help_topics_more.py").read_text(encoding="utf-8")
+    source = (ROOT / "src/tessellate/ai/help_topics_more.py").read_text(encoding="utf-8")
     assert "Don't suggest tags for this note" in source
     assert 'data-help-for", "note-tag-pop-help"' in SUGGEST
     assert "Don't suggest tags for this note" in SUGGEST

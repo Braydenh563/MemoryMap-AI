@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from memorymap.api.routes_whiteboard import WhiteboardObjectData
+from tessellate.api.routes_whiteboard import WhiteboardObjectData
 
 ROOT = Path(__file__).resolve().parents[1]
 HTML = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")

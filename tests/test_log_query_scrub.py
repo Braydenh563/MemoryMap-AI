@@ -6,7 +6,7 @@ line, the Settings log viewer and the support bundle.
 
 import logging
 
-from memorymap.core import logbuffer
+from tessellate.core import logbuffer
 
 
 def _access(path: str) -> logging.LogRecord:

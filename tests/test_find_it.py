@@ -10,7 +10,7 @@ import json
 import re
 from pathlib import Path
 
-from memorymap.ai import find_it
+from tessellate.ai import find_it
 
 ROOT = Path(__file__).resolve().parents[1]
 GOLD = json.loads((ROOT / "tests" / "fixtures" / "find_it_gold.json").read_text(encoding="utf-8"))

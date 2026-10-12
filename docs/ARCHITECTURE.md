@@ -72,7 +72,7 @@ These are the constraints that shaped every decision. When in doubt, they win.
 └───────────────────────────┬─────────────────────────────────┘
                             │ HTTP (same origin, no CORS needed)
 ┌───────────────────────────▼─────────────────────────────────┐
-│  FastAPI app (src/memorymap/api/)                            │
+│  FastAPI app (src/tessellate/api/)                            │
 │   routes_* → everything behind a single-user unlock gate     │
 └───────┬───────────────────┬───────────────────┬─────────────┘
         │                   │                   │
@@ -137,12 +137,12 @@ line of each module's docstring says the same thing at greater length.
 
 ```
 Tessellate/
-├── src/memorymap/
-│   ├── __main__.py          # entry point: `python -m memorymap [--desktop |
+├── src/tessellate/
+│   ├── __main__.py          # entry point: `python -m tessellate [--desktop |
 │   │                        #   --export | --reset-password | --capture |
 │   │                        #   --reinstall]`
 │   ├── __init__.py          # __version__
-│   ├── mcp_server.py        # `python -m memorymap.mcp_server`: a stdio MCP
+│   ├── mcp_server.py        # `python -m tessellate.mcp_server`: a stdio MCP
 │   │                        #   server over the non-destructive tools
 │   ├── core/                # the machine: config, database, jobs, security
 │   │   ├── config.py        # paths + user preferences (ConfigManager)
@@ -809,7 +809,7 @@ calls and prose in the order they happened) and persists it with the turn.
 SQLite via SQLAlchemy 2.0 (`core/database.py`). Main tables:
 
 - **users**: single-user unlock (one bcrypt-hashed password). Exactly one
-  row: separate notebooks are separate `MEMORYMAP_DATA_DIR`s, not separate
+  row: separate notebooks are separate `TESSELLATE_DATA_DIR`s, not separate
   accounts. The password can be changed from Settings → Account & security, which
   re-wraps the vault key onto the new password *before* replacing the hash:
   the other order would strand every private note.
@@ -1362,14 +1362,14 @@ A few knobs, all optional, via the environment or `.env` (copy from
 `.env.example`). [INSTALL.md](INSTALL.md) has the full table; the ones that shape
 the architecture:
 
-- `MEMORYMAP_DATA_DIR`: where the database, preferences, uploads, and backups
+- `TESSELLATE_DATA_DIR`: where the database, preferences, uploads, and backups
   live (default `data/` beside a source checkout; the per-user app folder for a
   packaged build, `core/config.py`'s `_default_data_dir`).
-- `MEMORYMAP_PORT` (default 8000) and `MEMORYMAP_LAN_PORT` (default 8443, the
+- `TESSELLATE_PORT` (default 8000) and `TESSELLATE_LAN_PORT` (default 8443, the
   HTTPS port other devices use when LAN mode is on; `core/netbind.py`).
 - `OLLAMA_URL`: where the local Ollama server listens (default
   `http://localhost:11434`).
-- `MEMORYMAP_SEARXNG_PORT`: the port to run a managed SearXNG on (default
+- `TESSELLATE_SEARXNG_PORT`: the port to run a managed SearXNG on (default
   8888). Rarely needed: `searxng_manager.choose_port()` already moves to
   8080/8081/8890/8899 when the wanted port is held by something that is not a
   SearXNG. A port *already answering as SearXNG* beats a free one: that is
@@ -1401,7 +1401,7 @@ style, optional AI profile, …) live in `data/preferences.json`, managed by
   downloads nothing, `fetch` downloads one small instruct GGUF outside the
   repository, `build` compiles `llama-server` from a llama.cpp checkout you
   name, and `serve` starts it and prints the two exports the evals read,
-  `MEMORYMAP_EVALS_URL` and `MEMORYMAP_EVALS_MODEL`. With those set,
+  `TESSELLATE_EVALS_URL` and `TESSELLATE_EVALS_MODEL`. With those set,
   `pytest -m evals tests/` runs the eval tests against that model; without
   them every eval is skipped, so the ordinary suite and CI never depend on a
   model, a binary or a network. Nothing in `tests/` imports the script and no
@@ -1423,8 +1423,8 @@ style, optional AI profile, …) live in `data/preferences.json`, managed by
 ```bash
 python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt && pip install -e .
-python -m memorymap            # → http://localhost:8000
-python -m memorymap --desktop  # same app in its own window (needs pywebview)
+python -m tessellate            # → http://localhost:8000
+python -m tessellate --desktop  # same app in its own window (needs pywebview)
 ```
 
 On first run you choose a password (bcrypt-hashed, stays local). The launcher
@@ -1529,7 +1529,7 @@ which is correct and simple for one process and quietly wrong for two:
 
 None of that fails loudly, which is exactly why it is refused rather than
 warned about: it would present as flakiness and be debugged as a bug in the
-app. `python -m memorymap` cannot hit this (it hands uvicorn an app object,
+app. `python -m tessellate` cannot hit this (it hands uvicorn an app object,
 not an import string, and uvicorn cannot fork that); running `uvicorn` against
 the factory directly can, and is the case the check exists for.
 
@@ -1542,13 +1542,13 @@ thread; a plain save and an edit still embed on the request (corrected
 
 | I want to… | Start here |
 | --- | --- |
-| Change how notes are categorised | `src/memorymap/ai/janitor.py` |
-| Change how questions are answered | `src/memorymap/ai/librarian.py` |
-| Add/adjust an agent action | `src/memorymap/ai/tools/` (+ `agent.py`) |
-| Add an API endpoint | the matching `src/memorymap/api/routes_*.py` |
-| Add a database column | `src/memorymap/core/database.py` (+ auto-migrator) |
+| Change how notes are categorised | `src/tessellate/ai/janitor.py` |
+| Change how questions are answered | `src/tessellate/ai/librarian.py` |
+| Add/adjust an agent action | `src/tessellate/ai/tools/` (+ `agent.py`) |
+| Add an API endpoint | the matching `src/tessellate/api/routes_*.py` |
+| Add a database column | `src/tessellate/core/database.py` (+ auto-migrator) |
 | Teach it a new time phrase | `entry/timewords.py`: one rule, one test row |
-| Change search behaviour | `src/memorymap/search/search_manager.py` |
+| Change search behaviour | `src/tessellate/search/search_manager.py` |
 | Change the UI | `frontend/js/app.js` and the files after it (`grep -n "^function name" frontend/js/*.js` finds a function's file), `frontend/css/*.css` (read §10's invariants first) |
 | Add a graph layout | `layoutHierarchy` in `graph.js` + an option in `#graph-layout`; d3's full v7 is vendored, so `tree`/`cluster`/`partition` are all there. Read §10 invariant 10 first: the readable-layout rules are not obvious |
 | Add a theme or palette | `THEME_PRESETS` in `settings.js` + a `[data-palette]` block in `frontend/css/05-sidebars-themes.css` (where the curated palettes live); §10 invariant 9 for why a theme has to clear manual keys |

@@ -9,8 +9,8 @@ import zipfile
 
 import pytest
 
-from memorymap.core.database import Entry
-from memorymap.entry import app_import, manager
+from tessellate.core.database import Entry
+from tessellate.entry import app_import, manager
 
 
 def _zip(members: dict[str, str]) -> bytes:

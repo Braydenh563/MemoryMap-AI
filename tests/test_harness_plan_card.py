@@ -10,7 +10,7 @@ skill run emits, so `chat-agent.js` reuses `startPlan`.
 
 from __future__ import annotations
 
-from memorymap.ai import agent
+from tessellate.ai import agent
 from tests._app_js import app_js_text
 
 
@@ -131,7 +131,7 @@ def test_the_client_grows_a_turn_card_and_keeps_it_out_of_the_panel():
 
 
 def test_the_guide_says_so():
-    from memorymap.ai import help_chat, help_topics_more
+    from tessellate.ai import help_chat, help_topics_more
 
     text = " ".join(str(v) for v in vars(help_chat).values() if isinstance(v, (str, dict, list, tuple)))
     text += " ".join(str(v) for v in vars(help_topics_more).values() if isinstance(v, (str, dict, list, tuple)))

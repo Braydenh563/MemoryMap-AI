@@ -29,7 +29,7 @@ import json
 
 import pytest
 
-from memorymap.ai import agent
+from tessellate.ai import agent
 
 
 # The reported answer, trimmed to the sentences that matter. Kept verbatim
@@ -176,7 +176,7 @@ def test_the_warning_names_the_unsupported_claim(ai_client, fake_ollama):
 
 def test_no_warning_when_the_tool_really_ran(ai_client, fake_ollama, session):
     """The net must be silent on a turn that did the work, or it is noise."""
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     first = manager.create_entry(session, "A note about beans")
     second = manager.create_entry(session, "Another note about beans")

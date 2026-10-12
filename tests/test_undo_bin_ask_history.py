@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 
-from memorymap.core.database import AskTurn
+from tessellate.core.database import AskTurn
 
 
 def _turn(session, question, pinned=False):
@@ -19,7 +19,7 @@ def _ask_again(client):
 
 def _asked(client, session, question):
     """A question as the Ask box leaves it: a turn and the audit row behind the chip."""
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     manager.log_action(session, "queried", "chat", detail=question)
     session.commit()
@@ -81,7 +81,7 @@ def test_forgetting_a_chip_is_undone_and_redone(ai_client, session):
 
 def test_only_a_forget_marker_can_be_lifted(ai_client, session):
     _asked(ai_client, session, "alpha")
-    from memorymap.core.database import AuditLog
+    from tessellate.core.database import AuditLog
     from sqlalchemy import select
 
     queried = session.scalar(select(AuditLog).where(AuditLog.action == "queried"))

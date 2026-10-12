@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from memorymap.ai import utilities
+from tessellate.ai import utilities
 
 NOW = datetime(2026, 1, 15, 2, 0, tzinfo=timezone.utc)
 

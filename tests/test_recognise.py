@@ -12,7 +12,7 @@ import time as clock
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
 
-from memorymap.ai import recognise as rec
+from tessellate.ai import recognise as rec
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = json.loads((ROOT / "tests/fixtures/composer/recognise_1010.json").read_text(encoding="utf-8"))
@@ -101,7 +101,7 @@ def test_each_phrase_reads_inside_its_budget():
 
 def test_no_network_and_no_app_imports():
     """Decision 56: nothing in the deterministic layer reaches past the computer."""
-    tree = ast.parse((ROOT / "src/memorymap/ai/recognise.py").read_text(encoding="utf-8"))
+    tree = ast.parse((ROOT / "src/tessellate/ai/recognise.py").read_text(encoding="utf-8"))
     names = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):

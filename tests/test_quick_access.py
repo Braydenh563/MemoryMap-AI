@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.api.routes_settings import QUICK_ACCESS_MAX
+from tessellate.api.routes_settings import QUICK_ACCESS_MAX
 
 ROOT = Path(__file__).resolve().parents[1]
 DASH = with_pieces("dashboard.js")

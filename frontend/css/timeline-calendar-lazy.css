@@ -257,3 +257,9 @@
     --cal-hour: 3.5rem;
   }
 }
+
+/* The calendar's loading state: one placeholder the size of a month grid. */
+.timeline-cal-loading > .skeleton {
+  height: clamp(14rem, 50vh, 28rem);
+  margin-bottom: 0;
+}

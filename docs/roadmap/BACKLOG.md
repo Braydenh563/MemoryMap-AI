@@ -4318,4 +4318,6 @@ First, in order:
 - Navigation chord: "m" (MemoryMap) to "t" (Tessellate), keeping "m" working. Not small: "t" is already the second key for Timeline (`TAB_JUMP_KEYS.t`, settings-wiring.js) and a repeated first key hides the guide, so "t t" would close it instead of jumping; Timeline needs another letter or the toggle rule changes. The whiteboard owns "m" (`wbOwnsChord`) and the key is named in help (`ai/help_chat.py`), the manual and `tests/test_manual_parity.py`. Owner asked for it, 2026-10-12.
 - Composer: past-tense reported speech after "A week on, by 9 August," ("you mentioned that you had just begun playing ..."); run the vendored Harper grammar rules over composer output (test-time lint first, then a post-pass for lead capitals such as "tuesday" and missing articles such as "go to gym").
 - The agent cap: the owner cannot fund two Opus agents at once right now; run one at a time, Sonnet for named fixes.
+- Companion physics: when the companion falls it is glitchy and choppy, about 4 frames a second (owner, 2026-10-12). Measure the fall loop's frame times first (`companion-motion` tests, `avatars.js`), then fix the step rate.
+- Chord key: "s" is Settings (`CHORD_ACTIONS.s`), so "View the Stack" on "s" collides; pick a free letter.
 

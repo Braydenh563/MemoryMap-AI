@@ -148,7 +148,13 @@ async function paintTimelineCalendar() {
   if (pressed) box.dataset.refocusAct = pressed.dataset.calAct;
   if (url !== timelineCal.url) {
     timelineCalMount(box, timelineCalHead(span, first));
-    showSkeletons(box, 3);
+    //: The head is already mounted, so `showSkeletons(box)` saw a non-empty
+    //: box and drew nothing (owner, 2026-10-12: no loading state). The
+    //: placeholder is the grid's own size, in a holder of its own.
+    const loading = document.createElement("div");
+    loading.className = "timeline-cal-loading";
+    box.appendChild(loading);
+    showSkeletons(loading, 1);
     let read = null;
     try {
       read = await timelineCalFetch(url);
@@ -156,7 +162,7 @@ async function paintTimelineCalendar() {
       read = null;
     }
     if (render !== timelineCal.renders) return;
-    clearSkeletons(box);
+    loading.remove();
     if (!read) {
       timelineCal.url = "";
       surfaceFailed($("timeline-empty"), "calendar", paintTimelineCalendar);

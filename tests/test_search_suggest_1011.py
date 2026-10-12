@@ -44,7 +44,7 @@ globalThis.window = {{
     removeItem: (k) => store.delete(k),
   }},
 }};
-globalThis.document = {{ addEventListener() {{}} }};
+globalThis.document = {{ addEventListener() {{}}, querySelectorAll: () => [] }};
 globalThis.navigator = {{ platform: "Linux" }};
 const fs = require("fs");
 eval(fs.readFileSync({str(PREFS)!r}, "utf8") + "; globalThis.prefs = prefs; globalThis.prefsStore = prefsStore;");

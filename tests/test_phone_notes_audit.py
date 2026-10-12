@@ -106,9 +106,9 @@ def test_the_command_palette_carries_the_notes_rows():
     assert "filterNotesByTag(tag)" in rows
     assert "chooseNoteCategory(ids," in rows and "openManageCategories()" in rows
     assert "openBulkTags(ids)" in rows and "openTagsSheet()" in rows
-    go = _function(_read("palette.js"), "paletteGoToCategory")
+    go = _function(_read("app-palette.js"), "paletteGoToCategory")
     assert '$("category-list")' in go and ".click()" in go
-    hand = _function(_read("palette.js"), "paletteNotesInHand")
+    hand = _function(_read("app-palette.js"), "paletteNotesInHand")
     for source in ("selectedIds", "notePageOpenId", "editingId", "overlayReturnFocus"):
         assert source in hand
     # Both sheets load on first use, so the palette may call them at boot.

@@ -261,7 +261,7 @@ function closeNoteTagPopover({ restoreFocus = false } = {}) {
   if (!noteTagPop) return;
   const { panel, anchor, outside } = noteTagPop;
   document.removeEventListener("pointerdown", outside, true);
-  if (typeof closeHelpPopovers === "function") closeHelpPopovers();
+  closeHelpPopovers();
   closeActionMenus();
   panel.remove();
   anchor.setAttribute("aria-expanded", "false");

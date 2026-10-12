@@ -215,6 +215,8 @@ function renderEmblem(holder, size = 34, { animate = false } = {}) {
     art.addEventListener("animationend", (event) => {
       if (event.animationName === "emblem-arrive") art.classList.remove("is-arriving");
     });
+    //: Reduced motion runs no animation, so `animationend` never comes.
+    setTimeout(() => art.classList.remove("is-arriving"), 4000);
   }
   emblemInstances.set(holder, { remove: () => art.remove() });
   if (animate) watchEmblemVisibility(holder, art);

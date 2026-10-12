@@ -111,7 +111,7 @@ def test_the_menu_item_exists_and_says_both_ways() -> None:
 
 def test_turning_it_off_is_undoable() -> None:
     body = _function(SUGGEST, "answerSuggestedTags")
-    assert "body.mute" in body and "toastAction(" in body and "{ mute: false }" in body
+    assert "body.mute" in body and "offerUndo(" in body and "{ mute: false }" in body
     assert 'record: false' in body
 
 

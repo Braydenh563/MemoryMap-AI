@@ -475,7 +475,7 @@ function digestOffer(answerEl, offer) {
         const repeats = { daily: ", then every day", weekly: ", then every week", monthly: ", then every month" }[made.recurring] || "";
         said = `Reminder set: ${made.text}, ${relativeWhen(made.due_at)}${repeats}.`;
         label = "Set a reminder from an answer";
-        const repaint = () => (typeof loadReminders === "function" ? loadReminders() : undefined);
+        const repaint = () => loadReminders();
         undo = () => apiJson(`/reminders/${made.id}`, { method: "DELETE" }).then(repaint);
         redo = () => apiJson(`/reminders/${made.id}/restore`, { method: "POST" }).then(repaint);
         repaint();
@@ -597,7 +597,7 @@ async function askKeepAsDocument() {
     );
     toastAction("Saved to your documents.", "Open it", () => {
       switchTab("documents");
-      if (typeof openDocument === "function") openDocument(doc.id);
+      openDocument(doc.id);
     }, { go: { open: "doc", id: doc.id } });
   } catch (error) {
     toast(error.message || "Couldn't save that document.", true);
@@ -611,8 +611,8 @@ async function askKeepAsMap() {
   const board = await apiJson("/whiteboard/maps/from-notes", {
     method: "POST",
     body: JSON.stringify({ name, note_ids: ids }),
-  }).catch(() => null);
-  if (!board?.id) return toast("Could not make the map.");
+  }).catch((error) => toast(error.message || "Could not make the map.", true));
+  if (!board?.id) return;
   pushUndo(
     "Made a mind map from an answer",
     () => api(`/entries/${board.id}`, { method: "DELETE" }),

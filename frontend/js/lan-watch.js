@@ -72,7 +72,7 @@ async function lanAnswerDevice(device, verdict) {
   try {
     await apiJson(`/auth/lan-devices/${encodeURIComponent(device.id)}/${verdict}`, { method: "POST" });
     toast(verdict === "allow" ? `${device.name} can sign in now.` : `${device.name} was not let in.`);
-    if (typeof renderLanAccess === "function") renderLanAccess();
+    renderLanAccess();
   } catch (error) {
     toast(error.message || "That device is no longer waiting.", "info");
   }

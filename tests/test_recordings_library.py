@@ -258,4 +258,5 @@ def test_no_recordings_is_the_empty_state_recipe():
     body = JS.split("function recordingsEmpty(")[1].split("\n}\n")[0]
     for part in ("empty-state recordings-empty", "empty-icon", "ph-microphone", "empty-title", "openVoiceNote()"):
         assert part in body
-    assert "Nothing recorded yet" not in JS
+    #: The title is part of the recipe now, and only in this function: no bare grey line elsewhere.
+    assert JS.count("Nothing recorded yet") == 1

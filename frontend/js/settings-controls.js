@@ -654,8 +654,8 @@ $("pref-battery-mode").addEventListener("change", (e) => {
   //: effect on the next load, which for a setting about power is the wrong
   //: half of "immediately".
   if (prefsCache) prefsCache.battery_efficient_mode = e.target.checked;
-  if (typeof startBgArt === "function") startBgArt();
-  if (typeof renderDashboard === "function") renderDashboard();
+  startBgArt();
+  renderDashboard();
 });
 
 $("pref-autonomous-interval").addEventListener("change", (e) =>
@@ -727,7 +727,7 @@ $("dashboard-persona-select").addEventListener("change", async () => {
   //: again, it didnt change again").
   if (prefsCache) prefsCache.dashboard_persona = persona;
   paintDashboardPersonaMark();
-  if (typeof paintDashEmblem === "function") paintDashEmblem();
+  paintDashEmblem();
   await apiJson("/preferences", {
     method: "PUT",
     body: JSON.stringify({ dashboard_persona: persona }),

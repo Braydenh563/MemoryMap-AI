@@ -8,7 +8,7 @@
 //: attach. The address is also put on the clipboard, because a webview
 //: without a mail handler opens nothing and says nothing.
 async function emailSupportReport(about) {
-  if (typeof downloadSupportBundle === "function") await downloadSupportBundle();
+  await downloadSupportBundle();
   //: The version is read off the page's own stamped script URL, the one
   //: thing every build carries without another request.
   const stamp = (document.querySelector('script[src*="app.js?v="]')?.getAttribute("src") || "").split("?v=")[1] || "";

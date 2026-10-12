@@ -524,7 +524,7 @@ function inboxLinksPane(suggestions) {
         return null;
       });
       setBusy(backfill, false);
-      if (typeof refreshJobRuns === "function") refreshJobRuns();
+      refreshJobRuns();
       if (!result) return;
       const parts = [];
       if (result.updated) parts.push(`marked ${result.updated}`);

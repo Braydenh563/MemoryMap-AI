@@ -9,7 +9,7 @@ let privacyReceipt = null;
 
 function privacyWhen(iso) {
   if (!iso) return "";
-  return typeof relativeTime === "function" ? relativeTime(iso) : whenText(iso);
+  return relativeTime(iso);
 }
 
 //: **One row per place, saying what it was for** (INBOX 807, the owner: "it
@@ -156,7 +156,7 @@ async function renderPrivacyReceipt() {
     list.replaceChildren();
     return;
   }
-  if (typeof surfaceRecovered === "function") surfaceRecovered($("privacy-empty"));
+  surfaceRecovered($("privacy-empty"));
   privacyReceipt = receipt;
   if (receipt.covers) $("privacy-covers").textContent = receipt.covers;
   renderPrivacyRange();
@@ -769,7 +769,7 @@ $("clear-recents")?.addEventListener("click", async () => {
   const total = Object.values(before).reduce((sum, list) => sum + list.length, 0);
   if (!total) return;
   //: The web panel draws its list from the store: it repaints.
-  if (typeof renderWebSearchHistory === "function") renderWebSearchHistory();
+  renderWebSearchHistory();
   settingsClearDone(
     { kind: "recents", changes: [], words: "Cleared recent searches", data: { before } },
     `Cleared ${settingsClearCount(total, "recent search", "recent searches")}.`
@@ -1026,8 +1026,8 @@ async function settingsHistoryApply(change, side) {
       await ensureModule("searchSuggest");
       if (side === "old") searchRecentRestore(kept.data.before);
       else for (const scope of Object.keys(kept.data.before)) searchRecent.clear(scope);
-      if (typeof renderWebSearchHistory === "function") renderWebSearchHistory();
-      if (typeof renderWebPanelMenu === "function") renderWebPanelMenu(webEngineInfo);
+      renderWebSearchHistory();
+      renderWebPanelMenu(webEngineInfo);
     } else if (kept.kind === "dismissed") {
       if (side === "old") await apiJson("/suggestions/dismissed/restore", { method: "POST", body: JSON.stringify(kept.data) });
       else kept.data = await apiJson("/suggestions/dismissed/clear", { method: "POST" });
@@ -1053,7 +1053,7 @@ async function settingsHistoryApply(change, side) {
   change.undone = kept.undone;
   renderSettingsHistory();
   //: The pane in front shows the value that is now true.
-  if (settingsModalOpen() && typeof showSettingsSection === "function") showSettingsSection(currentSettingsSection);
+  if (settingsModalOpen()) showSettingsSection(currentSettingsSection);
 }
 
 async function settingsHistoryUndo(change) {
@@ -1094,7 +1094,7 @@ function settingsHistoryRow(entry) {
   label.textContent = entry.label;
   const when = document.createElement("small");
   when.className = "muted";
-  const ago = typeof relativeTime === "function" ? relativeTime(new Date(entry.at).toISOString()) : whenText(new Date(entry.at));
+  const ago = relativeTime(new Date(entry.at).toISOString());
   const gone = entry.noUndo || (entry.big && !settingsHistoryBigKept.has(entry.id));
   when.textContent = entry.undone ? `${ago} · undone` : gone ? `${ago} · can't be undone` : ago;
   words.append(label, when);

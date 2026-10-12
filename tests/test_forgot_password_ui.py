@@ -130,7 +130,7 @@ def test_a_wrong_password_on_the_lock_form_says_so_under_the_field():
     # unclaimed 401 into Error("Locked") for the expired-session case, which is
     # what the lock form showed under the field until the call owned it
     # (measured in a browser, scratchpad/ui-sweeps/verify1011.js, 2026-10-11).
-    form = _function(app_js_text(), "submitLockForm")
+    form = _function(app_js_text(), "lockRequest")
     call = form[form.index('apiJson(`/auth/${mode'):]
     call = call[: call.index("});")]
     assert "ownsAuthErrors: true" in call and "silent: true" in call

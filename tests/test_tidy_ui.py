@@ -205,7 +205,7 @@ def test_a_suggestion_can_be_dismissed_for_good_from_its_row():
     tidy = _read("tidy.js")
     assert 'dismiss.className = "ghost icon-only small tidy-dismiss"' in tidy
     assert "li.append(label, dismiss)" in tidy
-    assert "/dismiss`" in tidy and "/undismiss`" in tidy
+    assert "/dismiss`" in tidy and '"undismiss"' in tidy and "offerUndo(" in tidy
     assert "the cross hides a row" in tidy
     css = (ROOT / "frontend" / "css" / "tidy-lazy.css").read_text(encoding="utf-8")
     assert ".tidy-row-item" in css and ".tidy-dismiss" in css

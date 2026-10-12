@@ -93,6 +93,6 @@ def test_the_capture_page_saves_one_line_and_names_its_command(client):
     assert set(re.findall(r'\?v=([^"]+)"', html)) == {__version__}
     assert "<script>" not in html and '<script src="/js/capture.js?v=' in html
     js = (ROOT / "frontend" / "js" / "capture.js").read_text(encoding="utf-8")
-    assert 'fetch("/entries"' in js and '"X-Auth-Token"' in js
+    assert 'call("/entries", "POST"' in js and '"X-Auth-Token"' in js
     command = client.get("/capture/command").json()["command"]
     assert command.endswith("--capture")

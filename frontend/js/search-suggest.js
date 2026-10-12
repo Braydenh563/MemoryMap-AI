@@ -338,7 +338,7 @@ function fillSearchSuggest() {
   input.setAttribute("aria-expanded", String(items.length > 0));
   if (items.length && state.announced !== items.length) {
     state.announced = items.length;
-    if (typeof announce === "function") announce(`${items.length} suggestion${items.length === 1 ? "" : "s"}`);
+    announce(`${items.length} suggestion${items.length === 1 ? "" : "s"}`);
   }
   if (!items.length) state.announced = 0;
   placeSearchSuggest();
@@ -379,8 +379,8 @@ function removeSearchSuggest(item) {
   const scope = searchSuggestScopeOf(state.input);
   searchRecent.remove(scope, item.value);
   fillSearchSuggest();
-  if (scope === "web" && typeof renderWebSearchHistory === "function") renderWebSearchHistory();
-  if (typeof announce === "function") announce("Removed from recent searches.");
+  if (scope === "web") renderWebSearchHistory();
+  announce("Removed from recent searches.");
 }
 
 //: One box's recents forgotten, from the box's own Clear or the web panel's,

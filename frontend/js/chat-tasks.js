@@ -212,7 +212,7 @@ function renderTaskHistory(history) {
     // was answerable only by opening the log console. Asked about
     // directly (BACKLOG.md §95 item A.3).
     //: When, how long, how many times and who started it (INBOX 805).
-    const took = typeof jobDurationWords === "function" ? jobDurationWords(item.duration_ms) : "";
+    const took = jobDurationWords(item.duration_ms);
     when.textContent = [
       relativeTime(item.at),
       took ? `took ${took}` : "",

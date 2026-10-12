@@ -53,9 +53,10 @@ def _run(names: list[str], fail: set[str] | None = None) -> dict:
         + _block(DROP, "async function fileDropImport(files) {", "\n}\n")
         + """
 const names = JSON.parse(process.argv[1]); const fail = new Set(JSON.parse(process.argv[2]));
-const log = { uploads: [], docs: [], toasts: [], says: [], modules: [] };
+const log = { uploads: [], docs: [], toasts: [], says: [], modules: [], undos: [] };
 class FormData { constructor() { this.f = {}; } append(k, v) { this.f[k] = v; } }
-const api = { upload: async (path, form) => { if (fail.has(form.f.file.name)) throw new Error("too big"); log.uploads.push([path, form.f.file.name, form.f.direct]); } };
+const api = { upload: async (path, form) => { if (fail.has(form.f.file.name)) throw new Error("too big"); log.uploads.push([path, form.f.file.name, form.f.direct]); return { json: async () => ({ id: form.f.file.name }) }; } };
+const pushUploadUndo = (label, base, made) => log.undos.push([label, base, made && made.id]);
 const toast = (m) => log.toasts.push(m);
 const toastAction = (m, label) => log.toasts.push(m + " / " + label);
 async function ensureModule(n) { log.modules.push(n); return true; }
@@ -79,6 +80,8 @@ def test_pictures_and_pdfs_are_uploaded_direct_and_the_rest_become_documents():
     got = _run(["a.png", "b.PDF", "notes.docx", "c.md"])
     assert got["uploads"] == [["/media/upload", "a.png", "true"], ["/media/upload", "b.PDF", "true"]]
     assert got["docs"] == ["notes.docx", "c.md"]
+    #: Each picture is one step on the undo stack (INBOX 898).
+    assert got["undos"] == [["Added “a.png”", "/media", "a.png"], ["Added “b.PDF”", "/media", "b.PDF"]]
     assert got["modules"] == ["libraryList"]
     assert any(t.startswith("Added 2 pictures or PDFs to your Library. / Show") for t in got["toasts"])
     assert got["says"][0] == "Adding 4 files…" and got["says"][-1] == "hidden" and got["busy"] is False

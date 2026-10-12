@@ -32,7 +32,7 @@ const FIELD_CLEARS = [
       renderCaptureFiles();
     },
     after() {
-      if (typeof clearCaptureTagSuggestions === "function") clearCaptureTagSuggestions();
+      clearCaptureTagSuggestions();
       if (typeof focusCaptureBox === "function") focusCaptureBox();
     },
   },

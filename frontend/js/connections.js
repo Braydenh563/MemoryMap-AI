@@ -126,8 +126,8 @@ async function linkNoteMention(subjectId, row, button) {
   } catch (error) {
     toast(error.message, true);
   }
-  if (row.kind === "note" && typeof refreshEntries === "function") await refreshEntries([row.id]);
-  if (typeof renderNotesRail === "function") renderNotesRail();
+  if (row.kind === "note") await refreshEntries([row.id]);
+  renderNotesRail();
   if (!$("connections-overlay").classList.contains("hidden")) openConnections("entries", subjectId, $("connections-subject").textContent);
 }
 

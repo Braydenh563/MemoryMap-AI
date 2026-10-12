@@ -25,6 +25,16 @@
 
 </div>
 
+> [!NOTE]
+> **Tessellate is in beta.** It works and it is tested, but some parts are
+> still rough: you may meet lag in places (long note lists, the graph and mind
+> maps), screens that need more polish, and features that are planned but not
+> built yet. Your notes stay on your machine and are kept safe by backups, but
+> please keep your own copy of anything important while we are in beta. We are
+> working through the rough edges release by release, so updates come often.
+> If something is slow, broken or missing, [open an issue](https://github.com/Braydenh563/Tessellate/issues)
+> and say what you were doing: it is the fastest way to get it fixed.
+
 ## What it is
 
 Type a thought and a local AI files it, tags it and links it to what you

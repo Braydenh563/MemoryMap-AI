@@ -175,6 +175,10 @@ ACT_TOOLS: dict[str, str] = {
 #: A utility's kind (`utilities.kind_of`) to the tool a model would call for it.
 UTILITY_TOOLS: dict[str, str] = {"clock": "get_current_time", "dates": "get_current_time"}
 
+#: "due" as a time, not "due diligence": the end, or a when after it.
+_WHEN = r"(?=$|[?.!]| (?:today|tomorrow|tonight|this|next|soon|now|later|on|by|in|before|yet|for me)\b)"
+
+
 def _listing(nouns: str) -> str:
     """A request for the whole list of one kind of thing, said any of the
     ways people say it ("what tags do I have", "show me every tag I have",
@@ -216,7 +220,13 @@ TOOL_CUES: tuple[tuple[str, str], ...] = (
     ("count_notes", r"\bcount (?:my |the )?notes\b|\bnotes per (?:category|tag)\b"),
     ("list_tags", r"\b(?:list|show|what are) (?:me )?(?:all )?my tags\b|" + _listing("tags?")),
     ("list_categories", r"\b(?:list|show|what are) (?:me )?(?:all )?my categories\b|" + _listing("categories|categorys|category")),
-    ("list_reminders", r"\b(?:what|which|list|show)\b.*\breminders\b|^any reminders\b"),
+    #: "what tasks do I have", "whats due this week", "what is overdue": the
+    #: reminders are the app's task list (decision 75: with a model up too).
+    #: A checklist on one note ("what is still open on X") is the composer's.
+    ("list_reminders", r"\b(?:what|which|list|show)\b.*\breminders\b|^any reminders\b"
+     r"|^(?:what|which|list|show)(?: me)?(?: are)?(?: all)? (?:my |the )?(?:open |outstanding )?(?:tasks|to-?dos)\b(?! (?:on|for|in|from|about) )"
+     rf"|^(?:what(?:'s|s| is| are)?|which \w+|is (?:there )?anything|anything) (?:(?:is |are )?(?:still )?)?(?:over)?due{_WHEN}"
+     rf"|^what (?:do|have) i (?:got |have )?(?:over)?due{_WHEN}"),
     ("complete_reminder", r"\bmark\b.*\breminder\b.*\bdone\b|\btick off\b.*\breminder\b"),
     ("list_documents", r"^(?:list|show)(?: me)? (?:all )?my documents[?.]?$|" + _listing("documents|docs")),
     ("list_skills", r"\b(?:list|show) (?:me )?(?:all )?my skills\b|\bwhat skills\b|" + _listing("skills")),

@@ -219,8 +219,11 @@ def test_finishing_the_repair_lets_the_model_load_again(tmp_path, monkeypatch):
         embedmodels._begin_download(embedmodels.EMBED_MODELS_BY_ID["bge-small"])
         import time
 
+        #: The hook runs on the worker thread a moment after `running` goes
+        #: false, so the wait is for the hook, not for the flag (CI, Python
+        #: 3.13, 2026-10-12: the assertion ran first and saw an empty list).
         for _ in range(100):
-            if not embedmodels.current().running:
+            if not embedmodels.current().running and called:
                 break
             time.sleep(0.05)
     finally:

@@ -120,7 +120,7 @@ changelog entry.
 
 Push only from a state where CI passes on the branch you are releasing from. The
 release workflow does not run the test suite: it trusts that the tagged code
-already passed CI. For a change to the packaging itself (`memorymap.spec`,
+already passed CI. For a change to the packaging itself (`tessellate.spec`,
 `installer.iss`, the workflow), check that **Package check**
 (`.github/workflows/package-check.yml`) is green too. It builds the frozen Windows
 app and the installer, installs them silently and starts the app, so a packaging
@@ -158,7 +158,7 @@ after the release exists:
   `sentence-transformers` and torch. Settings, Packages treats those as an
   optional post-install, like voice dictation, and a multi-hundred-MB download in
   the base installer would contradict that.
-- Runs PyInstaller against `packaging/windows/memorymap.spec`. It is a onedir
+- Runs PyInstaller against `packaging/windows/tessellate.spec`. It is a onedir
   build: a onefile build would re-extract itself on every launch, a poor fit for
   an app meant to open like a normal desktop app.
 - **Smoke-tests the frozen app.** It starts the built executable on a scratch data
@@ -166,7 +166,7 @@ after the release exists:
 - Runs Inno Setup against `packaging/windows/installer.iss` with
   `/DMyAppVersion=` the version in `src/tessellate/__init__.py`; it refuses a
   `TESSELLATE_VERSION` (the tag) that differs.
-- Uploads `MemoryMap-AI-Setup-<version>-windows-x86_64.exe` to the release. The
+- Uploads `Tessellate-Setup-<version>-windows-x86_64.exe` to the release. The
   WiX `.msi` steps are present but switched off: its toolkit's licence terms
   stopped the release build.
 
@@ -175,9 +175,9 @@ parallel with the Windows job:
 
 - Installs GTK and WebKit for pywebview's Linux backend, then the same trimmed
   dependency set without the system-tray pieces.
-- Runs PyInstaller against `packaging/linux/memorymap.spec` and smoke-tests the
+- Runs PyInstaller against `packaging/linux/tessellate.spec` and smoke-tests the
   result the same way.
-- Uploads `MemoryMap-AI-<version>-linux-x86_64.tar.gz` and a `.zip` of the same
+- Uploads `Tessellate-<version>-linux-x86_64.tar.gz` and a `.zip` of the same
   build. The tarball is the one to recommend: a zip does not reliably carry the
   executable bit, and a launcher without it cannot be started.
 
@@ -195,7 +195,7 @@ not as something you `pip install`; the reason is in the comment at the top of
    and confirm:
    - the description matches what you wrote in `CHANGELOG.md`, not GitHub's
      generic notes (a sign the header rename was missed);
-   - `MemoryMap-AI-Setup-<version>-windows-x86_64.exe`, the Linux `.tar.gz` and
+   - `Tessellate-Setup-<version>-windows-x86_64.exe`, the Linux `.tar.gz` and
      the Linux `.zip` are all attached.
 3. **If you can reach a Windows machine, run the installer once.** The pipeline
    proves the build starts and serves its page, and the Package check proves a

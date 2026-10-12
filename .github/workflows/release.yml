@@ -162,7 +162,7 @@ jobs:
       - name: Build the frozen app (PyInstaller)
         shell: bash
         run: |
-          pyinstaller packaging/windows/memorymap.spec --distpath dist --workpath build --noconfirm
+          pyinstaller packaging/windows/tessellate.spec --distpath dist --workpath build --noconfirm
 
       # The frozen app has no console (`console=False` in the spec), and the
       # 0.2.x build died at launch because uvicorn's log formatter asked
@@ -178,7 +178,7 @@ jobs:
         # every asset, the lazy bundles included, and the API on a fresh
         # data dir. A release that cannot serve one of them does not happen.
         run: |
-          "dist/MemoryMap AI/MemoryMap AI.exe" &
+          "dist/Tessellate/Tessellate.exe" &
           pid=$!
           failed=0
           python packaging/frozen_smoke.py --base http://127.0.0.1:8765 \
@@ -227,8 +227,8 @@ jobs:
         run: |
           wix build packaging\windows\installer.wxs -arch x64 `
             -d Version=$env:TESSELLATE_VERSION `
-            -d DistDir="dist\MemoryMap AI" `
-            -o "dist\installer\MemoryMap-AI-$env:TESSELLATE_VERSION-windows-x86_64.msi"
+            -d DistDir="dist\Tessellate" `
+            -o "dist\installer\Tessellate-$env:TESSELLATE_VERSION-windows-x86_64.msi"
 
       - name: Upload installers to the release
         uses: softprops/action-gh-release@v3
@@ -238,7 +238,7 @@ jobs:
           # match fails this action outright, and the .exe alone is a
           # complete, working release either way.
           files: |
-            dist/installer/MemoryMap-AI-Setup-*.exe
+            dist/installer/Tessellate-Setup-*.exe
 
   build-linux-package:
     name: Build Linux package
@@ -267,7 +267,7 @@ jobs:
         # Same trimmed set as the Windows job (no sentence-transformers/
         # torch — see that job's own comment) and no pystray/Pillow: this
         # build ships without a system tray, see packaging/linux/
-        # memorymap.spec's own comment for why.
+        # tessellate.spec's own comment for why.
         run: |
           python -m pip install --upgrade pip
           pip install fastapi "uvicorn[standard]" SQLAlchemy alembic python-dotenv \
@@ -277,7 +277,7 @@ jobs:
 
       - name: Build the frozen app (PyInstaller)
         run: |
-          pyinstaller packaging/linux/memorymap.spec --distpath dist --workpath build --noconfirm
+          pyinstaller packaging/linux/tessellate.spec --distpath dist --workpath build --noconfirm
 
       # The frozen app has no console (`console=False` in the spec), and the
       # 0.2.x build died at launch because uvicorn's log formatter asked
@@ -290,7 +290,7 @@ jobs:
           TESSELLATE_DATA_DIR: ${{ runner.temp }}/mm-smoke
           TESSELLATE_PORT: "8765"
         run: |
-          "dist/MemoryMap AI/MemoryMap AI" &
+          "dist/Tessellate/Tessellate" &
           pid=$!
           for i in $(seq 1 60); do
             if curl -sf -o /dev/null http://127.0.0.1:8765/; then
@@ -322,13 +322,13 @@ jobs:
         # here by mistake.
         run: |
           cd dist
-          tar -czf "../MemoryMap-AI-${VERSION}-linux-x86_64.tar.gz" "MemoryMap AI"  # brand: keep, the bundle folder
-          zip -qr "../MemoryMap-AI-${VERSION}-linux-x86_64.zip" "MemoryMap AI"  # brand: keep, the bundle folder
+          tar -czf "../Tessellate-${VERSION}-linux-x86_64.tar.gz" "Tessellate"
+          zip -qr "../Tessellate-${VERSION}-linux-x86_64.zip" "Tessellate"
 
       - name: Upload package to the release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.resolve-version.outputs.tag }}
           files: |
-            MemoryMap-AI-*-linux-x86_64.tar.gz
-            MemoryMap-AI-*-linux-x86_64.zip
+            Tessellate-*-linux-x86_64.tar.gz
+            Tessellate-*-linux-x86_64.zip

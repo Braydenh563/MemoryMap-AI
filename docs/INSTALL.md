@@ -22,7 +22,7 @@ There are four ways in. Pick the one that fits.
 
 No terminal and no Python install are needed to run the app.
 
-1. Download the latest `MemoryMap-AI-Setup-*.exe` from
+1. Download the latest `Tessellate-Setup-*.exe` from
    [Releases](https://github.com/Braydenh563/Tessellate/releases/latest).
 2. Run it. Windows shows a blue "Windows protected your PC" screen, because
    this build is not code-signed yet. Click **More info**, then **Run anyway**.
@@ -54,7 +54,7 @@ for an install made before the rename (it is kept, never moved). An update or a
 reinstall leaves them alone, and so does uninstalling the app.
 
 **Several machines.** The installer runs silently:
-`MemoryMap-AI-Setup-<version>-windows-x86_64.exe /VERYSILENT /SUPPRESSMSGBOXES`.
+`Tessellate-Setup-<version>-windows-x86_64.exe /VERYSILENT /SUPPRESSMSGBOXES`.
 A silent install downloads no optional packages unless you name them, for
 example `/EXTRAS=documents,docx`. An MSI build for Group Policy exists in
 `packaging/windows/installer.wxs`, but it is paused: its toolkit's new licence
@@ -63,11 +63,11 @@ terms stopped the release build, so releases carry the `.exe` only.
 **The installer is a snapshot.** It does not update itself, and nothing
 contacts GitHub until you ask: see [Updating](#updating).
 
-**What the setup file is, and what it costs.** `MemoryMap-AI-Setup-<version>-windows-x86_64.exe` is an ordinary Windows setup program, built with [Inno Setup](https://jrsoftware.org/isinfo.php), a free tool whose licence allows free and commercial use. You never need Inno Setup yourself: it is used once, on the build machine, to make the file, and nothing in the installed app calls it. The app does use the file: Settings, About, Check for updates downloads the next release's setup program and runs it silently over the old one, and `/VERYSILENT` is how a fleet install runs it. The file is unsigned, so Windows asks you to click through once.
+**What the setup file is, and what it costs.** `Tessellate-Setup-<version>-windows-x86_64.exe` is an ordinary Windows setup program, built with [Inno Setup](https://jrsoftware.org/isinfo.php), a free tool whose licence allows free and commercial use. You never need Inno Setup yourself: it is used once, on the build machine, to make the file, and nothing in the installed app calls it. The app does use the file: Settings, About, Check for updates downloads the next release's setup program and runs it silently over the old one, and `/VERYSILENT` is how a fleet install runs it. The file is unsigned, so Windows asks you to click through once.
 
 ## Linux package
 
-1. Download `MemoryMap-AI-*-linux-x86_64.tar.gz` from the same
+1. Download `Tessellate-*-linux-x86_64.tar.gz` from the same
    [Releases](https://github.com/Braydenh563/Tessellate/releases/latest)
    page and unpack it with `tar -xzf`.
 2. Run `MemoryMap AI` from the unpacked folder (the program keeps its file name from before the rename). <!-- brand: keep -->

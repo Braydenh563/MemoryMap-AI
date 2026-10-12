@@ -675,7 +675,7 @@ def _bootloader_splash():
 def _splash_status(text: str) -> None:
     """Say what the app is doing on the packaged exe's bootloader splash.
 
-    The splash is a still card (memorymap.spec); this line under its rule is
+    The splash is a still card (tessellate.spec); this line under its rule is
     the part that moves, so a slow first launch reads as work, not a hang.
     Does nothing outside a PyInstaller build made with a splash."""
     pyi_splash = _bootloader_splash()
@@ -688,7 +688,7 @@ def _splash_status(text: str) -> None:
 
 
 def _close_bootloader_splash() -> None:
-    """Take down the packaged exe's bootloader splash (memorymap.spec's
+    """Take down the packaged exe's bootloader splash (tessellate.spec's
     `Splash`), if this is a packaged build that has one.
 
     `pyi_splash` exists only inside a PyInstaller build made with a splash,
@@ -1540,9 +1540,9 @@ def _replace_process(argv: list[str]) -> None:
     **Windows has no exec.** CPython's `os.execv` there starts a new process
     and ends this one, and it hands the C runtime the arguments joined with
     spaces, **unquoted** (a documented, never-fixed CPython behaviour). The
-    installed app lives in `...\\Programs\\MemoryMap AI\\MemoryMap AI.exe`, so
+    installed app lives in `...\\Programs\\MemoryMap AI\\Tessellate.exe`, so
     the restarted process read its own path as three arguments, argparse
-    exited on "unrecognized arguments: AI\\MemoryMap AI.exe", and the tray's
+    exited on "unrecognized arguments: AI\\Tessellate.exe", and the tray's
     Restart closed the app with nothing coming back (a source checkout under
     a folder with a space did the same). `subprocess.Popen` quotes each
     argument; this process then exits, as `execv` would have made it.

@@ -1,9 +1,9 @@
 ; Inno Setup script for the Windows installer.
 ;
 ; Built in CI (.github/workflows/release.yml) with ISCC.exe, from the
-; "MemoryMap AI" folder PyInstaller's COLLECT step produces (see  brand: keep
-; memorymap.spec in this same folder) — build that first, this script
-; expects it to already exist one directory up as ..\..\dist\MemoryMap AI\.
+; "Tessellate" folder PyInstaller's COLLECT step produces (see
+; tessellate.spec in this same folder) — build that first, this script
+; expects it to already exist one directory up as ..\..\dist\Tessellate\.
 ;
 ; Per-user install (PrivilegesRequired=lowest): no admin elevation prompt,
 ; on top of the "ship unsigned for now" SmartScreen warning this build
@@ -22,7 +22,7 @@
 ; config._default_data_dir and DataDir below). Only names a person
 ; reads (shortcuts, Add/Remove Programs, the wizard) say Tessellate.
 ; brand: keep-next
-#define MyAppDirName "MemoryMap AI"
+#define MyAppDirName "Tessellate"
 
 ; **The version is src\tessellate\__init__.py's `__version__`, never typed
 ; here.** It used to come from TESSELLATE_VERSION with a hard-coded "0.1.0"
@@ -42,7 +42,7 @@
 #endif
 #define MyAppPublisher "Tessellate"
 #define MyAppURL "https://github.com/Braydenh563/Tessellate"
-#define MyAppExeName "MemoryMap AI.exe"
+#define MyAppExeName "Tessellate.exe"
 
 [Setup]
 AppId={{B4C6E3F1-6E6A-4B7E-9C1D-3F6A2E8D9C40}
@@ -69,17 +69,17 @@ SolidCompression=yes
 WizardStyle=modern
 OutputDir=..\..\dist\installer
 ; **Version, platform and architecture, like the Linux package already has.**
-; Asked for directly. `MemoryMap-AI-Setup-0.3.1.exe` says nothing about what
+; Asked for directly. `Tessellate-Setup-0.3.1.exe` says nothing about what
 ; it installs onto, so two files downloaded a month apart from different
 ; machines are indistinguishable in a Downloads folder, and a 64-bit build
 ; and a future 32-bit or ARM one would overwrite each other. The Linux side
-; has read `MemoryMap-AI-<version>-linux-x86_64.zip` all along; this is the
+; has read `Tessellate-<version>-linux-x86_64.zip` all along; this is the
 ; same name in the same order.
 ;
 ; x86_64 rather than Inno's own "x64": it is what the Linux artefact says and
 ; what `uname -m` prints, and one spelling across both downloads is worth
 ; more than matching a single installer's internal vocabulary.
-OutputBaseFilename=MemoryMap-AI-Setup-{#MyAppVersion}-windows-x86_64
+OutputBaseFilename=Tessellate-Setup-{#MyAppVersion}-windows-x86_64
 ; Not signed yet (deliberate — see README's Windows install note). Revisit
 ; once there's a certificate; nothing else about this script would need to
 ; change, Inno Setup signs in a separate post-build step, not here.
@@ -100,16 +100,11 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 ; PyInstaller's folder and holds nothing of the person's (the notes are in
 ; %APPDATA%), so it goes whole before the new one is copied in.
 Type: filesandordirs; Name: "{app}\_internal"
-; The shortcuts an install from before the rename to Tessellate made, so an
-; upgrade leaves one "Tessellate" shortcut rather than two names for one app.
-Type: files; Name: "{autoprograms}\MemoryMap AI.lnk"
-Type: files; Name: "{autodesktop}\MemoryMap AI.lnk"
-Type: filesandordirs; Name: "{autoprograms}\MemoryMap AI"
 
 [Files]
 ; Everything PyInstaller's COLLECT step produced, recursively — the exe
 ; plus every DLL, the bundled frontend/ folder, and its own Python runtime.
-Source: "..\..\dist\MemoryMap AI\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\..\dist\Tessellate\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; The post-install script for optional packages. Placed in {app} so it is
 ; available alongside the installed app, and uninstalled with it.
 

@@ -19,9 +19,9 @@
 #
 # Usage (from the repo root, on Linux):
 #   pip install -e ".[desktop]" pyinstaller
-#   pyinstaller packaging/linux/memorymap.spec --distpath dist --workpath build
+#   pyinstaller packaging/linux/tessellate.spec --distpath dist --workpath build
 #
-# Produces dist/MemoryMap AI/MemoryMap AI (onedir, not onefile — see the
+# Produces dist/Tessellate/Tessellate (onedir, not onefile — see the
 # Windows spec's own comment for why) plus everything it needs beside it.
 # The release workflow zips that whole folder rather than building a
 # system-specific installer/package (.deb/.rpm/AppImage) — a plain zip has
@@ -33,7 +33,7 @@ from pathlib import Path
 
 block_cipher = None
 
-# packaging/linux/memorymap.spec -> repo root is two levels up.
+# packaging/linux/tessellate.spec -> repo root is two levels up.
 REPO_ROOT = Path(SPECPATH).resolve().parents[1]
 FRONTEND_DIR = REPO_ROOT / "frontend"
 MIGRATIONS_DIR = REPO_ROOT / "migrations"
@@ -42,7 +42,7 @@ ENTRY_SCRIPT = REPO_ROOT / "src" / "tessellate" / "__main__.py"
 ICON = str(FRONTEND_DIR / "icon-512.png")
 
 # Every module of the app, by file: the same list, for the same reason, as
-# packaging/windows/memorymap.spec's APP_MODULES (an `importlib.import_module`
+# packaging/windows/tessellate.spec's APP_MODULES (an `importlib.import_module`
 # by name is invisible to the analysis; `ai/needle_provider.py` was missing).
 SRC_DIR = REPO_ROOT / "src"
 
@@ -224,7 +224,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="MemoryMap AI",  # brand: keep (the bundle and exe name installed copies run)
+    name="Tessellate",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -243,5 +243,5 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=False,
-    name="MemoryMap AI",  # brand: keep (the bundle and exe name installed copies run)
+    name="Tessellate",
 )

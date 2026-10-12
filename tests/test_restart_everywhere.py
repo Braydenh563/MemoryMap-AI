@@ -36,7 +36,7 @@ def test_the_relaunch_carries_this_launch_but_not_repair_or_an_old_pid(monkeypat
 
 
 def test_the_packaged_app_relaunches_itself_without_python_flags(monkeypatch):
-    monkeypatch.setattr(sys, "argv", ["MemoryMap AI.exe", "--desktop"])
+    monkeypatch.setattr(sys, "argv", ["Tessellate.exe", "--desktop"])
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     assert entry._relaunch_argv() == [sys.executable, "--desktop", "--restart-after", str(os.getpid())]
 

@@ -4,7 +4,7 @@
   explicit call: both ship, the MSI unsigned for now — see that file's own
   header for the SmartScreen reasoning, which applies here unchanged). Built
   in CI (.github/workflows/release.yml) from the same PyInstaller COLLECT
-  output installer.iss packages, ..\..\dist\MemoryMap AI\ — build that first,
+  output installer.iss packages, ..\..\dist\Tessellate\ — build that first,
   this script does not build the app itself.
 
   Why an MSI when the .exe already exists: `msiexec /quiet` silent install,
@@ -20,7 +20,7 @@
   stays per-user so someone without admin rights can still install the .exe
   with no UAC prompt. What *is* kept identical between the two, per the
   brief: the app name shown everywhere, the publisher, the version string,
-  the installed folder's own name ("MemoryMap AI", though it sits under a  brand: keep
+  the installed folder's own name ("Tessellate", though it sits under a
   different root — Program Files here vs. the per-user Programs folder
   there, following from the scope difference above), and the Start Menu
   shortcut's name and launch arguments (the desktop launch flag, same as
@@ -35,14 +35,14 @@
   PyInstaller's own output changes shape (a new DLL, a moved data file).
 
   Local build/test (from a Windows machine, WiX installed, PyInstaller
-  output already built at ..\..\dist\MemoryMap AI\):
+  output already built at ..\..\dist\Tessellate\):
     wix build packaging\windows\installer.wxs -arch x64 ^
-      -d Version=0.1.0 -d DistDir=dist\MemoryMap AI ^
-      -o dist\installer\MemoryMap-AI-0.1.0-windows-x86_64.msi
+      -d Version=0.1.0 -d DistDir=dist\Tessellate ^
+      -o dist\installer\Tessellate-0.1.0-windows-x86_64.msi
 
   Not built or run here — there is no Windows machine in this sandbox. This
   file was checked for well-formed XML and for every path it references
-  matching what packaging/windows/memorymap.spec's COLLECT step actually
+  matching what packaging/windows/tessellate.spec's COLLECT step actually
   produces; the actual `wix build` has not been run against it.
 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
@@ -76,12 +76,12 @@
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/Braydenh563/Tessellate" />
 
     <StandardDirectory Id="ProgramFiles64Folder">
-      <Directory Id="INSTALLFOLDER" Name="MemoryMap AI" /> <!-- brand: keep, the folder an upgrade installs over -->
+      <Directory Id="INSTALLFOLDER" Name="Tessellate" />
     </StandardDirectory>
 
     <!-- Everything PyInstaller's COLLECT step produced, recursively — the
          same set installer.iss's [Files] section packages ("..\..\dist\
-         MemoryMap AI\*", ignoreversion recursesubdirs createallsubdirs).
+         Tessellate\*", ignoreversion recursesubdirs createallsubdirs).
          DistDir is passed on the command line (see the header comment)
          rather than hard-coded, so CI and a local build can point at the
          same relative dist\ layout PyInstaller always produces. -->
@@ -104,7 +104,7 @@
             Id="ApplicationStartMenuShortcut"
             Name="Tessellate"
             Description="Tessellate"
-            Target="[INSTALLFOLDER]MemoryMap AI.exe"
+            Target="[INSTALLFOLDER]Tessellate.exe"
             Arguments="--desktop"
             WorkingDirectory="INSTALLFOLDER"
             Icon="AppIcon.ico">
@@ -129,14 +129,14 @@
             Id="RepairStartMenuShortcut"
             Name="Repair Tessellate"
             Description="Repair Tessellate: clears the app's cached window profile, never your notes"
-            Target="[INSTALLFOLDER]MemoryMap AI.exe"
+            Target="[INSTALLFOLDER]Tessellate.exe"
             Arguments="--desktop --reinstall"
             WorkingDirectory="INSTALLFOLDER"
             Icon="AppIcon.ico" />
         <RemoveFolder Id="CleanProgramMenuFolder" Directory="ProgramMenuFolder" On="uninstall" />
         <RegistryValue
             Root="HKLM"
-            Key="Software\MemoryMap AI"
+            Key="Software\Tessellate"
             Name="Installed"
             Type="integer"
             Value="1"

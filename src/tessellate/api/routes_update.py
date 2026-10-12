@@ -55,7 +55,7 @@ DOWNLOAD_TIMEOUT = 300  # a ~150MB installer on a slow connection, generously
 CHUNK_SIZE = 1 << 16
 GITHUB_REPO_API = "https://api.github.com/repos/Braydenh563/Tessellate"
 GITHUB_HEADERS = {"Accept": "application/vnd.github+json"}
-ASSET_PREFIX = "MemoryMap-AI-Setup-"
+ASSET_PREFIX = "Tessellate-Setup-"
 ASSET_SUFFIX = ".exe"
 
 #: The only hosts an installer may be downloaded from, and the reason is that

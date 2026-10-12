@@ -669,7 +669,7 @@ def test_a_packaged_build_constrains_extras_with_its_bundled_requirements(tmp_pa
     assert source_path.is_file()
     root = extras.Path(extras.__file__).resolve().parents[3]
     for spec in ("windows", "linux"):
-        text = (root / "packaging" / spec / "memorymap.spec").read_text(encoding="utf-8")
+        text = (root / "packaging" / spec / "tessellate.spec").read_text(encoding="utf-8")
         assert '(str(REPO_ROOT / "requirements.txt"), "."),' in text, spec
 
 

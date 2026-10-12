@@ -25,7 +25,7 @@ def _datas(spec: Path) -> str:
 
 
 def test_neither_spec_bundles_a_launcher_script():
-    for spec in (ROOT / "packaging" / "windows" / "memorymap.spec", ROOT / "packaging" / "linux" / "memorymap.spec"):
+    for spec in (ROOT / "packaging" / "windows" / "tessellate.spec", ROOT / "packaging" / "linux" / "tessellate.spec"):
         block = _datas(spec)
         for name in LAUNCHERS:
             assert not re.search(rf"{name}\.(sh|bat)", block), (spec.name, name)

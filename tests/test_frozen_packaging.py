@@ -32,8 +32,8 @@ def test_alembic_ini_is_plain_ascii():
 
 
 SPECS = (
-    ROOT / "packaging" / "windows" / "memorymap.spec",
-    ROOT / "packaging" / "linux" / "memorymap.spec",
+    ROOT / "packaging" / "windows" / "tessellate.spec",
+    ROOT / "packaging" / "linux" / "tessellate.spec",
 )
 
 
@@ -288,7 +288,7 @@ def test_the_packaged_exe_starts_the_launcher_splash_itself(monkeypatch, tmp_pat
 
     from tessellate import __main__ as launcher
 
-    assert '"scripts" / "splash.ps1"), "scripts")' in (ROOT / "packaging/windows/memorymap.spec").read_text(encoding="utf-8")
+    assert '"scripts" / "splash.ps1"), "scripts")' in (ROOT / "packaging/windows/tessellate.spec").read_text(encoding="utf-8")
     (tmp_path / "scripts").mkdir()
     (tmp_path / "scripts" / "splash.ps1").write_text("", encoding="utf-8")
     spawned = []

@@ -1,7 +1,7 @@
 """The packaged Windows app's launch, on the parts that run on Linux.
 
 Every packaging smoke in CI sets `TESSELLATE_DATA_DIR`, and an installed app
-never has it set: the Start Menu shortcut runs `MemoryMap AI.exe --desktop`
+never has it set: the Start Menu shortcut runs `Tessellate.exe --desktop`
 and nothing else. So the questions here are the ones those smokes could not
 ask. Where does a frozen build with no variable write its log and its window
 profile, and what does the "Repair Tessellate" shortcut clear? What
@@ -264,7 +264,7 @@ def test_data_dir_ids_compare_resolved_paths_and_case_on_windows(monkeypatch, tm
 def test_restart_relaunches_the_exe_without_python_flags(monkeypatch):
     """Settings' Restart and the console-mode switch spawned
     `[sys.executable, "-m", "tessellate", "--desktop"]`. On the packaged app
-    `sys.executable` is `MemoryMap AI.exe`, whose argparse exits on `-m`, so
+    `sys.executable` is `Tessellate.exe`, whose argparse exits on `-m`, so
     the app closed and nothing came back."""
     import subprocess
 

@@ -63,7 +63,7 @@ def test_restart_branches_on_frozen():
 
 def test_restart_never_hands_windows_an_unquoted_argv(monkeypatch):
     """CPython's `os.execv` on Windows joins the arguments with spaces and
-    quotes none of them, so `...\\MemoryMap AI\\MemoryMap AI.exe` came back
+    quotes none of them, so `...\\MemoryMap AI\\Tessellate.exe` came back
     as three arguments and argparse exited: the tray's Restart closed the
     installed app and nothing returned. On Windows the new process is a
     `Popen` (which quotes), then this one exits."""
@@ -85,7 +85,7 @@ def test_restart_never_hands_windows_an_unquoted_argv(monkeypatch):
     monkeypatch.setattr(launcher.os, "_exit", fake_exit)
     monkeypatch.setattr(launcher.os, "execv", lambda *a: started.append(("execv", a)))
     with contextlib.suppress(Exited):
-        launcher._replace_process(["C:\\Users\\Jos\u00e9\\MemoryMap AI\\MemoryMap AI.exe", "--desktop"])
+        launcher._replace_process(["C:\\Users\\Jos\u00e9\\MemoryMap AI\\Tessellate.exe", "--desktop"])
     assert len(started) == 1 and started[0][0] != "execv", started
     argv, kwargs = started[0]
     assert argv == [launcher.sys.executable, "--desktop"]

@@ -8,9 +8,9 @@
 #
 # Usage (from the repo root, on Windows):
 #   pip install -e ".[desktop]" pyinstaller
-#   pyinstaller packaging/windows/memorymap.spec --distpath dist --workpath build
+#   pyinstaller packaging/windows/tessellate.spec --distpath dist --workpath build
 #
-# Produces dist/MemoryMap AI/MemoryMap AI.exe (onedir, not onefile — see
+# Produces dist/Tessellate/Tessellate.exe (onedir, not onefile — see
 # below for why) plus everything it needs beside it. installer.iss in this
 # same folder packages that whole folder into the actual installer.
 
@@ -19,7 +19,7 @@ from pathlib import Path
 
 block_cipher = None
 
-# packaging/windows/memorymap.spec -> repo root is two levels up.
+# packaging/windows/tessellate.spec -> repo root is two levels up.
 REPO_ROOT = Path(SPECPATH).resolve().parents[1]
 FRONTEND_DIR = REPO_ROOT / "frontend"
 MIGRATIONS_DIR = REPO_ROOT / "migrations"
@@ -263,7 +263,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name="MemoryMap AI",  # brand: keep (the bundle and exe name installed copies run)
+    name="Tessellate",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -290,5 +290,5 @@ coll = COLLECT(
     a.datas,
     strip=False,
     upx=False,
-    name="MemoryMap AI",  # brand: keep (the bundle and exe name installed copies run)
+    name="Tessellate",
 )

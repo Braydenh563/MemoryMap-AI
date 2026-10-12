@@ -36,6 +36,16 @@
 > If something is slow, broken or missing, [open an issue](https://github.com/Braydenh563/Tessellate/issues)
 > and say what you were doing: it is the fastest way to get it fixed.
 
+> [!IMPORTANT]
+> **Installed it before it was called Tessellate?** The app was renamed, and the
+> installer, the program folder and the downloads are renamed with it, so the
+> new installer does not update the old one in place. Uninstall the old
+> version, download the latest installer from the
+> [releases page](https://github.com/Braydenh563/Tessellate/releases/latest)
+> and install it again. Your notes are not lost: they stay in your data folder
+> (`%APPDATA%\MemoryMap AI` or `%APPDATA%\Tessellate` on Windows) and the new
+> version finds them. Take a backup from Settings first if you want to be safe.
+
 ## What it is
 
 Type a thought and a local AI files it, tags it and links it to what you
@@ -303,13 +313,13 @@ Captured from the app in the dark theme at 1440 by 900.
 
 Pick the way that suits you. Only the last needs a terminal.
 
-**Windows.** Download `MemoryMap-AI-Setup-*.exe` from the
+**Windows.** Download `Tessellate-Setup-*.exe` from the
 [latest release](https://github.com/Braydenh563/Tessellate/releases/latest)
 and run it. The app opens in its own window. Windows shows a "protected your
 PC" screen because the installer is not code-signed yet:
 [what to click](docs/INSTALL.md#windows-installer).
 
-**Linux.** Download `MemoryMap-AI-*-linux-x86_64.tar.gz` from the same page,
+**Linux.** Download `Tessellate-*-linux-x86_64.tar.gz` from the same page,
 unpack it with `tar -xzf` and run `Tessellate`. Use the tarball rather than
 the `.zip` beside it: a zip may drop the executable bit and leave a launcher
 that will not start. The window needs GTK and WebKit (`python3-gi` and

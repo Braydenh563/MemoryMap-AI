@@ -1937,7 +1937,7 @@ def reset_for_tests() -> None:
 
 def install_blocking(extra_ids: list[str]) -> int:
     """Install each extra in turn and wait: the packaged installer's
-    optional-packages page runs `MemoryMap AI.exe --install-extras ...`
+    optional-packages page runs `Tessellate.exe --install-extras ...`
     (installer.iss), so the wizard and Settings -> Packages are one code
     path rather than a PowerShell copy that installed somewhere the app
     could not import from. Returns the number that failed."""

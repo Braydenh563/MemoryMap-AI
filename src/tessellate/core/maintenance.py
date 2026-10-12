@@ -30,7 +30,7 @@ ROOT = Path(__file__).resolve().parents[3]
 #: The names the launchers and the uninstallers already use.
 LINUX_ENTRY = "memorymap-ai.desktop"
 MAC_LINK = "Tessellate"
-WINDOWS_LINK = "MemoryMap AI.lnk"
+WINDOWS_LINK = "Tessellate.lnk"
 
 
 #: Why a shortcut was not made, as the sentence a person reads. The route

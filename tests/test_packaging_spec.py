@@ -2,7 +2,7 @@
 the source it's meant to cover.
 
 Nothing here can run PyInstaller itself, that only happens in CI, on
-windows-latest (packaging/windows/memorymap.spec's own header comment says
+windows-latest (packaging/windows/tessellate.spec's own header comment says
 so). What this guards against is cheaper and just as real: a module reached
 only through `importlib.import_module` (searxng_manager.py's `__getattr__`
 facade, the same "picked by name at runtime" shape as the uvicorn/sqlalchemy/
@@ -23,8 +23,8 @@ import pytest
 from tessellate.search import searxng_manager
 
 ROOT = Path(__file__).resolve().parents[1]
-SPEC_PATH = ROOT / "packaging" / "windows" / "memorymap.spec"
-LINUX_SPEC_PATH = ROOT / "packaging" / "linux" / "memorymap.spec"
+SPEC_PATH = ROOT / "packaging" / "windows" / "tessellate.spec"
+LINUX_SPEC_PATH = ROOT / "packaging" / "linux" / "tessellate.spec"
 ISS_PATH = ROOT / "packaging" / "windows" / "installer.iss"
 FRONTEND = ROOT / "frontend"
 

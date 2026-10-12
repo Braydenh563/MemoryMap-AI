@@ -1490,7 +1490,7 @@ def _add_system_routes(app: FastAPI, locked: list) -> None:
         anyway: so a cache would only ever be stale in development.
         """
         # BUNDLE_ROOT rather than three levels up: a packaged build keeps its
-        # files in the bundle's own folder, and `memorymap.spec` puts this
+        # files in the bundle's own folder, and `tessellate.spec` puts this
         # file there, so the About panel's notes are not empty on Windows.
         path = BUNDLE_ROOT / "CHANGELOG.md"
         try:

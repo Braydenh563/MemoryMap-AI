@@ -32,6 +32,31 @@ def to_category(session: Session, entries: list, name: str, user_filed: bool | N
     return previous
 
 
+def _move_entries(session: Session, entries: list, space_id: str) -> None:
+    """Put the notes in the space; a category goes by name, made in the target when it has none."""
+    names = manager.bulk_category_names(session, entries)
+    with deps.impersonate_workspace(session, space_id):
+        for entry in entries:
+            name = names.get(entry.category_id)
+            if entry.category_id is not None and name:
+                entry.category_id = manager.get_or_create_category(session, name, space_id).id
+            entry.workspace_id = space_id
+
+
+def _move_dependents(session: Session, moved_ids: list[int], space_id: str) -> None:
+    """What hangs off the moved notes follows: files, reminders, fade scores, and links with both ends moved."""
+    with deps.impersonate_workspace(session, "all"):
+        for model in (Attachment, Reminder, NoteScore):
+            for row in session.scalars(select(model).where(model.entry_id.in_(moved_ids))):
+                row.workspace_id = space_id
+        for link in session.scalars(
+            select(EntryLink).where(
+                EntryLink.source_entry_id.in_(moved_ids), EntryLink.target_entry_id.in_(moved_ids)
+            )
+        ):
+            link.workspace_id = space_id
+
+
 def to_space(session: Session, space_id: str, ids: list[int]) -> dict:
     """Move these notes into one space and return `{"moved": n, "from": {id: old
     space}}`. Only notes the session can see move (the ambient space filter
@@ -50,25 +75,9 @@ def to_space(session: Session, space_id: str, ids: list[int]) -> dict:
     ]
     if not entries:
         return {"moved": 0, "from": {}}
-    names = manager.bulk_category_names(session, entries)
-    moved_ids = [e.id for e in entries]
     before = {str(e.id): e.workspace_id or "default" for e in entries}
-    with deps.impersonate_workspace(session, space_id):
-        for entry in entries:
-            name = names.get(entry.category_id)
-            if entry.category_id is not None and name:
-                entry.category_id = manager.get_or_create_category(session, name, space_id).id
-            entry.workspace_id = space_id
-    with deps.impersonate_workspace(session, "all"):
-        for model in (Attachment, Reminder, NoteScore):
-            for row in session.scalars(select(model).where(model.entry_id.in_(moved_ids))):
-                row.workspace_id = space_id
-        for link in session.scalars(
-            select(EntryLink).where(
-                EntryLink.source_entry_id.in_(moved_ids), EntryLink.target_entry_id.in_(moved_ids)
-            )
-        ):
-            link.workspace_id = space_id
+    _move_entries(session, entries, space_id)
+    _move_dependents(session, [e.id for e in entries], space_id)
     manager.log_action(session, "moved", "entry", None, f"{len(entries)} note(s) to the space {space_id}")
     session.commit()
     return {"moved": len(entries), "from": before}

@@ -79,6 +79,27 @@ def _display(kind: str, term: str) -> str:
     return f"#{term}" if kind == "tag" else term
 
 
+def _score_terms(members: list[int], terms_of: dict, document_frequency: dict, total: int) -> tuple[list, list]:
+    """A topic's terms, scored `(-score, kind order, term, kind, notes)`: the
+    ones shared widely enough, sorted, and the weaker ones kept for a fallback name."""
+    counts: dict[tuple[str, str], int] = defaultdict(int)
+    for node in members:
+        for term in terms_of.get(node, ()):
+            counts[term] += 1
+    scored = []
+    weak = []
+    for (kind, term), notes in counts.items():
+        if notes < 2:
+            continue
+        score = (notes / len(members)) * math.log(total / document_frequency[(kind, term)])
+        if score <= 0:
+            continue
+        row = (-score, _KIND_ORDER.get(kind, 3), term, kind, notes)
+        (weak if notes / len(members) < MIN_TERM_SHARE else scored).append(row)
+    scored.sort()
+    return scored, weak
+
+
 def build(
     index: Connections,
     terms_of: dict[int, set[tuple[str, str]]],
@@ -106,21 +127,7 @@ def build(
 
     out: list[dict] = []
     for position, members in enumerate(kept):
-        counts: dict[tuple[str, str], int] = defaultdict(int)
-        for node in members:
-            for term in terms_of.get(node, ()):
-                counts[term] += 1
-        scored = []
-        weak = []
-        for (kind, term), notes in counts.items():
-            if notes < 2:
-                continue
-            score = (notes / len(members)) * math.log(total / document_frequency[(kind, term)])
-            if score <= 0:
-                continue
-            row = (-score, _KIND_ORDER.get(kind, 3), term, kind, notes)
-            (weak if notes / len(members) < MIN_TERM_SHARE else scored).append(row)
-        scored.sort()
+        scored, weak = _score_terms(members, terms_of, document_frequency, total)
         terms = [
             {"term": _display(kind, term), "kind": kind, "notes": notes}
             for _, _, term, kind, notes in scored[:TERMS_SHOWN]

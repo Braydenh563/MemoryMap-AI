@@ -840,15 +840,31 @@
    column it was squeezed into a few characters against the right edge. Let the
    row wrap, give the message the spare space, and make the fold claim a full
    line of its own underneath. */
+/* A grid, not a wrapping flex row: time and level hold their columns, so a
+   long message wraps inside its own column (under where the message starts,
+   as the terminal view does) instead of dropping under the time, and the copy
+   button no longer lands on a row of its own (owner, 2026-10-12). */
 .log-list li {
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+  align-items: start;
 }
 .log-list .log-line {
-  flex: 1 1 auto;
+  display: flex;
+  gap: 0.4rem;
   min-width: 0;
 }
+.log-list .log-line > span:last-child {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.log-list .log-source-tag {
+  flex: 0 0 auto;
+  margin-right: 0;
+  align-self: start;
+}
 .log-list .log-trace {
-  flex: 0 0 100%;
+  grid-column: 1 / -1;
 }
 .log-copy {
   opacity: 0;

@@ -1794,7 +1794,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         answered_by=(
             None
             if prepared["stats"] is not None
-            else (model_manager.chat_model() if answered else None)
+            else (model_manager.served_chat_model(ollama) if answered else None)
         ),
         ollama_running=ollama_running,
         sentence_grounding=sentence_grounding,
@@ -2363,7 +2363,7 @@ def _exact_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         return said
     if prepared["stats"] is not None:
         return _stats_events(prepared["stats"])
-    if not ollama_running:
+    if not ollama_running or prepared.get("tool_read"):
         shown = prepared["tool_read"] if "tool_read" in prepared else _tool_read_events(req)
         if shown:
             return list(shown)
@@ -2882,10 +2882,25 @@ def _spoken_act(req: _StreamRequest) -> str | None:
     return resolved[0]
 
 
+def _lists_reminders(req: _StreamRequest) -> bool:
+    """A reminder, task or due question ("what reminders do I have", "whats
+    due this week"): answered from the reminders themselves with a model up
+    too (decision 75, the model must not do worse than the composer). A
+    1.5B model read the notes and said "two reminders" when there were
+    three; a list is exact data, like a count, so it is never retold."""
+    from memorymap.ai import act_registry, question_noise, reading
+
+    if req.skill:
+        return False
+    asked = question_noise.repair(question_noise.tidy(req.question or ""))
+    got = reading.read(asked, now=user_now(deps.get_config()))
+    return got.tool == "list_reminders" and got.intent not in act_registry.ACTS
+
+
 def _note_tool_read(req: _StreamRequest, prepared: dict, ollama_running: bool) -> None:
     """A read tool answered with no model (decision 59) is the whole
     notebook's, so the notes retrieval found are not its sources."""
-    if not ollama_running and prepared["stats"] is None and prepared["intent"] != intent.ACT:
+    if prepared["stats"] is None and prepared["intent"] != intent.ACT and (not ollama_running or _lists_reminders(req)):
         prepared["tool_read"] = _tool_read_events(req)
         if prepared["tool_read"]:
             #: Not composed from them either: the Ask box's "Composed from
@@ -3019,7 +3034,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     )
     conversational = not intent.needs_retrieval(prepared["intent"])
     model_can_answer = ollama_running if conversational else (ollama_running or tools_only)
-    will_answer = not composed and not (_asks_capability(req, prepared) and _app_answers(req, ollama_running)) and prepared["intent"] not in (intent.UTILITY, intent.ACT) and model_can_answer and (
+    will_answer = not composed and not prepared.get("tool_read") and not (_asks_capability(req, prepared) and _app_answers(req, ollama_running)) and prepared["intent"] not in (intent.UTILITY, intent.ACT) and model_can_answer and (
         bool(prepared["notes"])
         or bool(req.images_raw)
         or req.use_tools
@@ -3049,7 +3064,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
             "answered_by": (
                 "needle (tools only)"
                 if tools_only and will_answer
-                else req.model_manager.chat_model() if will_answer else None
+                else req.model_manager.served_chat_model(req.ollama) if will_answer else None
             ),
             "ollama_running": ollama_running,
             #: The Ask box labels the answer "Composed from your notes, no AI".
@@ -3061,7 +3076,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
     agentic = False
     # Small talk never goes near the agent: "hey" is not a request to do
     # anything, and handing it a toolbox invites it to invent an errand.
-    if not composed and (ollama_running or tools_only) and req.use_tools and intent.needs_retrieval(prepared["intent"]):
+    if not composed and not prepared.get("tool_read") and (ollama_running or tools_only) and req.use_tools and intent.needs_retrieval(prepared["intent"]):
         agent_events = _agent_events(req, prepared, tools_provider)
         first = _first_agent_event(req, agent_events)
         if first is None or first.get("type") == "unsupported":
@@ -3291,7 +3306,7 @@ def _why(req, prepared, grounding, composing, will_answer, tools_only, ollama_ru
         when=prepared.get("when_phrase"),
         scoped=bool(req.body.attached_notes_only or req.body.note_ids),
         composed=composing,
-        model=("Atlas's tools" if tools_only else req.model_manager.chat_model()) if will_answer else None,
+        model=("Atlas's tools" if tools_only else req.model_manager.served_chat_model(req.ollama)) if will_answer else None,
         shape=shape,
         context=will_answer and ollama_running and _asks_capability(req, prepared),
         loading=bool(prepared.get("meaning_loading")),

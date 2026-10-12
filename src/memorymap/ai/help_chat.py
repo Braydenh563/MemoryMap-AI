@@ -895,7 +895,7 @@ HELP_TOPICS: list[dict] = [
 #: every question towards ("note", "atlas"), and the ways people phrase a
 #: thing ("talk to the ai", "pictures", "journal") added where they belong.
 _KEYWORDS_ADD: dict[str, tuple[str, ...]] = {
-    "capture": ("take notes", "take a note", "make notes", "write notes", "new note", "quick note", "quick thought", "write a note", "make a note", "jot", "without filing", "save a note"),
+    "capture": ("take notes", "take a note", "make notes", "write notes", "new note", "quick note", "quick thought", "write a note", "make a note", "jot", "without filing", "save a note", "create a note", "create a new note", "add a note"),
     "ask-chat": ("talk to", "citation", "cite", "sources", "answer from my notes", "ask atlas", "chat with"),
     "skills": ("automate", "automation", "reorganise", "reorganize", "reorganising", "reorganizing", "workflow", "routine"),
     "graph": ("see how", "visualise", "visualize", "unlinked", "dotted line", "connections map"),
@@ -2414,6 +2414,11 @@ def _repaired(question: str) -> str:
     return act_registry.repair(question) if act_registry.repair else question
 
 
+#: "where do I find settings" asks where a place is, not for Find anything
+#: (bug sweep 2026-10-12): the asking frame's "find" names no topic.
+_WHERE_FIND = re.compile(r"\bwhere (?:do|can|would|should|will) (?:i|you|we) (?:find|locate|get to)\b")
+
+
 def _matching_topics(question: str) -> list[dict]:
     """Which `HELP_TOPICS` entries this question is about, best first.
 
@@ -2441,7 +2446,7 @@ def _matching_topics(question: str) -> list[dict]:
     #: panel", "thes ebuttons"): misspellings put right, split words joined,
     #: before the keywords are read. The keyword typo rule below stays, for a
     #: word the speller does not know.
-    lowered = _normalise_keys(_repaired(question).lower())
+    lowered = _WHERE_FIND.sub("where", _normalise_keys(_repaired(question).lower()))
     words = [w for w in _WORD.findall(lowered) if w not in _STOP]
     total = len(HELP_TOPICS)
     scores: dict[str, float] = {}

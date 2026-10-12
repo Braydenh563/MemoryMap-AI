@@ -25,6 +25,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
 
 from tessellate.core import activity
+from tessellate.core.subproc import NO_WINDOW
 from tessellate.api import paging
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
@@ -1262,9 +1263,9 @@ def reveal_folder(folder: Path, what: str) -> None:
             # waiting on a GUI process either way, same reasoning as
             # `restart_in_console_mode` being fire-and-forget rather than
             # something this response waits on.
-            subprocess.Popen(["open", str(folder)])
+            subprocess.Popen(["open", str(folder)], creationflags=NO_WINDOW)
         else:
-            subprocess.Popen(["xdg-open", str(folder)])
+            subprocess.Popen(["xdg-open", str(folder)], creationflags=NO_WINDOW)
     except OSError as exc:
         logger.warning("couldn't open %s", what, exc_info=True)
         raise HTTPException(

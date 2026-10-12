@@ -59,6 +59,11 @@
      "source": "https://p5js.org"
     },
     {
+     "name": "Atkinson Hyperlegible",
+     "licence": "SIL OFL 1.1",
+     "source": "https://github.com/googlefonts/atkinson-hyperlegible"
+    },
+    {
      "name": "Phosphor Icons",
      "licence": "MIT",
      "source": "https://phosphoricons.com"

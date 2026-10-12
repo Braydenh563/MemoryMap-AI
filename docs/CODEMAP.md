@@ -2,7 +2,7 @@
 
 Generated 2026-10-12 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5876, frontend ids 2493, CSS sections 494, backend routes 604, backend modules 5463, test files 1214, tests 10832, plan headings 951.
+Counts: frontend functions 5876, frontend ids 2493, CSS sections 494, backend routes 604, backend modules 5463, test files 1213, tests 10822, plan headings 951.
 
 ## Frontend functions (5876)
 
@@ -9199,30 +9199,30 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | 7. Meta looks like meta | frontend/css/08-consistency.css:1048 |
 | 8. A panel head is identity, one fact, then the actions, and it does not | frontend/css/08-consistency.css:2395 |
 | A CALMER TOP, NOTHING TAKEN AWAY (Full view) | frontend/css/03-dashboard-widgets.css:4697 |
-| A card's date is in the same corner on every card (INBOX 719) | frontend/css/08-consistency.css:10387 |
-| A chip's x: a round target inset evenly (INBOX 403) | frontend/css/08-consistency.css:4694 |
-| A dialog's head: title, its '?', icon-only actions, Close last | frontend/css/08-consistency.css:9009 |
+| A card's date is in the same corner on every card (INBOX 719) | frontend/css/08-consistency.css:10388 |
+| A chip's x: a round target inset evenly (INBOX 403) | frontend/css/08-consistency.css:4695 |
+| A dialog's head: title, its '?', icon-only actions, Close last | frontend/css/08-consistency.css:9010 |
 | A diff of two versions of the same text (DOCUMENTS_PLAN Phase 5 items 2, 3) | frontend/css/09-editor.css:556 |
 | A member of a group selection shows that it is selected, not how to | frontend/css/library-lazy.css:5021 |
-| A note card's text leads; its metadata steps back (INBOX 505) | frontend/css/08-consistency.css:9855 |
-| A note's buttons stay while its own menu is open (INBOX 679) | frontend/css/08-consistency.css:10258 |
-| A note's time: the same corner on every card | frontend/css/08-consistency.css:8388 |
+| A note card's text leads; its metadata steps back (INBOX 505) | frontend/css/08-consistency.css:9856 |
+| A note's buttons stay while its own menu is open (INBOX 679) | frontend/css/08-consistency.css:10259 |
+| A note's time: the same corner on every card | frontend/css/08-consistency.css:8389 |
 | A notification's two controls are a column of their own (INBOX 874) | frontend/css/06-timeline-dialogs.css:3433 |
-| A rail row's ⋮ overlays the row; it never reserves a column (INBOX 722) | frontend/css/08-consistency.css:10447 |
-| A row is a pointer target (INBOX 719) | frontend/css/08-consistency.css:10371 |
+| A rail row's ⋮ overlays the row; it never reserves a column (INBOX 722) | frontend/css/08-consistency.css:10448 |
+| A row is a pointer target (INBOX 719) | frontend/css/08-consistency.css:10372 |
 | Ask history: the personal-notes-browser panel (§ROADMAP item 6) | frontend/css/01-forms-settings.css:2855 |
-| Atlas's life: loops while the mark is on screen and motion is on | frontend/css/08-consistency.css:7981 |
+| Atlas's life: loops while the mark is on screen and motion is on | frontend/css/08-consistency.css:7982 |
 | Atlas, the app's guide (INBOX 224) | frontend/css/08-consistency.css:1803 |
-| Atlas, the assistant's own character (atlas.js) | frontend/css/08-consistency.css:6562 |
+| Atlas, the assistant's own character (atlas.js) | frontend/css/08-consistency.css:6563 |
 | BOARD NAVIGATOR AND BOARD SEARCH | frontend/css/07-whiteboard-misc.css:6292 |
 | BREADCRUMBS: WHERE THE CARET IS | frontend/css/05-sidebars-themes.css:6010 |
 | Boards, 2026-10-10 (boardmap-1010): lazy with the board, off the boot | frontend/css/library-lazy.css:4192 |
-| Capture: the add tools as a quiet toolbar (INBOX 395) | frontend/css/08-consistency.css:4504 |
+| Capture: the add tools as a quiet toolbar (INBOX 395) | frontend/css/08-consistency.css:4505 |
 | Capture: the two labelled rows under the note box | frontend/css/07-whiteboard-misc.css:2719 |
 | Capture: three families, three rows | frontend/css/07-whiteboard-misc.css:4714 |
 | Carbon: near-monochrome, minimal colour, maximum text contrast. | frontend/css/05-sidebars-themes.css:3461 |
-| Chat sources: every card reads from the top | frontend/css/08-consistency.css:8355 |
-| Chat: the user's bubble as a quiet surface, not an accent slab | frontend/css/08-consistency.css:4816 |
+| Chat sources: every card reads from the top | frontend/css/08-consistency.css:8356 |
+| Chat: the user's bubble as a quiet surface, not an accent slab | frontend/css/08-consistency.css:4817 |
 | Columns and image options (DOCUMENTS_PLAN Phase 3 item 5) | frontend/css/09-editor.css:338 |
 | Curated palettes (Settings → Appearance → Theme) | frontend/css/05-sidebars-themes.css:3218 |
 | Documents: focus mode | frontend/css/07-whiteboard-misc.css:5993 |
@@ -9235,7 +9235,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Find anything: group heads read as heads | frontend/css/search-lazy.css:133 |
 | GLASS THAT DOES NOT COST WHAT IT USED TO | frontend/css/03-dashboard-widgets.css:580 |
 | GRIPS AT A CONSTANT SIZE ON SCREEN | frontend/css/07-whiteboard-misc.css:10659 |
-| Graph options: one section-head style | frontend/css/08-consistency.css:4389 |
+| Graph options: one section-head style | frontend/css/08-consistency.css:4390 |
 | Help & guide: the topics box and the "Ask the guide" box are two | frontend/css/08-consistency.css:1799 |
 | INBOX 68: the board and map previews | frontend/css/10-responsive.css:355 |
 | Icons | frontend/css/07-whiteboard-misc.css:2281 |
@@ -9250,8 +9250,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Ocean: cool teal and deep blue. Crisp rather than cosy. | frontend/css/05-sidebars-themes.css:3304 |
 | On paper (DOCUMENTS_PLAN Phase 5 item 4, the print stylesheet) | frontend/css/09-editor.css:916 |
 | On this day | frontend/css/03-dashboard-widgets.css:4474 |
-| One sidebar row recipe for every rail (INBOX 702) | frontend/css/08-consistency.css:10340 |
-| One ⋯ opener, styled once (INBOX 722) | frontend/css/08-consistency.css:10416 |
+| One sidebar row recipe for every rail (INBOX 702) | frontend/css/08-consistency.css:10341 |
+| One ⋯ opener, styled once (INBOX 722) | frontend/css/08-consistency.css:10417 |
 | PLAN.md D1: the documents dock's formatting strip hides entirely | frontend/css/07-whiteboard-misc.css:7911 |
 | Parchment: paper, ink and a little gold. Made for long writing. | frontend/css/05-sidebars-themes.css:3231 |
 | Phase 10, INBOX 100: the scroll edge effect | frontend/css/10-responsive.css:159 |
@@ -9281,8 +9281,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | RESPONSIVE BY DEVICE (UI_MODERNISATION_PLAN.md: Phase 9) | frontend/css/07-whiteboard-misc.css:9524 |
 | RESPONSIVE, CONTINUED, AND THE LIQUID GLASS ADOPTIONS | frontend/css/10-responsive.css:1 |
 | Reading and focus (DOCUMENTS_PLAN Phase 5 item 4, PLAN D9) | frontend/css/library-lazy.css:527 |
-| Reminders: the time at the row's end, actions over it on hover | frontend/css/08-consistency.css:4401 |
-| Ring room (INBOX 685, "a lot of borders get cut off on an edge") | frontend/css/08-consistency.css:10044 |
+| Reminders: the time at the row's end, actions over it on hover | frontend/css/08-consistency.css:4402 |
+| Ring room (INBOX 685, "a lot of borders get cut off on an edge") | frontend/css/08-consistency.css:10045 |
 | Rosewood: dusty rose and wine. Warm without being orange. | frontend/css/05-sidebars-themes.css:3534 |
 | Rows: the default way a list of notes is shown | frontend/css/01-forms-settings.css:1467 |
 | Rules that used to be inline style="" attributes. | frontend/css/06-timeline-dialogs.css:636 |
@@ -9297,7 +9297,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Settings headings sit at one left edge | frontend/css/08-consistency.css:1442 |
 | Settings rows that wrap their actions under the title (INBOX 82) | frontend/css/08-consistency.css:2227 |
 | Settings, About, Maintenance (settings-controls.js, renderMaintenance). | frontend/css/01-forms-settings.css:6213 |
-| Settings: a section's intro sits under its heading, not above it | frontend/css/08-consistency.css:4496 |
+| Settings: a section's intro sits under its heading, not above it | frontend/css/08-consistency.css:4497 |
 | TENSIONS: THE DISAGREEMENT REVIEW | frontend/css/inbox-lazy.css:134 |
 | THE CHAT ON A PHONE, MEASURED | frontend/css/04-chat-dock-appearance.css:5552 |
 | THE OCR WORKSPACE | frontend/css/07-whiteboard-misc.css:5285 |
@@ -9307,19 +9307,19 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Technical mono: a cool graphite ground, monospace for the numbers and | frontend/css/05-sidebars-themes.css:3657 |
 | Templates (INBOX 715) | frontend/css/library-lazy.css:3336 |
 | Text on accent-coloured surfaces (roadmap §7: colour contrast was listed as | frontend/css/05-sidebars-themes.css:4085 |
-| The Ask tab's records speak in the Notes list's voice (INBOX 510) | frontend/css/08-consistency.css:9906 |
+| The Ask tab's records speak in the Notes list's voice (INBOX 510) | frontend/css/08-consistency.css:9907 |
 | The Library's hover tick says what it is (INBOX 722) | frontend/css/library-lazy.css:4164 |
 | The OCR workspace tool row (INBOX 717). Here rather than in the boot | frontend/css/library-lazy.css:3669 |
 | The chat header stays one line (INBOX 91) | frontend/css/08-consistency.css:2261 |
-| The compact row: one line, one anchor, one chevron (INBOX 676) | frontend/css/08-consistency.css:10181 |
-| The connection pill's menu button, concentric with the pill | frontend/css/08-consistency.css:8368 |
+| The compact row: one line, one anchor, one chevron (INBOX 676) | frontend/css/08-consistency.css:10182 |
+| The connection pill's menu button, concentric with the pill | frontend/css/08-consistency.css:8369 |
 | The documents editor: layout around the engine (DOCUMENTS_PLAN Phase 2) | frontend/css/09-editor.css:1 |
 | The five whiteboard menus (Insert, Edit, Arrange, View, Board) | frontend/css/08-consistency.css:1271 |
 | The guide panel as one surface (INBOX 270 part 4, the redesign) | frontend/css/08-consistency.css:1950 |
 | The iPhone (phone-1011) | frontend/css/10-responsive.css:2598 |
 | The last icon-to-label gap family | frontend/css/08-consistency.css:1607 |
 | The last two head rows that were not on the bar recipe | frontend/css/08-consistency.css:1410 |
-| The m guide: one panel of key rows | frontend/css/08-consistency.css:4561 |
+| The m guide: one panel of key rows | frontend/css/08-consistency.css:4562 |
 | The note surface (DOCUMENTS_PLAN Phase 8): one editor everywhere | frontend/css/09-editor.css:815 |
 | The properties panel (DOCUMENTS_PLAN Phase 3 item 4) | frontend/css/09-editor.css:185 |
 | The second level: `.tabs-line` (INBOX 522) | frontend/css/05-sidebars-themes.css:4125 |
@@ -9328,12 +9328,12 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | The two dialogs reported as off the modal recipe | frontend/css/08-consistency.css:1475 |
 | The two rows that still wrapped at 1024 | frontend/css/08-consistency.css:1345 |
 | The whiteboard top bar's controls | frontend/css/08-consistency.css:1626 |
-| Timeline rows with a snippet: mark and time on the title's line | frontend/css/08-consistency.css:4365 |
+| Timeline rows with a snippet: mark and time on the title's line | frontend/css/08-consistency.css:4366 |
 | Timeline: the density strip (TIMELINE_PLAN.md Phase 3) | frontend/css/06-timeline-dialogs.css:300 |
 | Timeline: the feed (TIMELINE_PLAN.md Phase 1) | frontend/css/06-timeline-dialogs.css:1 |
 | Timeline: the table view (TIMELINE_PLAN.md Phase 2) | frontend/css/06-timeline-dialogs.css:346 |
 | Trace mode on the graph (§41) | frontend/css/07-whiteboard-misc.css:1995 |
-| Two floating buttons that sit over content: opaque, readable hover | frontend/css/08-consistency.css:4867 |
+| Two floating buttons that sit over content: opaque, readable hover | frontend/css/08-consistency.css:4868 |
 | WCAG 2.5.8 target size | frontend/css/06-timeline-dialogs.css:3219 |
 | WHITEBOARD TAB | frontend/css/06-timeline-dialogs.css:2306 |
 | Wave B: threads, inline actions, templates | frontend/css/02-chat-graph.css:386 |
@@ -9359,30 +9359,30 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `.seg-multi`'s word, and the width that decides it | frontend/css/10-responsive.css:545 |
 | `.seg-multi`: one well, independent toggles | frontend/css/03-dashboard-widgets.css:467 |
 | `.selectbar`: the bar stays with you while the selection does | frontend/css/00-tokens-shell.css:1904 |
-| a Files row's facts line, one register (INBOX 421 f) | frontend/css/08-consistency.css:3889 |
+| a Files row's facts line, one register (INBOX 421 f) | frontend/css/08-consistency.css:3890 |
 | a board or a map as an object in a note (INBOX 309) | frontend/css/05-sidebars-themes.css:1586 |
 | a callout that folds (REDESIGN.md §R7.3 item 3) | frontend/css/05-sidebars-themes.css:1304 |
 | a card that opens does not inflate the six beside it | frontend/css/08-consistency.css:2517 |
 | a chip lane scrolls without drawing a scrollbar | frontend/css/07-whiteboard-misc.css:3799 |
-| a chosen radio option is outlined, not only tinted (INBOX 464) | frontend/css/08-consistency.css:9424 |
+| a chosen radio option is outlined, not only tinted (INBOX 464) | frontend/css/08-consistency.css:9425 |
 | a disclosure arrow that matches the app's own carets | frontend/css/07-whiteboard-misc.css:3818 |
 | a disclosure is a control, so it answers the pointer | frontend/css/07-whiteboard-misc.css:3408 |
-| a face drawn once (avatars.js, `nameMarkCompose`) | frontend/css/08-consistency.css:5064 |
+| a face drawn once (avatars.js, `nameMarkCompose`) | frontend/css/08-consistency.css:5065 |
 | a file says what it is attached to | frontend/css/07-whiteboard-misc.css:4871 |
 | a file tile shows what it has, not what it lacks | frontend/css/07-whiteboard-misc.css:3373 |
 | a fold head's '?', beside its <summary> (INBOX 433) | frontend/css/08-consistency.css:3411 |
-| a generated face that moves (the owner: "can they be animated as a | frontend/css/08-consistency.css:4912 |
+| a generated face that moves (the owner: "can they be animated as a | frontend/css/08-consistency.css:4913 |
 | a help popover opens over the surface that asked for it (INBOX 205) | frontend/css/08-consistency.css:2564 |
-| a label that lost its capitals keeps its rank | frontend/css/08-consistency.css:4337 |
+| a label that lost its capitals keeps its rank | frontend/css/08-consistency.css:4338 |
 | a list of rows reads as a list | frontend/css/07-whiteboard-misc.css:4285 |
 | a map's levels and a solid fill (MINDMAP_PLAN §14, decisions 38, 39) | frontend/css/library-lazy.css:3244 |
-| a menu is one column: rows, section labels and icons (INBOX 403) | frontend/css/08-consistency.css:8618 |
+| a menu is one column: rows, section labels and icons (INBOX 403) | frontend/css/08-consistency.css:8619 |
 | a model per feature (Settings → Models) | frontend/css/01-forms-settings.css:5630 |
-| a named item in a Settings list: title, label, facts | frontend/css/08-consistency.css:3462 |
+| a named item in a Settings list: title, label, facts | frontend/css/08-consistency.css:3463 |
 | a narrow measure for prose, wide chrome around it | frontend/css/07-whiteboard-misc.css:4946 |
 | a note's connections: one pill each, its menu inside it | frontend/css/08-consistency.css:3238 |
 | a notice: one line the app says about what is on screen | frontend/css/08-consistency.css:2613 |
-| a poke, a look, a large view and a companion (avatars.js) | frontend/css/08-consistency.css:5031 |
+| a poke, a look, a large view and a companion (avatars.js) | frontend/css/08-consistency.css:5032 |
 | a segmented choice inside a dialog | frontend/css/06-timeline-dialogs.css:1023 |
 | a settings group that says what depends on what | frontend/css/07-whiteboard-misc.css:4305 |
 | a settings row where nothing squashes anything else | frontend/css/07-whiteboard-misc.css:4050 |
@@ -9422,14 +9422,14 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | chat tab (Wave C) | frontend/css/02-chat-graph.css:1 |
 | chat, de-vibecoded | frontend/css/08-consistency.css:3060 |
 | chat: an organised sidebar, readable code, correctable answers | frontend/css/05-sidebars-themes.css:2435 |
-| choice controls, the owner's 2026-09-24 pass (INBOX 409, 411) | frontend/css/08-consistency.css:8548 |
+| choice controls, the owner's 2026-09-24 pass (INBOX 409, 411) | frontend/css/08-consistency.css:8549 |
 | column-flex cards keep their full width | frontend/css/07-whiteboard-misc.css:3619 |
 | compressing a long conversation (§35I) | frontend/css/02-chat-graph.css:791 |
 | curated themes | frontend/css/01-forms-settings.css:3501 |
 | dark glass reads flatter, and here is which half of it does | frontend/css/10-responsive.css:299 |
 | dashboard + reminders (Wave D) | frontend/css/01-forms-settings.css:3686 |
 | dashboard quick links | frontend/css/03-dashboard-widgets.css:1620 |
-| dashboard widgets, de-vibecoded | frontend/css/08-consistency.css:4176 |
+| dashboard widgets, de-vibecoded | frontend/css/08-consistency.css:4177 |
 | document formatting toolbar | frontend/css/05-sidebars-themes.css:1912 |
 | documents tab | frontend/css/04-chat-dock-appearance.css:3629 |
 | documents: outline, live stats, and where the file actually is | frontend/css/05-sidebars-themes.css:2783 |
@@ -9437,7 +9437,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | drag to delete (INBOX 660) | frontend/css/library-lazy.css:3301 |
 | duplicate tidy-up | frontend/css/05-sidebars-themes.css:1658 |
 | editing a question in place | frontend/css/05-sidebars-themes.css:315 |
-| empty states that sit where they should | frontend/css/08-consistency.css:4273 |
+| empty states that sit where they should | frontend/css/08-consistency.css:4274 |
 | entry actions + links (Phase 4) | frontend/css/01-forms-settings.css:2173 |
 | entry lists | frontend/css/01-forms-settings.css:1426 |
 | every control in a dock takes the touch floor | frontend/css/07-whiteboard-misc.css:10436 |
@@ -9469,15 +9469,15 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | meeting notes (§17) | frontend/css/02-chat-graph.css:1926 |
 | model cards: the Models screen's suggested downloads (INBOX 444) | frontend/css/01-forms-settings.css:5884 |
 | more than one route between the same two notes | frontend/css/02-chat-graph.css:1174 |
-| motion: a heavy page's first visit (INBOX 580) | frontend/css/08-consistency.css:9701 |
-| motion: a hover eases (2026-10-05) | frontend/css/08-consistency.css:9593 |
-| motion: a list settles in where its skeleton was (2026-10-05) | frontend/css/08-consistency.css:9573 |
+| motion: a heavy page's first visit (INBOX 580) | frontend/css/08-consistency.css:9702 |
+| motion: a hover eases (2026-10-05) | frontend/css/08-consistency.css:9594 |
+| motion: a list settles in where its skeleton was (2026-10-05) | frontend/css/08-consistency.css:9574 |
 | motion: a menu or popover grows from what opened it (INBOX 103, 2026-10-05) | frontend/css/10-responsive.css:230 |
-| motion: a page arrives (INBOX 459 (2), 580) | frontend/css/08-consistency.css:9674 |
-| motion: a popup arrives, and leaves the way it came (INBOX 580, 2026-10-05) | frontend/css/08-consistency.css:9749 |
-| motion: a sidebar's contents arrive from its edge (INBOX 459 (2)) | frontend/css/08-consistency.css:9603 |
-| motion: one sliding indicator for every strip (INBOX 459 (2), 2026-10-05) | frontend/css/08-consistency.css:9461 |
-| motion: the opening curtain lifts (INBOX 577) | frontend/css/08-consistency.css:9789 |
+| motion: a page arrives (INBOX 459 (2), 580) | frontend/css/08-consistency.css:9675 |
+| motion: a popup arrives, and leaves the way it came (INBOX 580, 2026-10-05) | frontend/css/08-consistency.css:9750 |
+| motion: a sidebar's contents arrive from its edge (INBOX 459 (2)) | frontend/css/08-consistency.css:9604 |
+| motion: one sliding indicator for every strip (INBOX 459 (2), 2026-10-05) | frontend/css/08-consistency.css:9462 |
+| motion: the opening curtain lifts (INBOX 577) | frontend/css/08-consistency.css:9790 |
 | moved from 07-whiteboard-misc.css (canvasui, the boot CSS budget): board-only rules whose class names no boot file draws and no later boot rule competes with, in their old order | frontend/css/library-lazy.css:4845 |
 | moved from the boot sheets (Brief 101a, room under the boot CSS cap): rules whose selectors name only the Library | frontend/css/library-lazy.css:16 |
 | moved from the boot sheets (the boot CSS budget, test_boot_budget.py): rules only the Library | frontend/css/library-lazy.css:710 |
@@ -9485,12 +9485,12 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | note history | frontend/css/05-sidebars-themes.css:1708 |
 | notes page polish | frontend/css/03-dashboard-widgets.css:2163 |
 | nothing interactive is bare text | frontend/css/07-whiteboard-misc.css:3873 |
-| notifications | frontend/css/08-consistency.css:3689 |
+| notifications | frontend/css/08-consistency.css:3690 |
 | numbered citations inside an answer | frontend/css/02-chat-graph.css:4266 |
 | one control height per Library header row | frontend/css/07-whiteboard-misc.css:5246 |
 | one gap under every card heading | frontend/css/01-forms-settings.css:4867 |
 | one line of facts: a note's meta row | frontend/css/08-consistency.css:2691 |
-| one popup, three tiers (INBOX 456, DESIGN.md "A popup window or panel") | frontend/css/08-consistency.css:9176 |
+| one popup, three tiers (INBOX 456, DESIGN.md "A popup window or panel") | frontend/css/08-consistency.css:9177 |
 | one size for every dropdown | frontend/css/01-forms-settings.css:4830 |
 | one switch, everywhere a checkbox means "on or off" | frontend/css/06-timeline-dialogs.css:2087 |
 | one ⋯ button, everywhere (INBOX 722) | frontend/css/00-tokens-shell.css:4270 |
@@ -9526,8 +9526,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | text inputs (§36B) | frontend/css/01-forms-settings.css:225 |
 | the "/" menu and block frames | frontend/css/05-sidebars-themes.css:827 |
 | the "?" head row and its help body | frontend/css/01-forms-settings.css:5392 |
-| the 464 round: Settings groups, switch rows, the phone's chrome | frontend/css/08-consistency.css:9799 |
-| the AI skills dock: one row where it fits (INBOX 450, 599) | frontend/css/08-consistency.css:9383 |
+| the 464 round: Settings groups, switch rows, the phone's chrome | frontend/css/08-consistency.css:9800 |
+| the AI skills dock: one row where it fits (INBOX 450, 599) | frontend/css/08-consistency.css:9384 |
 | the AI status dot | frontend/css/00-tokens-shell.css:1526 |
 | the Ask box explaining itself (§35A) | frontend/css/06-timeline-dialogs.css:1219 |
 | the Ask box reads as one composer | frontend/css/07-whiteboard-misc.css:2990 |
@@ -9560,7 +9560,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the block bar (INBOX 421 b) | frontend/css/09-editor.css:1005 |
 | the board panel, sorted into the questions it answers | frontend/css/07-whiteboard-misc.css:4843 |
 | the board's bar takes the floor of the whole touch band, not just 600 | frontend/css/10-responsive.css:2061 |
-| the boot splash: one progress indicator, not two | frontend/css/08-consistency.css:4260 |
+| the boot splash: one progress indicator, not two | frontend/css/08-consistency.css:4261 |
 | the bottom docks | frontend/css/07-whiteboard-misc.css:9668 |
 | the chat dock follows its own width (INBOX 694) | frontend/css/10-responsive.css:2490 |
 | the chat page fills its height (§36A) | frontend/css/06-timeline-dialogs.css:1329 |
@@ -9591,8 +9591,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the export dialog (WHITEBOARD_PLAN.md Phase 3, decision 4) | frontend/css/06-timeline-dialogs.css:2572 |
 | the faded notes card (WORLD_CLASS_PLAN 15, I4) | frontend/css/03-dashboard-widgets.css:4633 |
 | the field: the glyph inside, Stop only while something is loading | frontend/css/03-dashboard-widgets.css:1126 |
-| the file picker, in the app's own clothes | frontend/css/08-consistency.css:8851 |
-| the flat looks carry no glow on a button | frontend/css/08-consistency.css:3666 |
+| the file picker, in the app's own clothes | frontend/css/08-consistency.css:8852 |
+| the flat looks carry no glow on a button | frontend/css/08-consistency.css:3667 |
 | the flat looks: a selected tab is a place, not an action | frontend/css/08-consistency.css:2886 |
 | the formatting strip says what the caret is already in | frontend/css/09-editor.css:984 |
 | the glass card | frontend/css/00-tokens-shell.css:3784 |
@@ -9606,7 +9606,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the in-app confirm dialog (§35F) | frontend/css/06-timeline-dialogs.css:1113 |
 | the lightbox on a phone (INBOX 430) | frontend/css/10-responsive.css:2176 |
 | the live action line | frontend/css/02-chat-graph.css:4628 |
-| the lock screen | frontend/css/08-consistency.css:3725 |
+| the lock screen | frontend/css/08-consistency.css:3726 |
 | the log console (§1) | frontend/css/06-timeline-dialogs.css:732 |
 | the map is the tab, and its controls float over it | frontend/css/02-chat-graph.css:5320 |
 | the mind map's outline and markers (MINDMAP_PLAN decisions 33, 34) | frontend/css/library-lazy.css:2835 |
@@ -9620,7 +9620,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the one popover shell (UI_MODERNISATION_PLAN.md, Phase 2) | frontend/css/07-whiteboard-misc.css:7745 |
 | the orphan-row pattern, everywhere else it appears (§36B) | frontend/css/06-timeline-dialogs.css:1633 |
 | the overview strip | frontend/css/00-tokens-shell.css:1873 |
-| the page scrollers scroll on the compositor | frontend/css/08-consistency.css:4291 |
+| the page scrollers scroll on the compositor | frontend/css/08-consistency.css:4292 |
 | the page shell (§35L) | frontend/css/00-tokens-shell.css:3601 |
 | the palette on a touch screen (INBOX 464) | frontend/css/10-responsive.css:2476 |
 | the phone header fits inside the phone | frontend/css/05-sidebars-themes.css:5865 |
@@ -9628,11 +9628,11 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the primary action floats, where a dock has one | frontend/css/07-whiteboard-misc.css:10223 |
 | the quick-nav chord's guide | frontend/css/10-responsive.css:421 |
 | the reader: one scroller, the page set as prose | frontend/css/03-dashboard-widgets.css:1441 |
-| the reply head on Ask's answer, the draft and the guide (INBOX 471) | frontend/css/08-consistency.css:9441 |
+| the reply head on Ask's answer, the draft and the guide (INBOX 471) | frontend/css/08-consistency.css:9442 |
 | the rich picker (rich-picker.js; DESIGN.md's recipe index) | frontend/css/05-sidebars-themes.css:864 |
 | the run list (AGENT_SKILLS_REFORM.md, Phase C) | frontend/css/07-whiteboard-misc.css:1400 |
 | the scroll container (§36A) | frontend/css/00-tokens-shell.css:1093 |
-| the selection tick in Rows (INBOX 426 z, image 91) | frontend/css/08-consistency.css:8970 |
+| the selection tick in Rows (INBOX 426 z, image 91) | frontend/css/08-consistency.css:8971 |
 | the selection tick, in the app's own language | frontend/css/07-whiteboard-misc.css:4166 |
 | the settings jump list | frontend/css/07-whiteboard-misc.css:10398 |
 | the settings sheet takes the touch floor | frontend/css/01-forms-settings.css:5525 |
@@ -9667,7 +9667,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | top bar polish | frontend/css/05-sidebars-themes.css:4366 |
 | transcluded notes (![[note]]) | frontend/css/05-sidebars-themes.css:1559 |
 | two-up cards in tablet portrait | frontend/css/07-whiteboard-misc.css:9929 |
-| type to filter a long list (row 1643, `listFilter` in sheets-selects.js) | frontend/css/08-consistency.css:10501 |
+| type to filter a long list (row 1643, `listFilter` in sheets-selects.js) | frontend/css/08-consistency.css:10502 |
 | user-tunable corner rounding | frontend/css/04-chat-dock-appearance.css:1931 |
 | web panel (search + reader) | frontend/css/03-dashboard-widgets.css:1031 |
 | what a wide screen is for | frontend/css/00-tokens-shell.css:3611 |
@@ -9692,7 +9692,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/05-sidebars-themes.css | 6228 |
 | frontend/css/06-timeline-dialogs.css | 3687 |
 | frontend/css/07-whiteboard-misc.css | 11893 |
-| frontend/css/08-consistency.css | 10535 |
+| frontend/css/08-consistency.css | 10536 |
 | frontend/css/09-editor.css | 1116 |
 | frontend/css/10-responsive.css | 2661 |
 | frontend/css/ask-compose-lazy.css | 139 |
@@ -9875,7 +9875,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/embedding-models/use` | POST | `use_embedding_model` | src/tessellate/api/routes_settings.py:2126 |
 | `/embedding-models/{model_id}` | DELETE | `remove_embedding_model` | src/tessellate/api/routes_settings.py:2206 |
 | `/embedding-models/{model_id}/download` | POST | `download_embedding_model` | src/tessellate/api/routes_settings.py:2186 |
-| `/entries/{entry_id}/files` | POST | `upload_file` | src/tessellate/api/routes_files.py:99 |
+| `/entries/{entry_id}/files` | POST | `upload_file` | src/tessellate/api/routes_files.py:100 |
 | `/entries/{entry_id}/meeting` | GET | `read_meeting` | src/tessellate/api/routes_meetings.py:90 |
 | `/entries/{entry_id}/meeting/append` | POST | `append_to_meeting` | src/tessellate/api/routes_meetings.py:176 |
 | `/entries/{entry_id}/meeting/remind` | POST | `remind_action` | src/tessellate/api/routes_meetings.py:135 |
@@ -9900,31 +9900,31 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/feature-model` | POST | `set_feature_model` | src/tessellate/api/routes_models.py:786 |
 | `/feature-models/reset` | POST | `reset_feature_models` | src/tessellate/api/routes_models.py:836 |
 | `/file-types` | GET | `list_file_types` | src/tessellate/api/routes_documents.py:285 |
-| `/files/exports` | GET | `list_exports` | src/tessellate/api/routes_files.py:1177 |
-| `/files/exports/{filename}` | GET | `download_export` | src/tessellate/api/routes_files.py:1215 |
-| `/files/gallery` | GET | `list_attachment_gallery` | src/tessellate/api/routes_files.py:299 |
-| `/files/open-exports-folder` | POST | `open_exports_folder` | src/tessellate/api/routes_files.py:1226 |
-| `/files/readings` | GET | `file_readings` | src/tessellate/api/routes_files.py:275 |
-| `/files/restore` | POST | `restore_file` | src/tessellate/api/routes_files.py:941 |
-| `/files/save` | POST | `save_generated_file` | src/tessellate/api/routes_files.py:1129 |
-| `/files/{attachment_id}` | DELETE | `delete_file` | src/tessellate/api/routes_files.py:908 |
-| `/files/{attachment_id}` | GET | `download_file` | src/tessellate/api/routes_files.py:172 |
-| `/files/{attachment_id}` | PUT | `rename_file` | src/tessellate/api/routes_files.py:972 |
-| `/files/{attachment_id}/analyse` | POST | `analyse_attachment` | src/tessellate/api/routes_files.py:451 |
-| `/files/{attachment_id}/html-preview` | GET | `attached_file_html_preview` | src/tessellate/api/routes_files.py:863 |
-| `/files/{attachment_id}/ocr-clean-loops` | POST | `clean_attachment_reading_loops` | src/tessellate/api/routes_files.py:3976 |
-| `/files/{attachment_id}/ocr-page-read` | POST | `attachment_ocr_page_read` | src/tessellate/api/routes_files.py:3539 |
-| `/files/{attachment_id}/ocr-range-read` | POST | `attachment_ocr_range_read` | src/tessellate/api/routes_files.py:3503 |
-| `/files/{attachment_id}/ocr-regions` | GET | `attachment_ocr_regions` | src/tessellate/api/routes_files.py:2635 |
-| `/files/{attachment_id}/page-caption` | POST | `attachment_page_caption` | src/tessellate/api/routes_files.py:3759 |
-| `/files/{attachment_id}/page-reads` | GET | `attachment_page_reads` | src/tessellate/api/routes_files.py:3797 |
-| `/files/{attachment_id}/page-reads/{page}` | DELETE | `delete_attachment_page_read` | src/tessellate/api/routes_files.py:3854 |
-| `/files/{attachment_id}/pdf-info` | GET | `attached_file_pdf_info` | src/tessellate/api/routes_files.py:771 |
-| `/files/{attachment_id}/pdf-page/{index}` | GET | `attached_file_pdf_page` | src/tessellate/api/routes_files.py:807 |
-| `/files/{attachment_id}/readings/{source}` | DELETE | `delete_attachment_reading` | src/tessellate/api/routes_files.py:3913 |
-| `/files/{attachment_id}/region-read` | POST | `attachment_region_read` | src/tessellate/api/routes_files.py:3725 |
-| `/files/{attachment_id}/text` | GET | `attached_file_text` | src/tessellate/api/routes_files.py:666 |
-| `/files/{attachment_id}/text` | PUT | `save_attached_file_text` | src/tessellate/api/routes_files.py:713 |
+| `/files/exports` | GET | `list_exports` | src/tessellate/api/routes_files.py:1178 |
+| `/files/exports/{filename}` | GET | `download_export` | src/tessellate/api/routes_files.py:1216 |
+| `/files/gallery` | GET | `list_attachment_gallery` | src/tessellate/api/routes_files.py:300 |
+| `/files/open-exports-folder` | POST | `open_exports_folder` | src/tessellate/api/routes_files.py:1227 |
+| `/files/readings` | GET | `file_readings` | src/tessellate/api/routes_files.py:276 |
+| `/files/restore` | POST | `restore_file` | src/tessellate/api/routes_files.py:942 |
+| `/files/save` | POST | `save_generated_file` | src/tessellate/api/routes_files.py:1130 |
+| `/files/{attachment_id}` | DELETE | `delete_file` | src/tessellate/api/routes_files.py:909 |
+| `/files/{attachment_id}` | GET | `download_file` | src/tessellate/api/routes_files.py:173 |
+| `/files/{attachment_id}` | PUT | `rename_file` | src/tessellate/api/routes_files.py:973 |
+| `/files/{attachment_id}/analyse` | POST | `analyse_attachment` | src/tessellate/api/routes_files.py:452 |
+| `/files/{attachment_id}/html-preview` | GET | `attached_file_html_preview` | src/tessellate/api/routes_files.py:864 |
+| `/files/{attachment_id}/ocr-clean-loops` | POST | `clean_attachment_reading_loops` | src/tessellate/api/routes_files.py:3977 |
+| `/files/{attachment_id}/ocr-page-read` | POST | `attachment_ocr_page_read` | src/tessellate/api/routes_files.py:3540 |
+| `/files/{attachment_id}/ocr-range-read` | POST | `attachment_ocr_range_read` | src/tessellate/api/routes_files.py:3504 |
+| `/files/{attachment_id}/ocr-regions` | GET | `attachment_ocr_regions` | src/tessellate/api/routes_files.py:2636 |
+| `/files/{attachment_id}/page-caption` | POST | `attachment_page_caption` | src/tessellate/api/routes_files.py:3760 |
+| `/files/{attachment_id}/page-reads` | GET | `attachment_page_reads` | src/tessellate/api/routes_files.py:3798 |
+| `/files/{attachment_id}/page-reads/{page}` | DELETE | `delete_attachment_page_read` | src/tessellate/api/routes_files.py:3855 |
+| `/files/{attachment_id}/pdf-info` | GET | `attached_file_pdf_info` | src/tessellate/api/routes_files.py:772 |
+| `/files/{attachment_id}/pdf-page/{index}` | GET | `attached_file_pdf_page` | src/tessellate/api/routes_files.py:808 |
+| `/files/{attachment_id}/readings/{source}` | DELETE | `delete_attachment_reading` | src/tessellate/api/routes_files.py:3914 |
+| `/files/{attachment_id}/region-read` | POST | `attachment_region_read` | src/tessellate/api/routes_files.py:3726 |
+| `/files/{attachment_id}/text` | GET | `attached_file_text` | src/tessellate/api/routes_files.py:667 |
+| `/files/{attachment_id}/text` | PUT | `save_attached_file_text` | src/tessellate/api/routes_files.py:714 |
 | `/files/{name}` | GET | `translate_file` | src/tessellate/api/routes_translate.py:27 |
 | `/followups` | POST | `chat_followups` | src/tessellate/api/routes_chat.py:329 |
 | `/graph` | GET | `graph` | src/tessellate/api/routes_graph.py:742 |
@@ -9999,32 +9999,32 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/logs/stream` | GET | `stream_server_logs` | src/tessellate/api/routes_settings.py:2312 |
 | `/maps/from-note/{note_id}` | POST | `map_from_note` | src/tessellate/api/routes_map_from_notes.py:442 |
 | `/maps/from-notes` | POST | `map_from_notes` | src/tessellate/api/routes_map_from_notes.py:258 |
-| `/media` | GET | `list_media` | src/tessellate/api/routes_files.py:1443 |
+| `/media` | GET | `list_media` | src/tessellate/api/routes_files.py:1444 |
 | `/media-session` | POST | `media_session` | src/tessellate/api/routes_auth.py:903 |
-| `/media/meta/{filename}` | GET | `media_meta` | src/tessellate/api/routes_files.py:1600 |
-| `/media/orphans` | DELETE | `clean_orphaned_media` | src/tessellate/api/routes_files.py:1575 |
-| `/media/orphans` | GET | `list_orphaned_media` | src/tessellate/api/routes_files.py:1544 |
-| `/media/pdf-info/{filename}` | GET | `media_pdf_info` | src/tessellate/api/routes_files.py:1718 |
-| `/media/pdf-page/{filename}/{index}` | GET | `media_pdf_page` | src/tessellate/api/routes_files.py:1758 |
+| `/media/meta/{filename}` | GET | `media_meta` | src/tessellate/api/routes_files.py:1601 |
+| `/media/orphans` | DELETE | `clean_orphaned_media` | src/tessellate/api/routes_files.py:1576 |
+| `/media/orphans` | GET | `list_orphaned_media` | src/tessellate/api/routes_files.py:1545 |
+| `/media/pdf-info/{filename}` | GET | `media_pdf_info` | src/tessellate/api/routes_files.py:1719 |
+| `/media/pdf-page/{filename}/{index}` | GET | `media_pdf_page` | src/tessellate/api/routes_files.py:1759 |
 | `/media/recordings/{recording_id}` | GET | `recording_audio` | src/tessellate/api/routes_recordings.py:445 |
-| `/media/restore` | POST | `restore_media` | src/tessellate/api/routes_files.py:1880 |
-| `/media/text/{filename}` | GET | `media_text` | src/tessellate/api/routes_files.py:1650 |
-| `/media/upload` | POST | `upload_media` | src/tessellate/api/routes_files.py:1294 |
-| `/media/{filename}` | GET | `get_media` | src/tessellate/api/routes_files.py:4126 |
-| `/media/{upload_id}` | DELETE | `delete_media` | src/tessellate/api/routes_files.py:1843 |
-| `/media/{upload_id}` | PUT | `rename_media` | src/tessellate/api/routes_files.py:1907 |
-| `/media/{upload_id}/caption` | POST | `caption_media` | src/tessellate/api/routes_files.py:1964 |
-| `/media/{upload_id}/ocr` | POST | `ocr_media` | src/tessellate/api/routes_files.py:2069 |
-| `/media/{upload_id}/ocr-clean-loops` | POST | `clean_media_reading_loops` | src/tessellate/api/routes_files.py:4002 |
-| `/media/{upload_id}/ocr-page-read` | POST | `media_ocr_page_read` | src/tessellate/api/routes_files.py:3556 |
-| `/media/{upload_id}/ocr-range-read` | POST | `media_ocr_range_read` | src/tessellate/api/routes_files.py:3521 |
-| `/media/{upload_id}/ocr-regions` | GET | `media_ocr_regions` | src/tessellate/api/routes_files.py:2601 |
-| `/media/{upload_id}/page-caption` | POST | `media_page_caption` | src/tessellate/api/routes_files.py:3780 |
-| `/media/{upload_id}/page-reads` | GET | `media_page_reads` | src/tessellate/api/routes_files.py:3813 |
-| `/media/{upload_id}/page-reads/{page}` | DELETE | `delete_media_page_read` | src/tessellate/api/routes_files.py:3868 |
-| `/media/{upload_id}/readings/{source}` | DELETE | `delete_media_reading` | src/tessellate/api/routes_files.py:3903 |
-| `/media/{upload_id}/region-read` | POST | `media_region_read` | src/tessellate/api/routes_files.py:3745 |
-| `/media/{upload_id}/vision-ocr` | POST | `vision_ocr_media` | src/tessellate/api/routes_files.py:4055 |
+| `/media/restore` | POST | `restore_media` | src/tessellate/api/routes_files.py:1881 |
+| `/media/text/{filename}` | GET | `media_text` | src/tessellate/api/routes_files.py:1651 |
+| `/media/upload` | POST | `upload_media` | src/tessellate/api/routes_files.py:1295 |
+| `/media/{filename}` | GET | `get_media` | src/tessellate/api/routes_files.py:4127 |
+| `/media/{upload_id}` | DELETE | `delete_media` | src/tessellate/api/routes_files.py:1844 |
+| `/media/{upload_id}` | PUT | `rename_media` | src/tessellate/api/routes_files.py:1908 |
+| `/media/{upload_id}/caption` | POST | `caption_media` | src/tessellate/api/routes_files.py:1965 |
+| `/media/{upload_id}/ocr` | POST | `ocr_media` | src/tessellate/api/routes_files.py:2070 |
+| `/media/{upload_id}/ocr-clean-loops` | POST | `clean_media_reading_loops` | src/tessellate/api/routes_files.py:4003 |
+| `/media/{upload_id}/ocr-page-read` | POST | `media_ocr_page_read` | src/tessellate/api/routes_files.py:3557 |
+| `/media/{upload_id}/ocr-range-read` | POST | `media_ocr_range_read` | src/tessellate/api/routes_files.py:3522 |
+| `/media/{upload_id}/ocr-regions` | GET | `media_ocr_regions` | src/tessellate/api/routes_files.py:2602 |
+| `/media/{upload_id}/page-caption` | POST | `media_page_caption` | src/tessellate/api/routes_files.py:3781 |
+| `/media/{upload_id}/page-reads` | GET | `media_page_reads` | src/tessellate/api/routes_files.py:3814 |
+| `/media/{upload_id}/page-reads/{page}` | DELETE | `delete_media_page_read` | src/tessellate/api/routes_files.py:3869 |
+| `/media/{upload_id}/readings/{source}` | DELETE | `delete_media_reading` | src/tessellate/api/routes_files.py:3904 |
+| `/media/{upload_id}/region-read` | POST | `media_region_read` | src/tessellate/api/routes_files.py:3746 |
+| `/media/{upload_id}/vision-ocr` | POST | `vision_ocr_media` | src/tessellate/api/routes_files.py:4056 |
 | `/meetings` | POST | `create_meeting` | src/tessellate/api/routes_meetings.py:52 |
 | `/memory` | GET | `list_memory` | src/tessellate/api/routes_settings.py:1551 |
 | `/memory` | POST | `add_memory` | src/tessellate/api/routes_settings.py:1586 |
@@ -10052,8 +10052,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/objects/{object_id}` | DELETE | `delete_object` | src/tessellate/api/routes_whiteboard.py:3107 |
 | `/objects/{object_id}` | PUT | `update_object` | src/tessellate/api/routes_whiteboard.py:3073 |
 | `/ocr-model` | POST | `set_ocr_model` | src/tessellate/api/routes_models.py:765 |
-| `/ocr-readers` | GET | `ocr_readers` | src/tessellate/api/routes_files.py:3309 |
-| `/ocr/language` | POST | `set_ocr_language` | src/tessellate/api/routes_files.py:3358 |
+| `/ocr-readers` | GET | `ocr_readers` | src/tessellate/api/routes_files.py:3310 |
+| `/ocr/language` | POST | `set_ocr_language` | src/tessellate/api/routes_files.py:3359 |
 | `/on-this-day` | GET | `on_this_day` | src/tessellate/api/routes_insights.py:464 |
 | `/openapi.json` | GET | `openapi_schema` | src/tessellate/api/app.py:1389 |
 | `/outline` | GET | `documents_outline` | src/tessellate/api/routes_documents.py:438 |
@@ -10081,8 +10081,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/read/near` | POST | `near_rows` | src/tessellate/api/routes_read.py:136 |
 | `/read/offers` | POST | `note_offers` | src/tessellate/api/routes_read.py:68 |
 | `/read/words` | GET | `setting_words` | src/tessellate/api/routes_read.py:121 |
-| `/reading-bin/{bin_id}/purge` | DELETE | `purge_binned_reading` | src/tessellate/api/routes_files.py:3947 |
-| `/reading-bin/{bin_id}/restore` | POST | `restore_binned_reading` | src/tessellate/api/routes_files.py:3929 |
+| `/reading-bin/{bin_id}/purge` | DELETE | `purge_binned_reading` | src/tessellate/api/routes_files.py:3948 |
+| `/reading-bin/{bin_id}/restore` | POST | `restore_binned_reading` | src/tessellate/api/routes_files.py:3930 |
 | `/receipt` | GET | `receipt` | src/tessellate/api/routes_privacy.py:103 |
 | `/recent` | DELETE | `forget_recent_question` | src/tessellate/api/routes_chat.py:183 |
 | `/recent` | GET | `recent_questions` | src/tessellate/api/routes_chat.py:177 |
@@ -13812,135 +13812,135 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 
 | Name | File:line |
 |---|---|
-| `AttachedFileTextOut` | src/tessellate/api/routes_files.py:635 |
-| `AttachmentAnalyseBody` | src/tessellate/api/routes_files.py:370 |
-| `AttachmentGalleryOut` | src/tessellate/api/routes_files.py:195 |
-| `AttachmentRenameBody` | src/tessellate/api/routes_files.py:968 |
-| `CaptionBody` | src/tessellate/api/routes_files.py:1931 |
-| `FileTextIn` | src/tessellate/api/routes_files.py:707 |
-| `MediaOrphansOut` | src/tessellate/api/routes_files.py:1527 |
-| `MediaRenameBody` | src/tessellate/api/routes_files.py:1903 |
-| `MediaUploadOut` | src/tessellate/api/routes_files.py:1365 |
-| `OcrBody` | src/tessellate/api/routes_files.py:2051 |
-| `OcrLanguageBody` | src/tessellate/api/routes_files.py:3352 |
-| `OcrPageReadOut` | src/tessellate/api/routes_files.py:2668 |
-| `OcrRangeReadOut` | src/tessellate/api/routes_files.py:3370 |
-| `OcrReadersOut` | src/tessellate/api/routes_files.py:3274 |
-| `OcrRegionBox` | src/tessellate/api/routes_files.py:2129 |
-| `OcrRegionOut` | src/tessellate/api/routes_files.py:2146 |
-| `OcrRegionReadOut` | src/tessellate/api/routes_files.py:3573 |
-| `OcrRegionsOut` | src/tessellate/api/routes_files.py:2210 |
-| `OcrStoredReadingOut` | src/tessellate/api/routes_files.py:2169 |
-| `OcrWordOut` | src/tessellate/api/routes_files.py:2138 |
-| `PdfInfoOut` | src/tessellate/api/routes_files.py:755 |
-| `ReadingBinnedOut` | src/tessellate/api/routes_files.py:3880 |
-| `ReadingRestoredOut` | src/tessellate/api/routes_files.py:3922 |
-| `RestoreBody` | src/tessellate/api/routes_files.py:937 |
-| `SaveFileBody` | src/tessellate/api/routes_files.py:1043 |
-| `VisionOcrBody` | src/tessellate/api/routes_files.py:4029 |
-| `_attachment_out` | src/tessellate/api/routes_files.py:427 |
-| `_attachment_size` | src/tessellate/api/routes_files.py:397 |
-| `_bin_file_reading` | src/tessellate/api/routes_files.py:3889 |
-| `_checked_engine` | src/tessellate/api/routes_files.py:2845 |
-| `_checked_reader` | src/tessellate/api/routes_files.py:2819 |
-| `_clean_reading_fields` | src/tessellate/api/routes_files.py:3956 |
-| `_describe_page` | src/tessellate/api/routes_files.py:3166 |
-| `_embed_pattern` | src/tessellate/api/routes_files.py:1793 |
-| `_engine_choice` | src/tessellate/api/routes_files.py:2839 |
-| `_existing_attachment` | src/tessellate/api/routes_files.py:168 |
-| `_exports_dir` | src/tessellate/api/routes_files.py:1034 |
-| `_forget_page_read` | src/tessellate/api/routes_files.py:3823 |
-| `_forget_regions` | src/tessellate/api/routes_files.py:2435 |
-| `_local_regions` | src/tessellate/api/routes_files.py:2868 |
-| `_local_text` | src/tessellate/api/routes_files.py:2861 |
-| `_media_size` | src/tessellate/api/routes_files.py:1642 |
-| `_media_upload_path` | src/tessellate/api/routes_files.py:1708 |
-| `_page_read_count_map` | src/tessellate/api/routes_files.py:3030 |
-| `_page_read_key` | src/tessellate/api/routes_files.py:2873 |
-| `_page_read_text_map` | src/tessellate/api/routes_files.py:2990 |
-| `_parse_page_spec` | src/tessellate/api/routes_files.py:3394 |
-| `_pdf_regions_for` | src/tessellate/api/routes_files.py:2257 |
-| `_put_notes_back` | src/tessellate/api/routes_files.py:960 |
-| `_read_page` | src/tessellate/api/routes_files.py:3123 |
-| `_read_range` | src/tessellate/api/routes_files.py:3429 |
-| `_read_region` | src/tessellate/api/routes_files.py:3674 |
-| `_reader_model` | src/tessellate/api/routes_files.py:2713 |
-| `_region_image` | src/tessellate/api/routes_files.py:3604 |
-| `_region_model` | src/tessellate/api/routes_files.py:3637 |
-| `_region_text` | src/tessellate/api/routes_files.py:3659 |
-| `_regions_for` | src/tessellate/api/routes_files.py:2500 |
-| `_regions_text` | src/tessellate/api/routes_files.py:3067 |
-| `_reindex_file` | src/tessellate/api/routes_files.py:2930 |
-| `_remember_page_caption` | src/tessellate/api/routes_files.py:2948 |
-| `_remember_page_read` | src/tessellate/api/routes_files.py:2882 |
-| `_remember_regions` | src/tessellate/api/routes_files.py:2400 |
-| `_require_region_reader` | src/tessellate/api/routes_files.py:3627 |
-| `_set_edited_reading` | src/tessellate/api/routes_files.py:2468 |
-| `_stored_page_reads` | src/tessellate/api/routes_files.py:3085 |
-| `_stored_range` | src/tessellate/api/routes_files.py:3479 |
-| `_stored_readings` | src/tessellate/api/routes_files.py:2179 |
-| `_stored_regions` | src/tessellate/api/routes_files.py:2361 |
-| `_strip_embeds` | src/tessellate/api/routes_files.py:1799 |
-| `_tesseract_read_page` | src/tessellate/api/routes_files.py:3231 |
-| `_vision_read_page` | src/tessellate/api/routes_files.py:2730 |
-| `_within_dir` | src/tessellate/api/routes_files.py:1108 |
-| `_within_exports` | src/tessellate/api/routes_files.py:1065 |
-| `analyse_attachment` | src/tessellate/api/routes_files.py:452 |
-| `attached_file_html_preview` | src/tessellate/api/routes_files.py:864 |
-| `attached_file_pdf_info` | src/tessellate/api/routes_files.py:772 |
-| `attached_file_pdf_page` | src/tessellate/api/routes_files.py:808 |
-| `attached_file_text` | src/tessellate/api/routes_files.py:667 |
-| `attachment_ocr_page_read` | src/tessellate/api/routes_files.py:3540 |
-| `attachment_ocr_range_read` | src/tessellate/api/routes_files.py:3504 |
-| `attachment_ocr_regions` | src/tessellate/api/routes_files.py:2636 |
-| `attachment_page_caption` | src/tessellate/api/routes_files.py:3760 |
-| `attachment_page_reads` | src/tessellate/api/routes_files.py:3798 |
-| `attachment_region_read` | src/tessellate/api/routes_files.py:3726 |
-| `caption_media` | src/tessellate/api/routes_files.py:1965 |
-| `clean_attachment_reading_loops` | src/tessellate/api/routes_files.py:3977 |
-| `clean_media_reading_loops` | src/tessellate/api/routes_files.py:4003 |
-| `clean_orphaned_media` | src/tessellate/api/routes_files.py:1576 |
-| `delete_attachment_page_read` | src/tessellate/api/routes_files.py:3855 |
-| `delete_attachment_reading` | src/tessellate/api/routes_files.py:3914 |
-| `delete_file` | src/tessellate/api/routes_files.py:909 |
-| `delete_media` | src/tessellate/api/routes_files.py:1844 |
-| `delete_media_page_read` | src/tessellate/api/routes_files.py:3869 |
-| `delete_media_reading` | src/tessellate/api/routes_files.py:3904 |
-| `download_export` | src/tessellate/api/routes_files.py:1216 |
-| `download_file` | src/tessellate/api/routes_files.py:173 |
-| `file_readings` | src/tessellate/api/routes_files.py:276 |
-| `get_media` | src/tessellate/api/routes_files.py:4127 |
-| `list_attachment_gallery` | src/tessellate/api/routes_files.py:300 |
-| `list_exports` | src/tessellate/api/routes_files.py:1178 |
-| `list_media` | src/tessellate/api/routes_files.py:1444 |
-| `list_orphaned_media` | src/tessellate/api/routes_files.py:1545 |
-| `media_meta` | src/tessellate/api/routes_files.py:1601 |
-| `media_ocr_page_read` | src/tessellate/api/routes_files.py:3557 |
-| `media_ocr_range_read` | src/tessellate/api/routes_files.py:3522 |
-| `media_ocr_regions` | src/tessellate/api/routes_files.py:2602 |
-| `media_page_caption` | src/tessellate/api/routes_files.py:3781 |
-| `media_page_reads` | src/tessellate/api/routes_files.py:3814 |
-| `media_pdf_info` | src/tessellate/api/routes_files.py:1719 |
-| `media_pdf_page` | src/tessellate/api/routes_files.py:1759 |
-| `media_region_read` | src/tessellate/api/routes_files.py:3746 |
-| `media_text` | src/tessellate/api/routes_files.py:1651 |
-| `ocr_media` | src/tessellate/api/routes_files.py:2070 |
-| `ocr_readers` | src/tessellate/api/routes_files.py:3310 |
-| `open_exports_folder` | src/tessellate/api/routes_files.py:1227 |
-| `purge_binned_reading` | src/tessellate/api/routes_files.py:3948 |
-| `rename_file` | src/tessellate/api/routes_files.py:973 |
-| `rename_media` | src/tessellate/api/routes_files.py:1908 |
-| `restore_binned_reading` | src/tessellate/api/routes_files.py:3930 |
-| `restore_file` | src/tessellate/api/routes_files.py:942 |
-| `restore_media` | src/tessellate/api/routes_files.py:1881 |
-| `reveal_folder` | src/tessellate/api/routes_files.py:1248 |
-| `safe_filename` | src/tessellate/api/routes_files.py:1051 |
-| `save_attached_file_text` | src/tessellate/api/routes_files.py:714 |
-| `save_generated_file` | src/tessellate/api/routes_files.py:1130 |
-| `set_ocr_language` | src/tessellate/api/routes_files.py:3359 |
-| `upload_file` | src/tessellate/api/routes_files.py:100 |
-| `upload_media` | src/tessellate/api/routes_files.py:1295 |
-| `vision_ocr_media` | src/tessellate/api/routes_files.py:4056 |
+| `AttachedFileTextOut` | src/tessellate/api/routes_files.py:636 |
+| `AttachmentAnalyseBody` | src/tessellate/api/routes_files.py:371 |
+| `AttachmentGalleryOut` | src/tessellate/api/routes_files.py:196 |
+| `AttachmentRenameBody` | src/tessellate/api/routes_files.py:969 |
+| `CaptionBody` | src/tessellate/api/routes_files.py:1932 |
+| `FileTextIn` | src/tessellate/api/routes_files.py:708 |
+| `MediaOrphansOut` | src/tessellate/api/routes_files.py:1528 |
+| `MediaRenameBody` | src/tessellate/api/routes_files.py:1904 |
+| `MediaUploadOut` | src/tessellate/api/routes_files.py:1366 |
+| `OcrBody` | src/tessellate/api/routes_files.py:2052 |
+| `OcrLanguageBody` | src/tessellate/api/routes_files.py:3353 |
+| `OcrPageReadOut` | src/tessellate/api/routes_files.py:2669 |
+| `OcrRangeReadOut` | src/tessellate/api/routes_files.py:3371 |
+| `OcrReadersOut` | src/tessellate/api/routes_files.py:3275 |
+| `OcrRegionBox` | src/tessellate/api/routes_files.py:2130 |
+| `OcrRegionOut` | src/tessellate/api/routes_files.py:2147 |
+| `OcrRegionReadOut` | src/tessellate/api/routes_files.py:3574 |
+| `OcrRegionsOut` | src/tessellate/api/routes_files.py:2211 |
+| `OcrStoredReadingOut` | src/tessellate/api/routes_files.py:2170 |
+| `OcrWordOut` | src/tessellate/api/routes_files.py:2139 |
+| `PdfInfoOut` | src/tessellate/api/routes_files.py:756 |
+| `ReadingBinnedOut` | src/tessellate/api/routes_files.py:3881 |
+| `ReadingRestoredOut` | src/tessellate/api/routes_files.py:3923 |
+| `RestoreBody` | src/tessellate/api/routes_files.py:938 |
+| `SaveFileBody` | src/tessellate/api/routes_files.py:1044 |
+| `VisionOcrBody` | src/tessellate/api/routes_files.py:4030 |
+| `_attachment_out` | src/tessellate/api/routes_files.py:428 |
+| `_attachment_size` | src/tessellate/api/routes_files.py:398 |
+| `_bin_file_reading` | src/tessellate/api/routes_files.py:3890 |
+| `_checked_engine` | src/tessellate/api/routes_files.py:2846 |
+| `_checked_reader` | src/tessellate/api/routes_files.py:2820 |
+| `_clean_reading_fields` | src/tessellate/api/routes_files.py:3957 |
+| `_describe_page` | src/tessellate/api/routes_files.py:3167 |
+| `_embed_pattern` | src/tessellate/api/routes_files.py:1794 |
+| `_engine_choice` | src/tessellate/api/routes_files.py:2840 |
+| `_existing_attachment` | src/tessellate/api/routes_files.py:169 |
+| `_exports_dir` | src/tessellate/api/routes_files.py:1035 |
+| `_forget_page_read` | src/tessellate/api/routes_files.py:3824 |
+| `_forget_regions` | src/tessellate/api/routes_files.py:2436 |
+| `_local_regions` | src/tessellate/api/routes_files.py:2869 |
+| `_local_text` | src/tessellate/api/routes_files.py:2862 |
+| `_media_size` | src/tessellate/api/routes_files.py:1643 |
+| `_media_upload_path` | src/tessellate/api/routes_files.py:1709 |
+| `_page_read_count_map` | src/tessellate/api/routes_files.py:3031 |
+| `_page_read_key` | src/tessellate/api/routes_files.py:2874 |
+| `_page_read_text_map` | src/tessellate/api/routes_files.py:2991 |
+| `_parse_page_spec` | src/tessellate/api/routes_files.py:3395 |
+| `_pdf_regions_for` | src/tessellate/api/routes_files.py:2258 |
+| `_put_notes_back` | src/tessellate/api/routes_files.py:961 |
+| `_read_page` | src/tessellate/api/routes_files.py:3124 |
+| `_read_range` | src/tessellate/api/routes_files.py:3430 |
+| `_read_region` | src/tessellate/api/routes_files.py:3675 |
+| `_reader_model` | src/tessellate/api/routes_files.py:2714 |
+| `_region_image` | src/tessellate/api/routes_files.py:3605 |
+| `_region_model` | src/tessellate/api/routes_files.py:3638 |
+| `_region_text` | src/tessellate/api/routes_files.py:3660 |
+| `_regions_for` | src/tessellate/api/routes_files.py:2501 |
+| `_regions_text` | src/tessellate/api/routes_files.py:3068 |
+| `_reindex_file` | src/tessellate/api/routes_files.py:2931 |
+| `_remember_page_caption` | src/tessellate/api/routes_files.py:2949 |
+| `_remember_page_read` | src/tessellate/api/routes_files.py:2883 |
+| `_remember_regions` | src/tessellate/api/routes_files.py:2401 |
+| `_require_region_reader` | src/tessellate/api/routes_files.py:3628 |
+| `_set_edited_reading` | src/tessellate/api/routes_files.py:2469 |
+| `_stored_page_reads` | src/tessellate/api/routes_files.py:3086 |
+| `_stored_range` | src/tessellate/api/routes_files.py:3480 |
+| `_stored_readings` | src/tessellate/api/routes_files.py:2180 |
+| `_stored_regions` | src/tessellate/api/routes_files.py:2362 |
+| `_strip_embeds` | src/tessellate/api/routes_files.py:1800 |
+| `_tesseract_read_page` | src/tessellate/api/routes_files.py:3232 |
+| `_vision_read_page` | src/tessellate/api/routes_files.py:2731 |
+| `_within_dir` | src/tessellate/api/routes_files.py:1109 |
+| `_within_exports` | src/tessellate/api/routes_files.py:1066 |
+| `analyse_attachment` | src/tessellate/api/routes_files.py:453 |
+| `attached_file_html_preview` | src/tessellate/api/routes_files.py:865 |
+| `attached_file_pdf_info` | src/tessellate/api/routes_files.py:773 |
+| `attached_file_pdf_page` | src/tessellate/api/routes_files.py:809 |
+| `attached_file_text` | src/tessellate/api/routes_files.py:668 |
+| `attachment_ocr_page_read` | src/tessellate/api/routes_files.py:3541 |
+| `attachment_ocr_range_read` | src/tessellate/api/routes_files.py:3505 |
+| `attachment_ocr_regions` | src/tessellate/api/routes_files.py:2637 |
+| `attachment_page_caption` | src/tessellate/api/routes_files.py:3761 |
+| `attachment_page_reads` | src/tessellate/api/routes_files.py:3799 |
+| `attachment_region_read` | src/tessellate/api/routes_files.py:3727 |
+| `caption_media` | src/tessellate/api/routes_files.py:1966 |
+| `clean_attachment_reading_loops` | src/tessellate/api/routes_files.py:3978 |
+| `clean_media_reading_loops` | src/tessellate/api/routes_files.py:4004 |
+| `clean_orphaned_media` | src/tessellate/api/routes_files.py:1577 |
+| `delete_attachment_page_read` | src/tessellate/api/routes_files.py:3856 |
+| `delete_attachment_reading` | src/tessellate/api/routes_files.py:3915 |
+| `delete_file` | src/tessellate/api/routes_files.py:910 |
+| `delete_media` | src/tessellate/api/routes_files.py:1845 |
+| `delete_media_page_read` | src/tessellate/api/routes_files.py:3870 |
+| `delete_media_reading` | src/tessellate/api/routes_files.py:3905 |
+| `download_export` | src/tessellate/api/routes_files.py:1217 |
+| `download_file` | src/tessellate/api/routes_files.py:174 |
+| `file_readings` | src/tessellate/api/routes_files.py:277 |
+| `get_media` | src/tessellate/api/routes_files.py:4128 |
+| `list_attachment_gallery` | src/tessellate/api/routes_files.py:301 |
+| `list_exports` | src/tessellate/api/routes_files.py:1179 |
+| `list_media` | src/tessellate/api/routes_files.py:1445 |
+| `list_orphaned_media` | src/tessellate/api/routes_files.py:1546 |
+| `media_meta` | src/tessellate/api/routes_files.py:1602 |
+| `media_ocr_page_read` | src/tessellate/api/routes_files.py:3558 |
+| `media_ocr_range_read` | src/tessellate/api/routes_files.py:3523 |
+| `media_ocr_regions` | src/tessellate/api/routes_files.py:2603 |
+| `media_page_caption` | src/tessellate/api/routes_files.py:3782 |
+| `media_page_reads` | src/tessellate/api/routes_files.py:3815 |
+| `media_pdf_info` | src/tessellate/api/routes_files.py:1720 |
+| `media_pdf_page` | src/tessellate/api/routes_files.py:1760 |
+| `media_region_read` | src/tessellate/api/routes_files.py:3747 |
+| `media_text` | src/tessellate/api/routes_files.py:1652 |
+| `ocr_media` | src/tessellate/api/routes_files.py:2071 |
+| `ocr_readers` | src/tessellate/api/routes_files.py:3311 |
+| `open_exports_folder` | src/tessellate/api/routes_files.py:1228 |
+| `purge_binned_reading` | src/tessellate/api/routes_files.py:3949 |
+| `rename_file` | src/tessellate/api/routes_files.py:974 |
+| `rename_media` | src/tessellate/api/routes_files.py:1909 |
+| `restore_binned_reading` | src/tessellate/api/routes_files.py:3931 |
+| `restore_file` | src/tessellate/api/routes_files.py:943 |
+| `restore_media` | src/tessellate/api/routes_files.py:1882 |
+| `reveal_folder` | src/tessellate/api/routes_files.py:1249 |
+| `safe_filename` | src/tessellate/api/routes_files.py:1052 |
+| `save_attached_file_text` | src/tessellate/api/routes_files.py:715 |
+| `save_generated_file` | src/tessellate/api/routes_files.py:1131 |
+| `set_ocr_language` | src/tessellate/api/routes_files.py:3360 |
+| `upload_file` | src/tessellate/api/routes_files.py:101 |
+| `upload_media` | src/tessellate/api/routes_files.py:1296 |
+| `vision_ocr_media` | src/tessellate/api/routes_files.py:4057 |
 
 ### src/tessellate/api/routes_graph.py (42)
 
@@ -17258,7 +17258,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:331 |
 | `settings_from` | src/tessellate/search/websearch.py:316 |
 
-## Tests (10832)
+## Tests (10822)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -18128,7 +18128,6 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_readme_freshness.py | 7 |
 | tests/test_realise.py | 11 |
 | tests/test_realise_ui.py | 3 |
-| tests/test_rebrand_compat.py | 10 |
 | tests/test_recency_questions.py | 9 |
 | tests/test_recent_questions_surface.py | 7 |
 | tests/test_recognise.py | 7 |

@@ -85,14 +85,14 @@ def test_the_former_name_is_noted_where_people_look():
 def test_strings_that_secure_or_find_existing_data_keep_the_old_name():
     """Changing any of these would lock a person out of their own data, or
     make a phone distrust the computer it already trusts."""
-    src = ROOT / "src" / "memorymap"
+    src = ROOT / "src" / "tessellate"
     assert b'b"memorymap-bcrypt-input"' in (src / "api" / "routes_auth.py").read_bytes()
     assert '"MemoryMap AI on this computer"' in (src / "core" / "lancert.py").read_text(encoding="utf-8")
     assert '"MemoryMap AI")  # brand: keep' in (src / "core" / "config.py").read_text(encoding="utf-8")
 
 
 def test_a_copy_started_before_the_rename_is_recognised():
-    from memorymap.core import instance_lock
+    from tessellate.core import instance_lock
 
     assert instance_lock.APP_NAMES == ("Tessellate", "MemoryMap AI")
     for launcher in ("start.sh", "uninstall.sh"):

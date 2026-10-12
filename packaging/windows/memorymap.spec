@@ -169,7 +169,7 @@ a = Analysis(
         (str(CHANGELOG), "."),
         # The taxonomy pack filing reads (ai/taxonomy.py `DATA_DIR`): JSON
         # beside the module, so it goes where the module's package is.
-        (str(REPO_ROOT / "src" / "tessellate" / "ai" / "data" / "taxonomy"), "memorymap/ai/data/taxonomy"),
+        (str(REPO_ROOT / "src" / "tessellate" / "ai" / "data" / "taxonomy"), "tessellate/ai/data/taxonomy"),
         *TZDATA_FILES,
     ],
     hiddenimports=[

@@ -239,7 +239,7 @@ def _caller() -> str | None:
     helper = None
     while frame is not None and depth < 80:
         name = frame.f_globals.get("__name__", "")
-        if isinstance(name, str) and name.startswith("memorymap.") and name != __name__:
+        if isinstance(name, str) and name.startswith(("tessellate.", "memorymap.")) and name != __name__:
             if name not in _ON_BEHALF:
                 return name
             helper = helper or name

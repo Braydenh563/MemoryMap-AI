@@ -36,7 +36,7 @@ def _empty_buffer():
     logbuffer.clear()
 
 
-def _log(count: int, level: int = logging.INFO, name: str = "memorymap.test") -> None:
+def _log(count: int, level: int = logging.INFO, name: str = "tessellate.test") -> None:
     logger = logging.getLogger(name)
     for index in range(count):
         logger.log(level, "record %d", index)
@@ -503,7 +503,7 @@ def test_buffer_captures_and_caps(client):
     assert any("hello from the test" in r["message"] for r in records)
     record = next(r for r in records if "hello from the test" in r["message"])
     assert record["level"] == "INFO"
-    assert record["logger"] == "memorymap.test"
+    assert record["logger"] == "tessellate.test"
 
 
 def test_ai_decisions_are_logged(client):

@@ -49,8 +49,8 @@ def _spec_app_modules(spec: Path) -> list[str]:
 
 
 def _imported_by_name() -> set[str]:
-    """Every `importlib.import_module("memorymap...")` with a literal name."""
-    pattern = re.compile(r"""import_module\(\s*["'](memorymap(?:\.\w+)+)["']\s*\)""")
+    """Every `importlib.import_module("tessellate...")` with a literal name."""
+    pattern = re.compile(r"""import_module\(\s*["'](tessellate(?:\.\w+)+)["']\s*\)""")
     names: set[str] = set()
     for path in (ROOT / "src" / "tessellate").rglob("*.py"):
         names.update(pattern.findall(path.read_text(encoding="utf-8")))
@@ -74,7 +74,7 @@ def test_both_specs_bundle_every_app_module():
         missing = sorted(by_name - modules)
         assert not missing, f"{spec.name} misses {missing}"
         assert "tessellate.__main__" not in modules, "the entry script must not be bundled twice"
-        assert {"memorymap", "tessellate.core.backup_bundle", "tessellate.core.ocr"} <= modules
+        assert {"tessellate", "tessellate.core.backup_bundle", "tessellate.core.ocr"} <= modules
 
 
 def test_the_bootloader_splash_is_asked_for_only_when_the_bootloader_made_one(monkeypatch):

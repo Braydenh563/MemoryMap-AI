@@ -4304,3 +4304,18 @@ Passed with a number, no row needed: the frontend lint set, three serial runs of
      mentioned that you had ..."), and the vendored Harper rules run over
      composer output as a test-time lint first, then as a post-pass on lead
      capitals ("tuesday") and missing articles ("go to gym").
+
+## Start of the next PR (the owner, 2026-10-12, "log everything I've mentioned")
+
+First, in order:
+- Split the 17 seeded `composer_digest.py` rows plus `_prose` (18, seeded 2026-10-12 after the "Your the ... note" branch) back to 15 or below, and the 18 seeded functions that grew (INBOX 1298 says which; `python scripts/complexity.py`).
+- CodeQL "Unused global variable" on `lantrust._run_allowance` and `reminder_token._loaded_from`: both are read through `global` in functions; dismiss in the Security tab as false positives, or rewrite each as a small holder object so the rule cannot misfire.
+- Settings: the '?' help button in a section header sits mid-row; it belongs right-aligned with a token gap, left of "Reset N changes". No gap between a select ("5 minutes") and its per-row reset button.
+- Activity card: the Logs button wraps to its own row; pin it top-right (absolute) so the title never moves it.
+- OCR workspace through the "m o" chord opens with nothing selected and a blank viewer: select the first file, and when the page renderer package is missing say so with a link to Settings, Packages.
+- Packages: Live captions (whisper.cpp) has no install control; if it is not wired yet, show it disabled like llama.cpp.
+- Ask without the needle package: say so in a notice naming what it adds, never a quietly poorer answer; answer the owner's question of whether the composer needs it to call tools or only to retrieve.
+- Navigation chord: change "m" (MemoryMap) to "t" (Tessellate), keeping "m" working; check "t" is free first.
+- Composer: past-tense reported speech after "A week on, by 9 August," ("you mentioned that you had just begun playing ..."); run the vendored Harper grammar rules over composer output (test-time lint first, then a post-pass for lead capitals such as "tuesday" and missing articles such as "go to gym").
+- The agent cap: the owner cannot fund two Opus agents at once right now; run one at a time, Sonnet for named fixes.
+

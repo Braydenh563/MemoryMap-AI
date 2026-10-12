@@ -2,7 +2,7 @@
 
 Generated 2026-10-12 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5876, frontend ids 2489, CSS sections 494, backend routes 604, backend modules 5458, test files 1210, tests 10816, plan headings 951.
+Counts: frontend functions 5876, frontend ids 2489, CSS sections 494, backend routes 604, backend modules 5459, test files 1211, tests 10819, plan headings 951.
 
 ## Frontend functions (5876)
 
@@ -10332,7 +10332,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/memorymap/api/routes_ask_history.py:164 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/memorymap/api/run_sandbox.py:1592 |
 
-## Backend modules (5458)
+## Backend modules (5459)
 
 Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -11630,36 +11630,37 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `ram_needed_gb` | src/memorymap/ai/model_cards.py:65 |
 | `size_gb` | src/memorymap/ai/model_cards.py:56 |
 
-### src/memorymap/ai/model_manager.py (26)
+### src/memorymap/ai/model_manager.py (27)
 
 | Name | File:line |
 |---|---|
 | `Embedder` | src/memorymap/ai/model_manager.py:29 |
 | `Feature` | src/memorymap/ai/model_manager.py:311 |
-| `Job` | src/memorymap/ai/model_manager.py:806 |
+| `Job` | src/memorymap/ai/model_manager.py:816 |
 | `ModelManager` | src/memorymap/ai/model_manager.py:421 |
-| `_is_app_client` | src/memorymap/ai/model_manager.py:1067 |
-| `_is_app_pair` | src/memorymap/ai/model_manager.py:909 |
-| `_reindex_pass` | src/memorymap/ai/model_manager.py:938 |
-| `_run_pull` | src/memorymap/ai/model_manager.py:1084 |
-| `_run_reindex` | src/memorymap/ai/model_manager.py:930 |
-| `cancel_pull` | src/memorymap/ai/model_manager.py:859 |
-| `cancel_reindex` | src/memorymap/ai/model_manager.py:849 |
-| `choose_chat_model_if_missing` | src/memorymap/ai/model_manager.py:1160 |
-| `choose_installed_chat_model` | src/memorymap/ai/model_manager.py:1134 |
+| `_is_app_client` | src/memorymap/ai/model_manager.py:1077 |
+| `_is_app_pair` | src/memorymap/ai/model_manager.py:919 |
+| `_reindex_pass` | src/memorymap/ai/model_manager.py:948 |
+| `_run_pull` | src/memorymap/ai/model_manager.py:1094 |
+| `_run_reindex` | src/memorymap/ai/model_manager.py:940 |
+| `cancel_pull` | src/memorymap/ai/model_manager.py:869 |
+| `cancel_reindex` | src/memorymap/ai/model_manager.py:859 |
+| `choose_chat_model_if_missing` | src/memorymap/ai/model_manager.py:1170 |
+| `choose_installed_chat_model` | src/memorymap/ai/model_manager.py:1144 |
 | `feature_pref_key` | src/memorymap/ai/model_manager.py:403 |
-| `is_installed_name` | src/memorymap/ai/model_manager.py:1151 |
+| `is_installed_name` | src/memorymap/ai/model_manager.py:1161 |
 | `is_ocr_model` | src/memorymap/ai/model_manager.py:216 |
 | `is_small_model` | src/memorymap/ai/model_manager.py:270 |
 | `known_feature` | src/memorymap/ai/model_manager.py:407 |
 | `parameter_count` | src/memorymap/ai/model_manager.py:245 |
-| `pull_model` | src/memorymap/ai/model_manager.py:1074 |
-| `pull_statuses` | src/memorymap/ai/model_manager.py:844 |
-| `reindex_notebook` | src/memorymap/ai/model_manager.py:918 |
-| `reindex_status` | src/memorymap/ai/model_manager.py:839 |
-| `reset_jobs` | src/memorymap/ai/model_manager.py:831 |
-| `start_pull` | src/memorymap/ai/model_manager.py:1040 |
-| `start_reindex` | src/memorymap/ai/model_manager.py:869 |
+| `pull_model` | src/memorymap/ai/model_manager.py:1084 |
+| `pull_statuses` | src/memorymap/ai/model_manager.py:854 |
+| `reindex_notebook` | src/memorymap/ai/model_manager.py:928 |
+| `reindex_status` | src/memorymap/ai/model_manager.py:849 |
+| `reset_jobs` | src/memorymap/ai/model_manager.py:841 |
+| `served_name` | src/memorymap/ai/model_manager.py:1192 |
+| `start_pull` | src/memorymap/ai/model_manager.py:1050 |
+| `start_reindex` | src/memorymap/ai/model_manager.py:879 |
 
 ### src/memorymap/ai/needle_provider.py (15)
 
@@ -17239,7 +17240,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | `search_web` | src/memorymap/search/websearch.py:331 |
 | `settings_from` | src/memorymap/search/websearch.py:316 |
 
-## Tests (10816)
+## Tests (10819)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -17279,6 +17280,7 @@ Module-level `def`, `async def` and `class` in `src/memorymap/**/*.py`, excludin
 | tests/test_answer_support_cleared.py | 1 |
 | tests/test_answer_trim.py | 3 |
 | tests/test_answer_voice.py | 5 |
+| tests/test_answered_by_served.py | 3 |
 | tests/test_api_contract_b7.py | 11 |
 | tests/test_api_entries.py | 18 |
 | tests/test_app_import.py | 12 |

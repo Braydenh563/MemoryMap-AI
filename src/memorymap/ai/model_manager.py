@@ -559,6 +559,16 @@ class ModelManager:
             "chat_model", "llama3.2"
         )
 
+    def served_chat_model(self, provider) -> str:  # noqa: ANN001
+        """The chat model the server answers with, for "Answering with"
+        (`served_name`); the configured name when the server cannot say."""
+        configured = self.chat_model()
+        try:
+            listed = provider.list_models()
+        except Exception:  # noqa: BLE001  # an unreachable list names nothing new
+            return configured
+        return served_name(configured, listed if isinstance(listed, list) else [])
+
     def chat_model_is_small(self) -> bool | None:
         """Is the chat model small enough to need the simplified treatment?
 
@@ -1177,3 +1187,20 @@ def choose_chat_model_if_missing(config: ConfigManager, installed: list[dict]) -
         )
         logging.getLogger("memorymap.startup").info("chat model %s is not installed; using %s", current, chosen)
     return chosen
+
+
+def served_name(configured: str, listed: list[dict]) -> str:
+    """The model a turn is answered with (bug sweep 2026-10-12): the
+    configured one when the server has it, else the server's only model,
+    since a server serving one model (llama.cpp) answers with it whatever
+    name is sent. A GGUF path is named by its file."""
+    names = [str(e.get("name") or e.get("id") or e.get("model") or "") for e in listed if isinstance(e, dict)]
+    names = [n for n in names if n]
+    if any(n == configured or n.removesuffix(":latest") == configured.removesuffix(":latest") for n in names):
+        return configured
+    if len(names) != 1:
+        return configured
+    only = names[0]
+    if only.lower().endswith(".gguf"):
+        only = only.replace("\\", "/").rsplit("/", 1)[-1][: -len(".gguf")]
+    return only

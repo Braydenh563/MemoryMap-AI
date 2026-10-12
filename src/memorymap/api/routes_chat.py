@@ -1794,7 +1794,7 @@ def chat(body: ChatRequest, session: Session = Depends(get_session)) -> ChatResp
         answered_by=(
             None
             if prepared["stats"] is not None
-            else (model_manager.chat_model() if answered else None)
+            else (model_manager.served_chat_model(ollama) if answered else None)
         ),
         ollama_running=ollama_running,
         sentence_grounding=sentence_grounding,
@@ -3064,7 +3064,7 @@ def _stream_lines(req: _StreamRequest) -> Iterator[str]:
             "answered_by": (
                 "needle (tools only)"
                 if tools_only and will_answer
-                else req.model_manager.chat_model() if will_answer else None
+                else req.model_manager.served_chat_model(req.ollama) if will_answer else None
             ),
             "ollama_running": ollama_running,
             #: The Ask box labels the answer "Composed from your notes, no AI".
@@ -3306,7 +3306,7 @@ def _why(req, prepared, grounding, composing, will_answer, tools_only, ollama_ru
         when=prepared.get("when_phrase"),
         scoped=bool(req.body.attached_notes_only or req.body.note_ids),
         composed=composing,
-        model=("Atlas's tools" if tools_only else req.model_manager.chat_model()) if will_answer else None,
+        model=("Atlas's tools" if tools_only else req.model_manager.served_chat_model(req.ollama)) if will_answer else None,
         shape=shape,
         context=will_answer and ollama_running and _asks_capability(req, prepared),
         loading=bool(prepared.get("meaning_loading")),

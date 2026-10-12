@@ -111,9 +111,14 @@ def sources_from_messages(messages: list[dict]) -> Sources:
     return Sources(texts)
 
 
+_APP_LINK = re.compile(r"\[[^\]\n]{1,120}\]\(#/[^)\s]*\)")
+
+
 def unbacked_claims(answer: str, sources: Sources) -> list[str]:
     """Numbers and names in `answer` that `sources` does not contain, in order."""
-    text = _IGNORED.sub(" ", answer.replace("**", "").replace("__", ""))
+    #: An app link ("[Open your notes](#/notes)") is the app's own offer, not
+    #: a claim: "Open" was flagged as an unbacked name (owner, 2026-10-12).
+    text = _IGNORED.sub(" ", _APP_LINK.sub(" ", answer).replace("**", "").replace("__", ""))
     found: list[str] = []
     # "10:15", "3/3" and "2026-10-06" are one claim of several numbers: said
     # as written, flagged when any part is not in the sources.

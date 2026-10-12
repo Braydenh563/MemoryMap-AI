@@ -56,3 +56,35 @@ def test_a_sentence_heading_is_not_wrapped_in_your_note():
     held = [SimpleNamespace(view=SimpleNamespace(written=date(2026, 7, 27)))]
     line = d._prose("The split follows this structure", held, ["has Pull, Push and Legs"], 0, date(2026, 10, 12))
     assert "Your the" not in line and "structure note" not in line, line
+
+
+def test_an_emoticon_is_not_a_name():
+    """"hey :D" answered "Ha, D." (owner, 2026-10-12)."""
+    from tessellate.ai import vocative
+    for text in ("hey :D", "hey :)", "hello xD", "yo ;P", "hi <3"):
+        said = vocative.split(text)
+        assert not said.names, (text, said)
+
+
+def test_the_clock_speaks_am_pm_and_follows_what_about():
+    from datetime import datetime, timezone
+    from tessellate.ai import utilities
+    now = datetime(2026, 10, 12, 18, 53, tzinfo=timezone.utc)
+    def said(q):
+        return "".join(t for _, t in utilities.answer(q, now) or [])
+    assert "6:53 pm" in said("what is the time in am/pm"), said("what is the time in am/pm")
+    assert "18:53" in said("what is the time")
+    assert "japan" in said("what about the time in japan").lower() or "Tokyo" in said("what about the time in japan")
+
+
+def test_search_up_is_a_web_ask():
+    from tessellate.ai import composer_digest as d
+    assert d.asks_web("search up sandwich recipes including ham and cheese")
+    assert d.web_query("search up sandwich recipes") == "sandwich recipes"
+
+
+def test_an_app_link_is_not_an_unbacked_name():
+    """"[Open your notes](#/notes)" drew "Heads up: ... could not find Open" (owner, 2026-10-12)."""
+    from tessellate.ai import source_check
+    sources = source_check.Sources(["what did I write this week"])
+    assert source_check.unbacked_claims("You have no notes in this week.\n\n[Open your notes](#/notes)", sources) == []

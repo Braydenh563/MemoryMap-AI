@@ -231,8 +231,13 @@ def split(text: str, known=frozenset(), in_notes=None) -> Address:  # noqa: ANN0
         _IN_NOTES.reset(token)
 
 
+#: A face typed after the words: "hey :D" is a greeting, not a call to "D"
+#: (the owner, 2026-10-12: the reply was "Ha, D.").
+_EMOTICON = re.compile(r"(?:(?<=\s)|^)(?:[:;=8xX][-o^']?[)(DPpOo3/\\|*]+|<3|\^[_.]?\^|[xX]D+|[:;]'?[()])(?=\s|$|[.,!?])")
+
+
 def _split(text: str, known) -> Address:  # noqa: ANN001
-    raw = (text or "").strip()
+    raw = _EMOTICON.sub("", text or "").strip()
     tokens = _tokens(raw)
     if not tokens:
         return Address(question=raw)

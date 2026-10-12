@@ -450,7 +450,8 @@ for _alias in ("us", "america", "united states", "united states of america"):
     SEVERAL_ZONES[_alias] = SEVERAL_ZONES["usa"]
 
 _CLOCK_IN = re.compile(
-    r"^(?:what(?:'s| is) the (?:current )?time|what time is it|whats the time|(?:the |current )?time)"
+    r"^(?:(?:(?:and|so) )?(?:what|how) about )?"
+    r"(?:what(?:'s| is) the (?:current )?time|what time is it|whats the time|(?:the |current )?time)"
     r"(?: now| right now)? (?:in|at|over in) (?:the )?(?P<place>[a-z][a-z .'-]{1,40}?)(?: now| right now)?$",
     re.I,
 )
@@ -517,7 +518,22 @@ def zone_for(place: str) -> str | None:
     return PLACE_ZONES.get(name) or _zone_cities().get(name) or name
 
 
+#: "what time is it in am/pm", "the time in 12 hour": the clock in the
+#: 12-hour form (the owner, 2026-10-12: it could only say 18:53).
+_TWELVE = re.compile(r"\s+(?:(?:in|as|with|using)\s+)?(?:am\s*/?\s*pm|a\.m\.?/p\.m\.?|12[- ]?h(?:ou)?r?(?:\s+(?:time|clock|format))?)\s*$", re.I)
+
+
+def _twelve(text: str) -> tuple[str, bool]:
+    stripped = _TWELVE.sub("", text.strip())
+    return stripped, stripped != text.strip()
+
+
+def _hm(moment: datetime, twelve: bool) -> str:
+    return f"{moment.hour % 12 or 12}:{moment:%M} {'am' if moment.hour < 12 else 'pm'}" if twelve else f"{moment:%H:%M}"
+
+
 def _is_clock(text: str) -> bool:
+    text, _ = _twelve(text)
     if _CLOCK.match(text) or _TODAY.match(text) or _YEAR.match(text):
         return True
     match = _CLOCK_IN.match(text)
@@ -554,6 +570,7 @@ def _other_day(there: datetime, now: datetime) -> str:
 
 
 def _clock(text: str, now: datetime) -> list[tuple]:
+    text, twelve = _twelve(text)
     match = _CLOCK_IN.match(text)
     if match:
         from datetime import timezone
@@ -563,16 +580,16 @@ def _clock(text: str, now: datetime) -> list[tuple]:
         several = SEVERAL_ZONES.get(" ".join(place.replace(".", "").lower().split()))
         if several:
             base = now if now.tzinfo else datetime.now(timezone.utc)
-            times = ", ".join(f"{base.astimezone(ZoneInfo(z)):%H:%M} in {city}" for city, z in several)
+            times = ", ".join(f"{_hm(base.astimezone(ZoneInfo(z)), twelve)} in {city}" for city, z in several)
             return [("computed", f"{_place_said(place)} has several time zones. It is {times}."),
                     ("computed", "\nRead from this computer's clock; name a state or city for one of them.")]
         place = place_name_for(place) or place
         zone = zone_for(place)
         there = (now if now.tzinfo else datetime.now(timezone.utc)).astimezone(ZoneInfo(zone))
-        return [("computed", f"It's {there:%H:%M}{_other_day(there, now)} in {_where(place, zone)} ({_zone_said(there)})."),
+        return [("computed", f"It's {_hm(there, twelve)}{_other_day(there, now)} in {_where(place, zone)} ({_zone_said(there)})."),
                 ("computed", f"\nRead as {zone}, from this computer's clock.")]
     if _CLOCK.match(text):
-        return [("computed", f"It is {now:%H:%M} on {_day_words(now.date())}."), _CLOCK_READ]
+        return [("computed", f"It is {_hm(now, twelve)} on {_day_words(now.date())}."), _CLOCK_READ]
     if _YEAR.match(text):
         return [("computed", f"It is {_MONTH_NAMES[now.month - 1]} {now.year}."), _CLOCK_READ]
     return [("computed", f"Today is {_day_words(now.date())}."), _CLOCK_READ]

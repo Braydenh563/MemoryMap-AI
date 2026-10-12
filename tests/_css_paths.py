@@ -86,6 +86,16 @@ CSS_FILES = [
     CSS_DIR / "lan-lazy.css",
     #: The storage bar in Settings, About (settings-data.js, data-1011).
     CSS_DIR / "settings-data-lazy.css",
+    #: Moved out of the boot sheets for the gzip budget (2026-10-12), each
+    #: loaded with its bundle in lazy-entries.js or app.js's LAZY_MODULES.
+    CSS_DIR / "improve-lazy.css",
+    CSS_DIR / "dash-orphans-lazy.css",
+    CSS_DIR / "dash-night-lazy.css",
+    CSS_DIR / "inbox-lazy.css",
+    CSS_DIR / "lightbox-lazy.css",
+    CSS_DIR / "quick-access-lazy.css",
+    #: Files dragged in from outside the window (settings-wiring.js's dragenter stub).
+    CSS_DIR / "file-drop-lazy.css",
 ]
 
 

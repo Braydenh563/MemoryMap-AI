@@ -14,6 +14,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from tests._app_js import lazy_modules_source
 from tests._css_paths import CSS_FILES
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,15 +27,18 @@ def _linked() -> set[str]:
 
 
 def _lazy() -> set[str]:
-    app = (FRONTEND / "js" / "app.js").read_text(encoding="utf-8")
-    table = re.search(r"const LAZY_MODULES = \{(.*?)\n\};", app, re.S)
-    assert table, "app.js has no LAZY_MODULES table"
-    listed = set(re.findall(r'"/css/([A-Za-z0-9_.-]+\.css)"', table.group(1)))
+    #: app.js's table and lazy-entries.js's rows (tests/_app_js.py).
+    listed = set(re.findall(r'"/css/([A-Za-z0-9_.-]+\.css)"', lazy_modules_source()))
     #: A lazy file can also load its own sheet with `lazyScript("/css/x.css")`
     #: (Brief 49: first-run.js, manual.js) without a LAZY_MODULES row.
     loaded = set()
     for path in (FRONTEND / "js").glob("*.js"):
-        loaded |= set(re.findall(r'lazyScript\("/css/([A-Za-z0-9_.-]+\.css)"\)', path.read_text(encoding="utf-8")))
+        text = path.read_text(encoding="utf-8")
+        loaded |= set(re.findall(r'lazyScript\("/css/([A-Za-z0-9_.-]+\.css)"\)', text))
+        #: Or a list of files handed to it: `["/css/x.css", "/js/x.js"].forEach(lazyScript)`
+        #: (settings-wiring.js's file-drop stub).
+        for files in re.findall(r"\[([^\]]*)\]\.forEach\(lazyScript\)", text):
+            loaded |= set(re.findall(r'"/css/([A-Za-z0-9_.-]+\.css)"', files))
     return listed | loaded
 
 

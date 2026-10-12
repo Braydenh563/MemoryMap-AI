@@ -841,7 +841,10 @@ COLOUR_LITERALS_LEFT = {
     "10-responsive.css": 9,
     "09-editor.css": 6,
     "04-chat-dock-appearance.css": 5,
-    "07-whiteboard-misc.css": 2,
+    "07-whiteboard-misc.css": 1,
+    #: Moved from 07-whiteboard-misc.css with the lightbox CSS (4668f1456): the
+    #: HTML preview's white page ground, on purpose.
+    "lightbox-lazy.css": 1,
     "01-forms-settings.css": 1,
 }
 COLOUR_LITERAL = re.compile(r"#[0-9a-fA-F]{3,8}\b(?![\w-])|\b(?:rgba?|hsla?)\(")

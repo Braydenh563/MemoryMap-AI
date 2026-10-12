@@ -99,3 +99,29 @@ def app_js_family(path: Path) -> bool:
     the lints that count or allow things per file."""
     pieces = [*app_js_files(), *(JS_DIR / name for name in LAZY_PIECES)]
     return path.resolve() in {p.resolve() for p in pieces}
+
+
+#: lazy-entries.js (2026-10-12) extends app.js's two loader tables, because
+#: app.js is at its boot cap: `Object.assign(LAZY_MODULES, {...})` and
+#: `installStandIns({...})`. A test that reads the bundles or the stand-ins
+#: means both files.
+LAZY_ENTRIES = JS_DIR / "lazy-entries.js"
+
+
+def _block(text: str, opener: str, closer: str) -> str:
+    start = text.index(opener)
+    return text[start : text.index(closer, start)]
+
+
+def lazy_modules_source() -> str:
+    """Every `LAZY_MODULES` row: app.js's table, then lazy-entries.js's."""
+    app = APP_JS.read_text(encoding="utf-8")
+    extra = LAZY_ENTRIES.read_text(encoding="utf-8")
+    return _block(app, "const LAZY_MODULES = {", "\n};\n") + "\n" + _block(extra, "Object.assign(LAZY_MODULES, {", "\n});\n")
+
+
+def stand_ins_source() -> str:
+    """Every stand-in row: app.js's `LAZY_ENTRY_POINTS`, then lazy-entries.js's."""
+    app = APP_JS.read_text(encoding="utf-8")
+    extra = LAZY_ENTRIES.read_text(encoding="utf-8")
+    return _block(app, "const LAZY_ENTRY_POINTS = {", "\n};\n") + "\n" + _block(extra, "installStandIns({", "\n});\n")

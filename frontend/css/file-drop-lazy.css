@@ -2,22 +2,28 @@
    tint over the whole window while files are dragged in, with one line saying
    what a drop does. It takes no press (`pointer-events: none`), so the drag
    keeps reaching what is under it, and it filters nothing behind it (the
-   glass-off list). */
+   glass-off list). A manual popover, so the top layer stacks it, not a
+   z-index; the margin, padding, size and colour undo the popover defaults. */
 .drop-veil {
   position: fixed;
   inset: var(--space-3);
-  z-index: 1010;
-  display: flex;
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
   align-items: center;
   justify-content: center;
   pointer-events: none;
+  color: inherit;
   border: 2px dashed var(--accent);
   border-radius: var(--radius-lg);
   background: var(--accent-soft);
 }
 
-.drop-veil.hidden {
-  display: none;
+/* Only while open: a display here on the closed popover would show it. */
+.drop-veil:popover-open {
+  display: flex;
 }
 
 .drop-veil-card {

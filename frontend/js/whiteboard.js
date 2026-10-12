@@ -509,8 +509,17 @@ function wbStartPanShield(e) {
 function wbEndPanShield() {
   document.getElementById("whiteboard-container")?.classList.remove("wb-hand-pan");
   //: The bar was placed from held measurements all through the pan; place it
-  //: once with real ones, so its clearance from the handle is exact again.
-  if (wbAddGate.panBarHold) wbUpdateSelectionBar();
+  //: once with real ones when the pan has been idle, so its clearance from the
+  //: handle is exact again. **Not at every gesture end:** a wheel gesture ends
+  //: whenever frames come slower than d3's 150 ms, so on a heavy board every
+  //: step ended one, and a full measure per step is the lag this removes
+  //: (measured 2026-10-12: 19 ends in 20 steps, 72 ms each).
+  if (!wbAddGate.panBarHold) return;
+  clearTimeout(wbAddGate.panBarTimer);
+  wbAddGate.panBarTimer = setTimeout(() => {
+    wbAddGate.panBarTimer = 0;
+    if (wbAddGate.panBarHold) wbUpdateSelectionBar();
+  }, 250);
 }
 
 function handleWbZoom(e) {
@@ -550,6 +559,8 @@ function wbZoomFrameWork() {
   //: In the same frame as the transform it answers, so a topic panned into
   //: view is drawn on the frame it arrives in rather than one later.
   wbCullNow(t, size);
+  clearTimeout(wbAddGate.panBarTimer);
+  wbAddGate.panBarTimer = 0;
   wbUpdateSelectionBar(true);
   //: The format bar of a topic or text box being edited rides the board
   //: with it (INBOX 817), in the same frame.
@@ -5040,7 +5051,7 @@ async function wbMindMapAddCard(parentId, x, y) {
 //: still a tool key. The focus is left where it was, not moved to the
 //: canvas as a map's is (decision 27): a focused board canvas reads Tab as
 //: "walk the items" (`wbWalkItems`), which would take the branch key away.
-const wbAddGate = { cardRetypeId: null, renderHold: null, barDeferred: false, barDeferredQueued: false, panBarHold: null };
+const wbAddGate = { cardRetypeId: null, renderHold: null, barDeferred: false, barDeferredQueued: false, panBarHold: null, panBarTimer: 0 };
 
 function wbEditNodeText(nodeId, firstKey = "") {
   wbAddGate.cardRetypeId = null;
@@ -5749,14 +5760,19 @@ function wbUpdateSelectionBar(panning = false) {
   }
   // A multi-selection gets the bar above the whole group, that is where
   // Arrange's align/distribute and Export "just the selection" matter.
-  let box = null;
+  let box = panHeld ? panHeld.box : null;
   const moving = multi ? wbBulkBarBounds : null;
-  if (multi) {
+  //: A pan moves the canvas, not the selection, so its box in board space is
+  //: the one the first pan frame measured. Measuring it again reads the
+  //: topic's rendered size (`wbItemBBox`: offsetWidth), which lays the whole
+  //: board out once per frame: 940 ms a frame on a 120-topic map at a 4x
+  //: throttle, measured 2026-10-12.
+  if (!panHeld && multi) {
     const b = moving
       ? { ...moving.box, minX: moving.box.minX + moving.dx, minY: moving.box.minY + moving.dy }
       : wbSelectionBounds();
     if (b) box = { minX: b.minX, minY: b.minY, maxX: b.minX + b.width, maxY: b.minY + b.height };
-  } else {
+  } else if (!panHeld) {
     const item = (wbState[WB_LIST_BY_KIND[sel.kind]] || []).find((i) => i.id === sel.id);
     box = item ? wbItemBBox(sel.kind, item) || (sel.kind === "sketch" ? wbLinkSelectionBox(item) : null) : null;
   }
@@ -5809,7 +5825,7 @@ function wbUpdateSelectionBar(panning = false) {
   // the ring takes *below* the node is what sent the strip down there.
   const topBar = held ? held.topBar : document.getElementById("wb-topbar")?.getBoundingClientRect();
   if (moving && !held) moving.origin.barMeasure = { rect, hostRect, w, h, topBar, sideEdges };
-  else if (panning && !held) wbAddGate.panBarHold = { sig: panSig, rect, hostRect, w, h, topBar, sideEdges };
+  else if (panning && !held) wbAddGate.panBarHold = { sig: panSig, rect, hostRect, w, h, topBar, sideEdges, box };
   const floor = topBar ? topBar.bottom - hostRect.top + gapBelow : 56;
   let y = top - h - gapAbove;
   //: Below a topic, clear of its add row too (MINDMAP_PLAN 15 row 3): the

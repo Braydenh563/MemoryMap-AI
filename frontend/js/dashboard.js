@@ -136,7 +136,9 @@ const DASH_WIDGETS = {
 //: Applied only when the saved layout widens *nothing*, so it is a default
 //: rather than an override: the moment anyone presses "Wide" or "Narrow" on
 //: any widget, their list wins and this is never consulted again.
-const DASH_DEFAULT_WIDE = ["heatmap"];
+//: The constellation starts wide (the owner's own layout, 2026-10-12); its
+//: Narrow button is checked by `tests/test_dashboard_default_wide.py`.
+const DASH_DEFAULT_WIDE = ["art"];
 
 //: **What a dashboard nobody has arranged shows** (INBOX 393: "I lose trust
 //: in ... applications with poor ui design"). Every widget used to be on by
@@ -147,8 +149,8 @@ const DASH_DEFAULT_WIDE = ["heatmap"];
 //: look back. The other fourteen are one press away under Widgets. Only a
 //: layout that has never been saved is affected; any saved choice wins.
 const DASH_DEFAULT_SHOWN = [
-  "reminders", "recent-notes", "pinned", "capture",
-  "documents", "boards", "digest", "on-this-day", "heatmap", "week",
+  "digest", "art", "capture", "recent-notes", "reminders", "pinned",
+  "documents", "boards", "heatmap", "on-this-day", "week",
 ];
 
 //: Widgets added after the dashboard shipped that start switched off. The

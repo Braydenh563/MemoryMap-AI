@@ -136,7 +136,21 @@ def _app_counts() -> Counter:
         )
     except Exception:  # noqa: BLE001 - a missing help must not stop a question being read
         return Counter()
-    return Counter(w for w in re.findall(r"[a-z]+", text.lower()) if len(w) >= 3)
+    text = text.lower()
+    counts = Counter(w for w in re.findall(r"[a-z]+", text) if len(w) >= 3)
+    #: The help quotes the typos it puts right ("keybord" the shortcuts): a
+    #: word met only inside quotes and on no word list is an example, not
+    #: the app's vocabulary, or the speller would leave that very typo alone.
+    unquoted = set(re.findall(r"[a-z]+", _QUOTED.sub(" ", text)))
+    from memorymap.ai.common_words import WORDS
+    from memorymap.ai.common_words_more import MORE
+
+    for word in [w for w in counts if w not in unquoted and w not in WORDS and w not in MORE and w not in english()]:
+        del counts[word]
+    return counts
+
+
+_QUOTED = re.compile(r'"[^"\n]{1,80}"|\u201c[^\u201d\n]{1,80}\u201d')
 
 
 #: The general English list lives with the spelling pairs (`variants`, a

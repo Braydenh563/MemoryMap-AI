@@ -74,7 +74,9 @@ def test_the_gold_personal_and_random_questions(client, session):
     misses = []
     for question, lead in GOLD["questions"]:
         said, _ = _ask(client, question)
-        if not said.startswith(lead) or any(n in said for n in GOLD["never"]) or not said.strip():
+        #: A list is a family whose line varies by chat and by day
+        #: (`routes_chat._reply_seed`): any of its openings is right.
+        if not said.startswith(tuple(lead) if isinstance(lead, list) else lead) or any(n in said for n in GOLD["never"]) or not said.strip():
             misses.append((question, said[:120]))
     assert len(GOLD["questions"]) >= 30
     assert 1 - len(misses) / len(GOLD["questions"]) >= FLOOR, misses

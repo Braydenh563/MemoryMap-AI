@@ -337,7 +337,7 @@ _SELF: tuple[tuple[re.Pattern, str], ...] = (
     (re.compile(r"\b(feelings?|feel things|emotions?|conscious|alive|sentient)\b"),
      "No. I'm a program on this computer that reads your notes; I don't feel things, though I can tell you what you wrote on a hard day."),
     (re.compile(r"\b(?:who|what company|which company) (?:made|built|created|wrote|programmed) you\b|\bwho(?:'s| is) your (?:maker|creator|developer)\b"),
-     "I'm Atlas, the part of MemoryMap that answers from your notes. MemoryMap runs on this computer, and no one else sees what you ask."),
+     "I'm Atlas, the part of Tessellate that answers from your notes. Tessellate runs on this computer, and no one else sees what you ask."),
     (re.compile(r"\bhow old are you\b|\bwhen were you (?:made|born)\b"),
      "Old enough to read your notes, young enough to have no birthday. I'm Atlas, and I live on this computer."),
     (re.compile(r"\bare you (?:a )?(?:real|human|person|robot|bot|ai)\b|\bare you real\b"),

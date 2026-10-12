@@ -8468,6 +8468,12 @@ Link to another note with [[its first few words]]."></textarea>
     <div class="dock-actions">
       <button type="button" id="recording-dock-open" class="ghost small" title="Show the recorder"><i class="ph ph-arrows-out-simple ph-lead" aria-hidden="true"></i> Open</button>
       <button type="button" id="recording-dock-pause" class="ghost small" title="Pause the recording"><i class="ph ph-pause ph-lead" aria-hidden="true"></i> Pause</button>
+      <button type="button" id="recording-dock-help-toggle" class="icon-only ghost small graph-help-toggle"
+        data-help-for="recording-dock-help" aria-controls="recording-dock-help" aria-expanded="false"
+        title="About this bar" aria-label="About this bar"><i class="ph ph-question" aria-hidden="true"></i></button>
+      <div class="help-body hidden" id="recording-dock-help" role="dialog" aria-label="About this bar">
+        <p>The recorder keeps recording while its dialog is closed, and this bar shows the clock. Open brings the recorder back, Pause holds the recording and Resume carries on, and Stop ends it: the audio is kept in Library, Recordings and transcribed on this computer when the Voice notes add-on is installed.</p>
+      </div>
       <button type="button" id="recording-dock-stop" class="small" title="Stop and save the recording"><i class="ph ph-stop ph-lead" aria-hidden="true"></i> Stop</button>
     </div>
   </div>
@@ -14595,6 +14601,12 @@ Link to another note with [[its first few words]]."></textarea>
           <button id="sketch-clear" class="ghost icon-button" type="button" title="Clear the strokes, keeping the background" aria-label="Clear the strokes"><i class="ph ph-trash" aria-hidden="true"></i></button>
           <button id="sketch-upload-image" class="ghost icon-button" type="button" title="Add a background image" aria-label="Add a background image"><i class="ph ph-image" aria-hidden="true"></i></button>
           <input type="color" id="sketch-bg-color-picker" class="sketch-bg-swatch" aria-label="Paper colour" title="Paper colour" value="#ffffff">
+          <button id="sketch-help-toggle" class="icon-only ghost small graph-help-toggle" type="button"
+            data-help-for="sketch-help" aria-controls="sketch-help" aria-expanded="false"
+            title="About the sketch pad" aria-label="About the sketch pad"><i class="ph ph-question" aria-hidden="true"></i></button>
+          <div class="help-body hidden" id="sketch-help" role="dialog" aria-label="About the sketch pad">
+            <p>Draw with the pen, the highlighter or the shapes; the ink chip opens seven colours and the slider sets the size. Undo and Redo step through the strokes, the bin clears them and keeps the background, the picture button puts an image behind them and the swatch sets the paper colour. Save as note keeps the sketch as a note, with the caption as its text. Ctrl+Shift+K opens the pad from anywhere.</p>
+          </div>
         </div>
       </div>
       <input id="sketch-image-input" aria-label="Choose an image to add to the sketch" title="Choose an image to add to the sketch" type="file" accept="image/*" class="hidden">

@@ -1361,28 +1361,30 @@ function applyRestoredLook() {
 //:   when it regains focus or becomes visible, at most every 5 seconds, and
 //:   repaints only when `seedUiStateFromServer` took a key. An unsent change
 //:   of its own still wins, as at boot.
-let lookPulledAt = 0;
-let lookPulling = false;
-let lookEchoTimer = 0;
+const lookPull = {
+  at: 0,
+  busy: false,
+  echoTimer: 0,
+};
 async function pullLookFromNotebook() {
-  if (!uiStateSeeded || lookPulling || document.hidden || !authToken()) return;
-  if (Date.now() - lookPulledAt < 5000) return;
-  lookPulling = true;
-  lookPulledAt = Date.now();
+  if (!uiStateSeeded || lookPull.busy || document.hidden || !authToken()) return;
+  if (Date.now() - lookPull.at < 5000) return;
+  lookPull.busy = true;
+  lookPull.at = Date.now();
   try {
     const fresh = await apiJson("/preferences", { silent: true });
     if (fresh && seedUiStateFromServer(fresh.ui_state)) applyRestoredLook();
   } catch {
     // A missed pull is retried the next time the window is looked at.
   } finally {
-    lookPulling = false;
+    lookPull.busy = false;
   }
 }
 function lookFromOtherWindow(event) {
   if (event.storageArea !== localStorage || !event.key || !uiStateSeeded) return;
   if (!mirroredUiKeys().includes(event.key)) return;
-  clearTimeout(lookEchoTimer);
-  lookEchoTimer = setTimeout(applyRestoredLook, 120);
+  clearTimeout(lookPull.echoTimer);
+  lookPull.echoTimer = setTimeout(applyRestoredLook, 120);
 }
 window.addEventListener("focus", pullLookFromNotebook);
 document.addEventListener("visibilitychange", () => {

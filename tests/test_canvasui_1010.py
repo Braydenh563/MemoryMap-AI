@@ -18,7 +18,9 @@ def test_a_stuck_sub_tab_strip_is_opaque_full_height_and_edged():
     rule = re.search(r'\.library-subtabs\[data-scrolled="1"\] \{([^}]*)\}', CSS)
     assert rule and "background: var(--modal-bg-opaque)" in rule.group(1)
     assert "backdrop-filter" not in rule.group(1)
-    button = re.search(r"\.tabs-line > button \{([^}]*?)\}", CSS, re.S)
+    #: The base rule, at a line's start: `.note-picker-sources.tabs-line > button`
+    #: (the attach picker's own strip, c74727200) ends with the same words.
+    button = re.search(r"^\.tabs-line > button \{([^}]*?)\}", CSS, re.S | re.M)
     assert button and "height: max(var(--control-h-body), var(--target-min))" in button.group(1)
     edge = re.search(r'\.library-subtabs\[data-scrolled="1"\] \{\s*box-shadow:([^}]*)\}', CSS)
     assert edge and "inset 0 -1px 0 var(--ghost-btn-border)" in edge.group(1)

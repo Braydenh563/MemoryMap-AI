@@ -99,7 +99,12 @@ function emblemPalette(accentHex) {
   return { stops: own.stops.map(shift), pearl: shift(own.pearl), shadow: shift(own.shadow) };
 }
 
-let emblemPearlIds = 0;
+const emblemState = {
+  //: renderEmblemWhenShown's one IntersectionObserver, made on first need.
+  lazyObserver: null,
+  pearlIds: 0,
+  busy: false,
+};
 const emblemArrived = new WeakSet();
 
 //: **The mark as layers the compositor can move.** The tile is the box's
@@ -124,14 +129,14 @@ function emblemArt(size, { arrive = false, still = false, head = false } = {}) {
   //: The favicon's feDropShadow blur (2.5 of 100), on a still box: painted once.
   shadow.closest("svg").style.filter = `blur(${(size / 40).toFixed(2)}px)`;
   //: A gradient per mark: url(#id) finds the first in the page.
-  const pearl = `emblem-pearl-${++emblemPearlIds}`;
+  const pearl = `emblem-pearl-${++emblemState.pearlIds}`;
   art.querySelector("linearGradient").id = pearl;
   art.querySelector("stop:last-child").setAttribute("stop-color", colours.pearl);
   for (const name of ["fill", "stroke"]) top.setAttribute(name, `url(#${pearl})`);
   art.classList.toggle("is-arriving", arrive && !still);
   art.classList.toggle("is-still", still);
   art.classList.toggle("is-head", head);
-  art.classList.toggle("is-busy", !head && emblemBusy);
+  art.classList.toggle("is-busy", !head && emblemState.busy);
   art.style.width = art.style.height = `${size}px`;
   //: favicon.svg's tile and its sheen: 135deg on a square runs corner to corner.
   const [a, b, c] = colours.stops;
@@ -144,14 +149,13 @@ function emblemArt(size, { arrive = false, still = false, head = false } = {}) {
 //: **While the AI works the cells lift in turn**: a chat turn in flight
 //: (`chatController`) or an agent run running (`agentRuns`, jobs included).
 //: Called where either changes.
-let emblemBusy = false;
 
 function syncEmblemBusy() {
   const chatting = typeof chatController !== "undefined" && Boolean(chatController);
   const running = typeof agentRuns !== "undefined" && agentRuns.some((run) => run.state === "running");
   const busy = chatting || running;
-  if (busy === emblemBusy) return;
-  emblemBusy = busy;
+  if (busy === emblemState.busy) return;
+  emblemState.busy = busy;
   for (const art of document.querySelectorAll(".emblem-art:not(.is-head)")) emblemSetBusy(art, busy);
 }
 
@@ -166,7 +170,7 @@ function emblemSetBusy(art, busy) {
   }
   if (!art.classList.contains("is-busy")) return;
   const settle = () => {
-    if (art.emblemBusyToken === token && !emblemBusy) art.classList.remove("is-busy");
+    if (art.emblemBusyToken === token && !emblemState.busy) art.classList.remove("is-busy");
   };
   art.querySelector(".emblem-cell-a")?.addEventListener("animationiteration", settle, { once: true });
   setTimeout(settle, 2600);
@@ -251,21 +255,20 @@ function renderBrandLogo() {
 //: with no box waits for its first intersection, and a colour change marks
 //: the hidden ones to repaint when shown, so none shows an old colour.
 const emblemPending = new Map();
-let emblemLazyObserver = null;
 
 function renderEmblemWhenShown(holder, size, animate) {
   if (holder.getClientRects().length || typeof IntersectionObserver === "undefined") {
     emblemPending.delete(holder);
-    emblemLazyObserver?.unobserve(holder);
+    emblemState.lazyObserver?.unobserve(holder);
     renderEmblem(holder, size, { animate });
     return;
   }
-  if (!emblemLazyObserver) {
-    emblemLazyObserver = new IntersectionObserver((entries) => {
+  if (!emblemState.lazyObserver) {
+    emblemState.lazyObserver = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (!entry.isIntersecting) continue;
         const want = emblemPending.get(entry.target);
-        emblemLazyObserver.unobserve(entry.target);
+        emblemState.lazyObserver.unobserve(entry.target);
         emblemPending.delete(entry.target);
         if (want && entry.target.isConnected) {
           const { size, animate } = want;
@@ -275,7 +278,7 @@ function renderEmblemWhenShown(holder, size, animate) {
     });
   }
   emblemPending.set(holder, { size, animate });
-  emblemLazyObserver.observe(holder);
+  emblemState.lazyObserver.observe(holder);
 }
 
 // --- wiring --------------------------------------------------------------------

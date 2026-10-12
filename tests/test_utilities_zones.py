@@ -32,4 +32,5 @@ def test_the_us_lists_its_mainland_zones():
 
 def test_a_named_region_keeps_its_one_zone():
     text = _text("what's the time in western australia")
-    assert text.startswith("It is 10:00") and "Sydney" not in text
+    #: The one-zone wording since 7c07664ea: "It's 10:00 in Perth, Western Australia (AWST, UTC+8)."
+    assert text.startswith("It's 10:00 in Perth") and "Sydney" not in text

@@ -852,10 +852,10 @@ function renderLogSharedUI(visibleCount) {
     const nothing = logRecords.length === 0;
     $("logs-empty-title").textContent = nothing
       ? "No log records yet"
-      : logFilterFromRun ? "This job wrote no log lines" : "No log lines match";
+      : settingsLook.logFilterFromRun ? "This job wrote no log lines" : "No log lines match";
     $("logs-empty-text").textContent = nothing
       ? "Records appear here as the app runs."
-      : logFilterFromRun
+      : settingsLook.logFilterFromRun
         ? "Only runs since the app last started write lines here. Clear the filters to see every record."
         : "Nothing fits the filters above.";
     $("logs-empty-clear").classList.toggle("hidden", nothing);
@@ -1612,9 +1612,12 @@ function themeSwatch(preset) {
 
 //: A theme under the pointer in Settings (settings-controls.js previewTheme):
 //: read before the manual layer, because a click would clear that layer.
-let themePreview = "";
+const settingsLook = {
+  themePreview: "",
+  logFilterFromRun: false,
+};
 function activeThemePreset() {
-  if (themePreview) return themePreview;
+  if (settingsLook.themePreview) return settingsLook.themePreview;
   //: No look chosen yet means the default look, not "no look": the default is
   //: a look like any other now (Quiet utilitarian), and theme-boot.js reads
   //: the same fallback so the first paint agrees.
@@ -1642,7 +1645,7 @@ function appearancePref(key, fallback) {
   // means forgetting it degrades to the caller's intent rather than to
   // "undefined".
   return (
-    (themePreview ? THEME_PRESETS[themePreview].values[key] : undefined) ??
+    (settingsLook.themePreview ? THEME_PRESETS[settingsLook.themePreview].values[key] : undefined) ??
     prefs.get(key, null) ?? themeValue(key) ?? APPEARANCE_DEFAULTS[key] ?? fallback
   );
 }
@@ -3430,9 +3433,8 @@ function taskLogButton(item) {
 
 
 let logFilterDebounceTimeout;
-let logFilterFromRun = false;
 $("log-filter").addEventListener("input", (event) => {
-  if (event.isTrusted) logFilterFromRun = false;
+  if (event.isTrusted) settingsLook.logFilterFromRun = false;
   clearTimeout(logFilterDebounceTimeout);
   logFilterDebounceTimeout = setTimeout(renderActiveLogView, 150);
 });

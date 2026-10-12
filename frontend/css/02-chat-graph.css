@@ -2213,7 +2213,9 @@ kbd {
    room"). It now holds the sketch's own height (`startArt`, 220) as the
    skeleton's soft ground, and a first sky fades in over it. A theme
    change's sky mounts under the old one's veil, which does that fade, so
-   the starting style asks for no veil. */
+   a sky after a veil (`refreshArtForTheme` leaves the veil first and p5
+   appends after it) starts opaque. A sibling, not `:has()` before an
+   unkeyed canvas (tests/test_has_invalidation.py). */
 .art-holder {
   min-block-size: 220px;
 }
@@ -2226,8 +2228,11 @@ kbd {
   transition: opacity calc(var(--ui-slow) * 2) var(--ease-out);
 }
 @starting-style {
-  .art-holder:not(:has(> .art-veil)) > canvas:not(.art-veil) {
+  .art-holder > canvas:not(.art-veil) {
     opacity: 0;
+  }
+  .art-holder > .art-veil ~ canvas {
+    opacity: 1;
   }
 }
 /* Less motion asked for, by the system or the app: the sky is cut in, as

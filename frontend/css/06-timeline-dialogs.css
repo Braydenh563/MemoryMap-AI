@@ -460,15 +460,18 @@
 .timeline-table tbody tr {
   cursor: pointer;
 }
-.timeline-table tbody tr:hover td {
+/* The row is a tab stop of its own (`.timeline-trow`), so its focused twin
+   is the row itself: no `:has()` before a bare `td`. */
+.timeline-table tbody tr:hover td,
+.timeline-table tbody tr:focus-visible td {
   background: var(--surface-2);
 }
 /* The ends of a hovered or selected row follow the radius every row ground has. */
-.timeline-table tbody tr:is(:hover, [aria-selected="true"]) td:first-child {
+.timeline-table tbody tr:is(:hover, :focus-visible, [aria-selected="true"]) td:first-child {
   border-top-left-radius: var(--radius-sm);
   border-bottom-left-radius: var(--radius-sm);
 }
-.timeline-table tbody tr:is(:hover, [aria-selected="true"]) td:last-child {
+.timeline-table tbody tr:is(:hover, :focus-visible, [aria-selected="true"]) td:last-child {
   border-top-right-radius: var(--radius-sm);
   border-bottom-right-radius: var(--radius-sm);
 }

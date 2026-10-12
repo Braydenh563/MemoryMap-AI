@@ -391,23 +391,22 @@ function askNotificationPermission() {
 // 2026-10-03: `new AudioContext()` cost 44 to 56 ms inside the unlock click);
 // every gesture resumes a suspended context, which is WebKit's unlock, and
 // the listeners leave once it runs.
-let reminderAudioCtx = null;
-let reminderAudioBuilding = false;
+const reminderAudio = { ctx: null, building: false };
 function primeReminderAudio() {
-  if (reminderAudioCtx) {
-    if (reminderAudioCtx.state === "running") {
+  if (reminderAudio.ctx) {
+    if (reminderAudio.ctx.state === "running") {
       document.removeEventListener("pointerdown", primeReminderAudio);
       document.removeEventListener("keydown", primeReminderAudio);
     } else {
-      reminderAudioCtx.resume().catch(() => {});
+      reminderAudio.ctx.resume().catch(() => {});
     }
     return;
   }
-  if (reminderAudioBuilding) return;
-  reminderAudioBuilding = true;
+  if (reminderAudio.building) return;
+  reminderAudio.building = true;
   const build = () => {
     try {
-      reminderAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      reminderAudio.ctx = new (window.AudioContext || window.webkitAudioContext)();
     } catch {
       // No Web Audio support, reminders still show as a toast/notification.
     }
@@ -419,21 +418,21 @@ document.addEventListener("pointerdown", primeReminderAudio, { passive: true });
 document.addEventListener("keydown", primeReminderAudio, { passive: true });
 
 function playReminderChime() {
-  if (!reminderAudioCtx) return;
-  reminderAudioCtx.resume().catch(() => {});
-  const now = reminderAudioCtx.currentTime;
+  if (!reminderAudio.ctx) return;
+  reminderAudio.ctx.resume().catch(() => {});
+  const now = reminderAudio.ctx.currentTime;
   // Two short notes, rising, reads as "an alert" rather than a UI click,
   // without being long or harsh enough to be reached for on a repeat.
   for (const [i, freq] of [523.25, 659.25].entries()) {
-    const osc = reminderAudioCtx.createOscillator();
-    const gain = reminderAudioCtx.createGain();
+    const osc = reminderAudio.ctx.createOscillator();
+    const gain = reminderAudio.ctx.createGain();
     osc.type = "sine";
     osc.frequency.value = freq;
     const start = now + i * 0.14;
     gain.gain.setValueAtTime(0, start);
     gain.gain.linearRampToValueAtTime(0.18, start + 0.02);
     gain.gain.exponentialRampToValueAtTime(0.001, start + 0.32);
-    osc.connect(gain).connect(reminderAudioCtx.destination);
+    osc.connect(gain).connect(reminderAudio.ctx.destination);
     osc.start(start);
     osc.stop(start + 0.34);
   }
@@ -480,23 +479,23 @@ function notify(title, body) {
 // The count in the title bar, the one surface that works while the app is in
 // a background tab, which is where it usually is when a reminder comes due.
 const BASE_TITLE = "Tessellate";
-let titleCount = 0;
-//: The view and the open thing (router.js, WORLD_CLASS_PLAN 22.1 item 1):
-//: "Half marathon, week 4 · Notes", before the app's name, after the count.
-let titleView = "";
+//: `count` is the number before it; `view` is the view and the open thing
+//: (router.js, WORLD_CLASS_PLAN 22.1 item 1): "Half marathon, week 4 · Notes",
+//: before the app's name, after the count.
+const pageTitle = { count: 0, view: "" };
 
 function paintTitle() {
-  const base = titleView ? `${titleView} · ${BASE_TITLE}` : BASE_TITLE;
-  document.title = titleCount > 0 ? `(${titleCount}) ${base}` : base;
+  const base = pageTitle.view ? `${pageTitle.view} · ${BASE_TITLE}` : BASE_TITLE;
+  document.title = pageTitle.count > 0 ? `(${pageTitle.count}) ${base}` : base;
 }
 
 function setTitleCount(count) {
-  titleCount = count;
+  pageTitle.count = count;
   paintTitle();
 }
 
 function setTitleView(view) {
-  titleView = String(view || "").trim();
+  pageTitle.view = String(view || "").trim();
   paintTitle();
 }
 
@@ -601,13 +600,19 @@ function startReminderWatch() {
   //: 867): lan-watch.js, lazy, starts itself once; it also paints the status
   //: bar's Other devices icon (INBOX 896), and stops only on another device.
   lazyScript("/js/lan-watch.js");
-  //: The Local chip (row 1641) asks again at each unlock too, and wires its
-  //: own timer once; it starts here so the boot sequence in app.js (capped
+  //: The Local chip (row 1641) asks again at each unlock too, and rides the
+  //: reminder tick below; it starts here so the boot sequence in app.js (capped
   //: by test_static_compression) carries no extra step.
   startPrivacyChip();
   if (reminderWatchStarted) return;
   reminderWatchStarted = true;
-  setInterval(checkDueReminders, REMINDER_POLL_MS);
+  //: One minute tick for both: the reminders, and the Local chip every
+  //: fifth (PRIVACY_CHIP_MS), rather than a second interval waking the page.
+  let ticks = 0;
+  setInterval(() => {
+    checkDueReminders();
+    if (++ticks % (PRIVACY_CHIP_MS / REMINDER_POLL_MS) === 0) refreshPrivacyChip();
+  }, REMINDER_POLL_MS);
   // A machine that was asleep wakes up with reminders long past due, and the
   // interval will not have run. Checking on focus catches that immediately
   // rather than up to a minute later.
@@ -3055,6 +3060,5 @@ function startPrivacyChip() {
   if (chip.dataset.wired) return;
   chip.dataset.wired = "1";
   chip.addEventListener("click", () => openSettingsModal("privacy"));
-  setInterval(refreshPrivacyChip, PRIVACY_CHIP_MS);
 }
 

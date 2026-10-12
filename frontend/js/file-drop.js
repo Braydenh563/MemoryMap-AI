@@ -31,7 +31,11 @@ function fileDropLocked() {
 function fileDropVeil() {
   if (!fileDrop.veil) {
     const veil = document.createElement("div");
-    veil.className = "drop-veil hidden";
+    veil.className = "drop-veil";
+    //: A manual popover: the top layer puts it over every dock and sheet
+    //: without a z-index of its own (DESIGN.md, the stylesheet's grammar:
+    //: no new literal layer).
+    veil.popover = "manual";
     veil.setAttribute("role", "status");
     veil.setAttribute("aria-live", "polite");
     const card = document.createElement("div");
@@ -49,13 +53,14 @@ function fileDropVeil() {
 }
 
 function fileDropShow(text) {
-  fileDropVeil().classList.remove("hidden");
+  const veil = fileDropVeil();
+  if (!veil.matches(":popover-open")) veil.showPopover();
   fileDrop.label.textContent = text;
 }
 
 function fileDropHide() {
   clearTimeout(fileDrop.timer);
-  fileDrop.veil?.classList.add("hidden");
+  if (fileDrop.veil?.matches(":popover-open")) fileDrop.veil.hidePopover();
 }
 
 function fileDropOver(event) {

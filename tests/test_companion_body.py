@@ -209,9 +209,10 @@ def test_the_large_view_asks_for_an_act() -> None:
 def test_it_comes_in_three_ways_or_more_wherever_it_stands() -> None:
     """Brief 88, the owner: "screen entries". Each place but a hang under a
     bar has three ways in or more, so the never-the-last rule always has a
-    choice; the two new ones end on the perch, upright, with a squash on
-    landing (measured by `scratchpad/ui-sweeps/entries.js`: every way
-    settles within 1px of the perch, no way twice running, both kinds)."""
+    choice; the two new ones end on the perch, upright (measured by
+    `scratchpad/ui-sweeps/entries.js`: every way settles within 1px of the
+    perch, no way twice running, both kinds). No squash on landing: DESIGN.md,
+    "an entrance never squashes or grows it" (e9ee04b4a)."""
     src = (ROOT / "frontend" / "js" / "avatars.js").read_text(encoding="utf-8")
     enter = _fn(src, "nameMarkBuddyEnter")
     lists = re.findall(r"ways = \[([^\]]*)\]", enter)
@@ -221,12 +222,12 @@ def test_it_comes_in_three_ways_or_more_wherever_it_stands() -> None:
     for how in ("fall", "tumble"):
         branch = enter[enter.index(f'if (how === "{how}") {{') :]
         branch = branch[: branch.index("return how;")]
-        # It ends where it stands, upright, and lands with weight.
+        # It ends where it stands, upright, and never squashes on the way in.
         assert '{ translate: "0px 0px" },\n    ]' in branch
-        assert "nameMarkBuddySquash(char," in branch and "nameMarkBuddyLimbs(buddy," in branch
+        assert "nameMarkBuddySquash" not in branch and "nameMarkBuddyLimbs(buddy," in branch
     # Atlas drifts down rather than dropping, swaying as it floats.
     fall = enter[enter.index('if (how === "fall") {') :]
-    assert 'atlas ? "float" : "leap"' in fall and "if (!atlas) nameMarkBuddySquash" in fall
+    assert 'atlas ? "float" : "leap"' in fall
     tumble = enter[enter.index('if (how === "tumble") {') :]
     assert '{ rotate: "0deg" },\n    ], { duration, easing: "ease-out" })' in tumble
 

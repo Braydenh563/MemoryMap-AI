@@ -29,7 +29,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `hide` | frontend/js/app.js:168 |
 | `hideBootSplash` | frontend/js/app.js:952 |
 | `initAuth` | frontend/js/app.js:965 |
-| `installStandIns` | frontend/js/app.js:2286 |
+| `installStandIns` | frontend/js/app.js:2287 |
 | `kickBackgroundTaskPoll` | frontend/js/app.js:611 |
 | `lazyAssetStamp` | frontend/js/app.js:1952 |
 | `lazyScript` | frontend/js/app.js:1993 |
@@ -3668,13 +3668,13 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | Name | File:line |
 |---|---|
 | `fileDragHasFiles` | frontend/js/file-drop.js:22 |
-| `fileDropArm` | frontend/js/file-drop.js:74 |
-| `fileDropEnter` | frontend/js/file-drop.js:92 |
-| `fileDropHide` | frontend/js/file-drop.js:56 |
-| `fileDropImport` | frontend/js/file-drop.js:100 |
+| `fileDropArm` | frontend/js/file-drop.js:79 |
+| `fileDropEnter` | frontend/js/file-drop.js:97 |
+| `fileDropHide` | frontend/js/file-drop.js:61 |
+| `fileDropImport` | frontend/js/file-drop.js:105 |
 | `fileDropLocked` | frontend/js/file-drop.js:26 |
-| `fileDropOver` | frontend/js/file-drop.js:61 |
-| `fileDropShow` | frontend/js/file-drop.js:51 |
+| `fileDropOver` | frontend/js/file-drop.js:66 |
+| `fileDropShow` | frontend/js/file-drop.js:55 |
 | `fileDropVeil` | frontend/js/file-drop.js:31 |
 
 ### frontend/js/first-run.js (8)
@@ -9696,7 +9696,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/captions-lazy.css | 95 |
 | frontend/css/dash-night-lazy.css | 29 |
 | frontend/css/dash-orphans-lazy.css | 51 |
-| frontend/css/file-drop-lazy.css | 45 |
+| frontend/css/file-drop-lazy.css | 51 |
 | frontend/css/first-run-lazy.css | 41 |
 | frontend/css/graph-lazy.css | 360 |
 | frontend/css/help-chat-lazy.css | 32 |

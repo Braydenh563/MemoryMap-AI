@@ -2180,11 +2180,14 @@ function renderLanState(state) {
 //: (`GET /privacy/lan-qr.svg`, core/qrsvg.py, only for an address it shows),
 //: fetched with the session header and shown from a blob. Which address is
 //: open is kept, so a repaint of the block (a state refresh) draws it again.
-let lanQrShown = "";
+const settingsControlState = {
+  lanQrShown: "",
+  themePreviewTimer: 0,
+};
 async function showLanQr(holder, address, button, open) {
   holder.querySelector(".lan-qr")?.remove();
   button.setAttribute("aria-expanded", String(open));
-  lanQrShown = open ? address : "";
+  settingsControlState.lanQrShown = open ? address : "";
   if (!open) return;
   let blob;
   try {
@@ -2192,7 +2195,7 @@ async function showLanQr(holder, address, button, open) {
   } catch (error) {
     toast(`Couldn't draw the QR code: ${error.message}`, true);
     button.setAttribute("aria-expanded", "false");
-    lanQrShown = "";
+    settingsControlState.lanQrShown = "";
     return;
   }
   if (!button.isConnected || button.getAttribute("aria-expanded") !== "true") return;
@@ -2233,7 +2236,7 @@ function renderLanAddresses(holder, state) {
   qr.setAttribute("aria-expanded", "false");
   main.append(value, copy, qr);
   holder.appendChild(main);
-  if (lanQrShown === first) showLanQr(holder, first, qr, true);
+  if (settingsControlState.lanQrShown === first) showLanQr(holder, first, qr, true);
   if (!rest.length) return;
   const toggle = document.createElement("button");
   toggle.type = "button";
@@ -2858,14 +2861,13 @@ $("maintenance-shortcut")?.addEventListener("click", makeMaintenanceShortcut);
 $("maintenance-uninstall")?.addEventListener("click", openUninstallSteps);
 //: Settings, Appearance, Themes (ledger 1451, 1452): a theme shows on the
 //: whole app while the pointer or focus rests on its card, and "Surprise me"
-//: applies one you are not using. The preview is `themePreview` (settings.js),
+//: applies one you are not using. The preview is `settingsLook.themePreview` (settings.js),
 //: read ahead of the manual layer and never stored.
-let themePreviewTimer = 0;
 function previewTheme(name) {
-  clearTimeout(themePreviewTimer);
-  themePreviewTimer = setTimeout(() => {
-    if (themePreview === name) return;
-    themePreview = name;
+  clearTimeout(settingsControlState.themePreviewTimer);
+  settingsControlState.themePreviewTimer = setTimeout(() => {
+    if (settingsLook.themePreview === name) return;
+    settingsLook.themePreview = name;
     applyAppearance();
     applyThemeChoice(appearancePref("theme"), false);
     applyPalette(appearancePref("palette"), false);
@@ -2888,8 +2890,8 @@ function previewTheme(name) {
   holder.addEventListener("focusout", () => previewTheme(""));
   //: Capture: the preview is gone before the card's own click applies the theme.
   holder.addEventListener("click", () => {
-    clearTimeout(themePreviewTimer);
-    themePreview = "";
+    clearTimeout(settingsControlState.themePreviewTimer);
+    settingsLook.themePreview = "";
   }, true);
 })();
 $("theme-surprise")?.addEventListener("click", () => {
@@ -2908,13 +2910,13 @@ async function openTaskLog(item) {
   const filter = $("log-filter");
   //: The run's id, which its log lines carry in brackets (jobruns.py), so the
   //: lines shown are this run's. An older entry without one falls back to words.
-  logFilterFromRun = !!item.run_id;
+  settingsLook.logFilterFromRun = !!item.run_id;
   filter.value = item.run_id ? `[${item.run_id}]` : /\(([^)]+)\)/.exec(item.label || "")?.[1] || item.name || item.label || "";
   filter.dispatchEvent(new Event("input"));
 }
 
 $("logs-empty-clear").addEventListener("click", () => {
-  logFilterFromRun = false;
+  settingsLook.logFilterFromRun = false;
   $("log-filter").value = "";
   $("log-level").value = "all";
   $("log-source").value = "all";

@@ -4693,17 +4693,16 @@ summary:not(.icon-only):not(.icon-button) {
   font-family: inherit;
 }
 /* The paper is excluded: it is the board's frame, and lifting its opacity on
-   hover made the card look selected rather than pointed at. */
-.library-board-card:hover .board-minimap rect:not(.board-minimap-paper, .board-minimap-branch),
-.library-board-card:hover .board-minimap path,
-.library-board-card:hover .board-minimap ellipse,
-.library-board-card:hover .board-minimap polygon,
-.library-board-card:hover .board-minimap line {
-  opacity: 0.8;
-}
-/* The keyboard's lift names the minimap's marks by class: a
-   `:has(:focus-visible)` before a bare `rect` or `path` is an unkeyed rule
-   (tests/test_has_invalidation.py). The empty board's ghost is not lifted. */
+   hover made the card look selected rather than pointed at; the empty
+   board's ghost is not lifted either. Pointer and keyboard name the same
+   marks by class, in one rule: a `:has(:focus-visible)` before a bare `rect`
+   or `path` is an unkeyed rule (tests/test_has_invalidation.py). */
+.library-board-card:hover .board-minimap-card,
+.library-board-card:hover .board-minimap-object,
+.library-board-card:hover .board-minimap-image,
+.library-board-card:hover .board-minimap-image-mark,
+.library-board-card:hover .board-minimap-edge,
+.library-board-card:hover .board-minimap-sketch,
 .library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap-card,
 .library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap-object,
 .library-board-card:is(:focus-visible, :has(:focus-visible)) .board-minimap-image,

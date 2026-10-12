@@ -1921,9 +1921,9 @@ function dashFillingSkeleton(grid, count) {
     const left = `${grid.offsetLeft}px`;
     if (outline.style.top !== top) outline.style.top = top;
     if (outline.style.left !== left) outline.style.left = left;
-    requestAnimationFrame(follow);
+    setTimeout(follow, 80);
   };
-  requestAnimationFrame(follow);
+  setTimeout(follow, 80);
   return outline;
 }
 

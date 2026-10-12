@@ -1825,7 +1825,7 @@ async function renderGraph() {
     } finally {
       if (first) {
         canvas.dataset.revealed = "1";
-        requestAnimationFrame(() => requestAnimationFrame(() => canvas.classList.remove("graph-entering")));
+        setTimeout(() => canvas.classList.remove("graph-entering"), 60);
       }
     }
   }

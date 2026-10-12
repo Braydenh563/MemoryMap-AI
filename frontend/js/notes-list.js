@@ -509,7 +509,7 @@ function isRenderableUrl(url) {
   //: An address of this app ("#/notes", "#/notes/12": what the tool answers
   //: link to, `ai/tool_say.py`), only when the router opens it (the owner,
   //: 2026-10-12: "[Open your notes](#/notes)" showed as raw text).
-  if (/^#\//.test(url) && typeof appAddressHash === "function" && appAddressHash(url)) return true;
+  if (/^#\//.test(url) && appAddressHash(url)) return true;
   return /^https?:\/\//i.test(url) || (url.startsWith("/") && !url.startsWith("//"));
 }
 

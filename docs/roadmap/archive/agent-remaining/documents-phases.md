@@ -3,7 +3,7 @@
 Branch `claude/epic-ramanujan-8xocc0`. Port 8793, data dir `/tmp/mm-docs`.
 Sweeps this work is measured by, all of which exit non-zero on failure and
 print their numbers: `doctable.js`, `aiedit.js`, `docnarrow.js`,
-`notesurface.js`, `docexports.js`, `docfallback.js`, plus `cm-notes.js`,
+`notesurface.js`, `docexports.js` (removed 2026-10-12, recoverable from git history), `docfallback.js` (removed 2026-10-12, recoverable from git history), plus `cm-notes.js`,
 `cm-editor.js` and `cm-live.js` as the regression set for the engine. Run them
 before and after touching anything they cover.
 
@@ -38,7 +38,7 @@ commit.
   plus `assets/`), `export.docx` behind the optional python-docx with a 501
   that names it, `docview.docx_to_markdown` and `html_to_markdown` (no
   converter needed), `tests/test_docexport_bundle.py`,
-  `tests/test_docview_import.py`, `scratchpad/ui-sweeps/docexports.js` 6/6.
+  `tests/test_docview_import.py`, `scratchpad/ui-sweeps/docexports.js` (removed 2026-10-12, recoverable from git history) 6/6.
   Left for whoever owns `core/extras.py`: one `Extra(...)` row for
   python-docx so the Word export can point at a button.
 - **The Word writer measured for real.** `99e3bc4`: run once in a scratch
@@ -47,7 +47,7 @@ commit.
   styles, no markdown markers left, the comment as its footnote. What Word
   itself makes of the file is still unverified.
 - **The carried "not verified" lines**, three of them measured. `11a129b`,
-  with `scratchpad/ui-sweeps/docfallback.js` as the new sweep. See the next
+  with `scratchpad/ui-sweeps/docfallback.js` (removed 2026-10-12, recoverable from git history) as the new sweep. See the next
   section.
 - **Next:** the four rows under "Open" below, none of which is in a file this
   agent owns except the first's own factory row.
@@ -60,7 +60,7 @@ from a sweep or a probe, not a reading of the code.
 - **The fallback textarea path** (`docCmBroken`), carried through three
   sessions of this plan as "nothing has been driven in a browser with the
   engine off", and newly load-bearing for Phase 8's note boxes.
-  `scratchpad/ui-sweeps/docfallback.js` refuses `/vendor/codemirror/**` at the
+  `scratchpad/ui-sweeps/docfallback.js` (removed 2026-10-12, recoverable from git history) refuses `/vendor/codemirror/**` at the
   network and drives the app on the other side: 8 of 8 and 0 unexpected console
   errors. The surface is the textarea, `#doc-source-wrap` does not claim
   `has-cm`, the toolbar still writes (`**paragraph**`), the document still

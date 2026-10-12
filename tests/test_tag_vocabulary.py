@@ -11,7 +11,7 @@ vocabulary spreads instead of converging, and the spread is invisible until
 the tag list is long enough to be useless.
 """
 
-from memorymap.ai import librarian
+from tessellate.ai import librarian
 
 
 class _Recorder:

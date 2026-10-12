@@ -16,24 +16,24 @@ import importlib
 
 from sqlalchemy.orm import Session
 
-from memorymap.core.database import Entry
-from memorymap.core.events import suppressed
+from tessellate.core.database import Entry
+from tessellate.core.events import suppressed
 
 def _scratch_entry(session: Session, content: str = "driver note") -> Entry:
     """A throwaway note for a driver to act on, recorded by nobody."""
-    manager = importlib.import_module("memorymap.entry.manager")
+    manager = importlib.import_module("tessellate.entry.manager")
     with suppressed():
         entry = manager.create_entry(session, content, tags=["driver"])
     return entry
 
 
 def _drive_archive_entry(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
+    manager = importlib.import_module("tessellate.entry.manager")
     manager.archive_entry(session, _scratch_entry(session))
 
 
 def _drive_create_entry(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
+    manager = importlib.import_module("tessellate.entry.manager")
     with suppressed():
         # So the category this note lands in already exists: creating it is
         # part of the same event, but the test counts rows, and a category
@@ -43,12 +43,12 @@ def _drive_create_entry(session: Session, entry: Entry) -> None:
 
 
 def _drive_create_link(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
+    manager = importlib.import_module("tessellate.entry.manager")
     manager.create_link(session, entry, _scratch_entry(session, "link target"))
 
 
 def _document_for(session: Session):
-    from memorymap.core.database import Document
+    from tessellate.core.database import Document
 
     document = Document(title="driver document", content="")
     session.add(document)
@@ -57,12 +57,12 @@ def _document_for(session: Session):
 
 
 def _drive_link_document(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
+    manager = importlib.import_module("tessellate.entry.manager")
     manager.link_document(session, _document_for(session).id, entry.id)
 
 
 def _drive_unlink_document(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
+    manager = importlib.import_module("tessellate.entry.manager")
     document = _document_for(session)
     with suppressed():
         manager.link_document(session, document.id, entry.id)
@@ -70,7 +70,7 @@ def _drive_unlink_document(session: Session, entry: Entry) -> None:
 
 
 def _drive_purge_entries(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
+    manager = importlib.import_module("tessellate.entry.manager")
     doomed = [_scratch_entry(session, "purge me"), _scratch_entry(session, "purge me too")]
     with suppressed():
         for one in doomed:
@@ -81,9 +81,9 @@ def _drive_purge_entries(session: Session, entry: Entry) -> None:
 def _drive_purge_expired_deleted(session: Session, entry: Entry) -> None:
     from datetime import timedelta
 
-    from memorymap.core.database import utcnow
+    from tessellate.core.database import utcnow
 
-    manager = importlib.import_module("memorymap.entry.manager")
+    manager = importlib.import_module("tessellate.entry.manager")
     expired = _scratch_entry(session, "binned long ago")
     with suppressed():
         manager.soft_delete_entry(session, expired)
@@ -93,17 +93,17 @@ def _drive_purge_expired_deleted(session: Session, entry: Entry) -> None:
 
 
 def _drive_record_dates(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
+    manager = importlib.import_module("tessellate.entry.manager")
     manager.record_dates(session, _scratch_entry(session, "the deadline is tomorrow"))
 
 
 def _drive_record_revision(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
+    manager = importlib.import_module("tessellate.entry.manager")
     manager.record_revision(session, _scratch_entry(session, "a version worth keeping"))
 
 
 def _drive_restore_entry(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
+    manager = importlib.import_module("tessellate.entry.manager")
     binned = _scratch_entry(session, "back from the bin")
     with suppressed():
         manager.soft_delete_entry(session, binned)
@@ -111,12 +111,12 @@ def _drive_restore_entry(session: Session, entry: Entry) -> None:
 
 
 def _drive_soft_delete_entry(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
+    manager = importlib.import_module("tessellate.entry.manager")
     manager.soft_delete_entry(session, _scratch_entry(session, "into the bin"))
 
 
 def _drive_unarchive_entry(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
+    manager = importlib.import_module("tessellate.entry.manager")
     archived = _scratch_entry(session, "out of the archive")
     with suppressed():
         manager.archive_entry(session, archived)
@@ -124,12 +124,12 @@ def _drive_unarchive_entry(session: Session, entry: Entry) -> None:
 
 
 def _drive_record_filing(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
+    manager = importlib.import_module("tessellate.entry.manager")
     manager.record_filing(session, _scratch_entry(session), "Filed by the driver")
 
 
 def _drive_update_entry(session: Session, entry: Entry) -> None:
-    manager = importlib.import_module("memorymap.entry.manager")
+    manager = importlib.import_module("tessellate.entry.manager")
     manager.update_entry(session, _scratch_entry(session), content="edited by the driver")
 
 

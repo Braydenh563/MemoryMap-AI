@@ -1,7 +1,9 @@
-# MemoryMap AI: read this first
+# Tessellate: read this first
 
-A 100% offline, local-first notebook where a local AI files your notes and
-answers questions about them. Python and FastAPI backend, vanilla JS
+Tessellate (formerly MemoryMap AI; the package, env vars and data folder
+keep the old name where existing installs depend on it) is a 100% offline,
+local-first notebook where a local AI files your notes and answers
+questions about them. Python and FastAPI backend, vanilla JS
 frontend, SQLite. No build step: `frontend/js/*.js` and `frontend/css/*.css`
 are served as-is.
 
@@ -64,7 +66,8 @@ disagree, the most recent dated entry wins.
    be cut from an old base and a reset is refused. It commits per step and
    at least every 20 minutes, so a usage limit never loses work, and writes
    its remaining list before stopping. The orchestrator merges, gates and
-   pushes.
+   pushes. Every brief begins with `docs/roadmap/agent-remaining/agent_common.md`
+   and the `orient` skill.
 5. **Quality does not drop with the model.** Tests first, measure before
    claiming, one commit per step, push per batch, five-line reports
    (status, commits, numbers, not verified, found-not-fixed).
@@ -160,7 +163,7 @@ reported broken, reproduce it before theorising, and say plainly when you
 could not.
 
 For real-model checks, `scratchpad/llama-dev.sh serve` starts a small local
-model and prints `MEMORYMAP_EVALS_URL` and `MEMORYMAP_EVALS_MODEL`;
+model and prints `TESSELLATE_EVALS_URL` and `TESSELLATE_EVALS_MODEL`;
 `pytest -m evals` then runs the tests that need one. Without those variables
 every `evals` test is skipped, and `tests/test_skills_evals.py` asserts the
 suite and `scripts/gate.sh` never reach for the script.
@@ -173,8 +176,8 @@ suite and `scripts/gate.sh` never reach for the script.
 # on the same shell line.
 bash scratchpad/ui-sweeps/serve.sh 8781 /tmp/mm-me
 # or:
-setsid env PYTHONPATH=src MEMORYMAP_DATA_DIR=<scratch>/appdata \
-    .venv/bin/python -m uvicorn memorymap.api.app:create_app \
+setsid env PYTHONPATH=src TESSELLATE_DATA_DIR=<scratch>/appdata \
+    .venv/bin/python -m uvicorn tessellate.api.app:create_app \
     --factory --port 8781 > <scratch>/server.log 2>&1 < /dev/null &
 # then drive it: node script.js, requiring
 # /opt/node22/lib/node_modules/playwright, with PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers
@@ -203,7 +206,7 @@ Password `testpassword123`; `THEME=dark` for dark.
 - Restart the server after any Python change: a stale uvicorn is why a
   correct fix "did not work" twice.
 - Local `css`/`js` URLs are stamped `?v=<version>-<file hash>` (`_stamp_for`
-  in `src/memorymap/api/app.py`; `tests/test_asset_cache_busting.py`), so
+  in `src/tessellate/api/app.py`; `tests/test_asset_cache_busting.py`), so
   the persistent desktop webview profile always fetches edited files. A
   report that keeps coming back on a current head is a real bug or a bad
   interaction shape, not a cache: reproduce it.
@@ -254,6 +257,9 @@ here is new" is a fact rather than a guess.
   `app_js_text()` from `tests/_app_js.py`, never `frontend/js/app.js`
   (now only the head: api, auth, the lazy loader).
   `grep -n "^function name" frontend/js/*.js` finds a function's file.
+  `docs/CODEMAP.md` lists every function, id, route, CSS section, module,
+  test file and plan heading as `name | file:line`; `python scripts/codemap.py`
+  regenerates it, and `tests/test_codemap_fresh.py` fails when it is stale.
 - These lints exist because the suite cannot see the DOM:
   `test_style_scale.py`, `test_ui_signatures.py`, `test_css_braces.py`,
   `test_frontend_ids.py`, `test_frontend_handlers.py`, `test_dock_grammar.py`,

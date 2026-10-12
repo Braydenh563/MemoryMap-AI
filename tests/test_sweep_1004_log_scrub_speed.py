@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import time
 
-from memorymap.core import logbuffer
+from tessellate.core import logbuffer
 
 
 def test_a_long_run_of_slashes_after_a_question_mark_is_not_quadratic():

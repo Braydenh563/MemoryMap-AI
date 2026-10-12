@@ -55,7 +55,7 @@ def test_ui_state_does_not_disturb_other_preferences(client):
 @pytest.mark.parametrize(
     "bad",
     [
-        {f"key{n}": "x" for n in range(61)},        # too many keys
+        {f"key{n}": "x" for n in range(81)},        # too many keys
         {"theme": "x" * 401},                        # one value too long
         {"k" * 41: "dark"},                          # one key too long
     ],
@@ -80,7 +80,7 @@ def test_the_frontend_watches_the_keys_it_promises_to(client):
     extras = re.search(r"const MIRRORED_UI_EXTRAS = \[(.*?)\];", source, re.S)
     assert extras, "MIRRORED_UI_EXTRAS not found in app.js"
     assert "onboardingDone" in extras.group(1)
-    assert "return [...LOOK_KEYS, ...MIRRORED_UI_EXTRAS];" in source, (
+    assert "return [...LOOK_KEYS, ...MIRRORED_UI_EXTRAS].filter(" in source, (
         "the appearance half of the watched list must be derived from "
         "LOOK_KEYS rather than re-typed"
     )

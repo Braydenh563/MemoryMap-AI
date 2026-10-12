@@ -44,7 +44,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 
-from memorymap.api.app import create_app  # noqa: E402
+from tessellate.api.app import create_app  # noqa: E402
 from probe_dead_routes import routes  # noqa: E402
 
 #: `api(...)`, `apiJson(...)` and `fetch(...)` with a literal or a template

@@ -128,10 +128,10 @@ def test_a_chat_turn_hands_over_all_of_its_prose_blocks(app_js):
     that need them most.
     """
     assert 'querySelector(".bubble-answer")' not in app_js
-    #: Six: the three citation sites, the live one that numbers sources while
-    #: the answer streams (`placeLiveCitations`), and the two that place
-    #: figures (INBOX 526).
-    assert app_js.count('querySelectorAll(".bubble-answer")') == 6
+    #: Seven: the three citation sites, the live one that numbers sources while
+    #: the answer streams (`placeLiveCitations`), the two that place figures
+    #: (INBOX 526) and the digest offer's.
+    assert app_js.count('querySelectorAll(".bubble-answer")') == 7
 
 
 def test_the_live_renderer_is_stopped_before_the_markers_go_in(app_js):
@@ -162,7 +162,8 @@ def test_a_sentence_split_across_markup_is_still_found(app_js):
     half a sentence, which was the reason the old rule gave for skipping."""
     body = app_js.split("const CITATION_WORD_CHAR")[1].split("\nfunction citationMarker(")[0]
     assert "NodeFilter.SHOW_TEXT" in body
-    assert "citationKey(g.sentence)" in body, "sentences are compared on letters and digits"
+    #: `anchor` (6bf818a45): the words a mark follows when it sits mid-sentence.
+    assert "citationKey(g.anchor || g.sentence)" in body, "sentences are compared on letters and digits"
     assert "index.at[start + key.length - 1]" in body, "the marker goes after the last letter"
 
 

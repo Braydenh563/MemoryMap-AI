@@ -1,0 +1,35 @@
+/* quickadd-lazy.css: the chips under a field that say how its words were
+   read (quickadd.js, CHAT_PLAN decision 50), loaded with that file rather
+   than at boot. One row under the field, wrapping, the chips quiet (the tag
+   chip's ground: a reading of the words, not something typed), the one
+   question after them in the status line's ink. */
+.qa-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+  min-width: 0;
+}
+
+/* A chip switched off keeps its place, struck through, so pressing it again
+   is where the pointer already is. */
+.qa-chip.is-off {
+  text-decoration: line-through;
+  background: transparent;
+}
+
+.qa-ask {
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+/* A finger's chip: each chip's hit target is `--target-min` tall (the
+   `.chip-interactive::after` overhang), so wrapped rows and the field above
+   keep that much apart and no tap lands on two (touch.js, question 3). */
+@media (pointer: coarse) {
+  .qa-chips {
+    row-gap: calc(var(--target-min) - 1.5rem);
+    margin-top: calc((var(--target-min) - 1.5rem) / 2);
+  }
+}

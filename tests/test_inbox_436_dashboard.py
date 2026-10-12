@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from memorymap.ai import help_chat
+from tessellate.ai import help_chat
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
@@ -60,7 +60,10 @@ def test_the_dock_is_the_search_customise_and_one_menu():
     #: every tab's dock ends with one).
     assert 'id="dash-help-toggle"' in dock
     assert len(re.findall(r"<button\b", dock)) == 2, "the dock is the search, two menus and the '?', nothing else"
-    assert "kebabMenu(" not in _function("renderQuickLinks"), "Quick access has its own ⋯ again"
+    #: The owner (2026-10-10): a meatball on the heading's line, the same
+    #: Customise rows; nothing of its own below the heading.
+    quick = _function("renderQuickLinks")
+    assert quick.count("kebabMenu(") == 1 and "head.append(heading, kebabMenu(dashCustomiseItems()" in quick
 
 
 def test_the_start_row_is_kept_whole_with_one_primary():
@@ -117,7 +120,9 @@ def test_edit_mode_is_a_line_above_the_grid_with_its_way_out():
 
 
 def test_the_empty_notebook_card_draws_no_second_emblem():
-    card = _function("gettingStartedCard")
+    #: The card is the first steps now (first-run.js, WORLD_CLASS_PLAN 25c).
+    steps = (ROOT / "frontend" / "js" / "first-run.js").read_text(encoding="utf-8")
+    card = steps[steps.index("function firstStepsCard(") :].split("\n}\n")[0]
     assert "renderEmblem(" not in card and "emblem-centred" not in card
 
 

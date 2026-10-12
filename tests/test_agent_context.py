@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import json
 
-from memorymap.ai import agent
+from tessellate.ai import agent
 
 
 class _Session:

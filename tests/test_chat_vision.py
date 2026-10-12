@@ -68,7 +68,7 @@ def test_a_vision_only_question_is_not_treated_as_no_matching_notes(
     also exercises the caption-relay path's own version of the same guard
     (`image_context`), an explicit vision_model still has to be set for a
     caption to be producible at all, same as any other caption-relay test."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     deps.get_model_manager().set_vision_model("llava:latest")
     media_id = _upload_image(ai_client, monkeypatch)
@@ -149,7 +149,7 @@ def test_a_non_vision_chat_model_gets_a_caption_instead_of_the_raw_image(
     model reads as unable to see - the explicit vision_model preference
     still resolves one for captioning, same as `resolve_vision_model`
     always has."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     deps.get_model_manager().set_vision_model("llava:latest")
     media_id = _upload_image(ai_client, monkeypatch)
@@ -172,7 +172,7 @@ def test_an_already_captioned_image_is_not_captioned_twice(ai_client, fake_ollam
     """caption_and_store's own write-once rule (core/captioning.py): a
     caption already on the upload from the background trigger must be
     reused, not regenerated, on every chat turn that references it."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     deps.get_model_manager().set_vision_model("llava:latest")
     media_id = _upload_image(ai_client, monkeypatch)
@@ -191,7 +191,7 @@ def test_a_question_with_no_image_still_uses_the_ordinary_chat_model(
 ):
     """A vision preference must never leak onto a turn that has no image,
     even with one explicitly configured."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     deps.get_model_manager().set_vision_model("llama3.2-vision")
     note_id = ai_client.post("/entries", json={"content": "leftover pasta"}).json()["id"]

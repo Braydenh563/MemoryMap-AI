@@ -52,7 +52,7 @@ def test_capture_clears_the_title_the_tags_and_the_staged_files_and_undo_returns
 
 
 def test_undo_is_the_toast_recipe_or_the_status_line_under_a_dialog() -> None:
-    assert 'toastAction("Cleared.", "Undo", undo)' in JS
+    assert 'toastAction("Cleared.", "Undo", () => { settleUndoFromToast(step); undo(); })' in JS
     # A modal dialog and the agent's overlay are drawn above the toasts.
     assert 'status: "quick-note-status"' in JS and 'status: "command-palette-status"' in JS
 

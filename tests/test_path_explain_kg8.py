@@ -9,7 +9,7 @@ same sentences the link suggestions use.
 
 from __future__ import annotations
 
-from memorymap.ai.relations import NoteFacts, explain_pair
+from tessellate.ai.relations import NoteFacts, explain_pair
 
 
 def test_one_pair_explained_by_entities_neighbours_and_tags():
@@ -33,7 +33,7 @@ def _note(client, content, tags=()):
 
 
 def _mention(session, name, *entry_ids):
-    from memorymap.core.database import Entity, EntityMention
+    from tessellate.core.database import Entity, EntityMention
 
     entity = Entity(name=name)
     session.add(entity)
@@ -57,7 +57,7 @@ def test_a_path_step_carries_the_other_reasons(client, session):
 
 
 def test_a_private_end_explains_nothing(client, session):
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     a = _note(client, "Glaze trial", ["glazelab"])
     b = _note(client, "Firing log", ["glazelab"])

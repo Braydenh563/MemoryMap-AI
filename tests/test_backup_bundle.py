@@ -12,7 +12,7 @@ import zipfile
 
 import pytest
 
-from memorymap.core import backup_bundle, deps
+from tessellate.core import backup_bundle, deps
 
 
 def _notes(client):

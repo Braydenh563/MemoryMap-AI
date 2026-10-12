@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
-import memorymap.api.app as app_module
+import tessellate.api.app as app_module
 
 
 def _app_without_frontend_mount(tmp_path, monkeypatch):
@@ -76,7 +76,7 @@ def test_an_unhandled_exception_becomes_json_500_with_a_ref(app_state, tmp_path,
 
     assert response.status_code == 500
     body = response.json()
-    assert body["detail"].startswith("Something went wrong inside MemoryMap.")
+    assert body["detail"].startswith("Something went wrong inside Tessellate.")
     assert body["code"] == "internal"
     # A real, unique reference, not echoed traceback text, and nothing of
     # the actual exception (message, file paths, line numbers) anywhere in

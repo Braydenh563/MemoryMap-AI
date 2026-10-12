@@ -6,7 +6,7 @@ import sqlite3
 
 import pytest
 
-from memorymap.core import backup, deps
+from tessellate.core import backup, deps
 
 
 def _save(client, content, **extra):
@@ -179,6 +179,27 @@ def test_backup_if_due_skips_recent(app_state):
     assert backup.backup_if_due(config.db_path, config.data_dir) is None  # too soon
 
 
+def test_every_start_holds_the_folder_to_the_retention_number(app_state):
+    """The owner, 2026-10-11: four backups listed under a limit of three. The
+    copy before a migration is taken without the notebook's preference, so
+    the start-up housekeeping prunes even on a day no backup is due."""
+    import os
+
+    from tessellate.api import app as app_module
+
+    config = deps.get_config()
+    config.db_path.touch()
+    config.set_preference("backup_retention_count", 3)
+    folder = backup.backups_dir(config.data_dir)
+    folder.mkdir(parents=True, exist_ok=True)
+    for i in range(5):
+        path = folder / f"memorymap-2026100{i + 1}-010000.db"
+        path.write_bytes(b"x")
+        os.utime(path, (1_790_000_000 + i, 1_790_000_000 + i))
+    app_module._backup_if_due()
+    assert len(backup.list_backups(config.data_dir)) == 3
+
+
 def test_a_backup_that_runs_out_of_space_leaves_nothing_named_like_a_backup(app_state):
     """Measured, then fixed: a full disk used to leave a fake backup behind.
 
@@ -237,7 +258,7 @@ def test_an_empty_file_is_never_offered_or_restored_as_a_backup(app_state):
     folder = backup.backups_dir(config.data_dir)
     # The fixture's own startup backup would answer "there is a recent one"
     # on its own, which is the thing this test has to ask the empty file.
-    for stale in folder.glob("memorymap-*.db"):
+    for stale in folder.glob("tessellate-*.db"):
         stale.unlink()
     empty = folder / "memorymap-29991231-235959.db"
     empty.touch()

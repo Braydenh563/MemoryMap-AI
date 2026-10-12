@@ -26,11 +26,24 @@ function askChartSvgEl(name, attrs = {}) {
   return el;
 }
 
-//: Round numbers for the axis: 0 and the top, and a middle when there is room.
+//: Round numbers for the axis: a step of 1, 2, 2.5 or 5 times a power of ten
+//: (2.5 only from 25 up, so a count never ticks at a fraction), at most four
+//: steps, the last at or above the top. A step of max / 4 put 310, 620 and
+//: 930 on a 0 to 1,240 axis.
 function askChartTicks(max) {
   if (max <= 4) return Array.from({ length: max + 1 }, (_, i) => i);
-  const step = Math.ceil(max / 4);
-  return [0, step, step * 2, step * 3, step * 4];
+  const raw = max / 4;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((s) => s >= raw && Number.isInteger(s));
+  const out = [];
+  for (let tick = 0; tick < max + step; tick += step) out.push(tick);
+  return out;
+}
+
+//: The axis is 36 of the chart's 640 units: four digits fit beside it, five
+//: do not, so ten thousand and up is said in thousands.
+function askChartTickLabel(tick) {
+  return tick >= 10000 ? `${Math.round(tick / 1000)}k` : String(tick);
 }
 
 function askChartLabel(chart, label) {
@@ -58,7 +71,7 @@ function askChartSvg(chart) {
   for (const tick of ticks) {
     svg.appendChild(askChartSvgEl("line", { x1: pl, x2: ASK_CHART_W - pr, y1: y(tick), y2: y(tick), class: "ask-chart-grid" }));
     const text = askChartSvgEl("text", { x: pl - 6, y: y(tick) + 4, "text-anchor": "end", class: "ask-chart-axis" });
-    text.textContent = String(tick);
+    text.textContent = askChartTickLabel(tick);
     svg.appendChild(text);
   }
   const slot = plotW / Math.max(1, rows.length);
@@ -103,7 +116,9 @@ function askChartTable(chart) {
   const table = document.createElement("table");
   table.className = "ask-chart-table";
   const head = table.createTHead().insertRow();
-  for (const name of [{ category: "Category", tag: "Tag" }[chart.by] || "When", "Notes"]) {
+  //: `columns` names a chart that is not notes counted (the Statistics
+  //: page's Most used: a feature and its uses).
+  for (const name of chart.columns || [{ category: "Category", tag: "Tag" }[chart.by] || "When", "Notes"]) {
     const th = document.createElement("th");
     th.scope = "col";
     th.textContent = name;
@@ -174,7 +189,13 @@ async function renderAskChart(question, host, isCurrent = () => true) {
     //: (`backgroundWriteFailed`), and the answer above it stands alone.
   }).catch(backgroundWriteFailed);
   if (!isCurrent()) return;
-  const chart = answer && answer.chart;
+  drawAskChart(host, answer && answer.chart);
+}
+
+//: The drawing alone, from a chart object: the Ask box's fetched one above,
+//: and a Chat answer's bar of counts (CHAT_PLAN decision 59, step 2: a
+//: `chart` stream event from `realise.chart`, drawn by chat-attach.js).
+function drawAskChart(host, chart) {
   if (!chart || !chart.rows || !chart.rows.length) {
     host.replaceChildren();
     host.classList.add("hidden");
@@ -187,8 +208,9 @@ async function renderAskChart(question, host, isCurrent = () => true) {
   title.textContent = chart.title;
   const total = document.createElement("span");
   total.className = "muted text-sm";
-  if (chart.total != null) total.textContent = `${chart.total.toLocaleString()} in all, from your notes`;
-  else total.textContent = "From your notes";
+  const source = chart.source || "from your notes";
+  if (chart.total != null) total.textContent = `${chart.total.toLocaleString()} in all, ${source}`;
+  else total.textContent = source[0].toUpperCase() + source.slice(1);
   const svg = askChartSvg(chart);
   const save = smallButton("ph:download-simple Save as PNG", "Save this chart as a picture", () =>
     askChartPng(svg, chart.title).catch((error) => toast(error.message, true))

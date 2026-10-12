@@ -10,13 +10,13 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from tests._app_js import app_js_text
+from tests._app_js import app_js_text, with_pieces
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = app_js_text()
-SHEETS = (ROOT / "frontend" / "js" / "sheets-selects.js").read_text(encoding="utf-8")
+SHEETS = with_pieces("sheets-selects.js")
 CSS = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
-SETTINGS_JS = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
+SETTINGS_JS = with_pieces("settings.js")
 INDEX_HTML = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
 
 
@@ -123,7 +123,8 @@ def test_the_rotation_only_starts_in_the_enhanced_motion_branch() -> None:
 
 def test_rotation_is_gated_by_the_settings_toggle() -> None:
     body = _typing_dots_body()
-    assert "words && typeof wantsThinkingWords" in body
+    #: Unguarded since Brief 86 dropped the redundant typeof guards on eager-file functions.
+    assert "words && wantsThinkingWords()" in body and "typeof wantsThinkingWords" not in body
     assert "wantsThinkingWords()" in body
 
 
@@ -214,7 +215,7 @@ def test_the_checkbox_renders_from_and_saves_to_local_storage_not_the_server() -
     assert '$("pref-show-thinking-words").checked = appearancePref("show-thinking-words") !== "off";' in SETTINGS_JS
     change = SETTINGS_JS[SETTINGS_JS.index('$("pref-show-thinking-words")?.addEventListener("change"') :]
     change = change[: change.index("});") + 3]
-    assert 'localStorage.setItem("show-thinking-words"' in change
+    assert 'prefs.set("show-thinking-words"' in change
     assert "apiJson" not in change, "this is a localStorage setting, not a /preferences field"
 
 

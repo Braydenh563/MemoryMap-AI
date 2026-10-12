@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.core import vault
-from memorymap.core.database import Entity, EntityMention, Entry
+from tessellate.core import vault
+from tessellate.core.database import Entity, EntityMention, Entry
 
 
 @pytest.fixture(autouse=True)

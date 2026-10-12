@@ -24,7 +24,7 @@ def test_reports_the_ocr_family_model_not_a_generic_vision_one(ai_client, fake_o
 
 
 def test_an_explicit_ocr_model_preference_wins(ai_client, fake_ollama):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     fake_ollama.installed = [{"name": "llava:latest"}, {"name": "some-ocr-model:latest"}]
     fake_ollama.capabilities_declared = ["vision"]

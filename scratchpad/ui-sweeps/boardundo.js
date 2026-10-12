@@ -168,6 +168,44 @@ function check(label, ok, detail) {
   await open(board.id);
   check("the board after a reload is the board before", (await boardState()) === boardBefore, await boardState());
 
+  // Brief 77 row 3: an agent's write (straight to the server, as a chat tool
+  // writes, then the stream's `mm:board-changed`) is one step on the stack.
+  const depth = () => page.evaluate(() => wbUndoStack.length);
+  const d0 = await depth();
+  await page.evaluate(async (b) => {
+    await fetch("/whiteboard/objects", { method: "POST", headers: { "Content-Type": "application/json", "X-Auth-Token": authToken(), "X-Workspace-ID": activeSpaceId() },
+      body: JSON.stringify({ kind: "text", data: { content: "Agent" }, board_id: b, x: 700, y: 100, z: 1, width: 160, height: 80 }) });
+    document.dispatchEvent(new CustomEvent("mm:board-changed", { detail: { source: "Atlas" } }));
+  }, board.id);
+  await page.waitForFunction(() => /^Atlas/.test(wbUndoStack[wbUndoStack.length - 1]?.label || ""), null, { timeout: 5000 }).catch(() => {});
+  const agentLabel = await page.evaluate(() => wbUndoStack[wbUndoStack.length - 1]?.label || "");
+  const agentDepth = (await depth()) - d0;
+  await undo();
+  await page.waitForTimeout(600);
+  check("an agent's change is one Undo step, and Undo takes it back", agentDepth === 1 && /^Atlas changed 1 item$/.test(agentLabel) && (await boardState()) === boardBefore,
+    `${agentDepth} ${agentLabel} ${await boardState()}`);
+
+  // And another tab's: a second page on the same board writes; this one hears.
+  const other = await page.context().newPage();
+  await other.goto(page.url(), { waitUntil: "domcontentloaded" });
+  await other.waitForFunction(() => typeof apiJson === "function" && localStorage.getItem("token"), null, { timeout: 15000 });
+  const d1 = await depth();
+  await other.evaluate(async (b) => {
+    await ensureModule("library");
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    for (let i = 0; i < 100 && typeof wbTakeChangeFromElsewhere !== "function"; i++) await wait(100);
+    window.currentBoardId = b;
+    await apiJson("/whiteboard/objects", { method: "POST", body: JSON.stringify({ kind: "text", data: { content: "Tab" }, board_id: b, x: 900, y: 100, z: 1, width: 160, height: 80 }) });
+  }, board.id).catch((e) => console.log("other tab:", e.message));
+  await page.waitForFunction(() => /^Another tab/.test(wbUndoStack[wbUndoStack.length - 1]?.label || ""), null, { timeout: 5000 }).catch(() => {});
+  const tabLabel = await page.evaluate(() => wbUndoStack[wbUndoStack.length - 1]?.label || "");
+  const tabDepth = (await depth()) - d1;
+  await undo();
+  await page.waitForTimeout(600);
+  check("another tab's change is one Undo step, and Undo takes it back", tabDepth === 1 && /^Another tab changed 1 item$/.test(tabLabel) && (await boardState()) === boardBefore,
+    `${tabDepth} ${tabLabel} ${await boardState()}`);
+  await other.close();
+
   // Back to the map: its history waited for it.
   await open(map.id);
   check("the map's history is still there after visiting another board", await page.evaluate(() => wbCanUndo()));

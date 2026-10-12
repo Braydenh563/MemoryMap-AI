@@ -16,7 +16,7 @@ import time
 
 import pytest
 
-from memorymap.core import deps, embedfind, embedmodels, embedswitch
+from tessellate.core import deps, embedfind, embedmodels, embedswitch
 from tests.fakes import FakeEmbeddingService
 
 

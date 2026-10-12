@@ -5,7 +5,7 @@ Measured at 5,000 notes before this: `POST /entries` 1.7 s p50 for a
 at 40 notes to 1 a second at 750. The profile named two pieces of Python that
 read the whole notebook on every save:
 
-- `lexical_filing.suggest_tags` read up to 4,000 notes' full text and
+- `tagging.suggest` read up to 4,000 notes' full text and
   tokenised every one of them to rebuild TF-IDF from scratch (490 ms at 610
   notes);
 - `janitor._best_centroid_match` loaded every stored vector as a blob and
@@ -29,12 +29,12 @@ import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 
-from memorymap.ai import embeddings as embeddings_module
-from memorymap.ai import janitor, lexical_filing
-from memorymap.ai.embeddings import vector_to_bytes
-from memorymap.core import deps
-from memorymap.core.database import Category, EmbeddingRecord, Entry
-from memorymap.search import engine as search_engine
+from tessellate.ai import embeddings as embeddings_module
+from tessellate.ai import janitor, lexical_filing, tagging
+from tessellate.ai.embeddings import vector_to_bytes
+from tessellate.core import deps
+from tessellate.core.database import Category, EmbeddingRecord, Entry
+from tessellate.search import engine as search_engine
 from tests.fakes import FakeEmbeddingService, FakeOllama
 
 #: Notes seeded before the measured save. Large enough that one read per
@@ -47,7 +47,7 @@ BOUND = 40
 @pytest.fixture()
 def no_model_client(app_state):
     """Embeddings up, no chat model: the path where filing is by meaning."""
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     deps.override_ai(ollama=FakeOllama(running=False), embeddings=FakeEmbeddingService(available=True))
     return TestClient(create_app())
@@ -119,7 +119,9 @@ def test_tag_suggestions_follow_an_edit_without_a_rebuild(no_model_client):
     no_model_client.post("/entries", json={"content": "sourdough loaf crumb and starter", "tags": ["baking"]})
     no_model_client.put(f"/entries/{first['id']}", json={"tags": ["bread"]})
     with deps.get_db().session() as session:
-        suggested = lexical_filing.suggest_tags(session, "starter for the sourdough", have=[])
+        #: The note says both tags' words: a tag it has no word for is never
+        #: offered (WORLD_CLASS 23, decision 5).
+        suggested = tagging.suggest(session, "starter for the sourdough bread, a baking day", have=[])
     assert "bread" in suggested and "baking" in suggested
 
 
@@ -158,6 +160,6 @@ def test_the_lexical_pass_never_reads_a_private_note(app_state):
             Entry(content="squats secretword", category_id=category.id, tags='["secrettag"]', is_private=True)
         )
         session.commit()
-        suggested = lexical_filing.suggest_tags(session, "squats and secretword", have=[])
+        suggested = tagging.suggest(session, "squats, lifting and secretword", have=[])
     assert "secrettag" not in suggested
     assert "lifting" in suggested

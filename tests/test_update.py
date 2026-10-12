@@ -13,7 +13,7 @@ import time
 
 import pytest
 
-from memorymap.api import routes_update
+from tessellate.api import routes_update
 
 
 @pytest.fixture(autouse=True)
@@ -57,14 +57,14 @@ RELEASE_WITH_ASSET = {
     "tag_name": "v9.9.9",
     "assets": [
         {
-            "name": "MemoryMap-AI-Setup-9.9.9.exe",
+            "name": "Tessellate-Setup-9.9.9.exe",
             # A real release link: `_download_url_is_allowed` refuses anything that
             # is not one of this app's own release hosts, so a fixture
             # pointing at example.com would exercise the refusal rather than
             # the apply path it means to test.
             "browser_download_url": (
-                "https://github.com/Braydenh563/MemoryMap-AI/releases/download"
-                "/v9.9.9/MemoryMap-AI-Setup-9.9.9.exe"
+                "https://github.com/Braydenh563/Tessellate/releases/download"
+                "/v9.9.9/Tessellate-Setup-9.9.9.exe"
             ),
             "size": 12,
         }
@@ -273,12 +273,12 @@ def test_a_successful_apply_downloads_then_launches_the_official_installer_only(
     command = popen_calls[0][0]
     # Never anything but the asset this release actually named, no path or
     # URL a request body could have influenced reaches subprocess.Popen.
-    assert command[0].endswith("MemoryMap-AI-Setup-9.9.9.exe")
+    assert command[0].endswith("Tessellate-Setup-9.9.9.exe")
     assert "/VERYSILENT" in command
     assert "/NORESTART" in command
     # The app exits for the installer, so the installer reopens it.
     assert "/RELAUNCH=1" in command
-    downloaded = tmp_path / "MemoryMap-AI-Setup-9.9.9.exe"
+    downloaded = tmp_path / "Tessellate-Setup-9.9.9.exe"
     assert downloaded.read_bytes() == b"MZ-fake-installer-bytes"
 
 
@@ -304,8 +304,8 @@ def test_an_asset_pointing_off_the_release_hosts_is_never_downloaded(
         "tag_name": "v9.9.9",
         "assets": [
             {
-                "name": "MemoryMap-AI-Setup-9.9.9.exe",
-                "browser_download_url": "https://updates.example.com/MemoryMap-AI-Setup-9.9.9.exe",
+                "name": "Tessellate-Setup-9.9.9.exe",
+                "browser_download_url": "https://updates.example.com/Tessellate-Setup-9.9.9.exe",
                 "size": 12,
             }
         ],
@@ -341,10 +341,10 @@ def test_an_asset_pointing_off_the_release_hosts_is_never_downloaded(
 
 
 def test_the_allowed_hosts_are_https_only():
-    from memorymap.api.routes_update import _download_url_is_allowed
+    from tessellate.api.routes_update import _download_url_is_allowed
 
     assert _download_url_is_allowed(
-        "https://objects.githubusercontent.com/x/MemoryMap-AI-Setup-1.0.0.exe"
+        "https://objects.githubusercontent.com/x/Tessellate-Setup-1.0.0.exe"
     )
     # http, even to the right host: the bytes become an executable, so a
     # downgrade is the same hole with an extra step.
@@ -366,7 +366,7 @@ def test_a_redirect_to_another_allowed_host_is_followed(client, app_state, monke
     monkeypatch.setattr(routes_update.sys, "platform", "win32")
     monkeypatch.setattr(routes_update.sys, "frozen", True, raising=False)
 
-    redirect_target = "https://objects.githubusercontent.com/x/MemoryMap-AI-Setup-9.9.9.exe"
+    redirect_target = "https://objects.githubusercontent.com/x/Tessellate-Setup-9.9.9.exe"
 
     def _fake_get(url, **kwargs):
         if "releases/latest" in url:
@@ -392,7 +392,7 @@ def test_a_redirect_to_another_allowed_host_is_followed(client, app_state, monke
 
     state = routes_update.current()
     assert state["outcome"] == "launched"
-    downloaded = tmp_path / "MemoryMap-AI-Setup-9.9.9.exe"
+    downloaded = tmp_path / "Tessellate-Setup-9.9.9.exe"
     assert downloaded.read_bytes() == b"MZ-real-installer"
 
 
@@ -407,7 +407,7 @@ def test_a_redirect_off_the_allowed_hosts_is_refused(client, app_state, monkeypa
     monkeypatch.setattr(routes_update.sys, "platform", "win32")
     monkeypatch.setattr(routes_update.sys, "frozen", True, raising=False)
 
-    evil = "https://evil.example.com/MemoryMap-AI-Setup-9.9.9.exe"
+    evil = "https://evil.example.com/Tessellate-Setup-9.9.9.exe"
     fetched = []
 
     def _fake_get(url, **kwargs):
@@ -515,10 +515,10 @@ def test_apply_with_a_specific_tag_hits_the_tagged_release_not_latest(
         "tag_name": "v8.8.8",
         "assets": [
             {
-                "name": "MemoryMap-AI-Setup-8.8.8.exe",
+                "name": "Tessellate-Setup-8.8.8.exe",
                 "browser_download_url": (
-                    "https://github.com/Braydenh563/MemoryMap-AI/releases/download"
-                    "/v8.8.8/MemoryMap-AI-Setup-8.8.8.exe"
+                    "https://github.com/Braydenh563/Tessellate/releases/download"
+                    "/v8.8.8/Tessellate-Setup-8.8.8.exe"
                 ),
                 "size": 12,
             }
@@ -703,7 +703,7 @@ def test_check_finds_an_update_and_reports_the_windows_asset(client, app_state, 
     assert body["checked"] is True
     assert body["update_available"] is True
     assert body["can_auto_apply"] is True
-    assert body["asset"]["name"] == "MemoryMap-AI-Setup-9.9.9.exe"
+    assert body["asset"]["name"] == "Tessellate-Setup-9.9.9.exe"
 
 
 def test_check_never_offers_auto_apply_off_a_source_build(client, app_state, monkeypatch):

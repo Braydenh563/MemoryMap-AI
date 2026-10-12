@@ -24,8 +24,8 @@ JS = Path(__file__).resolve().parent.parent / "frontend" / "js"
 
 
 def test_picture_alts_come_from_the_caption_then_the_reading(session):
-    from memorymap.api.routes_chat import _picture_alts
-    from memorymap.core.database import Entry, MediaUpload
+    from tessellate.api.routes_chat import _picture_alts
+    from tessellate.core.database import Entry, MediaUpload
 
     session.add_all(
         [
@@ -46,7 +46,7 @@ def test_picture_alts_come_from_the_caption_then_the_reading(session):
 
 
 def test_the_chat_answer_carries_the_alts_and_the_prompt_names_the_pictures(ai_client, fake_ollama, session):
-    from memorymap.core.database import MediaUpload
+    from tessellate.core.database import MediaUpload
 
     session.add(MediaUpload(filename="moss123.png", original_name="moss.png", caption="moss on a wall"))
     session.commit()
@@ -92,7 +92,7 @@ def test_image_size_reads_the_headers(tmp_path):
     import struct
     import zlib
 
-    from memorymap.core.imagesize import image_size
+    from tessellate.core.imagesize import image_size
 
     def png(w, h):
         def chunk(kind, data):
@@ -113,7 +113,7 @@ def test_image_size_reads_the_headers(tmp_path):
 
 
 def test_picture_sizes_ride_the_answer_and_the_saved_turn(ai_client, fake_ollama, session, tmp_path):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     media = deps.get_config().data_dir / "media"
     media.mkdir(parents=True, exist_ok=True)
@@ -147,7 +147,7 @@ def test_the_agent_prompt_names_the_pictures_too():
     """INBOX 527, the owner: "does the ai know that it can have images in its
     response??" The tools-on prompt (the default) said nothing about them, so
     only a no-tools chat could place one. Numbered as `raw_results` is."""
-    from memorymap.ai import agent
+    from tessellate.ai import agent
 
     messages = agent.build_agent_messages(
         "what is on the whiteboard?",
@@ -162,7 +162,7 @@ def test_the_agent_prompt_names_the_pictures_too():
 
 
 def test_a_note_with_two_pictures_offers_the_second_token():
-    from memorymap.ai.librarian import _pictures_hint
+    from tessellate.ai.librarian import _pictures_hint
 
     assert "[picture 3] or [picture 3.2]" in _pictures_hint({"pictures": 2}, 3)
     assert _pictures_hint({"pictures": 0}, 3) == ""
@@ -208,7 +208,7 @@ console.log(JSON.stringify(cases.map(holdPictureTokens)));"""
 def test_the_model_hears_of_pictures_only_when_asked_about_one():
     """INBOX 533: "it just puts images for the sake of images". A 2B model told
     a note had pictures wrote `[picture N]` into "test notes"."""
-    from memorymap.ai import librarian
+    from tessellate.ai import librarian
 
     note = {"category": "X", "content": "a to-do list", "pictures": 1, "id": 1}
     plain = librarian.build_messages("test notes", [note])

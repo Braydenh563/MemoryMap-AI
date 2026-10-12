@@ -26,7 +26,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 ROOT = Path(__file__).resolve().parents[1]
-SRC = ROOT / "src" / "memorymap"
+SRC = ROOT / "src" / "tessellate"
 
 #: The libraries that open connections. `socket.create_connection` is listed
 #: as the call, since `socket` itself is everywhere.
@@ -41,6 +41,14 @@ INVENTORY = {
     "__main__.py": ("this computer only (the launcher's own health checks, no proxy)", "always; loopback"),
     "core/instance_lock.py": ("this computer only (the running instance)", "a second launch; loopback"),
     "core/netbind.py": ("nothing outbound: the listening socket for LAN mode", "the password-gated switch"),
+    "api/routes_bench.py": (
+        "this server itself over 127.0.0.1, its own port (never the Host header)",
+        "GET /models/bench/budgets?live=true, the interaction budgets timed on the person's notebook",
+    ),
+    "ai/captions.py": (
+        "the whisper.cpp captions helper at TESSELLATE_CAPTIONS_URL, refused unless it is this computer (loopback)",
+        "Live captions started from the palette, and a status probe while the captions dock is open",
+    ),
     "ai/provider_http.py": (
         "the person's model server: Ollama at localhost:11434 or an OpenAI-compatible one at localhost:1234 unless they typed another address",
         "a chat, an embedding, a model list",
@@ -96,7 +104,7 @@ def test_every_module_that_can_reach_the_network_is_accounted_for():
 
 
 def test_the_defaults_are_local_and_off(app_state):
-    from memorymap.ai import ollama_client, openai_client
+    from tessellate.ai import ollama_client, openai_client
     # "Ask once" (the owner, 2026-10-05): `auto_update_enabled`, which the
     # launchers' own pull obeys, is off for every install, a source checkout
     # included, until the one-time question is answered (`update_choice_made`).
@@ -139,7 +147,7 @@ def test_a_booted_app_reaches_nothing_beyond_this_computer(app_state, monkeypatc
     monkeypatch.setattr(socket.socket, "connect", connect)
     monkeypatch.setattr(socket, "getaddrinfo", getaddrinfo)
 
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     with TestClient(create_app()) as client:
         token = client.post("/auth/setup", json={"password": "a long password"}).json()["token"]

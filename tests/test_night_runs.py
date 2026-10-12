@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
-from memorymap.ai import facts
-from memorymap.core.database import DerivedFact, NightRun
+from tessellate.ai import facts
+from tessellate.core.database import DerivedFact, NightRun
 
 CLAIMS = (
     "The batch size should stay at 32. Should we move to 64? "
@@ -90,7 +90,7 @@ def test_a_deleted_fact_leaves_the_card_and_the_list(ai_client, fake_ollama):
 
 
 def test_a_note_made_private_takes_its_facts_off_the_card(ai_client, fake_ollama, session):
-    from memorymap.core import vault
+    from tessellate.core import vault
 
     vault.create(session, "a passphrase")
     session.commit()

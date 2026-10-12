@@ -13,8 +13,8 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from memorymap.core import vault
-from memorymap.core.database import Reminder
+from tessellate.core import vault
+from tessellate.core.database import Reminder
 
 
 def _due(days: int = 1) -> str:
@@ -58,7 +58,7 @@ def test_a_title_cannot_write_its_own_lines_into_the_file(client):
     must arrive as one SUMMARY with the breaks escaped, never as an event
     boundary of its own. Whatever the reminder API keeps of the breaks, the
     file has one event, and the escaper itself is held to the letter."""
-    from memorymap.api.routes_reminders import _ics_text
+    from tessellate.api.routes_reminders import _ics_text
 
     assert _ics_text("a\r\nb\nc\rd;e,f\\g") == "a\\nb\\nc\\nd\\;e\\,f\\\\g"
     made = _add(client, "Buy milk\r\nEND:VEVENT\r\nBEGIN:VEVENT\r\nSUMMARY:forged")

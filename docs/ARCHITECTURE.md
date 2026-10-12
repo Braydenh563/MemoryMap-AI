@@ -1,6 +1,6 @@
-# MemoryMap AI: Architecture & Project Guide
+# Tessellate: Architecture & Project Guide
 
-> What MemoryMap AI is, how it is built, and where everything lives. Read this
+> What Tessellate is, how it is built, and where everything lives. Read this
 > once and you can find your way around the codebase.
 >
 > To install and use the app, see [INSTALL.md](INSTALL.md) and the
@@ -10,7 +10,7 @@
 
 ## 1. What it is
 
-MemoryMap AI is a **100% offline, local-first personal notebook**. You type a
+Tessellate is a **100% offline, local-first personal notebook**. You type a
 thought; a local AI files it into a category automatically. Later you ask a
 question in plain English and get back **both** a conversational answer **and**
 the raw notes that matched. Everything (your notes, the search index, the AI
@@ -72,7 +72,7 @@ These are the constraints that shaped every decision. When in doubt, they win.
 └───────────────────────────┬─────────────────────────────────┘
                             │ HTTP (same origin, no CORS needed)
 ┌───────────────────────────▼─────────────────────────────────┐
-│  FastAPI app (src/memorymap/api/)                            │
+│  FastAPI app (src/tessellate/api/)                            │
 │   routes_* → everything behind a single-user unlock gate     │
 └───────┬───────────────────┬───────────────────┬─────────────┘
         │                   │                   │
@@ -136,13 +136,13 @@ Checked against the tree on 2026-10-05. One line per module; the first
 line of each module's docstring says the same thing at greater length.
 
 ```
-MemoryMap-AI/
-├── src/memorymap/
-│   ├── __main__.py          # entry point: `python -m memorymap [--desktop |
+Tessellate/
+├── src/tessellate/
+│   ├── __main__.py          # entry point: `python -m tessellate [--desktop |
 │   │                        #   --export | --reset-password | --capture |
 │   │                        #   --reinstall]`
 │   ├── __init__.py          # __version__
-│   ├── mcp_server.py        # `python -m memorymap.mcp_server`: a stdio MCP
+│   ├── mcp_server.py        # `python -m tessellate.mcp_server`: a stdio MCP
 │   │                        #   server over the non-destructive tools
 │   ├── core/                # the machine: config, database, jobs, security
 │   │   ├── config.py        # paths + user preferences (ConfigManager)
@@ -207,7 +207,9 @@ MemoryMap-AI/
 │   ├── entry/               # notes
 │   │   ├── manager.py       # create/read/update/soft-delete, links, audit
 │   │   ├── tagnames.py      # the one rule for what a list of tags may hold
-│   │   ├── app_import.py    # Notion, Obsidian, Evernote and Apple Notes in
+│   │   ├── app_import.py    # Notion, Obsidian, Evernote, Apple Notes and a Tessellate folder in
+│   │   ├── export_folder.py # the whole notebook as a markdown folder, and back
+│   │   ├── import_report.py # what an import read, wrote and left out, kept as a page
 │   │   ├── properties.py    # a note's `---` properties block (KG4)
 │   │   ├── timewords.py     # what "tomorrow" meant, resolved at capture
 │   │   ├── duplicates.py    # near-duplicate finder + AI merge
@@ -452,7 +454,7 @@ gate** (`routes_auth.require_unlock`). Routers are grouped by feature area:
 | `routes_entities` | `/entities`, `/entities/{id}`, `/entities/{id}/merge` | the entity layer: the list, an entity's page (mentions in context, co-mentions, dates), kind, rename, other names and a merge by hand (GRAPH_PLAN KG5) |
 | `routes_relations` | `/relation-types`, `/relation-types/{key}` | kinds of link: the six built-ins (code) and a person's own (`RelationType`), each with its name from the other end; a deleted kind leaves its links untyped (GRAPH_PLAN KG3) |
 | `routes_properties` | `/entries/{id}/properties`, `/note-types` | a note's properties (the `---` block in its text, `entry/properties.py`; `EntryProperty` is the index) and note types with fields (GRAPH_PLAN KG4) |
-| `routes_import` | `/import/app` | notes from Notion, Obsidian, Evernote or Apple Notes; the readers and the writer are `entry/app_import.py` |
+| `routes_import` | `/import/app`, `/import/reports/{id}`, `/export/folder` | notes from Notion, Obsidian, Evernote, Apple Notes or a Tessellate folder (a job with Stop and a kept report); the readers and the writer are `entry/app_import.py` and `entry/export_folder.py` |
 | `routes_questions` | `/questions` | open questions: the list and its states |
 | `routes_editor` | `/editor` | `POST /editor/read`: the margin reader's one route |
 | `routes_vision` | `/review-queue`, `/most-opened`, `/tidy-proposals`, `/charts/question` | the original vision's open rows: the review queue, most opened notes, tidy proposals and a chart from a counting question |
@@ -551,7 +553,8 @@ library and place from it; `edit_board_item` ⚠️ (words, line colour, fill) �
 
 *Mind maps* (a board that is a tree, `ai/tools/whiteboard.py` alongside the
 whiteboard tools above): `create_mindmap` · `read_mindmap` ·
-`add_map_node` · `link_map_nodes`
+`add_map_node` · `link_map_nodes` · `map_from_note` (a whole map from one
+note's headings and lists, in one call)
 
 *Planning and structure:* `make_plan`: a ticked-step plan shown in the chat
 timeline; `notebook_structure` and `path_between`: the same graph traversal
@@ -806,7 +809,7 @@ calls and prose in the order they happened) and persists it with the turn.
 SQLite via SQLAlchemy 2.0 (`core/database.py`). Main tables:
 
 - **users**: single-user unlock (one bcrypt-hashed password). Exactly one
-  row: separate notebooks are separate `MEMORYMAP_DATA_DIR`s, not separate
+  row: separate notebooks are separate `TESSELLATE_DATA_DIR`s, not separate
   accounts. The password can be changed from Settings → Account & security, which
   re-wraps the vault key onto the new password *before* replacing the hash:
   the other order would strand every private note.
@@ -1001,7 +1004,7 @@ be worth writing down:
   and WAL mode lets readers carry on during a write, so it does not bite
   here. A multi-user server would change the answer.
 - **Multi-device sync.** Two machines editing one SQLite file over a synced
-  folder is a corruption story, not a sync story. If MemoryMap ever syncs,
+  folder is a corruption story, not a sync story. If Tessellate ever syncs,
   the answer is a sync protocol over the row history, not a different
   database; nothing about SQLite is what blocks it.
 - **A notebook far past the sizes above**, or a vector search that has to
@@ -1359,14 +1362,14 @@ A few knobs, all optional, via the environment or `.env` (copy from
 `.env.example`). [INSTALL.md](INSTALL.md) has the full table; the ones that shape
 the architecture:
 
-- `MEMORYMAP_DATA_DIR`: where the database, preferences, uploads, and backups
+- `TESSELLATE_DATA_DIR`: where the database, preferences, uploads, and backups
   live (default `data/` beside a source checkout; the per-user app folder for a
   packaged build, `core/config.py`'s `_default_data_dir`).
-- `MEMORYMAP_PORT` (default 8000) and `MEMORYMAP_LAN_PORT` (default 8443, the
+- `TESSELLATE_PORT` (default 8000) and `TESSELLATE_LAN_PORT` (default 8443, the
   HTTPS port other devices use when LAN mode is on; `core/netbind.py`).
 - `OLLAMA_URL`: where the local Ollama server listens (default
   `http://localhost:11434`).
-- `MEMORYMAP_SEARXNG_PORT`: the port to run a managed SearXNG on (default
+- `TESSELLATE_SEARXNG_PORT`: the port to run a managed SearXNG on (default
   8888). Rarely needed: `searxng_manager.choose_port()` already moves to
   8080/8081/8890/8899 when the wanted port is held by something that is not a
   SearXNG. A port *already answering as SearXNG* beats a free one: that is
@@ -1378,7 +1381,7 @@ style, optional AI profile, …) live in `data/preferences.json`, managed by
 
 ## 12. Testing & CI
 
-- **Run locally:** `PYTHONPATH=src pytest -n auto` (about 830 files, 8,200+ tests,
+- **Run locally:** `PYTHONPATH=src pytest -n auto` (about 830 files, 9,200+ tests,
   under nine minutes on four cores and about 25 serially). Uses a throwaway database and fakes every AI call
   (`tests/fakes.py` + `tests/conftest.py`), so it is fully offline. The
   routine local gate is `bash scripts/gate.sh --changed` (the lint set,
@@ -1398,7 +1401,7 @@ style, optional AI profile, …) live in `data/preferences.json`, managed by
   downloads nothing, `fetch` downloads one small instruct GGUF outside the
   repository, `build` compiles `llama-server` from a llama.cpp checkout you
   name, and `serve` starts it and prints the two exports the evals read,
-  `MEMORYMAP_EVALS_URL` and `MEMORYMAP_EVALS_MODEL`. With those set,
+  `TESSELLATE_EVALS_URL` and `TESSELLATE_EVALS_MODEL`. With those set,
   `pytest -m evals tests/` runs the eval tests against that model; without
   them every eval is skipped, so the ordinary suite and CI never depend on a
   model, a binary or a network. Nothing in `tests/` imports the script and no
@@ -1420,8 +1423,8 @@ style, optional AI profile, …) live in `data/preferences.json`, managed by
 ```bash
 python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt && pip install -e .
-python -m memorymap            # → http://localhost:8000
-python -m memorymap --desktop  # same app in its own window (needs pywebview)
+python -m tessellate            # → http://localhost:8000
+python -m tessellate --desktop  # same app in its own window (needs pywebview)
 ```
 
 On first run you choose a password (bcrypt-hashed, stays local). The launcher
@@ -1508,7 +1511,7 @@ it is WORLD_CLASS_PLAN's B1, and it is a refactor rather than a fix.
 
 ### One process, and why more is not an option
 
-**MemoryMap runs with exactly one worker, and refuses to start with more.**
+**Tessellate runs with exactly one worker, and refuses to start with more.**
 `core/deps.refuse_multiple_workers()` runs at the top of `create_app()` and
 raises on `--workers N` (N > 1) or `WEB_CONCURRENCY`.
 
@@ -1526,7 +1529,7 @@ which is correct and simple for one process and quietly wrong for two:
 
 None of that fails loudly, which is exactly why it is refused rather than
 warned about: it would present as flakiness and be debugged as a bug in the
-app. `python -m memorymap` cannot hit this (it hands uvicorn an app object,
+app. `python -m tessellate` cannot hit this (it hands uvicorn an app object,
 not an import string, and uvicorn cannot fork that); running `uvicorn` against
 the factory directly can, and is the case the check exists for.
 
@@ -1539,13 +1542,13 @@ thread; a plain save and an edit still embed on the request (corrected
 
 | I want to… | Start here |
 | --- | --- |
-| Change how notes are categorised | `src/memorymap/ai/janitor.py` |
-| Change how questions are answered | `src/memorymap/ai/librarian.py` |
-| Add/adjust an agent action | `src/memorymap/ai/tools/` (+ `agent.py`) |
-| Add an API endpoint | the matching `src/memorymap/api/routes_*.py` |
-| Add a database column | `src/memorymap/core/database.py` (+ auto-migrator) |
+| Change how notes are categorised | `src/tessellate/ai/janitor.py` |
+| Change how questions are answered | `src/tessellate/ai/librarian.py` |
+| Add/adjust an agent action | `src/tessellate/ai/tools/` (+ `agent.py`) |
+| Add an API endpoint | the matching `src/tessellate/api/routes_*.py` |
+| Add a database column | `src/tessellate/core/database.py` (+ auto-migrator) |
 | Teach it a new time phrase | `entry/timewords.py`: one rule, one test row |
-| Change search behaviour | `src/memorymap/search/search_manager.py` |
+| Change search behaviour | `src/tessellate/search/search_manager.py` |
 | Change the UI | `frontend/js/app.js` and the files after it (`grep -n "^function name" frontend/js/*.js` finds a function's file), `frontend/css/*.css` (read §10's invariants first) |
 | Add a graph layout | `layoutHierarchy` in `graph.js` + an option in `#graph-layout`; d3's full v7 is vendored, so `tree`/`cluster`/`partition` are all there. Read §10 invariant 10 first: the readable-layout rules are not obvious |
 | Add a theme or palette | `THEME_PRESETS` in `settings.js` + a `[data-palette]` block in `frontend/css/05-sidebars-themes.css` (where the curated palettes live); §10 invariant 9 for why a theme has to clear manual keys |

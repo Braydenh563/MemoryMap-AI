@@ -12,8 +12,8 @@ from __future__ import annotations
 import numpy as np
 from sqlalchemy import select
 
-from memorymap.ai.embeddings import similar_pairs
-from memorymap.core.database import EntryLink
+from tessellate.ai.embeddings import similar_pairs
+from tessellate.core.database import EntryLink
 
 
 def _save(client, content):
@@ -65,7 +65,7 @@ def test_a_rename_offers_to_rewrite_the_names_and_does_it(client, session):
     assert renamed["wiki_rename"] == {"old": "Old name", "new": "New name", "notes": 1}
     response = client.post(f"/entries/{target['id']}/wiki-rename", json={"old": "Old name"})
     assert response.status_code == 200, response.text
-    assert response.json() == {"rewritten": 1}
+    assert response.json()["rewritten"] == 1
     text = client.get(f"/entries/{holder['id']}").json()["content"]
     assert text == "# Holder\n\nsee [[New name]], [[New name|that one]] and [[New name#Part]]"
     assert client.get(f"/entries/{untouched['id']}").json()["content"] == "# Elsewhere\n\nno mention"
@@ -79,7 +79,7 @@ def test_an_edit_that_keeps_the_name_offers_nothing(client):
 
 
 def test_the_fingerprint_sees_a_link_swapped_for_another(client, session):
-    from memorymap.api.routes_graph import _graph_fingerprint
+    from tessellate.api.routes_graph import _graph_fingerprint
 
     a, b, c = (_save(client, f"note {i}") for i in range(3))
     first = client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]}).json()
@@ -91,8 +91,8 @@ def test_the_fingerprint_sees_a_link_swapped_for_another(client, session):
 
 
 def test_graph_reads_each_notes_text_once_per_version(client, monkeypatch):
-    from memorymap.api import routes_graph
-    from memorymap.entry import manager
+    from tessellate.api import routes_graph
+    from tessellate.entry import manager
 
     notes = [_save(client, f"# Note {i}\n\nwords here") for i in range(5)]
     reads = []
@@ -125,3 +125,23 @@ def test_similarity_per_node_keeps_each_notes_closest_matches():
     assert [s for _, _, s in pairs] == sorted((s for _, _, s in pairs), reverse=True)
     # Without per_node, every pair above the cutoff, as before.
     assert len(similar_pairs(vectors, -1.0)) == 60 * 59 // 2
+
+
+def test_a_rename_of_the_names_is_undone_through_the_versions_it_names(client):
+    """INBOX 898: the answer lists each note changed with the version it held
+    before, and restoring that version is Undo; the same POST again is Redo."""
+    target = _save(client, "# Old name\n\nbody")
+    holder = _save(client, "# Holder\n\nsee [[Old name]]")
+    original = client.get(f"/entries/{holder['id']}").json()["content"]
+    _put(client, target, "# New name\n\nbody")
+    done = client.post(f"/entries/{target['id']}/wiki-rename", json={"old": "Old name"}).json()
+    (note,) = done["notes"]
+    assert note["id"] == holder["id"]
+
+    back = client.post(f"/entries/{note['id']}/history/{note['revision_id']}/restore")
+    assert back.status_code == 200, back.text
+    assert client.get(f"/entries/{holder['id']}").json()["content"] == original
+
+    again = client.post(f"/entries/{target['id']}/wiki-rename", json={"old": "Old name"}).json()
+    assert again["rewritten"] == 1
+    assert "[[New name]]" in client.get(f"/entries/{holder['id']}").json()["content"]

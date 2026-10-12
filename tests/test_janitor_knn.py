@@ -11,9 +11,9 @@ from __future__ import annotations
 
 import numpy as np
 
-from memorymap.ai import janitor
-from memorymap.ai.embeddings import EmbeddingService, vector_to_bytes
-from memorymap.core.database import Category, EmbeddingRecord, Entry
+from tessellate.ai import janitor
+from tessellate.ai.embeddings import EmbeddingService, vector_to_bytes
+from tessellate.core.database import Category, EmbeddingRecord, Entry
 
 
 class DirectedEmbeddings(EmbeddingService):

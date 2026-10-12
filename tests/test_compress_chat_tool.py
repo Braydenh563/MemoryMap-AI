@@ -19,7 +19,7 @@ import json
 
 import pytest
 
-from memorymap.ai import tools
+from tessellate.ai import tools
 
 
 def _turns(count: int) -> list[dict]:

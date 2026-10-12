@@ -1,0 +1,103 @@
+{
+ "skill": "Notebook health check",
+ "small_class": false,
+ "cases": [
+  {
+   "id": "recipe-tags",
+   "notebook": [
+    {
+     "content": "Lentil soup: onions, carrots, red lentils",
+     "category": "Uncategorised",
+     "tags": [
+      "recipe"
+     ]
+    },
+    {
+     "content": "Banana bread with walnuts",
+     "category": "Uncategorised",
+     "tags": [
+      "recipes"
+     ]
+    },
+    {
+     "content": "Renew the car insurance",
+     "category": "Admin",
+     "tags": [
+      "admin"
+     ]
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "recipe"
+    ]
+   }
+  },
+  {
+   "id": "big-inbox",
+   "notebook": [
+    {
+     "content": "Call the plumber about the leak",
+     "category": "Uncategorised",
+     "tags": []
+    },
+    {
+     "content": "Plumber quote came in at 240",
+     "category": "Uncategorised",
+     "tags": []
+    },
+    {
+     "content": "Book the boiler service",
+     "category": "Uncategorised",
+     "tags": []
+    },
+    {
+     "content": "Read the lease renewal",
+     "category": "Home",
+     "tags": [
+      "home"
+     ]
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "uncategorised"
+    ]
+   }
+  },
+  {
+   "id": "todo-tags",
+   "notebook": [
+    {
+     "content": "Finish the slides",
+     "category": "Work",
+     "tags": [
+      "todo"
+     ]
+    },
+    {
+     "content": "Email the venue",
+     "category": "Work",
+     "tags": [
+      "to-do"
+     ]
+    },
+    {
+     "content": "Pay the gas bill",
+     "category": "Admin",
+     "tags": [
+      "todo"
+     ]
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "todo"
+    ]
+   }
+  }
+ ]
+}

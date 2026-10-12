@@ -9,8 +9,8 @@ keeps it from growing without bound.
 
 from __future__ import annotations
 
-from memorymap.ai import agent, memory, tools
-from memorymap.core.database import UserPreference
+from tessellate.ai import agent, memory, tools
+from tessellate.core.database import UserPreference
 from tests._app_js import app_js_text
 
 
@@ -162,7 +162,7 @@ def test_an_empty_preference_is_refused(ai_client):
 
 
 def test_a_hand_written_preference_is_capped_like_the_tools(ai_client):
-    from memorymap.ai.tools import MAX_ACTIVE_PREFERENCES
+    from tessellate.ai.tools import MAX_ACTIVE_PREFERENCES
 
     for i in range(MAX_ACTIVE_PREFERENCES):
         saved = ai_client.post("/memory", json={"content": f"rule {i}"})
@@ -254,7 +254,7 @@ def test_a_proposal_does_not_count_against_the_active_cap(ai_client, session):
     prompt. A pending question is not in the prompt, so it must not be able to
     lock the list: otherwise a chatty model could fill the cap with questions
     and block the user from saving anything by hand."""
-    from memorymap.ai.tools import MAX_ACTIVE_PREFERENCES
+    from tessellate.ai.tools import MAX_ACTIVE_PREFERENCES
 
     for i in range(MAX_ACTIVE_PREFERENCES):
         tools.execute_tool(session, "save_user_preference", {"preference": f"rule {i}"})
@@ -267,7 +267,7 @@ def test_the_chat_is_where_a_proposal_is_answered():
     version of this feature with an extra step."""
     from pathlib import Path
 
-    agent_src = Path("src/memorymap/ai/agent.py").read_text(encoding="utf-8")
+    agent_src = Path("src/tessellate/ai/agent.py").read_text(encoding="utf-8")
     assert 'event["proposal"] = result["proposal"]' in agent_src
 
     app_js = app_js_text()

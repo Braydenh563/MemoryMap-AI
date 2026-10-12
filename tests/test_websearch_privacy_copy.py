@@ -14,8 +14,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from memorymap.core import privacy_http
-from memorymap.search import websearch
+from tessellate.core import privacy_http
+from tessellate.search import websearch
 
 ROOT = Path(__file__).resolve().parent.parent
 INDEX = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")

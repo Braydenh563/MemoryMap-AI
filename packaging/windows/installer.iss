@@ -1,9 +1,9 @@
 ; Inno Setup script for the Windows installer.
 ;
 ; Built in CI (.github/workflows/release.yml) with ISCC.exe, from the
-; "MemoryMap AI" folder PyInstaller's COLLECT step produces (see
-; memorymap.spec in this same folder) — build that first, this script
-; expects it to already exist one directory up as ..\..\dist\MemoryMap AI\.
+; "Tessellate" folder PyInstaller's COLLECT step produces (see
+; tessellate.spec in this same folder) — build that first, this script
+; expects it to already exist one directory up as ..\..\dist\Tessellate\.
 ;
 ; Per-user install (PrivilegesRequired=lowest): no admin elevation prompt,
 ; on top of the "ship unsigned for now" SmartScreen warning this build
@@ -15,31 +15,38 @@
 ; Local build/test (from a Windows machine, Inno Setup installed):
 ;   "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DMyAppVersion=<__version__> packaging\windows\installer.iss
 
-#define MyAppName "MemoryMap AI"
+#define MyAppName "Tessellate"
+; The folders keep the name they had before the rename to Tessellate: an
+; upgrade installs over the same folder, and the notes stay where they are
+; (%APPDATA%\MemoryMap AI, or %APPDATA%\Tessellate on a new install:
+; config._default_data_dir and DataDir below). Only names a person
+; reads (shortcuts, Add/Remove Programs, the wizard) say Tessellate.
+; brand: keep-next
+#define MyAppDirName "Tessellate"
 
-; **The version is src\memorymap\__init__.py's `__version__`, never typed
-; here.** It used to come from MEMORYMAP_VERSION with a hard-coded "0.1.0"
+; **The version is src\tessellate\__init__.py's `__version__`, never typed
+; here.** It used to come from TESSELLATE_VERSION with a hard-coded "0.1.0"
 ; fallback, so a build whose environment forgot the variable was an installer
 ; that called itself 0.1.0 in Add/Remove Programs. The caller reads
 ; `__version__` and passes it as /DMyAppVersion=<it> (both workflows do); a
 ; build without it stops here rather than guessing. An ISPP line reader
 ; (FileOpen/FileRead in a #sub) did the reading first and found nothing on
 ; CI's Windows runner, so the reading moved to the caller, where it is one
-; tested line of PowerShell. release.yml also passes MEMORYMAP_VERSION from
+; tested line of PowerShell. release.yml also passes TESSELLATE_VERSION from
 ; the tag, and a tag that disagrees with the code stops the build.
 #ifndef MyAppVersion
-  #error Pass /DMyAppVersion=<__version__ from src\memorymap\__init__.py> to ISCC
+  #error Pass /DMyAppVersion=<__version__ from src\tessellate\__init__.py> to ISCC
 #endif
-#if GetEnv("MEMORYMAP_VERSION") != "" && GetEnv("MEMORYMAP_VERSION") != MyAppVersion
-  #error MEMORYMAP_VERSION (the release tag) does not match __version__ in src\memorymap\__init__.py
+#if GetEnv("TESSELLATE_VERSION") != "" && GetEnv("TESSELLATE_VERSION") != MyAppVersion
+  #error TESSELLATE_VERSION (the release tag) does not match __version__ in src\tessellate\__init__.py
 #endif
-#define MyAppPublisher "MemoryMap AI"
-#define MyAppURL "https://github.com/Braydenh563/MemoryMap-AI"
-#define MyAppExeName "MemoryMap AI.exe"
+#define MyAppPublisher "Tessellate"
+#define MyAppURL "https://github.com/Braydenh563/Tessellate"
+#define MyAppExeName "Tessellate.exe"
 
 [Setup]
 AppId={{B4C6E3F1-6E6A-4B7E-9C1D-3F6A2E8D9C40}
-AppName={#MyAppName}
+AppName={#MyAppName} Notes
 AppVersion={#MyAppVersion}
 AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
@@ -52,7 +59,7 @@ PrivilegesRequired=lowest
 ; also admits Windows on ARM, which runs x64 programs under emulation.
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
-DefaultDirName={autopf}\{#MyAppName}
+DefaultDirName={autopf}\{#MyAppDirName}
 DisableProgramGroupPage=yes
 ; The installer's own .exe icon, and the icon shown in Add/Remove Programs.
 SetupIconFile=..\..\frontend\icon.ico
@@ -62,17 +69,17 @@ SolidCompression=yes
 WizardStyle=modern
 OutputDir=..\..\dist\installer
 ; **Version, platform and architecture, like the Linux package already has.**
-; Asked for directly. `MemoryMap-AI-Setup-0.3.1.exe` says nothing about what
+; Asked for directly. `Tessellate-Setup-0.3.1.exe` says nothing about what
 ; it installs onto, so two files downloaded a month apart from different
 ; machines are indistinguishable in a Downloads folder, and a 64-bit build
 ; and a future 32-bit or ARM one would overwrite each other. The Linux side
-; has read `MemoryMap-AI-<version>-linux-x86_64.zip` all along; this is the
+; has read `Tessellate-<version>-linux-x86_64.zip` all along; this is the
 ; same name in the same order.
 ;
 ; x86_64 rather than Inno's own "x64": it is what the Linux artefact says and
 ; what `uname -m` prints, and one spelling across both downloads is worth
 ; more than matching a single installer's internal vocabulary.
-OutputBaseFilename=MemoryMap-AI-Setup-{#MyAppVersion}-windows-x86_64
+OutputBaseFilename=Tessellate-Setup-{#MyAppVersion}-windows-x86_64
 ; Not signed yet (deliberate — see README's Windows install note). Revisit
 ; once there's a certificate; nothing else about this script would need to
 ; change, Inno Setup signs in a separate post-build step, not here.
@@ -97,7 +104,7 @@ Type: filesandordirs; Name: "{app}\_internal"
 [Files]
 ; Everything PyInstaller's COLLECT step produced, recursively — the exe
 ; plus every DLL, the bundled frontend/ folder, and its own Python runtime.
-Source: "..\..\dist\MemoryMap AI\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\..\dist\Tessellate\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; The post-install script for optional packages. Placed in {app} so it is
 ; available alongside the installed app, and uninstalled with it.
 
@@ -105,7 +112,10 @@ Source: "..\..\dist\MemoryMap AI\*"; DestDir: "{app}"; Flags: ignoreversion recu
 ; --desktop: the installed app always opens in its own window, never the
 ; bare-server mode — that mode is for a source checkout run from a
 ; terminal, not something a Start Menu shortcut should offer as a choice.
-Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; IconFilename: "{app}\{#MyAppExeName}"
+; AppUserModelID: Windows shows a desktop app's toast (a due reminder,
+; core/reminder_notifier.py) only under an id a Start menu shortcut carries;
+; the launcher gives its process the same one.
+Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; IconFilename: "{app}\{#MyAppExeName}"; AppUserModelID: "memorymap.desktop.app.1"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; IconFilename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 ; INBOX 253, one-click recovery: beside the ordinary shortcut, not instead
 ; of it, in the same Start Menu group so it is findable the moment the
@@ -129,7 +139,7 @@ Name: "{autoprograms}\{#MyAppName}\Repair {#MyAppName}"; Filename: "{app}\{#MyAp
 ; own updater runs this installer with /VERYSILENT, and with the page's
 ; defaults that re-ran a 2 GB search-by-meaning download, hidden, inside
 ; every update, while the person was told to reopen the app in a minute.
-; A scripted install names what it wants: /EXTRAS=documents,docx.
+; A scripted install names what it wants: /EXTRAS=documents,pdfpages.
 ; Not run here any more (the owner, 2026-10-07: Setup froze on this line for
 ; the minutes torch takes, no progress, no minimise, no cancel). CurStepChanged
 ; writes the ticked ids to pending-extras.txt in the data folder, and the app
@@ -154,7 +164,7 @@ Filename: "{app}\{#MyAppExeName}"; Parameters: "--desktop"; Flags: nowait runaso
 ;
 ; What does go: a `data` folder inside the install folder, which builds
 ; before 0.3.3 wrote the window's cache and the launch log into when Windows
-; started them there (__main__.py read MEMORYMAP_DATA_DIR with a bare "data"
+; started them there (__main__.py read TESSELLATE_DATA_DIR with a bare "data"
 ; fallback; core/config.resolved_data_dir replaced it). Never notes: the
 ; database always went to AppData. Only the two folders by name, so anything
 ; else someone put there stays.
@@ -167,6 +177,23 @@ Type: filesandordirs; Name: "{app}\data\logs"
 Type: dirifempty; Name: "{app}\data"
 
 [Code]
+{ The notes folder, the same rule as config._default_data_dir: an install
+  from before the rename keeps %APPDATA%\MemoryMap AI while it exists and
+  %APPDATA%\Tessellate does not; every other install gets the new one.
+  Nothing is moved. }
+function DataDir: String;
+var
+  OldDir: String;
+  NewDir: String;
+begin
+  OldDir := ExpandConstant('{userappdata}\{#MyAppDirName}');
+  NewDir := ExpandConstant('{userappdata}\{#MyAppName}');
+  if DirExists(OldDir) and (not DirExists(NewDir)) then
+    Result := OldDir
+  else
+    Result := NewDir;
+end;
+
 { Custom wizard page: optional package selection.
 
   Three checkboxes. Search by meaning starts ticked, because it is the
@@ -334,11 +361,11 @@ begin
     Packages := Packages + 'semantic,';
   if ChkVoice.Checked then
     Packages := Packages + 'voice,';
-  { One box, three extras: the page has room for three rows and no scroll, and
-    reading scanned PDFs and writing .docx are the same user's wish as
-    importing documents (the owner, 2026-09-24). }
+  { One box, two extras: the page has room for three rows and no scroll, and
+    reading scanned PDFs is the same user's wish as importing documents (the
+    owner, 2026-09-24). Word files are written in the browser now. }
   if ChkDocuments.Checked then
-    Packages := Packages + 'documents,pdfpages,docx,';
+    Packages := Packages + 'documents,pdfpages,';
   { Strip trailing comma }
   if Length(Packages) > 0 then
     Packages := Copy(Packages, 1, Length(Packages) - 1);
@@ -359,7 +386,7 @@ var
 begin
   if (CurStep = ssPostInstall) and HasSelectedExtras then
   begin
-    Dir := ExpandConstant('{userappdata}\MemoryMap AI');
+    Dir := DataDir;
     ForceDirectories(Dir);
     SaveStringToFile(Dir + '\pending-extras.txt', GetSelectedExtras(''), False);
   end;
@@ -390,8 +417,8 @@ var
 begin
   if CurUninstallStep <> usPostUninstall then
     Exit;
-  Extras := ExpandConstant('{userappdata}\{#MyAppName}\python-extras');
-  Downloads := ExpandConstant('{userappdata}\{#MyAppName}\extras');
+  Extras := DataDir + '\python-extras';
+  Downloads := DataDir + '\extras';
   if (not DirExists(Extras)) and (not DirExists(Downloads)) then
     Exit;
   if UninstallSilent then

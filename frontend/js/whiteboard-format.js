@@ -24,7 +24,7 @@
 // time.
 
 const WB_FMT_KEY = "wb-format";
-const WB_FMT_TABS = ["style", "text", "arrange"];
+const WB_FMT_TABS = ["style", "text", "arrange", "data"];
 
 //: What is selected, as `{kind, id, item, bbox}` rows: the multi-selection
 //: when there is one, else the one selected item.
@@ -46,7 +46,7 @@ function wbFmtKind(entry) {
   if (entry.kind === "object") {
     const k = entry.item.kind;
     if (WB_MAP_KINDS.has(k)) return "topic";
-    return k === "text" || k === "image" || k === "frame" ? k : null;
+    return k === "text" || k === "image" || k === "frame" || k === "table" ? k : null;
   }
   let parsed = null;
   try {
@@ -56,17 +56,21 @@ function wbFmtKind(entry) {
   }
   if (String(parsed?.type || "").startsWith("link-")) return wbLinkTakesLabel(entry.item, parsed) ? "link" : null;
   if (typeof parsed?.d !== "string") return null;
-  return wbShapeLabelKind(parsed) ? "shape" : "line";
+  if (wbShapeLabelKind(parsed)) return "shape";
+  return wbSketchTakesCaps(parsed) ? "arrow" : "line";
 }
 
 //: The fields each kind takes, by the `data-fmt` names in index.html.
 const WB_FMT_FIELDS = {
-  shape: ["stroke", "width", "dash", "fill", "alpha", "shadow", "text", "geometry", "flip", "style-lib"],
-  line: ["stroke", "width", "dash", "alpha", "shadow", "geometry", "flip", "style-lib"],
-  link: ["stroke", "width", "dash", "alpha", "route", "jumps", "caps", "label-t"],
-  text: ["stroke", "fill", "alpha", "shadow", "text", "geometry", "angle", "style-lib"],
-  image: ["alpha", "shadow", "geometry", "angle"],
-  frame: ["geometry"],
+  shape: ["stroke", "width", "dash", "fill", "alpha", "shadow", "rough", "text", "geometry", "flip", "style-lib", "props"],
+  line: ["stroke", "width", "dash", "alpha", "shadow", "rough", "geometry", "flip", "style-lib", "props"],
+  //: A straight line or arrow: a line that takes ends.
+  arrow: ["stroke", "width", "dash", "caps", "alpha", "shadow", "rough", "geometry", "flip", "style-lib", "props"],
+  link: ["stroke", "width", "dash", "alpha", "rough", "route", "jumps", "caps", "label-t", "props"],
+  text: ["stroke", "fill", "alpha", "shadow", "fold", "text", "geometry", "angle", "style-lib", "props"],
+  image: ["alpha", "shadow", "geometry", "angle", "props"],
+  frame: ["geometry", "props"],
+  table: ["alpha", "shadow", "geometry", "props"],
   note: ["geometry", "angle"],
 };
 
@@ -91,15 +95,22 @@ function wbFmtValue(entry, field) {
     case "fill": return s ? s.fill || "#3355ff" : (o.bg && o.bg !== "transparent" ? o.bg : "#ffffff");
     case "alpha": return Math.round(((s ? s.alpha : o?.alpha) ?? 1) * 100);
     case "shadow": return Boolean(s ? s.shadow : o?.shadow);
+    case "rough": return wbDrawsRough(s, false);
     case "route": return wbLinkRouteName(s);
     case "jumps": return WB_JUMP_STYLES.includes(s?.jumps) ? s.jumps : "none";
-    case "startcap": return wbLinkCaps(s).startCap;
-    case "endcap": return wbLinkCaps(s).endCap;
+    case "startcap": return (kind === "arrow" ? wbSketchCaps(s) : wbLinkCaps(s)).startCap;
+    case "endcap": return (kind === "arrow" ? wbSketchCaps(s) : wbLinkCaps(s)).endCap;
+    case "startsize": return (kind === "arrow" ? wbSketchCaps(s) : wbLinkCaps(s)).startSize || "m";
+    case "endsize": return (kind === "arrow" ? wbSketchCaps(s) : wbLinkCaps(s)).endSize || "m";
     case "label-t": return Math.round(wbLinkLabelT(s) * 100);
     case "size": return kind === "shape" ? s.label_size || 16 : o.font_size || 16;
     case "bold": return Boolean(kind === "shape" ? s.label_bold : o.bold);
     case "italic": return Boolean(kind === "shape" ? s.label_italic : o.italic);
     case "align": return (kind === "shape" ? s.label_align : o.align) || (kind === "shape" ? "center" : "left");
+    //: Words in a shape sit in its middle and a text box's at its top unless
+    //: told otherwise (the owner, 2026-10-10: "there's no way to vertically
+    //: centre text").
+    case "valign": return (kind === "shape" ? s.label_valign : o.valign) || (kind === "shape" ? "middle" : "top");
     case "ink": return (kind === "shape" ? s.label_color : o.color) || "#1f2430";
     default: return null;
   }
@@ -237,7 +248,7 @@ function wbFormatOpen(tab = null, { focus = true } = {}) {
   if (tab && WB_FMT_TABS.includes(tab)) wbFmtState.fmtTab = tab;
   panel.classList.remove("hidden");
   try {
-    localStorage.setItem(WB_FMT_KEY, "1");
+    prefs.set(WB_FMT_KEY, "1");
   } catch {
     /* a private window: the panel still opens, it is just not remembered */
   }
@@ -251,7 +262,7 @@ function wbFormatClose({ restoreFocus = true } = {}) {
   const hadFocus = panel.contains(document.activeElement);
   panel.classList.add("hidden");
   try {
-    localStorage.removeItem(WB_FMT_KEY);
+    prefs.remove(WB_FMT_KEY);
   } catch {
     /* nothing to forget */
   }
@@ -275,6 +286,35 @@ function wbFormatSyncSoon() {
 }
 
 //: The panel, read off the selection: which tab, which rows, what values.
+//: One field showing a value, or that the selection holds several: a
+//: colour striped and titled, a list reading Mixed (a hidden option, so it
+//: is never offered), a number empty with Mixed as its hint. Picking or
+//: typing a value sets it on every selected item.
+function wbFmtShowMixed(el, isMixed, value) {
+  if (el.type === "color") {
+    el.value = value;
+    el.classList.toggle("wb-mixed", isMixed);
+    el.dataset.title ??= el.title;
+    el.title = isMixed ? `${el.dataset.title}: mixed` : el.dataset.title;
+  } else if (el.tagName === "SELECT") {
+    let option = el.querySelector("option[data-mixed]");
+    if (isMixed && !option) {
+      option = document.createElement("option");
+      option.value = "";
+      option.hidden = true;
+      option.dataset.mixed = "true";
+      option.textContent = "Mixed";
+      el.append(option);
+    }
+    el.value = isMixed ? "" : value;
+  } else if (el.type === "number") {
+    el.value = isMixed ? "" : value;
+    el.placeholder = isMixed ? "Mixed" : "";
+  } else {
+    el.value = value;
+  }
+}
+
 function wbFormatSync() {
   const panel = wbFormatPanel();
   if (!panel || panel.classList.contains("hidden")) return;
@@ -288,8 +328,16 @@ function wbFormatSync() {
   for (const section of panel.querySelectorAll("[data-format-panel]")) section.hidden = section.dataset.formatPanel !== wbFmtState.fmtTab;
   const entries = wbFmtEntries();
   const kinds = new Set(entries.map(wbFmtKind).filter(Boolean));
-  const fields = new Set();
-  for (const k of kinds) for (const f of WB_FMT_FIELDS[k] || []) fields.add(f);
+  //: **What the selection shares** (the owner, 2026-10-11: "if I highlight
+  //: and select multiple objects, cna I cnahge the properties they share"):
+  //: a row shows when every selected kind takes it, so a shape and a line
+  //: show line colour, width and pattern but no fill. Position and size are
+  //: the selection's box, so they show while anything has one.
+  const fieldSets = [...kinds].map((k) => new Set(WB_FMT_FIELDS[k] || []));
+  const fields = new Set(fieldSets.length ? [...fieldSets[0]].filter((f) => fieldSets.every((s) => s.has(f))) : []);
+  if (fieldSets.some((s) => s.has("geometry"))) fields.add("geometry");
+  //: The folded corner is a sticky note's, not a plain text box's.
+  if (!entries.some((e) => e.kind === "object" && wbIsSticky(e.item))) fields.delete("fold");
   const empty = document.getElementById("wb-format-empty");
   const map = kinds.has("topic");
   if (empty) {
@@ -310,35 +358,66 @@ function wbFormatSync() {
   const arrange = document.getElementById("wb-format-commands");
   if (arrange) arrange.hidden = !entries.length || map;
   wbSyncCommandRows(arrange);
+  if (fields.has("props")) wbFmtSyncProps(entries);
   const first = entries.find((e) => wbFmtKind(e) && wbFmtKind(e) !== "topic");
   if (!first) return;
   const set = (id, value, prop = "value") => {
     const el = document.getElementById(id);
     if (el && document.activeElement !== el) el[prop] = value;
   };
-  const takes = new Set(WB_FMT_FIELDS[wbFmtKind(first)] || []);
+  const takes = fields;
+  //: A value the selection does not agree on says Mixed rather than
+  //: showing the first item's as if it were everyone's.
+  const sharing = entries.filter((e) => wbFmtKind(e) && wbFmtKind(e) !== "topic");
+  const mixed = (field) => new Set(sharing.map((e) => JSON.stringify(wbFmtValue(e, field)))).size > 1;
+  //: A shape's or a text box's line is its border, and says so.
+  const bordered = [...kinds].every((k) => k === "shape" || k === "text");
+  const strokeWord = document.getElementById("wb-fmt-stroke-word");
+  if (strokeWord) strokeWord.textContent = bordered ? "Border" : "Line";
+  const strokeField = document.getElementById("wb-fmt-stroke");
+  if (strokeField) {
+    strokeField.setAttribute("aria-label", bordered ? "Border colour" : "Line colour");
+    strokeField.dataset.title = bordered ? "Border colour" : "Line colour";
+  }
   for (const [id, field, row] of [
     ["wb-fmt-stroke", "stroke", "stroke"], ["wb-fmt-width", "width", "width"], ["wb-fmt-dash", "dash", "dash"],
     ["wb-fmt-fill", "fill", "fill"], ["wb-fmt-route", "route", "route"], ["wb-fmt-jumps", "jumps", "jumps"], ["wb-fmt-startcap", "startcap", "caps"],
-    ["wb-fmt-endcap", "endcap", "caps"], ["wb-fmt-label-t", "label-t", "label-t"], ["wb-fmt-size", "size", "text"],
+    ["wb-fmt-endcap", "endcap", "caps"], ["wb-fmt-startsize", "startsize", "caps"], ["wb-fmt-endsize", "endsize", "caps"], ["wb-fmt-label-t", "label-t", "label-t"], ["wb-fmt-size", "size", "text"],
     ["wb-fmt-ink", "ink", "text"], ["wb-fmt-alpha", "alpha", "alpha"],
   ]) {
-    if (takes.has(row)) set(id, wbFmtValue(first, field));
+    if (!takes.has(row)) continue;
+    const el = document.getElementById(id);
+    if (!el || document.activeElement === el) continue;
+    wbFmtShowMixed(el, mixed(field), wbFmtValue(first, field));
   }
   if (takes.has("fill")) {
-    set("wb-fmt-fill-on", wbFmtValue(first, "fill-on"), "checked");
     const fillField = document.getElementById("wb-fmt-fill");
-    if (fillField) fillField.disabled = !wbFmtValue(first, "fill-on");
-  }
-  if (takes.has("shadow")) set("wb-fmt-shadow", wbFmtValue(first, "shadow"), "checked");
-  const alphaOut = document.getElementById("wb-fmt-alpha-out");
-  if (alphaOut && takes.has("alpha")) alphaOut.textContent = `${wbFmtValue(first, "alpha")}%`;
-  if (["shape", "text"].includes(wbFmtKind(first))) {
-    for (const button of panel.querySelectorAll("#wb-fmt-align [data-align]")) {
-      button.setAttribute("aria-pressed", String(button.dataset.align === wbFmtValue(first, "align")));
+    const fillOn = document.getElementById("wb-fmt-fill-on");
+    if (fillOn && document.activeElement !== fillOn) {
+      fillOn.checked = wbFmtValue(first, "fill-on");
+      fillOn.indeterminate = mixed("fill-on");
     }
-    document.getElementById("wb-fmt-bold")?.setAttribute("aria-pressed", String(wbFmtValue(first, "bold")));
-    document.getElementById("wb-fmt-italic")?.setAttribute("aria-pressed", String(wbFmtValue(first, "italic")));
+    if (fillField) fillField.classList.toggle("wb-colour-off", !mixed("fill-on") && !wbFmtValue(first, "fill-on"));
+  }
+  for (const [id, field] of [["wb-fmt-shadow", "shadow"], ["wb-fmt-rough", "rough"]]) {
+    const box = document.getElementById(id);
+    if (!takes.has(field) || !box || document.activeElement === box) continue;
+    box.checked = wbFmtValue(first, field);
+    box.indeterminate = mixed(field);
+  }
+  const sticky = entries.find((e) => e.kind === "object" && wbIsSticky(e.item));
+  if (sticky) set("wb-fmt-fold", wbStickyFolds(sticky.item), "checked");
+  const alphaOut = document.getElementById("wb-fmt-alpha-out");
+  if (alphaOut && takes.has("alpha")) alphaOut.textContent = mixed("alpha") ? "Mixed" : `${wbFmtValue(first, "alpha")}%`;
+  if (takes.has("text")) {
+    const pressed = (field, value) => {
+      const some = sharing.map((e) => wbFmtValue(e, field) === value);
+      return some.every(Boolean) ? "true" : some.some(Boolean) ? "mixed" : "false";
+    };
+    for (const button of panel.querySelectorAll("#wb-fmt-align [data-align]")) button.setAttribute("aria-pressed", pressed("align", button.dataset.align));
+    for (const button of panel.querySelectorAll("#wb-fmt-valign [data-valign]")) button.setAttribute("aria-pressed", pressed("valign", button.dataset.valign));
+    document.getElementById("wb-fmt-bold")?.setAttribute("aria-pressed", pressed("bold", true));
+    document.getElementById("wb-fmt-italic")?.setAttribute("aria-pressed", pressed("italic", true));
   }
   const box = wbFmtBox(entries);
   if (!box) return;
@@ -351,6 +430,86 @@ function wbFormatSync() {
     if (el) el.disabled = entries.length !== 1;
   }
   set("wb-fmt-angle", Math.round(first.item.rotation || 0));
+}
+
+//: --- Edit data (draw.io's custom properties; canvasdepth2) ----------------
+//:
+//: `data.props {name: value}` on one selected item, as rows of two fields
+//: and a remove button. A change is read off every row at once and written
+//: as one Undo step; a row with no name is not kept.
+const WB_PROP_NAME = /^[A-Za-z][\w .-]{0,39}$/;
+
+function wbFmtProps(entry) {
+  const data = entry.kind === "sketch" ? wbFmtSketch(entry) : entry.item.data || {};
+  return data.props && typeof data.props === "object" ? data.props : {};
+}
+
+function wbFmtPropRow(name = "", value = "") {
+  const li = document.createElement("li");
+  li.className = "wb-fmt-prop";
+  const key = document.createElement("input");
+  key.className = "wb-fmt-prop-name";
+  key.value = name;
+  key.maxLength = 40;
+  key.placeholder = "Name";
+  key.setAttribute("aria-label", "Property name");
+  const val = document.createElement("input");
+  val.className = "wb-fmt-prop-value";
+  val.value = value;
+  val.maxLength = 200;
+  val.placeholder = "Value";
+  val.setAttribute("aria-label", name ? `Value of ${name}` : "Property value");
+  const remove = smallButton("ph:x", name ? `Remove ${name}` : "Remove this property", () => {
+    li.remove();
+    wbFmtSaveProps();
+  });
+  remove.classList.add("wb-fmt-prop-remove");
+  li.append(key, val, remove);
+  return li;
+}
+
+function wbFmtSyncProps(entries) {
+  const list = document.getElementById("wb-fmt-props");
+  if (!list || list.contains(document.activeElement)) return;
+  const add = document.getElementById("wb-fmt-prop-add");
+  const one = entries.length === 1 && WB_FMT_FIELDS[wbFmtKind(entries[0])]?.includes("props") ? entries[0] : null;
+  if (add) add.hidden = !one;
+  list.dataset.item = one ? `${one.kind}:${one.id}` : "";
+  list.replaceChildren(...(one ? Object.entries(wbFmtProps(one)).map(([k, v]) => wbFmtPropRow(k, String(v))) : []));
+  if (!one && entries.length > 1) {
+    const li = document.createElement("li");
+    li.className = "muted wb-lib-note";
+    li.textContent = "Select one item to see and change its data.";
+    list.append(li);
+  }
+}
+
+//: One save at a time, each reading the rows when it runs: a name and then
+//: its value typed straight on are two changes, and two PUTs in flight can
+//: land in either order.
+function wbFmtSaveProps() {
+  wbFmtState.propsChain = (wbFmtState.propsChain || Promise.resolve()).then(wbFmtWriteProps, wbFmtWriteProps);
+  return wbFmtState.propsChain;
+}
+
+function wbFmtWriteProps() {
+  const list = document.getElementById("wb-fmt-props");
+  if (!list) return;
+  const props = {};
+  let refused = "";
+  for (const row of list.querySelectorAll(".wb-fmt-prop")) {
+    const name = row.querySelector(".wb-fmt-prop-name").value.trim();
+    if (!name) continue;
+    if (!WB_PROP_NAME.test(name)) {
+      refused = name;
+      continue;
+    }
+    props[name] = row.querySelector(".wb-fmt-prop-value").value.slice(0, 200);
+  }
+  if (refused) toast(`"${refused}" cannot be a name: start with a letter, then letters, digits, spaces, dots, dashes or underscores.`, "info");
+  const keys = Object.keys(props).slice(0, 30);
+  const value = keys.length ? Object.fromEntries(keys.map((k) => [k, props[k]])) : undefined;
+  return wbFmtApply("props", () => ({ props: value }), "Data saved.");
 }
 
 //: The arrange buttons, from the command table: icon-only, named by the
@@ -397,20 +556,26 @@ function wbFormatCommandButtons() {
   }
 }
 
+//: The fields a change of either end (its mark or its size) writes.
+function wbFmtCapFields(kind, parsed, caps) {
+  if (kind === "arrow") {
+    const d = wbRegenerateShapeCaps(parsed.d, caps.startCap, caps.endCap, (parsed.width || 3) * 4 + 6, caps);
+    return { d, startCap: caps.startCap, endCap: caps.endCap, ...wbCapSizeFields(caps) };
+  }
+  return { startCap: caps.startCap, endCap: caps.endCap, endStyle: undefined, ...wbCapSizeFields(caps) };
+}
+
 onDomReady(() => {
   const panel = wbFormatPanel();
   if (!panel) return;
   wbFormatCommandButtons();
-  //: The panel's two end lists are the bar's, word for word, without the
-  //: bar's "Start:" and "End:" (the panel's row label says which end).
+  //: The panel's two end lists are the bar's, groups and drawn examples
+  //: included (the row label says which end).
   for (const which of ["start", "end"]) {
     const from = document.getElementById(`wb-prop-${which}cap`);
     const to = document.getElementById(`wb-fmt-${which}cap`);
     if (!from || !to || to.options.length) continue;
-    for (const option of from.options) {
-      const words = option.textContent.replace(/^(Start|End): /, "");
-      to.add(new Option(words.charAt(0).toUpperCase() + words.slice(1), option.value));
-    }
+    for (const node of from.children) to.append(node.cloneNode(true));
   }
   const on = (id, type, fn) => document.getElementById(id)?.addEventListener(type, fn);
   on("wb-format-close", "click", () => wbFormatClose());
@@ -467,18 +632,34 @@ onDomReady(() => {
     const pct = Math.max(10, Math.min(100, Number(e.target.value) || 100));
     wbFmtApply("alpha", () => ({ alpha: pct >= 100 ? undefined : pct / 100 }), `Opacity ${pct}%.`);
   });
+  on("wb-fmt-fold", "change", (e) => wbFmtApply("fold", (entry) => (entry.kind === "object" && wbIsSticky(entry.item) ? { fold: e.target.checked } : null), e.target.checked ? "Corner folded." : "Corner flat."));
   on("wb-fmt-shadow", "change", (e) => wbFmtApply("shadow", () => ({ shadow: e.target.checked || undefined }), e.target.checked ? "Shadow on." : "Shadow off."));
+  //: An item that matches the board's look stores nothing, so it follows the
+  //: board when the board's look changes.
+  on("wb-fmt-rough", "change", (e) => {
+    const board = wbBoardBackground().rough === true;
+    wbFmtApply("rough", () => ({ rough: e.target.checked === board ? undefined : e.target.checked }), e.target.checked ? "Hand-drawn." : "Drawn plain.");
+  });
   on("wb-fmt-route", "change", (e) => wbSetLinkRoute(e.target.value));
   on("wb-fmt-jumps", "change", (e) => {
     const style = WB_JUMP_STYLES.includes(e.target.value) ? e.target.value : "none";
     wbFmtApply("jumps", () => ({ jumps: style === "none" ? undefined : style }), `Line jumps: ${e.target.selectedOptions[0]?.textContent || style}.`);
   });
   for (const which of ["start", "end"]) {
-    on(`wb-fmt-${which}cap`, "change", (e) => wbFmtApply("caps", (entry) => {
-      const caps = wbLinkCaps(wbFmtSketch(entry));
+    on(`wb-fmt-${which}cap`, "change", (e) => wbFmtApply("caps", (entry, kind) => {
+      const parsed = wbFmtSketch(entry);
+      //: A drawn line carries its ends in its path, so the path is redrawn;
+      //: a connector's are drawn from the two fields at render time.
+      const caps = kind === "arrow" ? wbSketchCaps(parsed) : wbLinkCaps(parsed);
       caps[`${which}Cap`] = e.target.value;
-      return { startCap: caps.startCap, endCap: caps.endCap, endStyle: undefined };
+      return wbFmtCapFields(kind, parsed, caps);
     }, `${which === "start" ? "Start" : "End"}: ${e.target.selectedOptions[0]?.textContent || e.target.value}.`));
+    on(`wb-fmt-${which}size`, "change", (e) => wbFmtApply("caps", (entry, kind) => {
+      const parsed = wbFmtSketch(entry);
+      const caps = kind === "arrow" ? wbSketchCaps(parsed) : wbLinkCaps(parsed);
+      caps[`${which}Size`] = e.target.value;
+      return wbFmtCapFields(kind, parsed, caps);
+    }, `${which === "start" ? "Start" : "End"} size: ${e.target.selectedOptions[0]?.textContent || e.target.value}.`));
   }
   on("wb-fmt-label-t", "change", (e) => {
     const pct = Math.max(5, Math.min(95, Number(e.target.value) || 50));
@@ -502,6 +683,17 @@ onDomReady(() => {
     if (!button) return;
     wbFmtApply("text", textPatch("label_align", "align", button.dataset.align), `Text aligned ${button.dataset.align}.`);
   });
+  on("wb-fmt-valign", "click", (e) => {
+    const button = e.target.closest("[data-valign]");
+    if (!button) return;
+    const at = button.dataset.valign;
+    //: The kind's own default is stored as no value, so a reset style and a
+    //: box never touched read the same.
+    wbFmtApply("text", (entry, kind) => {
+      const plain = kind === "shape" ? "middle" : "top";
+      return kind === "shape" ? { label_valign: at === plain ? undefined : at } : { valign: at === plain ? undefined : at };
+    }, `Text at the ${at}.`);
+  });
   for (const axis of ["x", "y", "w", "h"]) {
     on(`wb-fmt-${axis}`, "change", (e) => wbFmtGeometry(axis, Number(e.target.value)));
   }
@@ -509,6 +701,740 @@ onDomReady(() => {
   on("wb-fmt-flip-h", "click", () => wbFmtFlip("h"));
   on("wb-fmt-flip-v", "click", () => wbFmtFlip("v"));
   on("wb-fmt-save-style", "click", () => wbRunCommand("save-style"));
+  on("wb-fmt-props", "change", () => wbFmtSaveProps());
+  on("wb-fmt-prop-add", "click", () => {
+    const row = wbFmtPropRow();
+    document.getElementById("wb-fmt-props")?.append(row);
+    row.querySelector("input")?.focus();
+  });
   on("wb-fmt-copy-style", "click", () => document.getElementById("wb-copy-style")?.click());
   on("wb-fmt-paste-style", "click", () => document.getElementById("wb-paste-style")?.click());
+});
+
+//: --- The hand-drawn look (Excalidraw's; canvasdepth2) ---------------------
+//:
+//: A board option (`background.rough`) or an item's own `rough`, over it.
+//: Each line is sampled along its length, given a slow wobble from a
+//: generator seeded by the item's id, and drawn twice, so a shape looks the
+//: same on every render and every machine. The freehand pen and the
+//: highlighter are already by hand; a map's lines keep the map's look.
+const WB_ROUGH_CACHE = new Map();
+const WB_ROUGH_STEP = 6;
+
+function wbDrawsRough(data, mapLine) {
+  if (!data || mapLine || data.shape === "draw" || data.shape === "highlighter" || wbIsMap()) return false;
+  return typeof data.rough === "boolean" ? data.rough : wbBoardBackground().rough === true;
+}
+
+//: mulberry32: small, fast and the same everywhere.
+function wbRoughRandom(seed) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function wbRoughProbe() {
+  let probe = document.getElementById("wb-rough-probe");
+  if (!probe) {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("aria-hidden", "true");
+    svg.classList.add("wb-rough-probe");
+    probe = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    probe.id = "wb-rough-probe";
+    svg.append(probe);
+    document.body.append(svg);
+  }
+  return probe;
+}
+
+//: Points through a Catmull-Rom spline, as cubic Béziers.
+function wbRoughSpline(points) {
+  const f = (n) => Math.round(n * 10) / 10;
+  let d = `M${f(points[0][0])} ${f(points[0][1])}`;
+  for (let i = 0; i < points.length - 1; i += 1) {
+    const p0 = points[Math.max(0, i - 1)];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[Math.min(points.length - 1, i + 2)];
+    d += `C${f(p1[0] + (p2[0] - p0[0]) / 6)} ${f(p1[1] + (p2[1] - p0[1]) / 6)} ${f(p2[0] - (p3[0] - p1[0]) / 6)} ${f(p2[1] - (p3[1] - p1[1]) / 6)} ${f(p2[0])} ${f(p2[1])}`;
+  }
+  return d;
+}
+
+function wbRoughD(d, seed) {
+  if (!d) return d;
+  const key = `${seed}|${d}`;
+  const hit = WB_ROUGH_CACHE.get(key);
+  if (hit) return hit;
+  const probe = wbRoughProbe();
+  const rand = wbRoughRandom(Number(seed) * 2654435761 || 1);
+  //: Each subpath on its own, or the sampler would join them; a relative
+  //: `m` cannot be split safely, so such a path is sampled whole.
+  const parts = /m/.test(d) ? [d] : d.split(/(?=M)/).filter((part) => part.trim());
+  let out = "";
+  for (const part of parts) {
+    probe.setAttribute("d", part);
+    const total = probe.getTotalLength();
+    if (!(total > 1)) {
+      out += part;
+      continue;
+    }
+    const n = Math.max(6, Math.min(240, Math.round(total / WB_ROUGH_STEP)));
+    const points = [];
+    for (let i = 0; i <= n; i += 1) {
+      const p = probe.getPointAtLength((total * i) / n);
+      points.push([p.x, p.y]);
+    }
+    for (let pass = 0; pass < 2; pass += 1) {
+      const amp = Math.min(2.4, 0.9 + total / 700) * (pass ? 1.25 : 1);
+      const knots = Array.from({ length: Math.ceil(n / 5) + 2 }, () => [(rand() - 0.5) * 2 * amp, (rand() - 0.5) * 2 * amp]);
+      out += wbRoughSpline(points.map(([x, y], i) => {
+        const at = i / 5;
+        const k = Math.floor(at);
+        const t = at - k;
+        const s = t * t * (3 - 2 * t);
+        return [x + knots[k][0] + (knots[k + 1][0] - knots[k][0]) * s, y + knots[k][1] + (knots[k + 1][1] - knots[k][1]) * s];
+      }));
+    }
+  }
+  if (WB_ROUGH_CACHE.size > 4000) WB_ROUGH_CACHE.clear();
+  WB_ROUGH_CACHE.set(key, out);
+  return out;
+}
+
+//: --- Tables (draw.io's; canvasdepth2) -------------------------------------
+//:
+//: An object of kind `table`: `data.cells`, rows of text, and `data.header`
+//: for a bold first row. The grid fills the object's box, so resizing the
+//: table is the object's own resize; each row and column takes an equal
+//: share. Double-click a cell to type in it; Tab and Shift+Tab walk the
+//: cells, Enter keeps the words, Escape drops them. The cell last pressed is
+//: where the menu's rows and columns go in or come out.
+const WB_TABLE_ROW_H = 40;
+const WB_TABLE_COL_W = 120;
+
+function wbTableCells(d) {
+  const cells = Array.isArray(d.data?.cells) && d.data.cells.length ? d.data.cells : [[""]];
+  return cells.map((row) => (Array.isArray(row) ? row.map((c) => String(c ?? "")) : [""]));
+}
+
+function wbBuildTable(el, d) {
+  el.append("div").attr("class", "wb-table-grid").attr("role", "grid").attr("aria-label", "Table")
+    .on("pointerdown", (event) => {
+      const cell = event.target.closest(".wb-table-cell");
+      if (cell) wbFmtState.tableCell = { id: d.id, r: Number(cell.dataset.r), c: Number(cell.dataset.c) };
+      if (cell?.isContentEditable) event.stopPropagation();
+    })
+    .on("dblclick", (event) => {
+      const cell = event.target.closest(".wb-table-cell");
+      if (!cell) return;
+      event.stopPropagation();
+      wbEditTableCell(d.id, Number(cell.dataset.r), Number(cell.dataset.c));
+    });
+}
+
+//: Rebuilt only when the cells or the header change, and never under a
+//: cell being typed in.
+function wbPaintTable(node, d) {
+  const grid = node.querySelector(".wb-table-grid");
+  if (!grid || grid.querySelector("[contenteditable='true']")) return;
+  const cells = wbTableCells(d);
+  const key = JSON.stringify([cells, Boolean(d.data?.header)]);
+  if (grid.dataset.key === key) return;
+  grid.dataset.key = key;
+  grid.style.gridTemplateColumns = `repeat(${cells[0].length}, minmax(0, 1fr))`;
+  grid.style.gridTemplateRows = `repeat(${cells.length}, minmax(0, 1fr))`;
+  grid.classList.toggle("has-header", Boolean(d.data?.header));
+  grid.replaceChildren(...cells.flatMap((row, r) => row.map((text, c) => {
+    const cell = document.createElement("div");
+    cell.className = "wb-table-cell";
+    cell.setAttribute("role", r === 0 && d.data?.header ? "columnheader" : "gridcell");
+    cell.dataset.r = String(r);
+    cell.dataset.c = String(c);
+    cell.textContent = text;
+    return cell;
+  })));
+}
+
+async function wbInsertTable(rows = 3, cols = 3) {
+  const [cx, cy] = wbViewCentre();
+  const w = cols * WB_TABLE_COL_W;
+  const h = rows * WB_TABLE_ROW_H;
+  const cells = Array.from({ length: rows }, () => Array.from({ length: cols }, () => ""));
+  const made = await wbCreateObject("table", { cells, header: true }, cx - w / 2, cy - h / 2, w, h, 2);
+  if (!made) return null;
+  clearWbSelection();
+  wbHandleItemClick("object", made.id, { shiftKey: false });
+  wbAnnounce(`Table added, ${rows} rows by ${cols} columns. Double-click a cell to type in it.`);
+  return made;
+}
+
+//: Writes new cells (and a new size) as one Undo step.
+async function wbSetTable(d, cells, size = null, said = "") {
+  if (!d || wbIsLocked("object", d)) return;
+  wbPushUndo({ action: "move", kind: "object", id: d.id, before: WB_KIND_INFO.object.payload(d) });
+  d.data = { ...d.data, cells };
+  if (size) Object.assign(d, size);
+  await wbSaveObject(d);
+  wbScheduleRender();
+  if (said) wbAnnounce(said);
+}
+
+function wbEditTableCell(id, r, c) {
+  const d = (wbState.objects || []).find((o) => o.id === id);
+  const node = document.querySelector(`.wb-object[data-id="${id}"]`);
+  const cell = node?.querySelector(`.wb-table-cell[data-r="${r}"][data-c="${c}"]`);
+  if (!d || !cell || wbIsLocked("object", d)) return;
+  wbFmtState.tableCell = { id, r, c };
+  const before = cell.textContent;
+  cell.contentEditable = "true";
+  cell.focus();
+  document.getSelection()?.selectAllChildren(cell);
+  let moveTo = null;
+  //: The next cell takes the keyboard before this one is saved, so typing
+  //: straight on after Tab loses nothing; a cell being typed in is never
+  //: redrawn under it (`wbPaintTable`).
+  const done = (keep) => {
+    cell.removeEventListener("keydown", onKey);
+    cell.removeEventListener("blur", onBlur);
+    cell.contentEditable = "false";
+    const text = cell.innerText.replace(/\n+$/, "").slice(0, 500);
+    if (!keep) cell.textContent = before;
+    if (moveTo) wbEditTableCell(id, moveTo[0], moveTo[1]);
+    if (keep && text !== before) {
+      const cells = wbTableCells(d);
+      cells[r][c] = text;
+      wbSetTable(d, cells);
+    }
+  };
+  const onBlur = () => done(true);
+  const onKey = (event) => {
+    event.stopPropagation();
+    if (event.key === "Escape") {
+      event.preventDefault();
+      cell.removeEventListener("blur", onBlur);
+      done(false);
+    } else if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      cell.blur();
+    } else if (event.key === "Tab") {
+      event.preventDefault();
+      const cells = wbTableCells(d);
+      const cols = cells[0].length;
+      const at = r * cols + c + (event.shiftKey ? -1 : 1);
+      if (at >= 0 && at < cells.length * cols) moveTo = [Math.floor(at / cols), at % cols];
+      cell.blur();
+    }
+  };
+  cell.addEventListener("keydown", onKey);
+  cell.addEventListener("blur", onBlur);
+}
+
+//: Insert or remove a row or column at `at` (`axis` "row" or "col"); the
+//: table grows or shrinks by one row's or column's share, so the others keep
+//: their size.
+function wbTableReshape(d, axis, at, remove) {
+  const cells = wbTableCells(d);
+  const rows = cells.length;
+  const cols = cells[0].length;
+  if (remove && (axis === "row" ? rows : cols) <= 1) {
+    toast(`A table keeps at least one ${axis === "row" ? "row" : "column"}; delete the table instead.`, "info");
+    return;
+  }
+  if (!remove && (axis === "row" ? rows >= 50 : cols >= 20)) {
+    toast(axis === "row" ? "A table holds up to 50 rows." : "A table holds up to 20 columns.", "info");
+    return;
+  }
+  let next;
+  if (axis === "row") {
+    next = remove ? cells.filter((_, i) => i !== at) : [...cells.slice(0, at), Array(cols).fill(""), ...cells.slice(at)];
+  } else {
+    next = cells.map((row) => (remove ? row.filter((_, i) => i !== at) : [...row.slice(0, at), "", ...row.slice(at)]));
+  }
+  const share = axis === "row" ? d.height / rows : d.width / cols;
+  const size = axis === "row" ? { height: Math.max(WB_TABLE_ROW_H / 2, d.height + (remove ? -share : share)) } : { width: Math.max(WB_TABLE_COL_W / 2, d.width + (remove ? -share : share)) };
+  const word = axis === "row" ? "Row" : "Column";
+  return wbSetTable(d, next, size, `${word} ${remove ? "removed" : "added"}.`);
+}
+
+//: The table's rows for the item menu: around the cell last pressed when it
+//: is this table's, else at the ends.
+function wbTableMenuRows(d) {
+  const cells = wbTableCells(d);
+  const at = wbFmtState.tableCell?.id === d.id ? wbFmtState.tableCell : null;
+  const r = at ? Math.min(at.r, cells.length - 1) : cells.length - 1;
+  const c = at ? Math.min(at.c, cells[0].length - 1) : cells[0].length - 1;
+  const here = at ? "this cell's" : "the last";
+  return [
+    ["Add a row below", `Under ${here} row`, () => wbTableReshape(d, "row", r + 1, false)],
+    ["Add a row above", `Over ${here} row`, () => wbTableReshape(d, "row", r, false)],
+    ["Add a column to the right", `Beside ${here} column`, () => wbTableReshape(d, "col", c + 1, false)],
+    ["Add a column to the left", `Before ${here} column`, () => wbTableReshape(d, "col", c, false)],
+    [at ? "Delete this row" : "Delete the last row", at ? "The row of the cell you pressed" : "Press a cell first to pick another", () => wbTableReshape(d, "row", r, true)],
+    [at ? "Delete this column" : "Delete the last column", at ? "The column of the cell you pressed" : "Press a cell first to pick another", () => wbTableReshape(d, "col", c, true)],
+    [d.data?.header ? "Plain first row" : "First row as a header", "Bold on a tint, or like the rest", async () => {
+      wbPushUndo({ action: "move", kind: "object", id: d.id, before: WB_KIND_INFO.object.payload(d) });
+      d.data = { ...d.data, header: !d.data?.header || undefined };
+      if (!d.data.header) delete d.data.header;
+      await wbSaveObject(d);
+      wbScheduleRender();
+    }],
+  ];
+}
+
+//: --- The colour well (the owner, 2026-10-11) ------------------------------
+//:
+//: "it is difficult to change the border and fill colour to the same colour
+//: or a different one. can there be like a recent colours set in the colour
+//: picker popups?" Every board colour field (`.wb-color-picker`: a shape's
+//: fill and border, a line's ink, a text box's, the drawing colour on the
+//: rail) opens this popover instead of the browser's dialog: what it is
+//: setting at the top; for a fill and its border, the two side by side with
+//: Same as and Swap; the last eight colours picked on this device; the board
+//: colours; take a colour from the board; and More colours, which is the
+//: browser's dialog. A pick is written by the field's own `change` handler,
+//: so it is the one Undo step it always was.
+const WB_RECENT_COLOURS_KEY = "wb-recent-colours";
+const WB_RECENT_COLOURS_MAX = 8;
+//: The twelve category hues (each reads on both themes) with ink, two greys
+//: and white, as two rows of eight.
+const WB_COLOUR_SWATCHES = {
+  ink: "#1f2430", grey: "#8a8f98", silver: "#d0d4dc", white: "#ffffff",
+  red: "#da5252", orange: "#ba6d36", amber: "#9e7c17", lime: "#6d8a14",
+  green: "#15952b", teal: "#159172", cyan: "#178ca3", blue: "#387fe3",
+  indigo: "#6a74ea", violet: "#9b63e9", magenta: "#d332e2", pink: "#ce5591",
+};
+//: A fill and the border it sits in: wherever one is edited, the other is
+//: one press away. `on` is the field saying the fill is on at all.
+const WB_COLOUR_PAIRS = [
+  { fill: "wb-prop-shapefill", border: "wb-prop-color", on: "wb-prop-shapefill-on", selection: true, shape: true },
+  { fill: "wb-fmt-fill", border: "wb-fmt-stroke", on: "wb-fmt-fill-on", selection: true },
+  { fill: "wb-prop-bg", border: "wb-prop-border", selection: true },
+  { fill: "wb-fill-color", border: "wb-rail-ink", on: "wb-fill-on" },
+];
+const wbColourState = { menu: null, input: null, eyedrop: false, swallowClick: false, takeBorder: false };
+
+function wbRecentColours() {
+  try {
+    const list = prefs.json(WB_RECENT_COLOURS_KEY, []);
+    return Array.isArray(list) ? list.filter((c) => /^#[0-9a-f]{6}$/.test(c)).slice(0, WB_RECENT_COLOURS_MAX) : [];
+  } catch {
+    return [];
+  }
+}
+
+function wbRememberColour(colour) {
+  const hex = wbHexOf(colour);
+  if (!hex) return;
+  const list = [hex, ...wbRecentColours().filter((c) => c !== hex)].slice(0, WB_RECENT_COLOURS_MAX);
+  try {
+    prefs.set(WB_RECENT_COLOURS_KEY, JSON.stringify(list));
+  } catch {
+    /* a private window: the row starts empty next time */
+  }
+}
+
+//: Any CSS colour as `#rrggbb`, or null: the canvas reads it the way the
+//: browser paints it, names and `rgb()` included.
+function wbHexOf(colour) {
+  const text = String(colour || "").trim().toLowerCase();
+  if (/^#[0-9a-f]{6}$/.test(text)) return text;
+  if (/^#[0-9a-f]{3}$/.test(text)) return `#${[...text.slice(1)].map((c) => c + c).join("")}`;
+  if (!text || text === "transparent" || text === "none") return null;
+  const m = /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)(?:[\s,/]+([\d.]+%?))?\s*\)$/.exec(text);
+  if (m) {
+    if (m[4] !== undefined && parseFloat(m[4]) === 0) return null;
+    return `#${[m[1], m[2], m[3]].map((n) => Number(n).toString(16).padStart(2, "0")).join("")}`;
+  }
+  const ctx = (wbHexOf.ctx ||= document.createElement("canvas").getContext("2d"));
+  ctx.fillStyle = "#000001";
+  ctx.fillStyle = text;
+  return ctx.fillStyle === "#000001" ? null : wbHexOf(ctx.fillStyle);
+}
+
+//: What a field sets, in words, read off the selection where the field is
+//: shared (the bar's ink is a border on a shape and a line's colour on a line).
+function wbColourName(input) {
+  if (input.id === "wb-prop-color" || input.id === "wb-fmt-stroke") {
+    const kinds = new Set(wbFmtEntries().map(wbFmtKind));
+    if (input.id === "wb-prop-color" && kinds.has("text")) return "Text colour";
+    return kinds.size && [...kinds].every((k) => k === "shape" || k === "text") ? "Border colour" : "Line colour";
+  }
+  return { "wb-prop-shapefill": "Fill colour", "wb-fmt-fill": "Fill colour", "wb-prop-bg": "Fill colour", "wb-prop-border": "Border colour",
+    "wb-fill-color": "Fill for new shapes", "wb-rail-ink": "Drawing colour", "wb-fmt-ink": "Text colour" }[input.id]
+    || input.getAttribute("aria-label") || "Colour";
+}
+
+function wbColourPairOf(input) {
+  const pair = WB_COLOUR_PAIRS.find((p) => p.fill === input.id || p.border === input.id);
+  if (!pair) return null;
+  //: The bar's ink is a border only when a shape is what is selected.
+  if (pair.shape && wbFmtEntries().some((e) => wbFmtKind(e) !== "shape")) return null;
+  if (pair.selection && !wbFmtEntries().length) return null;
+  const fill = document.getElementById(pair.fill), border = document.getElementById(pair.border);
+  return fill && border ? { ...pair, fillEl: fill, borderEl: border } : null;
+}
+
+//: Writes a colour into a field as a pick would: its own handlers save it.
+function wbSetColourField(input, colour) {
+  const hex = wbHexOf(colour);
+  if (!hex || !input) return;
+  input.value = hex;
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+  input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+//: **Fill and border together, as one Undo step** (Same as, Swap): on the
+//: selection the pair belongs to, every shape and text box in it at once,
+//: each from its own colours (two shapes made "same as fill" keep their two
+//: fills). `how` is "border-from-fill", "fill-from-border" or "swap"; an
+//: item with no fill has nothing to give its border, so those two pass it.
+async function wbWriteColourPair(pair, how) {
+  const pick = (fill, border) => ({
+    "border-from-fill": { border: fill },
+    "fill-from-border": { fill: border },
+    swap: { fill: border, border: fill },
+  })[how];
+  if (!pair.selection) {
+    const { fill, border } = pick(pair.fillEl.value, pair.borderEl.value);
+    if (fill) wbSetColourField(pair.fillEl, fill);
+    if (border) wbSetColourField(pair.borderEl, border);
+    return;
+  }
+  const entries = wbFmtEntries().filter((e) => !wbIsLocked(e.kind, e.item));
+  const used = new Set();
+  await wbRecordGesture(async () => {
+    for (const entry of entries) {
+      const kind = wbFmtKind(entry);
+      if (kind !== "shape" && kind !== "text") continue;
+      if (how !== "fill-from-border" && !wbFmtValue(entry, "fill-on")) continue;
+      const { fill, border } = pick(wbFmtValue(entry, "fill"), wbFmtValue(entry, "stroke"));
+      for (const colour of [fill, border]) if (colour) used.add(colour);
+      if (entry.kind === "sketch") {
+        await wbSaveSketchProps(entry.item, { ...(fill ? { fill, fillOpacity: 1 } : {}), ...(border ? { color: border } : {}) });
+      } else {
+        entry.item.data = { ...entry.item.data, ...(fill ? { bg: fill } : {}), ...(border ? { border_color: border } : {}) };
+        await wbSaveObject(entry.item);
+      }
+    }
+  });
+  for (const colour of used) wbRememberColour(colour);
+  wbScheduleRender();
+  wbUpdateContextBar();
+  wbFormatSyncSoon();
+}
+
+function wbColourMenu() {
+  if (wbColourState.menu) return wbColourState.menu;
+  const menu = document.createElement("div");
+  menu.className = "action-menu wb-colour-menu hidden";
+  menu.id = "wb-colour-menu";
+  menu.setAttribute("role", "dialog");
+  menu.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (wbColourState.eyedrop) wbStopEyedrop();
+    else closeActionMenus();
+  });
+  //: Closed by anything (a pick, outside, Escape, another menu): the
+  //: eyedropper goes with it.
+  new MutationObserver(() => {
+    if (menu.classList.contains("hidden")) {
+      wbStopEyedrop();
+      for (const el of document.querySelectorAll(".wb-colour-target")) {
+        el.classList.remove("wb-colour-target");
+        el.setAttribute("aria-expanded", "false");
+      }
+    }
+  }).observe(menu, { attributes: true, attributeFilter: ["class"] });
+  document.body.appendChild(menu);
+  wbColourState.menu = menu;
+  return menu;
+}
+
+function wbColourButton(icon, words, title, run) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "ghost small";
+  button.title = title;
+  const glyph = document.createElement("i");
+  glyph.className = `ph ph-${icon} ph-lead`;
+  glyph.setAttribute("aria-hidden", "true");
+  const label = document.createElement("span");
+  label.textContent = words;
+  button.append(glyph, label);
+  button.addEventListener("click", run);
+  return button;
+}
+
+function wbColourHeading(words) {
+  const head = document.createElement("p");
+  head.className = "wb-colour-section";
+  head.textContent = words;
+  return head;
+}
+
+//: The popover, built for one field each time it opens (the recent row and
+//: the pair's two colours change between opens).
+async function wbOpenColourMenu(input) {
+  if (typeof swatchPicker !== "function" && !(await ensureModule("categories"))) {
+    try { input.showPicker(); } catch { /* no picker: the field stays as it is */ }
+    return;
+  }
+  const menu = wbColourMenu();
+  wbStopEyedrop();
+  wbColourState.input = input;
+  const name = wbColourName(input);
+  menu.setAttribute("aria-label", name);
+  const pick = (colour) => {
+    wbSetColourField(input, colour);
+    closeActionMenus();
+  };
+  const head = document.createElement("p");
+  head.className = "wb-colour-head";
+  head.id = "wb-colour-head";
+  head.textContent = input.classList.contains("wb-mixed") ? `${name}: mixed, a pick sets them all` : name;
+  const rows = [head];
+  const pair = wbColourPairOf(input);
+  if (pair) {
+    //: Which of the two is being set, and the other one press away.
+    const seg = document.createElement("div");
+    seg.className = "tabs-line popup-kinds wb-colour-pair";
+    seg.setAttribute("role", "tablist");
+    seg.setAttribute("aria-label", "Which colour");
+    for (const [el, words] of [[pair.fillEl, "Fill"], [pair.borderEl, "Border"]]) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.setAttribute("role", "tab");
+      button.setAttribute("aria-selected", String(el === input));
+      button.tabIndex = el === input ? 0 : -1;
+      button.title = `Set the ${words.toLowerCase()} colour (${el.value})`;
+      const dot = document.createElement("span");
+      dot.className = "wb-swatch-dot";
+      dot.setAttribute("aria-hidden", "true");
+      dot.style.setProperty("--swatch", el.value);
+      const label = document.createElement("span");
+      label.textContent = words;
+      button.append(dot, label);
+      button.addEventListener("click", () => {
+        if (el !== input) wbOpenColourMenu(el);
+      });
+      seg.append(button);
+    }
+    seg.addEventListener("keydown", (e) => {
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      e.preventDefault();
+      wbOpenColourMenu(input === pair.fillEl ? pair.borderEl : pair.fillEl).then(() => document.querySelector('#wb-colour-menu [role="tab"][aria-selected="true"]')?.focus());
+    });
+    const onBox = pair.on ? document.getElementById(pair.on) : null;
+    const fillOff = Boolean(onBox && !onBox.checked && !onBox.indeterminate);
+    const isFill = input === pair.fillEl;
+    const match = wbColourButton("equals", isFill ? "Same as border" : "Same as fill",
+      isFill ? "Make the fill the border's colour" : "Make the border the fill's colour", () => {
+        closeActionMenus();
+        wbWriteColourPair(pair, isFill ? "fill-from-border" : "border-from-fill");
+      });
+    match.classList.add("wb-colour-match");
+    if (!isFill && fillOff) {
+      match.disabled = true;
+      match.title = "The shape has no fill to match: pick a fill first";
+    }
+    const swap = wbColourButton("arrows-left-right", "Swap", "Swap the fill and border colours", () => {
+      closeActionMenus();
+      wbWriteColourPair(pair, "swap");
+    });
+    swap.classList.add("wb-colour-swap");
+    if (pair.selection && fillOff) {
+      swap.disabled = true;
+      swap.title = "The shape has no fill to swap: pick a fill first";
+    }
+    const actions = document.createElement("div");
+    actions.className = "wb-colour-actions";
+    actions.append(match, swap);
+    rows.push(seg, actions);
+  }
+  const current = wbHexOf(input.value);
+  const recent = wbRecentColours();
+  rows.push(wbColourHeading("Recent"));
+  if (recent.length) {
+    const row = swatchPicker({ label: "Recent colours", value: current, palette: Object.fromEntries(recent.map((c) => [c, c])), none: null, onChoose: pick });
+    row.classList.add("wb-colour-recent");
+    rows.push(row);
+  } else {
+    const empty = document.createElement("p");
+    empty.className = "muted empty-line wb-colour-recent-empty";
+    empty.textContent = "Colours you pick show here.";
+    rows.push(empty);
+  }
+  rows.push(wbColourHeading("Colours"));
+  const byHex = Object.fromEntries(Object.entries(WB_COLOUR_SWATCHES).map(([k, v]) => [v, k]));
+  const board = swatchPicker({ label: "Board colours", value: byHex[current] || null, palette: WB_COLOUR_SWATCHES, none: null, onChoose: (key) => pick(WB_COLOUR_SWATCHES[key]) });
+  rows.push(board);
+  const tools = document.createElement("div");
+  tools.className = "wb-colour-actions";
+  const dropper = wbColourButton("eyedropper", "Pick from the board",
+    "Take a colour from a shape, a line, a text box or any colour button: Alt takes a shape's border", () => {
+      if (wbColourState.eyedrop) wbStopEyedrop();
+      else wbStartEyedrop();
+    });
+  dropper.id = "wb-colour-eyedrop";
+  dropper.setAttribute("aria-pressed", "false");
+  const more = wbColourButton("palette", "More colours", "Any colour, by number or from the screen", () => {
+    closeActionMenus();
+    try { input.showPicker(); } catch { /* the browser has no dialog here */ }
+  });
+  //: What a press on a shape takes, said rather than only held under Alt
+  //: (a touch screen has no Alt); shown while the eyedropper is on.
+  const take = document.createElement("label");
+  take.className = "wb-snap-label wb-colour-take hidden";
+  take.id = "wb-colour-take";
+  take.title = "Take a shape's border colour rather than its fill (Alt does the same)";
+  const takeBox = document.createElement("input");
+  takeBox.type = "checkbox";
+  takeBox.checked = wbColourState.takeBorder;
+  takeBox.addEventListener("change", () => {
+    wbColourState.takeBorder = takeBox.checked;
+  });
+  const takeWords = document.createElement("span");
+  takeWords.textContent = "Take a shape's border";
+  take.append(takeBox, takeWords);
+  tools.append(dropper, more);
+  rows.push(tools, take);
+  menu.replaceChildren(...rows);
+  closeActionMenus();
+  window._menuOpenedAt = performance.now();
+  menu._escapedOpener = input;
+  menu.classList.add("action-menu-escaped");
+  menu.classList.remove("hidden");
+  input.setAttribute("aria-expanded", "true");
+  input.classList.add("wb-colour-target");
+  placeEscapedMenu(menu, input);
+  (menu.querySelector('[role="radio"][tabindex="0"]') || menu.querySelector("button"))?.focus({ preventScroll: true });
+}
+
+//: **The eyedropper** (the owner: "I tried to click the colour circle on the
+//: fill colour circle in the tools popup above the shape but it just opened
+//: that colour picker menu instead of getting the colour"). While it is on,
+//: the next press anywhere takes a colour instead of doing what it would:
+//: a colour button gives its colour, a shape its fill (its border with Alt),
+//: a line its ink, a text box its fill or, with Alt, its edge. The press
+//: never reaches what is under it. A press on nothing with a colour, or
+//: Escape, puts it away.
+function wbStartEyedrop() {
+  const menu = wbColourState.menu;
+  if (!menu || !wbColourState.input) return;
+  wbColourState.eyedrop = true;
+  document.documentElement.classList.add("wb-eyedropping");
+  const button = document.getElementById("wb-colour-eyedrop");
+  button?.setAttribute("aria-pressed", "true");
+  document.getElementById("wb-colour-take")?.classList.remove("hidden");
+  const head = document.getElementById("wb-colour-head");
+  if (head) head.textContent = `${wbColourName(wbColourState.input)}: click a shape or a colour`;
+  wbAnnounce(`Picking a colour for the ${wbColourName(wbColourState.input).toLowerCase()}. Click a shape or a colour button; Alt takes a border. Escape stops.`);
+}
+
+function wbStopEyedrop() {
+  if (!wbColourState.eyedrop) return;
+  wbColourState.eyedrop = false;
+  document.documentElement.classList.remove("wb-eyedropping");
+  document.getElementById("wb-colour-eyedrop")?.setAttribute("aria-pressed", "false");
+  document.getElementById("wb-colour-take")?.classList.add("hidden");
+  const head = document.getElementById("wb-colour-head");
+  if (head && wbColourState.input) head.textContent = wbColourName(wbColourState.input);
+}
+
+//: The colour a press would take, or null.
+function wbSampleColour(target, border) {
+  if (!(target instanceof Element)) return null;
+  const field = target.closest('input[type="color"]');
+  if (field) return wbHexOf(field.value);
+  const swatch = target.closest(".swatch-picker [role='radio'], .wb-paper-swatch, .wb-swatch-dot");
+  if (swatch) {
+    const style = getComputedStyle(swatch);
+    return wbHexOf(style.getPropertyValue("--swatch") || swatch.dataset.paper || style.backgroundColor);
+  }
+  const sketchEl = target.closest(".sketch-group[data-id]");
+  if (sketchEl) {
+    const sketch = wbFindItem("sketch", Number(sketchEl.dataset.id));
+    const parsed = sketch ? wbSketchParsedData(sketch) || JSON.parse(sketch.data || "{}") : null;
+    if (parsed) return wbHexOf(border || !parsed.fill ? parsed.color : parsed.fill);
+  }
+  const objectEl = target.closest(".wb-object[data-id]");
+  if (objectEl) {
+    const object = wbFindItem("object", Number(objectEl.dataset.id));
+    const d = object?.data || {};
+    const picked = border ? d.border_color : (d.bg && d.bg !== "transparent" ? d.bg : d.color);
+    const hex = wbHexOf(picked);
+    if (hex) return hex;
+    const style = getComputedStyle(objectEl);
+    return wbHexOf(border ? style.borderTopColor : style.backgroundColor) || wbHexOf(style.color);
+  }
+  const card = target.closest(".node-card");
+  if (card) return wbHexOf(getComputedStyle(card)[border ? "borderTopColor" : "backgroundColor"]);
+  return null;
+}
+
+window.addEventListener("pointerdown", (e) => {
+  if (!wbColourState.eyedrop) return;
+  const menu = wbColourState.menu;
+  if (!menu || menu.classList.contains("hidden")) {
+    wbStopEyedrop();
+    return;
+  }
+  if (menu.contains(e.target)) return;
+  const colour = wbSampleColour(e.target, e.altKey || wbColourState.takeBorder);
+  if (!colour) {
+    wbStopEyedrop();
+    return;
+  }
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  wbColourState.swallowClick = true;
+  const input = wbColourState.input;
+  wbStopEyedrop();
+  wbAnnounce(`${wbColourName(input)} ${colour}.`);
+  wbSetColourField(input, colour);
+  closeActionMenus();
+}, true);
+
+//: The click that follows a taken press is the press's: it must not open
+//: the menu of the colour button it was taken from.
+window.addEventListener("click", (e) => {
+  if (!wbColourState.swallowClick) return;
+  wbColourState.swallowClick = false;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+}, true);
+
+window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && wbColourState.eyedrop) {
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    wbStopEyedrop();
+  }
+}, true);
+
+//: Every board colour field opens the popover; a colour set any way at all
+//: (the popover, the browser's dialog, the eyedropper) joins the recent row.
+onDomReady(() => {
+  for (const input of document.querySelectorAll('input[type="color"].wb-color-picker')) {
+    if (input.dataset.wbColourWell) continue;
+    input.dataset.wbColourWell = "1";
+    input.setAttribute("aria-haspopup", "dialog");
+    input.setAttribute("aria-expanded", "false");
+    input.addEventListener("click", (e) => {
+      if (wbColourState.eyedrop) return;
+      e.preventDefault();
+      wbOpenColourMenu(input);
+    });
+  }
+  document.addEventListener("change", (e) => {
+    if (e.target instanceof HTMLInputElement && e.target.matches('input[type="color"].wb-color-picker')) wbRememberColour(e.target.value);
+  }, true);
 });

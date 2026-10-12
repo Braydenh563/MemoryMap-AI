@@ -6,9 +6,9 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import janitor, librarian
-from memorymap.core import vault
-from memorymap.search import search_manager
+from tessellate.ai import janitor, librarian
+from tessellate.core import vault
+from tessellate.search import search_manager
 
 
 @pytest.fixture

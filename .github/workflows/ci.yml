@@ -38,7 +38,7 @@ jobs:
   test:
     name: Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
@@ -68,7 +68,7 @@ jobs:
           pip install -e .
 
       - name: Run the test suite
-        run: python -m pytest -n auto
+        run: python -m pytest -n auto --durations=15
 
   pdf:
     # Fourteen tests need the PDF rasteriser (pypdfium2 plus Pillow), which is
@@ -97,7 +97,7 @@ jobs:
           pip install pypdfium2 Pillow
 
       - name: The rasteriser is really there
-        run: python -c "from memorymap.core import pdfpages; assert pdfpages.available()"
+        run: python -c "from tessellate.core import pdfpages; assert pdfpages.available()"
 
       - name: Run the tests that need it
         run: |
@@ -157,7 +157,15 @@ jobs:
 
       - name: Run the flows
         working-directory: tests-e2e
+        env:
+          TESSELLATE_E2E_BUDGETS_APART: "1"
         run: npx playwright test
+
+      # The budgets time the app, so they run alone, one worker, nothing else
+      # on the runner's cores.
+      - name: Run the budgets alone
+        working-directory: tests-e2e
+        run: npx playwright test specs/budgets.spec.js --project=notebook --workers=1
 
       - name: Upload the report on failure
         if: failure()

@@ -15,11 +15,11 @@
 # Regenerate it whenever you change this file.
 
 # Web server
-fastapi>=0.142.2,<1.0
+fastapi>=0.143.0,<1.0
 uvicorn[standard]>=0.54.0,<1.0
 
 # Database (SQLite via ORM)
-SQLAlchemy>=2.1.2,<3.0
+SQLAlchemy>=2.1.4,<3.0
 
 # Schema migrations for a real rename/drop — additive column changes still go
 # through DatabaseManager's own auto-migrator (core/database.py); this is the
@@ -39,11 +39,12 @@ python-dotenv>=1.2.4,<2.0
 # `user_now`). This is that fallback's actual cause on Windows, not a bad
 # zone name. tzdata is pure data, ~500KB, and safe to install unconditionally
 # on every platform (Python prefers the system database when one exists).
-tzdata>=2026.4
+tzdata>=2026.5
 
 # AI (Phase 2)
 requests>=2.34.2,<3.0      # talks to the local Ollama REST API
-numpy>=2.4.6,<3.0           # vectors stored as raw float32 bytes
+numpy>=2.5.4,<3.0; python_version >= "3.12"  # vectors stored as raw float32 bytes
+numpy>=2.4.6,<3.0; python_version < "3.12"   # 2.5 needs Python 3.12; CI still runs 3.11
 sentence-transformers>=6.1.0,<7.0
 
 # torch: on Windows, force the CPU-only build. The default Windows torch wheel
@@ -95,7 +96,7 @@ pytest-xdist>=3.8.0,<4.0
 # Optional extras (Wave H) — NOT installed automatically. These are plain
 # comments so pip skips them; install by hand only if you want the feature:
 #   pip install faster-whisper   # local voice-to-text for the 🎙 buttons
-#   pip install pywebview        # `python -m memorymap --desktop` app window
+#   pip install pywebview        # `python -m tessellate --desktop` app window
 #   pip install pystray Pillow   # tray icon for the desktop window above
 #   pip install pytesseract Pillow   # OCR text on uploaded images (core/ocr.py)
 #     — also needs the `tesseract` system binary on PATH, which pip cannot
@@ -107,7 +108,6 @@ pytest-xdist>=3.8.0,<4.0
 #     pages with no text layer into images a vision/OCR model can read;
 #     without it a scanned PDF is only ever reported as one.
 #   pip install "markitdown[pdf,docx,pptx]"  # import PDF/Word/PowerPoint as notes
-#   pip install python-docx       # export a document to real Word (.docx)
 #   Run Python files (Pyodide) and needle are downloads, not pip packages:
 #     Settings → Packages fetches and checks them.
 #

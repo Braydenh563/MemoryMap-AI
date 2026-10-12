@@ -16,8 +16,8 @@ import zipfile
 
 import pytest
 
-from memorymap.core import deps, vault
-from memorymap.entry import manager
+from tessellate.core import deps, vault
+from tessellate.entry import manager
 
 SECRET = "# Zebrasecret plan\n\nMy bank PIN is 4417, the spare key is at Quokkatown station."
 TOKENS = (b"quokkatown", b"zebrasecret")
@@ -48,7 +48,7 @@ def _with_neighbours(client) -> int:
 def _database_bytes() -> bytes:
     data_dir = deps.get_config().data_dir
     raw = b""
-    for name in ("memorymap.db", "memorymap.db-wal"):
+    for name in ("tessellate.db", "tessellate.db-wal"):
         path = data_dir / name
         if path.exists():
             raw += path.read_bytes()
@@ -61,7 +61,7 @@ def test_making_a_note_private_leaves_none_of_its_words_in_the_file(client):
     assert client.post(f"/entries/{entry_id}/privacy", json={"private": True}).status_code == 200
     assert _leaks(_database_bytes()) == []
     # Everything else is still found, and the note itself still opens.
-    with sqlite3.connect(deps.get_config().data_dir / "memorymap.db") as db:
+    with sqlite3.connect(deps.get_config().data_dir / "tessellate.db") as db:
         assert db.execute("SELECT count(*) FROM entries_fts WHERE entries_fts MATCH 'bread'").fetchone()[0] == 12
         assert db.execute("SELECT count(*) FROM entries_fts WHERE entries_fts MATCH 'quokkatown'").fetchone()[0] == 0
     assert "Quokkatown" in client.get(f"/entries/{entry_id}").json()["content"]
@@ -72,19 +72,19 @@ def test_a_backup_and_the_export_zip_carry_none_of_its_words(client):
     client.post(f"/entries/{entry_id}/privacy", json={"private": True})
     made = client.post("/backups")
     assert made.status_code == 201, made.text
-    backups = sorted((deps.get_config().data_dir / "backups").glob("memorymap-*.db"))
+    backups = sorted((deps.get_config().data_dir / "backups").glob("tessellate-*.db"))
     assert backups and _leaks(backups[-1].read_bytes()) == []
     exported = client.get("/export/backup")
     assert exported.status_code == 200
     with zipfile.ZipFile(io.BytesIO(exported.content)) as zf:
-        assert _leaks(zf.read("memorymap.db")) == []
+        assert _leaks(zf.read("tessellate.db")) == []
 
 
 def test_a_backup_strips_what_an_older_version_left_behind(client, session):
     """A notebook whose note went private before this fix still has the words
     in its segments; the backup copy is cleaned on its way out."""
     entry_id = _with_neighbours(client)
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     entry = session.get(Entry, entry_id)
     assert manager.set_private(session, entry, True)

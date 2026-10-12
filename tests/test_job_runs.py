@@ -13,10 +13,10 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import select
 
-from memorymap.ai import embeddings as embeddings_module
-from memorymap.ai import model_manager
-from memorymap.core import deps, jobruns, taskhistory
-from memorymap.core.database import EmbeddingRecord, JobRun
+from tessellate.ai import embeddings as embeddings_module
+from tessellate.ai import model_manager
+from tessellate.core import deps, jobruns, taskhistory
+from tessellate.core.database import EmbeddingRecord, JobRun
 
 
 def _fail(exc: Exception) -> None:
@@ -168,7 +168,7 @@ def test_a_failed_reindex_shows_its_reason(client):
     )
     row = _runs(client)["reindex"]
     assert row["status"] == "failed"
-    assert row["error"] == "the embedding model went away"
+    assert row["error"] == "The re-index stopped before it finished. The log has the reason."
 
 
 def test_a_stopped_reindex_is_cancelled(client):
@@ -197,7 +197,7 @@ def test_a_manual_backup_records_the_file_it_wrote(client):
 
 
 def test_the_startup_backup_is_a_run_only_when_one_is_taken(client):
-    from memorymap.api import app as app_module
+    from tessellate.api import app as app_module
 
     app_module._backup_if_due()  # none exists yet: taken
     first = _runs(client)["backup"]
@@ -207,7 +207,7 @@ def test_the_startup_backup_is_a_run_only_when_one_is_taken(client):
 
 
 def test_a_failed_backup_shows_why(client, monkeypatch):
-    from memorymap.core import backup
+    from tessellate.core import backup
 
     def full(*_a, **_k):
         raise OSError(28, "No space left on device", "/home/someone/data/backups/memorymap.db")
@@ -276,7 +276,7 @@ def test_a_folder_import_records_an_import(client, tmp_path, monkeypatch):
 
 
 def test_an_unreadable_document_records_a_failed_import(client, monkeypatch, caplog):
-    from memorymap.api import routes_settings
+    from tessellate.api import routes_settings
 
     monkeypatch.setattr(routes_settings.importer, "markitdown_available", lambda: True)
 
@@ -284,7 +284,7 @@ def test_an_unreadable_document_records_a_failed_import(client, monkeypatch, cap
         raise ValueError("corrupt zip")
 
     monkeypatch.setattr(routes_settings.importer, "convert_to_markdown", boom)
-    with caplog.at_level("WARNING", logger="memorymap.import"):
+    with caplog.at_level("WARNING", logger="tessellate.import"):
         response = client.post("/import/document", files={"file": ("deck.pptx", b"junk", "application/x")})
     assert response.status_code == 422
     row = _runs(client)["import"]
@@ -294,13 +294,13 @@ def test_an_unreadable_document_records_a_failed_import(client, monkeypatch, cap
     assert "corrupt zip" not in row["error"] and "ValueError" not in row["error"]
     assert row["error"].startswith("Couldn't read deck.pptx.")
     #: The detail stays in the log, with its traceback.
-    records = [r for r in caplog.records if r.name == "memorymap.import"]
+    records = [r for r in caplog.records if r.name == "tessellate.import"]
     assert records and records[0].exc_info and "corrupt zip" in str(records[0].exc_info[1])
 
 
 def test_a_job_that_cannot_be_resumed_shows_a_plain_reason_and_logs_the_detail(tmp_path, caplog):
-    from memorymap.core import jobstore
-    from memorymap.core.database import DatabaseManager, DurableJob
+    from tessellate.core import jobstore
+    from tessellate.core.database import DatabaseManager, DurableJob
 
     db = DatabaseManager(tmp_path / "jobs.db")
     kind = next(iter(jobstore.HANDLERS))
@@ -309,7 +309,7 @@ def test_a_job_that_cannot_be_resumed_shows_a_plain_reason_and_logs_the_detail(t
     with db.session() as session:
         session.query(DurableJob).filter(DurableJob.id == job_id).update({"payload": "{not json at all"})
         session.commit()
-    with caplog.at_level("WARNING", logger="memorymap.jobstore"):
+    with caplog.at_level("WARNING", logger="tessellate.jobstore"):
         counts = jobstore.resume(db=db, enqueue=lambda *call: None)
     jobstore.stop()
     assert counts["resumed"] == 0
@@ -317,7 +317,7 @@ def test_a_job_that_cannot_be_resumed_shows_a_plain_reason_and_logs_the_detail(t
         row = session.get(DurableJob, job_id)
         assert row.state == "failed"
         assert row.error == "Could not be resumed after the app restarted."
-    records = [r for r in caplog.records if r.name == "memorymap.jobstore" and "resume job" in r.getMessage()]
+    records = [r for r in caplog.records if r.name == "tessellate.jobstore" and "resume job" in r.getMessage()]
     assert records and records[0].exc_info is not None
 
 
@@ -359,7 +359,7 @@ def test_the_embeddings_backfill_is_not_a_run_while_the_model_is_not_ready(clien
 
 
 def test_the_autonomous_pass_records_a_skip_honestly(client):
-    from memorymap.ai import autonomous
+    from tessellate.ai import autonomous
 
     deps.get_config().set_preference("battery_efficient_mode", True)
     autonomous._run_optimization()
@@ -368,7 +368,7 @@ def test_the_autonomous_pass_records_a_skip_honestly(client):
 
 
 def test_a_failed_autonomous_pass_shows_the_reason(client, monkeypatch):
-    from memorymap.ai import agent, autonomous
+    from tessellate.ai import agent, autonomous
 
     def boom(**_kw):
         raise RuntimeError("the model refused to start")
@@ -425,7 +425,7 @@ def test_every_kind_in_the_overview_is_written_by_some_job():
     import re
     from pathlib import Path
 
-    src = Path(__file__).resolve().parent.parent / "src" / "memorymap"
+    src = Path(__file__).resolve().parent.parent / "src" / "tessellate"
     text = "\n".join(p.read_text(encoding="utf-8") for p in src.rglob("*.py") if p.name != "jobruns.py")
     written = set(re.findall(r'(?:job_run|begin)\("([a-z-]+)"', text))
     written |= set(taskhistory.LAST_RUN_KINDS.values())
@@ -483,7 +483,7 @@ def test_a_pass_run_through_the_pool_is_one_row_not_two(client, monkeypatch):
     import threading
     import time
 
-    from memorymap.core import passes
+    from tessellate.core import passes
 
     gate = threading.Event()
 
@@ -512,7 +512,7 @@ def test_a_pass_run_through_the_pool_is_one_row_not_two(client, monkeypatch):
 
 
 def test_a_backup_names_its_three_steps_and_checks_the_copy(client):
-    from memorymap.core import backup
+    from tessellate.core import backup
 
     config = deps.get_config()
     with jobruns.job_run("backup") as run:
@@ -524,7 +524,7 @@ def test_a_backup_names_its_three_steps_and_checks_the_copy(client):
 
 
 def test_a_backup_that_cannot_be_read_back_fails_and_is_not_kept(tmp_path):
-    from memorymap.core import backup
+    from tessellate.core import backup
 
     junk = tmp_path / "memorymap-x.db"
     junk.write_bytes(b"this is not a database" * 50)
@@ -533,7 +533,7 @@ def test_a_backup_that_cannot_be_read_back_fails_and_is_not_kept(tmp_path):
 
 
 def test_housekeeping_marks_off_its_steps_and_says_what_it_is_doing(client, monkeypatch):
-    from memorymap.core import passes
+    from tessellate.core import passes
 
     seen = []
     monkeypatch.setattr(
@@ -547,7 +547,7 @@ def test_housekeeping_marks_off_its_steps_and_says_what_it_is_doing(client, monk
 
 
 def test_the_night_pass_reports_notes_read_of_notes_to_read(client, session):
-    from memorymap.ai import facts
+    from tessellate.ai import facts
 
     for text in ("I decided to use sqlite.", "Why does the build fail?", "We shipped the beta."):
         client.post("/entries", json={"content": text})

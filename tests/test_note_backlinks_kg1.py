@@ -126,7 +126,7 @@ def test_a_span_already_inside_a_wiki_link_is_refused(client):
 
 
 def test_the_note_is_never_its_own_backlink_and_private_notes_are_not_sources(client, session):
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     target = _note(client, "# Sourdough starter\n\nThe sourdough starter again.")
     hidden = _note(client, "# Secret\n\nThe sourdough starter is mine.")
@@ -157,5 +157,6 @@ def test_one_function_draws_a_backlink_sentence():
     text = "".join(path.read_text(encoding="utf-8") for path in sorted(js.glob("*.js")))
     assert text.count("function docBacklinkContext(") == 1
     assert text.count('"doc-backlink-context"') == 1
-    menus = (js / "menus.js").read_text(encoding="utf-8")
+    #: Connections moved from menus.js to the lazy connections.js (INBOX 784).
+    menus = (js / "connections.js").read_text(encoding="utf-8")
     assert "/backlinks`" in menus and "mentions/link`" in menus

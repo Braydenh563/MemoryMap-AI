@@ -143,11 +143,15 @@ function renderAgentRunSummary(run) {
       : run.stepCount
         ? done / run.stepCount
         : null;
-  run.bar.classList.toggle("hidden", fraction === null);
-  if (fraction !== null) run.bar.value = Math.max(0, Math.min(1, fraction));
+  //: Only while it runs (the owner, 2026-10-10: "says done but the bar is
+  //: still there??"): a finished row's state chip is its answer, and a bar
+  //: left beside "Done" reads as still going.
+  const bar = run.state === "running" && fraction !== null;
+  run.bar.classList.toggle("hidden", !bar);
+  if (bar) run.bar.value = Math.max(0, Math.min(1, fraction));
   // An agent turn has neither a step count nor a fraction, and an empty second
   // line under its name is a gap that looks like something failed to load.
-  run.progressWrap.classList.toggle("hidden", fraction === null && !run.metaEl.textContent);
+  run.progressWrap.classList.toggle("hidden", !bar && !run.metaEl.textContent);
   run.el.classList.toggle("is-running", run.state === "running");
 }
 
@@ -397,6 +401,7 @@ function openPanelForRun(run) {
   if (!agentMonitor.classList.contains("hidden")) return;
   if (Date.now() - agentMonitorDismissedAt < AGENT_MONITOR_REOPEN_AFTER_MS) return;
   setAgentMonitorVisible(true);
+  showActivityTab("runs");
   nudgeAgentMonitorIdle();
 }
 
@@ -404,6 +409,9 @@ function openPanelForRun(run) {
 //: this panel, so without a control naming it, a finished run would be
 //: unreachable the moment the panel timed out.
 function renderActivityStatusItem() {
+  //: Every start and end of a run passes here: the app's mark lifts its
+  //: cells while one is running (phone-shell.js).
+  syncEmblemBusy();
   const button = $("status-activity");
   if (!button) return;
   button.classList.toggle("hidden", agentRuns.length === 0);
@@ -445,8 +453,31 @@ $("status-activity")?.addEventListener("click", () => {
   setAgentMonitorVisible(!showing);
   // Opened by hand, so the dismissal window that keeps a run from reopening it
   // is spent: otherwise pressing this within 90s of an X does nothing.
-  if (!showing) agentMonitorDismissedAt = 0;
+  if (!showing) {
+    agentMonitorDismissedAt = 0;
+    showActivityTab("runs");
+  }
 });
+
+// --- Activity: one panel, two tabs (WORLD_CLASS_PLAN 28.1 rule 5, decision 70)
+//
+// This panel was the agent's run list. Every running job (indexing, a model
+// answering, imports, reading text, transcribing, backups, the agent's
+// passes) is now its first tab, Running, from `GET /activity`, with Stop on
+// each; the runs are the second. The tabs, the ⋯ and the list are lazy
+// (activity-panel.js): boot only knows how to open the panel on a tab.
+function showActivityTab(tab) {
+  ensureModule("activity").then(() => window.setActivityTab?.(tab));
+}
+
+//: Opened by hand on one tab: pinned, so the idle timer leaves it up.
+function openActivity(tab = "running") {
+  agentMonitorPinned = true;
+  agentMonitorDismissedAt = 0;
+  setAgentMonitorVisible(true);
+  showActivityTab(tab);
+}
+window.openActivity = openActivity;
 
 // The monitor is `position: fixed` in the bottom-right corner, which is also
 // where the whiteboard keeps its zoom controls, so while it was open those
@@ -559,7 +590,7 @@ function appendAgentLog(record) {
   // Settings → Logs); this panel is a tail of one specific thing.
   const logger = record.logger || "";
   const isAgent =
-    logger.startsWith("memorymap.ai") ||
+    logger.startsWith("tessellate.ai") ||
     logger.includes("autonomous") ||
     logger.includes("agent");
   if (!isAgent) return;

@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import json
 
-from memorymap.ai import tools
-from memorymap.core.database import EntryLink, RelationType
+from tessellate.ai import tools
+from tessellate.core.database import EntryLink, RelationType
 from sqlalchemy import select
 
 

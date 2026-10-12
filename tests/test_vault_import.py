@@ -14,11 +14,11 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.api import routes_settings
-from memorymap.core.database import AuditLog, Entry
+from tessellate.api import routes_settings
+from tessellate.core.database import AuditLog, Entry
 from sqlalchemy import select
 
-from memorymap.entry import manager
+from tessellate.entry import manager
 
 
 @pytest.fixture(autouse=True)

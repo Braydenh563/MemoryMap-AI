@@ -41,7 +41,7 @@ def test_the_ask_action_never_formats_and_the_format_actions_never_ask():
     note or send nothing."""
     editor = _read("editor.js")
     start = editor.index("button.addEventListener(\"mousedown\"")
-    handler = editor[start : start + 700]
+    handler = editor[start : start + 1800]
     assert "if (action.ask)" in handler
     ask_at = handler.index("if (action.ask)")
     apply_at = handler.index("applyMarkdown(action.md")

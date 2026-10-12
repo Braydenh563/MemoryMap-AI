@@ -32,18 +32,38 @@ async function openEntryHistory(entry) {
     return;
   }
 
+  //: Rule 1.8: putting a version back is one Undo (the bar, Ctrl+Z, the
+  //: toast), not a confirm before it. Undo writes back the text and tags the
+  //: note had when the sheet opened; the server keeps that text as a version
+  //: too, so the sheet itself is a second way back.
   const restoreTo = async (url, message) => {
-    if (!(await confirmDialog("Replace the note with this version?\n\nThe current text is kept in the history, so this is undoable."))) return;
-    try {
-      await apiJson(url, { method: "POST" });
-      overlay.classList.add("hidden");
-      toast(message);
+    const before = { content: entry.content, tags: entry.tags || [] };
+    const show = async () => {
       await loadEntries();
       flashEntry(entry.id);
+    };
+    const back = async () => {
+      await apiJson(`/entries/${entry.id}`, { method: "PUT", body: JSON.stringify(before) });
+      await show();
+    };
+    const again = async () => {
+      await apiJson(url, { method: "POST" });
+      await show();
+    };
+    try {
+      await apiJson(url, { method: "POST" });
     } catch (error) {
       $("history-status").classList.add("error");
       $("history-status").textContent = error.message;
+      return;
     }
+    overlay.classList.add("hidden");
+    const action = pushUndo("Put back an earlier version", back, again);
+    toastAction(message, "Undo", async () => {
+      settleUndoFromToast(action);
+      await back();
+    });
+    await show();
   };
 
   // The current text first, so you can see what you'd be replacing.
@@ -65,7 +85,7 @@ async function openEntryHistory(entry) {
     const head = document.createElement("p");
     head.className = "muted";
     head.textContent = `${HISTORY_ACTION_WORDS[item.action] || item.action} ${relativeTime(item.created_at)}`;
-    head.title = new Date(item.created_at).toLocaleString(); // the exact time, on hover and to a reader
+    head.title = whenText(item.created_at); // the exact time, on hover and to a reader
     const actor = historyActorLabel(item.actor);
     if (actor) {
       const chip = document.createElement("span");
@@ -207,7 +227,7 @@ async function openEntryHistory(entry) {
     item.className = "history-entry";
     const head = document.createElement("p");
     head.className = "muted";
-    head.textContent = `Before ${new Date(revision.created_at).toLocaleString()}`;
+    head.textContent = `Before ${whenText(revision.created_at)}`;
     const body = document.createElement("p");
     body.textContent = notePreviewText(revision.content);
     const restore = smallButton("ph:arrow-u-up-left Put this back", "Restore this version", () =>
@@ -298,7 +318,7 @@ async function toggleThenAndNow(entry, thenText, row, button) {
 //: said in the plan rather than skipped silently. Lives here, beside the
 //: note's own History, because both are about putting a note back; reached
 //: through `LAZY_ENTRY_POINTS.noteHistory`.
-async function undoSkillRun(span, button) {
+async function undoSkillRun(span, button, onDone) {
   const body = { actors: span.actors || [], since: span.since || 0, until: span.until || 0 };
   let plan;
   try {
@@ -311,7 +331,10 @@ async function undoSkillRun(span, button) {
   if (!undoable) {
     const already = plan.items.length && plan.items.every((item) => item.status === "already undone");
     toast(already ? "Already undone: nothing this run changed is left to put back." : "Nothing this run changed can be put back from here.");
-    if (already) button?.remove();
+    if (already) {
+      button?.remove();
+      onDone?.();
+    }
     return;
   }
   const byId = new Map((allEntries || []).map((entry) => [entry.id, entry]));
@@ -324,6 +347,7 @@ async function undoSkillRun(span, button) {
     const done = await apiJson("/events/undo", { method: "POST", body: JSON.stringify({ ...body, dry_run: false }) });
     toast(`Put back ${done.undone} note${done.undone === 1 ? "" : "s"}.`);
     button?.remove();
+    onDone?.();
     await loadEntries().catch(() => {});
   } catch (error) {
     toast(error.message || "Couldn't undo that.", true);

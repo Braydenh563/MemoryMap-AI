@@ -33,7 +33,7 @@ from dataclasses import dataclass
 
 from sqlalchemy.orm import Session
 
-from memorymap.ai import bench, cards, tools
+from tessellate.ai import bench, cards, tools
 from tests.eval.fixture import Notebook
 from tests.eval.golden import Ask
 

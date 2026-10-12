@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ====================================================================
-#  MemoryMap AI - one-click launcher for macOS / Linux
+#  Tessellate - one-click launcher for macOS / Linux
 #
 #  Run ./start.sh - it sets everything up the first time, then just runs
 #  the app after that:
@@ -18,6 +18,11 @@
 #  texts ever drift apart.
 # ====================================================================
 set -e
+# Settings from before the rename to Tessellate keep working.  # brand: keep
+for _old in $(env | sed -n 's/^\(MEMORYMAP_[A-Z0-9_]*\)=.*/\1/p'); do  # brand: keep
+  _new="TESSELLATE_${_old#MEMORYMAP_}"  # brand: keep
+  [ -z "${!_new+x}" ] && export "$_new=${!_old}"
+done
 # The pip install below is piped through `tee` so its own progress prints
 # live instead of vanishing into a log file until either done or failed -
 # reported directly ("I hate that I can't see what's going on and why it
@@ -63,14 +68,14 @@ fi
 
 # --- Where the data actually is --------------------------------------
 # The same precedence the app itself uses (core/config.py): an explicit
-# MEMORYMAP_DATA_DIR in the environment, else one set in .env, else the
+# TESSELLATE_DATA_DIR in the environment, else one set in .env, else the
 # "data" folder beside this script. Resolved this early because three
 # separate things below need it before any Python exists to be asked: the
 # launcher log, the doctor's disk and size rows, and the line that tells
 # someone where their notes actually are.
-MM_DATA_DIR="${MEMORYMAP_DATA_DIR:-}"
+MM_DATA_DIR="${TESSELLATE_DATA_DIR:-}"
 if [ -z "$MM_DATA_DIR" ] && [ -f ".env" ]; then
-  MM_DATA_DIR="$(grep -E '^MEMORYMAP_DATA_DIR=' ".env" 2>/dev/null | tail -n 1 | cut -d= -f2- | sed 's/^"//; s/"$//')"
+  MM_DATA_DIR="$(grep -E '^TESSELLATE_DATA_DIR=' ".env" 2>/dev/null | tail -n 1 | cut -d= -f2- | sed 's/^"//; s/"$//')"
 fi
 [ -n "$MM_DATA_DIR" ] || MM_DATA_DIR="data"
 
@@ -83,7 +88,7 @@ fi
 # Both forms of the desktop flag are accepted: the bare word `desktop` is
 # what start-desktop.bat has always passed, and `--desktop` is what anyone
 # who has read `--help` will type.
-MM_PORT="${MEMORYMAP_PORT:-8000}"
+MM_PORT="${TESSELLATE_PORT:-8000}"
 MM_NO_BROWSER=0
 MM_NO_UPDATE=0
 MM_REINSTALL=0
@@ -92,7 +97,7 @@ MM_BAD_FLAG=""
 
 mm_help() {
   cat <<MM_HELP
-MemoryMap AI launcher
+Tessellate launcher
 
 Usage: ./start.sh [options]
 
@@ -112,7 +117,7 @@ whenever requirements.txt changes, pulls the latest code first (skipped
 silently if offline), then starts the server.
 
 Your notes: $MM_DATA_DIR
-Set MEMORYMAP_DATA_DIR, in the environment or in .env, to move them.
+Set TESSELLATE_DATA_DIR, in the environment or in .env, to move them.
 
 To remove what this script installed, see ./uninstall.sh --help.
 MM_HELP
@@ -169,9 +174,9 @@ if [ "$MM_PORT" -lt 1 ] || [ "$MM_PORT" -gt 65535 ]; then
   exit 2
 fi
 # Exported rather than passed on the command line: it has to survive the
-# re-exec below AND reach `python -m memorymap`, which reads it in
+# re-exec below AND reach `python -m tessellate`, which reads it in
 # __main__.py. One variable, two readers, no argument plumbing.
-export MEMORYMAP_PORT="$MM_PORT"
+export TESSELLATE_PORT="$MM_PORT"
 MM_URL="http://localhost:$MM_PORT"
 
 if [ "$MM_ACTION" = "help" ]; then
@@ -180,8 +185,8 @@ if [ "$MM_ACTION" = "help" ]; then
 fi
 
 if [ "$MM_ACTION" = "version" ]; then
-  MM_VERSION="$(sed -n 's/__version__ = "\(.*\)"/\1/p' src/memorymap/__init__.py 2>/dev/null | head -1)"
-  echo "MemoryMap AI ${MM_VERSION:-unknown}"
+  MM_VERSION="$(sed -n 's/__version__ = "\(.*\)"/\1/p' src/tessellate/__init__.py 2>/dev/null | head -1)"
+  echo "Tessellate ${MM_VERSION:-unknown}"
   echo "Installed at: $(pwd)"
   echo "Your notes:   $MM_DATA_DIR"
   exit 0
@@ -285,7 +290,7 @@ if [ "$MM_TTY" = "0" ] && [ "$MM_ACTION" = "" ] && command -v zenity >/dev/null 
     # lost, it moved inside the active step on the Windows splash, which can
     # draw both at once; zenity cannot.
     zenity --progress --no-cancel --auto-close \
-           --title="MemoryMap AI" --text="Starting" --percentage=0 \
+           --title="Tessellate" --text="Starting" --percentage=0 \
            < "$MM_SPLASH_FIFO" >/dev/null 2>&1 &
     MM_SPLASH_PID=$!
     # Held open on fd 9 for the life of the script: closing it is what tells
@@ -316,7 +321,7 @@ mm_splash() {
       # on a phase string nobody chose. Every `mm_splash` call site in this
       # file is a fixed literal, but this guards the mechanism itself, not
       # today's call sites.
-      osascript -e "display notification $(printf '%s' "$1" | sed 's/[\\"]/\\&/g; s/^/"/; s/$/"/') with title \"MemoryMap AI\"" \
+      osascript -e "display notification $(printf '%s' "$1" | sed 's/[\\"]/\\&/g; s/^/"/; s/$/"/') with title \"Tessellate\"" \
         >/dev/null 2>&1 || true
       ;;
   esac
@@ -345,7 +350,7 @@ trap mm_splash_done EXIT INT TERM
 # every step that already happened with a tick beside it, instead of showing
 # an empty list and only learning about the steps still to come. See
 # scripts/splash.ps1 for the Windows renderer and
-# src/memorymap/core/launch_status.py for the parser both Python surfaces
+# src/tessellate/core/launch_status.py for the parser both Python surfaces
 # share. `state` is active, done or failed.
 #
 # On this side it also feeds the zenity dialog and the macOS notification,
@@ -571,7 +576,7 @@ mm_update_plan() {
 mm_ask_update_choice() {
   [ -t 0 ] || return 0
   local answer=""
-  printf ' Check for updates automatically each time MemoryMap starts? It asks once; Settings can change it later. [y/N] ' >&2
+  printf ' Check for updates automatically each time Tessellate starts? It asks once; Settings can change it later. [y/N] ' >&2
   if ! read -r -t 60 answer; then
     printf '\n' >&2
     return 0
@@ -586,7 +591,7 @@ mm_ask_update_choice() {
 # Two questions, not one: "is the port busy" and "is it busy with US". The
 # second one turns the commonest support message in this whole project ("it
 # says the address is in use") into an answer rather than an error, because
-# the right thing to do about a MemoryMap that is already running is to open
+# the right thing to do about a Tessellate that is already running is to open
 # it, not to report a conflict.
 #
 # bash's own /dev/tcp rather than lsof/ss/netstat, none of which are reliably
@@ -598,7 +603,7 @@ mm_port_open() {
   (exec 3<>"/dev/tcp/127.0.0.1/$1") >/dev/null 2>&1
 }
 
-# Empty output means "nothing answered like MemoryMap".
+# Empty output means "nothing answered like Tessellate".
 mm_port_is_memorymap() {
   local body=""
   if command -v curl >/dev/null 2>&1; then
@@ -609,7 +614,8 @@ mm_port_is_memorymap() {
               cat <&3) 2>/dev/null || true )"
   fi
   case "$body" in
-    *"MemoryMap AI"*) return 0 ;;
+    # Tessellate, or a copy started before the rename (brand: keep-next)
+    *"Tessellate"*|*"MemoryMap AI"*) return 0 ;;
   esac
   return 1
 }
@@ -656,7 +662,7 @@ mm_dir_size() {
 }
 
 mm_doctor() {
-  echo "${TEAL}MemoryMap AI - checks${RESET}"
+  echo "${TEAL}Tessellate - checks${RESET}"
   echo
 
   # 1. Python. Version AND path: "I installed Python" and "this script can
@@ -680,16 +686,16 @@ mm_doctor() {
   # 2. The venv, asked the only question that matters: can it import the
   # things the server cannot start without. A .venv folder that exists and a
   # .venv that works are not the same thing after a move, a rename or a
-  # half-finished pip. `memorymap.api.app` (not a bare `import memorymap`,
+  # half-finished pip. `tessellate.api.app` (not a bare `import tessellate`,
   # which is a five-line package with no imports of its own) is the actual
-  # module `python -m memorymap` loads first, so this walks the app's real
+  # module `python -m tessellate` loads first, so this walks the app's real
   # import chain - fastapi, sqlalchemy and every other transitive
   # dependency along with it - the same check step 2b below uses to decide
   # whether to repair automatically, so the two never disagree about what
   # "broken" means.
   if [ ! -x ".venv/bin/python" ]; then
     mm_row warn ".venv" "not built yet" "Normal before the first run. ./start.sh builds it."
-  elif .venv/bin/python -c "import memorymap.api.app" >/dev/null 2>&1; then
+  elif .venv/bin/python -c "import tessellate.api.app" >/dev/null 2>&1; then
     mm_row ok ".venv" "the app imports cleanly"
   else
     mm_row x ".venv" "the app fails to import" "./start.sh repairs this on its own now; run it, or ./start.sh --reinstall to rebuild from scratch."
@@ -712,12 +718,20 @@ mm_doctor() {
     mm_row ok "Disk" "$free_h free on $disk_target"
   fi
 
+  # TESSELLATE_DOCTOR_OFFLINE=1 (the splash's Copy diagnostics): the rows that
+  # would touch the port the app is about to bind, the git remote or the model
+  # server are not run. An environment variable rather than a flag, because
+  # the flag-order lint wants both launchers' help to list the same flags.
+  local offline="${TESSELLATE_DOCTOR_OFFLINE:-0}"
+
   # 4. The port. "Already running" is a success, not a failure: see
   # mm_port_is_memorymap.
-  if ! mm_port_open "$MM_PORT"; then
+  if [ "$offline" = "1" ]; then
+    mm_row ok "Port $MM_PORT" "not checked in offline diagnostics"
+  elif ! mm_port_open "$MM_PORT"; then
     mm_row ok "Port $MM_PORT" "free"
   elif mm_port_is_memorymap "$MM_PORT"; then
-    mm_row ok "Port $MM_PORT" "MemoryMap is already running, open $MM_URL"
+    mm_row ok "Port $MM_PORT" "Tessellate is already running, open $MM_URL"
   else
     mm_row x "Port $MM_PORT" "in use by something else" "Close that program, or start on another port: ./start.sh --port 8010"
   fi
@@ -729,6 +743,8 @@ mm_doctor() {
   elif [ "$(mm_update_plan)" = "ask" ]; then
     # Not answered yet: the doctor does not reach the remote either.
     mm_row ok "Updates" "not chosen yet, so nothing is checked until you answer the one-time question"
+  elif [ "$offline" = "1" ]; then
+    mm_row ok "Updates" "the git remote is not asked in offline diagnostics"
   elif [ ! -e ".git" ]; then
     mm_row warn "Updates" "not a git checkout, so ./start.sh cannot self-update"
   elif ! command -v git >/dev/null 2>&1; then
@@ -756,7 +772,9 @@ mm_doctor() {
   fi
   [ -n "$base_url" ] && ollama_url="$base_url"
   [ -n "$ollama_url" ] || ollama_url="http://localhost:11434"
-  if [ "$provider" = "ollama" ]; then
+  if [ "$provider" = "ollama" ] && [ "$offline" = "1" ]; then
+    mm_row ok "Ollama" "not asked in offline diagnostics"
+  elif [ "$provider" = "ollama" ]; then
     local tags=""
     if command -v curl >/dev/null 2>&1; then
       tags="$(curl -fsS --max-time 4 "$ollama_url/api/tags" 2>/dev/null || true)"
@@ -840,7 +858,9 @@ mm_shortcut() {
       # A symlink is not a Finder alias, but it opens the same file and it
       # works when Finder scripting is refused (a locked-down Mac, or a
       # first run before Automation permission has been granted).
-      ln -sf "$here/start.sh" "$desktop/MemoryMap AI" 2>/dev/null \
+      # A link made before the rename to Tessellate goes (brand: keep-next)
+      [ -L "$desktop/MemoryMap AI" ] && rm -f "$desktop/MemoryMap AI"
+      ln -sf "$here/start.sh" "$desktop/Tessellate" 2>/dev/null \
         && echo " ${TEAL}[done]${RESET} Link to start.sh created on your Desktop." \
         || mm_fail "Could not create the shortcut on your Desktop." "Check that $desktop is writable."
     fi
@@ -852,8 +872,8 @@ mm_shortcut() {
   {
     echo "[Desktop Entry]"
     echo "Type=Application"
-    echo "Name=MemoryMap AI"
-    echo "Comment=Your notebook, on your own machine"
+    echo "Name=Tessellate"
+    echo "Comment=Your notes, pieced together"
     echo "Exec=$here/start.sh --desktop"
     echo "Path=$here"
     # icon-512.png, not icon.png, which has never existed in this repo: the
@@ -888,7 +908,7 @@ fi
 # notebook.
 if mm_port_open "$MM_PORT"; then
   if mm_port_is_memorymap "$MM_PORT"; then
-    echo " ${TEAL}[ok]${RESET} MemoryMap is already running on port $MM_PORT - opening it."
+    echo " ${TEAL}[ok]${RESET} Tessellate is already running on port $MM_PORT - opening it."
     [ "$MM_NO_BROWSER" = "1" ] || mm_open_url "$MM_URL"
     mm_splash_done
     exit 0
@@ -907,6 +927,13 @@ fi
 # support reply this project has ever sent. Done here, before the venv check
 # below, so the rebuild is the ordinary first-run path rather than a second
 # code path that can rot.
+# Settings, About, Maintenance's "Reinstall on next start" leaves this file
+# (core/maintenance.py REINSTALL_MARKER): the app cannot rebuild the
+# environment it is running from. It counts as --reinstall once.
+if [ -f "$MM_DATA_DIR/reinstall-on-next-start" ]; then
+  MM_REINSTALL=1
+  rm -f "$MM_DATA_DIR/reinstall-on-next-start"
+fi
 if [ "$MM_REINSTALL" = "1" ] && [ -d ".venv" ]; then
   echo " ${TEAL}[..]${RESET} Removing .venv to rebuild it from scratch..."
   rm -rf ".venv"
@@ -945,7 +972,7 @@ if [ -z "${MM_CHILD:-}" ] && [ "$MM_NO_UPDATE" = "0" ] && [ "$MM_UPDATE_PLAN" !=
   # update mechanism being invisible otherwise: it runs and finishes
   # before the server (and the browser tab) even exist, so nothing else
   # in the app can tell "was I just updated?" without this.
-  MM_VERSION_BEFORE="$(sed -n 's/__version__ = "\(.*\)"/\1/p' src/memorymap/__init__.py 2>/dev/null | head -1)"
+  MM_VERSION_BEFORE="$(sed -n 's/__version__ = "\(.*\)"/\1/p' src/tessellate/__init__.py 2>/dev/null | head -1)"
   # `http.lowSpeedLimit`/`http.lowSpeedTime` abort a connection that has
   # gone quiet mid-transfer (a proxy that stalls after accepting bytes);
   # `run_with_timeout` is the hard wall-clock backstop for a connect phase
@@ -988,7 +1015,7 @@ if [ -z "${MM_CHILD:-}" ] && [ "$MM_NO_UPDATE" = "0" ] && [ "$MM_UPDATE_PLAN" !=
     # genuinely useful - captured above only so a *failure* can be
     # classified, not to hide it on the success path.
     cat "$GIT_LOG"
-    MM_VERSION_AFTER="$(sed -n 's/__version__ = "\(.*\)"/\1/p' src/memorymap/__init__.py 2>/dev/null | head -1)"
+    MM_VERSION_AFTER="$(sed -n 's/__version__ = "\(.*\)"/\1/p' src/tessellate/__init__.py 2>/dev/null | head -1)"
     if [ -n "$MM_VERSION_AFTER" ] && [ "$MM_VERSION_BEFORE" != "$MM_VERSION_AFTER" ]; then
       # Picked up by routes_update.py's GET /update/source-status, purely
       # from these two env vars - no network call needed on the app's own
@@ -1034,14 +1061,13 @@ fi
 echo
 printf '%s' "$TEAL"
 cat <<'MM_LOGO'
-    __  ___                                __  ___               ___    ____
-   /  |/  /___  ____ ___  ____  _______  __/  |/  /___ _____    /   |  / _/
-  / /|_/ / _ \/ __ `__ \/ __ \/ ___/ / / / /|_/ / __ `/ __ \  / /| |  / /
- / /  / /  __/ / / / / / /_/ / /  / /_/ / /  / / /_/ / /_/ / / ___ |_/ /
-/_/  /_/\___/_/ /_/ /_/\____/_/   \__, /_/  /_/\__,_/ .___/ /_/  |_/___/
-                                 /____/            /_/
+  ______                    ____      __
+ /_  __/__  _____________  / / /___ _/ /____
+  / / / _ \/ ___/ ___/ _ \/ / / __ `/ __/ _ \
+ / / /  __(__  |__  )  __/ / / /_/ / /_/  __/
+/_/  \___/____/____/\___/_/_/\__,_/\__/\___/
 MM_LOGO
-printf '            your notebook, on your machine%s\n\n' "$RESET"
+printf '         your notes, pieced together%s\n\n' "$RESET"
 
 VENV_PY=".venv/bin/python"
 
@@ -1063,11 +1089,24 @@ if [ ! -x "$VENV_PY" ]; then
   # fail once something actually needs a 3.11-only feature.
   if ! "$PYTHON" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)' 2>/dev/null; then
     mm_status "$MM_STEP_PYTHON" "Python" "Too old" "failed"
-    mm_fail "Found $($PYTHON --version 2>&1), but MemoryMap AI needs Python 3.11 or newer." \
+    mm_fail "Found $($PYTHON --version 2>&1), but Tessellate needs Python 3.11 or newer." \
             "Install a newer Python and run this again."
   fi
   echo "        Using $($PYTHON --version) to create the virtual environment..."
-  if ! "$PYTHON" -m venv .venv; then
+  # Opt-in only: share the system's packages (a CUDA torch already installed)
+  # instead of a second copy. Refused with a reason when the system torch is
+  # outside requirements.txt's range; scripts/system_site_packages.py decides.
+  MM_VENV_ARGS=()
+  if [ "${TESSELLATE_SYSTEM_SITE_PACKAGES:-0}" = "1" ]; then
+    if MM_SSP_ANSWER="$("$PYTHON" scripts/system_site_packages.py 2>/dev/null)"; then
+      MM_VENV_ARGS=(--system-site-packages)
+      echo "        Sharing this computer's installed packages (TESSELLATE_SYSTEM_SITE_PACKAGES=1)."
+    else
+      echo "        Not sharing the system packages: ${MM_SSP_ANSWER#refuse: }."
+      echo "        Building the usual self-contained environment instead."
+    fi
+  fi
+  if ! "$PYTHON" -m venv ${MM_VENV_ARGS[@]+"${MM_VENV_ARGS[@]}"} .venv; then
     mm_status "$MM_STEP_PYTHON" "Python" "Could not create .venv" "failed"
     echo "        On Debian and Ubuntu this is usually a missing package:"
     echo "        sudo apt install python3-venv"
@@ -1109,13 +1148,14 @@ if [ -f ".venv/.mm_installed" ]; then
   [ "$REQ_HASH" = "$LAST_HASH" ] && NEED_INSTALL=0
 fi
 
-if [ "$NEED_INSTALL" = "0" ] && ! "$VENV_PY" -c "import memorymap" >/dev/null 2>&1; then
+if [ "$NEED_INSTALL" = "0" ] && ! "$VENV_PY" -c "import tessellate" >/dev/null 2>&1; then
   echo "        The app folder moved since it was installed - relinking it..."
   NEED_INSTALL=1
 fi
 
 if [ "$NEED_INSTALL" = "1" ]; then
   mm_status "$MM_STEP_DEPS" "Dependencies" "Installing, this can take a few minutes" "active"
+  echo "        First setup only: this needs the internet once. After that Tessellate works offline."
   echo "        pip's own progress prints below as it happens:"
   # `--timeout 5 --retries 0` makes pip fail fast per-connection instead of
   # its default (a 15s socket timeout retried 5 times, which is several
@@ -1163,7 +1203,7 @@ if [ "$NEED_INSTALL" = "1" ]; then
         tail -n 8 "$PIP_LOG" | sed 's/^/        /'
       fi
       rm -f "$PIP_LOG" 2>/dev/null || true
-      if "$VENV_PY" -c "import memorymap" >/dev/null 2>&1; then
+      if "$VENV_PY" -c "import tessellate" >/dev/null 2>&1; then
         echo "        Launching with existing installation..."
         mm_status "$MM_STEP_DEPS" "Dependencies" "Kept the existing install" "done"
       else
@@ -1192,13 +1232,13 @@ mm_bail_if_cancelled
 # the only place left that notices before the traceback does, at step 4,
 # with no repair and no explanation.
 #
-# `import memorymap` alone is not enough - it is a five-line package with
-# no submodule imports of its own (src/memorymap/__init__.py), so it stays
+# `import tessellate` alone is not enough - it is a five-line package with
+# no submodule imports of its own (src/tessellate/__init__.py), so it stays
 # importable no matter which real dependency is gone. What --doctor's own
 # .venv row checks (`import fastapi, sqlalchemy, memorymap`, mm_doctor
 # below) has the same gap: none of those three touches the app's own
-# import chain either. `memorymap.api.app` is the actual entry point
-# `python -m memorymap` loads (__main__.py's own `from memorymap.api.app
+# import chain either. `tessellate.api.app` is the actual entry point
+# `python -m tessellate` loads (__main__.py's own `from tessellate.api.app
 # import create_app`), so importing it here walks the real chain - down
 # through ai/embeddings.py, ai/model_manager.py, core/config.py - and
 # catches a missing python-dotenv, requests, cryptography or any other
@@ -1207,7 +1247,7 @@ mm_bail_if_cancelled
 # healthy path (measured: ~0.7s broken, ~1.7s importing everything clean),
 # well inside the budget of a step this script already pays for once
 # every launch.
-if ! "$VENV_PY" -c "import memorymap.api.app" >/dev/null 2>&1; then
+if ! "$VENV_PY" -c "import tessellate.api.app" >/dev/null 2>&1; then
   if [ -n "${MM_AUTO_REPAIRED:-}" ]; then
     mm_status "$MM_STEP_DEPS" "Dependencies" "Still broken after a repair" "failed"
     mm_fail "The virtual environment is broken and reinstalling the dependencies did not fix it." \
@@ -1255,7 +1295,7 @@ mm_bail_if_cancelled
 mm_status "$MM_STEP_START" "Start" "Starting the app" "active"
 
 if [ -n "${MM_DESKTOP:-}" ]; then
-  echo "        MemoryMap AI is opening in its own window."
+  echo "        Tessellate is opening in its own window."
   echo "        Close the window to stop it."
   echo
   echo " ${TEAL}Installed at:${RESET} $(pwd)"
@@ -1263,10 +1303,10 @@ if [ -n "${MM_DESKTOP:-}" ]; then
   echo " ${TEAL}Next time:${RESET}    open a terminal there and run ./start-desktop.sh again"
   echo
   mm_splash_done
-  exec "$VENV_PY" -m memorymap --desktop
+  exec "$VENV_PY" -m tessellate --desktop
 fi
 
-echo "        MemoryMap AI is at $MM_URL"
+echo "        Tessellate is at $MM_URL"
 if [ "$MM_NO_BROWSER" = "1" ]; then
   echo "        No browser will be opened (--no-browser). Press Ctrl+C to stop."
 else
@@ -1308,4 +1348,4 @@ mm_status "$MM_STEP_START" "Start" "Handed over to the app" "done"
 [ -n "${MM_SPLASH_FILE:-}" ] && rm -f "$MM_SPLASH_FILE" 2>/dev/null
 mm_splash_done
 
-exec "$VENV_PY" -m memorymap
+exec "$VENV_PY" -m tessellate

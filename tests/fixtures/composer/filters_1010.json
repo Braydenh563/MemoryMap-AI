@@ -1,0 +1,416 @@
+{
+ "_about": "Phrases as filters (CHAT_PLAN section 2, the graph, library and settings row): each phrase, the filters it reads as on 2026-10-10 14:00 UTC, and the words left as a search. Measured at 1.0 by tests/test_phrase_filters.py.",
+ "now": "2026-10-10T14:00:00+00:00",
+ "rows": [
+  {
+   "text": "connected to Harbor",
+   "filters": [
+    {
+     "kind": "connected",
+     "name": "Harbor"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "notes linked to the boat shed",
+   "filters": [
+    {
+     "kind": "connected",
+     "name": "boat shed"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "linked with Sam's plan",
+   "filters": [
+    {
+     "kind": "connected",
+     "name": "Sam's plan"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "connected to nothing",
+   "filters": [
+    {
+     "kind": "orphan"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "unlinked notes",
+   "filters": [
+    {
+     "kind": "orphan"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "orphans",
+   "filters": [
+    {
+     "kind": "orphan"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "untouched since June",
+   "filters": [
+    {
+     "kind": "untouched",
+     "since": "2026-06-01"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "not edited since last week",
+   "filters": [
+    {
+     "kind": "untouched",
+     "since": "2026-09-28"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "not touched for 3 months",
+   "filters": [
+    {
+     "kind": "untouched",
+     "since": "2026-07-10"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "stale since march",
+   "filters": [
+    {
+     "kind": "untouched",
+     "since": "2026-03-01"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "not opened in 2 weeks",
+   "filters": [
+    {
+     "kind": "untouched",
+     "since": "2026-09-26"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "forgotten since yesterday",
+   "filters": [
+    {
+     "kind": "untouched",
+     "since": "2026-10-09"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "edited last week",
+   "filters": [
+    {
+     "kind": "edited",
+     "start": "2026-10-03",
+     "end": "2026-10-10"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "changed yesterday",
+   "filters": [
+    {
+     "kind": "edited",
+     "start": "2026-10-09",
+     "end": "2026-10-09"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "updated in march",
+   "filters": [
+    {
+     "kind": "edited",
+     "start": "2026-03-01",
+     "end": "2026-03-31"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "created this week",
+   "filters": [
+    {
+     "kind": "created",
+     "start": "2026-10-05",
+     "end": "2026-10-10"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "written in june",
+   "filters": [
+    {
+     "kind": "created",
+     "start": "2026-06-01",
+     "end": "2026-06-30"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "added since monday",
+   "filters": [
+    {
+     "kind": "created",
+     "start": "2026-10-05",
+     "end": "2026-10-10"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "tagged work",
+   "filters": [
+    {
+     "kind": "tag",
+     "name": "work"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "#recipe",
+   "filters": [
+    {
+     "kind": "tag",
+     "name": "recipe"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "with the tag travel",
+   "filters": [
+    {
+     "kind": "tag",
+     "name": "travel"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "notes tagged gym and pinned",
+   "filters": [
+    {
+     "kind": "pinned"
+    },
+    {
+     "kind": "tag",
+     "name": "gym"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "pinned",
+   "filters": [
+    {
+     "kind": "pinned"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "starred notes",
+   "filters": [
+    {
+     "kind": "pinned"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "favourites",
+   "filters": [
+    {
+     "kind": "pinned"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "filed under Cooking",
+   "filters": [
+    {
+     "kind": "category",
+     "name": "Cooking"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "in the category Fitness",
+   "filters": [
+    {
+     "kind": "category",
+     "name": "Fitness"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "category Work",
+   "filters": [
+    {
+     "kind": "category",
+     "name": "Work"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "with pictures",
+   "filters": [
+    {
+     "kind": "has",
+     "what": "image"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "with attachments",
+   "filters": [
+    {
+     "kind": "has",
+     "what": "file"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "with reminders",
+   "filters": [
+    {
+     "kind": "has",
+     "what": "reminder"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "with links",
+   "filters": [
+    {
+     "kind": "has",
+     "what": "link"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "boards",
+   "filters": [
+    {
+     "kind": "type",
+     "what": "board"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "mind maps",
+   "filters": [
+    {
+     "kind": "type",
+     "what": "board"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "mentioning Sam",
+   "filters": [
+    {
+     "kind": "mention",
+     "name": "Sam"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "that mention Ana",
+   "filters": [
+    {
+     "kind": "mention",
+     "name": "Ana"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "connected to Harbor and untouched since June",
+   "filters": [
+    {
+     "kind": "connected",
+     "name": "Harbor"
+    },
+    {
+     "kind": "untouched",
+     "since": "2026-06-01"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "tagged work edited last week",
+   "filters": [
+    {
+     "kind": "edited",
+     "start": "2026-10-03",
+     "end": "2026-10-10"
+    },
+    {
+     "kind": "tag",
+     "name": "work"
+    }
+   ],
+   "rest": ""
+  },
+  {
+   "text": "harbor",
+   "filters": [],
+   "rest": "harbor"
+  },
+  {
+   "text": "pinned notes with pictures",
+   "filters": [
+    {
+     "kind": "has",
+     "what": "image"
+    },
+    {
+     "kind": "pinned"
+    }
+   ],
+   "rest": ""
+  }
+ ]
+}

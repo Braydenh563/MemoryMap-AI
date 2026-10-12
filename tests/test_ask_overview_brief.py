@@ -13,7 +13,7 @@ offer is a question the UI has answered, taking the room the overview needs.
 
 from __future__ import annotations
 
-from memorymap.ai import librarian
+from tessellate.ai import librarian
 
 
 def test_the_ask_brief_forbids_the_chatbot_closer():

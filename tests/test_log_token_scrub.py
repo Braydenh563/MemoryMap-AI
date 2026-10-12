@@ -1,7 +1,7 @@
 """The session token never reaches the access log (WORLD_CLASS_PLAN 12, S1)."""
 import logging
 
-from memorymap.core import logbuffer
+from tessellate.core import logbuffer
 
 
 def _uvicorn_record(path: str) -> logging.LogRecord:

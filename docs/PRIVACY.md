@@ -45,7 +45,7 @@ use, and none of them is your notes:
 | What | When | What goes out |
 | --- | --- | --- |
 | Model downloads | You press Download in Settings, Models | The model name, to Ollama's registry, or to Hugging Face for an `hf.co` name. Ollama does the fetching |
-| The search model | Once, the first time search by meaning needs it | The `sentence-transformers` package from PyPI and `BAAI/bge-small-en-v1.5` from Hugging Face. `MEMORYMAP_NO_AUTO_INSTALL` stops it, and an Ollama embedding model avoids it |
+| The search model | Once, the first time search by meaning needs it | The `sentence-transformers` package from PyPI and `BAAI/bge-small-en-v1.5` from Hugging Face. `TESSELLATE_NO_AUTO_INSTALL` stops it, and an Ollama embedding model avoids it |
 | Optional packages and SearXNG | You press Install in Settings, Packages, or Start SearXNG in Settings, Web search | pip downloads; Run Python files (Pyodide) from GitHub and Tool calling without Ollama (needle) from Hugging Face, both checked against a sha256; SearXNG's source from GitHub |
 | Web search | Only while Settings, Web search is on, which also covers the reader view and page clipping | Your search words, or the address of the page you open. Never your notes |
 | The update check | Only if you turn on Settings, About, Updates, Check GitHub for a newer version, or press Check for updates | A request to GitHub's releases API, with no data about you. The first start asks once whether to check automatically (in the terminal for `start.sh`, in the app otherwise), and until you answer nothing about updating touches the network, a launcher copy's pull included |
@@ -75,7 +75,7 @@ Off until you turn it on in **Settings, Web search**. When it is on:
 - tracking parameters (`utm_*`, `fbclid`, `gclid` and the like) are stripped
   from result URLs before you see them;
 - **your own [SearXNG](https://searxng.org) is the recommended engine.**
-  MemoryMap installs and runs it for you in one click, with no Docker and no
+  Tessellate installs and runs it for you in one click, with no Docker and no
   account, and the query then never leaves your own network. The default,
   *Automatic*, uses it whenever it is running and falls back to DuckDuckGo
   until you have one, so search works either way;
@@ -135,7 +135,7 @@ notebook. Then:
 - turning it on asks for your current password, and takes effect at the next
   start;
 - the network side is **HTTPS on its own port**, 8443 beside the usual 8000
-  (`MEMORYMAP_LAN_PORT` overrides it). This computer keeps plain http on its own
+  (`TESSELLATE_LAN_PORT` overrides it). This computer keeps plain http on its own
   port;
 - the certificate is made on this computer the first time the switch is on, with
   no network involved, and kept in your data folder, readable by you only. It is
@@ -152,9 +152,9 @@ request from the network before a password exists is refused.
 
 ## Signing in and sessions
 
-MemoryMap is single-user by design: one notebook and one password, all on this
+Tessellate is single-user by design: one notebook and one password, all on this
 machine. To keep separate notebooks, use a different data folder
-(`MEMORYMAP_DATA_DIR`), or Spaces inside one notebook, rather than a second
+(`TESSELLATE_DATA_DIR`), or Spaces inside one notebook, rather than a second
 account.
 
 - **The password is optional on a computer only you use.** Settings, Account &
@@ -170,6 +170,16 @@ account.
   be guessed at speed through the app.
 - **A password over 72 bytes works**, and one over 1,024 characters is refused.
   Changing your password ends every other session.
+- **A PIN unlocks this computer only, and is never in the notebook.** Settings,
+  Account & security, PIN for this computer sets one of 4 to 12 digits, behind
+  the password. The vault key is wrapped under it (scrypt and AES-GCM) and kept
+  by the operating system's protected store for your user: Windows DPAPI, the
+  macOS Keychain, or the Linux Secret Service. Where none is available a PIN
+  cannot be set up; it is never written to a file. A copied notebook or backup
+  carries nothing a PIN opens. Only this computer's own keyboard may use it:
+  phones and other devices need the password, and so do changing the password,
+  the PIN and LAN access. Five wrong PINs delete it, and a password change, a
+  re-encryption, a restore or a reset removes it.
 
 ## Your browser is treated as untrusted too
 
@@ -178,7 +188,7 @@ in another tab, which can ask your browser to send requests to
 `http://localhost:8000` on your behalf. This is how local dev servers and
 Ollama itself have been attacked. So:
 
-- a request that states an origin other than MemoryMap's own is **refused**,
+- a request that states an origin other than Tessellate's own is **refused**,
   including before you have set a password, when nothing else stands between a
   stray page and your new notebook;
 - a strict **Content-Security-Policy** on every response allows scripts and
@@ -239,7 +249,7 @@ locked the old encryption key.
 terminal:
 
 ```
-python -m memorymap --reset-password
+python -m tessellate --reset-password
 ```
 
 Both ask you to confirm (type RESET), then clear the password so you can set a

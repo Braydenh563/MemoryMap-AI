@@ -1,0 +1,85 @@
+{
+ "skill": "Link related notes",
+ "small_class": true,
+ "cases": [
+  {
+   "id": "lisbon",
+   "notebook": [
+    {
+     "content": "Lisbon flights booked for May",
+     "category": "Travel",
+     "tags": []
+    },
+    {
+     "content": "Lisbon hotel shortlist: Alfama or Baixa",
+     "category": "Travel",
+     "tags": []
+    },
+    {
+     "content": "Fix the bike's back brake",
+     "category": "Home",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "linked_pairs": [
+     [
+      0,
+      1
+     ]
+    ]
+   }
+  },
+  {
+   "id": "tomatoes",
+   "notebook": [
+    {
+     "content": "Tomatoes need staking this week",
+     "category": "Garden",
+     "tags": []
+    },
+    {
+     "content": "Bought bamboo canes to stake the tomatoes",
+     "category": "Garden",
+     "tags": []
+    },
+    {
+     "content": "Quarterly report draft is due Friday",
+     "category": "Work",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "linked_pairs": [
+     [
+      0,
+      1
+     ]
+    ]
+   }
+  },
+  {
+   "id": "dentist",
+   "notebook": [
+    {
+     "content": "Dentist appointment on the 14th",
+     "category": "Health",
+     "tags": []
+    },
+    {
+     "content": "Dentist said to floss more",
+     "category": "Health",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "linked_pairs": [
+     [
+      0,
+      1
+     ]
+    ]
+   }
+  }
+ ]
+}

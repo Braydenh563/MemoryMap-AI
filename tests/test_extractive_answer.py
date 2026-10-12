@@ -16,7 +16,7 @@ must never do that.
 
 from __future__ import annotations
 
-from memorymap.ai import extractive
+from tessellate.ai import extractive
 
 NOTES = [
     {

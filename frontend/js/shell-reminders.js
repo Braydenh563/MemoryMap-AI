@@ -338,9 +338,15 @@ function glideStrip(strip) {
     );
   };
   strip.glide = place;
+  //: `childList` too (the owner, 2026-10-10: "There's overlap on these
+  //: settings tabs in the sidebar"): a page's "On this page" list opening or
+  //: closing above the chosen row moves the row and not its size, so neither
+  //: observer saw it and the fill stayed where the row had been (measured: 20
+  //: px under it after an 18 px insert).
   new MutationObserver(() => place(true)).observe(strip, {
     attributes: true,
     attributeFilter: ["class", "aria-selected", "aria-current"],
+    childList: true,
     subtree: true,
   });
   if (window.ResizeObserver) {
@@ -421,6 +427,14 @@ const scrollEdgeRegions = new Set();
 //: each frame read every bar's box, which traced at 34 to 87ms per scroll.
 const scrollEdgeLastState = new WeakMap();
 
+//: Which region made a bar opaque. Any scroller on the page runs
+//: `markScrollEdge`, and it used to clear the flag from every bar that was not
+//: its own: an inner pane (the answer, the matching records) scrolling for the
+//: first time took the opaque ground off the sub-tab strip the page scroll had
+//: just given it, and the strip went see-through over the Ask box (owner,
+//: 2026-10-12). Only the region that set a bar may take it back.
+const scrollEdgeOwner = new WeakMap();
+
 function markScrollEdge(region, force = false) {
   if (!region || typeof region.getBoundingClientRect !== "function") return;
   const wasScrolled = scrollEdgeLastState.get(region);
@@ -453,16 +467,20 @@ function markScrollEdge(region, force = false) {
     }
   }
   for (const bar of document.querySelectorAll("[data-scrolled]")) {
-    if (bar !== best) bar.removeAttribute("data-scrolled");
+    if (bar !== best && (scrollEdgeOwner.get(bar) || region) === region) bar.removeAttribute("data-scrolled");
   }
-  if (best && scrolled) best.setAttribute("data-scrolled", "1");
-  else if (best) best.removeAttribute("data-scrolled");
+  if (best && scrolled) {
+    best.setAttribute("data-scrolled", "1");
+    scrollEdgeOwner.set(best, region);
+  } else if (best) best.removeAttribute("data-scrolled");
   //: A sub-tab strip is sticky *inside* the region it lids (INBOX 529: "hard
   //: to see when scrolled down"), so the loop above skips it and it stayed
   //: see-through over the notes. It takes its surface the same way.
   for (const strip of region.querySelectorAll(".notes-subtabs, .library-subtabs, [data-dock-name=notes]")) {
-    if (scrolled) strip.setAttribute("data-scrolled", "1");
-    else strip.removeAttribute("data-scrolled");
+    if (scrolled) {
+      strip.setAttribute("data-scrolled", "1");
+      scrollEdgeOwner.set(strip, region);
+    } else strip.removeAttribute("data-scrolled");
   }
 }
 
@@ -679,38 +697,6 @@ function safeMdSlice(text, maxChars) {
 // (dashboard.js) render real markdown instead, via `safeMdSlice` +
 // `renderInlineMarkdown`'s `compact` mode, the same as every other
 // label-sized surface in this app.
-//: **The first image a note actually shows**, for surfaces that want to put a
-//: face on a row rather than a filename. Reported against the Contents tab,
-//: which rendered every note as `noteLabel` text: so a note that *is* a photo
-//: appeared as "20251018_OHR.SilburyHill….jpg", or as the bare word "image"
-//: when the alt text was empty.
-//:
-//: Reads the markdown rather than any stored field, because that is where a
-//: note's images live: pasted, dropped and AI-attached pictures all end up as
-//: `![alt](/media/…)` in the body, and there is no column that mirrors them.
-//:
-//: Only this app's own stored files. An external `https://` image in a note is
-//: skipped on purpose: the CSP blocks it (`img-src 'self' data: blob:`), so a
-//: thumbnail built from one would be a guaranteed broken frame, which is worse
-//: than no thumbnail at all.
-//: A note's picture, wherever it lives, the markdown, or the attachments
-//: table. See `noteRowImage` in dashboard.js for the report behind this: an
-//: *attached* image appears nowhere in the note's text, so every surface that
-//: looked for `![](…)` alone showed nothing for a note whose only picture was
-//: attached rather than pasted.
-function noteAnyImage(entry) {
-  const embedded = noteFirstImage(entry?.content);
-  if (embedded) return embedded;
-  const attached = (entry?.attachments || []).find((file) => file.is_image);
-  return attached ? { alt: attached.filename || "", url: `/files/${attached.id}` } : null;
-}
-
-function noteFirstImage(content) {
-  const match = /!\[([^\]\n]{0,200})\]\((\/(?:media|files)\/[^)\n]{1,500})\)/.exec(content || "");
-  if (!match) return null;
-  return { alt: match[1] || "", url: match[2] };
-}
-
 //: **A `[[link]]`'s visible words, without the syntax its target happens to
 //: start with.** Reported: *"note links have inline md not rendered or
 //: suppressed, when an ai mentions a note that starts with a note that has a
@@ -839,19 +825,6 @@ let reminderFilter = "open"; // open | all | done
 let remindersPageSize = prefs.get("reminders-page-size", null) || "all";
 let remindersDonePage = 1;
 
-// list | calendar. Persisted the same way timeline's own view toggle is
-// (a bare localStorage key), a display mode, not data, so it doesn't need
-// the weight of a real preference round-tripped through the backend.
-let reminderView = prefs.get("reminderView", null) === "calendar" ? "calendar" : "list";
-// The month the calendar is showing, always pinned to day 1 so "next month"
-// arithmetic can't land on the 31st of a shorter month.
-let reminderCalMonth = (() => {
-  const d = new Date();
-  d.setDate(1);
-  d.setHours(0, 0, 0, 0);
-  return d;
-})();
-
 async function loadReminders() {
   //: Every reminder, not the first page. `/reminders` is ordered `due_at`
   //: ascending, so the first page is the *oldest* rows with the ticked-off
@@ -870,6 +843,8 @@ async function loadReminders() {
   if (!loadReminders.loaded) showSkeletons($("reminder-groups"), 3);
   const all = await apiPagedList("/reminders", 200).catch(() => null);
   if (all) loadReminders.loaded = true;
+  //: A reminder just made or moved is the soonest one: the due timer follows.
+  if (all) armReminderTimer(all);
   clearSkeletons($("reminder-groups"));
   if (!all) {
     surfaceFailed($("reminders-empty"), "reminders", loadReminders);
@@ -888,11 +863,7 @@ async function loadReminders() {
   const reminders = all.filter((r) =>
     reminderFilter === "all" ? true : reminderFilter === "done" ? r.done : !r.done
   );
-  const isList = reminderView === "list";
-  $("reminder-groups").classList.toggle("hidden", !isList);
-  $("reminders-empty").classList.toggle("hidden", !isList || all.length > 0);
-  $("reminder-calendar").classList.toggle("hidden", isList);
-  if (!isList) renderReminderCalendar(all);
+  $("reminders-empty").classList.toggle("hidden", all.length > 0);
   $("reminder-clear-done").classList.toggle("hidden", !all.some((r) => r.done));
   // Surface anything due on the tab itself, from wherever you are.
   updateReminderBadge(all);
@@ -967,120 +938,6 @@ function paginateDoneReminders(items) {
   return items.slice(start, start + pageSize);
 }
 
-// Month-grid view of due dates (ROADMAP.md gap 4: the flat list has no way
-// to see "what's due this week" laid out as a calendar). `all` is every
-// reminder regardless of reminderFilter, a month view answers "what's on
-// this day," which isn't the same question the Open/All/Done filter above it
-// answers, so it deliberately ignores that filter rather than surprising
-// someone who switches view mid-browse and sees fewer days than expected.
-function renderReminderCalendar(all) {
-  const box = $("reminder-calendar");
-  box.replaceChildren();
-
-  const byDay = new Map(); // "YYYY-MM-DD" -> reminders due that local day
-  for (const reminder of all) {
-    const due = new Date(reminder.due_at);
-    const key = `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, "0")}-${String(due.getDate()).padStart(2, "0")}`;
-    if (!byDay.has(key)) byDay.set(key, []);
-    byDay.get(key).push(reminder);
-  }
-
-  const head = document.createElement("div");
-  head.className = "reminder-cal-head";
-  const prev = smallButton("‹", "Previous month", () => {
-    reminderCalMonth.setMonth(reminderCalMonth.getMonth() - 1);
-    renderReminderCalendar(all);
-  });
-  const today = smallButton("Today", "Jump to this month", () => {
-    const d = new Date();
-    d.setDate(1);
-    d.setHours(0, 0, 0, 0);
-    reminderCalMonth = d;
-    renderReminderCalendar(all);
-  });
-  const next = smallButton("›", "Next month", () => {
-    reminderCalMonth.setMonth(reminderCalMonth.getMonth() + 1);
-    renderReminderCalendar(all);
-  });
-  const title = document.createElement("h3");
-  title.className = "reminder-cal-title";
-  title.textContent = reminderCalMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-  head.append(prev, title, today, next);
-  box.appendChild(head);
-
-  const grid = document.createElement("div");
-  grid.className = "reminder-cal-grid";
-  for (const label of ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]) {
-    const dow = document.createElement("span");
-    dow.className = "reminder-cal-dow muted";
-    dow.textContent = label;
-    grid.appendChild(dow);
-  }
-
-  const monthStart = new Date(reminderCalMonth);
-  const lead = monthStart.getDay(); // blank cells so day 1 lands in its real weekday column
-  const daysInMonth = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate();
-  const todayKey = (() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  })();
-
-  for (let i = 0; i < lead; i++) {
-    const blank = document.createElement("span");
-    blank.className = "reminder-cal-cell reminder-cal-blank";
-    grid.appendChild(blank);
-  }
-
-  for (let day = 1; day <= daysInMonth; day++) {
-    const key = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    const dayReminders = byDay.get(key) || [];
-    const cell = document.createElement("button");
-    cell.type = "button";
-    cell.className = "reminder-cal-cell";
-    if (key === todayKey) cell.classList.add("reminder-cal-today");
-    if (dayReminders.length) cell.classList.add("reminder-cal-has-items");
-
-    const num = document.createElement("span");
-    num.className = "reminder-cal-daynum";
-    num.textContent = day;
-    cell.appendChild(num);
-
-    if (dayReminders.length) {
-      const dots = document.createElement("span");
-      dots.className = "reminder-cal-dots";
-      for (const reminder of dayReminders.slice(0, 4)) {
-        const dot = document.createElement("span");
-        dot.className = `reminder-cal-dot priority-${reminder.priority || "normal"}${reminder.done ? " done" : ""}`;
-        dots.appendChild(dot);
-      }
-      cell.appendChild(dots);
-      cell.title = dayReminders.map((r) => r.text).join("\n");
-      cell.setAttribute("aria-label", `${day}: ${dayReminders.length} reminder${dayReminders.length === 1 ? "" : "s"}`);
-      cell.addEventListener("click", () => {
-        // Jump into the list at the first one, reuses flashReminder's own
-        // switch-to-list/scroll/flash rather than inventing a day-filtered
-        // list view just for this.
-        reminderView = "list";
-        localStorage.setItem("reminderView", "list");
-        for (const b of document.querySelectorAll("#reminder-view-toggle button")) {
-          b.classList.toggle("active", b.dataset.view === "list");
-        }
-        flashReminder(dayReminders[0].id);
-      });
-    } else {
-      cell.setAttribute("aria-label", `${day}, no reminders`);
-      cell.title = "Add a reminder on this day";
-      cell.addEventListener("click", () => {
-        const iso = `${monthStart.getFullYear()}-${String(monthStart.getMonth() + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-        $("reminder-date").value = iso;
-        $("reminder-text").focus();
-      });
-    }
-    grid.appendChild(cell);
-  }
-  box.appendChild(grid);
-}
-
 // A count of due-or-overdue reminders on the Reminders tab button, so you
 // notice them from any tab.
 function updateReminderBadge(reminders) {
@@ -1125,22 +982,23 @@ async function clearDoneReminders() {
   }
   //: One Undo for the lot (INBOX 537): they go to the recycle bin and come
   //: back from it (WORLD_CLASS_PLAN 5 item 10).
-  const drop = async () => {
-    //: Every delete is tried; how many failed is said once (audit
-    //: 2026-10-05, FE-12), where a silent catch let them come back unexplained.
+  //: Every delete is tried; how many failed is said once (audit 2026-10-05,
+  //: FE-12), where a silent catch let them come back unexplained, with a Try
+  //: again for just those rows.
+  const drop = async (rows = done) => {
     const results = await Promise.all(
-      done.map((r) => api(`/reminders/${r.id}`, { method: "DELETE" }).then(() => true, () => false))
+      rows.map((r) => api(`/reminders/${r.id}`, { method: "DELETE" }).then(() => true, () => false))
     );
-    const failed = results.filter((ok) => !ok).length;
-    if (failed) toast(`Couldn't delete ${failed} of the reminders.`, true);
+    const left = rows.filter((_, i) => !results[i]);
+    if (left.length) toast(`Couldn't delete ${left.length} of the reminders.`, true, { action: ["Try again", () => drop(left)] });
     loadReminders();
   };
-  const remake = async () => {
+  const remake = async (rows = done) => {
     const results = await Promise.all(
-      done.map((r) => api(`/reminders/${r.id}/restore`, { method: "POST" }).then(() => true, () => false))
+      rows.map((r) => api(`/reminders/${r.id}/restore`, { method: "POST" }).then(() => true, () => false))
     );
-    const failed = results.filter((ok) => !ok).length;
-    if (failed) toast(`Couldn't bring back ${failed} of the reminders.`, true);
+    const left = rows.filter((_, i) => !results[i]);
+    if (left.length) toast(`Couldn't bring back ${left.length} of the reminders.`, true, { action: ["Try again", () => remake(left)] });
     loadReminders();
   };
   await drop();
@@ -1178,23 +1036,24 @@ function reminderItem(reminder, label) {
   checkbox.setAttribute("aria-label", `${reminder.done ? "Reopen" : "Mark done"}: ${reminder.text || "this reminder"}`);
   checkbox.style.width = "auto";
   checkbox.addEventListener("change", async () => {
-    // Completing a recurring reminder rolls it forward to the next interval
-    // instead of closing it permanently.
+    const before = { due_at: reminder.due_at, done: reminder.done };
+    //: Completing a repeating reminder rolls it on to its next time, read
+    //: by the server from the rule (every weekday, the last Friday of the
+    //: month) in this person's own days; its undo puts the due time back.
     if (checkbox.checked && reminder.recurring && reminder.recurring !== "none") {
-      const next = nextRecurringDate(reminder.due_at, reminder.recurring);
-      await apiJson(`/reminders/${reminder.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ due_at: next.toISOString(), done: false }),
-      });
-      toast(`Rescheduled to ${next.toLocaleString()}.`);
+      const rolled = await apiJson(`/reminders/${reminder.id}/complete?tz_offset_minutes=${-new Date().getTimezoneOffset()}`, { method: "POST" });
+      const put = (body) => async () => {
+        await apiJson(`/reminders/${reminder.id}`, { method: "PUT", body: JSON.stringify({ ...body, restore: true }) });
+        loadReminders();
+      };
+      pushUndo("Rescheduled a reminder", put(before), put({ due_at: rolled.due_at, done: false }));
       loadReminders();
+      toast(`Rescheduled to ${whenText(rolled.due_at)}.`);
       return;
     }
-    await apiJson(`/reminders/${reminder.id}`, {
-      method: "PUT",
-      body: JSON.stringify({ done: checkbox.checked }),
-    });
-    loadReminders();
+    await reminderPutUndoably(reminder.id, checkbox.checked ? "Completed a reminder" : "Reopened a reminder", before, { done: checkbox.checked });
+    //: A reminder ticked off: Atlas looks proud (INBOX 742).
+    if (checkbox.checked) atlasOn("done");
   });
   row.appendChild(checkbox);
 
@@ -1204,16 +1063,34 @@ function reminderItem(reminder, label) {
   if (reminder.done) text.style.textDecoration = "line-through";
   row.appendChild(text);
 
+  //: The repeat and the early alert ride on a line of their own under the
+  //: row (the target's `.entry-links` line): beside the text they squeezed
+  //: it to nothing at 320 ("every last Friday of the month" is 118px).
+  const when = document.createElement("div");
+  when.className = "entry-links";
+  //: The coloured edge and the weight said "high" and nothing said it in
+  //: words (uisweep-1011: a state shown only by colour), so the line does.
+  if (reminder.priority === "high" || reminder.priority === "low") {
+    const level = chip(`ph:flag ${reminder.priority === "high" ? "High" : "Low"} priority`, "tag");
+    level.title = "Set in Edit this reminder";
+    when.appendChild(level);
+  }
   if (reminder.recurring && reminder.recurring !== "none") {
-    const repeat = chip(`ph:repeat ${reminder.recurring}`, "tag");
-    repeat.title = `Repeats ${reminder.recurring}`;
-    row.appendChild(repeat);
+    const words = reminder.repeat_words || reminder.recurring;
+    const repeat = chip(`ph:repeat ${words}`, "tag");
+    repeat.title = `Repeats ${words}`;
+    when.appendChild(repeat);
+  }
+  if (reminder.alert_words) {
+    const early = chip(`ph:bell-ringing ${reminder.alert_words}`, "tag");
+    early.title = `An alert ${reminder.alert_words} it is due`;
+    when.appendChild(early);
   }
 
   const due = document.createElement("span");
   due.className = "entry-date";
   due.textContent = relativeWhen(reminder.due_at); // "in 2 hours" / "3 days ago"
-  due.title = new Date(reminder.due_at).toLocaleString(); // exact on hover
+  due.title = whenText(reminder.due_at); // exact on hover
   row.appendChild(due);
 
   const actions = document.createElement("span");
@@ -1254,10 +1131,10 @@ function reminderItem(reminder, label) {
       loadReminders();
     };
     const action = pushUndo("Moved a reminder to the bin", restore, rebin);
-    toastAction("Reminder moved to the bin.", "Undo", async () => {
+    toastAction(`Moved ${toastName(reminder.text, "the reminder")} to the bin.`, "Undo", async () => {
       settleUndoFromToast(action);
       await restore().catch((e) => toast(e.message, true));
-      toast("Reminder restored.");
+      toast(`Restored ${toastName(reminder.text, "the reminder")}.`);
     });
   };
   const menuItems = [];
@@ -1295,6 +1172,7 @@ function reminderItem(reminder, label) {
   actions.appendChild(kebabMenu(menuItems, `Actions for the reminder “${reminder.text}”`, { vertical: true }));
   row.appendChild(actions);
   li.appendChild(row);
+  if (when.childElementCount) li.appendChild(when);
 
   if (target && (reminder.target_title || reminder.entry_preview)) {
     const linkRow = document.createElement("div");
@@ -1360,27 +1238,6 @@ function toLocalInputValue(iso) {
   const d = new Date(iso);
   const pad = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-// The next occurrence of a recurring reminder. Steps forward from the due
-// time until it lands in the future, so completing a long-overdue daily
-// reminder doesn't just move it one day into the past.
-function nextRecurringDate(fromIso, recurring) {
-  const next = new Date(fromIso);
-  const step = () => {
-    if (recurring === "daily") next.setDate(next.getDate() + 1);
-    else if (recurring === "weekly") next.setDate(next.getDate() + 7);
-    else if (recurring === "monthly") next.setMonth(next.getMonth() + 1);
-    else next.setDate(next.getDate() + 1); // safety fallback
-  };
-  step();
-  const now = Date.now();
-  let guard = 0;
-  while (next.getTime() <= now && guard < 600) {
-    step();
-    guard += 1;
-  }
-  return next;
 }
 
 // A named quick-due preset -> a concrete Date.
@@ -1542,7 +1399,7 @@ async function snoozeReminderTo(reminder, when) {
     await put({ due_at: when.toISOString(), done: false });
     loadReminders();
   });
-  toastAction(`Snoozed to ${when.toLocaleString()}.`, "Undo", async () => {
+  toastAction(`Snoozed to ${whenText(when)}.`, "Undo", async () => {
     settleUndoFromToast(action);
     await back();
   });
@@ -1573,10 +1430,22 @@ function reminderEditForm(reminder) {
       ["daily", "Daily"],
       ["weekly", "Weekly"],
       ["monthly", "Monthly"],
+      //: A rule the menu has no word for (every weekday) is kept, not
+      //: dropped to Once by a Save that only changed the text.
+      ...(["none", "daily", "weekly", "monthly"].includes(reminder.recurring || "none") ? [] : [[reminder.recurring, reminder.repeat_words || reminder.recurring]]),
     ],
     reminder.recurring || "none"
   );
   recurringSelect.title = "Repeat";
+  //: The early alert was only ever settable when a reminder was made (the
+  //: quick add reads "1 day before"); the edit form had no way to change or
+  //: clear it. 0 is the API's word for "no alert".
+  const alertPresets = [[0, "No alert"], [10, "10 minutes before"], [30, "30 minutes before"], [60, "1 hour before"], [1440, "1 day before"], [10080, "1 week before"]];
+  const alertNow = Number(reminder.alert_minutes) || 0;
+  if (!alertPresets.some(([minutes]) => minutes === alertNow)) alertPresets.push([alertNow, reminder.alert_words || `${alertNow} minutes before`]);
+  const alertSelect = buildSelect(alertPresets.map(([minutes, label]) => [String(minutes), label]), String(alertNow));
+  alertSelect.title = "Alert";
+  alertSelect.setAttribute("aria-label", "Alert");
   const row = document.createElement("div");
   row.className = "row";
   row.appendChild(
@@ -1586,17 +1455,15 @@ function reminderEditForm(reminder) {
         toast("A reminder needs text and a time.", "info");
         return;
       }
-      await apiJson(`/reminders/${reminder.id}`, {
-        method: "PUT",
-        body: JSON.stringify({
-          text,
-          due_at: new Date(dueInput.value).toISOString(),
-          priority: prioritySelect.value,
-          recurring: recurringSelect.value,
-        }),
-      });
       editingReminderId = null;
-      loadReminders();
+      const before = { text: reminder.text, due_at: reminder.due_at, priority: reminder.priority || "normal", recurring: reminder.recurring || "none", alert_minutes: alertNow };
+      await reminderPutUndoably(reminder.id, "Edited a reminder", before, {
+        text,
+        due_at: new Date(dueInput.value).toISOString(),
+        priority: prioritySelect.value,
+        recurring: recurringSelect.value,
+        alert_minutes: Number(alertSelect.value),
+      });
     }, false)
   );
   row.appendChild(
@@ -1605,7 +1472,7 @@ function reminderEditForm(reminder) {
       loadReminders();
     })
   );
-  wrap.append(textInput, dueInput, prioritySelect, recurringSelect, row);
+  wrap.append(textInput, dueInput, prioritySelect, recurringSelect, alertSelect, row);
   //: Enter saves and Escape cancels, from any field in the form: the two
   //: keys every inline editor answers. Only the buttons did before.
   wrap.addEventListener("keydown", (event) => {
@@ -1623,12 +1490,37 @@ function reminderEditForm(reminder) {
   return wrap;
 }
 
+//: **Every reminder act undoes** (TIMELINE_PLAN 11 row 1): create, complete
+//: and edit join delete, snooze and clear on the app's one stack. A PUT's
+//: inverse is the PUT of the fields it changed, as they were.
+async function reminderPutUndoably(id, label, before, after) {
+  const put = (body) => async () => {
+    await apiJson(`/reminders/${id}`, { method: "PUT", body: JSON.stringify(body) });
+    loadReminders();
+  };
+  await put(after)();
+  //: `restore`: the time it goes back to may be past (an overdue one edited).
+  pushUndo(label, put({ ...before, restore: true }), put({ ...after, restore: true }));
+}
+
+//: Create's inverse is the bin, and its redo the bin's restore, so the
+//: reminder that comes back is the same one, its id and target kept.
+function reminderMadeUndo(reminder) {
+  if (!reminder?.id) return;
+  const call = (path, method) => async () => {
+    await apiJson(path, { method });
+    loadReminders();
+  };
+  pushUndo("Added a reminder", call(`/reminders/${reminder.id}`, "DELETE"), call(`/reminders/${reminder.id}/restore`, "POST"));
+}
+
 async function addReminder(text, dueValue, entryId = null, opts = {}) {
   if (!text || !dueValue) {
-    toast("A reminder needs text and a due time.");
+    //: Names the one that is missing (not an error: an expected condition).
+    toast(!text && !dueValue ? "A reminder needs text and a due time." : !text ? "Write what to be reminded of." : "Pick a due time for this reminder.");
     return false;
   }
-  await apiJson("/reminders", {
+  const made = await apiJson("/reminders", {
     method: "POST",
     body: JSON.stringify({
       text,
@@ -1643,6 +1535,7 @@ async function addReminder(text, dueValue, entryId = null, opts = {}) {
   // permission prompt with no context is refused by default, and a refusal is
   // close to permanent (§36C).
   askNotificationPermission();
+  reminderMadeUndo(made);
   toast("Reminder set.");
   //: The card's reminder chip (INBOX 309) reads a cached count, and this is
   //: the moment that count became wrong. Dropped rather than adjusted: the
@@ -1653,30 +1546,7 @@ async function addReminder(text, dueValue, entryId = null, opts = {}) {
   return true;
 }
 
-// Magic Add: send natural language to the AI, which parses it into a reminder.
-async function magicAddReminder() {
-  const input = $("reminder-magic");
-  const status = $("reminder-magic-status");
-  const text = input.value.trim();
-  if (!text) return;
-  status.classList.remove("error");
-  setLabel(status, "ph:spin Parsing…");
-  try {
-    const reminder = await apiJson("/reminders/parse", {
-      method: "POST",
-      // Send our clock, so "tomorrow evening" is resolved against the time
-      // the user can see rather than the server's UTC.
-      body: JSON.stringify({ text, tz_offset_minutes: -new Date().getTimezoneOffset() }),
-    });
-    input.value = "";
-    status.textContent = `Added “${reminder.text}”: ${relativeWhen(reminder.due_at)}. Edit it below if needed.`;
-    askNotificationPermission();
-    loadReminders();
-  } catch (error) {
-    status.classList.add("error");
-    status.textContent = error.message;
-  }
-}
+// Magic Add (`magicAddReminder`) is quickadd.js's, with the chips.
 
 // The Wave O reminder poller used to live here. **It was dead code with a
 // live timer**, and that combination is worse than either half.
@@ -1718,7 +1588,39 @@ function defaultDueValue() {
 //: dialog (or the desktop's saved-to toast) is not drawn under it.
 document.getElementById("reminders-export-ics")?.addEventListener("click", () => {
   document.getElementById("reminders-more-menu")?.removeAttribute("open");
-  downloadFromApi("/reminders/export.ics", "memorymap-reminders.ics");
+  downloadFromApi("/reminders/export.ics", "tessellate-reminders.ics");
+});
+
+//: "Import a calendar (.ics)" (TIMELINE_PLAN decision 17): every event a
+//: reminder can hold comes in, a bad one is named by its line and the rest
+//: kept, and Undo bins exactly the reminders it added.
+$("reminders-import-ics").addEventListener("click", () => {
+  $("reminders-more-menu").removeAttribute("open");
+  $("reminders-import-ics-file").click();
+});
+$("reminders-import-ics-file").addEventListener("change", async (event) => {
+  const file = event.target.files?.[0];
+  event.target.value = "";
+  if (!file) return;
+  const form = new FormData();
+  form.append("file", file);
+  form.append("tz_offset_minutes", String(-new Date().getTimezoneOffset()));
+  let result;
+  try {
+    result = await (await api.upload("/reminders/import.ics", form)).json();
+  } catch (error) {
+    toast(error.message, true);
+    return;
+  }
+  loadReminders();
+  const skipped = result.skipped.length ? ` Skipped ${result.skipped.length}: ${result.skipped[0].reason}${result.skipped.length > 1 ? " and more" : ""}.` : "";
+  const message = `Imported ${result.added.length}, updated ${result.updated.length}.${skipped}`;
+  const each = (path, method) => async () => {
+    for (const id of result.added) await apiJson(path(id), { method });
+    loadReminders();
+  };
+  if (!result.added.length) return void toast(message, "info");
+  offerUndo("Imported reminders", message, each((id) => `/reminders/${id}`, "DELETE"), each((id) => `/reminders/${id}/restore`, "POST"));
 });
 
 //: In this boot file rather than app.js, whose gzipped size is a ratchet;

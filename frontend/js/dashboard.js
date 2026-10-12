@@ -71,10 +71,10 @@ const DASH_WIDGETS = {
   "top-tags": { title: "ph:tag Top tags", description: "Your most-used tags, ranked by how many notes carry them.", render: renderTopTagsWidget },
   questions: { title: "ph:chat-circle Recent questions", description: "The questions you've recently asked the notebook's chat.", render: renderQuestionsWidget },
   "on-this-day": { title: "ph:calendar-blank On this day", description: "What you wrote on this date in earlier months and years.", render: renderOnThisDayWidget },
-  digest: { title: "ph:newspaper Weekly digest", description: "A short roundup of what you wrote and did this week.", render: renderDigestWidget },
+  digest: { title: "ph:newspaper Digest", description: "Your day from the notes: what is due, open questions, what changed and quiet topics; Atlas writes the week on request.", render: renderDigestWidget },
   capture: { title: "ph:pencil-simple Quick capture", description: "A one-line box to jot a note without leaving the dashboard.", render: renderQuickCaptureWidget },
   reminders: { title: "ph:alarm Reminders", description: "Upcoming and overdue reminders, soonest first.", render: renderRemindersWidget },
-  focus: { title: "ph:timer Focus timer", description: "A start/stop timer for focused writing sessions.", render: renderFocusTimerWidget },
+  focus: { title: "ph:timer Focus timer", description: "A focus timer with breaks, a chime at the end and today's minutes.", render: renderFocusTimerWidget },
   heatmap: { title: "ph:calendar-check Activity heatmap", description: "A calendar-style heatmap of note activity over the past months.", render: renderHeatmapWidget },
   "tag-cloud": { title: "ph:cloud Tag cloud", description: "All your tags sized by how often they're used.", render: renderTagCloudWidget },
   categories: { title: "ph:folders Categories", description: "Every category with its note count, click to filter.", render: renderCategoriesWidget },
@@ -117,6 +117,9 @@ const DASH_WIDGETS = {
   //: since it was the original and removing `onthisday` here needed no
   //: layout migration: `dashLayout()` already drops any saved id that
   //: isn't in this object.)
+  //: Brief 89 (statistics row 2): Screen Time's weekly report, drawn by
+  //: statistics.js, which also holds the page it opens.
+  week: { title: "ph:calendar-dots This week", description: "Notes made, words written and reminders done this week, against last week.", render: (body) => renderWeekWidget(body) },
   pace: { title: "ph:chart-line-up Writing pace", description: "How many words you have written each day this fortnight.", render: renderPaceWidget },
 };
 
@@ -133,7 +136,9 @@ const DASH_WIDGETS = {
 //: Applied only when the saved layout widens *nothing*, so it is a default
 //: rather than an override: the moment anyone presses "Wide" or "Narrow" on
 //: any widget, their list wins and this is never consulted again.
-const DASH_DEFAULT_WIDE = ["heatmap"];
+//: The constellation starts wide (the owner's own layout, 2026-10-12); its
+//: Narrow button is checked by `tests/test_dashboard_default_wide.py`.
+const DASH_DEFAULT_WIDE = ["art"];
 
 //: **What a dashboard nobody has arranged shows** (INBOX 393: "I lose trust
 //: in ... applications with poor ui design"). Every widget used to be on by
@@ -144,8 +149,8 @@ const DASH_DEFAULT_WIDE = ["heatmap"];
 //: look back. The other fourteen are one press away under Widgets. Only a
 //: layout that has never been saved is affected; any saved choice wins.
 const DASH_DEFAULT_SHOWN = [
-  "reminders", "recent-notes", "pinned", "capture",
-  "documents", "boards", "digest", "on-this-day", "heatmap",
+  "digest", "art", "capture", "recent-notes", "reminders", "pinned",
+  "documents", "boards", "heatmap", "on-this-day", "week",
 ];
 
 //: Widgets added after the dashboard shipped that start switched off. The
@@ -153,7 +158,7 @@ const DASH_DEFAULT_SHOWN = [
 //: offered in the picker rather than appended to every existing dashboard.
 //: Applied only while a saved layout has never seen the widget: once anybody
 //: adds it, or saves a layout with it hidden, the saved layout decides.
-const DASH_OPT_IN = ["activity", "night"];
+const DASH_OPT_IN = ["activity", "night", "week"];
 
 function dashLayout() {
   const saved = (prefsCache && prefsCache.dashboard_layout) || {};
@@ -308,7 +313,7 @@ async function refreshAiGreeting(forced = false) {
   if (!phrase) return false;
   const punctuation = (body && body.punctuation) || ".";
   const appendName = !(body && body.append_name === false);
-  localStorage.setItem(
+  prefs.set(
     "greetingCache",
     JSON.stringify({ slot: greetingCacheSlot(now), phrase, punctuation, appendName })
   );
@@ -426,7 +431,7 @@ function fetchDashGraph() {
 //: `/reminders` three times over (WORLD_CLASS_PLAN A2). To the end of the
 //: list, not the first page: `/reminders` is `due_at` ascending, so a first
 //: page of old, ticked-off rows would hide everything upcoming
-//: (`agent-remaining/list-paging.md`).
+//: (`archive/agent-remaining/list-paging.md`).
 let dashRemindersInflight = null;
 let dashRemindersAt = 0;
 function dashReminders() {
@@ -458,13 +463,16 @@ async function dashEntries() {
 async function renderDashSubmessage() {
   const el = $("dash-submessage");
   if (!el) return;
-  const [stats, reminders] = await Promise.all([
+  const [stats, reminders, patterns] = await Promise.all([
     fetchDashStats().catch(() => null),
     // To the end: `/reminders` is `due_at` ascending, so a first page of
     // old, ticked-off rows would hide everything upcoming from this count
     // (`archive/agent-remaining/list-paging.md`); `dashReminders` shares
     // the one fetch across the widgets that need it.
     dashReminders().catch(() => []),
+    //: The Patterns line (CHAT_PLAN decision 32), its short form here and
+    //: the measured sentence on hover; Tidy shows it whole.
+    apiJson("/insights/patterns", { silent: true }).catch(() => null),
   ]);
   const bits = [];
   if (stats) {
@@ -489,15 +497,32 @@ async function renderDashSubmessage() {
     atlasStreak(streak);
     nameMarkBuddyStreak(streak);
   }
+  const pattern = patterns?.patterns?.[0];
+  if (pattern) bits.push(["patterns", `Patterns: ${pattern.short}`, pattern.text]);
   //: One span per fact, its separator inside it, so a view can fold one fact
   //: away whole: the Focused hero's glance says what is due (INBOX 675), and
   //: hides the reminders fact here rather than saying it twice.
   el.replaceChildren(
-    ...bits.map(([kind, text], i) => {
+    ...bits.map(([kind, text, whole], i) => {
       const bit = document.createElement("span");
       bit.className = "dash-sub-bit";
       bit.dataset.bit = kind;
       bit.textContent = i ? ` · ${text}` : text;
+      if (whole) bit.title = whole;
+      //: The pattern's Confirm and Not right (CHAT_PLAN decision 60) behind
+      //: one ⋯, so the line stays one line; a confirmed one has neither.
+      if (kind === "patterns" && !pattern.confirmed) {
+        const send = (verdict) =>
+          insightSend(pattern, verdict)
+            .then(() => renderDashSubmessage())
+            .catch((error) => toast(error.message, true));
+        bit.appendChild(
+          kebabMenu(
+            INSIGHT_VERDICT_ITEMS.map((item) => ({ label: item.label, title: item.title, run: () => send(item.verdict) })),
+            "Is this pattern right?"
+          )
+        );
+      }
       return bit;
     })
   );
@@ -613,7 +638,7 @@ function dashGlanceFacts({ reminders = [], stats = null, entries = [], now = new
 
   const last = dashContinueNote(entries);
   const lastTitle = last
-    ? (last.title || "").trim() || (last.content || "").split("\n").map((l) => l.replace(/^#{1,6}\s+/, "").trim()).find((l) => l && l !== "---") || "Your last note"
+    ? (last.title || "").trim() || noteNamePlain(last.content) || "Your last note"
     : "";
   const resume = {
     id: "continue",
@@ -736,7 +761,7 @@ function renderNameNudge(greetingEl) {
   dismiss.title = "Don't ask again";
   dismiss.setAttribute("aria-label", "Dismiss the name suggestion");
   dismiss.addEventListener("click", () => {
-    localStorage.setItem("nameNudgeDismissed", "1");
+    prefs.set("nameNudgeDismissed", "1");
     wrap.remove();
   });
   wrap.append(add, dismiss);
@@ -956,7 +981,7 @@ function noteSkillRun(name) {
     recent = [];
   }
   recent = [name, ...recent.filter((n) => n !== name)].slice(0, 8);
-  localStorage.setItem(RECENT_SKILLS_KEY, JSON.stringify(recent));
+  prefs.set(RECENT_SKILLS_KEY, JSON.stringify(recent));
   // The time goes in beside it, pruned to the names still on the list so the
   // map cannot grow forever in a profile that tries a lot of skills.
   const times = skillRunTimes();
@@ -964,7 +989,7 @@ function noteSkillRun(name) {
   for (const key of Object.keys(times)) {
     if (!recent.includes(key)) delete times[key];
   }
-  localStorage.setItem(SKILL_RUN_TIMES_KEY, JSON.stringify(times));
+  prefs.set(SKILL_RUN_TIMES_KEY, JSON.stringify(times));
 }
 
 //: A skill's name usually starts with its own emoji, "stethoscope Notebook health
@@ -1009,7 +1034,7 @@ function recentSkillLinks() {
   // one load repairs the profile permanently.
   const clean = recent.filter((n) => typeof n === "string" && n);
   if (clean.length !== recent.length) {
-    localStorage.setItem(RECENT_SKILLS_KEY, JSON.stringify(clean));
+    prefs.set(RECENT_SKILLS_KEY, JSON.stringify(clean));
   }
   const times = skillRunTimes();
   return clean.slice(0, QUICK_SKILL_SLOTS).map((name) => ({
@@ -1138,7 +1163,7 @@ function dashMarkMenu(x, y) {
     title: `Show ${label.toLowerCase()} here`,
     run: () => {
       try {
-        localStorage.setItem("dash-mark", value);
+        prefs.set("dash-mark", value);
       } catch {
         // This session only.
       }
@@ -1153,6 +1178,8 @@ function dashMarkMenu(x, y) {
 {
   const holder = document.getElementById("dash-hero-emblem");
   if (holder) {
+    //: A gesture with no visible control names itself (Settings, Appearance has the same choice).
+    holder.title = "Right-click or hold to change this mark";
     holder.addEventListener("contextmenu", (event) => {
       event.preventDefault();
       dashMarkMenu(event.clientX, event.clientY);
@@ -1165,7 +1192,7 @@ function applyDashDensity(value, { persist = true } = {}) {
   const density = DASH_DENSITIES.includes(value) ? value : "full";
   //: Stored only when chosen: the wiring's own first call used to write
   //: "full" for every install, which made the default look like a choice.
-  if (persist) localStorage.setItem(DASH_DENSITY_KEY, density);
+  if (persist) prefs.set(DASH_DENSITY_KEY, density);
   const page = document.getElementById("tab-dashboard");
   //: A data attribute on the page, and every rule keyed off it in CSS. The
   //: alternative, adding and removing classes on six elements from here, is
@@ -1272,7 +1299,9 @@ function quickCatalogue() {
     // A command that cannot be built must not take the dashboard with it.
   }
   for (const row of rows) {
-    const key = row.keys ? "" : row.tab ? `tab:${row.tab}` : row.reveal ? `reveal:${row.reveal}` : "";
+    //: A row that is an act (no tab, no reveal) is a tile only when it says so
+    //: with `quick`, a short stable name: Live captions is one (libr-1011 1220).
+    const key = row.keys ? "" : row.tab ? `tab:${row.tab}` : row.reveal ? `reveal:${row.reveal}` : row.quick ? `act:${row.quick}` : "";
     const parts = key && paletteRowParts(row, abouts);
     if (parts && parts.about && !out.has(key)) out.set(key, { id: key, icon: parts.icon.replace(/^(ph:)?/, "ph:"), label: parts.label, hint: parts.about, run: row.run });
   }
@@ -1297,16 +1326,6 @@ function quickTints() {
   return tints && typeof tints === "object" ? tints : {};
 }
 
-//: One tile's highlight, saved; `""` forgets the choice (the position's
-//: default again). Ids no longer on the row are pruned on the way, so the
-//: stored map never outlives the tiles it was for.
-async function saveQuickTint(id, key) {
-  const on = new Set(quickAccessCurrent().map((link) => link.id));
-  const next = Object.fromEntries(Object.entries(quickTints()).filter(([tile]) => on.has(tile) && tile !== id));
-  if (key) next[id] = key;
-  await saveQuickTints(next);
-}
-
 async function saveQuickTints(tints) {
   prefsCache = await apiJson("/preferences", { method: "PUT", body: JSON.stringify({ dashboard_quick_tints: tints }) }).catch(() => prefsCache);
 }
@@ -1323,12 +1342,21 @@ function renderQuickLinks() {
   const box = $("dash-quicklinks");
   if (!box) return;
   if (quickEditing) return quickAccessEdit();
+  //: The tiles' lines come from the lazy catalogue (app-features.js), already in
+  //: by the idle load; a first paint ahead of it waits and draws once.
+  if (typeof featureCatalog !== "function") return void lazyScript("/js/app-features.js").then(renderQuickLinks);
   const heading = document.createElement("p");
   heading.className = "launch-label";
   heading.textContent = "Quick access";
   const head = document.createElement("div");
   head.className = "launch-head";
-  head.append(heading);
+  //: **Its own ⋯ on the title's line, at the right** (the owner, 2026-10-10:
+  //: "a subtle like meatball icon in the top right on the same line as the
+  //: quick access title ... for easier and more intuitive access to these
+  //: buttons"): the Quick access half of Customise (Edit, Reset highlights,
+  //: Reset), the same items, so the two cannot disagree. On the heading's
+  //: line it covers nothing, which was the fault of the ⋯ this row had once.
+  head.append(heading, kebabMenu(dashCustomiseItems().filter((item) => item.group === "quick"), "Quick access options"));
   const row = document.createElement("div");
   row.className = "launch-row launch-row-start";
   const tints = quickTints();
@@ -1473,192 +1501,7 @@ async function renderDashMore() {
   if (serial === dashMoreSerial && host.isConnected) build(entries);
 }
 
-// --- the "everything this app does" browser ----------------------------------
-// Grouped, searchable, and every entry either jumps you there or explains
-// itself: the fastest way to discover features you didn't know existed.
-function featureCatalog() {
-  return [
-    { group: "Capture & notes", items: [
-      { name: "Capture a thought", desc: "Save anything; Atlas files it into a category and suggests tags.", reveal: "notes-capture" },
-      { name: "Templates", desc: "Start a note from a prefilled shape (journal, recipe, meeting…).", reveal: "notes-template" },
-      { name: "Improve writing", desc: "Proofread, rewrite, or condense a note with AI before saving.", reveal: "notes-improve" },
-      // The writing room is a sub-tab of Notes and was in the palette but in
-      // no catalogue row, which is the shape this audit was for: a surface
-      // that shipped, got a command, and never got its line in the list of
-      // what the app can do.
-      { name: "Writing room", desc: "Turn rough thoughts into a drafted note, section by section.", reveal: "writing-room" },
-      { name: "Sketch pad", desc: "Draw something and save it as a note with a caption.", reveal: "sketch" },
-      { name: "Dictation", desc: "Speak a note; transcribed locally with Whisper.", reveal: "notes-dictation" },
-      { name: "New meeting", desc: "A meeting note: when, who, agenda, notes, decisions and action items.", reveal: "meeting-new" },
-      { name: "Record a meeting", desc: "Transcribe a meeting or lecture as it happens, saved as a meeting note.", reveal: "meeting" },
-      { name: "Attachments", desc: "Attach files and images to any note.", reveal: "notes-attach" },
-      // Beside Attachments, which is the entry a person who has files in the
-      // notebook is already reading. Asked for directly: "I want an easier and
-      // more accessible way to access the ocr workspace as a proper and more
-      // central feature." This browser and the command palette are the app's
-      // two answers to that, and the reader had been in neither.
-      { name: "Page reader", desc: "Open a PDF or picture beside the text read from it, page by page.", reveal: "page-reader" },
-      //: The reader's own row in Settings, Packages (the target `extra-row`,
-      //: which the OCR workspace's Manage and Install also go to).
-      { name: "Reading engines", desc: "Tesseract and RapidOCR, which read the text in pictures, and whether each is installed.", reveal: "extra-row", arg: "ocr" },
-      { name: "Threads", desc: "Continue a thought to build a train of related notes.", reveal: "notes-thread" },
-      { name: "Note links", desc: "Type [[ to point one note at another; the link works both ways.", reveal: "notes-capture" },
-      { name: "Checklists", desc: "Tick items off inside a note; the dashboard tracks what is left.", reveal: "notes-checklist" },
-      { name: "Private notes", desc: "Encrypt a note so it is readable only while the app is unlocked.", reveal: "notes-private" },
-      { name: "Pins & tags", desc: "Pin important notes and organise with tags.", reveal: "notes-favourite" },
-      //: INBOX 691: the tidying tools, each findable here (the owner: "no use
-      //: having them if the user doesnt know about them").
-      { name: "Tidy", desc: "Reviews with no AI: weak links, stray tags, notes without a category, duplicates, old reminders.", reveal: "tidy" },
-      { name: "Specific link reasons", desc: "Name what two linked notes share, a tag, a name or a week, instead of “similar in meaning”.", reveal: "tidy-links" },
-      { name: "Find duplicates", desc: "Notes that say much the same thing, merged into one with nothing lost.", reveal: "tidy-duplicates" },
-      { name: "Manage tags", desc: "Rename, merge or remove tags across every note.", reveal: "tag-manager" },
-      { name: "Filings to check", desc: "Notes Atlas filed with little certainty, each with Accept, Refile and Split.", reveal: "notes-review" },
-      { name: "Bin", desc: "Deleted notes, documents and reminders are recoverable until the bin is cleared.", reveal: "recycle-bin" },
-    ]},
-    { group: "Ask & chat", items: [
-      { name: "Ask your notebook", desc: "Questions answered strictly from your own notes.", reveal: "notes-ask" },
-      { name: "Chat", desc: "A full conversation with your notebook, saved and resumable.", reveal: "chat-input" },
-      { name: "Attach to a message", desc: "Point a message at notes, documents, files, images or a map you already have.", reveal: "chat-attach" },
-      { name: "Saved conversations", desc: "Every chat is kept, searchable, and can be picked up later.", reveal: "chat-conversations" },
-      { name: "Personas", desc: "Change the voice Atlas writes in: its own, Coach, Analyst, or yours.", reveal: "settings:personas" },
-      { name: "Skills", desc: "One-click requests like “Summarise my week”; can act on your notes.", reveal: "settings:skills" },
-      { name: "Agent mode", desc: "Let Atlas use its tools, search your notes, open a page, create, tag, link and organise.", reveal: "chat-agent-mode" },
-      // The popup agent has the same capability as Chat's agent mode and is
-      // reachable from every tab, which is exactly why it needs a row: a chord
-      // nobody has been told about is not a feature anyone has.
-      { name: "Ask from anywhere", desc: "Ctrl+Shift+A opens Atlas over whatever you are working on.", reveal: "agent-palette" },
-      { name: "What it remembers", desc: "See and edit the facts Atlas has kept about you.", reveal: "settings:memory" },
-      { name: "Web search", desc: "Opt-in, off by default: one of the two features that can go online.", reveal: "chat-web-search" },
-      { name: "Export chat", desc: "Download a conversation as Markdown.", reveal: "chat-export" },
-      { name: "Search relevance", desc: "How strict semantic search is about what counts as a real match.", reveal: "set-search-relevance" },
-    ]},
-    // **Documents had no rows at all**, and the editor is one of the largest
-    // surfaces in the app: blocks, an outline, breadcrumbs, a spelling and
-    // style check with its own dictionary, tables, properties, block links and
-    // embeds, version history. Every row below opens the control it names on
-    // the newest document (`revealDocument`, app.js), and with no document at
-    // all it rings New document instead: a document-scoped action with no
-    // document open is a row that would otherwise do nothing.
-    { group: "Documents", items: [
-      { name: "New document", desc: "Long-form writing in Markdown, with live formatting as you type.", reveal: "doc-new" },
-      { name: "Document templates", desc: "Start from a prefilled document instead of a blank page.", reveal: "doc-templates" },
-      { name: "Blocks and the “/” menu", desc: "Type / for headings, quotes, callouts, tables, columns and embeds.", reveal: "doc-insert" },
-      { name: "Outline", desc: "Every heading as a list you can jump around by, marking where you are.", reveal: "doc-outline" },
-      { name: "Breadcrumbs", desc: "The heading trail above the text says where in the document the caret is.", reveal: "doc-crumbs" },
-      { name: "Find and replace", desc: "Search the document, step through matches, replace one or all.", reveal: "doc-find" },
-      { name: "Focus mode", desc: "Hide everything but the text you are writing.", reveal: "doc-focus" },
-      { name: "Document properties", desc: "Title, tags and your own fields, stored as front matter at the top.", reveal: "doc-properties" },
-      { name: "Tables", desc: "Build and edit Markdown tables without counting pipes.", reveal: "doc-tables" },
-      { name: "Block links and embeds", desc: "Link or quote a single paragraph from anywhere, by its own short id.", reveal: "doc-insert" },
-      { name: "Backlinks", desc: "What points at this document, from notes, maps, chats and other documents.", reveal: "doc-connections" },
-      { name: "Spelling and style", desc: "Findings in the margin for spelling, repeated words and clumsy phrasing.", reveal: "doc-prose" },
-      { name: "Your dictionary", desc: "Words you have taught it, so they stop being flagged everywhere.", reveal: "doc-dictionary" },
-      { name: "Word goal", desc: "Set a target and watch the count, reading time and structure as you write.", reveal: "doc-word-goal" },
-      { name: "Version history", desc: "Earlier saves of a document, with what changed, restorable.", reveal: "doc-history" },
-      { name: "AI edit", desc: "Rewrite, shorten, translate or review a passage, with the change reviewable before it lands.", reveal: "doc-ai" },
-      { name: "Export a document", desc: "Download it as Markdown, or print it to PDF with its formatting kept.", reveal: "doc-export" },
-    ]},
-    // Boards and maps were in the same position as Documents: built, reached
-    // from the Library's own sub-tab, and mentioned nowhere in the list of
-    // what the app does. A map is a board (see `createConceptMap`), so the two
-    // share a group rather than pretending to be separate canvases.
-    { group: "Boards, maps & drawing", items: [
-      { name: "New board", desc: "A whiteboard of cards, drawings, images and links you arrange yourself.", reveal: "board-new" },
-      { name: "Concept maps", desc: "A mind map made of real notes: branches, links and a reason on each connection.", reveal: "map-create" },
-      { name: "Grow a map by keyboard", desc: "Tab adds a branch off the selected topic, Enter one beside it.", reveal: "map-keyboard" },
-      { name: "Map templates", desc: "Start a map from a shape: a decision, a project, a subject to revise.", reveal: "map-templates" },
-      { name: "Arrange as mind map", desc: "Re-tidy a sprawling board into a readable tree in one move.", reveal: "board-arrange" },
-      { name: "Board overview", desc: "A miniature of the whole board, to see where you are and jump.", reveal: "board-overview" },
-      { name: "Find a card", desc: "Search the board you are on and step through the matches.", reveal: "board-find" },
-      { name: "The tool rail", desc: "Select, draw, shapes, text, links and images, grouped by what they do.", reveal: "board-tools" },
-      { name: "Context bar", desc: "The properties of whatever is selected, above the selection itself.", reveal: "board-context" },
-      { name: "Export a board", desc: "Save the board, or just what you selected, as an image.", reveal: "board-export" },
-    ]},
-    // The Library is the app's filing cabinet and had no rows either, which
-    // left six sub-tabs of real surfaces undiscoverable from here.
-    { group: "Library", items: [
-      { name: "Everything in one place", desc: "Notes, chats, documents, files and boards in one list you can filter.", tab: "library" },
-      { name: "Your documents", desc: "Every document, with its size, when you last touched it, and a preview.", reveal: "library-docs" },
-      { name: "Images", desc: "Every picture in the notebook, with its caption and where it is used.", reveal: "library-images" },
-      { name: "Files", desc: "PDFs and other files, with a first-page preview and what has been read from them.", reveal: "library-files" },
-      { name: "Bookmarks", desc: "Bookmarks, grouped, with the page's own title and description.", reveal: "library-links" },
-      { name: "AI skills", desc: "The skills you can run, what each one does, and how to add your own.", reveal: "library-skills" },
-      { name: "Contents", desc: "A table of contents for the whole notebook, by category and tag.", reveal: "library-contents" },
-      { name: "Where a file is used", desc: "Every file says which notes, documents and boards reference it.", reveal: "library-files" },
-    ]},
-    { group: "Map & discovery", items: [
-      { name: "Graph view", desc: "Your notes as a network of links, threads and similarity.", tab: "graph" },
-      { name: "Edit on the map", desc: "Click any node to edit its content and tags in place.", reveal: "graph-edit" },
-      { name: "Physics controls", desc: "Gravity, Spread and Link force sliders reshape the layout; Reshuffle layout deals a new one.", reveal: "graph-physics" },
-      { name: "Suggestions", desc: "Links to add, disagreements, names to merge and link types, decided one by one.", reveal: "suggestions" },
-      { name: "Suggested links", desc: "Atlas proposes connections between related notes.", reveal: "graph-suggest" },
-      { name: "People and things", desc: "Everyone and everything your notes name, each with its own page.", reveal: "entities" },
-      { name: "Kinds of link", desc: "Say what a link is (Part of, Cites, your own), with its name from the other end.", reveal: "relation-types" },
-      { name: "Note types", desc: "Meeting, Book, your own: a kind of note with its fields, kept at the top of each note.", reveal: "note-types" },
-      { name: "Timeline", desc: "Everything you have made, in order, as a grid or a branching line.", tab: "timeline" },
-      { name: "Zoom the timeline", desc: "By day, week, month or year, with a jump back to today.", reveal: "timeline-zoom" },
-      { name: "Timeline bands", desc: "Group the timeline by category, tag or kind of thing.", reveal: "timeline-bands" },
-      { name: "On this day", desc: "Notes you captured on this date in past months resurface.", reveal: "widget-on-this-day" },
-      { name: "Related notes", desc: "See notes that mean something similar to the one you're reading.", reveal: "notes-related" },
-      { name: "Find on this screen", desc: "Ctrl+F searches whatever tab you are looking at.", reveal: "global-find" },
-    ]},
-    { group: "Plan & focus", items: [
-      { name: "Reminders", desc: "Due dates with priority, repeats, snooze and notifications.", tab: "reminders" },
-      { name: "Magic add", desc: "Type “call mum tomorrow evening” and Atlas schedules it.", reveal: "reminder-magic" },
-      { name: "Focus timer", desc: "Pomodoro-style timer with presets or your own minutes.", reveal: "widget-focus" },
-      { name: "Weekly digest", desc: "An AI recap of everything you saved this week.", reveal: "widget-digest" },
-      { name: "Tensions", desc: "Find where your notes contradict each other, a decision reversed, a date that moved.", reveal: "tensions" },
-      // Resurfacing had shipped on two surfaces (the sort and the widget) and
-      // was named on neither list.
-      { name: "Forgotten first", desc: "Sort your notes by what is slipping out of reach: old, unlinked, unopened.", reveal: "notes-forgotten" },
-      { name: "Rediscover", desc: "Three faded notes a day, with the reason each one surfaced.", reveal: "widget-rediscover" },
-      { name: "Loose ends", desc: "How much of the notebook is connected, and the oldest notes that are not.", reveal: "widget-orphans" },
-      { name: "Unfinished", desc: "Notes with checklist items still waiting to be ticked.", reveal: "widget-unfinished" },
-      { name: "Writing pace", desc: "How many words you have written each day this fortnight.", reveal: "widget-pace" },
-      { name: "Activity heatmap", desc: "A year of capture activity at a glance.", reveal: "widget-heatmap" },
-      { name: "Streaks", desc: "How many days in a row you've captured something.", reveal: "widget-streak" },
-    ]},
-    { group: "Make it yours", items: [
-      { name: "Theme", desc: "Light, dark, or follow your system.", reveal: "set-theme" },
-      { name: "Accent colour", desc: "Presets or any custom colour you like.", reveal: "set-accent" },
-      { name: "Typography & density", desc: "Font, text size, and how roomy the layout feels.", reveal: "set-typography" },
-      { name: "Corner rounding & glass", desc: "Tune the shape and blur of every surface.", reveal: "set-radius" },
-      { name: "Animated background", desc: "Aurora, constellations, blobs or particles behind the app.", reveal: "set-background" },
-      { name: "A companion on screen", desc: "A small character that finds a free spot on each page and reacts to what you do.", reveal: "set-companion" },
-      { name: "Your look", desc: "Shuffle the face drawn from your name, or choose its parts yourself.", reveal: "settings:preferences" },
-      { name: "Accessibility", desc: "High-contrast mode and reduce-motion.", reveal: "set-contrast" },
-      { name: "Custom CSS", desc: "For tinkerers: your own style overrides.", reveal: "set-custom-css" },
-      { name: "Zoom the whole app", desc: "Ctrl with plus or minus scales every surface, and Ctrl+0 puts it back.", act: () => nudgeZoom(1) },
-      { name: "Dashboard layout", desc: "Show, hide, reorder and widen widgets.", reveal: "dash-layout" },
-      // Workspaces are the top-left control every tab is filtered by, and
-      // nothing in either list said they existed.
-      { name: "Workspaces", desc: "Keep work, study and home in separate notebooks that share one app.", reveal: "workspace-new" },
-      { name: "Note templates", desc: "Edit the shapes a new note can start from, or write your own.", reveal: "settings:templates" },
-    ]},
-    { group: "Data & control", items: [
-      { name: "Export", desc: "Download everything as JSON, Markdown or CSV.", reveal: "set-export" },
-      { name: "Import markdown", desc: "Bring in notes from an Obsidian-style vault.", reveal: "set-import-md" },
-      { name: "Backups", desc: "Snapshot your notebook and restore it later.", reveal: "set-backups" },
-      { name: "Models", desc: "Choose the chat, utility, vision and reading models, and download more.", reveal: "settings:models" },
-      { name: "Search and index", desc: "The search engine, the index it builds, and how strict a match must be.", reveal: "settings:searchindex" },
-      { name: "AI tool permissions", desc: "Decide exactly what Atlas is allowed to do.", reveal: "settings:tools" },
-      { name: "Background tasks", desc: "What the app is doing in the background, and what it has finished.", reveal: "settings:tasks" },
-      { name: "Packages", desc: "The optional extras (OCR, speech, vision) and whether they are installed.", reveal: "settings:extras" },
-      { name: "Account & security", desc: "Change your password, and what happens when the app locks.", reveal: "settings:account" },
-      { name: "Where your data went", desc: "Every connection the app made, and whether anything left this computer.", reveal: "settings:privacy" },
-      { name: "Logs", desc: "What the app and the models have been doing, in plain text.", reveal: "settings:logs" },
-      { name: "Lock", desc: "Password-protect the app on shared devices.", act: () => lockNow() },
-      { name: "Command palette", desc: "Ctrl/⌘-K to run a command or go to a place; its last row searches everything.", reveal: "palette" },
-      { name: "Keyboard shortcuts", desc: "Press ? any time for the full list.", reveal: "shortcuts" },
-      { name: "Help", desc: "How the parts of the app fit together, in the app itself.", reveal: "settings:help" },
-      { name: "Updates", desc: "Which version you are on, and whether a newer one is out.", reveal: "set-updates" },
-      { name: "Welcome tour", desc: "Replay the introduction to MemoryMap.", reveal: "onboarding" },
-    ]},
-    //: Each row declares where it goes (`tab`, `reveal` or `act`) and
-    //: `catalogueRun` (settings-panes.js) makes the `run` the dialog calls, so every row
-    //: lands on what it names (tests/test_catalogue_reveal.py).
-  ].map((group) => ({ ...group, items: group.items.map(catalogueRun) }));
-}
+//: The rows of "Tools and features" are `featureCatalog()` in app-features.js (lazy).
 
 let featureAiTools = null; // fetched once per session
 
@@ -1666,6 +1509,7 @@ async function openFeatures() {
   overlayReturnFocus = document.activeElement;
   $("features-overlay").classList.remove("hidden");
   $("features-search").value = "";
+  await lazyScript("/js/app-features.js");
   renderFeatures("");
   $("features-search").focus();
   if (featureAiTools === null) {
@@ -1739,7 +1583,7 @@ function renderFeatures(query) {
 
   $("features-count").textContent = q
     ? `${shown} match${shown === 1 ? "" : "es"}`
-    : `${shown} things MemoryMap can do`;
+    : `${shown} things Tessellate can do`;
   if (!shown) {
     const none = document.createElement("p");
     none.className = "muted";
@@ -1748,94 +1592,15 @@ function renderFeatures(query) {
   }
 }
 
-// The day-one dashboard. Deliberately a small number of real actions rather
-// than a tour of everything: the widgets appear on their own as soon as there
-// is something for them to hold, and that is a better demonstration than a
-// description of them.
-function gettingStartedCard() {
-  const card = document.createElement("section");
-  card.className = "card dash-widget dash-getting-started";
-
-  const title = document.createElement("h2");
-  //: Not "Your notebook is empty" again: the hero line above already says
-  //: so, and the comma joined two sentences (INBOX 472, the first-run walk).
-  title.textContent = "How MemoryMap works";
-
-  const blurb = document.createElement("p");
-  blurb.className = "muted";
-  blurb.textContent =
-    "Type a thought, and it gets filed for you. Later, ask a question in " +
-    "plain English and get an answer plus the notes behind it. Everything " +
-    "stays on this machine.";
-
-  const steps = document.createElement("div");
-  steps.className = "start-steps";
-  const actions = [
-    {
-      icon: "ph:pencil-simple",
-      label: "Write your first note",
-      note: "Anything at all: a half sentence is fine.",
-      run: () => startNewNote(),
-    },
-    {
-      icon: "ph:chat-circle",
-      label: "Ask your notebook",
-      note: "Works on keywords even with no AI running.",
-      run: () => openAskFromDashboard(),
-    },
-    {
-      icon: "ph:backpack",
-      label: "Bring notes in",
-      note: "Import from a file in Settings → Import & export.",
-      run: () => openSettingsModal("data"),
-    },
-    {
-      icon: "ph:compass",
-      label: "Take the tour",
-      //: The tour, not the welcome card. These are two different things and
-      //: this tile used to run the wrong one: `openOnboarding` is the five
-      //: slides that say what MemoryMap is, while the tour (tour.js) points
-      //: at the real controls and says where they are. A tile that says
-      //: "take the tour" and opens a slideshow teaches that the tour is a
-      //: slideshow, and there was then no door to the tour on the dashboard
-      //: at all. The welcome card keeps its own doors, both correctly
-      //: worded: Settings, Help's "Replay the welcome" and the
-      //: features browser's "Welcome tour" row.
-      note: "Two minutes through what's here.",
-      //: tour.js is a lazy file; `openTour` is a LAZY_ENTRY_POINTS stand-in
-      //: (app.js), so it is always defined here and needs no guard.
-      run: () => openTour("basics"),
-    },
-  ];
-  for (const action of actions) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "start-step";
-    const icon = document.createElement("span");
-    icon.className = "start-step-icon";
-    setLabel(icon, action.icon);
-    icon.setAttribute("aria-hidden", "true");
-    const text = document.createElement("span");
-    const label = document.createElement("strong");
-    setLabel(label, action.label);
-    const note = document.createElement("span");
-    note.className = "muted";
-    setLabel(note, action.note);
-    text.append(label, note);
-    button.append(icon, text);
-    button.addEventListener("click", action.run);
-    steps.appendChild(button);
-  }
-
-  const footer = document.createElement("p");
-  footer.className = "muted start-footer";
-  footer.textContent =
-    "Streaks, tags, a map of your notes and more appear here as you write.";
-
-  //: No mark of its own (INBOX 436): the hero directly above already turns
-  //: the app's emblem, and two turning marks on one screen is one too many.
-  card.append(title, blurb, steps, footer);
-  return card;
+//: **The first steps** (first-run.js, lazy; WORLD_CLASS_PLAN 25c): your
+//: name, a first note and a first answer, ticked as each is done, and the
+//: sample notebook. Above the grid rather than in it, so they stay past the
+//: first note; a notebook that hid them, or finished them, never loads it.
+function renderFirstStepsLazy() {
+  const host = $("dash-first-steps");
+  if (!host || !entriesEverLoaded) return;
+  if (dashEditMode || (allEntries.length && prefs.get("firstStepsHidden", null) === "1")) return void host.replaceChildren();
+  lazyScript("/js/first-run.js").then((ok) => ok && renderFirstSteps(host));
 }
 
 //: A widget that throws, or never draws, says so and offers Retry (INBOX
@@ -1927,11 +1692,14 @@ async function renderDashboard({ refresh = false } = {}) {
   // which on a cold start is startApp's own. It used to be a second
   // `GET /preferences` here, and the dashboard is the first tab, so a cold
   // start made it every time (WORLD_CLASS_PLAN A2).
+  //: The catalogue (app-features.js) loads beside the preferences, for Quick access.
+  lazyScript("/js/app-features.js");
   await loadPreferences().catch(() => null);
   renderDashboardGreeting();
   renderQuickLinks();
   renderDashMore();
   wireDashDensity();
+  renderFirstStepsLazy();
   const grid = $("dash-grid");
   const layout = dashLayout();
   const shape = dashGridShape(layout);
@@ -1951,15 +1719,14 @@ async function renderDashboard({ refresh = false } = {}) {
   // A brand-new notebook filled this grid with a dozen cards each politely
   // saying it had nothing to show. Every message was fine on its own; together
   // they made a working app look broken on the day someone starts using it.
-  // One card that says what to do instead, and only until there's anything
-  // to show, which is the first note.
+  // No widgets until there is anything to show, which is the first note; the
+  // first steps above the grid say what to do instead (`renderFirstStepsLazy`).
   // `entriesEverLoaded` and not just the length: before the first GET /entries
   // comes back these are indistinguishable, and guessing "empty" paints the
   // brand-new-notebook card over a notebook full of notes.
   if (entriesEverLoaded && !allEntries.length && !dashEditMode) {
-    grid.appendChild(gettingStartedCard());
     //: It has nothing to wait for. Left on, `.dash-filling` (added above)
-    //: kept a brand-new notebook's only card hidden for good.
+    //: kept a brand-new notebook's empty grid hidden for good.
     grid.classList.remove("dash-filling");
     window.dashSettled = Promise.resolve();
     return;
@@ -2099,11 +1866,18 @@ async function renderDashboard({ refresh = false } = {}) {
   //: the widgets the same way, in view (0.26 on 300 notes, measured).
   const settled = (window.dashSettled = Promise.race([Promise.allSettled(drawing), new Promise((r) => setTimeout(r, 1200))]));
   const outline = dashFillingSkeleton(grid, drawing.length);
-  settled.then(() => requestAnimationFrame(() => requestAnimationFrame(() => {
+  settled.then(() => afterFrames(() => {
     if (window.dashSettled !== settled) return;
     grid.classList.remove("dash-filling");
     dashFillingSkeletonDone(outline);
-  })));
+  }));
+}
+
+//: `fn` once `count` animation frames have passed: the first has painted what
+//: was just changed. The one frame loop for "after it has drawn" in this file
+//: (tests/test_frontend_wake_sources.py counts them).
+function afterFrames(fn, count = 2) {
+  requestAnimationFrame(() => (count > 1 ? afterFrames(fn, count - 1) : fn()));
 }
 
 //: **While the grid fills unseen, its outline shows** (INBOX 596, the owner:
@@ -2137,6 +1911,19 @@ function dashFillingSkeleton(grid, count) {
   });
   for (let i = 0; i < Math.min(count, columns * 2); i++) outline.appendChild(tabSkeletonPiece({ height: "12rem" }));
   host.appendChild(outline);
+  //: Follows the grid while it waits: Quick access and the greeting above it
+  //: fill in after this is placed and push the grid down, which left the
+  //: placeholder over them with their text showing through (owner,
+  //: 2026-10-12). Cheap: two reads and two writes a frame for a second.
+  const follow = () => {
+    if (!outline.isConnected) return;
+    const top = `${grid.offsetTop}px`;
+    const left = `${grid.offsetLeft}px`;
+    if (outline.style.top !== top) outline.style.top = top;
+    if (outline.style.left !== left) outline.style.left = left;
+    setTimeout(follow, 80);
+  };
+  setTimeout(follow, 80);
   return outline;
 }
 
@@ -2289,7 +2076,7 @@ function dashWidgetRow(name, layout, position = null) {
 //: Anything unlisted falls into "other", so a widget added later still appears
 //:, silently vanishing from the picker is the one failure this must not have.
 const DASH_WIDGET_GROUPS = {
-  stats: "overview", streak: "overview", heatmap: "overview", pace: "overview",
+  stats: "overview", streak: "overview", heatmap: "overview", pace: "overview", week: "overview",
   digest: "overview", art: "overview",
   pinned: "notes", random: "notes", categories: "notes", "on-this-day": "notes",
   unfinished: "notes", orphans: "notes", tensions: "notes", boards: "notes",
@@ -2410,6 +2197,10 @@ function renderDashWidgetsList(filterText = "") {
 
 let artInstance = null; // the one live p5 instance, if any
 let artNonce = 0; // bumped by "Regenerate" for a fresh arrangement
+//: The drift reads a page-lifetime clock, so a rebuilt sketch (theme change,
+//: INBOX 838) carries on instead of restarting every star's drift at phase 0.
+const artEpoch = performance.now();
+const artDriftMs = () => performance.now() - artEpoch;
 // Bumped on every startArt call. A run that finds it has changed while it was
 // waiting knows it was superseded and must not mount its canvas, see the
 // comment in startArt for the stacking bug this fixes (§35G).
@@ -2469,12 +2260,43 @@ function stopArt() {
 // and it keeps `artNonce` so the sky stays the same arrangement, this is a
 // recolour, not a reshuffle, and re-rolling someone's picture because they
 // turned on dark mode would be its own bug.
+//: **A theme change cross-fades the picture, it does not swap it** (INBOX 803,
+//: the owner: "the notebook constellation adjusts suddenly or jolts a bit and
+//: doesn't have a smooth fade transition"). Rebuilding for the new mode took
+//: the old canvas away and drew the new one a frame or more later, 98% of the
+//: change landing in one frame (measured, constellationtheme.js). The old
+//: sky is copied onto a veil that stays over the holder, and fades out over
+//: the new one; with interface animations off or less motion asked for there
+//: is no veil and the change is instant, as before.
 function refreshArtForTheme() {
   if (!artHolder || !artHolder.isConnected) {
     artHolder = null;
     return;
   }
-  startArt(artHolder);
+  const holder = artHolder;
+  const old = holder.querySelector("canvas:not(.art-veil)");
+  const still = reducedMotionWanted() || window.matchMedia("(prefers-reduced-motion: reduce)").matches || document.documentElement.dataset.uiMotion === "off";
+  holder.querySelector(".art-veil")?.remove();
+  if (old && !still) {
+    const veil = document.createElement("canvas");
+    veil.className = "art-veil";
+    veil.width = old.width;
+    veil.height = old.height;
+    veil.setAttribute("aria-hidden", "true");
+    veil.getContext("2d").drawImage(old, 0, 0);
+    holder.appendChild(veil);
+    const lift = () => {
+      //: Two frames on, so the new sky has been drawn under it before it goes.
+      afterFrames(() => {
+        veil.classList.add("is-leaving");
+        veil.addEventListener("transitionend", () => veil.remove(), { once: true });
+        setTimeout(() => veil.remove(), 1000);
+      });
+    };
+    startArt(holder).then(lift, lift);
+    return;
+  }
+  startArt(holder);
 }
 
 function buildArtParticles(p, categories, total, width, height) {
@@ -2526,6 +2348,21 @@ function buildArtParticles(p, categories, total, width, height) {
 //: busy machine's late frames did the same mid-glide. Hence the glide's own
 //: clock below. `scratchpad/ui-sweeps/constellation686.js` measures it.
 const ART_GLIDE_MS = 800;
+//: A light-theme star's core lightness: 40, or darker until it is 3:1 on the
+//: well (ledger 934: yellow was 2.1:1, cyan 2.0). Saturation 80, as drawn.
+const artCoreLights = new Map();
+function artCoreLight(hue) {
+  if (artCoreLights.has(hue)) return artCoreLights.get(hue);
+  const lum = (l) => {
+    const a = 0.8 * Math.min(l, 1 - l);
+    const c = (n) => { const k = (n + hue / 30) % 12; const v = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1)); return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+    return 0.2126 * c(0) + 0.7152 * c(8) + 0.0722 * c(4);
+  };
+  let l = 40;
+  while (l > 20 && 0.83 / (lum(l / 100) + 0.05) < 3) l -= 2;
+  artCoreLights.set(hue, l);
+  return l;
+}
 const ART_GLIDE_FPS = 60;
 //: The most of the glide's clock one frame may spend: 25 ms is three fifths
 //: of an eighth of the journey even at the ease's fastest, its first frame.
@@ -2710,7 +2547,10 @@ async function startArt(holder) {
       p.noStroke();
       const washHue = p.hue(p.color(accentHex));
       for (let y = 0; y < height; y += 4) {
-        const shade = dark ? 14 + (y / height) * 10 : 250 - (y / height) * 10;
+        //: Light is an off-white well, lightness 95 down to 91, the accent's hue
+        //: faintly in it, as dark is a deep one: it was 250 to 240, which HSL
+        //: clamps to pure white, the same as the card it sat on (INBOX 803).
+        const shade = dark ? 14 + (y / height) * 10 : 95 - (y / height) * 4;
         p.fill(washHue, 30, shade, 1);
         p.rect(0, y, width, 4);
       }
@@ -2763,7 +2603,7 @@ async function startArt(holder) {
         const twinkle = (0.6 + 0.4 * Math.sin(t * 2 + dot.phase)) * dot.vis;
         p.fill(dot.hue, 75, dark ? 65 : 55, 0.14 * twinkle);
         p.circle(dot.x, dot.y, dot.drawSize * 4); // glow
-        p.fill(dot.hue, 80, dark ? 78 : 48, twinkle);
+        p.fill(dot.hue, 80, dark ? 78 : artCoreLight(dot.hue), twinkle);
         p.circle(dot.x, dot.y, dot.drawSize); // core
       }
       if (fade && !settled) {
@@ -2806,9 +2646,9 @@ async function startArt(holder) {
     //: Save PNG takes the settled sky, then puts the frame in hand back
     //: before the browser paints, so the save never shows on screen.
     p.saveSettled = () => {
-      const t = reduceMotion ? 0 : p.millis() * 0.0003;
+      const t = reduceMotion ? 0 : artDriftMs() * 0.0003;
       scene(t, true);
-      p.saveCanvas("memorymap-constellation", "png");
+      p.saveCanvas("tessellate-constellation", "png");
       scene(t);
     };
     //: What the stars are drawn at, for the sweep that measures the glide.
@@ -2844,7 +2684,7 @@ async function startArt(holder) {
     //: `frameCount * 0.005` at sixty frames a second advanced `t` by 0.3 a
     //: second, and `millis() * 0.0003` advances it by 0.3 a second full stop.
     p.draw = () => {
-      scene(reduceMotion ? 0 : p.millis() * 0.0003);
+      scene(reduceMotion ? 0 : artDriftMs() * 0.0003);
       const now = p.millis();
       if (glide && glide.elapsed >= ART_GLIDE_MS) {
         glide = null;
@@ -2891,7 +2731,9 @@ async function startArt(holder) {
   // so an already-stacked dashboard heals on the next render rather than
   // needing a reload.
   stopArt();
-  holder.replaceChildren();
+  //: Everything but a theme change's veil (`refreshArtForTheme`).
+  for (const child of [...holder.children]) if (!child.classList.contains("art-veil")) child.remove();
+  holder.replaceChildren(...holder.querySelectorAll(":scope > .art-veil"));
   //: p5 arrives on demand (`ensureP5`, app.js); the run check above is
   //: repeated after the wait, since a second render can have superseded us.
   if (typeof p5 === "undefined") {
@@ -3265,7 +3107,7 @@ function generateDigest(onDelta) {
     digestPromise = streamDigest(onDelta)
       .then((result) => {
         if (result.cacheable !== false) {
-          localStorage.setItem(
+          prefs.set(
             DIGEST_KEY,
             JSON.stringify({ text: result.text, date: todayStamp() })
           );
@@ -3318,7 +3160,12 @@ async function streamDigest(onDelta) {
   return { text, cacheable };
 }
 
-async function renderDigestWidget(body) {
+
+async function renderDigestWidget(outer) {
+  const dayBox = document.createElement("div");
+  const body = document.createElement("div");
+  outer.replaceChildren(dayBox, body);
+  renderDayDigest(dayBox);
   const showDigest = (text) => {
     const out = document.createElement("div");
     renderMarkdown(out, text);
@@ -3326,7 +3173,7 @@ async function renderDigestWidget(body) {
     controls.className = "row";
     controls.appendChild(
       smallButton("ph:arrows-clockwise Regenerate", "Rebuild this week's digest now", () => {
-        localStorage.removeItem(DIGEST_KEY);
+        prefs.remove(DIGEST_KEY);
         runGeneration();
       })
     );
@@ -3386,8 +3233,8 @@ async function renderDigestWidget(body) {
     //: button, which a keyboard cannot focus and a phone cannot hover. The
     //: same line and Settings link as Ask and Chat, kept by the status poll.
     const offline = document.createElement("div");
-    offline.className = "ai-offline-note hidden";
-    offline.dataset.offlineLine = "No model is connected, so the digest cannot be written yet.";
+    offline.className = "ai-offline-note notice hidden";
+    offline.dataset.offlineLine = "No model connected, so the digest cannot be written yet.";
     body.append(generate, offline);
     syncModelGatedControls();
   }
@@ -3427,6 +3274,7 @@ async function renderQuickCaptureWidget(body) {
         const saved = result.saved;
         status.textContent = saved.filing_state === "pending" ? "Saved. Filing it now." : `Filed under “${saved.category}”.`;
         if (saved.filing_state === "pending") watchFiling(saved);
+        pushEntryCreateUndo(saved, "Saved a note from the dashboard");
         loadEntries();
       } catch (error) {
         status.textContent = error.message;
@@ -3512,6 +3360,10 @@ async function renderHeatmapWidget(body) {
   //: as one, and the tab stop Chromium gives it still scrolls with arrows.
   grid.setAttribute("role", "img");
   grid.setAttribute("aria-label", `Activity over the last year, ${data.total} notes`);
+  //: axe `scrollable-region-focusable` (serious): the grid scrolls sideways
+  //: and nothing in it takes focus. An explicit stop, with a ring below
+  //: (`.heatmap:focus-visible`), so the arrow keys reach the older weeks.
+  grid.tabIndex = 0;
   body.appendChild(grid);
 
   //: **Full size, full year, scrolled rather than shrunk.** The first
@@ -3583,7 +3435,17 @@ async function renderHeatmapWidget(body) {
   const summary = document.createElement("p");
   summary.className = "muted";
   summary.textContent = `${data.total} notes in the last year · busiest day ${data.busiest}`;
-  body.appendChild(summary);
+  //: Brief 89 (statistics row 1): the page is one click from here, the
+  //: grid itself and the button below, where it was three (Settings,
+  //: General, What you use).
+  const stats = smallButton("ph:chart-bar Statistics", "Open the Statistics page: notebook, reminders and usage, counted", () => openStatistics());
+  stats.id = "heatmap-statistics";
+  grid.addEventListener("click", () => openStatistics());
+  //: In a row so the button is its own width beside the line, not a bar.
+  const foot = document.createElement("div");
+  foot.className = "row";
+  foot.append(summary, stats);
+  body.appendChild(foot);
 }
 
 // --- category breakdown ------------------------------------------------------
@@ -3732,10 +3594,9 @@ function paintFadedNotes(body, items) {
     const dismiss = smallButton("ph:x", "Never again: stop showing this note here", async () => {
       dismiss.disabled = true;
       try {
-        await apiJson("/learned/corrections", {
-          method: "POST",
-          body: JSON.stringify({ kind: "dismiss_resurface", subject: { entry_id: item.id } }),
-        });
+        const said = { kind: "dismiss_resurface", subject: { entry_id: item.id } };
+        const made = await apiJson("/learned/corrections", { method: "POST", body: JSON.stringify(said) });
+        pushCorrectionUndo("Hid a note from Rediscover", said, made, () => renderRandomNoteWidget(body));
         card.remove();
         // Emptied by dismissals: ask again rather than leaving a blank panel,
         // the next three are already ranked.
@@ -3878,7 +3739,20 @@ async function renderTagCloudWidget(body) {
 // --- focus timer (dashboard widget) -----------------------------------------
 // State lives at module level so it keeps running while the widget re-renders
 // (e.g. when you switch away and back to the dashboard).
-let focusTimer = { remaining: 0, total: 25 * 60, running: false, handle: null };
+//
+// **Redesigned** (UI_MODERNISATION V8, INBOX 829): a ring that empties as the
+// time runs, the time large inside it; the lengths as one segmented control
+// with a stepper for any other; Start and Pause one filled button; at the end
+// a chime, a notification (the bell and the system's) and, when Breaks is on,
+// a five-minute break that starts by itself; and today's focused minutes,
+// kept per day in this browser.
+//: `unsaved`: seconds focused since the last save to today's count, written
+//: on every pause and end rather than every second.
+let focusTimer = { remaining: 0, total: 25 * 60, running: false, handle: null, mode: "focus", focusTotal: 25 * 60, unsaved: 0 };
+const FOCUS_PRESETS = [5, 15, 25, 50];
+const FOCUS_BREAK_MIN = 5;
+const FOCUS_SVG = "http://www.w3.org/2000/svg";
+const FOCUS_RING_R = 52;
 
 function focusTimeLabel(seconds) {
   const m = Math.floor(seconds / 60);
@@ -3886,26 +3760,123 @@ function focusTimeLabel(seconds) {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-function paintFocusTimer() {
-  const display = $("focus-timer-display");
-  if (display) {
-    const shown = focusTimer.remaining || focusTimer.total;
-    display.textContent = focusTimeLabel(shown);
+//: Seconds focused today, in this browser: "YYYY-MM-DD:seconds".
+function focusTodaySeconds(add = 0) {
+  const day = new Date().toLocaleDateString("en-CA");
+  const [stored, seconds] = String(prefs.get("focusToday", "")).split(":");
+  let total = stored === day ? Number(seconds) || 0 : 0;
+  if (add) {
+    total += add;
+    prefs.set("focusToday", `${day}:${total}`);
   }
+  return total;
+}
+
+function focusRing() {
+  const svg = document.createElementNS(FOCUS_SVG, "svg");
+  svg.setAttribute("viewBox", "0 0 120 120");
+  svg.setAttribute("class", "focus-ring-svg");
+  svg.setAttribute("aria-hidden", "true");
+  for (const name of ["focus-ring-track", "focus-ring-fill"]) {
+    const circle = document.createElementNS(FOCUS_SVG, "circle");
+    circle.setAttribute("cx", "60");
+    circle.setAttribute("cy", "60");
+    circle.setAttribute("r", String(FOCUS_RING_R));
+    circle.setAttribute("class", name);
+    if (name === "focus-ring-fill") {
+      circle.id = "focus-ring-fill";
+      const length = 2 * Math.PI * FOCUS_RING_R;
+      circle.setAttribute("stroke-dasharray", String(length));
+    }
+    svg.appendChild(circle);
+  }
+  return svg;
+}
+
+//: `root` is the widget's own body while it is being built: it is not in the
+//: page yet, so `$()` found nothing and the ring and the time stayed empty
+//: until something ticked (owner, 2026-10-12: "didnt properly load").
+function paintFocusTimer(root = document) {
+  const $ = (id) => root.querySelector(`#${id}`) || document.getElementById(id);
+  const shown = focusTimer.remaining || focusTimer.total;
+  const display = $("focus-timer-display");
+  if (display) display.textContent = focusTimeLabel(shown);
+  const mode = $("focus-ring-mode");
+  if (mode) mode.textContent = focusTimer.mode === "break" ? "Break" : focusTimer.running || focusTimer.remaining ? "Focus" : `${Math.round(focusTimer.total / 60)} min`;
+  const fill = $("focus-ring-fill");
+  if (fill) {
+    const length = 2 * Math.PI * FOCUS_RING_R;
+    fill.style.strokeDashoffset = String(length * (1 - shown / focusTimer.total));
+  }
+  $("focus-ring")?.classList.toggle("is-break", focusTimer.mode === "break");
   const toggle = $("focus-timer-toggle");
-  if (toggle) toggle.textContent = focusTimer.running ? "Pause" : "Start";
+  if (toggle) setLabel(toggle, focusTimer.running ? "ph:pause Pause" : focusTimer.remaining ? "ph:play Resume" : "ph:play Start");
+  for (const button of root.querySelectorAll(".focus-presets-seg button")) {
+    button.setAttribute("aria-pressed", String(focusTimer.mode === "focus" && Number(button.dataset.minutes) * 60 === focusTimer.focusTotal));
+  }
+  const step = $("focus-step-value");
+  if (step) step.textContent = `${Math.round(focusTimer.focusTotal / 60)} min`;
+  const today = $("focus-today");
+  if (today) {
+    const seconds = focusTodaySeconds() + focusTimer.unsaved;
+    const minutes = Math.floor(seconds / 60);
+    today.textContent = minutes ? `${minutes} min focused today` : seconds ? "Under a minute focused today" : "Nothing focused yet today";
+  }
 }
 
 function focusTimerTick() {
   if (focusTimer.remaining > 0) {
     focusTimer.remaining -= 1;
+    if (focusTimer.mode === "focus") focusTimer.unsaved += 1;
     paintFocusTimer();
-    if (focusTimer.remaining === 0) {
-      stopFocusTimer();
-      toast("Focus session complete. Nice work.");
-      notify("MemoryMap", "Focus session complete. Nice work.");
-    }
+    if (focusTimer.remaining === 0) focusTimerEnded();
   }
+}
+
+//: Two soft notes from Web Audio: no file to fetch, and quiet enough for a
+//: library. The context is made here, after the Start press that allows it.
+function focusChime() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    [880, 660].forEach((hz, i) => {
+      const tone = ctx.createOscillator();
+      const gain = ctx.createGain();
+      tone.frequency.value = hz;
+      const at = ctx.currentTime + i * 0.35;
+      gain.gain.setValueAtTime(0.0001, at);
+      gain.gain.exponentialRampToValueAtTime(0.2, at + 0.03);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.6);
+      tone.connect(gain).connect(ctx.destination);
+      tone.start(at);
+      tone.stop(at + 0.65);
+    });
+    setTimeout(() => ctx.close().catch(() => {}), 1500);
+  } catch {
+    // No Web Audio: the notification still says it.
+  }
+}
+
+function focusTimerEnded() {
+  stopFocusTimer();
+  focusChime();
+  const wasBreak = focusTimer.mode === "break";
+  const minutes = Math.round(focusTimer.total / 60);
+  const title = wasBreak ? "Break over" : `Focus session done: ${minutes} min`;
+  const detail = wasBreak ? "Start the next session when you are ready." : `${Math.floor(focusTodaySeconds() / 60)} min focused today.`;
+  notify("Tessellate", `${title}. ${detail}`);
+  recordNotification({ kind: "task", title, detail, key: `focus:${Date.now()}` });
+  toast(`${title}. ${detail}`);
+  if (!wasBreak && prefs.bool("focusBreaks", false)) {
+    focusTimer.mode = "break";
+    focusTimer.total = FOCUS_BREAK_MIN * 60;
+    focusTimer.remaining = 0;
+    startFocusTimer();
+    return;
+  }
+  focusTimer.mode = "focus";
+  focusTimer.total = focusTimer.focusTotal;
+  focusTimer.remaining = 0;
+  paintFocusTimer();
 }
 
 function startFocusTimer() {
@@ -3921,58 +3892,110 @@ function stopFocusTimer() {
   focusTimer.running = false;
   if (focusTimer.handle) clearInterval(focusTimer.handle);
   focusTimer.handle = null;
+  if (focusTimer.unsaved) {
+    focusTodaySeconds(focusTimer.unsaved);
+    focusTimer.unsaved = 0;
+  }
   paintFocusTimer();
 }
 
 function setFocusTimer(minutes) {
   stopFocusTimer();
-  focusTimer.total = Math.max(1, Math.round(minutes)) * 60;
+  focusTimer.mode = "focus";
+  focusTimer.focusTotal = Math.max(1, Math.min(180, Math.round(minutes))) * 60;
+  focusTimer.total = focusTimer.focusTotal;
   focusTimer.remaining = 0;
   paintFocusTimer();
+}
+
+//: The stepper: five minutes at a time, from 5 to 180.
+function focusStep(by) {
+  const now = Math.round(focusTimer.focusTotal / 60);
+  setFocusTimer(Math.max(5, Math.min(180, (by > 0 ? Math.floor(now / 5) : Math.ceil(now / 5)) * 5 + by)));
 }
 
 // async to match the widget contract in renderDashboard (render() must
 // return a promise).
 async function renderFocusTimerWidget(body) {
+  const ring = document.createElement("div");
+  ring.id = "focus-ring";
+  ring.className = "focus-ring";
+  const face = document.createElement("div");
+  face.className = "focus-ring-face";
+  const mode = document.createElement("span");
+  mode.id = "focus-ring-mode";
+  mode.className = "focus-ring-mode";
   const display = document.createElement("div");
   display.id = "focus-timer-display";
-  display.className = "focus-timer-display";
-  body.appendChild(display);
+  display.className = "focus-timer-display focus-ring-time";
+  display.setAttribute("role", "timer");
+  face.append(mode, display);
+  ring.append(focusRing(), face);
+  body.appendChild(ring);
 
   const presets = document.createElement("div");
   presets.className = "row focus-presets";
-  for (const mins of [5, 15, 25]) {
-    presets.appendChild(smallButton(`${mins}m`, `${mins} minutes`, () => setFocusTimer(mins)));
+  const seg = document.createElement("div");
+  seg.className = "seg focus-presets-seg";
+  seg.setAttribute("role", "group");
+  seg.setAttribute("aria-label", "Session length");
+  for (const mins of FOCUS_PRESETS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.minutes = String(mins);
+    button.textContent = `${mins}`;
+    button.title = `${mins} minutes`;
+    button.addEventListener("click", () => setFocusTimer(mins));
+    seg.appendChild(button);
   }
-  const custom = document.createElement("input");
-  custom.type = "number";
-  custom.min = "1";
-  custom.max = "180";
-  custom.placeholder = "min";
-  custom.className = "focus-custom";
-  custom.setAttribute("aria-label", "Custom minutes");
-  custom.addEventListener("change", () => {
-    const value = Number(custom.value);
-    if (value >= 1) setFocusTimer(value);
-  });
-  presets.appendChild(custom);
+  const stepper = document.createElement("div");
+  stepper.className = "focus-stepper";
+  stepper.setAttribute("role", "group");
+  stepper.setAttribute("aria-label", "Any length");
+  const value = document.createElement("span");
+  value.id = "focus-step-value";
+  value.className = "focus-step-value";
+  stepper.append(
+    smallButton("ph:minus", "Five minutes shorter", () => focusStep(-5)),
+    value,
+    smallButton("ph:plus", "Five minutes longer", () => focusStep(5))
+  );
+  presets.append(seg, stepper);
   body.appendChild(presets);
 
   const controls = document.createElement("div");
-  controls.className = "row";
-  const toggle = smallButton("Start", "Start or pause the timer", () => {
+  controls.className = "row focus-controls";
+  const toggle = smallButton("ph:play Start", "Start or pause the timer", () => {
     if (focusTimer.running) stopFocusTimer();
     else startFocusTimer();
   }, false);
   toggle.id = "focus-timer-toggle";
-  const reset = smallButton("Reset", "Reset the timer", () => {
+  const reset = smallButton("ph:arrow-counter-clockwise", "Reset the timer", () => {
     focusTimer.remaining = 0;
+    focusTimer.mode = "focus";
+    focusTimer.total = focusTimer.focusTotal;
     stopFocusTimer();
   });
-  controls.append(toggle, reset);
+  reset.classList.add("quiet");
+  const breaks = document.createElement("label");
+  breaks.className = "check-row focus-breaks";
+  breaks.title = `A ${FOCUS_BREAK_MIN}-minute break starts by itself after each session`;
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  box.checked = prefs.bool("focusBreaks", false);
+  box.addEventListener("change", () => prefs.set("focusBreaks", box.checked ? "1" : "0"));
+  const words = document.createElement("span");
+  words.textContent = "Breaks";
+  breaks.append(box, words);
+  controls.append(toggle, reset, breaks);
   body.appendChild(controls);
 
-  paintFocusTimer();
+  const today = document.createElement("p");
+  today.id = "focus-today";
+  today.className = "muted focus-today";
+  body.appendChild(today);
+
+  paintFocusTimer(body);
 }
 
 // --- wiring (moved out of app.js's own wiring block, §88.3) -----------------------
@@ -4123,246 +4146,11 @@ const NIGHT_KIND_WORDS = {
 const NIGHT_PAIR_LEAD = { tension: "Disagrees with", answered: "Answers" };
 const NIGHT_PAGE = 5;
 
-function nightKindWords(kind, n) {
-  const [one, many] = NIGHT_KIND_WORDS[kind] || [kind, `${kind}s`];
-  return `${n} ${n === 1 ? one : many}`;
-}
 
-function nightRunSummary(run) {
-  const read = `Read ${run.scanned} note${run.scanned === 1 ? "" : "s"}`;
-  const when = dashRelativeTime(run.finished_at || run.started_at);
-  const stopped = run.stopped_reason === "budget" ? "stopped at its budget, carries on next time" : "";
-  return [read, when, stopped].filter(Boolean).join(" · ");
-}
 
-function nightFactRow(fact, onGone) {
-  const li = document.createElement("li");
-  li.className = "night-fact";
-  const text = document.createElement("span");
-  text.className = "dash-list-text";
-  const title = document.createElement("span");
-  title.className = "dash-list-title night-fact-text";
-  title.textContent = fact.text;
-  const meta = document.createElement("span");
-  meta.className = "dash-list-preview";
-  meta.textContent = [fact.model === "local" ? "Found without a model" : fact.model, `${Math.round((fact.confidence || 0) * 100)}% sure`]
-    .filter(Boolean)
-    .join(" · ");
-  text.append(title);
-  //: A pair quotes its other side; the reason joins the facts.
-  if (fact.pair && NIGHT_PAIR_LEAD[fact.kind]) {
-    const other = document.createElement("span");
-    other.className = "dash-list-preview night-fact-pair";
-    other.textContent = `${NIGHT_PAIR_LEAD[fact.kind]}: “${fact.pair.text || ""}”`;
-    text.append(other);
-    if (fact.pair.reason) meta.textContent = [fact.pair.reason, meta.textContent].join(" · ");
-  }
-  text.append(meta);
-  const actions = document.createElement("span");
-  actions.className = "night-fact-actions";
-  if (fact.pair && fact.pair.entry_id) {
-    const openOther = document.createElement("button");
-    openOther.type = "button";
-    openOther.className = "ghost small icon-only";
-    const otherLabel = fact.kind === "answered" ? "Open the note with the question" : "Open the other note";
-    openOther.title = otherLabel;
-    openOther.setAttribute("aria-label", otherLabel);
-    setLabel(openOther, "ph:arrows-left-right");
-    openOther.addEventListener("click", () => flashEntry(fact.pair.entry_id));
-    actions.append(openOther);
-  }
-  //: Accept a tension: the `contradicts` link (I1, the existing accept path).
-  if (fact.kind === "tension" && fact.pair && fact.pair.entry_id) {
-    const keep = document.createElement("button");
-    keep.type = "button";
-    keep.className = "ghost small icon-only";
-    keep.title = "Link the two notes as disagreeing";
-    keep.setAttribute("aria-label", "Link the two notes as disagreeing");
-    setLabel(keep, "ph:link");
-    keep.addEventListener("click", async () => {
-      keep.disabled = true;
-      try {
-        await apiJson("/entries/tensions/accept", {
-          method: "POST",
-          body: JSON.stringify({ earlier_id: fact.pair.entry_id, later_id: fact.entry_id }),
-        });
-        toast("Linked as disagreeing");
-      } catch (error) {
-        keep.disabled = false;
-        toast(error.message || "Couldn't link those notes.", true);
-      }
-    });
-    actions.append(keep);
-  }
-  const open = document.createElement("button");
-  open.type = "button";
-  open.className = "ghost small icon-only";
-  open.title = "Open the note this came from";
-  open.setAttribute("aria-label", "Open the note this came from");
-  setLabel(open, "ph:arrow-square-out");
-  open.addEventListener("click", () => flashEntry(fact.entry_id));
-  const dismiss = document.createElement("button");
-  dismiss.type = "button";
-  dismiss.className = "ghost small icon-only";
-  dismiss.title = "Dismiss, and never work this out again";
-  dismiss.setAttribute("aria-label", "Dismiss, and never work this out again");
-  setLabel(dismiss, "ph:x");
-  dismiss.addEventListener("click", async () => {
-    dismiss.disabled = true;
-    try {
-      await api(`/learned/${fact.id}`, { method: "DELETE" });
-      li.remove();
-      onGone();
-    } catch (error) {
-      dismiss.disabled = false;
-      toast(error.message || "Couldn't dismiss that.", true);
-    }
-  });
-  actions.append(open, dismiss);
-  li.append(text, actions);
-  return li;
-}
 
-//: One line of the card: the count, a disclosure that opens the review list
-//: under it. The list pages by NIGHT_PAGE; "Show more" reads the next page.
-function nightKindLine(host, runId, kind, count) {
-  const li = document.createElement("li");
-  li.className = "night-kind";
-  const toggle = document.createElement("button");
-  toggle.type = "button";
-  toggle.className = "ghost small night-kind-toggle";
-  toggle.setAttribute("aria-expanded", "false");
-  const label = () => setLabel(toggle, `ph:caret-right ${nightKindWords(kind, count)}`);
-  label();
-  const list = document.createElement("ul");
-  list.className = "dash-list night-facts hidden";
-  list.id = `night-facts-${runId}-${kind}`;
-  toggle.setAttribute("aria-controls", list.id);
-  const more = document.createElement("button");
-  more.type = "button";
-  more.className = "ghost small night-more hidden";
-  more.textContent = "Show more";
-  let offset = 0;
-  let loaded = false;
-  const gone = () => {
-    count -= 1;
-    offset = Math.max(0, offset - 1);
-    label();
-    if (count <= 0) li.remove();
-  };
-  const page = async () => {
-    more.disabled = true;
-    try {
-      const reply = await apiJson(`/night/runs/${runId}/facts?kind=${encodeURIComponent(kind)}&limit=${NIGHT_PAGE}&offset=${offset}`, { silent: true });
-      for (const fact of reply.items || []) list.appendChild(nightFactRow(fact, gone));
-      offset += (reply.items || []).length;
-      more.classList.toggle("hidden", offset >= (reply.total || 0));
-    } catch (error) {
-      toast(error.message || "Couldn't read that list.", true);
-    } finally {
-      more.disabled = false;
-    }
-  };
-  toggle.addEventListener("click", async () => {
-    const open = toggle.getAttribute("aria-expanded") !== "true";
-    toggle.setAttribute("aria-expanded", String(open));
-    list.classList.toggle("hidden", !open);
-    if (open && !loaded) {
-      loaded = true;
-      await page();
-    }
-    if (!open) more.classList.add("hidden");
-    else more.classList.toggle("hidden", offset >= count);
-  });
-  more.addEventListener("click", () => page());
-  li.append(toggle, list, more);
-  host.appendChild(li);
-}
 
-//: The card, then the open questions count and the oldest one (I3).
-async function renderNightWidget(body) {
-  await renderNightCard(body);
-  let summary;
-  try {
-    summary = await apiJson("/questions/summary", { silent: true });
-  } catch {
-    return;
-  }
-  if (!summary || !summary.open) return;
-  const line = document.createElement("p");
-  line.className = "muted night-questions";
-  const oldest = summary.oldest;
-  const words = `${summary.open} open question${summary.open === 1 ? "" : "s"}`;
-  line.textContent = oldest ? `${words}. The oldest: “${oldest.text}”` : `${words}.`;
-  const open = document.createElement("button");
-  open.type = "button";
-  open.className = "ghost small";
-  setLabel(open, "ph:question See your questions");
-  open.addEventListener("click", async () => {
-    await switchTab("notes");
-    showNotesSection("questions");
-  });
-  const row = document.createElement("div");
-  row.className = "row night-questions-row";
-  row.append(line, open);
-  body.appendChild(row);
-}
 
-async function renderNightCard(body) {
-  let card;
-  try {
-    card = await apiJson("/night/latest", { silent: true });
-  } catch {
-    surfaceFailed(body, "what Atlas found", () => renderNightWidget(body));
-    return;
-  }
-  if (!card.run) {
-    const empty = document.createElement("div");
-    empty.className = "empty-state";
-    const line = document.createElement("p");
-    line.textContent = "Atlas has not read your notes on its own yet.";
-    const run = document.createElement("button");
-    run.type = "button";
-    run.className = "ghost small";
-    setLabel(run, "ph:moon-stars Read my notes now");
-    run.addEventListener("click", async () => {
-      run.disabled = true;
-      try {
-        const reply = await apiJson("/night/run", { method: "POST", body: JSON.stringify({}) });
-        if (reply.paused) toast("Reading on its own is switched off in Settings, What it learned.");
-      } catch (error) {
-        toast(error.message, true);
-      }
-      body.replaceChildren();
-      renderNightWidget(body);
-    });
-    empty.append(line, run);
-    body.appendChild(empty);
-    return;
-  }
-  const summary = document.createElement("p");
-  summary.className = "muted night-summary";
-  summary.textContent = nightRunSummary(card.run);
-  body.appendChild(summary);
-  let shown = card.run;
-  let counts = card.counts || {};
-  if (!Object.keys(counts).length) {
-    if (!card.previous) {
-      dashEmpty(body, "Nothing new since it last read. Claims, open questions and notes that disagree show up here.", null);
-      return;
-    }
-    shown = card.previous;
-    counts = card.previous.counts || {};
-    const earlier = document.createElement("p");
-    earlier.className = "muted";
-    earlier.textContent = `Nothing new last time. ${dashRelativeTime(shown.finished_at || shown.started_at)}, it found:`;
-    body.appendChild(earlier);
-  }
-  const kinds = document.createElement("ul");
-  kinds.className = "night-kinds";
-  for (const kind of Object.keys(counts).sort()) nightKindLine(kinds, shown.id, kind, counts[kind]);
-  body.appendChild(kinds);
-}
 
 // --- Recent activity: the event feed, read with its cursor ---------------------
 //
@@ -4410,7 +4198,7 @@ async function renderActivityWidget(body) {
   for (const item of [...items].reverse()) {
     const entry = item.entity_type === "entry" || item.entity_type === "board" ? byId.get(item.entity_id) : null;
     const noun = DASH_ACTIVITY_NOUNS[item.entity_type] || "Item";
-    const name = entry ? clipText(notePreviewText(entry.content || "").split("\n")[0], 60) : "";
+    const name = entry ? noteNamePlain(entry.content, 60) : "";
     const verb = HISTORY_ACTION_WORDS[item.action] || item.action.replace(/_/g, " ");
     //: A compacted run is one line, not a burst of edits (the feed's own
     //: `snapshot` count says how many it stands for).
@@ -4434,6 +4222,10 @@ async function renderActivityWidget(body) {
     //: nothing to open, so it is a plain row rather than a button that does
     //: nothing, which is the "dead control" the vibe check counts.
     const li = document.createElement("li");
+    //: The list is a `group` (`dashActionRow` makes it one for its button
+    //: rows), so a plain row beside them is no list item: axe `listitem`
+    //: (serious) fails an `li` whose parent is not a list.
+    li.setAttribute("role", "presentation");
     const text = document.createElement("span");
     text.className = "dash-list-text";
     const titleEl = document.createElement("span");
@@ -4474,7 +4266,7 @@ function activityUndoPlanText(plan, byId, name) {
   const undo = plan.items.filter((item) => item.status === "undo");
   const titled = undo.slice(0, 3).map((item) => {
     const entry = byId.get(item.entity_id);
-    const first = entry ? clipText(notePreviewText(entry.content || "").split("\n")[0], 40) : "";
+    const first = entry ? noteNamePlain(entry.content, 40) : "";
     return first ? `“${first}”` : `note ${item.entity_id}`;
   });
   const more = undo.length > titled.length ? ` and ${undo.length - titled.length} more` : "";
@@ -4678,7 +4470,7 @@ async function renderUnfinishedWidget(body) {
   const ul = document.createElement("ul");
   ul.className = "dash-list";
   for (const row of withTasks.slice(0, 6)) {
-    const first = stripFrontmatter(row.entry.content || "").split("\n").find((line) => line.trim())?.trim() || "Untitled note";
+    const first = noteNamePlain(row.entry.content) || "Untitled note";
     const total = row.open + row.done;
     dashActionRow(ul, {
       title: first.replace(/^#{1,6}\s+/, "").slice(0, 70),
@@ -4690,108 +4482,6 @@ async function renderUnfinishedWidget(body) {
   body.appendChild(ul);
 }
 
-async function renderOrphanNotesWidget(body) {
-  const [entries, graph] = await Promise.all([
-    dashEntries(),
-    fetchDashGraph().catch(() => null),
-  ]);
-  // The same degree map `renderMostLinkedWidget` builds, read for its zeroes
-  // instead of its peaks.
-  const linked = new Set();
-  for (const edge of graph?.edges || []) {
-    if (typeof edge.source === "number") linked.add(edge.source);
-    if (typeof edge.target === "number") linked.add(edge.target);
-  }
-  // A board is a note by construction here, and an empty canvas is not a
-  // stranded thought. Drafts have not been filed yet by definition.
-  const real = entries.filter((e) => !e.is_board && !e.is_draft && !e.map_topic);
-  // **Category is deliberately not part of this test, and that is a measured
-  // decision rather than an oversight.** The first cut of this widget counted
-  // a note as stranded only if it had no links, no tags *and* no category, 
-  // and it could never fire, because this app files every note as it is
-  // saved: on a real 116-note notebook, 116 had a category. A field the app
-  // fills in for you says nothing about whether *you* connected anything.
-  //
-  // Tags and links are the two a person actually chooses, so those are the
-  // test. On that same notebook 99 of 116 notes qualified, which is why this
-  // is not the list of them it started as. A widget that lists 85% of your
-  // notes has told you nothing and made you scroll; the number *is* the
-  // finding, so the number leads, and only a handful of oldest offenders come
-  // with it as somewhere to actually start.
-  const loose = real.filter((entry) => !linked.has(entry.id) && !(entry.tags || []).length);
-  if (!real.length) {
-    dashEmpty(body, "Write a few notes and this will show how well connected they are.", { label: "ph:plus New note", run: "capture" });
-    return;
-  }
-  const connected = real.length - loose.length;
-  const pct = Math.round((connected / real.length) * 100);
-
-  const summary = document.createElement("p");
-  summary.className = "dash-loose-summary";
-  summary.textContent = loose.length
-    ? `${loose.length} of ${real.length} notes have no link and no tag.`
-    : `All ${real.length} notes have a link or a tag.`;
-  body.appendChild(summary);
-
-  // A meter, not a decorative bar: it carries its own value for a screen
-  // reader, which a styled div cannot.
-  const meter = document.createElement("div");
-  meter.className = "dash-loose-meter";
-  meter.setAttribute("role", "meter");
-  meter.setAttribute("aria-valuemin", "0");
-  meter.setAttribute("aria-valuemax", "100");
-  meter.setAttribute("aria-valuenow", String(pct));
-  meter.setAttribute("aria-label", `${pct}% of notes are connected`);
-  const fill = document.createElement("div");
-  fill.className = "dash-loose-fill";
-  // A width has to be a real number here, and CSP forbids a `style`
-  // attribute: a custom property set through the CSSOM is neither.
-  fill.style.setProperty("--dash-loose-pct", `${pct}%`);
-  meter.appendChild(fill);
-  body.appendChild(meter);
-
-  const caption = document.createElement("p");
-  caption.className = "muted dash-loose-caption";
-  caption.textContent = `${pct}% connected`;
-  body.appendChild(caption);
-
-  if (!loose.length) return;
-
-  // **The widget that names the problem offers the thing that fixes it.**
-  // The auto-linker lives as "Suggest links" in the Graph tab's toolbar,
-  // among the graph's own display options, so the one screen that tells you
-  // most of your notebook is unconnected had no way to act on it, and the
-  // feature that would has to be found first. It opens the suggestions inbox
-  // (suggestions-inbox.js, KG9) where it stands.
-  const connect = document.createElement("button");
-  connect.type = "button";
-  connect.className = "ghost small dash-loose-action";
-  const connectIcon = document.createElement("i");
-  connectIcon.className = "ph ph-link ph-lead";
-  connectIcon.setAttribute("aria-hidden", "true");
-  connect.append(connectIcon, "Find links to add");
-  connect.title = "Look for notes worth connecting, and approve them one by one";
-  connect.addEventListener("click", () => openSuggestionsInbox("links"));
-  //: And the other half of "no link and no tag" (INBOX 162): the filtered
-  //: Notes list, where every card carries its own "No tags yet" chip.
-  const tagIt = document.createElement("button");
-  tagIt.type = "button";
-  tagIt.className = "ghost small dash-loose-action";
-  const tagIcon = document.createElement("i");
-  tagIcon.className = "ph ph-tag ph-lead";
-  tagIcon.setAttribute("aria-hidden", "true");
-  tagIt.append(tagIcon, "Show untagged notes");
-  tagIt.title = "The Notes list, filtered to notes with no tags";
-  tagIt.addEventListener("click", () => showNotesFilter("is:untagged"));
-  const actions = document.createElement("div");
-  actions.className = "row dash-loose-actions";
-  actions.append(connect, tagIt);
-  body.appendChild(actions);
-  // Oldest first: a note written this morning has not had a chance to be
-  // filed yet, and nagging about it is how a hygiene widget becomes noise.
-  const oldest = [...loose].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-  miniEntryList(body, oldest.slice(0, 3), "");
-}
 
 
 /**
@@ -4844,7 +4534,7 @@ async function renderTensionsWidget(body) {
     const explain = document.createElement("p");
     explain.className = "muted dash-tension-explain";
     explain.textContent =
-      "Similar-notes search finds what belongs together. This reads pairs with your local model and looks for the opposite: claims that can't both be right.";
+      "Your local model reads pairs of related notes for claims that can't both be right.";
     body.appendChild(explain);
   }
 
@@ -4897,7 +4587,8 @@ function dashTensionRow(tension, onGone) {
     const pressed = event.currentTarget;
     pressed.disabled = true;
     try {
-      await apiJson(path, { method: "POST", body: ids });
+      const done = await apiJson(path, { method: "POST", body: ids });
+      pushTensionLinkUndo(tension.earlier_id, tension.later_id, path.endsWith("/accept") ? "accept" : "dismiss", done?.created !== false);
       toast(done);
       li.remove();
       onGone();
@@ -4950,13 +4641,15 @@ function renderOnThisDayWidget(body) {
   const shown = [];
   for (const entry of entries) {
     const at = new Date(entry.created_at);
-    const years = thisYear - at.getFullYear();
-    const key = years > 0 ? `${years}y` : `${month - at.getMonth()}m`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    shown.push({ entry, when: years > 0
-      ? `${years} year${years === 1 ? "" : "s"} ago`
-      : `${month - at.getMonth()} month${month - at.getMonth() === 1 ? "" : "s"} ago` });
+    //: Counted in months: 10 November last year, seen on 10 October, is
+    //: eleven months ago, not "1 year ago", and it used to take the year's
+    //: one place from the note written on this very date (Brief 85).
+    const months = (thisYear - at.getFullYear()) * 12 + month - at.getMonth();
+    const years = months / 12;
+    const when = Number.isInteger(years) ? `${years} year${years === 1 ? "" : "s"} ago` : `${months} month${months === 1 ? "" : "s"} ago`;
+    if (seen.has(when)) continue;
+    seen.add(when);
+    shown.push({ entry, when });
     if (shown.length >= 4) break;
   }
   const list = document.createElement("ul");
@@ -5052,3 +4745,12 @@ function renderPaceWidget(body) {
   caption.textContent = `Best day: ${best.at.toLocaleDateString(undefined, { weekday: "long" })}, ${best.words.toLocaleString()} words`;
   body.appendChild(caption);
 }
+
+//: Recordings a killed tab left: the server finishes them at each start and
+//: meetings.js says so once. Hooked here, after agent-activity.js's own hook, because
+//: app.js and the files up to agent-activity.js sit under a gzip total (tests/test_static_compression.py).
+const startAppBeforeRecover = window.startApp;
+window.startApp = async function () {
+  if (startAppBeforeRecover) await startAppBeforeRecover.apply(this, arguments);
+  apiJson("/recordings/recover", { method: "POST", silent: true }).then((r) => r.length && ensureModule("meetings").then(() => noteRecoveredRecordings(r))).catch(() => {});
+};

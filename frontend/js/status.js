@@ -51,12 +51,12 @@ function rememberAnnounced(ids) {
   // Bounded, and trimmed from the front: without a cap this grows forever in a
   // notebook that has been used for years.
   const kept = [...announcedReminders(), ...ids].slice(-200);
-  localStorage.setItem(ANNOUNCED_KEY, JSON.stringify(kept));
+  prefs.set(ANNOUNCED_KEY, JSON.stringify(kept));
 }
 
 // --- the notifications centre (§36E) ----------------------------------------
 //
-// MemoryMap already *produces* all of these events, a reminder comes due, a
+// Tessellate already *produces* all of these events, a reminder comes due, a
 // background task finishes, a skill run stalls, and shows each of them in its
 // own way: a system notification, a toast, a status pill, a step timeline.
 // Every one of those is a moment. Miss the moment and the event is gone.
@@ -94,20 +94,54 @@ function storedNotifications() {
 // runs every thirty seconds and must not add the same fired reminder twice.
 //: Returns the row's id (null when nothing was recorded), so a toast's live
 //: action can be tied to its row (`keepToastAction`).
-function recordNotification({ kind, title, detail = "", key = "", action = null }) {
+function recordNotification({ kind, title, detail = "", key = "", action = null, runId = "" }) {
   if (kind !== "reminder" && notificationsMuted()) return null;
   const items = storedNotifications();
   const id = key || `${kind}:${title}:${Date.now()}`;
   if (key && items.some((n) => n.id === id)) return null;
   if (key && dismissedNotificationIds().has(id)) return null;
-  items.push({ id, kind, title, detail, at: Date.now(), action });
-  try {
-    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(items.slice(-MAX_NOTIFICATIONS)));
-  } catch {
+  //: `runId` ties a "Started:" row to its run, so the ending can replace it.
+  items.push({ id, kind, title, detail, at: Date.now(), action, ...(runId ? { runId } : {}) });
+  if (!prefs.set(NOTIFICATIONS_KEY, JSON.stringify(items.slice(-MAX_NOTIFICATIONS)))) {
     return null; // storage refused: the toast still shows, the row is not kept
   }
   renderNotificationBadge();
   return id;
+}
+
+//: **A run's "Started:" row becomes its ending** (INBOX 811 item 4, the
+//: transparency agent's half): "Finished: Warming up the filing model, took
+//: 4 s" or the failure, in the same row and place, under the history's key so
+//: the finished list does not add a second row. Returns whether it settled.
+function settleNotification(id, { key, kind, title, detail = "" }) {
+  const items = storedNotifications();
+  if (items.some((n) => n.id === key)) return true;
+  const row = items.find((n) => n.id === id);
+  if (!row) return false;
+  Object.assign(row, { id: key, kind, title, detail, at: Date.now() });
+  delete row.runId;
+  if (!prefs.set(NOTIFICATIONS_KEY, JSON.stringify(items))) return false;
+  renderNotificationBadge();
+  if (!$("notif-panel")?.classList.contains("hidden")) openNotifications({ keepWatermark: true });
+  return true;
+}
+
+//: The history's half of the same rule: a finished run whose "Started:" row
+//: is still stored (the page reloaded mid-run, so the poll never saw it end)
+//: is settled by its run id.
+function settleStartedNotification(item, key) {
+  if (storedNotifications().some((n) => n.id === key)) return true;
+  const started = item.run_id && storedNotifications().find((n) => n.runId === item.run_id);
+  return Boolean(started) && settleNotification(started.id, { key, ...taskEndingWords(item, item.label) });
+}
+
+//: "Finished: X, took 4 s", "Failed: X" with the reason, "Stopped: X".
+function taskEndingWords(ended, label) {
+  const took = ended ? jobDurationWords(ended.duration_ms) : "";
+  const name = (ended && ended.label) || label;
+  if (ended && ended.outcome === "failed") return { kind: "error", title: `Failed: ${name}`, detail: ended.detail || "" };
+  if (ended && ended.outcome === "cancelled") return { kind: "task", title: `Stopped: ${name}`, detail: ended.detail || "" };
+  return { kind: "task", title: `Finished: ${name}${took ? `, took ${took}` : ""}`, detail: (ended && ended.detail) || "" };
 }
 
 function notificationsReadAt() {
@@ -144,7 +178,7 @@ function setForcedUnreadIds(ids) {
     //: storage forever keeping the badge count wrong.
     const live = new Set(storedNotifications().map((item) => item.id));
     const kept = [...ids].filter((id) => live.has(id));
-    localStorage.setItem(NOTIFICATIONS_UNREAD_KEY, JSON.stringify(kept));
+    prefs.set(NOTIFICATIONS_UNREAD_KEY, JSON.stringify(kept));
   } catch {
     /* private mode: the flag just will not be remembered */
   }
@@ -171,7 +205,7 @@ function forcedReadIds() {
 function setForcedReadIds(ids) {
   try {
     const known = new Set(storedNotifications().map((n) => n.id));
-    localStorage.setItem(NOTIFICATIONS_READ_IDS_KEY, JSON.stringify([...ids].filter((id) => known.has(id))));
+    prefs.set(NOTIFICATIONS_READ_IDS_KEY, JSON.stringify([...ids].filter((id) => known.has(id))));
   } catch {
     // Storage refused: the flag is lost, the panel is not.
   }
@@ -183,23 +217,20 @@ function isNotificationUnread(item, readAt = notificationsReadAt(), forced = for
   return item.at > readAt;
 }
 
-function setNotificationUnread(id, unread) {
-  const unreadIds = forcedUnreadIds();
-  const readIds = forcedReadIds();
-  if (unread) { unreadIds.add(id); readIds.delete(id); }
-  else { unreadIds.delete(id); readIds.add(id); }
-  setForcedUnreadIds(unreadIds);
-  setForcedReadIds(readIds);
-  renderNotificationBadge();
-}
-
 //: **One row can be removed** (INBOX 508, the owner: "I cant delete
 //: individual notifications"). Only Clear all existed. A keyed row (an
-//: overdue reminder, `reminder:<id>`) is folded back in by every open of
+//: overdue reminder, `reminder:<id>@<due time>`) is folded back in by every open of
 //: the panel while it stays overdue, so its key is remembered as dismissed,
 //: or the row would come back the next time the bell is pressed. Capped:
 //: keys are per reminder, a few hundred is years of them.
 const NOTIFICATIONS_DISMISSED_KEY = "notificationsDismissed";
+
+//: **A reminder's row is keyed by its due time too**, so a reminder that was
+//: dismissed, snoozed and overdue again is a new row and comes back to the
+//: bell (a dismissal answers "this time it was due", not "never again").
+function reminderNoticeKey(reminder) {
+  return `reminder:${reminder.id}@${reminder.due_at || ""}`;
+}
 
 function dismissedNotificationIds() {
   try {
@@ -208,22 +239,6 @@ function dismissedNotificationIds() {
   } catch {
     return new Set();
   }
-}
-
-function dismissNotification(item) {
-  const all = storedNotifications().filter((n) =>
-    item.id != null ? n.id !== item.id : n.at !== item.at
-  );
-  try {
-    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(all));
-    if (item.id != null && /^reminder:/.test(String(item.id))) {
-      const gone = [...dismissedNotificationIds(), item.id].slice(-300);
-      localStorage.setItem(NOTIFICATIONS_DISMISSED_KEY, JSON.stringify(gone));
-    }
-  } catch {
-    // Storage refused: the row stays, which is what the list shows next.
-  }
-  renderNotificationBadge();
 }
 
 function unreadNotifications() {
@@ -343,299 +358,29 @@ function keepToastAction(message, label, run, { go = null, record = true, kind =
   };
 }
 
-//: Whether a kept action can still run from this session's closure.
-function noticeLiveValid(live) {
-  if (!live || (live.once && live.used)) return false;
-  if (live.stacked) return undoStack.includes(live.stacked);
-  return !live.until || Date.now() < live.until;
-}
-
-//: Where a stored `go` leads, found again by id when pressed: a target that
-//: has gone since says so rather than opening an empty view.
-const NOTICE_TARGETS = {
-  entry: [(id) => apiJson(`/entries/${id}`, { silent: true }), (id) => flashEntry(id), "note"],
-  conversation: [(id) => apiJson(`/conversations/${id}`, { silent: true }), (id) => { switchTab("chat"); return openConversation(id); }, "chat"],
-  doc: [(id) => apiJson(`/documents/${id}`, { silent: true }), (id) => { switchTab("documents"); return openDocument(id); }, "document"],
-  board: [(id) => apiJson("/whiteboard/boards", { silent: true }).then((all) => all.find((b) => b.id === id)), (id) => openWhiteboardBoard(id), "board"],
-  reminder: [null, (id) => { editingReminderId = id; return flashReminder(id); }, "reminder"],
-  capture: [null, () => startNewNote(), ""],
-};
-
-async function runNotificationGo(action) {
-  if (action.panel) return reopenAnswerPanel(action);
-  if (action.settings) return openSettingsModal(action.settings, action.focus);
-  if (action.exports) return openExportsFromNotification();
-  if (action.filter) return showNotesFilter(action.filter);
-  const target = NOTICE_TARGETS[action.open];
-  if (target) {
-    const found = target[0] ? await target[0](action.id).catch(() => null) : true;
-    if (!found) return toast(`That ${target[2]} is no longer there.`);
-    return target[1](action.id);
-  }
-  if (action.tab) return switchTab(action.tab);
-}
-
-function notificationGoes(action) {
-  return Boolean(action && (action.tab || action.exports || action.panel || action.settings || NOTICE_TARGETS[action.open]));
-}
-
-//: The row's own button for its action (INBOX 585): the toast's label, or a
-//: plain one for the rows that only ever had a target. Disabled, with the
-//: reason beside it, once a one-shot action is spent or out of date.
-function notificationActionButton(item) {
-  const action = item.action;
-  if (!action || !(action.label || notificationGoes(action))) return null;
-  const live = noticeLive.get(item.id);
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "small toast-action notif-cta";
-  button.textContent = action.label || (action.exports ? "Open folder" : action.filter ? "Show them" : "Open");
-  const wrap = document.createElement("div");
-  wrap.className = "notif-cta-row";
-  wrap.append(button);
-  if (noticeLiveValid(live)) {
-    button.addEventListener("click", async (event) => {
-      event.stopPropagation();
-      if (!noticeLiveValid(live)) return openNotifications({ keepWatermark: true });
-      closeNotifications();
-      //: The toast's own closure, which settles its stack entry itself
-      //: (`settleUndoFromToast`), exactly as pressing the toast did.
-      live.used = live.once;
-      await live.run();
-    });
-  } else if (!action.once && notificationGoes(action)) {
-    button.addEventListener("click", (event) => {
-      event.stopPropagation();
-      closeNotifications();
-      runNotificationGo(action);
-    });
-  } else {
-    button.disabled = true;
-    const state = document.createElement("span");
-    state.className = "notif-cta-state muted";
-    state.textContent = live?.used || redoStack.includes(live?.stacked) ? "Done" : "Expired";
-    wrap.append(state);
-  }
-  return wrap;
-}
-
-//: `keepWatermark`: a re-render from a row's own read/unread toggle must
-//: not also stamp the "seen everything" watermark: that is what made one
-//: tick mark every unread row as read (reported twice).
-async function openNotifications({ keepWatermark = false } = {}) {
-  const panel = $("notif-panel");
-  const list = $("notif-list");
-  panel.classList.remove("hidden");
-  renderNotifMuteToggle();
-  renderAgentActivityMode();
-
-  // Fold in anything currently overdue on the server. This is what makes the
-  // centre honest about time it was not running for: the event log can only
-  // know what happened while a tab was open, and the reminders table knows
-  // what is due regardless.
-  const all = await apiJson("/reminders", { silent: true }).catch(() => null);
-  for (const reminder of all || []) {
-    if (reminder.done) continue;
-    if (new Date(reminder.due_at).getTime() > Date.now()) continue;
-    recordNotification({
-      kind: "reminder",
-      title: reminder.text,
-      detail: `Due ${relativeTime(reminder.due_at)}`,
-      key: `reminder:${reminder.id}`,
-      action: { tab: "reminders" },
-    });
-  }
-
-  const items = storedNotifications().slice().reverse();
-  const readAt = notificationsReadAt();
-  //: The count, beside the word it qualifies. The bell in the header already
-  //: carries it, but the bell is what you clicked to get here, inside the
-  //: panel the number has to say how many of the rows below are new.
-  const forced = forcedUnreadIds();
-  const chip = $("notif-unread");
-  if (chip) {
-    const unread = items.filter((item) => isNotificationUnread(item, readAt, forced)).length;
-    chip.textContent = unread > 99 ? "99+" : String(unread);
-    chip.classList.toggle("hidden", unread === 0);
-    chip.title = `${unread} unread`;
-  }
-  list.replaceChildren();
-  //: **An empty state, not a paragraph.** Reported with a screenshot: three
-  //: lines of muted prose filled the panel where nothing had happened, which
-  //: reads as an error message rather than as calm. The shape every other
-  //: empty surface in this app uses, a glyph, a short line, and the
-  //: explanation underneath in small text, says the same thing in a glance.
-  if (!items.length) {
-    const empty = document.createElement("li");
-    empty.className = "notif-empty";
-    const glyph = document.createElement("span");
-    glyph.className = "notif-empty-icon";
-    setLabel(glyph, "ph:bell-simple");
-    glyph.setAttribute("aria-hidden", "true");
-    const headline = document.createElement("p");
-    headline.className = "notif-empty-title";
-    headline.textContent = "You're all caught up";
-    const sub = document.createElement("p");
-    sub.className = "muted text-sm notif-empty-sub";
-    sub.textContent =
-      "Reminders that come due, finished background jobs and runs that " +
-      "stopped early collect here.";
-    empty.append(glyph, headline, sub);
-    list.appendChild(empty);
-  }
-  for (const item of items) {
-    const row = document.createElement("li");
-    row.className = "notif-row";
-    const unread = isNotificationUnread(item, readAt, forced);
-    if (unread) row.classList.add("notif-unread");
-
-    //: **One row recipe** (INBOX 585: "clashing, misaligned, and/or poorly
-    //: spaced"): the unread dot, the icon, the text column, then one side
-    //: column holding the time, which the row's two controls replace while
-    //: it is pointed at. Every column's first line is the title's line
-    //: (06-timeline-dialogs.css), and nothing is laid over the text.
-    const dot = document.createElement("span");
-    dot.className = "notif-dot";
-    dot.setAttribute("aria-hidden", "true");
-    const icon = document.createElement("span");
-    icon.className = "notif-icon";
-    setLabel(icon, NOTIFICATION_ICONS[item.kind] || NOTIFICATION_ICONS.info);
-    icon.setAttribute("aria-hidden", "true");
-
-    const body = document.createElement("div");
-    body.className = "notif-body";
-    //: Title and time on one line, detail underneath. Reported with a
-    //: screenshot: the time was glued to the end of a three-line detail
-    //: and the title wrapped under a 2.25rem "mark read" button: the row
-    //: read as a paragraph with a random button, not as a notification.
-    const head = document.createElement("div");
-    head.className = "notif-row-head";
-    const title = document.createElement("span");
-    title.className = "notif-title";
-    setLabel(title, item.title);
-    const time = document.createElement("time");
-    time.className = "notif-time muted";
-    time.dateTime = new Date(item.at).toISOString();
-    time.textContent = relativeTime(time.dateTime);
-    time.title = new Date(item.at).toLocaleString();
-    head.append(title);
-    body.append(head);
-    if (item.detail) {
-      const meta = document.createElement("div");
-      meta.className = "notif-meta muted";
-      meta.textContent = item.detail;
-      body.append(meta);
-    }
-    const cta = notificationActionButton(item);
-    if (cta) body.append(cta);
-    row.append(dot, icon, body);
-
-    //: The dot is the control. A row is either new or it is not, so this is a
-    //: two-state toggle rather than a menu, and it sits where the "new"
-    //: marker already is, so pressing the thing that says "unread" is what
-    //: changes whether it is unread. `stopPropagation` because the row itself
-    //: may navigate somewhere, and "keep this for later" is the opposite of
-    //: "take me there now".
-    const readToggle = document.createElement("button");
-    readToggle.type = "button";
-    readToggle.className = "ghost small icon-only notif-read-toggle";
-    readToggle.setAttribute("aria-pressed", String(unread));
-    readToggle.title = unread ? "Mark as read" : "Mark as unread";
-    readToggle.setAttribute("aria-label", readToggle.title);
-    setLabel(readToggle, unread ? "ph:circle" : "ph:check-circle");
-    readToggle.addEventListener("click", (event) => {
-      event.stopPropagation();
-      // Reported: "the individual mark as complete buttons don't work". A
-      // row from before ids were stamped has no `item.id`, so the override
-      // set had nothing to add and the click changed nothing visible. Stamp
-      // one from its timestamp, stable across renders, unique enough.
-      if (item.id == null) {
-        item.id = `n-${item.at}`;
-        const all = storedNotifications();
-        const same = all.find((entry) => entry.at === item.at && entry.id == null);
-        if (same) { same.id = item.id; localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(all)); }
-      }
-      setNotificationUnread(item.id, !unread);
-      openNotifications({ keepWatermark: true });
-    });
-    const dismiss = document.createElement("button");
-    dismiss.type = "button";
-    dismiss.className = "ghost small icon-only notif-dismiss";
-    dismiss.title = "Remove this notification";
-    dismiss.setAttribute("aria-label", `Remove: ${item.title}`);
-    setLabel(dismiss, "ph:x");
-    dismiss.addEventListener("click", (event) => {
-      event.stopPropagation();
-      // Focus goes to the next row's remove button, or the list, so a
-      // keyboard run through the list does not drop back to the page.
-      const next = row.nextElementSibling || row.previousElementSibling;
-      dismissNotification(item);
-      openNotifications({ keepWatermark: true }).then(() => {
-        const index = next ? [...list.children].findIndex((li) => li.dataset.at === next.dataset.at) : -1;
-        (list.children[index]?.querySelector(".notif-dismiss") || $("notif-close"))?.focus();
-      });
-    });
-    const actions = document.createElement("span");
-    actions.className = "notif-row-actions";
-    actions.append(readToggle, dismiss);
-    const side = document.createElement("span");
-    side.className = "notif-side";
-    side.append(time, actions);
-    row.dataset.at = String(item.at);
-    row.append(side);
-
-    // A notification you cannot act on is a notification you learn to ignore.
-    // The whole row goes where its target is; a one-shot action (an Undo) is
-    // only ever its own button.
-    if (item.action && !item.action.once && notificationGoes(item.action)) {
-      row.classList.add("notif-actionable");
-      row.tabIndex = 0;
-      row.title = item.action.exports ? "Open the exports folder" : "Open";
-      const go = () => {
-        closeNotifications();
-        runNotificationGo(item.action);
-      };
-      row.addEventListener("click", go);
-      row.addEventListener("keydown", (event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          go();
-        }
-      });
-    }
-    list.appendChild(row);
-  }
-
-  // Opening the panel *is* reading them. Marked after rendering, so the
-  // unread ones are still highlighted in the list you are looking at.
-  //
-  // The overrides survive it: a row deliberately kept unread must not be
-  // cleared by looking at the panel, or "mark as unread" would last exactly
-  // until the next time the bell is opened, which is no time at all.
-  // The watermark moves on *close*, not on open (see closeNotifications):
-  // while the panel is up, an unread row stays unread, so ticking one row
-  // changes one row. Opening used to stamp it, and the next re-render, 
-  // the one a tick causes, then showed every row as read (reported twice
-  // as "mark one, all get marked").
-  renderNotificationBadge();
-}
-
 function closeNotifications() {
   const panel = $("notif-panel");
   if (panel.classList.contains("hidden")) return;
   panel.classList.add("hidden");
   // Closing the panel is reading it: everything shown is now old news,
   // except rows deliberately kept unread (the override set survives).
-  localStorage.setItem(NOTIFICATIONS_READ_KEY, String(Date.now()));
+  prefs.set(NOTIFICATIONS_READ_KEY, String(Date.now()));
   renderNotificationBadge();
 }
 
 // Asked when a reminder is SET, not on first load. A permission prompt with no
 // context is refused by default, and a refusal is close to permanent, the
 // browser will not ask again, and most people never find the site settings.
+//: A refused permission says so once, in the reminders list and in Settings,
+//: rather than every due reminder quietly falling back to a toast.
+function syncNotifBlocked() {
+  const blocked = "Notification" in window && Notification.permission === "denied";
+  for (const line of document.querySelectorAll(".notif-blocked")) line.classList.toggle("hidden", !blocked);
+}
+
 function askNotificationPermission() {
   if ("Notification" in window && Notification.permission === "default") {
-    Notification.requestPermission().catch(() => {});
+    Notification.requestPermission().then(syncNotifBlocked, syncNotifBlocked);
   }
 }
 
@@ -646,23 +391,22 @@ function askNotificationPermission() {
 // 2026-10-03: `new AudioContext()` cost 44 to 56 ms inside the unlock click);
 // every gesture resumes a suspended context, which is WebKit's unlock, and
 // the listeners leave once it runs.
-let reminderAudioCtx = null;
-let reminderAudioBuilding = false;
+const reminderAudio = { ctx: null, building: false };
 function primeReminderAudio() {
-  if (reminderAudioCtx) {
-    if (reminderAudioCtx.state === "running") {
+  if (reminderAudio.ctx) {
+    if (reminderAudio.ctx.state === "running") {
       document.removeEventListener("pointerdown", primeReminderAudio);
       document.removeEventListener("keydown", primeReminderAudio);
     } else {
-      reminderAudioCtx.resume().catch(() => {});
+      reminderAudio.ctx.resume().catch(() => {});
     }
     return;
   }
-  if (reminderAudioBuilding) return;
-  reminderAudioBuilding = true;
+  if (reminderAudio.building) return;
+  reminderAudio.building = true;
   const build = () => {
     try {
-      reminderAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      reminderAudio.ctx = new (window.AudioContext || window.webkitAudioContext)();
     } catch {
       // No Web Audio support, reminders still show as a toast/notification.
     }
@@ -674,21 +418,21 @@ document.addEventListener("pointerdown", primeReminderAudio, { passive: true });
 document.addEventListener("keydown", primeReminderAudio, { passive: true });
 
 function playReminderChime() {
-  if (!reminderAudioCtx) return;
-  reminderAudioCtx.resume().catch(() => {});
-  const now = reminderAudioCtx.currentTime;
+  if (!reminderAudio.ctx) return;
+  reminderAudio.ctx.resume().catch(() => {});
+  const now = reminderAudio.ctx.currentTime;
   // Two short notes, rising, reads as "an alert" rather than a UI click,
   // without being long or harsh enough to be reached for on a repeat.
   for (const [i, freq] of [523.25, 659.25].entries()) {
-    const osc = reminderAudioCtx.createOscillator();
-    const gain = reminderAudioCtx.createGain();
+    const osc = reminderAudio.ctx.createOscillator();
+    const gain = reminderAudio.ctx.createGain();
     osc.type = "sine";
     osc.frequency.value = freq;
     const start = now + i * 0.14;
     gain.gain.setValueAtTime(0, start);
     gain.gain.linearRampToValueAtTime(0.18, start + 0.02);
     gain.gain.exponentialRampToValueAtTime(0.001, start + 0.32);
-    osc.connect(gain).connect(reminderAudioCtx.destination);
+    osc.connect(gain).connect(reminderAudio.ctx.destination);
     osc.start(start);
     osc.stop(start + 0.34);
   }
@@ -734,25 +478,49 @@ function notify(title, body) {
 
 // The count in the title bar, the one surface that works while the app is in
 // a background tab, which is where it usually is when a reminder comes due.
-const BASE_TITLE = "MemoryMap AI";
-let titleCount = 0;
-//: The view and the open thing (router.js, WORLD_CLASS_PLAN 22.1 item 1):
-//: "Half marathon, week 4 · Notes", before the app's name, after the count.
-let titleView = "";
+const BASE_TITLE = "Tessellate";
+//: `count` is the number before it; `view` is the view and the open thing
+//: (router.js, WORLD_CLASS_PLAN 22.1 item 1): "Half marathon, week 4 · Notes",
+//: before the app's name, after the count.
+const pageTitle = { count: 0, view: "" };
 
 function paintTitle() {
-  const base = titleView ? `${titleView} · ${BASE_TITLE}` : BASE_TITLE;
-  document.title = titleCount > 0 ? `(${titleCount}) ${base}` : base;
+  const base = pageTitle.view ? `${pageTitle.view} · ${BASE_TITLE}` : BASE_TITLE;
+  document.title = pageTitle.count > 0 ? `(${pageTitle.count}) ${base}` : base;
 }
 
 function setTitleCount(count) {
-  titleCount = count;
+  pageTitle.count = count;
   paintTitle();
 }
 
 function setTitleView(view) {
-  titleView = String(view || "").trim();
+  pageTitle.view = String(view || "").trim();
   paintTitle();
+}
+
+//: **On time, not up to a minute late** (TIMELINE_PLAN 11 row 5): one
+//: timeout set to the soonest open reminder's due time, re-set by every
+//: check and every list load, so a reminder fires within a second of its
+//: minute. The minute poll stays as the backstop: a hidden tab's timeout is
+//: throttled, and a reminder made on another device is not in this list.
+//: A one-shot timeout, not a second interval: it wakes the page once per
+//: due reminder and never at rest.
+const reminderDueTimer = { id: 0 };
+function armReminderTimer(list) {
+  clearTimeout(reminderDueTimer.id);
+  const now = Date.now();
+  //: An early alert is a time of its own ("1 day before").
+  const times = (list || []).filter((r) => !r.done).flatMap((r) => {
+    const due = new Date(r.due_at).getTime();
+    return r.alert_minutes ? [due, due - r.alert_minutes * 60000] : [due];
+  });
+  const next = Math.min(...times.filter((t) => t > now));
+  if (!Number.isFinite(next)) return;
+  //: Past the browser's 24.8-day ceiling a timeout fires at once; the poll
+  //: re-arms long before such a reminder comes due.
+  if (next - now > 2 ** 31 - 1) return;
+  reminderDueTimer.id = setTimeout(checkDueReminders, next - now + 250);
 }
 
 async function checkDueReminders() {
@@ -760,6 +528,7 @@ async function checkDueReminders() {
   // on every load: visible in the browser's network log, and in the server's
   // own log, where it looks like an auth failure worth investigating.
   if (!authToken()) return;
+  syncNotifBlocked();
   //: Open ones only. The route orders by `due_at` ascending with ticked-off
   //: rows included by default, so this poll's one page was the *oldest*
   //: reminders, done or not: a notebook whose oldest two hundred were done
@@ -770,11 +539,20 @@ async function checkDueReminders() {
   if (!all) return; // server asleep or locked, say nothing rather than guess
   const now = Date.now();
   const due = all.filter((r) => !r.done && new Date(r.due_at).getTime() <= now);
+  armReminderTimer(all);
   updateReminderBadge(all);
   setTitleCount(due.length);
 
   const already = announcedReminders();
-  const fresh = due.filter((r) => !already.has(r.id));
+  //: An early alert (TIMELINE_PLAN 11 row 8) is announced once, under its
+  //: own key, with how long is left; the due time is announced as before.
+  const early = all
+    .filter((r) => {
+      const at = new Date(r.due_at).getTime();
+      return !r.done && r.alert_minutes && at > now && at - r.alert_minutes * 60000 <= now && !already.has(`e${r.id}`);
+    })
+    .map((r) => ({ ...r, id: `e${r.id}`, early: true, text: `${r.text}, ${relativeWhen(r.due_at)}` }));
+  const fresh = [...due.filter((r) => !already.has(r.id)), ...early];
   if (!fresh.length) return;
   rememberAnnounced(fresh.map((r) => r.id));
   playReminderChime();
@@ -788,30 +566,16 @@ async function checkDueReminders() {
     recordNotification({
       kind: "reminder",
       title: reminder.text,
-      detail: "Came due",
-      key: `reminder:${reminder.id}`,
+      detail: `${reminder.early ? "Coming up" : "Came due"}${reminder.target_title ? `, about ${toastName(reminder.target_title)}` : ""}`,
+      key: reminderNoticeKey(reminder),
       action: { tab: "reminders" },
     });
   }
 
-  // One notification for one reminder; a summary for several, because three
-  // separate system notifications for three reminders is worse than one.
-  if (fresh.length === 1) {
-    const text = fresh[0].text;
-    if (!notify("Reminder", text)) toast(text, false, { exempt: true });
-  } else {
-    const summary = `${fresh.length} reminders are due`;
-    if (!notify("MemoryMap", summary)) toast(summary, false, { exempt: true });
-  }
-  // Always in-app as well as out: a system notification can be suppressed by
-  // Do Not Disturb without the app ever knowing.
-  if ("Notification" in window && Notification.permission === "granted") {
-    toast(
-      fresh.length === 1 ? fresh[0].text : `${fresh.length} reminders are due`,
-      false,
-      { exempt: true }
-    );
-  }
+  //: The system notification and its toast (TIMELINE_PLAN 11 row 4):
+  //: reminder-notify.js, lazy, so a hidden tab's notification goes through
+  //: the service worker with Done and Snooze on it.
+  lazyScript("/js/reminder-notify.js").then((ok) => ok && announceReminders(fresh));
   loadReminders().catch(() => {});
 }
 
@@ -821,12 +585,34 @@ async function checkDueReminders() {
 //: listeners each time: after four lock and unlock cycles an idle minute
 //: asked `/reminders` five times. The first call wires everything; a later
 //: one only checks now, which is what an unlock wants.
+//: The status bar's Other devices panel (INBOX 896) from the shortcut, the
+//: palette and a notice's Review: lan-watch.js draws it.
+function openLanPanel() {
+  lazyScript("/js/lan-watch.js").then((ok) => {
+    if (ok && typeof lanOpenPanel === "function") lanOpenPanel();
+  });
+}
+
 let reminderWatchStarted = false;
 function startReminderWatch() {
   checkDueReminders();
+  //: Other devices asking to sign in, and a network nobody allowed (INBOX
+  //: 867): lan-watch.js, lazy, starts itself once; it also paints the status
+  //: bar's Other devices icon (INBOX 896), and stops only on another device.
+  lazyScript("/js/lan-watch.js");
+  //: The Local chip (row 1641) asks again at each unlock too, and rides the
+  //: reminder tick below; it starts here so the boot sequence in app.js (capped
+  //: by test_static_compression) carries no extra step.
+  startPrivacyChip();
   if (reminderWatchStarted) return;
   reminderWatchStarted = true;
-  setInterval(checkDueReminders, REMINDER_POLL_MS);
+  //: One minute tick for both: the reminders, and the Local chip every
+  //: fifth (PRIVACY_CHIP_MS), rather than a second interval waking the page.
+  let ticks = 0;
+  setInterval(() => {
+    checkDueReminders();
+    if (++ticks % (PRIVACY_CHIP_MS / REMINDER_POLL_MS) === 0) refreshPrivacyChip();
+  }, REMINDER_POLL_MS);
   // A machine that was asleep wakes up with reminders long past due, and the
   // interval will not have run. Checking on focus catches that immediately
   // rather than up to a minute later.
@@ -920,7 +706,7 @@ function reopenAnswerPanel({ panel, answer } = {}) {
     if (cmdPaletteOverlay.classList.contains("hidden")) toggleAgentPalette();
     list = cmdPaletteResults;
   } else if (panel === "guide") {
-    if (typeof openHelpChat === "function") openHelpChat();
+    openHelpChat();
     list = $("help-chat-messages");
   }
   if (!list || !answer) return;
@@ -946,27 +732,156 @@ function renderAgentActivityMode() {
 // already been read is just something left to wait out otherwise, the
 // timer clears when this fires, so a stray late setTimeout can't reach for
 // a note the click already removed.
-//: **Toasts stack smoothly** (the motion pass, 2026-10-05): a toast arriving
-//: or leaving moves the others, and they slide there by `translate` over
-//: `--ui-base` from where they were (measured, changed, played back) rather
-//: than jumping a toast's height between two frames. Interface animations
-//: off makes `--ui-base` 0 and they jump.
+//: **One stack in the corner** (the owner 2026-10-11: "lots of the same
+//: notifcations dont neatly stack when they appear fast in the corner").
+//: Measured before: ten identical toasts in 500 ms drew six cards (a 400 ms
+//: repeat guard let every other one through), each slid in on its own
+//: keyframe while the others slid by `translate`, so a card arriving at the
+//: corner crossed the one it pushed away for about 120 ms.
+//: The rules, each held by tests/test_toast_stack_1011.py and
+//: `scratchpad/ui-sweeps/toaststack.js`:
+//: - the same words of the same kind (and, with an action, the same action)
+//:   within `TOAST_MERGE_MS` are one card with a count ("×3"), its timer
+//:   restarted; an Undo merges only with the same Undo, never another's;
+//: - the newest is nearest the corner (the bottom on a desktop, the top
+//:   below 1100 where the box hangs from the header), the gap is the box's
+//:   `--space-2`;
+//: - positions come from the stack: measured, changed, played back by
+//:   `translate` (FLIP), and an arrival rides in by the same distance the
+//:   others move, on the same curve, so two cards never cross;
+//: - three show; the rest fold into one "+N more" card that opens the bell,
+//:   and a folded notice is written to the bell so it is not lost;
+//: - reduced motion fades and never slides; interface animations off jumps.
+const TOAST_MERGE_MS = 4000;
+const TOAST_VISIBLE = 3;
+let toastBorn = 0;
+
+function toastAtTop(box) {
+  return box.getBoundingClientRect().top < window.innerHeight / 2;
+}
+
+function toastLive(box) {
+  return [...box.children]
+    //: Only cards `toastMark` stamped: the server-down banner and the
+    //: semantic notice stay up whatever arrives after them.
+    .filter((t) => t.toastBorn && !t.classList.contains("is-leaving"))
+    .sort((a, b) => (b.toastBorn || 0) - (a.toastBorn || 0));
+}
+
+//: Folds all but the newest `TOAST_VISIBLE` into one "+N more" card at the
+//: far end of the stack, away from the corner.
+function toastLayout(box) {
+  const live = toastLive(box);
+  const folded = live.slice(TOAST_VISIBLE);
+  for (const t of live) t.classList.toggle("is-folded", folded.includes(t));
+  for (const t of folded) {
+    if (t.toastKept || t.toastFiled) continue;
+    t.toastFiled = true;
+    recordNotification({ kind: t.classList.contains("error") ? "error" : "done", title: t.toastText || t.textContent.trim() });
+  }
+  let more = box.querySelector(":scope > .toast-more");
+  if (!folded.length) {
+    more?.remove();
+    return;
+  }
+  if (!more) {
+    more = document.createElement("div");
+    more.className = "toast toast-more";
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "ghost small toast-more-open";
+    open.addEventListener("click", () => $("notif-btn")?.click());
+    more.append(open);
+  }
+  const open = more.firstElementChild;
+  open.textContent = `+${folded.length} more`;
+  open.title = "Open the notifications";
+  open.setAttribute("aria-label", `${folded.length} more notifications. Open the notifications`);
+  if (toastAtTop(box)) box.append(more);
+  else box.prepend(more);
+}
+
+//: The same notice again: the card it is already on counts it and starts its
+//: time again. Returns whether it merged.
+function toastMerge(box, key, act = null) {
+  const now = Date.now();
+  const same = [...box.children].find((t) => t.toastKey === key && t.toastAct === act && !t.classList.contains("is-leaving") && now - t.toastAt < TOAST_MERGE_MS);
+  if (!same) return false;
+  same.toastAt = now;
+  same.toastCount = (same.toastCount || 1) + 1;
+  const msg = same.querySelector(":scope > .toast-msg");
+  let badge = msg?.querySelector(":scope > .toast-count");
+  if (msg && !badge) {
+    badge = document.createElement("span");
+    badge.className = "toast-count";
+    msg.append(badge);
+  }
+  if (badge) {
+    badge.textContent = `×${same.toastCount}`;
+    badge.setAttribute("aria-label", `${same.toastCount} times`);
+  }
+  if (same.toastLife) {
+    clearTimeout(same.toastTimer);
+    same.toastTimer = setTimeout(() => dismissToast(same), same.toastLife);
+  }
+  return true;
+}
+
+//: Stamps a card for the stack: when it was born, what merges with it, how
+//: long it lives.
+function toastMark(note, key, { act = null, life = 0, text = "" } = {}) {
+  note.toastBorn = ++toastBorn;
+  note.toastKey = key;
+  note.toastAct = act;
+  note.toastAt = Date.now();
+  note.toastLife = life;
+  note.toastText = text;
+}
+
+//: Reduced motion (the system's, or Appearance's Reduce motion) keeps the
+//: fades, which are the polish set's and follow Interface animations, but
+//: never slides the stack (the owner 2026-10-11).
+function toastReduced() {
+  return Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)").matches)
+    || document.documentElement.dataset.motion === "reduced";
+}
+
 function toastStack(box, change) {
-  const was = [...box.children].map((t) => [t, t.getBoundingClientRect().top]);
+  if (!box) return change();
+  const shown = (t) => t.getClientRects().length > 0;
+  const was = new Map([...box.children].filter(shown).map((t) => [t, t.getBoundingClientRect().top]));
+  const before = new Set(box.children);
   change();
+  const top = toastAtTop(box);
+  //: Newest nearest the corner: a card the caller appended goes first when
+  //: the stack hangs from the top.
+  for (const t of [...box.children]) if (!before.has(t) && top) box.prepend(t);
+  toastLayout(box);
   const cs = getComputedStyle(box);
   const ms = parseFloat(cs.getPropertyValue("--ui-base")) * 1000;
-  for (const [t, top] of ms ? was : []) {
-    const dy = top - t.getBoundingClientRect().top;
-    if (dy && t.isConnected) t.animate([{ translate: `0 ${dy}px` }, { translate: "0 0" }], { duration: ms, easing: cs.getPropertyValue("--ease-out") });
+  if (!ms || toastReduced()) return;
+  const ease = cs.getPropertyValue("--ease-out");
+  let shift = 0;
+  for (const [t, at] of was) {
+    if (!t.isConnected || !shown(t)) continue;
+    const dy = at - t.getBoundingClientRect().top;
+    if (!dy) continue;
+    shift = dy;
+    t.animate([{ translate: `0 ${dy}px` }, { translate: "0 0" }], { duration: ms, easing: ease });
+  }
+  const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+  const step = (parseFloat(cs.getPropertyValue("--space-4")) || 1) * rem * (top ? -1 : 1);
+  for (const t of box.children) {
+    if (was.has(t) || !shown(t) || t.classList.contains("toast-more")) continue;
+    t.animate([{ translate: `0 ${shift || step}px` }, { translate: "0 0" }], { duration: ms, easing: ease });
   }
 }
 
-//: **A toast leaves the way it came** (INBOX 399 (4)): it fades and drops
-//: 4px on the same curve it arrived on (`.toast.is-leaving`,
-//: 01-forms-settings.css) rather than vanishing between two frames, which
-//: read as the corner of the window glitching. Removed on `animationend`, with
-//: a timer behind it for the case where no animation runs at all.
+//: **A toast leaves in place** (INBOX 399 (4)): it fades and shrinks on the
+//: exit curve (`.toast.is-leaving`, 01-forms-settings.css) without moving,
+//: so it never crosses a neighbour, and the stack then closes the gap.
+//: Removed on `animationend`, with a timer behind it for the case where no
+//: animation runs at all.
 function dismissToast(note) {
   if (!note.isConnected || note.classList.contains("is-leaving")) return;
   note.classList.add("is-leaving");
@@ -999,40 +914,10 @@ function toastCloseButton(note, timer) {
 //: notice, and it is the whole message plus severity that must match, not
 //: just the timing, so two different toasts arriving close together both
 //: still show.
-//: Where a support bundle goes; the same string as `memorymap.SUPPORT_EMAIL`
+//: Where a support bundle goes; the same string as `tessellate.SUPPORT_EMAIL`
 //: (tests/test_support_email.py keeps them equal).
 const SUPPORT_EMAIL = "brayden.hoyle@outlook.com";
 
-//: **A report by email, with the bundle saved first** (INBOX 256, the owner:
-//: "suggest that they download the support bundle and send it to my email
-//: ... even open the email dialogue for them"). The bundle is a download,
-//: never an attachment a page can add itself, so the order is: save it,
-//: then open the person's mail app on a message that names the file to
-//: attach. The address is also put on the clipboard, because a webview
-//: without a mail handler opens nothing and says nothing.
-async function emailSupportReport(about) {
-  if (typeof downloadSupportBundle === "function") await downloadSupportBundle();
-  //: The version is read off the page's own stamped script URL, the one
-  //: thing every build carries without another request.
-  const stamp = (document.querySelector('script[src*="app.js?v="]')?.getAttribute("src") || "").split("?v=")[1] || "";
-  const subject = encodeURIComponent(`MemoryMap AI report${stamp ? ` (${stamp.split("-")[0]})` : ""}`);
-  const body = encodeURIComponent(
-    (about ? `What happened: ${about}\n\n` : "What happened: \n\n") +
-      "Please attach memorymap-support-bundle.zip, which was just saved to your downloads.\n"
-  );
-  try {
-    await navigator.clipboard?.writeText?.(SUPPORT_EMAIL);
-  } catch {
-    // no clipboard in this context: the address is in the toast below
-  }
-  const link = document.createElement("a");
-  link.href = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
-  link.rel = "noopener";
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  toast(`Your mail app should open. The address, ${SUPPORT_EMAIL}, is on your clipboard too.`);
-}
 
 //: A toast steps aside for the focused control it covers (WCAG 2.4.11,
 //: measured at 200% and 400% zoom: a lasting "3 reminders are due" hid the
@@ -1096,12 +981,14 @@ function plainHttpError(status, detail, fallback = "") {
   if (status === 404) return "That could not be found. It may have been deleted.";
   if (status === 400 || status === 405 || status === 422) return "That was not accepted. Try again.";
   if (status === 403) return "That is not allowed.";
-  if (status >= 500) return "Something went wrong inside MemoryMap. Try again; if it keeps happening, Settings > Logs has the details.";
+  if (status >= 500) return "Something went wrong inside Tessellate. Try again; if it keeps happening, Settings > Logs has the details.";
   return "That did not work. Try again.";
 }
 
+//: One gesture that fires two handlers (CM6's dispatch and a DOM listener on
+//: one click) shows one notice: the same words in the same task are dropped.
+//: A repeat in a later task is a real repeat and merges with a count.
 let lastToastKey = "";
-let lastToastAt = 0;
 //: **An error toast is for a fault; a situation the app expects is a plain one**
 //: (the owner's end-to-end pass: Dictate without the voice add-on, Compress on
 //: an empty chat, Add on an empty reminder all showed red and "Report this",
@@ -1115,18 +1002,62 @@ let lastToastAt = 0;
 //:   design (`api()` in app.js notes each 4xx message in `toast.refused`).
 //: Only a 5xx, a network failure or an unexpected exception keeps the red
 //: style and the report button. `tests/test_error_toasts.py` pins both.
-function toast(message, isError = false, { exempt = false } = {}) {
+//:
+//: **An error explains and offers** (WORLD_CLASS_PLAN 28.1 rule 4): an error
+//: toast always carries one action. A caller that knows the way forward passes
+//: it, `{ action: ["Try again", fn] }`; one that does not gets Open the logs,
+//: Settings, Logs, where the why is written (the message says what happened).
+//: `tests/test_error_toasts.py` holds the literal faults to an action of their own.
+//: **The app's voice for what it says itself** (CHAT_PLAN decision 55,
+//: Brief 68 row 9): one register for a failure, "Couldn't open that
+//: document.", never "Could not" beside "Couldn't", never an exclamation. The
+//: table is the realiser's (`ai/realise.py` `VOICE`); tests/test_voice_tables.py
+//: holds the two equal and counts the surfaces moved onto it (the Library,
+//: the board and the map first, the three with the most toasts).
+const VOICE = {
+  failed: "Couldn't {what}.",
+  failed_why: "Couldn't {what}: {why}",
+};
+
+//: **A toast names the thing** (CHAT_PLAN section 1 row 3): `“Passport
+//: renewal”`, cut to a short run, so "Moved to the bin." says what moved.
+//: **One shape for a date and its time** (WORLD_CLASS_PLAN: "every date and time
+//: follows one setting"): the reader's locale, to the minute. The bare
+//: `toLocaleString()` printed seconds on version lists, notes' hovers and run
+//: logs while the Timeline and the reminders printed none, and 12 or 24 hours
+//: follows the locale's own rule everywhere.
+const WHEN_FORMAT = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
+function whenText(value = new Date()) {
+  const moment = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(moment.getTime()) ? "" : WHEN_FORMAT.format(moment);
+}
+
+function toastName(text, fallback = "it", limit = 48) {
+  const flat = String(text || "").replace(/\s+/g, " ").trim();
+  if (!flat) return fallback;
+  return `“${flat.length > limit ? `${flat.slice(0, limit - 1).trimEnd()}…` : flat}”`;
+}
+
+function voiceLine(key, slots = {}) {
+  const why = slots.why ? String(slots.why).trim() : "";
+  const shape = VOICE[key === "failed" && why ? "failed_why" : key] || "";
+  return shape.replace(/\{(\w+)\}/g, (_, name) => (name === "why" ? why : String(slots[name] ?? "")));
+}
+
+function toast(message, isError = false, { exempt = false, action = null } = {}) {
   if (isError === "info" || (isError === true && [...toast.refused].some((m) => String(message).includes(m)))) {
     isError = false;
     exempt = true;
   }
   if (!exempt && !isError && notificationsMuted()) return;
   const key = `${isError ? "1" : "0"}:${message}`;
-  const now = Date.now();
-  if (key === lastToastKey && now - lastToastAt < 400) return;
+  if (key === lastToastKey) return;
   lastToastKey = key;
-  lastToastAt = now;
+  setTimeout(() => {
+    if (lastToastKey === key) lastToastKey = "";
+  }, 0);
   const box = toastHost();
+  if (toastMerge(box, key, action?.[1] || null)) return;
   //: An error makes the companion jump (avatars.js).
   if (isError && typeof nameMarkBuddyCue === "function") nameMarkBuddyCue("startle", "error");
   const note = document.createElement("div");
@@ -1139,6 +1070,11 @@ function toast(message, isError = false, { exempt = false } = {}) {
   //: button that saves the support bundle and opens a mail to the owner
   //: with the message already in it. Plain toasts stay plain.
   if (isError) {
+    const [label, run] = action || ["Open the logs", () => openSettingsModal("logs")];
+    const act = toastActionButton(note, label, () => {
+      clearTimeout(timer);
+      run();
+    });
     const help = document.createElement("button");
     help.type = "button";
     help.className = "ghost small toast-help";
@@ -1149,9 +1085,11 @@ function toast(message, isError = false, { exempt = false } = {}) {
       dismissToast(note);
       emailSupportReport(message);
     });
-    note.appendChild(help);
+    note.appendChild(toastActions(act, help));
   }
   const timer = setTimeout(() => dismissToast(note), isError ? 9000 : 5500);
+  toastMark(note, key, { act: action?.[1] || null, life: isError ? 9000 : 5500, text: String(message) });
+  note.toastTimer = timer;
   note.appendChild(toastCloseButton(note, timer));
   //: A tap on the words dismisses it, the way a phone's own banners go
   //: (below 1100 a toast comes down from the top, over the head of a list,
@@ -1188,6 +1126,7 @@ function toastProgress(message) {
   text.className = "toast-msg";
   setLabel(text, `ph:spin ${message}`);
   note.append(text);
+  toastMark(note, null, { text: String(message) });
   toastStack(box, () => box.appendChild(note));
   return {
     say(next) {
@@ -1202,12 +1141,24 @@ function toastProgress(message) {
       text.textContent = finalMessage;
       note.classList.toggle("error", Boolean(isError));
       if (actionLabel && onAction) {
-        note.appendChild(toastActionButton(note, actionLabel, keepToastAction(finalMessage, actionLabel, onAction, { go, record })));
+        note.appendChild(toastActions(toastActionButton(note, actionLabel, keepToastAction(finalMessage, actionLabel, onAction, { go, record }))));
       }
       note.toastTimer = setTimeout(() => dismissToast(note), 5500);
       note.appendChild(toastCloseButton(note, note.toastTimer));
     },
   };
+}
+
+//: **A notification's actions are their own row** (INBOX 847: "notification
+//: buttons are still in line with the x close button ... it looks weird"): the
+//: message and the close button are the first row, the actions sit under the
+//: message, left-aligned with its words (`.toast-actions`, 02-chat-graph.css),
+//: so the close X is alone in its corner.
+function toastActions(...buttons) {
+  const row = document.createElement("div");
+  row.className = "toast-actions";
+  row.append(...buttons);
+  return row;
 }
 
 //: One action on a toast (INBOX 584): a small button after the message,
@@ -1230,20 +1181,42 @@ function toastActionButton(note, label, run) {
 //: already in the bell (`keepToastAction`); `also: {label, run}`, a second
 //: button beside the first (a bin notice's "Go to bin" next to its Undo,
 //: INBOX 705). It is the toast's own and is not kept in the bell: its row
-//: keeps the one action it always had.
+//: keeps the one action it always had. `ms` is how long it stays (8 s by
+//: default; a clear that can be undone passes 10 s).
 function toastAction(message, actionLabel, onAction, opts = {}) {
-  const run = keepToastAction(message, actionLabel, onAction, opts);
   const box = toastHost();
+  const key = `a:${message}:${actionLabel}`;
+  if (toastMerge(box, key, onAction)) return;
+  const run = keepToastAction(message, actionLabel, onAction, opts);
   const note = document.createElement("div");
   note.className = "toast";
   const text = document.createElement("span");
   text.className = "toast-msg";
   text.textContent = message;
-  note.toastTimer = setTimeout(() => dismissToast(note), 8000);
+  // `sticky`: a notice that stays true until acted on (a damaged notebook
+  // file) is not timed out; its close button is the way to put it away.
+  note.toastTimer = opts.sticky ? null : setTimeout(() => dismissToast(note), opts.ms || 8000);
   const buttons = [toastActionButton(note, actionLabel, run)];
   if (opts.also) buttons.push(toastActionButton(note, opts.also.label, opts.also.run));
-  note.append(text, ...buttons, toastCloseButton(note, note.toastTimer));
+  note.append(text, toastActions(...buttons), toastCloseButton(note, note.toastTimer));
+  toastMark(note, key, { act: onAction, life: opts.sticky ? 0 : opts.ms || 8000, text: String(message) });
+  note.toastKept = true;
   toastStack(box, () => box.appendChild(note));
+}
+
+//: The notebook file's check at start (`GET /backups/integrity`, WORLD_CLASS
+//: 25e) in one sentence that says what to do. Shared by the boot notice and
+//: Settings, Import & export, so both say the same thing.
+function integrityWords() {
+  return "Your notebook file failed its check at start. Restore the newest backup in Settings, Import & export.";
+}
+
+function noteDamagedNotebook(check) {
+  if (!check || check.ok !== false) return;
+  toastAction(integrityWords(), "Open backups", () => openSettingsModal("data", "backup-now"), {
+    go: { settings: "data", focus: "backup-now" },
+    sticky: true,
+  });
 }
 
 //: The second button of every "Moved to the bin." notice: the bin is the
@@ -1284,12 +1257,12 @@ function showServerDownBanner() {
   note.className = "toast error server-down-toast";
   const text = document.createElement("span");
   text.className = "toast-msg";
-  text.textContent = "Can't reach MemoryMap. Retrying…";
+  text.textContent = "Can't reach Tessellate. Retrying…";
   const button = document.createElement("button");
   button.className = "small toast-action";
   button.textContent = "Retry";
   button.addEventListener("click", () => retryServerNow());
-  note.append(text, button, toastCloseButton(note, null));
+  note.append(text, toastActions(button), toastCloseButton(note, null));
   toastStack(box, () => box.appendChild(note));
   serverDownNote = note;
 }
@@ -1380,6 +1353,81 @@ function pushUndo(label, undo, redo) {
   return action;
 }
 
+//: **An insight line's two verdicts** (CHAT_PLAN decision 60): Confirm writes
+//: it as a fact the person vouched for ("Golf is a hobby of yours (confirmed
+//: by you, 10 October)"), said that way from the next answer on; Not right
+//: keeps it, and every near-variant of it, from being shown again. **One
+//: compact pair on the sentence's own row** (INBOX 782, the owner: "redesign
+//: the confirm and not right buttons ... and any other similar instances"): a
+//: check and a cross with their words, quiet at rest, right-aligned, drawn by
+//: `insightLine` for Chat and Tidy's Patterns and by `INSIGHT_VERDICT_ITEMS`
+//: for the dashboard's ⋯. `onDone(verdict, result)` lets the surface replace
+//: the line; a confirmed insight is drawn with no pair.
+const INSIGHT_VERDICT_ITEMS = [
+  { verdict: "confirm", label: "ph:check Confirm", title: "This is right: say it as a fact from now on" },
+  { verdict: "dismiss", label: "ph:x Not right", title: "Not right: never show this or anything like it again" },
+];
+
+function insightSend(insight, verdict) {
+  return apiJson(`/insights/${verdict}`, { method: "POST", body: JSON.stringify(insight) });
+}
+
+//: `send` is where the verdict goes: an insight's own route by default; a
+//: cited line's peek (B31, B32) sends it to `/learned/verdict` instead.
+function insightVerdicts(insight, onDone, send = insightSend) {
+  const group = document.createElement("span");
+  group.className = "insight-verdicts";
+  group.setAttribute("role", "group");
+  group.setAttribute("aria-label", "Is this right?");
+  for (const item of INSIGHT_VERDICT_ITEMS) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `insight-verdict is-${item.verdict}`;
+    if (item.title) button.title = item.title;
+    setLabel(button, item.label);
+    button.addEventListener("click", () =>
+      send(insight, item.verdict)
+        .then((result) => onDone?.(item.verdict === "confirm" ? "confirmed" : "dismissed", result))
+        .catch((error) => toast(error.message, true))
+    );
+    group.appendChild(button);
+  }
+  return group;
+}
+
+//: One insight sentence with its pair on the same row: the words take the
+//: room, the pair sits at the end and wraps under them on a narrow screen.
+function insightLine(insight, text, onDone, extraClass = "", send = insightSend) {
+  const line = document.createElement("p");
+  line.className = `insight-line ${extraClass}`.trim();
+  const words = document.createElement("span");
+  words.className = "insight-text";
+  words.textContent = text;
+  line.append(words, insightVerdicts(insight, (verdict, result) => onDone?.(line, verdict, result), send));
+  return line;
+}
+
+//: **Rule 1.8's one shape** (WORLD_CLASS 1.8) for an act that reached the
+//: server: an entry on the undo stack (the bar, Ctrl+Z, the history menu) and
+//: a toast whose Undo is that same entry, taken off the stack when pressed so
+//: Ctrl+Z cannot run it a second time. `tests/test_undo_contract.py` holds
+//: every other function named for an undo to this file's contract.
+function offerUndo(label, message, undo, redo, opts = {}) {
+  const action = pushUndo(label, undo, redo);
+  toastAction(
+    message,
+    "Undo",
+    async () => {
+      settleUndoFromToast(action);
+      await Promise.resolve()
+        .then(undo)
+        .catch((error) => toast(error.message, true));
+    },
+    opts
+  );
+  return action;
+}
+
 // A few call sites also offer an immediate toast "Undo" button alongside the
 // global stack (Wave J's pattern, from before this stack existed). If that
 // button is used, the action has to come off the undo stack, otherwise a
@@ -1388,6 +1436,7 @@ function pushUndo(label, undo, redo) {
 function settleUndoFromToast(action) {
   const idx = undoStack.indexOf(action);
   if (idx !== -1) undoStack.splice(idx, 1);
+  action.undoneAt = Date.now();
   redoStack.push(action);
   renderUndoBar();
 }
@@ -1424,7 +1473,11 @@ function pushEntryPutUndo(entryId, label, beforeBody, afterBody) {
 function boardHistoryActive() {
   const board = document.getElementById("library-view-whiteboard");
   const canvas = document.getElementById("wb-canvas-view");
-  return Boolean(board && !board.classList.contains("hidden") && canvas && !canvas.classList.contains("hidden") && window.wbUndo);
+  //: Showing, not merely un-hidden (INBOX 898, found by the live check): the
+  //: board's view keeps no `hidden` class when another main tab covers it, so
+  //: Ctrl+Z on Notes walked the last board's history and the app's own steps
+  //: could not be reached.
+  return Boolean(board && !board.classList.contains("hidden") && canvas && !canvas.classList.contains("hidden") && window.wbUndo && board.getClientRects().length);
 }
 
 //: **Which history a press walks** (the owner, 2026-10-05: "local undos and
@@ -1433,15 +1486,32 @@ function boardHistoryActive() {
 //: editor history (kept per document for the session, `docResetDocument`).
 //: Anywhere else: the app's stack below, for notes, tags, categories, links,
 //: reminders and the rest. Inside a text field Ctrl+Z is always the field's.
-function surfaceHistory() {
+//: `dir` is "redo" for the redo door: on a document the two can differ.
+function surfaceHistory(dir = "undo") {
   if (boardHistoryActive()) {
     return { where: "board", undo: () => window.wbUndo(), redo: () => window.wbRedo?.(), canUndo: window.wbCanUndo, canRedo: window.wbCanRedo };
   }
   const docs = document.getElementById("tab-documents");
-  if (docs && !docs.classList.contains("hidden") && typeof currentDoc !== "undefined" && currentDoc && window.docCanUndo) {
+  if (docs && !docs.classList.contains("hidden") && typeof currentDoc !== "undefined" && currentDoc && window.docCanUndo && !appStackIsNewer(dir)) {
     return { where: "document", undo: () => window.docUndo(), redo: () => window.docRedo(), canUndo: window.docCanUndo, canRedo: window.docCanRedo };
   }
   return null;
+}
+
+//: **One timeline on an open document** (DOCUMENTS 24 row 1). A document's
+//: own acts (rename, archive, a version restored, a note unlinked) reach the
+//: server and sit on the app's stack; its typing sits in the editor's history.
+//: Ctrl+Z walks whichever of the two holds the newer step, so a rename after a
+//: paragraph undoes first and the paragraph next, the order they were made.
+//: Before this the document's history took every press while one was open,
+//: and an act on the stack could only be undone from its toast.
+function appStackIsNewer(dir) {
+  if (dir === "redo") {
+    const top = redoStack[redoStack.length - 1];
+    return Boolean(top) && (top.undoneAt || 0) >= (window.docRedoAt?.() || 0);
+  }
+  const top = undoStack[undoStack.length - 1];
+  return Boolean(top) && top.at >= (window.docUndoAt?.() || 0);
 }
 
 async function performUndo() {
@@ -1455,6 +1525,7 @@ async function performUndo() {
   if (!action) return;
   try {
     await action.undo();
+    action.undoneAt = Date.now();
     redoStack.push(action);
     toast(`Undone: ${action.label}`);
   } catch (error) {
@@ -1467,7 +1538,7 @@ async function performUndo() {
 }
 
 async function performRedo() {
-  const surface = surfaceHistory();
+  const surface = surfaceHistory("redo");
   if (surface) {
     await surface.redo();
     renderUndoBar();
@@ -1505,95 +1576,43 @@ function renderUndoBar() {
   //: are "move this shape back", not a sentence), so the pair falls back to
   //: the plain verbs while one is open, and takes its enabled state from the
   //: board's counts: a button that is lit when there is nothing behind it is
-  //: the thing that makes people stop trusting it.
+  //: the thing that makes people stop trusting it. Each button asks for its
+  //: own history, since on a document the newer step decides (`appStackIsNewer`).
   const surface = surfaceHistory();
-  const last = surface ? null : undoStack[undoStack.length - 1];
-  const next = surface ? null : redoStack[redoStack.length - 1];
-  undoBtn.disabled = surface ? !surface.canUndo?.() : !last;
-  redoBtn.disabled = surface ? !surface.canRedo?.() : !next;
+  paintUndoDoor(undoBtn, "undo", surface, undoStack);
+  paintUndoDoor(redoBtn, "redo", surfaceHistory("redo"), redoStack);
+}
+
+function paintUndoDoor(button, verb, surface, stack) {
+  const redo = verb === "redo";
+  const Verb = redo ? "Redo" : "Undo";
+  const icon = redo ? "ph:arrow-u-up-right" : "ph:arrow-u-up-left";
   if (surface) {
+    const can = redo ? surface.canRedo?.() : surface.canUndo?.();
     const where = surface.where === "board" ? "on this board" : "in this document";
-    paintStatusItem("status-undo", {
-      icon: "ph:arrow-u-up-left",
-      title: surface.canUndo?.() ? `Undo the last change ${where}` : `Nothing to undo ${where}`,
-      shortcut: surface.canUndo?.() ? "undo" : "",
-    });
-    paintStatusItem("status-redo", {
-      icon: "ph:arrow-u-up-right",
-      title: surface.canRedo?.() ? `Redo the last change ${where}` : `Nothing to redo ${where}`,
-      shortcut: surface.canRedo?.() ? "redo" : "",
+    button.disabled = !can;
+    paintStatusItem(button.id, {
+      icon,
+      title: can ? `${Verb} the last change ${where}` : `Nothing to ${verb} ${where}`,
+      shortcut: can ? verb : "",
     });
     return;
   }
-  paintStatusItem("status-undo", {
-    icon: "ph:arrow-u-up-left",
+  const top = stack[stack.length - 1];
+  button.disabled = !top;
+  paintStatusItem(button.id, {
+    icon,
+    title: top ? `${Verb}: ${top.label}` : `Nothing to ${verb}`,
+    shortcut: top ? verb : "",
     //: The right-click gesture is named here because a hidden gesture is not a
     //: feature: the same reason the nav pair's tooltips name theirs.
-    title: last
-      ? `Undo: ${last.label}`
-      : "Nothing to undo",
-    shortcut: last ? "undo" : "",
-    rest: last ? `right-click for the last ${undoStack.length}` : "",
-  });
-  paintStatusItem("status-redo", {
-    icon: "ph:arrow-u-up-right",
-    title: next ? `Redo: ${next.label}` : "Nothing to redo",
-    shortcut: next ? "redo" : "",
+    rest: top && !redo ? `right-click for the last ${stack.length}` : "",
   });
 }
 
 $("status-undo").addEventListener("click", performUndo);
 $("status-redo").addEventListener("click", performRedo);
 
-//: **The stack you can see.** Reported: the global undo is "significantly
-//: outdated and dont register a lot of actions", and the second half of that
-//: is that there was no way to *look*. A single button that says "Undo: moved
-//: a note to the bin" tells you the last thing and nothing about the four
-//: before it, so undoing three steps is three presses into the dark.
-//:
-//: Right-click, the same gesture the back/forward pair already uses for their
-//: own history, and named in the tooltip so it is discoverable rather than
-//: folklore. Picking a row undoes everything down to and including it, which
-//: is what a history list means everywhere else.
-function openUndoHistoryMenu(anchorEl) {
-  const menu = $("undo-history-menu");
-  if (!menu) return;
-  menu.replaceChildren();
-  if (!undoStack.length) return;
-  const list = document.createElement("ul");
-  list.className = "action-menu-list";
-  //: Newest first, because the newest is the one you are almost always
-  //: reaching for and a list you have to read upwards is a list you misread.
-  [...undoStack].reverse().forEach((action, offset) => {
-    const li = document.createElement("li");
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "action-menu-item";
-    setLabel(button, `ph:arrow-u-up-left ${action.label}`);
-    button.title = offset === 0 ? "Undo this" : `Undo this and the ${offset} after it`;
-    button.addEventListener("click", async () => {
-      menu.classList.add("hidden");
-      //: One at a time through `performUndo`, so a step that fails stops the
-      //: run with the stack intact rather than leaving the notebook half
-      //: rolled back: the same contract a single press already has.
-      for (let step = 0; step <= offset; step += 1) {
-        const before = undoStack.length;
-        await performUndo();
-        if (undoStack.length === before) break;
-      }
-    });
-    li.appendChild(button);
-    list.appendChild(li);
-  });
-  menu.appendChild(list);
-  menu.classList.remove("hidden");
-  const margin = 8;
-  const anchor = anchorEl.getBoundingClientRect();
-  menu.style.left = "0px";
-  const box = menu.getBoundingClientRect();
-  const left = Math.min(anchor.left, window.innerWidth - margin - box.width);
-  menu.style.left = `${Math.round(Math.max(margin, left))}px`;
-}
 
 $("status-undo").addEventListener("contextmenu", (event) => {
   if (!undoStack.length || surfaceHistory()) return;
@@ -1638,6 +1657,7 @@ async function loadRecentQuestions() {
     again.title = question;
     box.appendChild(again);
   }
+  ensureModule("askHistory").then(() => askAgainMenu(box, questions));
 }
 
 async function loadMostUsed() {
@@ -1675,6 +1695,18 @@ async function loadMostUsed() {
 // --- model manager (Phase 3.5) ---------------------------------------------------
 
 let modelStatus = null; // latest /models/status payload
+
+//: **The start-up choice, said once with Change** (the owner, 2026-10-07: on
+//: a fresh install with five models it ran a llama3.2 it did not have). Once
+//: per chosen model in this browser; Settings, Models keeps the why.
+function sayChatModelChosen(status) {
+  const why = status?.chat_model_chosen_why;
+  if (!why || typeof toastAction !== "function") return;
+  const key = `chatModelChosen:${status.chat_model}`;
+  if (prefs.get(key)) return;
+  if (!prefs.set(key, "1")) return;
+  toastAction(`${aiNameNow()} now runs ${status.chat_model}: ${why}.`, "Change", () => openSettingsModal("models", "chat-model-select"));
+}
 // Has the status endpoint ever answered? "We haven't asked yet" and "we asked
 // and got nothing" are both `modelStatus === null`, but they mean opposite
 // things to the user: the first is normal for the first second of every
@@ -1724,6 +1756,34 @@ let embeddingFallbackRunning = false;
 function settingsOpen() {
   // The Models section lives inside the settings modal now (Wave A).
   return settingsModalOpen();
+}
+
+// --- every Settings change has its way back (settings-data.js, Recent changes) --
+//
+// The owner, 2026-10-11: "undo thing in settings??". Two choke points see every
+// change, so no control has to remember: every `/preferences` answer passes the
+// wrapper below (the last one kept as text, so a PUT can be diffed against it),
+// and ai-tools.js reports a look key. All the rest (the diff, the list, the
+// Undo) is the lazy settings-data.js, loaded only when a change is made while
+// Settings is open: the boot scripts are at their gzip cap, and `apiJson` is
+// wrapped here rather than edited at its twenty callers.
+let settingsPrefsLast = null;
+//: `settingsHistoryBusy` is set while an Undo or Redo writes, so its own write is
+//: not noted again.
+let settingsHistoryBusy = false;
+{
+  const apiJsonInner = apiJson;
+  apiJson = async (path, options = {}) => {
+    const data = await apiJsonInner(path, options);
+    if (path === "/preferences") {
+      const was = settingsPrefsLast;
+      settingsPrefsLast = JSON.stringify(data);
+      if (was && options.method === "PUT" && !settingsHistoryBusy && settingsOpen()) {
+        ensureModule("settingsData").then(() => settingsPrefsSeen(JSON.parse(was), data));
+      }
+    }
+    return data;
+  };
 }
 
 function jobsRunning() {
@@ -1779,9 +1839,14 @@ async function refreshModelStatus() {
     statusEverAnswered = true;
     modelStatusProblem = null;
   } catch (err) {
-    modelStatus = null; // locked or unreachable: pill shows the worst case
+    //: **A slow answer keeps the last good status** (OPEN ledger 1520): the
+    //: Agent panel and the pill used to grey on every timeout and flicker
+    //: back on the next poll. Only "slow" is flagged (`modelStatusProblem`),
+    //: and Settings still says so. A fault or an unreachable server drops the
+    //: status as before, so the pill shows the worst case.
     if (err?.name === "TimeoutError" || err?.name === "AbortError") modelStatusProblem = "slow";
     else {
+      modelStatus = null; // locked or unreachable: pill shows the worst case
       const up = await fetch("/health", { signal: AbortSignal.timeout(3000) }).then((r) => r.ok).catch(() => false);
       modelStatusProblem = up ? "error" : "down";
     }
@@ -1797,6 +1862,7 @@ async function refreshModelStatus() {
   syncFeatureModelSelects();
   renderAiPill();
   syncModelGatedControls();
+  sayChatModelChosen(modelStatus);
   // The status bar's job slot rides this loop rather than starting one of its
   // own, so it inherits the whole cadence: one second while something is
   // running, thirty when idle, two minutes behind a hidden tab. Idle, `/tasks`
@@ -1862,8 +1928,15 @@ const AI_OFFLINE_HINT = "Connect a model in Settings";
 
 //: Unknown status (locked, still loading) is available: better to let a click
 //: fail than to grey out a working button on a slow start.
+//:
+//: **Off means no model can answer, not only no server** (ledger 1521;
+//: INBOX 778: a reachable server with no chat model installed answers
+//: nothing). `model_ready` is the server's own verdict; the Needle engine
+//: (`tools_engine`) answers without one, so it keeps the gate open.
 function aiIsOff() {
-  return modelStatus ? modelStatus.ollama_running === false : false;
+  if (!modelStatus) return false;
+  if (modelStatus.ollama_running === false) return true;
+  return modelStatus.model_ready === false && !modelStatus.tools_engine;
 }
 
 //: **Why this restores rather than enables.** The status poll runs this every
@@ -1873,15 +1946,82 @@ function aiIsOff() {
 //: of a question. A plain `disabled = off` would hand all of those back mid-run
 //: on the next tick. So the gate records that it was the one that closed a
 //: control and reopens only what it closed.
+//: **A gated control that answers when pressed** (DOCUMENTS 24 row 3, the
+//: CHAT_PLAN gating pattern). One marked `data-model-offer` is not disabled
+//: with no model: it is `aria-disabled`, still a Tab stop, and a press opens a
+//: popover saying why, what still works here (the attribute's own line) and
+//: one way on, Set up a model. A disabled button explains nothing to someone
+//: who presses it: the no-model sweep counted the documents' two as dead.
+function closeModelGate(control) {
+  if (control.dataset.modelOffer !== undefined) {
+    control.setAttribute("aria-disabled", "true");
+    return;
+  }
+  if (control.disabled) return;
+  control.dataset.modelGated = "1";
+  control.disabled = true;
+}
+
+function openModelGate(control) {
+  if (control.dataset.modelOffer !== undefined) control.removeAttribute("aria-disabled");
+  if (!control.dataset.modelGated) return;
+  control.disabled = false;
+  delete control.dataset.modelGated;
+}
+
+function openModelOffer(control) {
+  closeHelpPopovers();
+  const panel = document.createElement("div");
+  panel.className = "help-body model-offer";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", "Needs a model");
+  const why = document.createElement("p");
+  why.textContent = `${control.dataset.needsModel}, and no model is connected. ${control.dataset.modelOffer}`.trim();
+  const setUp = smallButton("ph:plugs Set up a model", "Open Settings at Models, where a local or remote model is connected", () => {
+    entry.close();
+    openSettingsModal("models");
+  });
+  setUp.classList.add("primary");
+  panel.append(why, setUp);
+  const entry = {
+    panel,
+    trigger: control,
+    close() {
+      openHelpPopovers.delete(entry);
+      panel.remove();
+      control.setAttribute("aria-expanded", "false");
+    },
+  };
+  panel.style.visibility = "hidden";
+  panel.classList.add("help-popover");
+  (control.closest("dialog[open]") || document.body).appendChild(panel);
+  panel.addEventListener("click", (event) => event.stopPropagation());
+  openHelpPopovers.add(entry);
+  control.setAttribute("aria-expanded", "true");
+  placeHelpPopover(panel, control);
+  setUp.focus();
+}
+
+//: Capture, so the control's own handler (which would start the AI act)
+//: never sees a press made while the gate is shut.
+document.addEventListener(
+  "click",
+  (event) => {
+    const control = event.target.closest?.('[data-model-offer][aria-disabled="true"]');
+    if (!control) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    openModelOffer(control);
+  },
+  true
+);
+
 function syncModelGatedControls(status = modelStatus) {
   const off = status ? status.ollama_running === false : false;
   for (const control of document.querySelectorAll("[data-needs-model]")) {
     const reason = control.dataset.needsModel;
     if (off) {
-      if (!control.disabled) {
-        control.dataset.modelGated = "1";
-        control.disabled = true;
-      }
+      closeModelGate(control);
       //: `=== undefined`, not a truthiness test, and the saved copy is dropped
       //: once it has been put back. A control whose own title is empty saves
       //: "" here, and `!""` is true, so on the next tick of the poll (one
@@ -1894,10 +2034,7 @@ function syncModelGatedControls(status = modelStatus) {
       }
       control.title = `${reason}. ${AI_OFFLINE_HINT}.`;
     } else {
-      if (control.dataset.modelGated) {
-        control.disabled = false;
-        delete control.dataset.modelGated;
-      }
+      openModelGate(control);
       if (control.dataset.enabledTitle !== undefined) {
         control.title = control.dataset.enabledTitle;
         delete control.dataset.enabledTitle;
@@ -1905,6 +2042,14 @@ function syncModelGatedControls(status = modelStatus) {
     }
     control.classList.toggle("ai-unavailable", off);
   }
+  //: With no model server answering, the per-feature models and the sampling
+  //: settings have nothing to act on (owner, 2026-10-12): hidden, unless a
+  //: feature already has an override of its own, which must stay visible so it
+  //: can be cleared (WORLD_CLASS_PLAN 20).
+  const holdsOverride = Number(status?.feature_models_overridden || 0) > 0;
+  $("feature-models-config")?.classList.toggle("hidden", off && !holdsOverride);
+  const sampling = $("sampling-box");
+  (sampling?.parentElement?.classList.contains("fold-help-wrap") ? sampling.parentElement : sampling)?.classList.toggle("hidden", off);
   //: The badge is a span, not a button, so `disabled` does nothing to it
   //: (see its own comment in `renderTimelineEntry`). Explicitly hidden here so
   //: a badge drawn while the model was online doesn't sit on screen as a
@@ -1920,30 +2065,60 @@ function syncModelGatedControls(status = modelStatus) {
   //: beside it) and says so, the popup agent cannot and says that.
   renderAiOfflineNotice(
     $("ask-offline"),
-    "No model is connected, so this answers from your notes alone: the matching records are below.",
-    { dismissible: true }
+    "No model connected. Ask shows the matching records below.",
+    { dismissible: true, detail: "Ask answers from your notes alone until one is connected." }
   );
-  renderAiOfflineNotice($("command-palette-offline"), "No model is connected, so the agent cannot run.");
+  //: The agent with no model runs acts and readings (AGENT_SKILLS_REFORM
+  //: "Deepened 2026-10-10" row 1, `ai/starter_acts.py`), so the line says
+  //: what a model adds rather than that nothing runs.
+  renderAiOfflineNotice(
+    $("command-palette-offline"),
+    "No model connected. The agent runs acts and reads your notes.",
+    { dismissible: true, detail: "Reminders, notes, tags, links and the day's changes work now. Open questions and drafting need a model." }
+  );
   //: The Chat tab (INBOX 266 part 1, then 725): with no model a message is
   //: answered from the notes by the composer, so the box stays open and the
   //: line says what a model would add rather than that nothing answers.
   renderAiOfflineNotice(
     $("chat-offline"),
-    "No model is connected, so Chat answers from your notes, quoting them. Connecting one adds AI answers and Agent mode.",
-    { dismissible: true }
+    "No model connected. Chat answers from your notes.",
+    { dismissible: true, detail: "Chat quotes your notes until one is connected. A model adds AI answers and Agent mode." }
   );
   //: And the writing desk, which is the third surface that is nothing but
   //: Atlas: with no model it cannot draft at all, and before this the only
   //: thing that said so was a title on a button that could not be pressed.
   renderAiOfflineNotice(
     $("draft-offline"),
-    "No model is connected, so nothing can be drafted here yet. Everything else on this tab still works."
+    "No model connected, so nothing can be drafted. The rest of this tab works."
   );
   //: UX-12: any other AI-only widget names its own line.
   for (const line of document.querySelectorAll("[data-offline-line]")) renderAiOfflineNotice(line, line.dataset.offlineLine);
+  //: A field that still works with no model says what it does then.
+  for (const field of document.querySelectorAll("[data-offline-placeholder]")) {
+    if (field.dataset.onlinePlaceholder === undefined) field.dataset.onlinePlaceholder = field.placeholder;
+    field.placeholder = off ? field.dataset.offlinePlaceholder : field.dataset.onlinePlaceholder;
+  }
+  //: Surfaces built in script (the inline AI bar) follow the change live.
+  if (syncModelGatedControls.off !== off) {
+    syncModelGatedControls.off = off;
+    document.dispatchEvent(new CustomEvent("mm-model-gate", { detail: { off } }));
+  }
   syncAgentPaletteAvailability();
   renderChatModeSeg();
 }
+
+//: **A control built after the last poll is gated when it arrives** (the
+//: owner, 2026-10-10: "I can still activate skills ... when I have no model
+//: running"). The poll applies `data-needs-model` every tick, but idle that is
+//: thirty seconds, and the chat dock's Skills button is built by skills.js when
+//: the dock first draws: it stayed pressable for up to half a minute after
+//: boot (measured: enabled 2.5 s in, with the attribute set). Watching for added
+//: nodes covers every lazily built control, including ones not written yet,
+//: rather than asking each builder to remember a call. The records of one
+//: task arrive together, so one gate pass however many nodes land.
+new MutationObserver((records) => {
+  if (modelStatus && records.some((r) => [...r.addedNodes].some((n) => n.querySelector?.("[data-needs-model]") || n.matches?.("[data-needs-model]")))) syncModelGatedControls();
+}).observe(document.body, { childList: true, subtree: true });
 
 //: **A banner can be closed for the session** (INBOX 732: "a way to
 //: temporarily hide these no ai popups, they can appear again when the user
@@ -1953,7 +2128,17 @@ function syncModelGatedControls(status = modelStatus) {
 const AI_OFFLINE_DISMISSED_KEY = "aiOfflineDismissed";
 const aiOfflineDismissedNow = new Set();
 
+//: The person's own switch (Settings, Models): the banners never show.
+function aiOfflineNoticeHidden() {
+  try {
+    return prefs.get("hideOfflineNotice", null) === "on";
+  } catch {
+    return false;
+  }
+}
+
 function aiOfflineDismissed(id) {
+  if (aiOfflineNoticeHidden()) return true;
   if (aiOfflineDismissedNow.has(id)) return true;
   try {
     return JSON.parse(sessionStorage.getItem(AI_OFFLINE_DISMISSED_KEY) || "[]").includes(id);
@@ -1969,25 +2154,32 @@ function dismissAiOffline(id) {
   } catch (err) { /* memory alone still lasts until the window closes */ }
 }
 
-//: One line and one button, in a named container, or nothing at all. Rebuilt
+//: One row (DESIGN.md, "A notice"): an icon, one short sentence, the button
+//: that fixes it, then the close when it has one. The container carries
+//: `.notice`; what a surface says beyond the sentence goes in `detail`, which
+//: becomes the button's title (INBOX 767: the long sentence was the ugly part).
+//: Rebuilt
 //: rather than toggled because the status poll calls this every tick and a
 //: stale sentence is worse than none. `dismissible` adds the close (DESIGN.md,
 //: "A notice that can be closed"): a dismissed one stays hidden for the session.
-function renderAiOfflineNotice(container, what, { dismissible = false } = {}) {
+function renderAiOfflineNotice(container, what, { dismissible = false, detail = "" } = {}) {
   if (!container) return;
   container.replaceChildren();
   const off = aiIsOff();
-  const closed = dismissible && aiOfflineDismissed(container.id);
+  const closed = aiOfflineNoticeHidden() || (dismissible && aiOfflineDismissed(container.id));
   container.classList.toggle("hidden", !off || closed);
   if (!off || closed) return;
+  //: The icon is the container's first child, which is where `.notice > .ph`
+  //: styles it; `setLabel` on the container builds exactly that.
+  setLabel(container, "ph:plugs");
   const text = document.createElement("span");
-  text.className = "muted";
+  text.className = "ai-offline-text";
   text.textContent = what;
   const link = document.createElement("button");
   link.type = "button";
   link.className = "ghost small";
-  setLabel(link, `ph:plugs ${AI_OFFLINE_HINT}`);
-  link.title = "Open Settings at Models, where a local or remote model is connected";
+  link.textContent = AI_OFFLINE_HINT;
+  link.title = `Open Settings at Models, where a local or remote model is connected.${detail ? ` ${detail}` : ""}`;
   link.addEventListener("click", () => openSettingsModal("models"));
   container.append(text, link);
   if (!dismissible) return;
@@ -2006,20 +2198,12 @@ function renderAiOfflineNotice(container, what, { dismissible = false } = {}) {
   container.append(close);
 }
 
-//: The popup agent is the one surface with nothing to fall back to, so its
-//: field and its starters are disabled with the rest (decision 11's "visible,
-//: disabled": never hidden, so a reader can still see what it would offer).
+//: The popup agent no longer closes with no model (row 1 above): every
+//: starter and any act the reading knows runs without one, so its field and
+//: starters stay open and only say, on hover, what is answered how.
 function syncAgentPaletteAvailability() {
-  const off = aiIsOff();
   const input = $("command-palette-input");
-  if (input) {
-    input.disabled = off;
-    input.title = off ? `${AI_OFFLINE_HINT}.` : "";
-  }
-  for (const chip of document.querySelectorAll("#command-palette-starters [data-example]")) {
-    chip.disabled = off;
-    if (off) chip.title = `${AI_OFFLINE_HINT}.`;
-  }
+  if (input) input.title = aiIsOff() ? "No model: acts and readings from your notes" : "";
 }
 
 // What the AI is doing, as one decision.
@@ -2051,7 +2235,7 @@ function aiStatusState() {
     }
     return {
       level: "error",
-      title: "Can't reach MemoryMap",
+      title: "Can't reach Tessellate",
       detail:
         "The app can't read its own status, which usually means the server " +
         "stopped. Your notes are safe on disk.",
@@ -2288,6 +2472,9 @@ function paintStatusItem(id, { icon, value, label, title, tone = "", shortcut = 
     button.appendChild(strong);
   }
   if (label) {
+    //: A space between the number and its word, not drawn (a flex row drops
+    //: it) but read: "29notes" is what a tool takes the visible text to be.
+    if (value !== undefined && value !== null) button.append(" ");
     const text = document.createElement("span");
     text.textContent = label;
     button.appendChild(text);
@@ -2298,7 +2485,11 @@ function paintStatusItem(id, { icon, value, label, title, tone = "", shortcut = 
   // Commands) announce as a bare "button" to a screen reader. The ones that
   // also paint a `value`/`label` have real text and do not need it, but
   // setting it uniformly keeps the two from drifting apart.
-  if (title) button.setAttribute("aria-label", title);
+  //: WCAG 2.5.3, the visible words are part of the name ("29 notes: Your
+  //: notebook..."), which axe's label-content-name-mismatch found on the
+  //: notes and reminders counts.
+  const shown = [value, label].filter((part) => part !== undefined && part !== null && part !== "").join(" ");
+  if (title) button.setAttribute("aria-label", shown ? `${shown}: ${title}` : title);
   else button.removeAttribute("aria-label");
   button.classList.toggle("status-due", tone === "due");
 }
@@ -2346,13 +2537,17 @@ function renderStatusBar() {
   const slot = $("status-task");
   slot.classList.toggle("hidden", !task);
   if (task) {
-    const others = backgroundTasks.length - 1;
+    //: "2 running: Answering 'what is a mouse'" (INBOX 805): how many, and
+    //: the newest concern by name. The ring is the shared working mark
+    //: (`ph:spin`), which only breathes under reduced motion.
+    const count = backgroundTasks.length;
     paintStatusItem("status-task", {
-      icon: "ph:gear",
-      label: others > 0 ? `${task.label} (+${others})` : task.label,
+      icon: "ph:spin",
+      value: count,
+      label: `running: ${task.label}`,
       title:
-        `${task.label}${task.detail ? `, ${task.detail}` : ""}` +
-        "\n\nClick to open Background tasks.",
+        backgroundTasks.map((t) => `${t.label}${t.detail ? `, ${t.detail}` : ""}`).join("\n") +
+        "\n\nClick to open Activity, where each run shows its lines and can stop.",
     });
   }
 
@@ -2454,66 +2649,6 @@ function toggleAiStatusPopup(force) {
   popup.classList.toggle("pinned", open);
 }
 
-// One plain-English line: which search engine is active and whether it works.
-// The built-in engine runs without Ollama, so this shows in every state.
-function renderSearchEngineHealth(status) {
-  const el = $("search-engine-health");
-  // The name comes from the server, never from a string in here: this line
-  // said "Built-in (all-MiniLM)" for two model changes after the built-in
-  // model stopped being all-MiniLM, and the only way to find out what was
-  // really running was to watch it download in the log.
-  const engine =
-    status.embedding_backend === "ollama"
-      ? `Ollama · ${status.embedding_model}`
-      : `Built-in · ${status.active_embedding_model || "…"}`;
-  let state = "not ready";
-  let cls = "busy";
-  if (status.embedding_ready) {
-    //: No tick in front of the word. The line already carries `status ok`,
-    //: which is the green, and a typed check beside it was the app saying the
-    //: same thing twice in two different alphabets: one of the plainer signs
-    //: of a UI assembled from whatever was to hand (INBOX 263).
-    state = "ready";
-    cls = "ok";
-  } else if (status.embedding_warming) {
-    state = "… warming up";
-  } else if (status.embedding_backend !== "ollama" && status.builtin_embedding_installing) {
-    state = "installing, search uses keywords until it is done";
-  } else if (status.embedding_backend !== "ollama" && status.builtin_embedding_installed === false) {
-    //: "not ready" read as "wait", when nothing was coming (INBOX 431 (3)).
-    state = "not installed, search uses keywords (install it under Packages)";
-    cls = "error";
-  } else if (status.embedding_error) {
-    state = "Unavailable: using keyword search (details below)";
-    cls = "error";
-  }
-  //: **In words: is it working, and how well** (INBOX 431 (3), the owner:
-  //: "half the time I can't tell if it is working or how well"). How many
-  //: notes it can find by meaning, a re-index's progress, and how the last
-  //: search actually found its notes.
-  const reindex = status.reindex;
-  const cover = status.embedding_coverage;
-  const parts = [state];
-  if (reindex && reindex.status === "running" && reindex.total) {
-    parts.push(`indexing ${reindex.done} of ${reindex.total} notes`);
-  } else if (status.embedding_ready && cover && cover.total) {
-    parts.push(
-      cover.indexed >= cover.total
-        ? `all ${cover.total} notes searchable by meaning`
-        : `${cover.indexed} of ${cover.total} notes searchable by meaning`
-    );
-  }
-  const last = status.last_search?.mode;
-  if (last) {
-    parts.push(
-      last === "keyword" ? "last search used keywords only"
-        : last === "semantic" ? "last search matched by meaning"
-          : "last search matched by meaning and keywords"
-    );
-  }
-  el.textContent = `Search engine: ${engine}: ${parts.join(", ")}`;
-  el.className = `status ${cls}`;
-}
 
 // What to call the backend on screen. The whole UI was written when there was
 // only Ollama, and the word is in a dozen strings; this is the one place that
@@ -2522,6 +2657,15 @@ function renderSearchEngineHealth(status) {
 //, every other reader in the app already consults it, and a second store for
 // the same fact is how two of them end up disagreeing. These buttons just show
 // it and set it.
+//: Whether Agent mode can run right now: a model that can answer
+//: (`model_ready`: a reachable server is not enough, INBOX 778), or the Needle
+//: extra on disk (decision 22). No status yet or a failed poll counts as
+//: neither. One reader, so the segment, the "Ask about this" switch and the Web
+//: toggle's title cannot disagree.
+function agentModeAvailable() {
+  return modelStatus?.model_ready === true || !!modelStatus?.tools_engine;
+}
+
 function renderChatModeSeg() {
   //: **Agent mode needs something that can call tools** (INBOX 725, the
   //: owner: "maybe agent mode should be disabled though unless needle is used
@@ -2530,18 +2674,20 @@ function renderChatModeSeg() {
   //: saved choice, which comes back with the model. With Needle ready it runs
   //: there, and says so.
   const engine = modelStatus?.tools_engine || null;
-  const gated = aiIsOff() && !engine;
+  const gated = !agentModeAvailable();
   const agentButton = document.querySelector('#chat-mode-seg [data-chat-mode="agent"]');
   if (agentButton) {
     if (agentButton.dataset.enabledTitle === undefined) agentButton.dataset.enabledTitle = agentButton.title;
     agentButton.disabled = gated;
     agentButton.title = gated
       ? `Agent mode needs a model, or the Needle extra, to call tools. ${AI_OFFLINE_HINT}.`
-      : aiIsOff() && engine
-        ? "Agent mode runs on Needle with no model: it calls tools and writes no prose of its own."
+      : engine
+        ? "Agent, app tools only. With no model, Agent answers with the app's own tools: the time, sums, counts, notes on a topic and acts. Needle picks a tool for the rest. A model does more."
         : agentButton.dataset.enabledTitle;
   }
+  renderWebSearchToggle();
   const agent = $("tools-toggle").checked && !gated;
+  if (!(agent && modelStatus?.model_ready !== true)) showAgentNoModelHint(false);
   // Two `addEventListener` calls for Quit and Clear-history used to sit here,
   // spliced into the middle of this function by an editing accident. It parsed,
   // so nothing complained: but this function runs on every chat-mode change,
@@ -2556,9 +2702,20 @@ function renderChatModeSeg() {
   }
 }
 
+//: Agent with no model (INBOX 840, CHAT_PLAN 22a): the first choice of it says
+//: so under the composer; the segment's title always does.
+function showAgentNoModelHint(on) {
+  const line = $("chat-agent-hint");
+  if (line) line.classList.toggle("hidden", !on);
+}
+
 async function setChatMode(mode) {
   const agent = mode === "agent";
   $("tools-toggle").checked = agent;
+  if (agent && agentModeAvailable() && modelStatus?.model_ready !== true && !prefs.has("agentNoModelHint")) {
+    prefs.set("agentNoModelHint", "1");
+    showAgentNoModelHint(true);
+  }
   renderChatModeSeg();
   // Remembered, because it is a way of working rather than a per-message
   // choice: the same preference the checkbox always wrote.
@@ -2578,38 +2735,6 @@ function backendLabel(status) {
 // keystroke.
 let backendFieldsDirty = false;
 
-function renderBackendPicker(status) {
-  const select = $("llm-provider-select");
-  const url = $("llm-base-url");
-  if (!select || !url) return;
-  if (backendFieldsDirty || document.activeElement === url) return;
-  select.value = status.provider || "ollama";
-  // Show the address actually in use, but as a placeholder when it is just the
-  // default: so the field stays empty and "blank means the usual one" keeps
-  // being true after a round trip.
-  const defaults = status.provider_default_base_urls || {};
-  const fallback = defaults[select.value] || "";
-  if (status.base_url && status.base_url !== fallback) {
-    url.value = status.base_url;
-  } else {
-    url.value = "";
-  }
-  url.placeholder = fallback || "Default address";
-
-  // Drawn from the status poll, not only from the Connect response. A warning
-  // that shows once and disappears on the next reload is a warning about a
-  // condition that has not gone away, and this one says the notes are leaving
-  // the machine, which is the promise the whole app is built on.
-  const privacy = $("llm-privacy-warning");
-  if (privacy) {
-    privacy.textContent = status.privacy_note || "";
-    privacy.classList.toggle("hidden", !status.privacy_note);
-  }
-  const lock = $("local-only-ai");
-  if (lock && document.activeElement !== lock) {
-    lock.checked = status.local_only_ai !== false;
-  }
-}
 
 function renderSettings() {
   const status = modelStatus;
@@ -2624,7 +2749,7 @@ function renderSettings() {
       {
         slow: "The model server is slow to answer. Checking again…",
         error: "Couldn't read the models' status. Checking again…",
-        down: "Can't reach the MemoryMap server.",
+        down: "Can't reach the Tessellate server.",
       }[modelStatusProblem] || "Checking the models…";
     ollamaLine.className = `status ${modelStatusProblem === "down" ? "off" : "is-checking"}`;
     //: The pane's shape under the line while it waits, never the line alone
@@ -2649,6 +2774,12 @@ function renderSettings() {
     ? `${backend} is running`
     : status.unreachable_hint || `${backend} isn't running`;
   ollamaLine.className = `status ${status.ollama_running ? "ok" : "off"}`;
+  //: A slow poll keeps the last answer on screen (see refreshModelStatus), so
+  //: the line says so instead of presenting a stale answer as fresh.
+  if (modelStatusProblem === "slow") {
+    ollamaLine.textContent = "The model server is slow to answer. Showing the last answer.";
+    ollamaLine.className = "status is-checking";
+  }
   renderBackendPicker(status);
   const embeddingError = $("embedding-error");
   embeddingError.classList.toggle("hidden", !status.embedding_error);
@@ -2710,10 +2841,13 @@ function renderSettings() {
   // built-in one, which needs no Ollama. Only the Ollama half of it depends
   // on Ollama being up.
   renderEmbeddingPicker(status);
+  //: Always, not only while a backend answers: the rows come from saved
+  //: settings, and a person with the server down still needs to see and clear
+  //: an override (WORLD_CLASS_PLAN 20, "Still open").
+  renderFeatureModels(status);
   if (status.ollama_running) {
     renderChatModelPicker(status);
     renderUtilityModelPicker(status);
-    renderFeatureModels(status);
     renderVisionModelPicker(status);
   renderOcrModelPicker(status);
     renderAutonomousModelPicker(status);
@@ -2759,8 +2893,11 @@ async function refreshBackgroundTasks() {
   renderStatusBar();
   // One fetch, not two: the panel renders from this payload rather than asking
   // again a few milliseconds later.
-  if (settingsModalOpen() && currentSettingsSection === "tasks") renderTasks(body);
-  else renderTaskHistory((body && body.history) || []);
+  //: While the panel's stream is open it paints the rows (ai-tools.js
+  //: `followTaskLines`); the poll then only keeps the bar current.
+  if (settingsModalOpen() && currentSettingsSection === "tasks") {
+    if (!taskLineStream.controller) renderTasks(body);
+  } else renderTaskHistory((body && body.history) || []);
 }
 
 // --- a background job starting and finishing, said out loud --------------------
@@ -2833,6 +2970,9 @@ function noticeTaskTransitions(running, history) {
   for (const [key, task] of now) {
     if (seenRunningTasks.has(key)) continue;
     seenRunningTasks.set(key, task);
+    //: A chat answer, a transcription: the person is watching it where they
+    //: started it. The status bar and Running jobs list it; nothing announces it.
+    if (task.watched) continue;
     const run = addAgentRun({
       kind: "job",
       name: task.label,
@@ -2843,10 +2983,11 @@ function noticeTaskTransitions(running, history) {
     renderAgentRunSummary(run);
     backgroundRunRows.set(key, run);
     if (!QUIET_TASK_KINDS.has(task.kind)) openPanelForRun(run);
-    recordNotification({
+    task.noticeId = recordNotification({
       kind: "task",
       title: `Started: ${task.label}`,
       detail: task.detail || "",
+      runId: task.run_id || "",
       // Keyed per *start*, not per job. It used to be `task-start:${key}`,
       // which deduped against localStorage, so the second time the
       // autonomous pass (or any recurring job) ran, its start recorded
@@ -2863,12 +3004,20 @@ function noticeTaskTransitions(running, history) {
     seenRunningTasks.delete(key);
     const row = backgroundRunRows.get(key);
     backgroundRunRows.delete(key);
+    if (task.watched) continue;
     // The outcome comes from the server's own history, on this same payload, 
     // "it stopped appearing in the running list" is true of a job that died as
     // much as one that succeeded, and a cheerful toast over a failure is how
     // people learn to ignore toasts. Newest first, so `find` takes the ending
     // that just happened rather than a previous run of the same job.
-    const ended = history.find((item) => (item.kind || "job") === (task.kind || "job"));
+    const ended =
+      history.find((item) => task.run_id && item.run_id === task.run_id) ||
+      history.find((item) => (item.kind || "job") === (task.kind || "job"));
+    //: Its "Started:" row now says how it ended (INBOX 811 item 4).
+    if (task.noticeId) {
+      const endKey = ended ? `task:${ended.kind || ended.label}:${ended.at}` : `${task.noticeId}:end`;
+      settleNotification(task.noticeId, { key: endKey, ...taskEndingWords(ended, task.label) });
+    }
     if (ended && ended.outcome === "failed") {
       endAgentRun(row, { state: "failed" });
       agentActivityNotice(`Failed: ${ended.label || task.label}`, { isError: true });
@@ -2885,3 +3034,49 @@ function noticeTaskTransitions(running, history) {
 }
 
 // --- optional extras and embedding models: Settings, Packages, is settings-packages.js (lazy, INBOX 595) ---
+
+// --- The Local chip (row 1641, WORLD_CLASS_PLAN 22.1 item 9) -----------------
+//: The privacy receipt's verdict for this launch (`GET /privacy/verdict`, the
+//: receipt's own answer without its lists), as one word in the top bar and a
+//: row of the phone's header menu. It asks again every five minutes, and
+//: whenever Settings, Privacy has just read the full record.
+const PRIVACY_CHIP_WORDS = {
+  stayed_on_this_computer: ["shield-check", "Local", "Nothing left this computer since the app started."],
+  local_network: ["wifi-high", "Local network", "Only devices on your own network were contacted since the app started."],
+  internet: ["globe-hemisphere-west", "Online", "This app connected to the internet since it started."],
+};
+const PRIVACY_CHIP_MS = 5 * 60 * 1000;
+
+function paintPrivacyChip(verdictKey) {
+  const chip = $("privacy-chip");
+  if (!chip) return;
+  const [icon, word, sentence] = PRIVACY_CHIP_WORDS[verdictKey] || PRIVACY_CHIP_WORDS.stayed_on_this_computer;
+  chip.classList.remove("hidden");
+  chip.classList.toggle("is-online", verdictKey === "internet");
+  chip.querySelector("i").className = `ph ph-${icon} ph-lead`;
+  chip.querySelector(".privacy-chip-word").textContent = word;
+  chip.title = `${sentence} Open the privacy record.`;
+  chip.setAttribute("aria-label", `${word}: ${sentence} Open the privacy record`);
+  //: The phone's header row reads these (phone-shell.js, `live` rows).
+  chip.dataset.menuLabel = `ph:${icon} ${word}: privacy record`;
+}
+
+async function refreshPrivacyChip() {
+  try {
+    const body = await apiJson("/privacy/verdict", { silent: true });
+    paintPrivacyChip(body?.verdict);
+  } catch {
+    //: No answer is no claim: the chip stays as it was (hidden before the
+    //: first answer), never "Local" on a guess.
+  }
+}
+
+function startPrivacyChip() {
+  const chip = $("privacy-chip");
+  if (!chip) return;
+  refreshPrivacyChip();
+  if (chip.dataset.wired) return;
+  chip.dataset.wired = "1";
+  chip.addEventListener("click", () => openSettingsModal("privacy"));
+}
+

@@ -1,6 +1,6 @@
 """Where events go once their moment has passed (§36E).
 
-MemoryMap already *produces* all of these, a reminder comes due, a background
+Tessellate already *produces* all of these, a reminder comes due, a background
 job finishes, a run stops early, and shows each in its own way: a system
 notification, a toast, a step timeline. Every one of those is a moment, and
 missing the moment used to mean the event was gone. A long install finishing
@@ -96,4 +96,4 @@ def test_the_panel_does_not_inherit_nowrap_from_the_header():
 
 def test_it_does_not_promise_what_a_local_first_app_cannot_do():
     """§36C's honest note, on screen rather than only in the roadmap."""
-    assert "Nothing fires while MemoryMap is closed" in INDEX
+    assert "Nothing fires while Tessellate is closed" in INDEX

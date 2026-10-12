@@ -27,17 +27,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
 #: Before importing the app: every singleton reads this.
 _TMP = tempfile.mkdtemp(prefix="mm-probe-")
-os.environ["MEMORYMAP_DATA_DIR"] = _TMP
+os.environ["TESSELLATE_DATA_DIR"] = _TMP
 
 from sqlalchemy import event  # noqa: E402
 
-from memorymap.core import deps  # noqa: E402
+from tessellate.core import deps  # noqa: E402
 
 deps.init_app_state(data_dir=Path(_TMP))
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-from memorymap.api.app import create_app  # noqa: E402
+from tessellate.api.app import create_app  # noqa: E402
 
 #: The notebook the probe builds. Big enough that a per-row query shows and
 #: small enough to build in a few seconds.

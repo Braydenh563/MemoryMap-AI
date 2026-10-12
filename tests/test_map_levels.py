@@ -14,7 +14,7 @@ and a leaf drew identically. The server's half of the answer, gated here:
 
 from __future__ import annotations
 
-from memorymap.api.routes_whiteboard import _clean_theme, _is_one_emoji, _themed_style
+from tessellate.api.routes_whiteboard import _clean_theme, _is_one_emoji, _themed_style
 
 
 def _map(client):

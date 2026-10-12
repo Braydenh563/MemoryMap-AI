@@ -15,6 +15,7 @@ somebody typed into the dashboard.
 from __future__ import annotations
 
 import json
+from tests._app_js import with_pieces
 import re
 import shutil
 import subprocess
@@ -22,10 +23,10 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.api.routes_settings import QUICK_ACCESS_MAX
+from tessellate.api.routes_settings import QUICK_ACCESS_MAX
 
 ROOT = Path(__file__).resolve().parents[1]
-DASH = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+DASH = with_pieces("dashboard.js")
 EDIT = (ROOT / "frontend" / "js" / "quick-access.js").read_text(encoding="utf-8")
 APP = (ROOT / "frontend" / "js" / "app.js").read_text(encoding="utf-8")
 
@@ -134,6 +135,18 @@ def test_the_default_ids_are_the_only_hard_coded_tiles():
     assert re.findall(r'label: "([^"]+)"', start) == ["New note", "Ask AI", "Sketch", "Remind me", "New meeting"]
 
 
+def test_an_act_row_is_a_tile_only_when_it_opts_in_with_quick():
+    """Live captions is a palette act (no tab, no reveal), so it was never a
+    tile (libr-1011 row 1220). An act row names itself with `quick`, which is
+    its stable `act:` id; an act without it stays out of the picker."""
+    catalogue = _block(DASH, "function quickCatalogue()", "\n}\n")
+    assert "row.quick ? `act:${row.quick}`" in catalogue
+    panes = (ROOT / "frontend" / "js" / "settings-panes.js").read_text(encoding="utf-8")
+    row = panes[panes.index('label: "ph:closed-captioning Live captions"') :].split("\n", 1)[0]
+    assert 'quick: "captions"' in row and "act: () => toggleLiveCaptions()" in row
+    assert len(re.findall(r'\bquick: "', panes)) == 1
+
+
 def test_the_row_draws_from_the_command_catalogue_not_a_list_of_its_own():
     """Added tiles come from `paletteCommands` rows that declare a `tab` or a
     `reveal`, with the line the row already says: no second list of what the
@@ -154,7 +167,9 @@ def test_customise_and_reset_are_rows_of_the_dashboard_customise_menu():
     over it. Editing and resetting the row are rows of the dock's Customise
     menu now, beside the view, the widgets and the layout."""
     draw = _block(DASH, "function renderQuickLinks()", "\n}\n")
-    assert "kebabMenu(" not in draw
+    #: Since 2026-10-10 the heading's line carries the same rows as a ⋯ (the
+    #: owner's ask); it is the Customise items, never a menu of its own.
+    assert draw.count("kebabMenu(") == 1 and "kebabMenu(dashCustomiseItems().filter(" in draw
     custom = _block(DASH, "function dashCustomiseItems()", "\n}\n")
     assert "Edit quick access" in custom and "Reset quick access" in custom
     assert "saveQuickAccess([])" in custom and "quickEditing = true" in custom
@@ -227,7 +242,7 @@ def test_it_is_stored_in_preferences_not_only_the_browser():
 
 
 def test_the_editing_view_is_lazy_and_reachable_before_it_loads():
-    assert 'quickAccess: ["/js/quick-access.js"]' in APP
+    assert 'quickAccess: ["/css/quick-access-lazy.css", "/js/quick-access.js"]' in APP
     assert 'quickAccess: ["quickAccessEdit"]' in APP
     page = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert "quick-access.js" not in page, "it loads on first use, not at boot"

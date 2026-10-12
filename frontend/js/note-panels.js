@@ -229,11 +229,10 @@ async function toggleReferences(entry) {
       //: A board and a map open in the Library, a note in Notes, a document
       //: in its editor. Each already has one way in; this is not a fifth.
       //: Each kind already has exactly one way in, and this uses it rather
-      //: than becoming a fifth. `typeof` because the board and document
-      //: files are lazy-loaded with the Library bundle and a note card can
-      //: be on screen before either has landed.
+      //: than becoming a fifth. The board's opener is a lazy entry point
+      //: (app.js stand-in), so a call before the bundle lands loads it.
       if (item.kind === "board" || item.kind === "map") {
-        if (typeof openWhiteboardBoard === "function") openWhiteboardBoard(item.id);
+        openWhiteboardBoard(item.id);
       } else if (item.kind === "document") {
         openDocumentFromNote(item.id);
       } else {
@@ -291,10 +290,11 @@ function similarNoteRow(entry, other, onLinked) {
     if (relChip.getAttribute("aria-disabled") === "true") return;
     relChip.setAttribute("aria-disabled", "true");
     try {
-      await apiJson(`/entries/${entry.id}/links`, {
+      const made = await apiJson(`/entries/${entry.id}/links`, {
         method: "POST",
         body: JSON.stringify({ target_id: other.id }),
       });
+      pushLinkCreateUndo(entry.id, other.id, made, { target_id: other.id });
       toast("Linked.");
       wrap.remove();
       onLinked?.();
@@ -305,7 +305,7 @@ function similarNoteRow(entry, other, onLinked) {
   };
   const relChip = chip("", "link entry-related-chip", linkIt);
   //: Named by the note's first line, the way a person calls it.
-  const name = preview.split("\n")[0].trim() || preview;
+  const name = noteNamePlain(preview) || preview;
   relChip.setAttribute("aria-label", `Link to ${name}`);
   relChip.title = `Link this note to “${preview}”`;
   //: The same mark the menu item that opens this row wears, drawn the same

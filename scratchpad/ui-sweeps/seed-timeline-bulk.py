@@ -12,6 +12,9 @@ and it is why this is a sweep fixture rather than anything a test of search
 should use.
 
     .venv/bin/python scratchpad/ui-sweeps/seed-timeline-bulk.py /tmp/mm-timeline/memorymap.db 2000
+
+A third argument, YYYY-MM, puts every note in that one month (the calendar's
+stress case, a 1,000-note month: `... memorymap.db 1000 2026-10`).
 """
 
 import json
@@ -22,6 +25,7 @@ from datetime import datetime, timedelta, timezone
 
 db = sys.argv[1] if len(sys.argv) > 1 else "/tmp/mm-timeline/memorymap.db"
 count = int(sys.argv[2]) if len(sys.argv) > 2 else 2000
+month = sys.argv[3] if len(sys.argv) > 3 else None
 
 TITLES = [
     "Weekly review", "Reading notes", "Standup", "Retro actions", "Trip planning",
@@ -54,6 +58,9 @@ for i in range(count):
         hours=random.randint(0, 23),
         minutes=random.randint(0, 59),
     )
+    if month:
+        year, mon = (int(part) for part in month.split("-"))
+        when = datetime(year, mon, random.randint(1, 28), random.randint(7, 22), random.randint(0, 59))
     title = TITLES[i % len(TITLES)]
     body = BODIES[i % len(BODIES)]
     rows.append(
@@ -66,12 +73,25 @@ for i in range(count):
         )
     )
 
+# The column list is the schema's own, not a hand-kept string: a NOT NULL
+# column added later (`map_topic`, 2026-10) broke the old fixed INSERT, and the
+# next one would have too (audit 2026-10-10). Columns this script has a value
+# for take it; any other NOT NULL column without a default gets "" or 0.
+given = ["content", "category_id", "tags", "created_at", "updated_at"]
+fixed = {
+    "is_deleted": 0, "is_private": 0, "pinned": 0, "workspace_id": "'default'",
+    "ai_confidence": 0, "access_count": 0, "filing_state": "'done'", "user_filed": 0,
+    "is_board": 0, "is_draft": 0, "source_path": "''", "suggested_tags": "'[]'",
+    "discarded_tags": "'[]'",
+}
+for _, name, kind, notnull, default, pk in con.execute("PRAGMA table_info(entries)").fetchall():
+    if name in given or name in fixed or pk or not notnull or default is not None:
+        continue
+    fixed[name] = 0 if any(t in kind.upper() for t in ("INT", "BOOL", "FLOAT", "REAL")) else "''"
+columns = given + [k for k in fixed]
 con.executemany(
-    "INSERT INTO entries (content, category_id, tags, created_at, updated_at, "
-    "is_deleted, is_private, pinned, workspace_id, ai_confidence, access_count, "
-    "filing_state, user_filed, is_board, is_draft, source_path, suggested_tags, "
-    "discarded_tags) "
-    "VALUES (?, ?, ?, ?, ?, 0, 0, 0, 'default', 0, 0, 'done', 0, 0, 0, '', '[]', '[]')",
+    f"INSERT INTO entries ({', '.join(columns)}) VALUES (?, ?, ?, ?, ?, "
+    + ", ".join(str(fixed[k]) for k in fixed) + ")",
     rows,
 )
 con.commit()

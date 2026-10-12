@@ -8,10 +8,10 @@ fake transport, so the model's answer is the fake's canned one.
 
 from __future__ import annotations
 
-from memorymap.ai import autonomous, janitor
-from memorymap.core import deps
-from memorymap.core.database import AuditLog, Entry
-from memorymap.entry import manager
+from tessellate.ai import autonomous, janitor
+from tessellate.core import deps
+from tessellate.core.database import AuditLog, Entry
+from tessellate.entry import manager
 from sqlalchemy import select
 
 
@@ -125,7 +125,7 @@ def test_the_autonomous_pass_runs_it(ai_client, monkeypatch):
     monkeypatch.setattr(janitor, "review_words_filed", fake_review)
     # The agent turn that follows is not what this is about.
     monkeypatch.setattr(autonomous, "_enabled_tasks", lambda config: [])
-    from memorymap.core import jobruns
+    from tessellate.core import jobruns
 
     with jobruns.job_run("autonomous") as run:
         import time

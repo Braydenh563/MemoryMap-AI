@@ -7,136 +7,74 @@
 
 // --- Wave N: tasks manager (see and quit background jobs) ---------------------------
 
-// The list is built by the server (GET /tasks), not assembled here from
-// whatever happened to be in the model status. It used to know about exactly
-// two jobs, a re-index and a model download, so the embedding model loading
-// at startup and the SearXNG install, which is minutes long, ran with nothing
-// on this screen to say so. Rendering whatever the server sends means the
-// next background job appears here without touching this file.
-// `payload` is the /tasks body when the caller has already fetched it, the
-// status poll has, once, for the bar. Opening the panel passes nothing and
-// fetches, so the list is filled the moment you get there rather than at the
-// next tick.
-async function renderTasks(payload) {
-  const list = $("task-list");
-  const body = payload || (await apiJson("/tasks", { silent: true }).catch(() => null));
-  const jobs = (body && body.tasks) || [];
-  list.replaceChildren();
-  $("tasks-empty").classList.toggle("hidden", jobs.length > 0);
-  for (const job of jobs) {
-    const li = document.createElement("li");
-    // The heading row is the job and its Quit button; everything else stacks
-    // underneath at full width. The bar used to sit inline after the label,
-    // where it ran off the right edge of the card on a long job name.
-    const row = document.createElement("div");
-    row.className = "entry-meta";
-    const name = document.createElement("strong");
-    name.textContent = job.label;
-    row.appendChild(name);
-    //: How long it has run, on the server's clock (INBOX 696); a waiting row
-    //: says how long it has waited.
-    if (job.started && body.now) {
-      const took = document.createElement("span");
-      took.className = "muted task-elapsed";
-      took.textContent = `${job.queued ? "waiting " : ""}${taskElapsed(body.now - job.started)}`;
-      row.appendChild(took);
-    }
 
-    if (job.cancellable) {
-      const actions = document.createElement("span");
-      actions.className = "entry-actions";
-      actions.appendChild(
-        //: "Stop" (INBOX 713, the owner: "manually stop or cancel them").
-        smallButton("ph:stop-circle Stop", "Stop this job at its next step", async () => {
-          // `/tasks/cancel`, not `/models/jobs/cancel`: the old endpoint knew
-          // about a re-index and a model pull and nothing else, so this
-          // button only ever appeared on two of the eight kinds this panel
-          // lists. The server now answers for all of them and says what it
-          // actually did: a pip install is terminated, an autonomous pass
-          // stops at its next safe point and stays off for a while, an
-          // embedding download stops after the file it is on. Reporting the
-          // server's own sentence rather than a fixed "asked it to stop"
-          // is the difference between the three.
-          try {
-            const result = await apiJson("/tasks/cancel", {
-              method: "POST",
-              body: JSON.stringify({ kind: job.kind, name: job.name || "" }),
-            });
-            toast(result.detail || (result.stopped ? "Stopping." : "It had already finished."));
-          } catch (e) {
-            toast(e.message, true);
-          }
-          renderTasks();
-          refreshModelStatus();
-        })
-      );
-      row.appendChild(actions);
-    }
-    li.appendChild(row);
+//: Who started a run, after its time: ", you started it" (INBOX 805).
+const TASK_ORIGIN_WORDS = {
+  you: "you started it",
+  schedule: "on its schedule",
+  "start-up": "at start-up",
+  app: "the app",
+};
 
-    if (job.detail) {
-      const detail = document.createElement("p");
-      detail.className = "muted task-detail";
-      detail.textContent = job.detail;
-      li.appendChild(detail);
-    }
-
-    //: Every running row has a bar (INBOX 696, the owner: "they are just flat
-    //: rows"): the real fraction where the job reports one, else an
-    //: indeterminate bar, which guesses nothing; the elapsed time beside the
-    //: name is what keeps moving under reduced motion. A waiting row has none.
-    if (!job.queued) {
-      const bar = document.createElement("progress");
-      bar.className = "task-progress";
-      if (typeof job.progress === "number") {
-        bar.max = 1;
-        bar.value = job.progress;
-      }
-      bar.setAttribute("aria-label", job.label);
-      li.appendChild(bar);
-    }
-    //: A bulk install's packages, each with where it is.
-    if ((job.steps || []).length) li.appendChild(taskSteps(job.steps));
-
-    // What the job itself is printing. A bar answers "is it working?" only
-    // while it moves, and pip can sit on one number for minutes, the output
-    // is the thing that keeps changing, so it is the real answer to "has it
-    // frozen?". Open by default while a job is running; there is nothing to
-    // be spared from here.
-    if ((job.log || []).length) {
-      const fold = document.createElement("details");
-      fold.className = "task-log";
-      fold.open = taskLogsOpen.has(job.kind);
-      fold.addEventListener("toggle", () => {
-        if (fold.open) taskLogsOpen.add(job.kind);
-        else taskLogsOpen.delete(job.kind);
-      });
-      const summary = document.createElement("summary");
-      summary.textContent = `What it's doing (${job.log.length} lines)`;
-      const pre = document.createElement("pre");
-      pre.className = "task-log-lines";
-      pre.textContent = job.log.join("\n");
-      fold.append(summary, pre);
-      li.appendChild(fold);
-
-      // Listen for scroll events to track if the user has scrolled up from the bottom
-      pre.addEventListener("scroll", () => {
-        const isAtBottom = Math.abs(pre.scrollHeight - pre.scrollTop - pre.clientHeight) < 5;
-        taskLogScrollStates.set(job.kind, isAtBottom);
-      });
-
-      // Follow the tail, the way a terminal does, unless the user scrolled up
-      if (fold.open && taskLogScrollStates.get(job.kind) !== false) {
-        // Use a slight timeout to ensure rendering is complete before scrolling
-        requestAnimationFrame(() => {
-          pre.scrollTop = pre.scrollHeight;
-        });
-      }
-    }
-    list.appendChild(li);
-  }
-  renderTaskHistory((body && body.history) || []);
+//: One run's lines as text, each with when it was said from the run's start
+//: ("+3 s  Called search_notes: ..."), the way a terminal log reads.
+function taskRunLinesText(lines, started) {
+  return lines
+    .map((line) => (line.at && started ? `+${taskElapsed(line.at - started)}  ${line.text}` : line.text))
+    .join("\n");
 }
+
+//: The disclosure under a run (DESIGN.md list row with a `.task-log` fold):
+//: open while it runs if it was open before, closed once finished. Keyed on
+//: the run, so a fold someone opened stays open across the re-render, and
+//: `data-run-lines` lets the jobs stream refresh just its text.
+function taskRunFold(key, lines, started, state) {
+  const fold = document.createElement("details");
+  fold.className = "task-log";
+  fold.open = taskLogsOpen.has(key);
+  fold.addEventListener("toggle", () => {
+    if (fold.open) taskLogsOpen.add(key);
+    else taskLogsOpen.delete(key);
+  });
+  const summary = document.createElement("summary");
+  const pre = document.createElement("pre");
+  pre.className = "task-log-lines";
+  pre.dataset.runLines = key;
+  pre.dataset.started = started || "";
+  fold.dataset.state = state;
+  fold.append(summary, pre);
+  paintTaskRunLines(fold, lines);
+  pre.addEventListener("scroll", () => {
+    const isAtBottom = Math.abs(pre.scrollHeight - pre.scrollTop - pre.clientHeight) < 5;
+    taskLogScrollStates.set(key, isAtBottom);
+  });
+  return fold;
+}
+
+function paintTaskRunLines(fold, lines) {
+  const pre = fold.querySelector("pre");
+  const key = pre.dataset.runLines;
+  const verb = fold.dataset.state === "running" ? "What it's doing" : "What it did";
+  fold.querySelector("summary").textContent = `${verb} (${lines.length} line${lines.length === 1 ? "" : "s"})`;
+  pre.textContent = taskRunLinesText(lines, Number(pre.dataset.started) || 0);
+  //: Follow the tail, the way a terminal does, unless the reader scrolled up.
+  if (fold.open && taskLogScrollStates.get(key) !== false) {
+    requestAnimationFrame(() => {
+      pre.scrollTop = pre.scrollHeight;
+    });
+  }
+}
+
+//: **The panel reads the jobs stream** (`GET /jobs/stream`), not a poll of
+//: its own: while Settings, Running jobs is open, its `tasks` event repaints
+//: the rows (one recipe, `renderTasks`) when they change, and its `runs`
+//: event moves each running row's lines as the run says them (Brief 9).
+//: Fetch, not EventSource, for the auth header (settings.js
+//: `startLogStream` says why).
+const taskLineStream = { controller: null };
+
+
+
 
 // "45 s", "3 min 05 s", "1 h 12 min".
 function taskElapsed(seconds) {
@@ -188,61 +126,10 @@ const TASK_OUTCOMES = {
   cancelled: { icon: "ph:x", className: "muted" },
 };
 
-function renderTaskHistory(history) {
-  const box = $("task-history-box");
-  const list = $("task-history");
-  // A finished background job goes into the notifications centre whether or
-  // not this screen is open, which is the point of the centre (§36E). These
-  // jobs are long: an install or a re-index finishes minutes after you stopped
-  // watching it, and until now the only record was a screen inside Settings
-  // that you had to know to open. Recorded first, so it happens even when the
-  // Tasks panel is not on screen and the two elements below are missing.
-  for (const item of history) {
-    recordNotification({
-      kind: item.outcome === "failed" ? "error" : "task",
-      title: item.label,
-      detail: item.detail || "",
-      // Keyed on the job and when it stopped, so the three-second re-render
-      // does not add the same finished job over and over.
-      key: `task:${item.kind || item.label}:${item.at}`,
-    });
-  }
-  if (!box || !list) return;
-  box.classList.toggle("hidden", history.length === 0);
-  list.replaceChildren();
-  for (const item of history) {
-    const style = TASK_OUTCOMES[item.outcome] || TASK_OUTCOMES.completed;
-    const li = document.createElement("li");
-    if (style.className) li.className = style.className;
 
-    const row = document.createElement("div");
-    row.className = "entry-meta";
-    const name = document.createElement("strong");
-    setLabel(name, `${style.icon} ${item.label}`);
-    const when = document.createElement("span");
-    when.className = "muted";
-    // Which model actually did the work (captioning, OCR, the weekly
-    // digest): recorded by the backend all along (`taskhistory.record`'s
-    // `name` param) but never shown here, so "which model answered this"
-    // was answerable only by opening the log console. Asked about
-    // directly (BACKLOG.md §95 item A.3).
-    when.textContent = item.name
-      ? `${relativeTime(item.at)} · ${item.name}`
-      : relativeTime(item.at);
-    row.append(name, when);
-    li.appendChild(row);
-
-    // The reason, which is the whole point for a failure, until now it
-    // existed only in the log console, a screen you have to know to open.
-    if (item.detail) {
-      const detail = document.createElement("p");
-      detail.className = "muted task-detail";
-      setLabel(detail, item.detail);
-      li.appendChild(detail);
-    }
-    list.appendChild(li);
-  }
-}
+//: Run kinds a person starts and watches where they started them (an answer
+//: streaming in the chat): `routes_tasks.WATCHED_KINDS`.
+const WATCHED_RUN_KINDS = new Set(["generation", "transcription", "ocr", "run"]);
 
 // Which task logs the user has opened, kept across the 3-second re-render so
 // a fold doesn't slam shut under them.
@@ -304,10 +191,22 @@ function renderChatModelPicker(status) {
   //: was the one place it went back to naming the machinery. Both halves are
   //: here on purpose, "which model" is the question this line exists to
   //: answer and the name alone would not answer it.
+  //: Never chosen (a fresh install's default) is not "was running" (the
+  //: owner, 2026-10-07); a start-up choice says why, once more, here.
   $("chat-model-note").textContent =
     status.chat_model_installed === false
-      ? `${aiNameNow()} was running “${status.chat_model}”, which is not installed any more. Pick another or download it below.`
-      : `${aiNameNow()}, running ${status.chat_model}`;
+      ? status.chat_model_chosen === false
+        ? "No chat model is chosen yet. Pick one you have, or download one below."
+        : `${aiNameNow()} was running “${status.chat_model}”, which is not installed any more. Pick another or download it below.`
+      : `${aiNameNow()}, running ${status.chat_model}${status.chat_model_chosen_why ? ` (chosen at start: ${status.chat_model_chosen_why})` : ""}`;
+  //: Whether it is in memory now, beside its Stop (rule 5).
+  apiJson("/activity", { silent: true })
+    .then((body) => {
+      const loaded = body && body.model ? body.model.loaded : null;
+      if (loaded === null || status.chat_model_installed === false) return;
+      $("chat-model-note").textContent += loaded ? ", in memory now" : ", not in memory";
+    })
+    .catch(() => {});
 }
 
 // Nielsen #6, recognition over recall: which model answers was previously
@@ -727,84 +626,6 @@ function renderFeatureModels(status) {
   }
 }
 
-//: **The inline picker, one sheet for every surface.** Decision 4: "easily
-//: altered" means not walking to Settings, and the way in is the surface's own
-//: ⋯ rather than a new control in its chrome. `openSheet` is DESIGN.md's
-//: recipe for a panel of choices and it is the one shape that works in all
-//: three places, two of which hold a `kebabMenu` and one a `details.dock-menu`
-//: that cannot nest a second menu inside itself.
-function openFeatureModelSheet(key) {
-  const row = featureModelRow(key);
-  if (!row) {
-    toast("Models aren't available yet. Open Settings, Models to check.", "info");
-    return;
-  }
-  openSheet({
-    label: `Model for ${row.label}`,
-    sub: featureModelState(row),
-    name: `feature-model-${key}`,
-    build: (card, close) => {
-
-      const list = document.createElement("div");
-      list.className = "sheet-list";
-      list.appendChild(
-        sheetRow(
-          row.overridden ? "ph ph-arrow-counter-clockwise" : "ph ph-check",
-          // The choice, not the state: the line under the title already says
-          // which model is in use, so this row names what pressing it does.
-          `Default (${row.inherits})`,
-          () => {
-            close();
-            if (row.overridden) applyFeatureModel(key, "");
-          }
-        )
-      );
-      //: The two "Same as ..." rows (INBOX 430): a feature that wants to
-      //: follow a role other than its own, on purpose, rather than being
-      //: pinned to one model that goes stale the moment that role changes.
-      list.appendChild(
-        sheetRow(
-          row.override_kind === "chat" ? "ph ph-check" : "ph ph-arrows-clockwise",
-          "Same as chat model",
-          () => {
-            close();
-            if (row.override_kind !== "chat") applyFeatureModel(key, featureModelFollow.chat);
-          }
-        )
-      );
-      list.appendChild(
-        sheetRow(
-          row.override_kind === "utility" ? "ph ph-check" : "ph ph-arrows-clockwise",
-          "Same as utility model",
-          () => {
-            close();
-            if (row.override_kind !== "utility") applyFeatureModel(key, featureModelFollow.utility);
-          }
-        )
-      );
-      for (const name of featureModelNames) {
-        const chosen = row.override_kind === "model" && row.override_value === name;
-        list.appendChild(
-          sheetRow(chosen ? "ph ph-check" : "ph ph-cube", name, () => {
-            close();
-            if (!chosen) applyFeatureModel(key, name);
-          })
-        );
-      }
-      card.appendChild(list);
-      //: A backend that is not answering has no model list to offer, and the
-      //: sheet says so rather than showing one row and letting the reader
-      //: wonder where their models went.
-      if (!featureModelNames.length) {
-        const empty = document.createElement("p");
-        empty.className = "muted";
-        empty.textContent =
-          "No models are installed, or the model server isn't answering.";
-        card.appendChild(empty);
-      }
-    },
-  });
-}
 
 //: The menu row every surface uses to reach the picker above. One label, one
 //: place, so the three surfaces cannot drift apart in wording.
@@ -1174,94 +995,10 @@ let improveMode = "proofread";
 let improveTarget = null; // the textarea to write the accepted result into
 let improveCustomInstruction = "";
 
-function openImprove(targetTextarea) {
-  const text = targetTextarea.value.trim();
-  if (!text) {
-    toast("Write something first, then improve it.", "info");
-    return;
-  }
-  improveTarget = targetTextarea;
-  improveMode = "proofread";
-  improveCustomInstruction = "";
-  $("improve-custom-input").value = "";
-  $("improve-custom-row").classList.add("hidden");
-  for (const b of document.querySelectorAll(".improve-mode"))
-    b.classList.toggle("active", b.dataset.mode === "proofread");
-  $("improve-original").textContent = text;
-  overlayReturnFocus = document.activeElement;
-  $("improve-overlay").classList.remove("hidden");
-  $("improve-close").focus();
-  improveReady();
-}
 
-//: **Asked for, not automatic** (the owner at release: "the improve writing
-//: panel should be a begin AI response thing"): opening the panel, or picking
-//: a mode, only gets it ready; Atlas starts on Start. The button reads Try
-//: again once there has been an answer to try again.
-function improveReady() {
-  const custom = improveMode === "custom";
-  $("improve-status").textContent = custom
-    ? "Say what you want changed, then press Go."
-    : "Pick how Atlas should help, then press Start.";
-  $("improve-status").classList.remove("error");
-  $("improve-result").textContent = "";
-  $("improve-apply").disabled = true;
-  setLabel($("improve-retry"), "ph:sparkle Start");
-}
 
-function closeImprove() {
-  $("improve-overlay").classList.add("hidden");
-  overlayReturnFocus?.focus?.();
-  overlayReturnFocus = null;
-}
 
-async function runImprove() {
-  const status = $("improve-status");
-  const result = $("improve-result");
-  if (improveMode === "custom" && !improveCustomInstruction.trim()) {
-    // Nothing to send yet, the box just opened on "Custom" and the person
-    // hasn't typed anything. Prompting here instead of calling the API with
-    // an empty instruction (which the backend would reject anyway) so the
-    // very first thing that happens after picking Custom isn't an error.
-    status.textContent = "Say what you want changed, then press Go.";
-    status.classList.remove("error");
-    result.textContent = "";
-    $("improve-apply").disabled = true;
-    return;
-  }
-  result.textContent = "";
-  setLabel($("improve-retry"), "ph:arrow-clockwise Try again");
-  setLabel(status, "ph:spin Atlas is editing…");
-  status.classList.remove("error");
-  $("improve-apply").disabled = true;
-  try {
-    const body = await apiJson("/entries/improve", {
-      method: "POST",
-      body: JSON.stringify({
-        text: $("improve-original").textContent,
-        mode: improveMode,
-        custom_instruction: improveMode === "custom" ? improveCustomInstruction.trim() : undefined,
-      }),
-    });
-    result.textContent = body.improved;
-    status.textContent = "";
-    $("improve-apply").disabled = false;
-  } catch (error) {
-    status.textContent = error.message;
-    status.classList.add("error");
-  }
-}
 
-function applyImprove() {
-  if (improveTarget) {
-    improveTarget.value = $("improve-result").textContent;
-    //: The save that follows is the person's and Atlas's (INBOX 446).
-    improveTarget.dataset.aiTouched = "1";
-    improveTarget.dispatchEvent(new Event("input")); // refresh char count
-  }
-  closeImprove();
-  toast("Applied Atlas's suggestion.");
-}
 
 // Heuristic: does this Ollama model look like it can produce embeddings?
 // Chat/generation models can't, Ollama answers /api/embed with 501, and
@@ -1341,6 +1078,26 @@ function clearEmbeddingBackendLatch() {
 // localStorage on load when the local one is empty, so a shell that loses it
 // gets it back, and a browser that keeps it never notices.
 
+//: Sizes and places on the screen belong to the device they were chosen on
+//: (INBOX 897: "if I change the size of say the companion and the zoom on my
+//: computer, it shouldnt affect my phone"). Never written to `ui_state`, and a
+//: notebook that still holds them from an older version is not applied:
+//: `mirroredUiKeys()` leaves them out, so the save, the seed and the settings
+//: file all skip them. Colours, themes, fonts and motion still follow the
+//: person. A saved look leaves them out too: a look is colours (`LOOK_KEYS`).
+const DEVICE_ONLY_KEYS = [
+  "zoom",
+  "fontsize",
+  "density",
+  "avatar-buddy-size",
+  "nm-buddy-spots",
+  "chat-composer-height",
+  "wb-panel-pos-board",
+  "wb-panel-pos-library",
+  "wb-panel-pos-tools",
+  "wb-panel-pos-zoom",
+];
+
 //: The keys worth surviving a restart. Explicit rather than "everything in
 //: localStorage": this is written to the notebook's own preferences file, and
 //: scroll positions and one-visit UI state have no business in there.
@@ -1359,6 +1116,21 @@ const MIRRORED_UI_EXTRAS = [
   "ui-motion",
   "custom-css",
   "onboardingDone",
+  //: Appearance that follows the person to a second browser (WORLD_CLASS 25f).
+  //: Not `perf`: performance mode is a property of the machine.
+  "contrast",
+  "progress-motion",
+  "show-thinking-words",
+  "border-style",
+  "shadow-intensity",
+  "avatar-motion",
+  "avatar-follow",
+  "avatar-buddy",
+  "atlas-style",
+  "assistant-avatar",
+  "atlas-look",
+  "face-look",
+  "dash-mark",
   // The guided tour's own flag, for the same reason `onboardingDone` is here:
   // both were reported as "onboarding shows every time" when the desktop
   // shell lost its profile, and a tour that reintroduces the app to somebody
@@ -1379,12 +1151,7 @@ const MIRRORED_UI_EXTRAS = [
   "graph-fold-graph-groups-section",
   "graph-fold-graph-minimap-section",
   "graph-fold-graph-display",
-  "chat-composer-height",
   "wb-bg-color",
-  "wb-panel-pos-board",
-  "wb-panel-pos-library",
-  "wb-panel-pos-tools",
-  "wb-panel-pos-zoom",
 ];
 
 // A function rather than a `const` array, because `LOOK_KEYS` is declared
@@ -1392,7 +1159,7 @@ const MIRRORED_UI_EXTRAS = [
 // read before its initialiser had run, a temporal-dead-zone error at load,
 // which in a file with no bundler means a blank app.
 function mirroredUiKeys() {
-  return [...LOOK_KEYS, ...MIRRORED_UI_EXTRAS];
+  return [...LOOK_KEYS, ...MIRRORED_UI_EXTRAS].filter((key) => !DEVICE_ONLY_KEYS.includes(key));
 }
 
 let uiStateSaveTimer = null;
@@ -1475,6 +1242,7 @@ function saveUiState() {
     })
       .then(() => {
         uiStateOnServer = sending;
+        uiStateRememberSynced(state);
       })
       .catch(() => {});
   }, 800);
@@ -1512,19 +1280,37 @@ function watchMirroredUiKeys() {
   };
 }
 
-// Seed localStorage from the server's copy, for keys the browser has lost.
-// Called once, before the look is applied, so the app paints in the remembered
-// theme rather than flashing the default and correcting itself.
+// Seed localStorage from the server's copy. Called once, before the look is
+// applied, so the app paints in the remembered theme rather than flashing the
+// default and correcting itself.
 //
-// **Local wins.** If a key exists in both, the local one is newer by
-// definition, it is what the person set in this browser, and overwriting it
-// with a copy saved from another window would make two open windows fight.
+// **The notebook's copy wins unless this browser has a change it has not yet
+// sent.** A key is taken from the server when this browser has none, or when
+// its value is still the one the two last agreed on (`ui-synced`): then the
+// difference is another browser's newer change, which is how a theme set on
+// one computer reaches the next. A value that differs from what was agreed is
+// this browser's own unsent change (a reload inside the 800 ms save delay, a
+// server that was down) and keeps winning, so two windows never overwrite
+// each other's last word with an old copy. A browser with no mark at all has
+// agreed on nothing yet, so the notebook wins every key there.
 function seedUiStateFromServer(state) {
   if (!state || typeof state !== "object") return false;
+  const synced = prefs.json("ui-synced", {});
+  //: A browser that has never agreed with the notebook (the first load after
+  //: the upgrade that added the mark, or a cleared profile) has no way to tell
+  //: its own unsent change from an old copy. Its differing values are almost
+  //: always the old copy: an unsent change lives for 800 ms. So the notebook
+  //: wins there, rather than a stale second browser pushing its look over a
+  //: newer one once.
+  const marked = prefs.has("ui-synced");
   let restored = 0;
   for (const key of mirroredUiKeys()) {
-    if (prefs.get(key, null) == null && state[key] != null) {
-      localStorage.setItem(key, String(state[key]));
+    if (state[key] == null) continue;
+    const remote = String(state[key]);
+    const local = prefs.has(key) ? prefs.get(key, "") : null;
+    if (local === remote) continue;
+    if (local == null || !marked || local === synced[key]) {
+      prefs.set(key, remote);
       restored += 1;
     }
   }
@@ -1533,11 +1319,78 @@ function seedUiStateFromServer(state) {
   //: been given them back" from "the person changed something" (A2). Set after
   //: the loop and before the 800 ms debounce fires, so the first save of the
   //: session compares against it. A browser that kept a key the server does not
-  //: have still differs here, and still writes: local wins, as the comment
-  //: above says, and that is the case this must not swallow.
+  //: have still differs here, and still writes.
   uiStateOnServer = uiStateFingerprint(state);
+  uiStateRememberSynced(state);
+  //: A notebook written by an older version still holds this device's sizes.
+  //: They are ignored above; one save replaces the map without them, so the
+  //: copy does not carry a stale zoom for a phone to be tempted by.
+  if (DEVICE_ONLY_KEYS.some((key) => state[key] != null)) {
+    uiStateOnServer = null;
+    saveUiState();
+  }
   return restored > 0;
 }
+
+//: The values this browser and the notebook last agreed on, kept beside the
+//: settings (not in the mirrored list, so writing it saves nothing).
+function uiStateRememberSynced(state) {
+  const agreed = {};
+  for (const key of mirroredUiKeys()) if (state[key] != null) agreed[key] = String(state[key]);
+  prefs.setJSON("ui-synced", agreed);
+}
+
+//: Repaint after the look in localStorage changed underneath the page (the
+//: notebook's copy was taken at boot, or another window changed it). The same
+//: three calls the theme picker makes, in the same order: the root attributes,
+//: then the light/dark choice and the palette, neither of which re-records
+//: itself as a manual override.
+function applyRestoredLook() {
+  applyAppearance();
+  applyThemeChoice(appearancePref("theme"), false);
+  applyPalette(appearancePref("palette"), false);
+  renderBrandLogo();
+  if (bgArtOn()) startBgArt();
+}
+
+//: **Live sync between two open windows** (OPEN ledger 286). A change in one
+//: window used to show in the other only after a reload. Two cases:
+//: - the same browser profile: `storage` fires in the other windows, so they
+//:   repaint from their own localStorage at once;
+//: - another browser or computer: the window asks the notebook for its copy
+//:   when it regains focus or becomes visible, at most every 5 seconds, and
+//:   repaints only when `seedUiStateFromServer` took a key. An unsent change
+//:   of its own still wins, as at boot.
+const lookPull = {
+  at: 0,
+  busy: false,
+  echoTimer: 0,
+};
+async function pullLookFromNotebook() {
+  if (!uiStateSeeded || lookPull.busy || document.hidden || !authToken()) return;
+  if (Date.now() - lookPull.at < 5000) return;
+  lookPull.busy = true;
+  lookPull.at = Date.now();
+  try {
+    const fresh = await apiJson("/preferences", { silent: true });
+    if (fresh && seedUiStateFromServer(fresh.ui_state)) applyRestoredLook();
+  } catch {
+    // A missed pull is retried the next time the window is looked at.
+  } finally {
+    lookPull.busy = false;
+  }
+}
+function lookFromOtherWindow(event) {
+  if (event.storageArea !== localStorage || !event.key || !uiStateSeeded) return;
+  if (!mirroredUiKeys().includes(event.key)) return;
+  clearTimeout(lookPull.echoTimer);
+  lookPull.echoTimer = setTimeout(applyRestoredLook, 120);
+}
+window.addEventListener("focus", pullLookFromNotebook);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) pullLookFromNotebook();
+});
+window.addEventListener("storage", lookFromOtherWindow);
 
 // Which manual overrides are currently sitting on top of the theme. Shown in
 // the UI so "why isn't the theme's colour showing?" has a visible answer.
@@ -1555,7 +1408,7 @@ const OVERRIDABLE_KEYS = [
 // reason (LOOK_KEYS is built from it). settings.js's saveCurrentLook() and
 // friends read both across the file boundary, which is safe: they only ever
 // run from a user's own click, long after every script has loaded.
-const LOOK_KEYS = [...OVERRIDABLE_KEYS, "bgArt"];
+const LOOK_KEYS = [...OVERRIDABLE_KEYS, "bgArt"].filter((key) => !DEVICE_ONLY_KEYS.includes(key));
 
 function applyPalette(id, remember = true) {
   const root = document.documentElement;
@@ -1563,7 +1416,7 @@ function applyPalette(id, remember = true) {
   // than shipping a block that restates the base :root values.
   if (id && id !== "default") root.dataset.palette = id;
   else delete root.dataset.palette;
-  if (remember) localStorage.setItem("palette", id || "default");
+  if (remember) prefs.set("palette", id || "default");
   // The generative background paints from the accent, so it has to be rebuilt, 
   // and so does the dashboard constellation, for the same reason.
   if (bgArtOn()) startBgArt();

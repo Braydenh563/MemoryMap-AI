@@ -20,8 +20,8 @@ from sqlalchemy import pool
 
 from alembic import context
 
-from memorymap.core.config import ConfigManager
-from memorymap.core.database import Base
+from tessellate.core.config import ConfigManager
+from tessellate.core.database import Base
 
 config = context.config
 
@@ -54,13 +54,13 @@ def _db_url() -> str:
     # when it's present, rather than always re-deriving one here, is what
     # keeps this safe for the test suite: dozens of tests construct
     # `DatabaseManager(some_tmp_path)` with no relation to
-    # `MEMORYMAP_DATA_DIR` at all, and re-resolving via ConfigManager()
+    # `TESSELLATE_DATA_DIR` at all, and re-resolving via ConfigManager()
     # unconditionally would run Alembic against the wrong file — the real
     # app's data dir — instead of each test's own throwaway one.
     #
     # Only a human running `alembic` directly from a terminal (nothing sets
     # `sqlalchemy.url` first) falls through to ConfigManager()'s own
-    # resolution — the same MEMORYMAP_DATA_DIR / platform-default order the
+    # resolution — the same TESSELLATE_DATA_DIR / platform-default order the
     # app itself uses, so a manually-run migration still lands on the real
     # database.
     explicit = config.get_main_option("sqlalchemy.url")

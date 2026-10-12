@@ -1,4 +1,4 @@
-"""Smoke-test a running packaged MemoryMap: every asset and the API paths
+"""Smoke-test a running packaged Tessellate: every asset and the API paths
 that only a frozen build can get wrong.
 
     python packaging/frozen_smoke.py --base http://127.0.0.1:8765 --data-dir DIR
@@ -110,7 +110,7 @@ def asset_urls() -> list[str]:
 
 def static_mime_types() -> dict[str, str]:
     """`STATIC_MIME_TYPES` from `api/app.py`, read without importing it."""
-    tree = ast.parse((ROOT / "src" / "memorymap" / "api" / "app.py").read_text(encoding="utf-8"))
+    tree = ast.parse((ROOT / "src" / "tessellate" / "api" / "app.py").read_text(encoding="utf-8"))
     for node in tree.body:
         target = getattr(node, "target", None) or (getattr(node, "targets", None) or [None])[0]
         if isinstance(target, ast.Name) and target.id == "STATIC_MIME_TYPES":
@@ -123,10 +123,10 @@ def expected_type(url: str, types: dict[str, str]) -> str | None:
 
 
 def source_version() -> str:
-    text = (ROOT / "src" / "memorymap" / "__init__.py").read_text(encoding="utf-8")
+    text = (ROOT / "src" / "tessellate" / "__init__.py").read_text(encoding="utf-8")
     match = re.search(r'^__version__ = "([^"]+)"', text, re.MULTILINE)
     if not match:
-        raise ValueError("src/memorymap/__init__.py has no __version__")
+        raise ValueError("src/tessellate/__init__.py has no __version__")
     return match.group(1)
 
 
@@ -263,7 +263,7 @@ def check_api(base: str, data_dir: Path | None, password: str, expect_note: bool
     served = health.json().get("version")
     want = source_version()
     if served != want:
-        fail(f"GET /health: version {served!r}, but src/memorymap/__init__.py says {want!r}")
+        fail(f"GET /health: version {served!r}, but src/tessellate/__init__.py says {want!r}")
 
     token = sign_in(base, password, fail)
     if not token:
@@ -301,7 +301,7 @@ def check_api(base: str, data_dir: Path | None, password: str, expect_note: bool
             names = zipfile.ZipFile(io.BytesIO(export.body)).namelist()
         except zipfile.BadZipFile:
             names = []
-        if not any(name.endswith("memorymap.db") for name in names):
+        if not any(name.endswith(("tessellate.db", "memorymap.db")) for name in names):  # brand: keep
             fail(f"GET /export/backup: not a zip with the database in it ({names[:5]})")
 
     for body, label in (({}, "plain"), ({"password": "smoke-password-123"}, "sealed")):
@@ -333,7 +333,9 @@ def check_alembic(data_dir: Path, fail) -> None:
     """The start-up stamp (or upgrade) reached the newest revision: what
     `core/database._ensure_alembic_baseline` logs and swallows when the
     bundle's `alembic.ini` or `migrations/` cannot be read."""
-    db = data_dir / "memorymap.db"
+    db = data_dir / "tessellate.db"
+    if not db.is_file():
+        db = data_dir / "memorymap.db"  # brand: keep, a notebook not yet renamed
     if not db.is_file():
         fail(f"alembic: no database at {db}")
         return

@@ -153,7 +153,7 @@ def _function_body(src: str, signature: str) -> str:
 #: that reads it, or be registered `inherits: false` (as `--wb-grid-*` are)?
 ROOT_CUSTOM_PROPERTIES = {
     # settings.js and theme-boot.js, from Appearance: a setting changed.
-    "--accent", "--accent-soft", "--blob-a", "--page", "--glass-sheen-strength",
+    "--accent", "--accent-soft", "--accent-surface", "--blob-a", "--page", "--glass-sheen-strength",
     "--bg-art-opacity", "--radius", "--glass-blur", "--glass-opacity", "--zoom",
     "--border-style", "--shadow-intensity",
     # settings.js, `measureLabelOptics`: at boot, when the fonts are ready and
@@ -239,10 +239,6 @@ LAYOUT_READ_AFTER_WRITE_LOOPS = {
     ("app.js", "fitComposerToDock"),
     # The read is of a <pre> not yet in the document, which forces nothing.
     ("app.js", "renderTasks"),
-    # One gutter per numbered box, a handful at most. documents.js belongs to
-    # the document editor's own work; noted in archive/agent-remaining/perfpolish.md.
-    ("documents.js", "syncDocGutterMetrics"),
-    ("documents.js", "renderDocGutter"),
 }
 
 _READ = re.compile(

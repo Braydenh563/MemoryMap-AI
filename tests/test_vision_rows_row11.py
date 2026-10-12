@@ -20,7 +20,7 @@ def _note(client, text, **extra):
 
 
 def test_the_review_queue_holds_unsure_and_uncategorised_filings(client, session):
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     unsure = _note(client, "Maybe a recipe, maybe a plan")
     settled = _note(client, "Filed by hand", category="Plans")
@@ -50,23 +50,25 @@ def test_notes_filter_and_dashboard_offer_the_queue():
 
 
 def test_the_filing_style_reaches_the_filing_prompt(client, session):
-    from memorymap.ai import librarian
-    from memorymap.core import deps
+    from tessellate.ai import librarian
+    from tessellate.core import deps
 
     plain = librarian.filing_prompt(session, "a note", ["Work"])
     assert "File by" not in plain
-    assert client.put("/preferences", json={"filing_style": "project"}).status_code == 200
+    reply_1 = client.put("/preferences", json={"filing_style": "project"})
+    assert reply_1.status_code == 200
     assert deps.get_config().get_preference("filing_style") == "project"
     styled = librarian.filing_prompt(session, "a note", ["Work"])
     assert "File by project" in styled
-    assert client.put("/preferences", json={"filing_style": "nonsense"}).status_code == 422
+    reply_2 = client.put("/preferences", json={"filing_style": "nonsense"})
+    assert reply_2.status_code == 422
 
 
 # --- 5. most opened this month ---------------------------------------------------------------
 
 
 def test_most_opened_counts_this_month_only(client, session):
-    from memorymap.core.database import EntryOpen, utcnow
+    from tessellate.core.database import EntryOpen, utcnow
 
     a = _note(client, "Opened twice")
     b = _note(client, "Opened once")
@@ -85,7 +87,7 @@ def test_most_opened_counts_this_month_only(client, session):
 
 
 def test_tidy_proposes_near_names_and_old_empty_categories(client, session):
-    from memorymap.core.database import Category, utcnow
+    from tessellate.core.database import Category, utcnow
 
     _note(client, "one", category="Recipes")
     _note(client, "two", category="Recipes")
@@ -107,7 +109,7 @@ def test_tidy_proposes_near_names_and_old_empty_categories(client, session):
 
 
 def test_a_counting_question_is_read_without_a_model():
-    from memorymap.api.routes_vision import parse_chart_question
+    from tessellate.api.routes_vision import parse_chart_question
 
     today = date(2026, 10, 15)
     asked = parse_chart_question("How many notes per category this month?", today)
@@ -146,3 +148,21 @@ def test_a_note_menu_offers_explain_this_note():
     app = app_js_text()
     assert "Explain this note" in app
     assert "explainNote(" in app
+
+
+def test_a_dismissed_merge_proposal_comes_back_on_undo(client):
+    """INBOX 898: "Not these" has an inverse, so Undo can offer the pair again."""
+    _note(client, "one", category="Recipes")
+    _note(client, "two", category="Recipes")
+    _note(client, "three", category="Recipe")
+
+    def proposed():
+        merges = client.get("/tidy-proposals").json()["merges"]
+        return [m for m in merges if {m["keep"]["name"], m["merge"]["name"]} == {"Recipe", "Recipes"}]
+
+    assert proposed()
+    client.post("/tidy-proposals/dismiss", json={"a": "Recipe", "b": "Recipes"})
+    assert not proposed()
+    reply_3 = client.post("/tidy-proposals/undismiss", json={"a": "Recipes", "b": "Recipe"})
+    assert reply_3.status_code == 200
+    assert proposed()

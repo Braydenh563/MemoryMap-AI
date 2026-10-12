@@ -163,22 +163,6 @@ function richPickerSetActive(list, rows, index) {
   return lit;
 }
 
-//: A note's first lines, as a sample for the preview: its markdown stripped
-//: (`notePreviewText`, the helper every note preview uses) but its line
-//: breaks kept, one paragraph a line, as text. The pane clips with a fade, so
-//: a handful is plenty.
-function richPickerLines(content, max = 6) {
-  const raw = String(content || "");
-  const text = notePreviewText(raw);
-  const sample = document.createElement("div");
-  for (const line of text.split("\n").map((l) => l.trim()).filter(Boolean).slice(0, max)) {
-    const p = document.createElement("p");
-    p.textContent = line;
-    sample.appendChild(p);
-  }
-  return sample.childElementCount ? sample : null;
-}
-
 //: The preview pane's content, for the row in hand: its tile and name, what
 //: it does, a live sample (a node the caller has rendered, inert here), and
 //: the way to do it without the picker. `keysLead` and `keysTail` word that

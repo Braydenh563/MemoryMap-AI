@@ -51,7 +51,7 @@ def test_what_does_not_fit_folds_into_one_more_chip():
     # The "+N" opens the rest, each row doing what its chip does.
     more = cards[cards.index("function noteMetaMore("):]
     assert "openMenuAtPoint(items" in more[:1500]
-    assert "filterNotesByTag(tag)" in more[:1500] and "answerSuggestedTags(entry, { take: [tag] })" in more[:1500]
+    assert "filterNotesByTag(tag)" in more[:1500] and "answerTags(entry, { take: [tag] })" in more[:1500]
     # A card off screen is fitted when it is drawn, not measured alone; a
     # line that fits as drawn is left alone.
     assert 'addEventListener("contentvisibilityautostatechange"' in fit
@@ -77,3 +77,11 @@ def test_the_time_is_the_lines_last_fact_everywhere():
 def test_the_low_score_sits_with_the_category():
     cards = _read("note-cards.js")
     assert "categoryChip ? categoryChip.after(confidenceChip) : meta.appendChild(confidenceChip)" in cards
+
+
+def test_the_match_reason_folds_last_like_the_low_score():
+    # INBOX 728: an icon-only "70% similar" beside a worded one read as two
+    # different facts, so the reason chip gives up its words after the rest.
+    cards = _read("note-cards.js")
+    assert 'text.parentElement.matches(".review, .result-reason-chip")' in cards
+    assert ".sort((x, y) => isLast(x) - isLast(y))" in cards

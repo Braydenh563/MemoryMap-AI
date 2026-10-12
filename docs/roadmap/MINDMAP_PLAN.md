@@ -49,7 +49,7 @@ rebuilt existing work here.
 
 - **A board is already an `Entry`.** `WhiteboardNode.board_id`,
   `WhiteboardSketch.board_id` and `WhiteboardObject.board_id` are all
-  `ForeignKey("entries.id")` (`src/memorymap/core/database.py` ~930-1010). A
+  `ForeignKey("entries.id")` (`src/tessellate/core/database.py` ~930-1010). A
   board *is* a note row. So "the mindmap as a whole is its own object that can
   be attached to, linked to and referenced" is **already true at the data
   layer**: it inherits linking, tags, categories, the graph, the timeline and
@@ -103,7 +103,7 @@ Sources at the end. Grouped by what it would mean here.
   detection**, and a **focus mode** that starts from one element and unfolds the
   network step by step. It supports **systems maps and causal loop diagrams**
   (signed, directional edges), not just trees.
-- That maps onto MemoryMap directly: a map's nodes are often *real notes*, which
+- That maps onto Tessellate directly: a map's nodes are often *real notes*, which
   already have tags and categories, so "perspectives" is a filter over data the
   app already holds: and the graph tab already computes some of these metrics.
 
@@ -239,11 +239,11 @@ Recorded because Coggle is the reference the user actually meant:
 
 ## 6. Files this will touch
 
-- `src/memorymap/core/database.py`, board `type`/`layout`, node `parent_id`,
+- `src/tessellate/core/database.py`, board `type`/`layout`, node `parent_id`,
   new `kind` values. One Alembic migration.
-- `src/memorymap/api/routes_whiteboard.py`, map CRUD, layout endpoint, node
+- `src/tessellate/api/routes_whiteboard.py`, map CRUD, layout endpoint, node
   tree endpoints, export; extend `_board_preview` for map structure.
-- `src/memorymap/ai/tools*.py`, the four map tools, contract-shaped.
+- `src/tessellate/ai/tools*.py`, the four map tools, contract-shaped.
 - `frontend/js/whiteboard.js` (and `frontend/js/graph.js` for layout precedent): the
   map mode, keyboard editing, auto-layout, collapse.
 - `frontend/js/library.js`, the Maps filter and the upgraded preview.
@@ -1355,7 +1355,7 @@ topic: a control that wide has nowhere to go.
   each the board menu bar's own recipe; the strip is **314 x 38** at 1440,
   1024 and 820 (0.22, 0.31 and 0.38 of the window, against a gate of a half)
   and 314 x 54 at 390, against 959.4 x 38 and 348.4 x 150 before. `mapstrip.js`
-  39/39, `mapnarrow.js` 3/3, and `mapline.js`, `mapcore.js` and `mapspine.js`
+  39/39, `mapnarrow.js` 3/3, and `mapline.js`, `mapcore.js` (removed 2026-10-12, recoverable from git history) and `mapspine.js`
   untouched at 13/13, 16/16 and 9/9. ~~**What is left of 13b**: whether the
   strip still covers the handle of the line into its own topic~~ **measured
   and fixed 2026-10-04**, recorded in HISTORY.md ("Moved from the plans,
@@ -1410,7 +1410,7 @@ topic: a control that wide has nowhere to go.
   decision 9's narrow case~~ **built 2026-10-04**, recorded in HISTORY.md
   ("Moved from the plans, 2026-10-04 (the map's palette, font and the app's
   own default)"): one palette list on the server read by canvas and
-  thumbnail, a map font, and a pin per themed select; `mappalette.js` 13/13
+  thumbnail, a map font, and a pin per themed select; `mappalette.js` (removed 2026-10-12, recoverable from git history) 13/13
   in light, dark and 390. 13e is closed.
 - ~~**13f. The doors that are built and shut.**~~ **Withdrawn 2026-09-21, and
   a different thing built in its place**, recorded in HISTORY.md ("Moved from
@@ -1760,12 +1760,100 @@ Phases 14a to 14e are built (HISTORY.md, "Moved from the plans, 2026-10-05
 - **Linked stickers** (Illustrator's symbols): edit one placed icon or emoji
   and every copy follows. Needs a `library_ref` that is followed, which
   decision 25 of WHITEBOARD_PLAN keeps as "kept, never followed".
-- **Topic effects** (Photoshop's layer styles): shadow and glow per topic and
-  per level; a level field each, under decision 40's rule.
-- **Reaction stamps and voting** (Miro): a count of stamps on a topic or card.
+- ~~Topic effects~~ built 2026-10-10: HISTORY.md ("Moved from the plans, 2026-10-10 (boardmap-1010)"); not yet in the PNG or SVG picture.
+- Reaction stamps and voting: on a topic, built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (canvasdepth2)"); on a board card, open.
 - **The whiteboard half of 641's research**, beyond stickers.
-- The exported picture draws every topic as one box: the levels, shapes and a
-  Phosphor icon do not reach PNG or SVG (an emoji icon does, as text).
+- The exported picture draws each topic's shape since 2026-10-10 (boardmap-1010); a
+  topic's effect and a Phosphor icon still do not reach PNG or SVG (an emoji icon does, as text).
 - The document editor's `:shortcode:` completion keeps its own 248-entry table
   (`DOC_EMOJI_SOURCE`); fold it into `ICON_EMOJI_SOURCE` when the completion
   can wait on the picker's script.
+
+## Placed from the owner's list, 2026-10-10
+
+Every entry built 2026-10-10 (boardmap-1010). Moved to HISTORY.md ("Moved from the plans, 2026-10-10 (boardmap-1010)").
+
+## 15. Deepened 2026-10-10 (Brief 72a, decision 71)
+
+Measured with `scratchpad/ui-sweeps/deepen72a.js` (fresh data dir, no model,
+three runs on a shared four-core machine, ranges across runs) and
+`boardundo.js`. Sections 13 and 14 hold the map's own phases; these rows are
+the trust contract's (WORLD_CLASS_PLAN 28).
+
+**What renders today**
+
+| Measure | 1440 | 390 (touch) |
+| --- | --- | --- |
+| Controls in `#library-view-whiteboard`, a five-topic map, one topic selected | 44 (top bar 9) | 24 (top bar 6) |
+| Clicks from the dashboard to a new map | 5 (Library, Boards & maps, New, Map, Create) and a name typed; the palette 1, but it says "New concept map" where the Library's picker and the toast say "mind map" | the same |
+| Time from Create to the first topic painted | 314 to 1,092 ms | 724 to 2,148 ms |
+| Add a child, 20 in a row | 102 to 208 ms each | 424 ms each |
+| Undo | add a child, Undo, Redo: both exact; `boardundo.js` 43/43 covers fold, layout, theme, detach, copy branch, expand all | not driven |
+| Overflow | 0 past the viewport, 0 clipped; 4 overlaps: on the selected topic an icon-only grip sits over "Add a child to" | 8 overlaps (the grips and "Put a topic between these two"); 4 grips past the edge on the pannable canvas (not a defect) |
+| No model | 0 AI controls on the map; the map palette has 33 commands | the same |
+
+**The professional bar.** XMind: a map from the keyboard alone (Tab,
+Enter, arrows), structures beyond the tree (logic chart, org chart,
+fishbone, timeline, tree table), an outline view that edits the same map,
+Zen mode, pitch mode, and every topic act one undo step.
+
+**The rows, by impact**
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | fix | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: New, Mind map makes "Untitled map N" with its root in edit (`wbNewUntitledBoard("map")`) | `map78.js`: clicks 5 to 3 as deepen72a counts (6 to 4 with the menu's opening) | 2, 13 |
+| 2 | fix | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: "mind map" everywhere a person reads, `tests/test_terms.py` from DESIGN.md's glossary | "concept map" 14 to 0 | 10 |
+| 3 | fix | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: the selected topic's lines stand their `+` aside, hidden grips leave the page, no invisible `+` on touch, the strip clears the add row | `map78.js`: overlaps 6 to 0 at 1440, 11 to 0 at 390; 0 unnamed | 7, 8, 9 |
+| 4 | optimisation | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: one render per add (the adopt re-keys its lines), the accent read once per accent | style passes over 300 elements per add 8 to 4 (CDP, 390); press to editable 24 to 27 ms at 1440, 140 to 159 at 390 (not under 50 there; see the remaining file); Create to first topic 155 to 214 ms warm at 390 | 13 |
+| 5 | fix | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: the More sheet lists the map palette's rows (`wbSyncMoreMapRows`) | `map78.js`: 6 of 33 to 40 of 40 at 390 | 8, 2 |
+| 6 | expansion | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: logic chart, timeline, fishbone, tree table (`wbMapColumnPositions`, `WB_MAP_LAYOUT_NAMES`) | `maplayouts.js`: each 0 overlaps at 12 and 200, stored, lined; 38/39 (the fail is the base's) | 6 |
+| 7 | expansion | Linked stickers, reaction stamps and voting (14.4) | 14.4's rows | 6 |
+| 8 | fix | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: `wbExportTopicEffect`, `wbExportTopicGlyph` | `map78-export.js` + pngpixel: shadow 242 against 255, glow 251,231,231 against 255, the icon's ink in its slot | 11 |
+| 9 | optimisation | **Built 2026-10-10 (Brief 78; HISTORY "MINDMAP Brief 78")**: `#wb-help-about` names each; WB_COMMANDS and the map palette gain the missing rows | `map78.js`: no popover 9 to 0, no palette row 5 to 0 | 6 |
+
+**Briefs.** 36 (14.4), 78 (rows 1 to 6, 8, 9).
+
+### Vendored capabilities to use, 2026-10-10 (Brief 75)
+
+The owner: "make sure all the vendored repositories are made full use of. I want maximum utility." Ranked by the utility to the surface; `scratchpad/vendor_use.py` prints the counts ("available N, called M") and `tests/test_vendor_utilisation.py` ratchets them, so a row that lands raises its floor in the same commit. Each is a lead from a lower-bound count: grep the call site before building (CLAUDE.md section 1).
+
+- **VC12, Harper on node labels** (S, rank 12). The mind map's labels are prose that no checker reads; the worker already exists and takes any string. Measure: a label with a seeded agreement error is flagged and its suggestion applies as one undo step; no lint call on a drag.
+
+## Placed from Brief 60, 2026-10-10 (the measured census)
+
+- Measured nearly clean (WORLD_CLASS 26.5): the showcase map at rest 0 long tasks, 0 gaps over 20 ms; a drag of one node 4 gaps over 20 ms of 605 frames and one 50 ms long task (`frames.js`). A map of hundreds of nodes is not measured.
+
+## Placed from INBOX, 2026-10-10 (the owner on feature depth)
+
+- INBOX 797, the owner 2026-10-10 23:02Z: "Also I feel like the mindmap and whiteboard are still missing a lot of features and options and stuff that draw.io and other things like the craft repos have :(" Owner: an Opus brief (canvasdepth), next Opus slot: re-audit the mind map against draw.io, designcraft and the other craft references in ANALYSIS.md ("Whiteboard, against draw.io and designcraft", "Mind map, against designcraft's canvas"), plus tldraw, Excalidraw, XMind and MindNode; rank every gap by how often a person meets it; build the top ones measured (connection points, the shape library at scale, named layers with visibility, swimlanes, more Mermaid kinds, and for maps: themes, branch styles, relationship lines, boundaries, summaries, outline import and export, presentation mode), each a commit with a test.
+
+### canvasdepth, ranked by how often a person meets the gap (2026-10-10)
+
+From ANALYSIS.md "Mind map, against designcraft's canvas", re-read against
+XMind and MindNode. The brief's list (themes, branch styles, relationship
+lines, boundaries, summaries, outline in and out, presentation, Tab, Enter
+and F2) is built; what is open:
+
+1. Built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (canvasdepth2)"): a structure per branch.
+2. Built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (canvasdepth2)"): callouts on a topic.
+3. Built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (canvasdepth2)"): labels under a topic.
+4. Built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (canvasdepth2)"): `.xmind` export.
+5. Built 2026-10-11 (HISTORY "Moved from the plans, 2026-10-11 (canvasdepth2)"): reaction stamps and votes (14.4). Stickers were built as decision 44; linked stickers stay open in 14.4.
+
+## Placed from INBOX, 2026-10-11 (the topic's tools)
+
+Owner: the mapfix agent (Sonnet).
+
+- **The owner, 2026-10-11, verbatim.** "also when I change stuff in the
+  tools for a mindmap node, I cant actually see what the difference is
+  until I click off it 😅" (screenshot: a topic's Shape popover, rows Core
+  idea, Box, Edge bar, Fill, Effect; selected options drawn three ways
+  (accent fill, a bordered box, a grey fill) and the resets in two
+  colours). Placed: the Sonnet mapfix agent: a change paints the topic
+  at once while it stays selected, the popover never covers the topic it
+  edits, and one selected look and one reset look in the popover.
+- INBOX 816, the owner 2026-10-11, verbatim: "should thes ebuttons be that big??" (screenshot: a zoomed-out dark map; the selected topic "test" is about 60 px wide and its + and link buttons are each about 50 px squares under it, larger than the topic). Read: no. The topic's action buttons are drawn at a fixed screen size while the map is zoomed out. Target: they scale with the topic and are clamped between 20 and 28 px, sit beside the topic without covering a neighbour, and below 50% zoom only the + shows.
+- INBOX 817, the owner 2026-10-11, verbatim: "also that popup edit bar for when I try editing text doesn follow the selected text with scroll or zoom, and the panels and buttons kinda get in the way of me trying to edit the text in them" (screenshots: editing "Goal": the format bar, bold through comment, stays where it opened while the map pans, and in the second it sits across the topic; the + and link buttons and the fold toggle overlap the text box). Target: the format bar is anchored to the selection and re-placed on pan, zoom and scroll (one rAF per frame), above the topic, or below when there is no room, never over the text being edited; while a topic's text is edited its + and link buttons, fold toggle and resize grip are hidden.
+- INBOX 818, the owner 2026-10-11, verbatim: "labels on mind map links dont move with the links". Target: a link's label is placed on the link's path (the midpoint of the drawn curve, `getPointAtLength`) and re-placed in the same frame as the link on a topic drag, a layout change, a fold and a pan or zoom; measured: label centre within 2 px of the path midpoint after a 200 px topic drag.
+- INBOX 819, the owner 2026-10-11, verbatim: "also i dont think there is a way to label links on a whiteboard. also can link labels be customisable??" (screenshot: a selected board connector, its ends and midpoint handles, no label control). Read: a board connector takes a label today only by Enter on the selected link (`wbLinkTakesLabel`, decision 13), with nothing on screen saying so. Target: (1) the selected connector's context bar has "Label" (the tag icon), and a double-click on the line starts one at the click; (2) a label's look in the same bar: size, bold, text colour, a background chip on or off, and position along the line (start, middle, end, or dragged, kept as `t`); mind map link labels share the same controls and recipe; help moves with it (the Guide's board-connectors topic).
+  Decided 2026-10-11 (mapfix found the clash): a double-click on a line stays "add a bend", as the owner asked earlier; a label starts from the visible Label button (built 2026-10-11, mapfix) or Enter, and a double-click on the label itself edits it. Open: (2), the label look controls, owner: the cards agent with 825.

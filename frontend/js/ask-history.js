@@ -5,6 +5,12 @@
 // is opened. Its state (`askHistoryOpen` and the paging counters) and the
 // badge stay in capture-ask.js, since boot code reads them.
 
+const ASK_HISTORY_PAGE = 20;
+
+let askHistoryOffset = 0;
+
+let askHistoryTotal = 0;
+
 function askHistoryRow(turn) {
   const li = document.createElement("li");
   li.className = "ask-history-item";
@@ -157,13 +163,14 @@ async function viewAskHistoryTurn(id) {
   // this reason: browsing back shouldn't lose the "why" a result showed up.
   const connected = new Set(turn.connected_ids || []);
   const matchInfo = turn.match_info || {};
+  const scored = everyRowScored(turn.raw_results, matchInfo, connected);
   for (const entry of turn.raw_results) {
     const row = clickableResult(entry);
-    const badge = matchReasonBadge(matchInfo[entry.id]);
+    const badge = matchReasonBadge(matchInfo[entry.id], scored);
     if (badge) {
       if (connected.has(entry.id)) row.classList.add("result-connected");
       if (matchInfo[entry.id]?.type === "connected_2hop") row.classList.add("result-connected-2hop");
-      row.appendChild(badge);
+      placeResultBadge(row, badge);
     }
     rawList.appendChild(row);
   }
@@ -216,33 +223,87 @@ async function viewAskHistoryTurn(id) {
 
 async function toggleAskHistoryPin(id, pinned) {
   //: A failure is said, not swallowed (audit 2026-10-05, FE-12).
-  await apiJson(`/ask-history/${id}/pin?pinned=${pinned}`, { method: "PUT" }).catch((error) =>
+  const done = await apiJson(`/ask-history/${id}/pin?pinned=${pinned}`, { method: "PUT" }).catch((error) =>
     toast(error.message || "Couldn't change the pin.", true)
   );
+  if (done !== undefined) {
+    const setPin = (to) => async () => {
+      await apiJson(`/ask-history/${id}/pin?pinned=${to}`, { method: "PUT" });
+      loadAskHistoryPage(true);
+    };
+    pushUndo(pinned ? "Pinned a question" : "Unpinned a question", setPin(!pinned), setPin(pinned));
+  }
   loadAskHistoryPage(true);
 }
 
 async function deleteAskHistoryTurn(id) {
-  // Permanent: no restore endpoint behind this one, unlike a note's bin.
+  // Kept in the server's undo bin, so Undo can bring it back.
   // "Clear all" right next to this already confirms; a single turn deleted
   // by the same one-click miss deserves the same guard, not less.
   if (!(await confirmDialog("Delete this question and answer?"))) return;
-  await apiJson(`/ask-history/${id}`, { method: "DELETE" }).catch((error) =>
+  const gone = await apiJson(`/ask-history/${id}`, { method: "DELETE" }).catch((error) =>
     toast(error.message || "Couldn't delete that question.", true)
   );
+  if (gone) pushTokenUndo("Deleted a question", [{ del: [`/ask-history/${id}`, "DELETE"], restore: "/ask-history/restore", token: gone.undo_token }], askHistoryRepaint, "Question deleted.");
+  askHistoryRepaint();
+}
+
+//: What shows the history, repainted after a delete, a clear or either one's Undo.
+function askHistoryRepaint() {
   loadAskHistoryPage(true);
   loadAskHistoryBadge();
+  loadRecentQuestions();
+}
+
+//: **The Ask again row's ⋯** (the owner, 2026-10-10: "There's no way to clear
+//: your ask history"; "no way to ... delete individual records??"). One
+//: `kebabMenu` at the row's end: forget one question, or clear them all
+//: (the history's own Clear, which also ends the row: routes_chat
+//: `_recent_questions` reads the audit log, and nothing is deleted from it).
+function askAgainMenu(box, questions) {
+  if (!box.isConnected || !questions.length) return;
+  box.querySelector(":scope > .menu-wrap")?.remove();
+  const items = questions.map((question) => ({
+    label: `ph:x Forget "${question.length > 32 ? `${question.slice(0, 31)}…` : question}"`,
+    title: "Take this question off Ask again",
+    run: () => forgetRecentQuestion(question),
+  }));
+  items.push({ label: "ph:trash Clear question history", title: "Clear every question you asked here (pinned ones are kept)", run: clearAskHistory });
+  box.appendChild(kebabMenu(items, "Ask again options"));
+}
+
+async function forgetRecentQuestion(question) {
+  try {
+    const gone = await apiJson(`/chat/recent?question=${encodeURIComponent(question)}`, { method: "DELETE" });
+    //: The audit log is a history, so Undo writes a "remembered" row naming the
+    //: forgetting (by id); Redo forgets again and keeps the new row's id.
+    let marker = gone.marker_id;
+    const forget = async () => {
+      marker = (await apiJson(`/chat/recent?question=${encodeURIComponent(question)}`, { method: "DELETE" })).marker_id;
+      loadRecentQuestions();
+    };
+    const remember = async () => {
+      await apiJson("/chat/recent/restore", { method: "POST", body: JSON.stringify({ marker_id: marker }) });
+      loadRecentQuestions();
+    };
+    offerUndo("Forgot a question", "Question forgotten.", remember, forget);
+  } catch (error) {
+    toast(error.message || "Couldn't forget that question.", true);
+    return;
+  }
+  loadRecentQuestions();
+  announce("Question forgotten.");
 }
 
 async function clearAskHistory() {
   const ok = await confirmDialog(
-    "Clear your question history?\n\nPinned questions are kept. This cannot be undone for the rest.",
+    "Clear your question history?\n\nPinned questions are kept. Undo brings the rest back.",
     { confirmLabel: "Clear history", danger: true }
   );
   if (!ok) return;
-  await apiJson("/ask-history", { method: "DELETE" }).catch((error) =>
+  const cleared = await apiJson("/ask-history", { method: "DELETE" }).catch((error) =>
     toast(error.message || "Couldn't clear the history.", true)
   );
-  loadAskHistoryPage(true);
-  loadAskHistoryBadge();
+  if (cleared) pushTokenUndo("Cleared the question history", [{ del: ["/ask-history", "DELETE"], restore: "/ask-history/restore", token: cleared.undo_token }], askHistoryRepaint, "Question history cleared.");
+  askHistoryRepaint();
 }

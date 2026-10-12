@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.core import deps
+from tessellate.core import deps
 
 
 class _Models:
@@ -44,7 +44,7 @@ class _NoOllama:
 
 @pytest.fixture(autouse=True)
 def _fresh():
-    from memorymap.api import routes_graph
+    from tessellate.api import routes_graph
 
     routes_graph.reset_graph_cache()
     _Ollama.calls = []
@@ -81,7 +81,7 @@ def test_the_model_writes_it_once_and_an_edit_asks_again(client, monkeypatch):
 
 
 def test_a_private_note_is_never_read_to_the_model(client, session, monkeypatch):
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     monkeypatch.setattr(deps, "get_ollama", _Ollama)
     monkeypatch.setattr(deps, "get_model_manager", _Models)

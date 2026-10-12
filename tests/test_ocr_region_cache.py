@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.core import ocr, pdfpages
+from tessellate.core import ocr, pdfpages
 
 from tests.test_ocr_pdf_regions import TWO_PAGE_PDF
 

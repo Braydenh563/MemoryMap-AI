@@ -33,9 +33,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from sqlalchemy import select  # noqa: E402
 
-from memorymap.ai.embeddings import vector_to_bytes  # noqa: E402
-from memorymap.core import deps  # noqa: E402
-from memorymap.core.database import Category, EmbeddingRecord, Entry  # noqa: E402
+from tessellate.ai.embeddings import vector_to_bytes  # noqa: E402
+from tessellate.core import deps  # noqa: E402
+from tessellate.core.database import Category, EmbeddingRecord, Entry  # noqa: E402
 
 FAKE_BACKEND = "fake:keywords-v1"
 
@@ -111,7 +111,7 @@ def build_notebook(session, n: int) -> None:
     session.commit()
     print(f"  wired {thread_count} reply threads in {time.perf_counter() - t0:.1f}s")
 
-    from memorymap.core.database import EntryLink
+    from tessellate.core.database import EntryLink
 
     t0 = time.perf_counter()
     link_count = min(2000, n // 10)
@@ -158,12 +158,12 @@ def report_storage(session, data_dir: Path, n: int) -> None:
 
     # Force WAL back into the main file before measuring — otherwise a big
     # write's real cost is split across two files, and the one most people
-    # remember to check (memorymap.db) understates it until SQLite decides
+    # remember to check (tessellate.db) understates it until SQLite decides
     # to checkpoint on its own.
     session.connection().exec_driver_sql("PRAGMA wal_checkpoint(TRUNCATE)")
     session.commit()
 
-    db_file = data_dir / "memorymap.db"
+    db_file = data_dir / "tessellate.db"
     db_bytes = db_file.stat().st_size if db_file.exists() else 0
     uploads_dir = data_dir / "uploads"
     uploads_bytes = (
@@ -184,7 +184,7 @@ def report_storage(session, data_dir: Path, n: int) -> None:
     real_dim_bytes = 384 * 4  # a common local sentence-transformer's output
 
     print(f"\nStorage after {n} notes:")
-    print(f"  memorymap.db (checkpointed):  {db_bytes / 1e6:9.1f} MB")
+    print(f"  tessellate.db (checkpointed):  {db_bytes / 1e6:9.1f} MB")
     print(f"  — of which embeddings table:  {embeddings_bytes / 1e6:9.1f} MB "
           f"(this fixture's 4-dim vectors)")
     print(f"  uploads/ (attachments):       {uploads_bytes / 1e6:9.1f} MB")
@@ -226,10 +226,10 @@ def main() -> None:
         build_notebook(session, n)
         report_storage(session, Path(tmp) / "data", n)
 
-        from memorymap.ai import tools as ai_tools
-        from memorymap.api import routes_graph
-        from memorymap.entry import manager
-        from memorymap.search import search_manager
+        from tessellate.ai import tools as ai_tools
+        from tessellate.api import routes_graph
+        from tessellate.entry import manager
+        from tessellate.search import search_manager
 
         # A note with tags AND embeddings AND some links, so every path below
         # actually does the work it's meant to rather than short-circuiting

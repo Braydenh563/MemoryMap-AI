@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import json
 
-from memorymap.ai import tools
-from memorymap.core.database import AuditLog, Entry, WhiteboardNode, WhiteboardObject, WhiteboardSketch
+from tessellate.ai import tools
+from tessellate.core.database import AuditLog, Entry, WhiteboardNode, WhiteboardObject, WhiteboardSketch
 
 RECT = "M 10 20 L 110 20 L 110 80 L 10 80 Z"
 
@@ -77,6 +77,23 @@ def test_edit_words_and_colours_with_an_undo(session):
     assert out["undo"]["arguments"]["text"] == "Old"
     bad = tools.execute_tool(session, "edit_board_item", {"kind": "shape", "item_id": shape.id, "color": "red; x"})
     assert "colour" in bad["error"]
+
+
+def test_a_sticky_s_folded_corner_is_set_and_undone(session):
+    """OPEN row 810: the assistant kept a sticky's fold but could not set it."""
+    sticky = WhiteboardObject(kind="text", data=json.dumps({"content": "Idea", "sticky": True, "bg": "#fff3a0"}), x=0, y=0, width=120, height=120)
+    plain = WhiteboardObject(kind="text", data=json.dumps({"content": "Plain"}), x=0, y=0, width=100, height=40)
+    session.add_all([sticky, plain])
+    session.commit()
+    out = tools.execute_tool(session, "edit_board_item", {"kind": "object", "item_id": sticky.id, "fold": False})
+    session.refresh(sticky)
+    assert json.loads(sticky.data)["fold"] is False and "corner" in out["changed"], out
+    assert out["undo"]["arguments"]["fold"] is True
+    back = tools.execute_tool(session, "edit_board_item", out["undo"]["arguments"])
+    session.refresh(sticky)
+    assert json.loads(sticky.data)["fold"] is True, back
+    refused = tools.execute_tool(session, "edit_board_item", {"kind": "object", "item_id": plain.id, "fold": True})
+    assert "sticky" in refused["error"]
 
 
 def test_a_card_and_a_connector_are_not_edited_here(session):

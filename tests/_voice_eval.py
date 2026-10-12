@@ -23,7 +23,7 @@ import ast
 import re
 from datetime import date, timedelta
 
-from memorymap.ai import composer, composer_voice
+from tessellate.ai import composer, composer_voice
 from tests import _composer_eval
 
 EM_DASH = chr(0x2014)
@@ -103,14 +103,23 @@ def trace(remark: dict, notes: list[dict], on: date, *, answer_phrases: bool = F
             for nid in named:
                 if not re.search(rf"\b{re.escape(text)}\b", by_id[nid]["content"], re.I):
                     failures.append(f"note {nid} does not hold {text!r}")
+        elif kind == "address":
+            #: A link around a note's name: "[" and "](#/notes/<a note found>)".
+            linked = re.fullmatch(r"\]\(#/notes/(\d+)\)", text)
+            if text != "[" and not (linked and int(linked.group(1)) in by_id):
+                failures.append(f"not a link to a note found: {text!r}")
         elif kind == "reminder":
             if text not in [r["text"] for r in REMINDERS]:
                 failures.append(f"not a reminder's words: {text!r}")
         elif kind == "measure":
             if text not in values:
                 failures.append(f"not a measured value: {text!r}")
-        elif kind == "asked":
-            pass  # the question's own words; held by the find eval's caller
+        elif kind in ("asked", "reading"):
+            pass  # the question's own words, or how it was read; held by the find eval's caller
+        elif kind == "shifted":
+            problem = _composer_eval.shifted_failure(part, by_id[part[2]]["content"], date.today())
+            if problem:
+                failures.append(problem)
         else:
             failures.append(f"unknown part kind {kind!r}")
     if EM_DASH in remark["text"] or "!" in remark["text"]:

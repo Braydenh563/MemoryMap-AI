@@ -146,7 +146,7 @@ def _top_level_keys(obj: str) -> set[str]:
 
 
 def _feature_rows() -> list[tuple[str, str]]:
-    body = _body(_strip_comments(_read("dashboard.js")), "function featureCatalog() {")
+    body = _body(_strip_comments(_read("app-features.js")), "function featureCatalog() {")
     return _objects(body, "name")
 
 

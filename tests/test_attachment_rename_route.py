@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import io
 
-from memorymap.entry import manager
+from tessellate.entry import manager
 
 
 def _note_with_file(client, session, name="lecture.pdf"):

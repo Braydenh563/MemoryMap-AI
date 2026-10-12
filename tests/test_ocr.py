@@ -14,7 +14,7 @@ import os
 import sys
 from pathlib import Path
 
-from memorymap.core import ocr
+from tessellate.core import ocr
 
 
 def test_tesseract_available_reflects_shutil_which(monkeypatch):
@@ -88,7 +88,7 @@ def test_extract_text_never_raises_on_a_corrupt_or_unreadable_image(monkeypatch,
 
 
 def test_extract_and_store_writes_ocr_text_onto_the_row(app_state, session, monkeypatch, tmp_path):
-    from memorymap.core.database import MediaUpload
+    from tessellate.core.database import MediaUpload
 
     upload = MediaUpload(filename="a.png", original_name="a.png")
     session.add(upload)
@@ -100,7 +100,7 @@ def test_extract_and_store_writes_ocr_text_onto_the_row(app_state, session, monk
     monkeypatch.setattr(ocr, "extract_text", lambda path: "found text")
     ocr.extract_and_store(upload_id, tmp_path / "a.png")
 
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     with deps.get_db().session() as check:
         reloaded = check.get(MediaUpload, upload_id)
@@ -108,7 +108,7 @@ def test_extract_and_store_writes_ocr_text_onto_the_row(app_state, session, monk
 
 
 def test_extract_and_store_does_nothing_when_no_text_was_found(app_state, session, monkeypatch, tmp_path):
-    from memorymap.core.database import MediaUpload
+    from tessellate.core.database import MediaUpload
 
     upload = MediaUpload(filename="b.png", original_name="b.png")
     session.add(upload)
@@ -120,7 +120,7 @@ def test_extract_and_store_does_nothing_when_no_text_was_found(app_state, sessio
     monkeypatch.setattr(ocr, "extract_text", lambda path: "")
     ocr.extract_and_store(upload_id, tmp_path / "b.png")
 
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     with deps.get_db().session() as check:
         reloaded = check.get(MediaUpload, upload_id)
@@ -250,7 +250,7 @@ def test_tesseract_runs_on_one_openmp_thread_unless_told_otherwise(monkeypatch):
     """Measured: 42 s against 0.28 s for one line of text in a four-core
     container with the default OpenMP thread count. The person's own value
     wins; the default is one thread."""
-    from memorymap.core import ocr
+    from tessellate.core import ocr
 
     monkeypatch.delenv("OMP_THREAD_LIMIT", raising=False)
     ocr._one_thread_for_tesseract()

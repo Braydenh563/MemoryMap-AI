@@ -27,7 +27,7 @@ import io
 
 import pytest
 
-from memorymap.core import vault
+from tessellate.core import vault
 
 
 def test_direction_is_not_merged(client):

@@ -11,9 +11,9 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import text
 
-from memorymap.core import crypto, vault
-from memorymap.core.database import AuditLog, Entry, EntryLink, EntryRevision
-from memorymap.entry import manager
+from tessellate.core import crypto, vault
+from tessellate.core.database import AuditLog, Entry, EntryLink, EntryRevision
+from tessellate.entry import manager
 
 SECRET = "named after my oncologist, Dr Weatherby"
 

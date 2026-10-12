@@ -1,7 +1,7 @@
 """INBOX 527: what a small model writes for a forced first call, with the
 app's real system prompt and compact tools, capped at 300 tokens.
 
-    MEMORYMAP_EVALS_URL=... MEMORYMAP_EVALS_MODEL=... PYTHONPATH=src \
+    TESSELLATE_EVALS_URL=... TESSELLATE_EVALS_MODEL=... PYTHONPATH=src \
         .venv/bin/python scratchpad/harness_forced.py "Make a note: buy milk"
 """
 import json
@@ -13,11 +13,11 @@ from pathlib import Path
 
 import requests
 
-from memorymap.ai import agent, tools
-from memorymap.core import deps
+from tessellate.ai import agent, tools
+from tessellate.core import deps
 
 logging.disable(logging.WARNING)
-URL, MODEL = os.environ["MEMORYMAP_EVALS_URL"], os.environ["MEMORYMAP_EVALS_MODEL"]
+URL, MODEL = os.environ["TESSELLATE_EVALS_URL"], os.environ["TESSELLATE_EVALS_MODEL"]
 deps.init_app_state(data_dir=Path(tempfile.mkdtemp()))
 for question in sys.argv[1:]:
     messages = agent.build_agent_messages(question, [])

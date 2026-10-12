@@ -33,7 +33,9 @@ def test_the_popup_agent_posts_only_when_it_is_shut_and_not_stopped():
     body = _body(APP, "async function cmdPaletteAsk(")
     finally_block = body[body.rindex("} finally {") :]
     assert 'noticeUnwatchedAnswer("agent"' in finally_block
-    assert 'cmdPaletteOverlay.classList.contains("hidden")' in finally_block
+    #: Shut is the overlay hidden and no agent sheet open (Brief 87 named it).
+    assert "agentPaletteShut()" in finally_block
+    assert 'cmdPaletteOverlay.classList.contains("hidden")' in _body(APP, "function agentPaletteShut(")
     assert "!stopped" in finally_block, "a turn the reader stopped needs no notice"
     assert "stopped = true" in body
 

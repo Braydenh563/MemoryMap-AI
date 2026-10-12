@@ -1,0 +1,153 @@
+/* search-lazy.css: what the search box adds to Find anything's card and the
+   Notes sidebar, fetched with search.js (app.js `LAZY_MODULES.search`; the
+   card's own rules stay in 07-whiteboard-misc.css). Brief 47, decision 46. */
+
+/* The kind chip on every row: the display chip, at the head's end beside the
+   date, never shrinking; the title is still the one part that gives. */
+.finder-row-head .finder-kind {
+  flex: none;
+  margin-inline-start: auto;
+}
+
+/* "Show more results": an action on the list, after its last row. */
+.finder-more {
+  align-self: center;
+}
+
+/* The operators in the '?' help, one per line. */
+.finder-help-ops {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding-inline-start: var(--space-5);
+}
+
+/* Saved searches in the Notes sidebar: the sidebar's own rows (`#sidebar li`,
+   01-forms-settings.css), under a heading spaced like Most used's. */
+#saved-finds-box h2 {
+  margin-top: var(--space-4);
+}
+
+#saved-finds {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* A zero chip is quieter by its ink, not its opacity: at 0.55 it measured
+   2.32:1 in axe-core (Brief 47's sweep), and it is still a control. */
+.finder-chip.is-zero {
+  color: var(--muted);
+}
+
+/* A phone's card nearly fills the window, so it starts near the top: under
+   the overlay's 15vh drop it ran 111px past a 390x844 window (the sweep). */
+@media (max-width: 599.98px) {
+  .finder-overlay {
+    padding-top: var(--space-3);
+  }
+}
+
+/* A saved search's ⋯ is the category row's (04-chat-dock-appearance.css,
+   `.category-actions`): out of the way until the row is pointed at or
+   focused, always there on touch, a quiet ghost button. */
+#saved-finds li {
+  position: relative;
+}
+
+#saved-finds li:is(:hover, :focus-within) .category-actions {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#saved-finds li:focus-visible {
+  outline-offset: -2px;
+}
+
+#saved-finds li .category-actions button {
+  background: transparent;
+  border-color: transparent;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+}
+
+#saved-finds li .category-actions button:hover,
+#saved-finds li .category-actions button:is(:focus-visible, :has(:focus-visible)) {
+  background: var(--ghost-btn-bg);
+}
+
+@media (hover: none) {
+  #saved-finds li .category-actions {
+    position: static;
+    transform: none;
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+.finder-row-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+}
+/* The title is the only part that may shrink, and it ellipsises rather than
+   wrapping: a result list whose rows are three lines tall shows four results
+   where it could show ten. `min-width: 0` on the flex child, or it simply
+   grows past the row. */
+.finder-row-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.finder-row-when {
+  flex: none;
+}
+.finder-row-snippet {
+  font-size: var(--text-sm);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* Why this is a result, as one line of facts under it: `--text-xs`, muted,
+   dot separators, one rank. DESIGN.md's `.library-file-meta` recipe, not a
+   row of chips, which read as things you could press. */
+.finder-why {
+  font-size: var(--text-xs);
+}
+/* --- Find anything, de-vibecoded ---------------------------------------------
+   A result is a row in a list, in every look, so it never takes the button
+   glow; its title is 500 (a list of forty 600s is a list of shouts); a kind
+   with nothing in it is dimmed; the dialog's own name is its heading rather
+   than a 12px label; and Sort is the size of the chips beside it (it was
+   the largest text in the header at 16px). */
+.finder-row {
+  box-shadow: none;
+}
+.finder-row-title {
+  font-weight: 500;
+}
+/* --- Find anything: group heads read as heads --- */
+/* Owner's screenshot: "notes", "documents" in 11px lowercase, and "24
+   results" sitting directly on the first of them. A head is the small 600
+   label in ink (the section-head grammar used across the app) with its
+   count muted beside it and a hairline under it, and the summary line keeps
+   a step of room above the first group. */
+.finder-group {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  padding: var(--space-2) 0 var(--space-1);
+  border-bottom: 1px solid var(--divider);
+  color: var(--ink);
+  font-size: var(--text-sm);
+}
+.finder-group-count {
+  color: var(--muted);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}

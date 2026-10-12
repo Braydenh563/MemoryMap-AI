@@ -95,9 +95,11 @@ def test_the_row_folds_rather_than_scrolling_or_wrapping():
     assert "--control-h" in joined
     # The fold is measured, not a breakpoint: the row is watched and the
     # folded controls are offered in the dock's own menu.
+    # The fit searches the steps and `ocrDockApply` sets them (28.4 row 9).
     fit = _body(LIBRARY, "ocrFitDock")
     assert "ResizeObserver" in LIBRARY[LIBRARY.index("function ocrWatchDock") :][:1500]
-    assert "is-folded" in fit
+    assert "ocrDockApply(dock, count)" in fit and "ocrDockFits(dock)" in fit
+    assert "is-folded" in _body(LIBRARY, "ocrDockApply")
     menu = _body(LIBRARY, "ocrSyncToolsMenu")
     assert "kebabMenu(" in menu and "is-folded" in menu
 
@@ -121,6 +123,20 @@ def test_no_bare_range_field_one_read_split_button():
         assert words in menu, words
     # The range is asked for when it is wanted, in the app's own prompt.
     assert "promptDialog(" in _body(LIBRARY, "ocrAskRange")
+
+
+def test_the_ghost_split_shares_one_border():
+    # INBOX 790: over a reading the pair is ghost, and the caret (kebabMenu's
+    # opener, quieted by `.dock .menu-wrap > button.ghost`) drew no border of
+    # its own, so it read as a second control. The rule must name `.menu-wrap`
+    # to outrank the dock's.
+    css = (ROOT / "frontend" / "css" / "library-lazy.css").read_text(encoding="utf-8")
+    rule = re.search(r"\n\n\.split-button \.menu-wrap > \.split-button-caret\.ghost \{([^}]*)\}", css)
+    assert rule, "the ghost caret needs a rule that outranks the dock's"
+    assert "margin-inline-start: -1px" in rule.group(1)
+    assert "border-start-start-radius: 0" in rule.group(1)
+    both = re.search(r"\.split-button > \.split-button-main\.ghost,\s*\.split-button \.menu-wrap > \.split-button-caret\.ghost \{([^}]*)\}", css)
+    assert both and "1px solid var(--ghost-btn-border)" in both.group(1)
 
 
 def test_the_engine_is_a_dot_and_a_popover_not_a_row():

@@ -16,9 +16,9 @@ import os
 
 import pytest
 
-from memorymap.api import app as app_module
-from memorymap.api.app import FRONTEND_DIR, RevalidatedStatic
-from memorymap.api.asset_strip import strip_css, strip_js
+from tessellate.api import app as app_module
+from tessellate.api.app import FRONTEND_DIR, RevalidatedStatic
+from tessellate.api.asset_strip import strip_css, strip_js
 
 
 @pytest.fixture()

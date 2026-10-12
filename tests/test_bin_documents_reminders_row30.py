@@ -82,8 +82,8 @@ def test_empty_the_bin_takes_documents_and_reminders_too(client):
 
 
 def test_the_bin_clears_old_documents_and_reminders_on_its_own(session):
-    from memorymap.core.database import Document, Reminder, utcnow
-    from memorymap.entry import bin as other_bin
+    from tessellate.core.database import Document, Reminder, utcnow
+    from tessellate.entry import bin as other_bin
 
     long_ago = utcnow() - timedelta(days=40)
     session.add(Document(title="Gone", content="", deleted_at=long_ago))

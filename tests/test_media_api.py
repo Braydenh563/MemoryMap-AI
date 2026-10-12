@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.api import routes_files
-from memorymap.core import pdfpages
+from tessellate.api import routes_files
+from tessellate.core import pdfpages
 
 
 def test_media_upload_does_not_process_a_staged_upload_by_default(ai_client, monkeypatch):
@@ -84,7 +84,7 @@ def test_ocr_media_retries_extraction(ai_client, monkeypatch):
     re-reads the image: this only checks the retry actually ran and its
     result made it back onto the row (see test_ocr.py for extract_text
     itself)."""
-    import memorymap.core.ocr as ocr_module
+    import tessellate.core.ocr as ocr_module
 
     monkeypatch.setattr(ocr_module, "extract_text", lambda path: "retried text")
     monkeypatch.setattr(ocr_module, "unavailable_reason", lambda *_args, **_kwargs: "")
@@ -392,19 +392,19 @@ def test_a_hand_typed_caption_overwrites_an_existing_one_without_force(ai_client
 def test_a_caption_the_app_wrote_is_credited_to_the_app(ai_client, fake_ollama):
     """The owner, 2026-09-24: a board export's caption said "typed by hand" in the
     lightbox. The app wrote it (`wbExportDescription`), so it is stored as
-    written by MemoryMap and not as edited, and needs no model."""
+    written by Tessellate and not as edited, and needs no model."""
     fake_ollama.capabilities_declared = []
     upload_id = ai_client.post(
         "/media/upload", files={"file": ("board.png", b"\x89PNG\r\n\x1a\n", "image/png")}
     ).json()["id"]
     response = ai_client.post(
         f"/media/{upload_id}/caption",
-        json={"text": "The mind map \"Plans\", exported from MemoryMap.", "source": "app"},
+        json={"text": "The mind map \"Plans\", exported from Tessellate.", "source": "app"},
     )
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["caption"].startswith("The mind map")
-    assert body["caption_model"] == "MemoryMap"
+    assert body["caption_model"] == "MemoryMap"  # brand: keep (the stored sentinel, APP_CAPTION_AUTHOR)
     assert body["caption_edited"] is False
     assert len(fake_ollama.chat_calls) == 0
 
@@ -419,19 +419,19 @@ def test_a_model_replacing_the_apps_caption_is_not_an_edit(ai_client, fake_ollam
     ai_client.post(f"/media/{upload_id}/caption", json={"text": "Part of a board.", "source": "app"})
     response = ai_client.post(f"/media/{upload_id}/caption", json={"force": True})
     body = response.json()
-    assert body["caption_model"] and body["caption_model"] != "MemoryMap"
+    assert body["caption_model"] and body["caption_model"] != "MemoryMap"  # brand: keep
     assert body["caption_edited"] is False
 
 
 def test_a_person_editing_the_apps_caption_keeps_its_author(ai_client, fake_ollama):
-    """Edited by hand after the app wrote it: "Written by MemoryMap · edited",
+    """Edited by hand after the app wrote it: "Written by Tessellate · edited",
     the same history a model's caption keeps when someone fixes a typo."""
     upload_id = ai_client.post(
         "/media/upload", files={"file": ("board.png", b"\x89PNG\r\n\x1a\n", "image/png")}
     ).json()["id"]
     ai_client.post(f"/media/{upload_id}/caption", json={"text": "Part of a board.", "source": "app"})
     body = ai_client.post(f"/media/{upload_id}/caption", json={"text": "My board"}).json()
-    assert body["caption_model"] == "MemoryMap"
+    assert body["caption_model"] == "MemoryMap"  # brand: keep (the stored sentinel, APP_CAPTION_AUTHOR)
     assert body["caption_edited"] is True
 
 
@@ -595,7 +595,7 @@ def test_pdf_info_422s_for_a_non_pdf(ai_client):
 
 
 def test_pdf_info_without_the_extra_says_so(ai_client, monkeypatch):
-    from memorymap.core import pdfpages
+    from tessellate.core import pdfpages
 
     monkeypatch.setattr(pdfpages, "available", lambda: False)
     stored = _upload_pdf(ai_client)
@@ -608,7 +608,7 @@ def test_pdf_info_without_the_extra_says_so(ai_client, monkeypatch):
 def test_pdf_info_on_an_unopenable_pdf_says_so_not_probably_a_scan(ai_client, monkeypatch):
     """Same misdiagnosis this session already fixed in `docview.py`, checked
     here too since this is a second, independent path to the same file."""
-    from memorymap.core import pdfpages
+    from tessellate.core import pdfpages
 
     monkeypatch.setattr(pdfpages, "available", lambda: True)
     monkeypatch.setattr(pdfpages, "page_count", lambda p: 0)
@@ -619,7 +619,7 @@ def test_pdf_info_on_an_unopenable_pdf_says_so_not_probably_a_scan(ai_client, mo
 
 
 def test_pdf_page_404s_out_of_range(ai_client, monkeypatch):
-    from memorymap.core import pdfpages
+    from tessellate.core import pdfpages
 
     monkeypatch.setattr(pdfpages, "available", lambda: True)
     monkeypatch.setattr(pdfpages, "render_page", lambda p, i: None)
@@ -655,8 +655,8 @@ def test_a_page_by_page_reading_reaches_the_gallery_row(ai_client):
     two were never joined, so a document with every page read still said "No
     text yet" in the library. The list endpoint now falls back to the joined
     page text, in page order."""
-    from memorymap.core import deps
-    from memorymap.core.database import MediaUpload, PageRead
+    from tessellate.core import deps
+    from tessellate.core.database import MediaUpload, PageRead
 
     with deps.get_db().session() as session:
         upload = MediaUpload(filename="paged.pdf", original_name="paged.pdf")
@@ -678,8 +678,8 @@ def test_a_whole_file_reading_still_wins_over_the_page_join(ai_client):
     """The fallback is a fallback: a reading stored on the row itself is the
     one the user last made of the whole document, and must not be replaced by
     older per-page fragments."""
-    from memorymap.core import deps
-    from memorymap.core.database import MediaUpload, PageRead
+    from tessellate.core import deps
+    from tessellate.core.database import MediaUpload, PageRead
 
     with deps.get_db().session() as session:
         upload = MediaUpload(
@@ -704,8 +704,8 @@ def _seed_uploads(count):
     """Rows straight through the model: this is about how the gallery is
     read, not about the upload path (covered above), and hundreds of real
     uploads would also write hundreds of files to disk."""
-    from memorymap.core import deps
-    from memorymap.core.database import MediaUpload
+    from tessellate.core import deps
+    from tessellate.core.database import MediaUpload
 
     session = deps.get_db().session()
     session.add_all(

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from sqlalchemy import event
 
-from memorymap.core.database import Entry
+from tessellate.core.database import Entry
 
 
 def test_suggestions_loads_only_the_notes_it_shows(client):

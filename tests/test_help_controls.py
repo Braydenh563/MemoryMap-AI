@@ -17,7 +17,7 @@ import re
 
 import pytest
 
-from memorymap.ai import help_chat
+from tessellate.ai import help_chat
 
 
 def _first(question: str) -> str | None:
@@ -179,6 +179,7 @@ def test_the_m_chord_key_map_is_unchanged_by_the_redesign():
     }
     assert actions == {
         "s": "Settings", "q": "Quick sketch", "v": "Record a meeting", "a": "Guide", "p": "Popup agent",
+        "o": "OCR workspace",
     }
     hint = app[app.index("function showTabJumpHint(") :]
     hint = hint[: hint.index("\n}\n")]
@@ -188,7 +189,9 @@ def test_the_m_chord_key_map_is_unchanged_by_the_redesign():
 def test_every_document_command_key_is_in_the_editor_entries():
     docs = (FRONTEND / "js" / "documents.js").read_text(encoding="utf-8")
     table = _table(docs, "const DOC_COMMANDS = [", "\n];")
-    keys = {k for k in re.findall(r'keys: "([^"]*)"', table) if k}
+    #: "none" is a decision recorded in the table, not a key to name.
+    #: Read as the string it is: "Ctrl+\\" in the source is the chord Ctrl+\.
+    keys = {k.replace("\\\\", "\\") for k in re.findall(r'keys: "([^"]*)"', table) if k and k != "none"}
     assert len(keys) > 15, "DOC_COMMANDS has moved; this test cannot read it"
     body = _body("documents-controls") + " " + _body("code-files")
     missing = sorted(k for k in keys if not all(_named(part.strip(), body) for part in k.split(" / ")))
@@ -222,15 +225,25 @@ def test_every_whiteboard_tool_key_is_in_the_whiteboard_entry():
 
 def _longest_offline_answer() -> str:
     return max(
-        (help_chat.offline_answer(t["id"].replace("-", " ") + " shortcuts")["content"] for t in help_chat.HELP_TOPICS),
+        #: Either view of the answer (INBOX 787): the composed one the panel
+        #: keeps, or the help text word for word.
+        (
+            text
+            for t in help_chat.HELP_TOPICS
+            for reply in [help_chat.offline_answer(t["id"].replace("-", " ") + " shortcuts")]
+            for text in (reply["content"], (reply.get("system") or {}).get("content", ""))
+        ),
         key=len,
     )
 
 
 @pytest.mark.parametrize("route", ["/help/ask", "/help/ask/stream"])
 def test_the_question_after_a_controls_answer_is_still_answered(client, route):
-    first = client.post("/help/ask", json={"question": "what are all the whiteboard shortcuts"}).json()
-    assert len(first["content"]) > help_chat.MAX_MESSAGE_CHARS, "the case this guards is a long answer"
+    #: The four entries at the reply budget were each split in two (board
+    #: library, whiteboard keys, board format, mind map features), so "all the
+    #: whiteboard shortcuts" is no longer one long answer; the case this guards
+    #: is the longest answer the Guide can still give.
+    assert len(_longest_offline_answer()) > help_chat.MAX_MESSAGE_CHARS, "the case this guards is a long answer"
     history = [
         {"role": "user", "content": "what are all the whiteboard shortcuts"},
         {"role": "assistant", "content": _longest_offline_answer()},
@@ -271,7 +284,7 @@ def test_the_guide_can_write_out_a_whole_controls_entry():
     """Online, the reply cap decides whether "list the whiteboard keys" ends
     mid-list. Four characters a token is the usual English estimate; keys and
     punctuation run denser, so three is the conservative one."""
-    from memorymap.ai import presets
+    from tessellate.ai import presets
 
     longest = max(len(t["body"]) for t in help_chat.HELP_TOPICS)
     assert presets.resolve(presets.GUIDE_MODE).max_output_tokens >= longest / 3
@@ -280,7 +293,7 @@ def test_the_guide_can_write_out_a_whole_controls_entry():
 def test_both_guide_routes_answer_in_the_guide_preset(ai_client, fake_ollama, monkeypatch):
     """`answer` asked for "quick" while `answer_stream` asked for the Guide's
     own preset, so the fallback path had Quick's cap and no thinking."""
-    from memorymap.ai import presets
+    from tessellate.ai import presets
 
     modes: list[str | None] = []
     original = type(fake_ollama).chat
@@ -293,3 +306,33 @@ def test_both_guide_routes_answer_in_the_guide_preset(ai_client, fake_ollama, mo
     fake_ollama.librarian_reply = "Tab adds a child."
     assert ai_client.post("/help/ask", json={"question": "mind map keys"}).status_code == 200
     assert modes and modes[-1] == presets.GUIDE_MODE
+
+
+def test_no_guide_topic_sits_at_the_reply_budget():
+    """The four entries that sat at 1,917 to 1,919 of the 1,920 characters the
+    Guide's reply cap holds (board library, whiteboard keys, board format, mind
+    map features) are each two topics along their natural seam, so a later help
+    edit has room: every body is under 1,600."""
+    from tessellate.ai import presets
+
+    budget = presets.resolve(presets.GUIDE_MODE).max_output_tokens * 3
+    by_id = {t["id"]: len(t["body"]) for t in help_chat.HELP_TOPICS}
+    for first, second in (
+        ("board-library", "board-library-saving"),
+        ("whiteboard-controls", "whiteboard-selection"),
+        ("board-format", "board-connectors"),
+        ("mind-map-features", "mind-map-import-export"),
+    ):
+        assert first in by_id and second in by_id, (first, second)
+        assert by_id[first] < 1600 and by_id[second] < 1600, (first, by_id[first], second, by_id[second])
+    assert max(by_id.values()) < budget
+
+
+def test_no_guide_topic_sits_within_twenty_characters_of_the_reply_budget():
+    """Five topics sat at 1,905 to 1,918 of the 1,920 characters the Guide's
+    reply cap holds (ask-chat, chat-controls, lock, answers-from-notes,
+    code-files), so any help edit for a new control had to cut something
+    first. Trimmed to under 1,900 (OPEN row 1368); the next help edit that
+    needs room takes it from a topic's second half into a topic of its own."""
+    over = {t["id"]: len(t["body"]) for t in help_chat.HELP_TOPICS if len(t["body"]) >= 1900}
+    assert not over, over

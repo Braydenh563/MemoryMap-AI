@@ -26,7 +26,7 @@ Three kinds of claim appear below and they are labelled, every time:
 
 - **Measured.** A number produced this session by a script in
   [`scratchpad/audit/`](../../scratchpad/audit/) against a real Chromium and a
-  real uvicorn (`--port 8791`, `MEMORYMAP_DATA_DIR=/tmp/audit-data`, fresh
+  real uvicorn (`--port 8791`, `TESSELLATE_DATA_DIR=/tmp/audit-data`, fresh
   profile, 40 seeded notes). The script that produced each number is named.
 - **Read.** A `file:line` in this repo.
 - **Reasoned.** Inference from the code, stated as such.
@@ -74,7 +74,7 @@ suite passes without them; semantic search degrades to keywords.
 ## 1.2 Folders
 
 ```
-src/memorymap/
+src/tessellate/
   api/        27 routers, 267 route decorators, app.py (385 lines) wires them
   core/       database.py (1,242) · security.py · config · deps · backup
               taskhistory.py (in-memory, 40-deep): and NO jobs.py (§D2)
@@ -132,7 +132,7 @@ composite indexes over `entries` shaped to the list queries' own `ORDER BY`.
 - **Build:** none. `frontend/*` is served as-is by `RevalidatedStatic`
   (`api/app.py:80`), and every local `css`/`js` URL is version-stamped
   `?v=0.2.2` (`tests/test_asset_cache_busting.py`).
-- **Run:** `PYTHONPATH=src python -m uvicorn memorymap.api.app:create_app --factory`.
+- **Run:** `PYTHONPATH=src python -m uvicorn tessellate.api.app:create_app --factory`.
   Desktop: `__main__.py` runs uvicorn in a thread behind pywebview, with a tray.
 - **Test:** `pytest`, 2,838 test functions across 219 files, ~7–8 min.
   `ruff check .` in CI, plus CodeQL. Four of the tests are **lints, not
@@ -564,7 +564,7 @@ count and the confirmed absence of a global handler.
 
 ### D2 · Long work has no queue, no persistence and no resume, High
 
-**Evidence (read).** 22 `threading.Thread(` spawn sites in `src/memorymap/`
+**Evidence (read).** 22 `threading.Thread(` spawn sites in `src/tessellate/`
 (model_manager ×2, embeddings ×2, autonomous ×2, captioning, vision_ocr ×2,
 routes_entries, routes_update ×2, app.py, ocr, embedmodels, searxng ×2, and the
 desktop shell). Completion is recorded in `core/taskhistory.py`, whose own
@@ -818,7 +818,7 @@ artefact, and it is the moat §7 argues is hardest to copy.
 
 ## 3.1 What "good" looks like, in five sentences
 
-MemoryMap is the notebook you can *believe*: every answer shows the notes it
+Tessellate is the notebook you can *believe*: every answer shows the notes it
 came from, every action the agent takes is visible, undoable and logged, and
 nothing ever leaves the machine. It opens on a quiet page where the content is
 the first thing you see and the chrome is the last, at every window size from a
@@ -1204,7 +1204,7 @@ reading `api/app.py` end to end and by a live request, which returns FastAPI's
 default `{"detail": "..."}`. Goal: every failure carries `{code, detail, hint,
 ref}` and the UI renders `hint` where the action failed.
 
-**Files.** new `src/memorymap/core/errors.py`, `src/memorymap/api/app.py`
+**Files.** new `src/tessellate/core/errors.py`, `src/tessellate/api/app.py`
 (register the handlers), every `routes_*.py` (incrementally), `frontend/js/app.js`
 `api()` (`:292`), new `tests/test_error_contract.py`.
 
@@ -1347,14 +1347,14 @@ app's own API so it cannot drift from the schema.
 ## Brief 7: W5-4: `ai/scheduler.py`, one gate in front of every model call
 
 **Context and goal (reasoned: no local model ran here).** Model work starts in
-22 different places (`grep -rn "threading.Thread(" src/memorymap/`): the
+22 different places (`grep -rn "threading.Thread(" src/tessellate/`): the
 janitor, the librarian, captioning, vision OCR, page reads, embeddings,
 tensions, the autonomous loop, the skill runner, model pulls, the re-index.
 There is no global concurrency limit, so two background jobs and a chat turn can
 contend for one GPU; no shared budget; and no single place a Stop could cancel
 from: which is why PLAN A5's Stop cannot currently be implemented.
 
-**Files.** new `src/memorymap/ai/scheduler.py`, `src/memorymap/ai/provider.py`
+**Files.** new `src/tessellate/ai/scheduler.py`, `src/tessellate/ai/provider.py`
 (the call sites it wraps), `core/jobs.py` from W4-2, `routes_models.py`
 (surface the queue), Settings › Tasks.
 

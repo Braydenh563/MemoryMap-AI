@@ -14,9 +14,9 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from sqlalchemy import select
 
-from memorymap.ai import autonomous
-from memorymap.core import deps
-from memorymap.core.database import Conversation
+from tessellate.ai import autonomous
+from tessellate.core import deps
+from tessellate.core.database import Conversation
 
 
 def _ago(days: int) -> datetime:

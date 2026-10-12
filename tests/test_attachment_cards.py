@@ -28,9 +28,9 @@ import io
 import re
 from pathlib import Path
 
-from _app_js import LAZY_PIECES, app_js_files
+from tests._app_js import LAZY_PIECES, app_js_files
 
-from memorymap.entry import manager
+from tessellate.entry import manager
 
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend"
@@ -191,7 +191,10 @@ def test_removing_from_the_text_can_be_undone_and_never_deletes_a_file_in_use():
     which other notes may also show. Now: the text goes, an Undo is offered,
     and the bytes go only once the undo has lapsed and nothing uses them."""
     actions = ACTIONS.read_text(encoding="utf-8")
-    assert "toastAction(" in actions and "Undo" in actions
+    #: `offerUndo` (status.js) is the undo contract's one toast: an Undo button
+    #: and a step on the undo stack (INBOX 898), where this once called
+    #: `toastAction` by hand.
+    assert "offerUndo(" in actions
     assert "used_by" in actions and "usage_incomplete" in actions
 
 

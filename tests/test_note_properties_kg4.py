@@ -12,7 +12,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from memorymap.entry import properties
+from tessellate.entry import properties
 
 NOTE = "---\nstatus: open\ntags: [a, b]\n---\n# Kiln plan\n\nFire on Thursday."
 
@@ -60,7 +60,7 @@ def test_a_note_with_properties_is_named_by_its_first_line_after_them(client):
 
 
 def test_the_properties_route_reads_and_writes_the_block(client, session):
-    from memorymap.core.database import Entry, EntryProperty
+    from tessellate.core.database import Entry, EntryProperty
 
     made = _note(client, NOTE)
     got = client.get(f"/entries/{made['id']}/properties").json()
@@ -78,8 +78,8 @@ def test_the_properties_route_reads_and_writes_the_block(client, session):
 
 
 def test_a_private_note_is_not_indexed(client, session):
-    from memorymap.core import vault
-    from memorymap.core.database import EntryProperty
+    from tessellate.core import vault
+    from tessellate.core.database import EntryProperty
 
     vault.close()
     vault.create(session, "test-passphrase")
@@ -133,7 +133,7 @@ def test_the_markdown_export_writes_one_block(client):
 
 
 def test_the_migration_adds_the_two_tables(tmp_path):
-    from memorymap.core.database import DatabaseManager, _ensure_alembic_baseline
+    from tessellate.core.database import DatabaseManager, _ensure_alembic_baseline
 
     db_path = tmp_path / "kg4.db"
     DatabaseManager(db_path)

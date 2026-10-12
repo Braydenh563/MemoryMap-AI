@@ -1,0 +1,433 @@
+{
+  "version": "5.0.0-consolidated",
+  "entities": {
+    "university:adelaide_university": {
+      "label": "Adelaide University",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "adelaide university"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:australian_catholic_university": {
+      "label": "Australian Catholic University",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "australian catholic university",
+        "acu"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:australian_university_of_theology": {
+      "label": "Australian University of Theology",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "australian university of theology"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:australian_national_university": {
+      "label": "Australian National University",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "australian national university",
+        "anu"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:avondale_university": {
+      "label": "Avondale University",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "avondale university"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:bond_university": {
+      "label": "Bond University",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "bond university"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:charles_darwin_university": {
+      "label": "Charles Darwin University",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "charles darwin university",
+        "cdu"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:charles_sturt_university": {
+      "label": "Charles Sturt University",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "charles sturt university",
+        "csu"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:cquniversity_australia": {
+      "label": "CQUniversity Australia",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "cquniversity australia",
+        "cquniversity",
+        "cqu"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:curtin_university": {
+      "label": "Curtin University",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "curtin university"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:deakin_university": {
+      "label": "Deakin University",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "deakin university"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:edith_cowan_university": {
+      "label": "Edith Cowan University",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "edith cowan university",
+        "ecu"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:federation_university_australia": {
+      "label": "Federation University Australia",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "federation university australia"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:flinders_university": {
+      "label": "Flinders University",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "flinders university"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:griffith_university": {
+      "label": "Griffith University",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "griffith university"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:james_cook_university": {
+      "label": "James Cook University",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "james cook university",
+        "jcu"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:la_trobe_university": {
+      "label": "La Trobe University",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "la trobe university"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:macquarie_university": {
+      "label": "Macquarie University",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "macquarie university"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:monash_university": {
+      "label": "Monash University",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "monash university"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:murdoch_university": {
+      "label": "Murdoch University",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "murdoch university"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:queensland_university_of_technology": {
+      "label": "Queensland University of Technology",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "queensland university of technology",
+        "qut"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:rmit_university": {
+      "label": "RMIT University",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "rmit university",
+        "rmit"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:southern_cross_university": {
+      "label": "Southern Cross University",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "southern cross university"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:swinburne_university_of_technology": {
+      "label": "Swinburne University of Technology",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "swinburne university of technology"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:torrens_university_australia": {
+      "label": "Torrens University Australia",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "torrens university australia"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:university_of_canberra": {
+      "label": "University of Canberra",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "university of canberra"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:university_of_divinity": {
+      "label": "University of Divinity",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "university of divinity"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:university_of_melbourne": {
+      "label": "University of Melbourne",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "university of melbourne",
+        "unimelb"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:university_of_new_england": {
+      "label": "University of New England",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "university of new england",
+        "une"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:university_of_new_south_wales": {
+      "label": "University of New South Wales",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "university of new south wales",
+        "unsw"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:university_of_newcastle": {
+      "label": "University of Newcastle",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "university of newcastle"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:university_of_notre_dame_australia": {
+      "label": "University of Notre Dame Australia",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "university of notre dame australia"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:university_of_queensland": {
+      "label": "University of Queensland",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "university of queensland",
+        "uq"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:university_of_southern_queensland": {
+      "label": "University of Southern Queensland",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "university of southern queensland",
+        "unisq",
+        "usq"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:university_of_sydney": {
+      "label": "University of Sydney",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "university of sydney",
+        "usyd"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:university_of_tasmania": {
+      "label": "University of Tasmania",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "university of tasmania",
+        "utas"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:university_of_technology_sydney": {
+      "label": "University of Technology Sydney",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "university of technology sydney",
+        "uts"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:university_of_the_sunshine_coast": {
+      "label": "University of the Sunshine Coast",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "university of the sunshine coast",
+        "unisc",
+        "usc"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:university_of_western_australia": {
+      "label": "University of Western Australia",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "university of western australia",
+        "uwa"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:university_of_wollongong": {
+      "label": "University of Wollongong",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "university of wollongong",
+        "uow"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:victoria_university": {
+      "label": "Victoria University",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "victoria university",
+        "vu"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:western_sydney_university": {
+      "label": "Western Sydney University",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "western sydney university",
+        "wsu"
+      ],
+      "status": "curated_seed_not_current_status_verification"
+    },
+    "university:university_of_adelaide": {
+      "label": "University of Adelaide",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "university of adelaide",
+        "adelaide uni"
+      ],
+      "status": "historical_name"
+    },
+    "university:university_of_south_australia": {
+      "label": "University of South Australia",
+      "type": "university",
+      "country": "Australia",
+      "aliases": [
+        "university of south australia",
+        "unisa"
+      ],
+      "status": "historical_name"
+    }
+  },
+  "metadata": {
+    "scope": "Australian university lexical seed registry, plus user-provided entities at runtime",
+    "global_institution_directory": false,
+    "current_status_independently_verified": false
+  }
+}

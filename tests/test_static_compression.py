@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import gzip
 
-from memorymap import __version__
+from tessellate import __version__
 from tests._app_js import APP_JS, app_js_files
 
 
@@ -91,7 +91,16 @@ PIECE_CAP = 32_000
 #: above 70% (+152): 321,487, a raise the next agent undid by moving the edge
 #: scroll to drag-edge.js and `noteEditToolbar` to note-edit-panels.js (both
 #: lazy): 320,244.
-TOTAL_CAP = 320_300
+#: And with Brief 88 (chat: the Guide's palette row, a source opening at its
+#: quote, the undo call at each chat write; its helpers moved to the lazy
+#: chat-undo.js first, -442): 320,554. A raise to win back (OPEN.md, bootdiet:
+#: the meeting overlay's listeners in settings-wiring.js are the next lever).
+#: And with undo on every write (INBOX 898; its helpers are the lazy
+#: undo-kit.js, the call sites and the stand-ins are not): 321,387, which was
+#: won back, not raised for: the share-sheet intake (`takeSharedIntake`) is the
+#: lazy shared-intake.js and `renderMemorySettings` is in settings-controls.js,
+#: behind stand-ins. App.js 14,045, total 319,920.
+TOTAL_CAP = 320_600
 
 
 def _served_gzip_size(client, name: str) -> int:

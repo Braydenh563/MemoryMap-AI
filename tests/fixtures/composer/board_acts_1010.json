@@ -1,0 +1,247 @@
+{
+ "_about": "The board's acts (CHAT_PLAN section 2, the whiteboard and mind map row): each phrase, the act it is and its slots; null for a phrase that is not a board act. Measured at 1.0 by tests/test_board_acts.py.",
+ "rows": [
+  {
+   "text": "arrange as a grid of 3",
+   "intent": "grid",
+   "slots": {
+    "columns": 3
+   }
+  },
+  {
+   "text": "arrange these as a grid of three",
+   "intent": "grid",
+   "slots": {
+    "columns": 3
+   }
+  },
+  {
+   "text": "grid of 4",
+   "intent": "grid",
+   "slots": {
+    "columns": 4
+   }
+  },
+  {
+   "text": "in 4 columns",
+   "intent": "grid",
+   "slots": {
+    "columns": 4
+   }
+  },
+  {
+   "text": "lay them out 5 across",
+   "intent": "grid",
+   "slots": {
+    "columns": 5
+   }
+  },
+  {
+   "text": "arrange in a grid",
+   "intent": "grid",
+   "slots": {}
+  },
+  {
+   "text": "make it a grid",
+   "intent": "grid",
+   "slots": {}
+  },
+  {
+   "text": "put everything into a grid",
+   "intent": "grid",
+   "slots": {}
+  },
+  {
+   "text": "rows of two",
+   "intent": "grid",
+   "slots": {
+    "columns": 2
+   }
+  },
+  {
+   "text": "arrange as a grid of 1",
+   "intent": "column",
+   "slots": {}
+  },
+  {
+   "text": "put them in a row",
+   "intent": "row",
+   "slots": {}
+  },
+  {
+   "text": "line them up",
+   "intent": "row",
+   "slots": {}
+  },
+  {
+   "text": "side by side",
+   "intent": "row",
+   "slots": {}
+  },
+  {
+   "text": "arrange in one line",
+   "intent": "row",
+   "slots": {}
+  },
+  {
+   "text": "stack them",
+   "intent": "column",
+   "slots": {}
+  },
+  {
+   "text": "arrange in a column",
+   "intent": "column",
+   "slots": {}
+  },
+  {
+   "text": "one under the other",
+   "intent": "column",
+   "slots": {}
+  },
+  {
+   "text": "align left",
+   "intent": "align",
+   "slots": {
+    "edge": "left"
+   }
+  },
+  {
+   "text": "align the right edges",
+   "intent": "align",
+   "slots": {
+    "edge": "right"
+   }
+  },
+  {
+   "text": "align top",
+   "intent": "align",
+   "slots": {
+    "edge": "top"
+   }
+  },
+  {
+   "text": "align to the bottom",
+   "intent": "align",
+   "slots": {
+    "edge": "bottom"
+   }
+  },
+  {
+   "text": "align the centres vertically",
+   "intent": "align",
+   "slots": {
+    "edge": "vcenter"
+   }
+  },
+  {
+   "text": "align centres horizontally",
+   "intent": "align",
+   "slots": {
+    "edge": "hcenter"
+   }
+  },
+  {
+   "text": "align middle",
+   "intent": "align",
+   "slots": {
+    "edge": "vcenter"
+   }
+  },
+  {
+   "text": "space them evenly",
+   "intent": "distribute",
+   "slots": {
+    "axis": "horizontal"
+   }
+  },
+  {
+   "text": "distribute top to bottom",
+   "intent": "distribute",
+   "slots": {
+    "axis": "vertical"
+   }
+  },
+  {
+   "text": "space evenly left to right",
+   "intent": "distribute",
+   "slots": {
+    "axis": "horizontal"
+   }
+  },
+  {
+   "text": "equal gaps",
+   "intent": "distribute",
+   "slots": {
+    "axis": "horizontal"
+   }
+  },
+  {
+   "text": "same width",
+   "intent": "same-size",
+   "slots": {
+    "dimension": "width"
+   }
+  },
+  {
+   "text": "same height",
+   "intent": "same-size",
+   "slots": {
+    "dimension": "height"
+   }
+  },
+  {
+   "text": "make them the same size",
+   "intent": "same-size",
+   "slots": {
+    "dimension": "width"
+   }
+  },
+  {
+   "text": "as tall as the tallest",
+   "intent": "same-size",
+   "slots": {
+    "dimension": "height"
+   }
+  },
+  {
+   "text": "show the grid",
+   "intent": null,
+   "slots": {}
+  },
+  {
+   "text": "snap to grid",
+   "intent": null,
+   "slots": {}
+  },
+  {
+   "text": "hello",
+   "intent": null,
+   "slots": {}
+  },
+  {
+   "text": "grid of 40",
+   "intent": null,
+   "slots": {}
+  },
+  {
+   "text": "align",
+   "intent": null,
+   "slots": {}
+  },
+  {
+   "text": "find harbor",
+   "intent": null,
+   "slots": {}
+  },
+  {
+   "text": "new sticky",
+   "intent": null,
+   "slots": {}
+  },
+  {
+   "text": "remind me friday",
+   "intent": null,
+   "slots": {}
+  }
+ ]
+}

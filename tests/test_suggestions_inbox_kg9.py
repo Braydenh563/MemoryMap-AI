@@ -13,7 +13,7 @@ import sqlite3
 import time
 from pathlib import Path
 
-from memorymap.ai.inbox import EntityFacts, LinkFacts, merge_candidates, type_candidates
+from tessellate.ai.inbox import EntityFacts, LinkFacts, merge_candidates, type_candidates
 
 
 def _ents(*rows):
@@ -125,7 +125,7 @@ def _note(client, text):
 
 
 def _entity(session, name, *entry_ids):
-    from memorymap.core.database import Entity, EntityMention
+    from tessellate.core.database import Entity, EntityMention
 
     entity = Entity(name=name)
     session.add(entity)
@@ -137,7 +137,7 @@ def _entity(session, name, *entry_ids):
 
 
 def test_the_inbox_offers_a_merge_and_accepting_it_moves_every_mention(client, session):
-    from memorymap.core.database import Entity, EntityMention
+    from tessellate.core.database import Entity, EntityMention
 
     a, b, c = (_note(client, f"Note {i} about the studio") for i in range(3))
     sam = _entity(session, "Sam", a["id"], b["id"])
@@ -157,6 +157,11 @@ def test_the_inbox_offers_a_merge_and_accepting_it_moves_every_mention(client, s
     assert client.get("/suggestions").json()["merges"] == []
     kinds = [c["kind"] for c in client.get("/learned/corrections").json()]
     assert "accept_merge" in kinds
+    # Undo removes the correction the accept taught (INBOX 898): the answer names it.
+    cid = made.json()["correction_id"]
+    removed = client.delete(f"/learned/corrections/{cid}")
+    assert removed.status_code in (200, 204)
+    assert "accept_merge" not in [c["kind"] for c in client.get("/learned/corrections").json()]
 
 
 def test_a_dismissed_merge_stays_dismissed(client, session):
@@ -169,8 +174,8 @@ def test_a_dismissed_merge_stays_dismissed(client, session):
 
 
 def test_extraction_after_a_merge_lands_on_the_survivor(session):
-    from memorymap.ai.entities import _find_or_create_entity, merge_entities
-    from memorymap.core.database import Entity
+    from tessellate.ai.entities import _find_or_create_entity, merge_entities
+    from tessellate.core.database import Entity
 
     keep = Entity(name="Sam Lee")
     gone = Entity(name="Sam")
@@ -181,7 +186,7 @@ def test_extraction_after_a_merge_lands_on_the_survivor(session):
 
 
 def test_a_type_suggestion_lands_on_the_link_and_teaches(client, session):
-    from memorymap.core.database import EntryLink
+    from tessellate.core.database import EntryLink
 
     target = _note(client, "# Glaze A\n\nshino over tenmoku")
     holder = _note(client, "# Firing log\n\nCone 6 went well, for example [[Glaze A]] crawled less.")
@@ -197,10 +202,14 @@ def test_a_type_suggestion_lands_on_the_link_and_teaches(client, session):
     assert client.get("/suggestions").json()["types"] == []
     kinds = [c["kind"] for c in client.get("/learned/corrections").json()]
     assert "accept_link_type" in kinds
+    cid = made.json()["correction_id"]
+    removed = client.delete(f"/learned/corrections/{cid}")
+    assert removed.status_code in (200, 204)
+    assert "accept_link_type" not in [c["kind"] for c in client.get("/learned/corrections").json()]
 
 
 def test_a_dismissed_type_stays_dismissed_and_a_private_end_is_never_offered(client, session):
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     target = _note(client, "# Kiln two\n\nbody")
     holder = _note(client, "# Plan\n\nBackground: [[Kiln two]] is the gas one.")
@@ -218,7 +227,7 @@ def test_a_dismissed_type_stays_dismissed_and_a_private_end_is_never_offered(cli
 
 
 def test_a_link_type_can_be_changed_and_a_bad_one_is_refused(client, session):
-    from memorymap.core.database import EntryLink
+    from tessellate.core.database import EntryLink
 
     a, b = _note(client, "first"), _note(client, "second")
     client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"]})
@@ -231,7 +240,7 @@ def test_a_link_type_can_be_changed_and_a_bad_one_is_refused(client, session):
 
 
 def test_an_accepted_suggestion_keeps_the_signals_confidence(client, session):
-    from memorymap.core.database import EntryLink
+    from tessellate.core.database import EntryLink
 
     a, b = _note(client, "first"), _note(client, "second")
     client.post(
@@ -250,7 +259,7 @@ def test_tension_decisions_are_corrections(client):
 
 
 def test_type_decisions_reweight_that_type(session):
-    from memorymap.ai import learning
+    from tessellate.ai import learning
 
     for i in range(6):
         learning.record(session, kind="dismiss_link_type", subject={"link_id": i, "signals": ["context"]})
@@ -262,7 +271,7 @@ def test_type_decisions_reweight_that_type(session):
 
 
 def test_the_migration_adds_the_entity_columns_over_the_auto_migrator(tmp_path):
-    from memorymap.core.database import DatabaseManager, _ensure_alembic_baseline
+    from tessellate.core.database import DatabaseManager, _ensure_alembic_baseline
 
     db_path = tmp_path / "entities.db"
     DatabaseManager(db_path)

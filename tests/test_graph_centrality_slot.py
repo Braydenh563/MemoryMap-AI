@@ -18,8 +18,8 @@ index.
 """
 from __future__ import annotations
 
-from memorymap.api import routes_graph
-from memorymap.core.database import Entry, EntryLink
+from tessellate.api import routes_graph
+from tessellate.core.database import Entry, EntryLink
 
 
 def _notebook(session):

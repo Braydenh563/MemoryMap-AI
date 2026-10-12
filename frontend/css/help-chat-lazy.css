@@ -1,0 +1,32 @@
+/* help-chat-lazy.css: what the Guide's streamed bubble adds (help-chat.js
+   `helpChatStreamTurn`), loaded by it (its `lazyScript` call)
+   rather than at boot, for the boot CSS budget. The bubble is built only by
+   that bundle, so nothing here can be needed before it loads. The rest of
+   the Guide's styles are boot CSS (04-chat-dock-appearance.css), because its
+   panel is in index.html. */
+
+/* The Thinking fold inside Atlas's bubble keeps the token gap from the head
+   row above and the phase line below (the owner, 2026-10-10: "no gap
+   either"; measured 1px before). */
+.help-chat-msg > .thinking-fold {
+  margin-block: var(--space-2);
+}
+
+.help-chat-msg > .progress-line + .help-chat-prose:not(:empty) {
+  margin-top: var(--space-2);
+}
+
+/* Moved from 04-chat-dock-appearance.css with the rules above: built only by
+   help-chat.js. */
+.help-chat-msg.is-pending {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.help-chat-badges,
+.help-chat-open {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}

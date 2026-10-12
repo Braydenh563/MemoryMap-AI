@@ -28,7 +28,7 @@ def test_every_caller_of_reevaluate_entry_is_gated_on_privacy() -> None:
     """The menu group and the chip are the only two ways in; a third must say so too."""
     callers = []
     for path in (Path(__file__).resolve().parents[1] / "frontend" / "js").glob("*.js"):
-        if re.search(r"\breevaluateEntry\(entry\)", path.read_text()) and path.name != "lightbox.js":
+        if re.search(r"\breevaluateEntry\(entry\)", path.read_text()) and path.name not in ("lightbox.js", "lightbox-actions.js"):
             callers.append(path.name)
     assert sorted(callers) == ["menus.js", "note-cards.js"], callers
     assert 'if (!entry.is_private) menu.appendChild(buildMenuGroupButton("ph:sparkle AI actions"' in MENUS.read_text()

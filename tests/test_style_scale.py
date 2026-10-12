@@ -142,6 +142,27 @@ def test_every_font_size_is_on_the_scale():
     )
 
 
+
+def test_a_font_size_on_the_ramp_is_written_as_its_token():
+    """UI_MODERNISATION Phase 13 decision 11: the rem escape is closed.
+
+    152 sizes were the ramp's own values written as literals (0.8rem 48
+    times, 0.85rem 34, 0.92rem 25, 0.75rem 25), so a change to the ramp
+    missed a third of the app. A size on the ramp is its `--text-*` token;
+    only the hero one-offs in TYPE_ALLOWED stay literal.
+    """
+    literal = Counter()
+    for declaration in FONT_SIZE.findall(_stylesheet()):
+        for raw in VALUE.findall(declaration):
+            size = abs(float(raw))
+            if size and size not in TYPE_ALLOWED:
+                literal[size] += 1
+    assert not literal, (
+        "Font sizes written as rem literals:\n  "
+        + "\n  ".join(f"{s}rem: used {n}x" for s, n in sorted(literal.items()))
+        + "\n\nWrite the --text-* token of that size (docs/DESIGN.md, Type)."
+    )
+
 # --- corners ------------------------------------------------------------------
 
 RADIUS = re.compile(r"\bborder(?:-[a-z]+)?-radius\s*:\s*([^;{}]+);")
@@ -724,3 +745,248 @@ def test_the_nested_surfaces_are_concentric():
         block = re.search(re.escape(selector) + r"\s*\{([^}]*)\}", text)
         assert block, f"{selector} is not in {name}"
         assert "border-radius: var(--radius-inner)" in block.group(1), f"{selector} is not concentric"
+
+
+#: Phase 12 decision 1 (UI_MODERNISATION_PLAN): three control heights in
+#: tokens, the top bar at 44, docks dense. Literal heights outside the tokens
+#: file are a ratchet: these are the counts on 2026-10-10 (comments stripped),
+#: and a file may only go down. A new control height reads a token.
+LITERAL_HEIGHTS = {
+    "01-forms-settings.css": 22, "02-chat-graph.css": 34, "03-dashboard-widgets.css": 23,
+    "04-chat-dock-appearance.css": 25, "05-sidebars-themes.css": 34, "06-timeline-dialogs.css": 24,
+    "07-whiteboard-misc.css": 45, "08-consistency.css": 46, "09-editor.css": 6, "10-responsive.css": 6,
+    "library-lazy.css": 21, "nav-history-lazy.css": 1,
+}
+LITERAL_HEIGHT = re.compile(r"(?<![-\w])(?:min-|max-)?height:\s*[0-9.]+(?:rem|px)\s*[;}]")
+
+
+def test_the_density_scale_is_three_tokens_and_the_bar_reads_them():
+    from tessellate.api.asset_strip import strip_for_path
+
+    tokens = (FRONTEND_DIR / "css" / "00-tokens-shell.css").read_text(encoding="utf-8")
+    for decl in ("--control-h-dense: 1.75rem;", "--control-h-lg: 2rem;",
+                 "--control-h-touch: 2.5rem;", "--topbar-h: 2.75rem;"):
+        assert decl in tokens, f"{decl} is the density scale (DESIGN.md, the ten rules, 1 and 2)"
+    misc = (FRONTEND_DIR / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    assert re.search(r"\n\.dock \{\n  --control-h: var\(--control-h-dense\);", misc), (
+        "a dock is a dense bar: `.dock { --control-h: var(--control-h-dense) }`"
+    )
+    grown = {}
+    for path in sorted((FRONTEND_DIR / "css").glob("*.css")):
+        if path.name == "00-tokens-shell.css":
+            continue
+        served = strip_for_path(path.name, path.read_bytes()).decode("utf-8")
+        n = len(LITERAL_HEIGHT.findall(served))
+        if n > LITERAL_HEIGHTS.get(path.name, 0):
+            grown[path.name] = (LITERAL_HEIGHTS.get(path.name, 0), n)
+    assert not grown, f"literal heights grew (ceiling, now): {grown}; read a --control-h-* token"
+
+
+# --- circles (UI_MODERNISATION Phase 13 decision 17) ------------------------------
+
+#: What may be a circle: a face (avatars, the companion and its parts), a colour
+#: you pick (swatches, the colour inputs), and a drawing's own round shapes (a
+#: map node's ellipse, the map core, the radial's ring, a range thumb).
+CIRCLE_ALLOWED = re.compile(
+    r"avatar|nm-buddy|nmb-|atl-|atlas|swatch|color-picker|wb-color|rail-ink|range|data-shape|wb-map-core|wb-map-radial"
+)
+
+#: Left at 50% by Brief 57, each a round control `PILL_CONTROLS` (test_ui_recipes)
+#: does not let be a capsule; 13c decides whether they stay round. Only shrinks.
+CIRCLES_LEFT = {
+    ".agent-steps:has(> :nth-child(2))>.agent-step::before": "the step dot on the agent's rail",
+    ".agent-steps:has(> :nth-child(2))>.tool-chip::before": "the step dot on a tool chip",
+    ".agent-steps:has(> :nth-child(2))>.tool-confirm::before": "the step dot on a confirmation",
+    ".wb-tool-group button": "the board's round tool buttons",
+    ".entry-meta.note-meta > .chip.category::before": "the category dot on a note's chip",
+    ".timeline-row-meta > .chip.category::before": "the category dot on a timeline row",
+}
+
+
+def test_a_circle_is_a_face_a_colour_or_a_drawn_shape():
+    """58 `border-radius: 50%` rules before Brief 57; 31 were round dots, a
+    spinner and small round buttons on a square box, where `--radius-pill`
+    draws the same circle and says what it is. What is left is the decision's
+    list and the four named above."""
+    text = _stylesheet()
+    offenders = []
+    for m in re.finditer(r"([^{};]+)\{([^{}]*)\}", text):
+        if not re.search(r"border-radius\s*:\s*50%", m.group(2)) or CIRCLE_ALLOWED.search(m.group(1)):
+            continue
+        sels = [" ".join(s.split()).replace("> ", ">").replace(" >", ">") for s in m.group(1).split(",")]
+        left = {k.replace("> ", ">").replace(" >", ">") for k in CIRCLES_LEFT}
+        if not all(s in left for s in sels):
+            offenders.append(" ".join(m.group(1).split())[:90])
+    assert not offenders, (
+        "A circle outside the faces, swatches and drawn shapes: use var(--radius-pill) on a square box, "
+        "or the button radius (docs/DESIGN.md, 'Circles are faces, colours and drawn shapes'):\n  "
+        + "\n  ".join(offenders)
+    )
+
+
+
+
+# --- colour literals (UI_MODERNISATION Phase 13 decision 10) ------------------------
+
+#: The two files whose job is colour.
+COLOUR_HOMES = {"00-tokens-shell.css", "05-sidebars-themes.css"}
+#: The literals still outside them, per file, as Brief 57 left them: a ratchet
+#: that only goes down. A file not named here may hold none.
+COLOUR_LITERALS_LEFT = {
+    "02-chat-graph.css": 46,
+    "08-consistency.css": 64,
+    "library-lazy.css": 33,
+    "06-timeline-dialogs.css": 23,
+    "03-dashboard-widgets.css": 9,
+    "10-responsive.css": 9,
+    "09-editor.css": 6,
+    "04-chat-dock-appearance.css": 5,
+    "07-whiteboard-misc.css": 1,
+    #: Moved from 07-whiteboard-misc.css with the lightbox CSS (4668f1456): the
+    #: HTML preview's white page ground, on purpose.
+    "lightbox-lazy.css": 1,
+    "01-forms-settings.css": 1,
+}
+COLOUR_LITERAL = re.compile(r"#[0-9a-fA-F]{3,8}\b(?![\w-])|\b(?:rgba?|hsla?)\(")
+
+
+def test_colour_literals_live_in_the_two_colour_files():
+    """240 hex and rgb literals sat in component files, where a theme or a
+    palette cannot reach them. The accent presets moved to the themes file
+    (42); the 198 left are counted here and may only fall."""
+    from tests._css_paths import CSS_FILES
+
+    counts = {}
+    for path in CSS_FILES:
+        if path.name in COLOUR_HOMES:
+            continue
+        text = re.sub(r"url\([^)]*\)", "", re.sub(r"/\*.*?\*/", "", path.read_text(encoding="utf-8"), flags=re.S))
+        counts[path.name] = len(COLOUR_LITERAL.findall(text))
+    over = {n: (c, COLOUR_LITERALS_LEFT.get(n, 0)) for n, c in counts.items() if c > COLOUR_LITERALS_LEFT.get(n, 0)}
+    assert not over, (
+        "New colour literals outside 00-tokens-shell.css and 05-sidebars-themes.css "
+        f"(file: found, allowed): {over}. Use a token, or declare one in a colour file."
+    )
+
+
+
+
+# --- the token budget (UI_MODERNISATION Phase 13 decision 9) -------------------------
+
+#: Custom properties declared across the stylesheet. 432 when Brief 57 began;
+#: the nine nothing read were deleted. A ratchet down toward the decision's
+#: 200: a new token needs a recipe that uses it twice, or pays for itself by
+#: retiring another.
+#: 423 on Brief 57's base; the merge set it at the merged tree's count, 429:
+#: the calendar's six own sizes (timeline-calendar-lazy.css, decision 14) landed
+#: beside it, and inlining them would grow the literal-heights ratchet instead.
+TOKEN_BUDGET = 429
+
+
+def test_the_token_count_only_falls():
+    from tests._css_paths import CSS_DIR
+
+    text = "\n".join(re.sub(r"/\*.*?\*/", "", p.read_text(encoding="utf-8"), flags=re.S) for p in CSS_DIR.glob("*.css"))
+    declared = set(re.findall(r"(?:^|[;{\s])(--[\w-]+)\s*:", text))
+    assert len(declared) <= TOKEN_BUDGET, (
+        f"{len(declared)} custom properties, budget {TOKEN_BUDGET} (docs/DESIGN.md, the stylesheet's grammar)"
+    )
+
+
+def test_every_declared_token_is_read():
+    """A token nothing reads is a value nobody can see change."""
+    from tests._css_paths import CSS_DIR
+
+    root = CSS_DIR.parents[1]
+    text = "\n".join(re.sub(r"/\*.*?\*/", "", p.read_text(encoding="utf-8"), flags=re.S) for p in CSS_DIR.glob("*.css"))
+    other = "\n".join(
+        p.read_text(encoding="utf-8", errors="ignore")
+        for pattern in ("frontend/js/*.js", "frontend/*.html", "frontend/*.js", "src/tessellate/**/*.py")
+        for p in root.glob(pattern)
+    )
+    declared = set(re.findall(r"(?:^|[;{\s])(--[\w-]+)\s*:", text))
+    read = set(re.findall(r"var\(\s*(--[\w-]+)", text))
+    dead = sorted(d for d in declared if d not in read and d not in other)
+    assert not dead, f"declared and never read: {dead}"
+
+
+
+
+# --- layers (UI_MODERNISATION Phase 13 decision 12) ----------------------------------
+
+#: Literal z-index values above 2, as Brief 57 measured them (49 distinct values
+#: from 3 to 100000, about thirty of them global layers). The decision's scale
+#: (`--layer-raised` 2 to `--layer-lock` 80) folds them in with an order map
+#: (agent-remaining/grammar57-1011.md); until then the count may only fall.
+Z_LITERALS_LEFT = 115
+
+
+def test_no_new_literal_layer():
+    text = _stylesheet()
+    found = [
+        v for v in re.findall(r"\bz-index\s*:\s*(-?\d+)", text) if abs(int(v)) > 2
+    ]
+    assert len(found) <= Z_LITERALS_LEFT, (
+        f"{len(found)} literal z-index values above 2 (ratchet {Z_LITERALS_LEFT}); "
+        "a new layer takes its place in the existing order (docs/DESIGN.md, the stylesheet's grammar)"
+    )
+
+
+
+
+# --- shadows (UI_MODERNISATION Phase 13 decision 13) ---------------------------------
+
+#: Outer, blurred shadows written by hand instead of `--shadow-sm`, `--shadow-md`
+#: (`--glass-shadow`) or `--shadow-lg`. Inset edges and spread-only rings are
+#: not elevation and are not counted. 19 when Brief 57 measured; may only fall.
+DROP_SHADOWS_LEFT = 19
+_SHADOW_LEN = r"(?:-?\d*\.?\d+(?:px|rem|em)?|var\(--[\w-]+\)|calc\((?:[^()]|\([^()]*\))*\))"
+
+
+def _split_commas(value: str) -> list[str]:
+    parts, depth, cur = [], 0, ""
+    for ch in value:
+        depth += {"(": 1, ")": -1}.get(ch, 0)
+        if ch == "," and depth == 0:
+            parts.append(cur)
+            cur = ""
+            continue
+        cur += ch
+    parts.append(cur)
+    return parts
+
+
+def test_a_drop_shadow_is_an_elevation_token():
+    found = []
+    for value in re.findall(r"(?<![-\w])box-shadow\s*:\s*([^;{}]+)", _stylesheet()):
+        for item in _split_commas(value.replace("!important", "")):
+            item = item.strip()
+            if not item or item == "none" or re.fullmatch(r"var\(--[\w-]+\)", item) or "inset" in item:
+                continue
+            bare = re.sub(r"(rgba?|hsla?|color-mix|color)\((?:[^()]|\([^()]*\))*\)", "", item)
+            lengths = re.findall(_SHADOW_LEN + r"(?=\s|$)", bare)
+            if len(lengths) >= 3 and lengths[2] not in ("0", "0px"):
+                found.append(item)
+    assert len(found) <= DROP_SHADOWS_LEFT, (
+        f"{len(found)} hand-written drop shadows (ratchet {DROP_SHADOWS_LEFT}); use --shadow-sm, "
+        "--shadow-md or --shadow-lg (docs/DESIGN.md, Elevation):\n  " + "\n  ".join(found)
+    )
+
+
+
+
+# --- !important (UI_MODERNISATION Phase 13 decision 16) ------------------------------
+
+#: 171 at the design review, 128 when Brief 57 measured. Most left are the
+#: motion switches overriding every element's own animation, print, and the
+#: companion's states; each goes by specificity, and the count only falls.
+IMPORTANT_LEFT = 128
+
+
+def test_important_only_falls():
+    from tests._css_paths import CSS_FILES
+
+    total = sum(
+        re.sub(r"/\*.*?\*/", "", p.read_text(encoding="utf-8"), flags=re.S).count("!important") for p in CSS_FILES
+    )
+    assert total <= IMPORTANT_LEFT, f"{total} !important (ratchet {IMPORTANT_LEFT}): win by specificity instead"

@@ -15,7 +15,7 @@ from tests._skill_run import run_for_test
 
 
 def test_a_skill_may_declare_a_verify_block():
-    from memorymap.ai import skills
+    from tessellate.ai import skills
 
     raw = {
         "name": "t", "description": "d",
@@ -44,9 +44,9 @@ def test_the_budget_stops_a_runaway_run(fake_model_that_loops):
 
 
 def test_a_moved_auto_filed_note_records_a_correction(session):
-    from memorymap.core.database import AuditLog
-    from memorymap.entry import manager
-    from memorymap.ai import librarian
+    from tessellate.core.database import AuditLog
+    from tessellate.entry import manager
+    from tessellate.ai import librarian
 
     entry = manager.create_entry(session, "x", category_name="A", tags=[])
     entry.filing_state = "auto"

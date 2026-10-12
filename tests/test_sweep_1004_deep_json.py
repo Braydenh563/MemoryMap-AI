@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import provider, tools
+from tessellate.ai import provider, tools
 
 RUNAWAY = ("[" * 20_000, '{"a":' * 5_000 + "1" + "}" * 5_000)
 

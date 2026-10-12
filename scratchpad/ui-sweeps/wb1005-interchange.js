@@ -1,4 +1,4 @@
-// A board in and out as text (W5): Insert, Mermaid or board SVG brings a
+// A board in and out as text (W5): Insert, Mermaid, draw.io or board SVG brings a
 // pasted flowchart in as shapes and connectors, one undo step; an SVG the
 // board exported carries the board and comes back as items, connectors
 // rejoined; Export lists Outline and Mermaid on a board and not on a map.
@@ -12,7 +12,7 @@ const W = Number(process.env.W || 1440);
   await page.evaluate(() => wbRunCommand("import-diagram"));
   await page.waitForTimeout(400);
   const open = await page.evaluate(() => ({ open: document.getElementById("wb-import-dialog").open, focus: document.activeElement?.id }));
-  check("Insert, Mermaid or board SVG opens the dialog on the text", open.open && open.focus === "wb-import-text", open);
+  check("Insert, Mermaid, draw.io or board SVG opens the dialog on the text", open.open && open.focus === "wb-import-text", open);
   await page.fill("#wb-import-text", "flowchart TD\n  A[Start] --> B{Ready?}\n  B -->|yes| C[Ship it]\n  B -- no --> A");
   await page.click("#wb-import-go");
   await page.waitForTimeout(1500);

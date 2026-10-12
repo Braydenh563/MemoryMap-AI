@@ -58,9 +58,10 @@ def test_xmind_8_and_not_a_zip_are_refused_with_a_reason(ai_client):
 
 
 def test_a_map_that_unpacks_too_large_is_refused(ai_client, monkeypatch):
-    from memorymap.api import routes_whiteboard
+    #: The limit lives with the parser, in routes_whiteboard.
+    from tessellate.api import routes_whiteboard as service
 
-    monkeypatch.setattr(routes_whiteboard, "MAX_XMIND_JSON_BYTES", 100)
+    monkeypatch.setattr(service, "MAX_XMIND_JSON_BYTES", 100)
     root = {"id": "r", "title": "Big", "children": {"attached": [{"id": str(i), "title": f"Topic {i}"} for i in range(20)]}}
     out = ai_client.post("/whiteboard/boards/import", json={"format": "xmind", "content": _xmind({"content.json": _sheet(root)})})
     assert out.status_code == 422 and "too large" in out.text

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import base64
 
-from memorymap.core import ocr
+from tessellate.core import ocr
 
 _PNG = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="

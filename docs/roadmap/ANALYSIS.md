@@ -1,7 +1,7 @@
 # Analysis and outside reads
 
 
-> **The other three:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, §66, §104 and §114, the product-strategy read, including the licence constraint, MemoryMap is AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
+> **The other three:** [ROADMAP.md](../ROADMAP.md) (live work) · [BACKLOG.md](BACKLOG.md) (§1–§29) · [ANALYSIS.md](ANALYSIS.md) (§30–§34, §59, §60, §66, §104 and §114, the product-strategy read, including the licence constraint, Tessellate is AGPL-3.0 now) · [HISTORY.md](HISTORY.md) (already built).
 
 Split out of `ROADMAP.md`. These sections are **reference, not work**, they
 record judgements, a competitor read, and what was deliberately *not* taken, so
@@ -35,14 +35,14 @@ hitting the same access wall may fabricate the same way again:
 
 - **Hardware-aware model routing, bundled model packs, checksums, delta
   updates, rollback.** All of this assumes the app ships models. It doesn't:
-  Ollama does that job, has its own model management, and MemoryMap already
+  Ollama does that job, has its own model management, and Tessellate already
   has a thin layer over it (`ai/model_manager.py`, Settings → Models: list,
   pull, switch chat/embedding/utility model). Nothing here to build.
 - **Backend abstraction across llama.cpp / MLX / ONNX / Vulkan / CUDA.**
   Same premise. The real version of "don't lock into one backend" is already
   scoped, correctly, in §6, an OpenAI-compatible provider interface over
   Ollama, LM Studio, llama.cpp's server, Jan and vLLM, at the HTTP layer
-  MemoryMap actually talks to, not the inference layer it never touches.
+  Tessellate actually talks to, not the inference layer it never touches.
 - **Opt-in anonymous telemetry / crash reporting.** Weighed deliberately, not
   just discarded for being off-brief: design principle 1 is "no feature may
   depend on a cloud service," and the pitch to users is "no account, no
@@ -87,7 +87,7 @@ hitting the same access wall may fabricate the same way again:
 - **Dynamic LoRA adapter loading (`unsloth`), a local vision/RAG pipeline
   built on LlamaIndex/ChromaDB, and anything else describing the fabricated
   first-pass architecture.** Not evaluated on the merits, because there's
-  nothing to merge: MemoryMap doesn't fine-tune or swap adapters, and its
+  nothing to merge: Tessellate doesn't fine-tune or swap adapters, and its
   retrieval stack is the app's own `search/` module (keyword + local
   embeddings), not a third-party RAG framework. Recorded so it's clear these
   were seen and set aside deliberately, not missed.
@@ -248,26 +248,26 @@ judge the import against it, rather than porting whatever looks impressive.
 
 **The repository**: `pewdiepie-archdaemon/odysseus`, a self-hosted AI workspace
 - chat, agents, deep research, documents, email, calendar, a model "cookbook",
-an image gallery. Roughly 60k lines of Python against MemoryMap's ~6k, and a
-much wider product: MemoryMap is a notebook that happens to have an AI in it,
+an image gallery. Roughly 60k lines of Python against Tessellate's ~6k, and a
+much wider product: Tessellate is a notebook that happens to have an AI in it,
 odysseus is an AI workspace that happens to store things.
 
 ---
 
 ### The constraint that governs everything below, **now half-lifted**
 
-**MemoryMap moved from MIT to AGPL-3.0. Odysseus is AGPL-3.0-or-later. The two
+**Tessellate moved from MIT to AGPL-3.0. Odysseus is AGPL-3.0-or-later. The two
 are now the same licence family, so the barrier that made this section
 "lessons only" is no longer symmetrical.**
 
 What changed, precisely, because this is the kind of thing that gets
 misremembered in one direction or the other:
 
-- **AGPL → MemoryMap is now permissible.** Copying odysseus source in no
+- **AGPL → Tessellate is now permissible.** Copying odysseus source in no
   longer relicenses anything, because this project is already AGPL. It still
   requires the ordinary things copyleft requires: keep the notices, attribute
   the source, and do not strip the licence header off a file you took.
-- **MemoryMap → an MIT project is still closed**, and is now *more* closed
+- **Tessellate → an MIT project is still closed**, and is now *more* closed
   than before. Anything taken out of here carries AGPL with it.
 - **The habit in this section is still the right one.** Everything below is
   written as a design lesson, an idea, a failure mode, a shape, and §6 did
@@ -278,7 +278,7 @@ misremembered in one direction or the other:
   Copy only where there is a real reason to, and record where it came from.
 
 **The AGPL clause that actually matters for an app like this** is §13:
-someone who modifies MemoryMap and lets other people use it *over a network*
+someone who modifies Tessellate and lets other people use it *over a network*
 must offer those users the modified source. A plain GPL would not require
 that: running a service is not distribution. Since the whole premise here is
 "your notebook, on your machine", the licence now says the same thing the
@@ -289,7 +289,7 @@ Two smaller things worth recording so nobody re-derives them:
 - Odysseus's own dependency notes and `ACKNOWLEDGMENTS.md` are worth a look
   before adding any dependency it uses, because its licence tolerances are
   wider than this project's.
-- The reverse direction is also closed. Nothing from MemoryMap should be
+- The reverse direction is also closed. Nothing from Tessellate should be
   offered upstream to odysseus as a patch without deciding, deliberately, to
   license that contribution under AGPL.
 
@@ -297,55 +297,8 @@ Two smaller things worth recording so nobody re-derives them:
 
 ### Adopted this session
 
-Each of these was re-implemented from scratch. What odysseus supplied was the
-*idea* and, more valuably, the failure mode it had already hit.
+Built; the list moved whole to HISTORY.md, "Moved from the plans, 2026-10-11 (ANALYSIS size cap)".
 
-- **A provider layer split by dialect, not by product (§6).** Odysseus's
-  `_detect_provider` matches on hostname rather than substring, and falls back
-  to "OpenAI-compatible" for everything unknown: which is right, because that
-  is what the long tail implements. The lesson taken: build the *dialect*, and
-  LM Studio, llama.cpp, Jan and vLLM all arrive together.
-
-- **`loaded_context_length` beats `max_context_length`.** Odysseus reads both
-  and prefers the loaded one. MemoryMap's plan for §6 named only the latter; a
-  128k model *loaded* at 4k would have had its prompt budgeted at 128k and
-  quietly lost its system prompt. This one measurement changed the design.
-
-- **"Known" is a separate fact from "known value".** Odysseus carries a
-  `known` flag beside every context length, because a fallback 128k is not
-  proof a model holds 128k, and a budget scaled off an unproven number is worse
-  than a conservative one. MemoryMap's version of this is `context_length`
-  returning `None` and callers falling back rather than a made-up default
-  propagating.
-
-- **Multi-field catalog probing.** Every OpenAI-compatible server spells the
-  window differently: `max_context_length`, `max_model_len`, `context_length`,
-  nested `meta.n_ctx`. Odysseus reads all of them. So does
-  `provider.context_from_catalog_entry` now.
-
-- **Never auto-pick an embedding model as a chat model.** Odysseus's
-  `_first_chat_model` exists because an OpenAI-style `/models` list routinely
-  puts `text-embedding-ada-002` first and "use the first one" silently picks
-  something that cannot hold a conversation. Re-implemented as
-  `provider.first_chat_model`.
-
-- **Model specs and context usage surfaced in the chat.** Odysseus reports
-  `context_percent`, `usage_source: real|estimated`, and per-model metadata on
-  every turn. This was the single most transferable *product* idea in the repo,
-  and MemoryMap already had every piece needed for it. The message metadata
-  line now says how full the window got, and marks an estimate as an estimate.
-
-- **Read the capability list.** Odysseus tracks what each model supports rather
-  than assuming. MemoryMap now reads Ollama's `capabilities` from `/api/show`,
-  and it immediately caught a bug in the brand-new quick preset, which would
-  have sent `think: false` to models that reject it.
-
-- **SSRF hardening on a user-supplied backend URL.** Odysseus's `url_safety.py`
-  makes exactly the right call for a local-first app: do *not* blanket-block
-  private addresses, because pointing at a local server is the entire use case
-  - block the link-local metadata range instead. Re-implemented as
-  `security.check_backend_url`, plus a warning MemoryMap needs and odysseus
-  does not, because MemoryMap promises the notes never leave the machine.
 
 ---
 
@@ -355,7 +308,7 @@ Asked directly: *"does it handle tools and skills more efficiently such that
 smaller models can better use them?"* The answer is the other way round, and
 the numbers are worth keeping because they settle it.
 
-| | MemoryMap | Odysseus |
+| | Tessellate | Odysseus |
 | --- | ---: | ---: |
 | Tools in the registry | 34 | 69 |
 | Total description text | 3,849 chars | 17,792 chars |
@@ -363,8 +316,8 @@ the numbers are worth keeping because they settle it.
 | Longest single tool | 306 chars | 1,205 chars |
 
 Odysseus carries **twice the tools and 4.6× the description text**, and its
-longest single tool description costs more than MemoryMap's ten shortest
-combined. Its RAG tool retrieval is not a refinement that MemoryMap lacks, it
+longest single tool description costs more than Tessellate's ten shortest
+combined. Its RAG tool retrieval is not a refinement that Tessellate lacks, it
 is the thing that makes a 17,792-character registry usable at all. Adopting the
 retrieval without the bloat would be adopting a cure for an illness this app
 does not have.
@@ -379,7 +332,7 @@ small is to not have two tools that a model could confuse.** Every time a new
 tool here needs a sentence explaining when *not* to use it, that sentence is
 evidence the boundary is in the wrong place.
 
-**What MemoryMap already does that odysseus does not.** Worth recording so it
+**What Tessellate already does that odysseus does not.** Worth recording so it
 does not get "improved" away:
 
 - `tools.within_budget` fits the schemas to the model's *reported* window and
@@ -392,7 +345,7 @@ does not get "improved" away:
   A cue that doesn't fire is a predictable failure; a retrieval that ranks
   wrong is not.
 
-**Where MemoryMap's tools genuinely could improve**, in order:
+**Where Tessellate's tools genuinely could improve**, in order:
 
 1. ~~**The agent cannot run a skill.**~~ **built.** Flagged stale by this
    session's backlog audit: `run_skill` exists in `ai/tools.py`'s `HANDOFFS`
@@ -420,10 +373,10 @@ copy.
 1. ~~**An `ask_user` tool that ends the turn (§18, §14).**~~ **built.** Odysseus's agent can
    stop mid-task and ask a multiple-choice question; the user gets clickable
    buttons and their answer arrives as the next message. This is the honest
-   answer to a class of failure MemoryMap currently handles by guessing: an
+   answer to a class of failure Tessellate currently handles by guessing: an
    ambiguous instruction ("file this properly") becomes a confident wrong
    action. It also matches an IDEAS.md line directly ("an agent ask for
-   permission dialogue in the chat"). MemoryMap already has the hard half,
+   permission dialogue in the chat"). Tessellate already has the hard half,
    the destructive-action confirm card is exactly this UI, so this is mostly
    a second event type and a tool.
 
@@ -434,10 +387,10 @@ copy.
 
 3. **Semantic tool retrieval, replacing keyword `focus_for` (§11a, §14).**
    Odysseus embeds its tool descriptions and retrieves the top-K per message,
-   with a deliberately tiny always-available core. MemoryMap's `tools.focus_for`
+   with a deliberately tiny always-available core. Tessellate's `tools.focus_for`
    does the same job with keyword cues and already cut fixed overhead from
    ~3,157 to ~1,439 tokens. **The honest note: this is an upgrade, not a fix.**
-   MemoryMap has the embedding service to do it, but the current version works
+   Tessellate has the embedding service to do it, but the current version works
    and the failure mode of the semantic one is worse, a cue that doesn't fire
    is predictable, a retrieval that ranks wrong is not. Worth doing *with a
    measurement*, the way §11 did: if it doesn't beat keyword cues on a set of
@@ -446,7 +399,7 @@ copy.
 4. **A richer skill format.** Odysseus's `SKILL.md` carries frontmatter
    (`description`, `version`, `tags`, `requires_toolsets`, `confidence`,
    `source: learned|taught|imported`) and body sections: **When to Use**,
-   **Procedure**, **Pitfalls**, **Verification**. MemoryMap's skills (§21) have
+   **Procedure**, **Pitfalls**, **Verification**. Tessellate's skills (§21) have
    ordered steps and a tool allowlist, the execution half, but nothing that
    says *when* a skill applies or *how to tell it worked*. "When to Use" is the
    one to steal first: it is what makes a skill findable by the model instead
@@ -458,7 +411,7 @@ copy.
 
 5. **A completion verifier for effectful turns.** After a turn that used a
    writing tool, odysseus runs an independent check that the claimed work
-   actually happened, capped at two rounds. MemoryMap has a cheaper version of
+   actually happened, capped at two rounds. Tessellate has a cheaper version of
    this already: `_CLAIM_PATTERN` catches a model that says it saved something
    when no write tool ran, and the cheap version covers the common case. The
    upgrade is checking that what was written is what was *asked for*, not just
@@ -466,7 +419,7 @@ copy.
 
 6. **Better degraded-state reporting.** Odysseus's own roadmap asks for this
    about its own app, which is a useful signal: it is a real gap in a system
-   with this many optional parts. MemoryMap is in better shape here (the status
+   with this many optional parts. Tessellate is in better shape here (the status
    pill, the embedding error line, the support bundle), but the same principle
    applies to the new provider work, "reachable but wants a key" is a
    different state from "off", and only the endpoint knows it today.
@@ -481,7 +434,7 @@ Recording these so a future session doesn't re-evaluate them from scratch.
   detect the GPU and RAM, score every candidate model on quantisation, VRAM
   fit, architecture age and expected tokens/second. It is the most impressive
   thing in the repository and it is a *product of its own*, thousands of lines
-  plus a curated model database that has to be maintained or it rots. MemoryMap
+  plus a curated model database that has to be maintained or it rots. Tessellate
   has `SUGGESTED_MODELS`, a hand-written list of five models that work well on
   a laptop, and for a notebook app that is the right size of answer. Revisit
   only if "which model should I run" becomes a question people actually ask
@@ -489,10 +442,10 @@ Recording these so a future session doesn't re-evaluate them from scratch.
 
 - **Sub-sessions, pipelines and agent-to-agent messaging** (`create_session`,
   `send_to_session`, `pipeline`). Real capability, and completely out of scope
-  for a single-user notebook: MemoryMap deliberately refuses to run with more
+  for a single-user notebook: Tessellate deliberately refuses to run with more
   than one worker.
 
-- **`bash` and `python` tools.** Odysseus gives its agent a shell. MemoryMap
+- **`bash` and `python` tools.** Odysseus gives its agent a shell. Tessellate
   should not, and this is not a close call, the whole safety story here is
   that the agent's blast radius is the notebook, destructive actions are
   confirmed, and everything is undoable. A shell tool ends all three properties
@@ -502,7 +455,7 @@ Recording these so a future session doesn't re-evaluate them from scratch.
 
 - **Their search ranking (`services/search/ranking.py`).** Genuinely nice:
   recency scoring, domain quality, per-term title/snippet weighting. Not taken
-  because MemoryMap's web search is a *reader*, not a search engine: results go
+  because Tessellate's web search is a *reader*, not a search engine: results go
   to the model with a reader view, and the ranking that matters is the one
   SearXNG already did. Reconsider if §13 ever grows a results page people
   browse themselves.
@@ -528,7 +481,7 @@ itself before starting any item above.
 
 **Almost everything odysseus does better, it does by being bigger.** The
 context tracking, the tool retrieval, the skill format, the provider layer,
-each is a more elaborate version of something MemoryMap already has, and in
+each is a more elaborate version of something Tessellate already has, and in
 every case the elaborate version costs code that has to keep working. The
 items adopted above were the ones where the idea was small and the *failure
 mode* was the valuable part: `loaded_context_length` beating
@@ -861,7 +814,7 @@ Odysseus carries its own Phase-0 refactor audit,
 own issue #4082, *"codebase readability improvements"*). Its numbers, not a
 guess:
 
-| | Odysseus (its own audit) | MemoryMap (this repo) |
+| | Odysseus (its own audit) | Tessellate (this repo) |
 | --- | --- | --- |
 | `src/`-equivalent flat files | 95 (`src/`), no domain grouping | 5 subpackages (`ai/api/core/entry/search`) |
 | Route handlers | 54 flat files in `routes/` | grouped by domain under `api/` |
@@ -882,7 +835,7 @@ agent tools reach the app's own HTTP API via a **loopback bearer token**
 (`core/middleware.py`'s `INTERNAL_TOOL_TOKEN` / `X-Odysseus-Internal-Token`,
 because *"the agent's tool calls don't carry the admin user's session
 cookie"*), an internal auth-bypass surface that has to be kept secret and
-kept in sync with every admin-gated route. MemoryMap's tools
+kept in sync with every admin-gated route. Tessellate's tools
 (`ai/tools.py`) call the same `Session`/manager objects the routes call,
 in-process, with no HTTP hop and nothing to leak. Not a gap; a simpler
 architecture that happens to also be safer, worth naming so it doesn't get
@@ -897,7 +850,7 @@ this *idea* once (claude-obsidian's transaction/dirfd layer) and correctly
 judged it solved a problem this app doesn't have, because SQLite's own
 transactions cover concurrent note writes. **That dismissal doesn't reach
 this case.** `core.config.ConfigManager.set_preference`
-(`src/memorymap/core/config.py:148`) persists preferences with a plain
+(`src/tessellate/core/config.py:148`) persists preferences with a plain
 `self.preferences_path.write_text(json.dumps(...))`, no tmp file, no fsync,
 no atomic rename: and `preferences.json` holds `llm_api_key`, a secret, plus
 every setting the user has ever changed. It is the one piece of live state in
@@ -907,13 +860,13 @@ a truncated or half-written file. The docstring one line above the write
 already promises *"a crash never loses a settings change"*, the promise and
 the code disagree. Fix is odysseus's own two functions, ~15 lines, applied at
 this one call site; grepped for other direct `write_text`/`open(..., "w")`
-calls in `src/memorymap/` and found none else touching live user state (the
+calls in `src/tessellate/` and found none else touching live user state (the
 other three are a searxng pid file and a source-bootstrap shim, not user
 data).
 
 ### Worth building: features, ranked by fit, and what actually happened
 
-1. ~~MCP support~~ **Built**: `src/memorymap/mcp_server.py` exposes the tool
+1. ~~MCP support~~ **Built**: `src/tessellate/mcp_server.py` exposes the tool
    registry over stdio, checked before writing this update rather than
    re-scoping it from nothing.
 2. ~~Passive memory extraction from chat~~ **Built**,
@@ -1544,7 +1497,7 @@ two weeks, see which number you'd act on.
 
 **C1. Notebook-to-notebook exchange, no server.** A signed, encrypted
 `.mmpack` of a *slice* (notes + links + attachments + provenance) that another
-MemoryMap imports as a linked, attributed sub-graph. Not sync: no server, no
+Tessellate imports as a linked, attributed sub-graph. Not sync: no server, no
 account, no conflict resolution. Defensible because the format plus the
 attribution model is a standard others would have to adopt; AGPL keeps it
 open. E/R: L/High. *Experiment:* export/import a 20-note slice round-trip and
@@ -1804,21 +1757,21 @@ would land if picked up.
 Both source files are deleted with this commit; nothing in them was left
 unrecorded.
 
-## Six repositories read for MemoryMap, 2026-09-20
+## Six repositories read for Tessellate, 2026-09-20
 
 Asked for directly: whether anything in six named repositories can be used
-or taken for MemoryMap, plus a separate question about vendoring
+or taken for Tessellate, plus a separate question about vendoring
 `pytesseract`. Each was shallow-cloned (`git clone --depth 1`) into the
 sandbox and read: README, licence file, top-level layout, and the parts
 that looked relevant. Per this file's own rule, nothing below is proposed
 without checking it against the running code first, named by file.
 
 **Licences, checked against the constraint at the top of this file
-(MemoryMap is AGPL-3.0; MIT, BSD and Apache code may come in with its
+(Tessellate is AGPL-3.0; MIT, BSD and Apache code may come in with its
 notices kept; AGPL and GPL code may come in; anything GPL-incompatible or
 proprietary may not, and nothing of ours goes out to an MIT project):**
 
-| Repository | Licence | May its code come into MemoryMap? |
+| Repository | Licence | May its code come into Tessellate? |
 | --- | --- | --- |
 | Harper (Automattic) | Apache-2.0 | Yes |
 | blobatar (Alain00) | MIT | Yes |
@@ -1840,9 +1793,9 @@ LanguageTool's multi-gigabyte n-gram dataset.
 **Licence.** Apache-2.0, confirmed in the repository's root `LICENSE`
 file. Comes in clean, notice kept.
 
-**What exists in MemoryMap today, checked before proposing anything
+**What exists in Tessellate today, checked before proposing anything
 (grepped "writing check", "proofread," and spelling/grammar in
-`src/memorymap/ai` and `frontend/js/documents.js`, per the brief).** Three
+`src/tessellate/ai` and `frontend/js/documents.js`, per the brief).** Three
 separate things answer to "writing help," and the document editor's own
 comment block (`frontend/js/documents.js`, the "editor's own instruments"
 section starting around line 10005) states the design on purpose: "No
@@ -1855,7 +1808,7 @@ a hand-checked spelling table plus a Damerau-Levenshtein suggester
 spacing/repetition/sentence-length pass, and a UK/US spelling-variant
 setting. Real grammatical judgement is handed off on purpose to the local
 model instead: three fixed presets and a custom instruction in
-`src/memorymap/ai/librarian.py`'s `IMPROVE_MODES`/`improve_writing`
+`src/tessellate/ai/librarian.py`'s `IMPROVE_MODES`/`improve_writing`
 ("proofread," "rewrite," "concise"), one model round trip per click, which
 `help_chat.py`'s `writing-checks` topic describes honestly as "Ask the AI
 for wordings... two or three alternatives to pick from." So there is
@@ -1877,11 +1830,11 @@ full binary and a `slimBinary` variant built for size-conscious embedding
 (used by the Obsidian plugin specifically for that reason), plus a
 `WorkerLinter` that runs the WASM module off the main thread so linting
 never blocks typing. Because it is a self-contained WASM module with a
-small JS loader and no server, it fits MemoryMap's "works with the plug
+small JS loader and no server, it fits Tessellate's "works with the plug
 pulled" rule exactly: it never leaves the machine, unlike the model call
 `improve_writing` makes today. **Not verified:** this shallow, source-only
 clone has no Rust/`wasm-pack` toolchain run against it, so there is no
-built `.wasm` file to measure; I cannot give MemoryMap's own byte count
+built `.wasm` file to measure; I cannot give Tessellate's own byte count
 for the slim binary from this session. Harper's own README claims are
 about speed and RAM, not download size, and I did not fetch a live build
 to check. Before vendoring, a real build-and-measure pass (`wasm-pack
@@ -1896,7 +1849,7 @@ own protocols); only the WASM core and its JS wrapper are relevant.
 **Where it would land.** `frontend/js/documents.js`'s writing-checks pipeline
 (the finding list feeding the Suggestions panel, `DOC_AUTOCORRECT`, and
 the `rule` field the findings menu switches on around line 10872) and the
-`writing-checks` help topic in `src/memorymap/ai/help_chat.py`, which
+`writing-checks` help topic in `src/tessellate/ai/help_chat.py`, which
 would go from accurately describing "spelling, spacing and sentence
 length" to accurately describing real grammar, still with no network call
 and no change to the existing "ask the AI for wordings" escape hatch for
@@ -1931,14 +1884,14 @@ Svelte, Solid, Preact, React Native).
 
 **Licence.** MIT, confirmed in `LICENSE`. Comes in clean with notice.
 
-**What exists in MemoryMap today.** Grepped "avatar" across
-`frontend/js/*.js` and `src/memorymap`: the app has no per-person avatars at
+**What exists in Tessellate today.** Grepped "avatar" across
+`frontend/js/*.js` and `src/tessellate`: the app has no per-person avatars at
 all. What it has is two fixed icon glyphs, a user-icon box for the
 person's own chat bubble and a p5.js-rendered app emblem for the
 assistant's, both in `frontend/js/app.js` (`msg-avatar`,
 `renderEmblem`). This is a single-user, no-account app, so there was never
 a need for "whose avatar is this" in the chat, but named people are a real
-thing the app already extracts: `src/memorymap/ai/entities.py` pulls
+thing the app already extracts: `src/tessellate/ai/entities.py` pulls
 "real people, projects, things" a note mentions into named entities, and
 the graph (`GRAPH_PLAN.md`) draws every entity as a node.
 
@@ -1985,7 +1938,7 @@ documents (PDF/Word/PPT/web), build a RAG-backed knowledge base with
 DeepSeek, Ollama), with one-click mind-map generation already listed as
 done in its own roadmap and quiz/PPT generation marked in progress.
 
-**Licence.** GPL-3.0, confirmed in `LICENSE`. Combines into MemoryMap's
+**Licence.** GPL-3.0, confirmed in `LICENSE`. Combines into Tessellate's
 AGPL-3.0 codebase under AGPL-3.0 section 13's explicit GPLv3-compatibility
 clause; the project's own licence note (top of this file) already
 anticipates this case ("AGPL and GPL code may come in").
@@ -1995,40 +1948,40 @@ first open-source project... it's still early." The `src/` tree is about
 27,000 lines of TypeScript, but a large share is Electron/IPC/provider
 boilerplate rather than novel algorithmic work; there is no test
 directory at all at the top level. It is conceptually close to
-MemoryMap, upload documents, ask questions with citations, all local,
-but it is earlier in its life than MemoryMap already is on the same
-problem (MemoryMap already has hybrid search, a document reader, a
+Tessellate, upload documents, ask questions with citations, all local,
+but it is earlier in its life than Tessellate already is on the same
+problem (Tessellate already has hybrid search, a document reader, a
 librarian pass, and a graph; KnowNote's own roadmap lists RAG-over-docs
 and mind maps as what it has just gotten to).
 
-**(a) ideas and UX patterns.** The one feature MemoryMap does not have
+**(a) ideas and UX patterns.** The one feature Tessellate does not have
 and KnowNote's roadmap does: "quiz generation from documents" (marked
 in-development, not built, in KnowNote's own README) and "one-click PPT
 generation from notes" (also in development). Both are plausible,
-lightweight prompts over material MemoryMap's own librarian and drafter
-modules (`src/memorymap/ai/librarian.py`, `drafter.py`) already have
+lightweight prompts over material Tessellate's own librarian and drafter
+modules (`src/tessellate/ai/librarian.py`, `drafter.py`) already have
 access to; neither is implemented in KnowNote itself yet, so there is
 nothing built to look at, only the idea.
 
 **(b) code or assets that could be vendored as they are.** None. Electron
 IPC handlers, a React/Zustand renderer, and Drizzle-ORM migrations do not
-map onto MemoryMap's FastAPI-and-vanilla-JS shape at all; porting would
+map onto Tessellate's FastAPI-and-vanilla-JS shape at all; porting would
 mean rewriting, not vendoring.
 
 **(c) nothing else worth separating out;** the RAG pipeline, provider
-abstraction, and vector store are all things MemoryMap already has its
+abstraction, and vector store are all things Tessellate already has its
 own, more mature versions of (`search/`, `ai/provider.py`,
 `ai/embeddings.py`).
 
 **Where it would land.** A "quiz me on this note/tag" or "turn these notes
 into slides" action would be a Chat/agent skill
-(`src/memorymap/ai/skills.py`, `skill_runner.py`) rather than a new
+(`src/tessellate/ai/skills.py`, `skill_runner.py`) rather than a new
 surface, callable the same way any other skill is today.
 
 **Size: S** for a single quiz-generation skill as a proof of concept
 (a prompt plus the existing document-reading tools); **L** if "PPT
 generation" is read literally as a slide-deck exporter rather than a
-skill that drafts an outline, since MemoryMap has no presentation-export
+skill that drafts an outline, since Tessellate has no presentation-export
 path today and would need one built from nothing.
 
 **Recommendation: take an idea only** (a "quiz me" skill), and only as a
@@ -2049,25 +2002,25 @@ desktop app (Electron is listed in its own acknowledgements).
 
 **Licence.** Apache-2.0 by default (confirmed in `LICENSE` and the
 README's own licence section), with one named exception: a patched
-`@ghostery/adblocker-electron` package under MPL-2.0, which MemoryMap
+`@ghostery/adblocker-electron` package under MPL-2.0, which Tessellate
 would never touch since it has no browser/adblock surface. Comes in
 clean.
 
 **Honestly, this one is not thin, it is the closest of the six to what
-MemoryMap already is,** and the overlap cuts both ways: Surf's "Smart
+Tessellate already is,** and the overlap cuts both ways: Surf's "Smart
 Notes with citations back to the exact source" is functionally what
-MemoryMap's own Ask-answer object already does (per-sentence citations,
+Tessellate's own Ask-answer object already does (per-sentence citations,
 confirmed in `tests/test_ask_answer_object.py`, cited in
 WORLD_CLASS_PLAN section H2's own description of what exists). The
 genuinely new piece is Surflets.
 
 **(a) ideas and UX patterns.** Surflets, a prompt-generated small
 interactive applet (a chart, a physics demo, a simple game) that lives
-inside a note, is a real idea with no equivalent in MemoryMap today: the
+inside a note, is a real idea with no equivalent in Tessellate today: the
 closest surface is the whiteboard (`WHITEBOARD_PLAN.md`), which is a
 drawing/arrangement canvas, not a code-generation surface. `@`-mention
 context-building ("typing `@` launches a menu to search everything in
-Surf") is close to, but more general than, what MemoryMap's chat already
+Surf") is close to, but more general than, what Tessellate's chat already
 does when attaching a note or file as context, worth checking whether the
 chat's own attach flow reaches every surface (notes, files, graph nodes,
 whiteboard items) as uniformly as Surf's single `@` menu does.
@@ -2080,14 +2033,14 @@ would be a from-scratch build informed by the idea, not a port.
 
 **(c) nothing else** beyond the two ideas above; the tabs/split-view
 browser chrome, the local-model provider list, and the web-search tool
-are all things MemoryMap already has in its own shape.
+are all things Tessellate already has in its own shape.
 
 **Where it would land.** Surflets maps to a new capability on the
 whiteboard or as a chat-generated artifact (closest existing hook:
-`src/memorymap/ai/skills.py`'s tool-calling agent, which already runs
+`src/tessellate/ai/skills.py`'s tool-calling agent, which already runs
 code-adjacent tools); this is speculative and not scoped, a research
 line, not a plan item, until someone decides whether "the agent writes a
-small runnable applet into a note" is a feature MemoryMap actually wants,
+small runnable applet into a note" is a feature Tessellate actually wants,
 given its own "no code execution sandbox" posture would need deciding
 first (a real security question, not a UI one).
 
@@ -2111,7 +2064,7 @@ agent); Clawd-Code is "A Complete Python Reimplementation Based on Real
 Claude Code Source," a from-scratch Python port of the same tool
 (a `Task.ts`-equivalent agent loop, tool-calling, a `SKILL.md`
 slash-command runtime, a REPL). Neither is a notebook, a document tool,
-or anything in MemoryMap's actual domain; both are coding-CLI agents.
+or anything in Tessellate's actual domain; both are coding-CLI agents.
 
 **Licence, and a fact worth stating plainly rather than adjudicating.**
 better-clawd's `package.json` claims `"license": "MIT"`, but the cloned
@@ -2127,8 +2080,8 @@ recorded here as a fact about what the README says, not a legal opinion.
 **(a) ideas and UX patterns.** Clawd-Code's `SKILL.md`-based slash-command
 skill runtime (markdown frontmatter declaring a description, an
 `allowed-tools` list, and named arguments) was checked against
-`src/memorymap/ai/skills.py` specifically, since it is the one plausibly
-relevant idea. MemoryMap's own skill system is already ahead of it on the
+`src/tessellate/ai/skills.py` specifically, since it is the one plausibly
+relevant idea. Tessellate's own skill system is already ahead of it on the
 exact axis that matters: `skills.py`'s own docstring records that skills
 used to be "just presaved mini prompts" and were rebuilt in a session to
 add explicit tool allowlists, ordered steps with per-step contracts
@@ -2136,7 +2089,7 @@ add explicit tool allowlists, ordered steps with per-step contracts
 limits" and "named arguments" Clawd-Code's `SKILL.md` format offers.
 Nothing here is a gap.
 
-**(c) nothing.** Both are out of MemoryMap's domain (a coding agent, not
+**(c) nothing.** Both are out of Tessellate's domain (a coding agent, not
 a notebook), and the one idea worth checking (the skill format) turns out
 already built, more thoroughly, in this codebase.
 
@@ -2150,7 +2103,7 @@ is already implemented and further along here than in either source.
 
 **Asked:** "can we vendor pytesseract in the application or smth to make
 it easier?" Checked against the running code (`ocr` across
-`src/memorymap` and `frontend`, the `ocr-workspace` help topic,
+`src/tessellate` and `frontend`, the `ocr-workspace` help topic,
 `packaging/windows/memorymap.spec`, `packaging/linux/memorymap.spec`,
 `packaging/windows/installer.iss`, `requirements.txt`, `docs/INSTALL.md`)
 before proposing anything, per this file's rule and the owner's "check the
@@ -2159,11 +2112,11 @@ running app first" standing order.
 **What exists today, and it is more than the question assumed.**
 `pytesseract` is not currently installed by default; `requirements.txt`
 lists it as a commented-out optional extra (`pip install pytesseract
-Pillow`), and `src/memorymap/core/extras.py`'s `Extra(id="ocr", ...)`
+Pillow`), and `src/tessellate/core/extras.py`'s `Extra(id="ocr", ...)`
 entry is the in-app installer for exactly that half, one click from
 Settings, a background job, honest about needing a restart. The **system
 `tesseract` binary itself** is the real gap `pytesseract` alone can never
-close (no PyPI wheel ships it), and `src/memorymap/core/ocr.py` already
+close (no PyPI wheel ships it), and `src/tessellate/core/ocr.py` already
 has an automated, non-interactive installer for it too:
 `attempt_binary_install` tries winget (Windows, the UB-Mannheim package),
 `brew` (macOS), then `apt-get`/`dnf`/`pacman` in order (Linux), all with
@@ -2290,7 +2243,7 @@ credential vault, contacts, and a scripted device-pairing flow for a mobile
 companion. Line counts by extension, this checkout, everything outside
 `.git`: **247,751 Python, 166,420 JavaScript, 41,402 CSS, 4,917 HTML**
 (`find . -name '*.py' | xargs wc -l`, and so on per extension), 459,915 lines
-total against MemoryMap's low tens of thousands. `routes/` alone is 60-some
+total against Tessellate's low tens of thousands. `routes/` alone is 60-some
 flat and domain-grouped route files; `src/` is 95-odd modules with five
 purpose-built subdirectories (`agent_tools/`, `tools/`, `model_capability_readers/`,
 `search/`, a thin `src/search/` re-export shim); `static/js/` is 100+ files
@@ -2303,9 +2256,9 @@ anything this repository has needed to build yet.
 
 **Licence:** `LICENSE` is the GNU AGPL, and its own text says "version 3 of
 the License, or (at your option) any later version", i.e. AGPL-3.0-or-later,
-confirming §33's read. MemoryMap is AGPL-3.0 (see §33's licence section for
+confirming §33's read. Tessellate is AGPL-3.0 (see §33's licence section for
 what that permits and still requires: keep notices, attribute the source,
-never send anything of MemoryMap's the other way to an MIT project). Nothing
+never send anything of Tessellate's the other way to an MIT project). Nothing
 in this pass changes that analysis.
 
 **How alive:** the one commit this clone can see is nine days old at the
@@ -2316,7 +2269,7 @@ fresh-install smoke tests across three OSes, and, tellingly, **"Agent
 prompt/context bloat... tool schemas, skills, memory, documents, and
 instructions can eat the context before the user request really starts"** as
 still-open work. That is the exact problem §33's token measurement found
-MemoryMap already ahead on (`tools.within_budget`, `focus_for`, a skill
+Tessellate already ahead on (`tools.within_budget`, `focus_for`, a skill
 allowlist). Their own roadmap agreeing with §33's outside read is worth
 recording as corroboration, not just repetition: the size gap is real,
 current, and not a symptom of decline. `docker-compose.yml` ships three
@@ -2327,7 +2280,7 @@ surface, not an abandoned one.
 
 ### 2. Surface by surface, against this app
 
-Each line: what odysseus does, what MemoryMap does (file or plan), a
+Each line: what odysseus does, what Tessellate does (file or plan), a
 verdict. Surfaces §33/§60 already covered in depth (provider dialects, the
 tool/skill token budget, passive capture, MCP) are one line here for
 completeness, not re-argued.
@@ -2336,17 +2289,17 @@ completeness, not re-argued.
   (`src/tools/notes.py:do_manage_notes`) is CRUD on a flat `Note` model plus
   checklists, reached only through the agent tool, with action aliases
   (`create`/`new`/`save`/`remind` all map to `add`) so a model's near-miss verb
-  still lands. MemoryMap's notes are the whole app (`entry/manager.py`,
+  still lands. Tessellate's notes are the whole app (`entry/manager.py`,
   `api/routes_entries.py`), first-class, with tags, links, categories,
   staleness, private notes, and their own UI, not a tool bolted onto a chat
   workspace. Verdict: not comparable in scope. Odysseus's alias table is a
-  small, real idea worth a two-minute check against MemoryMap's own tool
+  small, real idea worth a two-minute check against Tessellate's own tool
   argument parsing for the same "closest verb, not exact string" tolerance,
   but not worth a dedicated backlog line on its own.
 - **Documents.** Odysseus's `document_processor.py` and `routes/document/`
   give a writing-first editor with AI edits/suggestions across
   Markdown/HTML/CSV, plus PDF/office-doc ingestion
-  (`office_doc.py`, `pdf_form_doc.py`). MemoryMap's Documents surface is
+  (`office_doc.py`, `pdf_form_doc.py`). Tessellate's Documents surface is
   `DOCUMENTS_PLAN.md` and `api/routes_documents.py`; the Kortex read (§66)
   already flagged the concrete gap (no slash commands, no block nesting) and
   filed it as BACKLOG §64. Checked here whether odysseus's own document
@@ -2359,18 +2312,18 @@ completeness, not re-argued.
   (`src/rag_vector.py:VectorRAG.search`) blends a fixed
   `VECTOR_WEIGHT = 0.7` / `KEYWORD_WEIGHT = 0.3`, where the keyword half is a
   plain set-overlap ratio (`len(query_words & doc_words) / len(query_words)`,
-  no IDF, no stemming). MemoryMap's `search/engine.py` fuses three real
+  no IDF, no stemming). Tessellate's `search/engine.py` fuses three real
   signals with measured weights (`WEIGHTS = {"bm25": 0.5, "cosine": 0.35,
   "graph": 0.15}`), where the lexical half is SQLite FTS5's own IDF-weighted
   `bm25()` over a Porter-stemmed index
   (`search/index.py:BM25_WEIGHTS`), not a raw word-overlap count. Verdict:
-  MemoryMap's hybrid search is more principled than odysseus's on this read,
+  Tessellate's hybrid search is more principled than odysseus's on this read,
   worth recording plainly since it cuts the other way from most of this
   section (see part 4). One thing odysseus does that is worth a passing
   mention: `embedding_lanes.py` keeps FastEmbed-fallback vectors in a
   separate ChromaDB collection from a user-configured embedding model's
   vectors, because Chroma fixes a collection's dimension on first insert.
-  MemoryMap hit the same failure mode from the other direction (switching
+  Tessellate hit the same failure mode from the other direction (switching
   embedding models leaves old, narrower vectors in the same table) and
   already fixed it, differently and after the fact
   (`search/search_manager.py:280-324`: group by vector width, skip the
@@ -2384,7 +2337,7 @@ completeness, not re-argued.
   self-summarises older turns via the same LLM into a structured block (a
   "Cursor-style" prompt asking for turn count and compaction count), and
   special-cases small-context models (`SMALL_CONTEXT_LIMIT = 8192`) for more
-  aggressive trimming. MemoryMap tracks and reports how full the window got
+  aggressive trimming. Tessellate tracks and reports how full the window got
   (`usage_source`, `ollama_client.py`/`openai_client.py`) but, checked
   directly across `ai/agent.py` and `api/routes_chat.py`, has no compaction
   step: a long chat on a small local window is reported as full, not kept
@@ -2396,7 +2349,7 @@ completeness, not re-argued.
   item 4: frontmatter, `when_to_use`, progressive disclosure, all already
   triaged). Nothing new turned up this pass beyond what §33 already recorded.
 - **The graph.** Odysseus has none: no `graph` route, no force-directed view,
-  no equivalent of `GRAPH_PLAN.md`. MemoryMap's graph (§9/§10C per §30's
+  no equivalent of `GRAPH_PLAN.md`. Tessellate's graph (§9/§10C per §30's
   reading) is a real thing odysseus's much larger codebase does not have at
   all, not a smaller version of one.
 - **Boards / whiteboard.** Same finding: no whiteboard or freeform canvas
@@ -2409,7 +2362,7 @@ completeness, not re-argued.
   equivalent either.
 - **Reminders.** Odysseus's `task_scheduler.py` (2,675 lines) runs scheduled
   agent tasks generally, of which reminders are one shape, plus
-  `reminder_personas.py` for tone. MemoryMap has a dedicated reminder parser
+  `reminder_personas.py` for tone. Tessellate has a dedicated reminder parser
   and route (`ai/reminder_parser.py`, `api/routes_reminders.py`),
   purpose-built rather than a slice of a general task scheduler. Verdict:
   comparable coverage for the actual feature (parse a phrase into a
@@ -2420,10 +2373,10 @@ completeness, not re-argued.
 - **Files and OCR.** Odysseus reads scanned PDF pages by handing each page
   image to a vision-language model (`document_processor.py:136`,
   `analyze_image_with_vl`) rather than running OCR proper; it has no
-  tesseract dependency anywhere in `requirements*.txt`. MemoryMap already
+  tesseract dependency anywhere in `requirements*.txt`. Tessellate already
   built dedicated, deterministic OCR (`core/ocr.py`: pytesseract, with
   `attempt_binary_install` for the system `tesseract` binary itself, since
-  no PyPI wheel ships it). Verdict: MemoryMap's approach is cheaper, offline
+  no PyPI wheel ships it). Verdict: Tessellate's approach is cheaper, offline
   by default, and does not depend on a vision-capable model being
   configured; odysseus's VL-read approach could in principle handle a
   diagram or handwriting an OCR engine garbles, but costs a full model call
@@ -2432,24 +2385,24 @@ completeness, not re-argued.
   text), not a replacement for what `core/ocr.py` already does.
 - **Sync.** Odysseus syncs tasks/reminders to an external calendar over
   CalDAV, two-way (`src/caldav_sync.py`, 722 lines; `caldav_writeback.py`,
-  311 lines). MemoryMap has no calendar sync of any kind; BACKLOG.md §17's
-  "A second device" entry is about a second instance of MemoryMap itself,
+  311 lines). Tessellate has no calendar sync of any kind; BACKLOG.md §17's
+  "A second device" entry is about a second instance of Tessellate itself,
   not about talking to an existing external calendar server. A one-way or
   two-way CalDAV bridge for reminders is a real, scoped, self-hostable
-  (Nextcloud, Radicale) feature MemoryMap does not have and has not
+  (Nextcloud, Radicale) feature Tessellate does not have and has not
   evaluated; recorded here as a gap, not scoped, since it is a new surface
   (external protocol client, its own auth/config) rather than an
   improvement to something that exists.
 - **Packaging.** Odysseus's primary path is Docker Compose, three services
   by default (`odysseus`, `chromadb`, `searxng`) plus an optional fourth
   (`ntfy`); native installs exist but are the secondary path per its own
-  README ("Quick Start" is `docker compose up -d --build`). MemoryMap is one
+  README ("Quick Start" is `docker compose up -d --build`). Tessellate is one
   process, SQLite, no required sidecar service, `start-desktop.sh`/`.bat`
-  (`src/memorymap/__main__.py`) plus the installer scripts CLAUDE.md §5
+  (`src/tessellate/__main__.py`) plus the installer scripts CLAUDE.md §5
   already documents at length (cache-busting, the `_BOOT_TOKEN` splice).
-  Verdict: MemoryMap's packaging is simpler by design and stays simpler
+  Verdict: Tessellate's packaging is simpler by design and stays simpler
   here too; nothing to take.
-- **Anything else it has that MemoryMap does not**, beyond what §33/§60
+- **Anything else it has that Tessellate does not**, beyond what §33/§60
   already named (email, calendar, hwfit/Cookbook, sub-sessions, a shell
   tool, teacher escalation, multi-user/TOTP, face recognition, STT/TTS,
   YouTube, ChatGPT/Copilot/Codex bridges, all already looked at and declined
@@ -2462,7 +2415,7 @@ completeness, not re-argued.
   Think, then Search, then Extract, then Synthesise loop, credited in its
   own docstring as "IterResearch-style... Inspired by Alibaba's
   IterResearch approach", where the LLM itself drives what to search next,
-  what is missing, and when to stop, distinct from MemoryMap's own web
+  what is missing, and when to stop, distinct from Tessellate's own web
   search which §33 already correctly characterises as "a reader, not a
   search engine": a single search-and-summarise pass, not a multi-round,
   self-directed research loop that produces a synthesised report. Both are
@@ -2516,7 +2469,7 @@ now permits a literal copy with notices kept.
    multi-round autonomous loop, its own prompt budget, its own stopping
    criteria, its own UI for a report the user did not ask a single question
    for). Risk: real: this is exactly the kind of unsupervised, many-round
-   tool-calling chain MemoryMap has deliberately kept narrow (no shell tool,
+   tool-calling chain Tessellate has deliberately kept narrow (no shell tool,
    confirmed destructive actions, a scoped tool registry per §33's "not
    taken" list), and a small local model let loose on ten rounds of
    self-directed searching is a cost and a runaway-output risk odysseus's
@@ -2532,7 +2485,7 @@ now permits a literal copy with notices kept.
    (`ai/model_manager.py`). Size: **S**, genuinely small and
    self-contained: no new subsystem, just a route that fans one prompt to
    two already-configured endpoints and a small UI for the blind reveal.
-   Risk: low; the only real design question is whether MemoryMap's answer
+   Risk: low; the only real design question is whether Tessellate's answer
    quality (accuracy against notes, tool-use correctness) is a fairer
    comparison than "which reply reads better", since a blind vote on prose
    quality alone does not test the thing a notebook AI is actually judged
@@ -2543,7 +2496,7 @@ now permits a literal copy with notices kept.
    not overlap counting, confirmed by contrast rather than by assumption.**
    Not a thing to take from odysseus, the opposite: reading
    `rag_vector.py:search`'s `keyword_score = overlap / len(query_words)`
-   next to MemoryMap's own `bm25()`-based `search/index.py` is what makes
+   next to Tessellate's own `bm25()`-based `search/index.py` is what makes
    the comparison in part 2 concrete rather than asserted. Recorded as a
    "strongest thing" in the sense that it strengthens confidence in an
    existing design choice: nothing to change, a reason not to.
@@ -2552,17 +2505,17 @@ now permits a literal copy with notices kept.
 
 Honestly, and briefly, so nothing here gets chased:
 
-- **Its own hybrid search is a weaker ranking function than MemoryMap's**
+- **Its own hybrid search is a weaker ranking function than Tessellate's**
   (part 2/3 above): a fixed 0.7/0.3 blend with a non-IDF keyword score,
   against a three-signal, measured-weight fusion over real BM25.
 - **It admits, in its own `ROADMAP.md`, the exact prompt-bloat problem §33's
-  measurement already found MemoryMap ahead on**, and its own internal
+  measurement already found Tessellate ahead on**, and its own internal
   refactor audit (`specs/architecture-runtime-inventory.md`, already read in
   §60) calls its largest files "HIGH risk" and its own CSS file "a swamp".
   Bigger has not become better-organised between §60's read and this one.
 - **A loopback bearer-token internal-auth-bypass surface** (§60 already
   found this: `core/middleware.py`'s `INTERNAL_TOOL_TOKEN`) that has to be
-  kept secret and in sync with every admin route, where MemoryMap's tools
+  kept secret and in sync with every admin route, where Tessellate's tools
   call the same in-process objects the routes call, nothing to leak.
 - **A documented, silent dependency-conflict failure mode**: its own
   `website/setup.md` (lines 410-416) warns that installing `chromadb-client`
@@ -2587,11 +2540,11 @@ this codebase once rather than filing as an odysseus problem only:
   pinned by a dedicated regression test,
   `tests/test_vault_password_not_in_argv.py`, that greps the source for the
   old vulnerable call shape as well as testing the new one. Checked directly
-  against MemoryMap: every `subprocess.run`/`subprocess.Popen` call
+  against Tessellate: every `subprocess.run`/`subprocess.Popen` call
   (`search/searxng_docker.py`, `search/searxng_manager.py`,
   `search/searxng_process.py`, `api/routes_update.py`, `core/ocr.py`,
   `core/extras.py`) passes a fixed argument table with no secret in it, so
-  this specific bug is not present today, but MemoryMap has no equivalent
+  this specific bug is not present today, but Tessellate has no equivalent
   pinning test, and this class of bug is exactly the kind that a future
   subprocess call (a new installer step, a new external-tool integration)
   could reintroduce without anyone noticing, since it degrades quietly
@@ -2603,7 +2556,7 @@ this codebase once rather than filing as an odysseus problem only:
   personal-document folder-watching each had their own hidden/junk-directory
   skip list, and they drifted apart, leaving the keyword path sweeping
   `.obsidian/`, `.git/`, and `node_modules/` after the vector path had
-  already been fixed to skip them. Checked directly against MemoryMap: there
+  already been fixed to skip them. Checked directly against Tessellate: there
   is no equivalent today (notes and documents are indexed from database rows,
   not from two independent filesystem walks, `grep` for `os.walk`/`rglob`
   outside `api/routes_files.py` turns up nothing), so this is not a live bug
@@ -2617,7 +2570,7 @@ this codebase once rather than filing as an odysseus problem only:
   alongside a same-named or same-namespace sibling degrading into a reduced
   mode rather than refusing to start, is worth a moment's check the next
   time an optional/lite variant of an existing dependency is considered for
-  `requirements-optional.txt`; nothing in MemoryMap's current dependency
+  `requirements-optional.txt`; nothing in Tessellate's current dependency
   list (CLAUDE.md §7's pinned install line) has this shape today.
 
 Not verified: anything about odysseus's actual runtime behaviour (whether
@@ -2630,51 +2583,9 @@ than trusting the read.
 
 ## The night's merges reviewed line by line, 2026-09-21
 
-Seventeen merges sit between PR 150's base and its head, 151 files and
-21,091 insertions, and three of them came from worktrees cut 176, 231 and
-250 commits back and were resolved by hand. That is the shape CLAUDE.md
-section 6 is written about, so the head was read against its four questions
-before any more work landed on it. The verdict is clean, and the point of
-recording it is that a clean review is a fact the next session should not
-have to buy twice.
+Clean verdict; the review moved whole to HISTORY.md, "Moved from the plans, 2026-10-11 (ANALYSIS size cap)".
 
-**A feature that never ran once.** Eighty-one functions were added to
-`frontend/js/*.js` and twenty-three defs to `src/`, and every one of them has a
-call site. The three that answer to nothing but a decorator are routes, and
-each is reachable: `/entries/reference-counts` from `ensureReferenceCounts`,
-`/drafts/compose/stream` from `streamDraft`, and `/drafts/compose` from the
-tests that speak this feature's shape, which is what its docstring says it
-is kept for.
-
-**A guard removed while the shape around it was kept.** Every deleted
-`pointerType !== "touch"` line in the diff, and there are six, was deleted
-into `wireLongPress`, which keeps the same guard once instead of six times.
-The SQL `LIKE` escaping that looked dropped in `_list_skills` was
-reformatted around a new `*extra` argument with `like_escape` and
-`LIKE_ESCAPE` both intact.
-
-**A working thing rewritten into a riskier thing.** The writing desk is the
-one real rewrite, and its new streaming path holds up: `streamDraft` carries
-a partial line across chunk boundaries rather than splitting each chunk on
-its own, skips an unparseable frame instead of throwing out of a
-half-written draft, sends `X-Auth-Token`, and sends the lock screen up on a
-401. The empty `title` on every entry in `_sources` is not a loss: an entry
-in this app has no title column, and `drafter` writes a bare `[1]` when the
-title is empty, which is the intended shape.
-
-**What the fake transport cannot see.** `_accumulate_tool_calls` is correct
-for concurrent calls: index-keyed buckets, id, name and arguments folded
-separately, replayed in index order with `call_<index>` as the id of last
-resort. Its one latent flaw is the default in `fragment.get("index", 0)`,
-which is INBOX 285.
-
-Chat history is trimmed today: `agent.build_messages`' `budget` cuts the
-notes and the history to what the window holds. So odysseus's compaction
-idea, which is still the owner's to decide, is a refinement of a guard that
-exists rather than a missing one, and nothing is silently overflowing while
-the decision waits.
-
-## Twenty-four repositories read for MemoryMap, 2026-09-21
+## Twenty-four repositories read for Tessellate, 2026-09-21
 
 Asked for directly: *"there are some repos I want you to look at, evaluate
 and see if we can take anything from them"*, four named, then a fifth
@@ -2687,17 +2598,17 @@ section, with the depth of each read stated rather than implied. Each was shallo
 four) into a scratch directory and read: README, licence file, top-level
 layout, and the parts that looked relevant, then deleted. **Nothing was
 run.** Every proposal below was checked against
-MemoryMap's own code by grep before it was written down, per this file's
+Tessellate's own code by grep before it was written down, per this file's
 standing rule and the four earlier reads (§33, §59, §60, "Six repositories
 read for MemoryMap, 2026-09-20"), and where the answer was "the app already
 does this", that is stated as plainly as a gap.
 
 **Licences, checked against the constraint at the top of this file
-(MemoryMap is AGPL-3.0; MIT, BSD and Apache code may come in with its
+(Tessellate is AGPL-3.0; MIT, BSD and Apache code may come in with its
 notices kept; AGPL and GPL code may come in; nothing of ours goes out to an
 MIT project):**
 
-| Repository | Licence | May its code come into MemoryMap? |
+| Repository | Licence | May its code come into Tessellate? |
 | --- | --- | --- |
 | quickLiquid (amarnath3003) | MIT, root `LICENSE` and `packages/quick-liquid/LICENSE` | Yes, notice kept |
 | needle (cactus-compute) | Apache-2.0 in the repo; the weights repo `Cactus-Compute/needle3` also carries `license: apache-2.0` | Yes, notice kept, code and weights both |
@@ -2734,7 +2645,7 @@ release line.
 
 **Licence.** MIT, confirmed in both `LICENSE` files.
 
-**What MemoryMap has today, and the decision already on the table.** The app
+**What Tessellate has today, and the decision already on the table.** The app
 has a complete glass system, and it also has a recorded decision against
 exactly this. `docs/DESIGN.md`, "Deliberately not taken": *"Refraction and
 lensing (a displacement filter on every glass surface is the one effect
@@ -2753,7 +2664,7 @@ the facts the decision rested on.
 **It does not.** quickLiquid's own cost model (`OPTIMIZATION.md` section 0)
 prices `feDisplacementMap` at roughly twice a streaming filter pass over the
 filter region, and its headline win is cutting the chain from `12A` to `2A`
-for frosted materials: that is a reduction in the multiplier, and MemoryMap's
+for frosted materials: that is a reduction in the multiplier, and Tessellate's
 measured problem was `A` itself, the blurred area per frame on an integrated
 GPU. A displacement tap is added on top of a blur that is already there, so
 the app's cheapest surface gets more expensive, not less.
@@ -2804,7 +2715,7 @@ written to a stated rule set, in the file's own words: every closed set is an
 enum, every number has bounds, *"no correct call ever needs a value the user
 did not say"*, and an enum value must not hide inside a likely query word
 (*"a room named office poisons an off action, so this home has a study"*).
-Checked against MemoryMap: the 15 tools in `src/memorymap/ai/tools/__init__.py`
+Checked against Tessellate: the 15 tools in `src/tessellate/ai/tools/__init__.py`
 carry exactly two `"enum"` keys between them (the reminder priority, line
 3265), no numeric bounds anywhere, and `create_reminder` requires `due_at` as
 an ISO datetime the model must synthesise (line 1502), which is the clearest
@@ -2820,7 +2731,7 @@ tool's JSON schema alongside the arguments a model produced and flag any
 `date`/`date-time` field whose year appears nowhere in the user's text,
 unless the text reasons relatively ("tomorrow", "next week"), in which case
 the system date's year is licensed too; `_grounded_number_paths` does the
-same for numbers. MemoryMap has grounding, twice, and neither one is this:
+same for numbers. Tessellate has grounding, twice, and neither one is this:
 `ai/grounding.py` grounds each sentence of a Q&A answer in a retrieved note,
 and `unsupported_claims` checks the agent's narrated actions. Nothing checks
 a **tool argument** against the words that asked for it, and
@@ -2897,7 +2808,7 @@ the embedding warm-up, and named three directions of which the second is
 *"ONNX Runtime instead of torch for inference. Same model, a fraction of the
 resident cost, no scipy or sklearn in the import graph. This is the change
 with the best ratio and the most work"*, marked *"none yet taken"*.
-MemoryMap's default embedding backend is `sentence-transformers` with
+Tessellate's default embedding backend is `sentence-transformers` with
 `BAAI/bge-small-en-v1.5` (`ai/embeddings.py`, `DEFAULT_ST_MODEL`), and
 fastembed's own default is that same model in ONNX form. So the "most work"
 half of that item is largely a packaging question already answered by someone
@@ -2913,7 +2824,7 @@ the torch model's, so a switch is the same "two vector widths in one table"
 problem `search/search_manager.py:280-324` already survives by grouping on
 width and logging a reindex hint; the honest shape is a reindex, not a silent
 mix. And none of this is measured here: the 65MB is cognee's comment, the
-776MB is MemoryMap's own earlier measurement of the present state, and the
+776MB is Tessellate's own earlier measurement of the present state, and the
 result of the swap is measured nowhere yet.
 
 **Recommendation: take it, as the named implementation for WORLD_CLASS_PLAN
@@ -2939,7 +2850,7 @@ own notes.
 with notices intact and no clause to reason about. That is the one licence in
 this batch that costs nothing, and it is not enough on its own.
 
-**What MemoryMap could take: close to nothing, and the specifics are worth
+**What Tessellate could take: close to nothing, and the specifics are worth
 recording so a later session does not look again.**
 
 - **File importance** (`src/anatomy/importance.ts`) is a hand-rolled PageRank
@@ -2957,7 +2868,7 @@ recording so a later session does not look again.**
   `> Archived session: <id>` pointer, the archive is re-hashed and verified
   before the live file is rewritten, and restore refuses on a checksum
   mismatch. That is a real answer to "prune without losing anything". It does
-  not port: MemoryMap's equivalent guarantee comes from a transaction over
+  not port: Tessellate's equivalent guarantee comes from a transaction over
   `EntryRevision` and `AuditLog` rather than from a hash over a Markdown
   block. What could port is the phrasing of the promise, which the
   resurface and archive copy could borrow.
@@ -3012,7 +2923,7 @@ which parts are not.**
 - **Not memory.** `openjarvis/memory/` is 978 lines that ask a small local
   model after each exchange for a JSON array of durable facts about the user
   and append them to a deduped, capped JSON file
-  (`memory/extractor.py`, `memory/store.py`). MemoryMap does the same idea
+  (`memory/extractor.py`, `memory/store.py`). Tessellate does the same idea
   more carefully and has already argued it out in code comments:
   `ai/passive_capture.py` writes **drafts** rather than finished rows
   precisely because *"a background job that mis-files something nobody asked
@@ -3023,7 +2934,7 @@ which parts are not.**
   contract at all, which is the thing WORLD_CLASS_PLAN I9 makes
   non-negotiable here.
 - **Not the skills subsystem**, with one note. `openjarvis/skills/` is 2,448
-  lines to MemoryMap's 3,368 across `ai/skills.py` and `ai/skill_runner.py`,
+  lines to Tessellate's 3,368 across `ai/skills.py` and `ai/skill_runner.py`,
   and the overlap (a manifest, a tool adapter, a per-skill capability list)
   is already built. The one shape that is not: `skills/overlay.py` keeps
   optimiser output (few-shot examples learned from traces) in a sidecar file
@@ -3038,7 +2949,7 @@ sends nothing anywhere.** It is a local SQLite record of every inference
 (`telemetry/store.py`, `aggregator.py`) with per-phase metrics, inter-token
 latency (`itl.py`), FLOPs (`flops.py`) and energy read from Intel RAPL,
 NVIDIA, AMD and Apple counters (`energy_*.py`), aggregated per model and per
-engine. MemoryMap measures a piece of the same thing once per response and
+engine. Tessellate measures a piece of the same thing once per response and
 then throws it away: `ai/ollama_client.py:551` computes `eval_ms` from the
 Ollama payload and `frontend/js/app.js:21270` renders "3.9k/8k window · 12 tok/s
 · llama3.2" onto the message. There is no table for it: `core/database.py`
@@ -3085,7 +2996,7 @@ is no `LICENSE` file, no `license` field in `package.json`, and
 `"private": true` is set. No licence granted means default copyright: not the
 code, not the sprites, not a file of it may come into an AGPL-3.0 project. So
 nothing below is taken from it. The owner's question stands on its own, and
-what follows answers it from MemoryMap's own code.
+what follows answers it from Tessellate's own code.
 
 **Part one: playing files the person already owns. The app does not do it,
 and the gap is already scoped, here.** Checked before proposing anything:
@@ -3125,7 +3036,7 @@ folder mechanism: `frontend/index.html:8988` is an
 Obsidian vault, which reads every file once and cannot be reopened later
 without picking again. **The part that decides this route, and the part this
 session cannot verify:** the desktop window is pywebview
-(`src/memorymap/__main__.py`), which is Edge WebView2 on Windows, WKWebView on
+(`src/tessellate/__main__.py`), which is Edge WebView2 on Windows, WKWebView on
 macOS and WebKitGTK on Linux. Only the first of those three is Chromium, so a
 File System Access feature would work in a browser tab and on Windows, and be
 absent in the desktop window on the other two platforms. That is a read of
@@ -3241,7 +3152,7 @@ threshold, and WASM builds (`whisper.wasm`, `stream.wasm`). Weights are ggml
 conversions of OpenAI's Whisper, fetched by
 `models/download-ggml-model.sh`, so it does not run without a download and
 neither does what this app has today. **What it is worth here is not a
-replacement.** MemoryMap already transcribes with the same model family
+replacement.** Tessellate already transcribes with the same model family
 through a pip package that needs no compiler, and swapping that for a native
 binary the person must build or fetch is CLAUDE.md section 6's first shape, a
 working thing rewritten into a riskier one. What whisper.cpp has that
@@ -3371,7 +3282,7 @@ shallow read of fourteen is worth less than a real read of five.
 | onyx-dot-app/onyx | MIT outside the `ee/` directories, which are proprietary | 1.24M lines, alive | Enterprise RAG with fifty-plus connectors. The connector breadth is the product; this app is deliberately one machine and one notebook | Skim |
 
 **Why those five.** khoj and reor are the two projects doing the same thing
-as MemoryMap rather than something adjacent; Trilium is the mature notebook
+as Tessellate rather than something adjacent; Trilium is the mature notebook
 with the data model closest to this app's; mem0 (with letta) is the memory
 architecture behind the part this app calls learning; and karakeep earned its
 place with one specific finding that is worth more than the other skims put
@@ -3387,13 +3298,13 @@ automations, and clients for browser, Obsidian, Emacs, desktop and phone.
 workflow, last commit 2026-08-02, with the team's newest energy visibly
 moving to a separate product (Pipali).
 
-**Licence.** AGPL-3.0, the same as MemoryMap.
+**Licence.** AGPL-3.0, the same as Tessellate.
 
 **Where khoj is better, specifically: it reranks and this app does not.**
 `src/khoj/search_type/text_search.py` retrieves with a bi-encoder and then
 runs `cross_encoder_score` and `rerank_and_sort_results` over the hits, with
 `mixedbread-ai/mxbai-rerank-xsmall-v1` as the default cross encoder
-(`database/models/__init__.py:566`). MemoryMap has no rerank stage at all:
+(`database/models/__init__.py:566`). Tessellate has no rerank stage at all:
 `search/engine.py` fuses three scores with fixed weights (`bm25 0.5,
 cosine 0.35, graph 0.15`) and sorts. Fusion and reranking are not the same
 move: fusion trades off signals computed independently of each other, while a
@@ -3408,12 +3319,12 @@ argument for answering that one first and getting two features out of it.
 
 **Where this app is better, and it is not a close call on two of them.**
 First, khoj's retrieval is semantic-plus-rerank with no lexical leg;
-MemoryMap's has FTS5 `bm25()` over a Porter-stemmed index beside the vectors,
+Tessellate's has FTS5 `bm25()` over a Porter-stemmed index beside the vectors,
 so an exact phrase or a rare proper noun cannot fall through, and
 `_explain()` tells the person which signal matched. Second, and bluntly:
 **khoj phones home by default.** `src/khoj/utils/state.py` reads
 `KHOJ_TELEMETRY_DISABLE`, so telemetry is opt-out, and `src/telemetry/` is
-their own FastAPI collector forwarding to PostHog. MemoryMap sends nothing,
+their own FastAPI collector forwarding to PostHog. Tessellate sends nothing,
 ever, and its one online feature is off until switched on. For an app whose
 pitch is a personal AI, that is a real difference in kind, not in degree.
 Third, khoj's local mode needs torch and sentence-transformers as ordinary
@@ -3448,7 +3359,7 @@ WORLD_CLASS_PLAN 19.1 item, not a new idea.
 **Where this app is better, and it is the feature reor is named for.** reor's
 related-notes sidebar (`src/components/Sidebars/SimilarFilesSidebar.tsx`,
 `SemanticSidebar/SimilarEntriesComponent.tsx`) lists notes by raw vector
-similarity and says nothing about why. MemoryMap has the same panel live
+similarity and says nothing about why. Tessellate has the same panel live
 while a note is open (`frontend/js/app.js:9158`), and every link carries a
 reason that starts as "similar in meaning" and is then rewritten by
 `ai/links.py` into the specific thing connecting the two notes, with
@@ -3475,7 +3386,7 @@ every note rows of `type` (`label` or `relation`), `name`, `value`, with
 labels carrying arbitrary key-value data and relations pointing at another
 note, plus "promoted attributes" which are the ones a note type chooses to
 show as fields in the UI. One mechanism covers tagging, typed metadata,
-and typed links between notes. MemoryMap spreads the same ground over four
+and typed links between notes. Tessellate spreads the same ground over four
 separate things: a `tags` JSON column on `Entry`, a `Category`,
 `EntryLink` with its reason, and `Entity`/`EntityMention`. **That is not a
 recommendation to unify them**: this app's four each carry behaviour the
@@ -3487,7 +3398,7 @@ a typed field (a due date, a status, an amount) has nowhere to put it here
 except free text.
 
 **Where this app is better.** Trilium's AI is bolted on and optional;
-MemoryMap's filing, linking, resurfacing and Q&A are the product, and
+Tessellate's filing, linking, resurfacing and Q&A are the product, and
 `ai/janitor.py`'s four-tier filing cascade (model, then category centroid,
 then nearest-neighbour vote, then Uncategorised at confidence zero) has no
 equivalent there at all.
@@ -3500,7 +3411,7 @@ carry named fields" rather than as "adopt attributes".
 
 **What it is.** A self-hostable bookmark-everything app (links, notes,
 images, PDFs) with an AI tagging pass, full-text search, lists and rules.
-149,000 lines, alive (2026-09-19). Narrower than MemoryMap, and read here
+149,000 lines, alive (2026-09-19). Narrower than Tessellate, and read here
 only for the tagging worker.
 
 **Licence.** AGPL-3.0.
@@ -3511,7 +3422,7 @@ included, truncated to a budget for exactly the reason the constant is named:
 `RELEVANT_TAG_TRUNCATE_LENGTH = 1000`, *"the maximum length of the relevant
 tag names to avoid bloating the inference context"*. The model is asked to
 reuse the vocabulary that already exists before inventing a new word.
-MemoryMap does not do this. `librarian.suggest_tags(text, existing, ...)`
+Tessellate does not do this. `librarian.suggest_tags(text, existing, ...)`
 passes `existing` as *"tags already on the note (don't repeat)"* and nothing
 else: the notebook's own tag vocabulary is never shown to the model, so every
 note is tagged from a blank slate and a notebook accumulates `work-project`,
@@ -3543,7 +3454,7 @@ it did not see. Both are Apache-2.0.
 (`mem0/configs/prompts.py:176`) does not just add: the model is handed the
 new fact and the similar existing memories and must answer **ADD, UPDATE,
 DELETE or NONE**, so a contradicted memory is rewritten and a retracted one
-is removed. MemoryMap's `_save_user_preference`
+is removed. Tessellate's `_save_user_preference`
 (`ai/tools/__init__.py:2148`) checks only for an exact case-insensitive
 duplicate, then caps at `MAX_ACTIVE_PREFERENCES` and tells the model to *"ask
 the user which one to drop"*. So "answer briefly" and a later "give me more
@@ -3559,7 +3470,7 @@ argues for at length.
 treats memory as named blocks with descriptions and a size the agent is
 responsible for, and its `context-doctor` skill audits memory for *"duplicate
 or contradictory facts/instructions, stale content"* and for which files
-dominate the context estimate. MemoryMap's memory stream is bounded by
+dominate the context estimate. Tessellate's memory stream is bounded by
 `MEMORY_STREAM_BUDGET_CHARS = 600` in `ai/memory.py` with newest-wins
 truncation, which is a sound rule and is **invisible**: a person with twenty
 saved preferences is not told which ones actually reached the model this
@@ -3568,7 +3479,7 @@ budget", is a small honesty feature of exactly the kind this app already
 builds everywhere else.
 
 **Where this app is better.** mem0's pipeline writes to memory on its own
-judgement; MemoryMap proposes and waits, with the reason written in the code
+judgement; Tessellate proposes and waits, with the reason written in the code
 (*"a model that misread one sentence gave itself a permanent rule the user
 never agreed to"*). Keep that. Take the comparison, not the autonomy.
 
@@ -3587,7 +3498,7 @@ app's whiteboard.** Its connector routing is A star over an obstacle graph:
 `blocksuite/affine/gfx/connector/src/connector-manager.ts:1158` builds an
 `AStarRunner` (exported from `blocksuite/affine/blocks/surface/src/utils/
 a-star.js`) and takes its path, so an elbow connector routes *around* the
-shapes between its two ends. MemoryMap's elbow connectors are careful about
+shapes between its two ends. Tessellate's elbow connectors are careful about
 the things AFFiNE's are also careful about, leaving a card perpendicular to
 the side they attach to and turning at a computed midpoint
 (`frontend/js/whiteboard.js:1640`, `:4725`, `wbMapEdgeElbowTurn`), and they do
@@ -3645,7 +3556,7 @@ rather than "nothing we could learn". One line each, and where the answer is
   fix that fits inside the existing decision.
 - **openwolf.** Better at one thing this app has no view of: it audits and
   prices the always-on context a project pays for every turn
-  (`src/daemon/context-audit.ts`). MemoryMap shows a per-message window
+  (`src/daemon/context-audit.ts`). Tessellate shows a per-message window
   figure and lints its static prompt text (`agent.PROSE_BUDGET_CHARS`), but
   nothing shows what the prompt was actually made of on a given turn. Small,
   and it converges with the letta finding below. Everything else in openwolf
@@ -3689,7 +3600,7 @@ rather than "nothing we could learn". One line each, and where the answer is
   weights licence was read from Hugging Face hub metadata, not from a file in
   a clone.
 - **The fastembed numbers are cognee's comment**, and the 776MB resident
-  figure is MemoryMap's own earlier measurement of its current state. The
+  figure is Tessellate's own earlier measurement of its current state. The
   result of swapping one for the other is measured nowhere yet, which is why
   the recommendation's first step is a measurement.
 - **quickLiquid's cost model was read, not reproduced.** No browser
@@ -3788,3 +3699,802 @@ owner keeps finding are partly this file's shape, patches on patches.
 defended: the no-build frontend, SQLite as the one store, the prompt budget
 discipline, the lint suite that turns every past mistake into a failing test,
 and the rule that a number shown to the user is measured.
+
+## Parity matrix, 2026-10-10
+
+ROADMAP "Direction, 2026-10-10", parity programme item 1. One table per
+surface: the fork's README and feature list (fetched from the public
+`storytold/*` repositories and `jgraph/drawio` on 2026-10-10) against the
+running app's code. "Checked where" names the file or element id that was
+grepped; nothing here was driven in a browser, so a "yes" means the control
+and its handler exist, not that it renders well (CLAUDE.md section 1:
+"already exists" is the start of triage). Cost: S under half a session, M
+about one, L several. Keep or drop is judged by Direction policy 2: the forks
+are a source of feature lists and formats, not code. Where a row says
+"drop", the reason is stated.
+
+### Whiteboard, against draw.io and designcraft
+
+draw.io facts used: Apache-2.0 JavaScript editor, shape and stencil
+libraries, pages, layers, format panel, orthogonal routing with connection
+points, Mermaid and CSV import, re-editable SVG. designcraft facts used:
+frames and threaded stories, parent pages, swatches, paragraph and character
+styles, text wrap, a Properties panel.
+
+| Feature | Tessellate has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Format panel (stroke, fill, alpha, shadow, route, caps, jumps, label) | yes (`wb-format`, `wb-fmt-*` in index.html, `whiteboard-format.js`) | none | none | done |
+| Numeric X, Y, W, H, angle, flip | yes (`wb-fmt-x/y/w/h/angle/flip-h/flip-v`) | no resize from centre | S | keep, small |
+| Snap to grid and a grid style | yes (`wb-snap-toggle`, `wb-grid-select`: none, lines, dots, iso) | grid size is not user-set | S | keep |
+| Smart guides (edge, centre, spacing) | yes (`wb-guide-color-*`, `whiteboard-map.js`) | none | none | done |
+| Align, distribute, same size | yes (`whiteboard-commands.js` align-*, distribute-*, same-width/height) | none | none | done |
+| Group, ungroup, lock, z-order | yes (commands `group`, `lock`, `order-*`) | none | none | done |
+| Layers panel | yes (`wb-layers-tree`: per-item eye, lock, rename, restack) | no named layer that holds many items | M | keep, name and hide layers |
+| Pages | partly (`wb-side-tab-pages`: frames are the pages, WHITEBOARD_PLAN decision 22) | no separate pages per board by design | none | done by decision |
+| Connectors: straight, curved, elbow, labels, caps, dash, line jumps | yes (`line-elbow`, `wb-fmt-jumps`, `wb-fmt-label-t`) | none | none | done |
+| Connection points on a shape (fixed anchors, ports) | yes (`wbPortFractions`; a link stores `sourceAnchor` as a fraction, so a resize keeps it); re-read 2026-10-10 | a draw.io shape's own stencil ports were not read | S | keep |
+| Waypoint editing on a connector | yes (`waypoint` in `whiteboard-map.js`, `whiteboard.js`) | none | none | done |
+| Shape library at scale (hundreds of stencils, search) | partly (7 sets, 1,530 icons, search by name, tag, set); re-read 2026-10-10 | the five converted draw.io sets (196 shapes, `board-library/drawio/`) were never listed | S | keep |
+| Shape library import (draw.io `mxlibrary`) | no (`stencil` appears only in `ai/help_chat.py`) | no reader | M | keep, one converter script |
+| Containers and swimlanes | partly (frames hold items; `frames.json` has Frame and Timeline lane) | no pool with lanes | S | keep, as frame presets |
+| Tables on a board | no (`wbTable` has no match in the whiteboard files) | draw.io has a table shape | M | drop for now; a note card with a Markdown table covers it |
+| Mermaid in and out, outline export, re-editable SVG | yes (`whiteboard-interchange.js`) | Mermaid in: flowchart only; sequence, class and state pasted from a document do nothing | M | keep, add the three |
+| draw.io file import (`.drawio`, `mxfile`) | no (`mxfile` appears nowhere in `frontend/`; `ai/tools/__init__.py` mentions the format) | boards from draw.io cannot be opened | M | keep, an offline reader is a pure parse of `mxGraphModel` |
+| Import and export: PNG, SVG, PDF, JSON | yes (`wb-export`, `export-frame`) | no `.drawio` export | S | keep with the importer |
+| Data and tooltips on a shape (custom properties) | no (`tooltip` hits are UI hints) | no key-value data on an object | M | drop; a linked note holds data |
+| Links on an object, not only a card | yes (`whiteboard.js` object links; WHITEBOARD_PLAN decision) | not verified live | none | done |
+| Layout algorithms (tree, radial, org chart) | partly (`wb-mindmap-tree`, `wb-mindmap-radial`, `wb-map-layout`) | free boards have no auto-layout | M | keep, reuse the map layout |
+| Swatches and saved palettes | yes (`save-palette`, library "palette" kind) | none | none | done |
+| Hand-drawn style (draw.io sketch, Excalidraw's whole look, tldraw's draw style) | no | the look Excalidraw is known for | M | keep, a board option (re-read 2026-10-10) |
+| Laser pointer while presenting (Excalidraw, tldraw) | no | a pointer trail that fades | S | keep |
+| Find and replace (draw.io) | find only (`wb-search-bar`) | no replace | S | keep |
+| Rulers, guides the user places | no (no `ruler` in whiteboard files) | none | S | drop |
+| Version history | yes (`wb-history-bar`, `whiteboard-history.js`) | none | none | done |
+| Present, step through frames | yes (`wb-present-bar`) | no per-slide notes, no timer | S | keep |
+| Templates | yes (17 board, 15 map; re-read 2026-10-10) | none | none | done |
+| Comments on objects | yes (command `comment`) | none | none | done |
+| Find on board | yes (`wb-search-bar`) | none | none | done |
+| Text wrap around objects, threaded text (designcraft) | no | page layout, not a whiteboard need | L | drop |
+| Parent pages and spreads (designcraft) | no | print layout | L | drop |
+
+Ranked by how often a person meets the gap (canvasdepth, 2026-10-10; the
+plan rows follow this order): draw.io sets in the panel with their ports,
+Mermaid sequence, class and state, `.drawio` import, a pool with lanes, named
+layers, find and replace, the hand-drawn look, tables, a laser pointer, edit
+data. Earlier: (1) the draw.io reader and shape-library converter
+(`mxfile` import, stencil XML to our JSON, a starter set of 60 shapes),
+(2) connection points with a fixed-anchor connector, (3) named layers with
+visibility, plus five more templates.
+
+### Mind map, against designcraft's canvas and MINDMAP_PLAN's references
+
+The map is a board of kind map (MINDMAP_PLAN section 2). References: Obsidian
+Canvas Mindmap, XMind, Coggle, MindMeister, Kumu (MINDMAP_PLAN section 3).
+designcraft contributes only canvas habits (frames, swatches, a properties
+panel); it has no map concept.
+
+| Feature | Tessellate has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Keyboard-first: child, sibling, delete, collapse | yes (`wb-radial-child/sibling/collapse/delete`, clone-right, clone-down) | none | none | done |
+| Structures: tree four ways, radial, logic chart, timeline, fishbone, tree table | yes (`WB_MAP_LAYOUT_NAMES`) | one per map; XMind sets one per branch | L | keep |
+| Themes, levels, branch line style (curve, elbow, straight), per-branch colour | yes (`wbMapTheme`, `edge_style`, `_map_branch_colors`) | none | none | done |
+| Callouts, labels under a topic (XMind) | no | a note bubble; tags drawn under a topic | M | keep |
+| Fold to level 1, 2, 3 | yes (`fold-level-1..3`) | none | none | done |
+| Topic styling: colour, size, bold, italic, align, shape | yes (`wb-map-strip`, `wb-map-text-menu`, `wb-map-shape-menu`) | none | none | done |
+| Edge styling: width, shape, dashed, arrow | yes (`wb-map-line-menu`, `wb-map-edge-*`) | none | none | done |
+| Icons and markers on a topic | yes (131 `icon` and 42 `marker` hits in `whiteboard-map.js`) | none | none | done |
+| Boundaries, summaries, floating topics | yes (`boundary` 16 hits, `wb-mapmulti-summary`, floating topic 4 hits) | relationship lines with labels exist as links; not verified | S | keep |
+| Pictures on a topic | yes (`wb-map-picture-input`) | none | none | done |
+| Tasks on topics | yes (`wb-mapmulti-task`) | no due dates in the map | S | keep |
+| Numbered outline | yes (`wb-map-numbered`) | none | none | done |
+| Import: OPML, FreeMind, XMind, Markdown | yes (`wb-import-map-file` accepts .opml .xml .mm .xmind .md; `routes_whiteboard.py`) | none | none | done |
+| Export: image, document, Markdown, OPML, FreeMind | yes (`wbExportMapText`) | no `.xmind` out | M | keep |
+| Perspectives (colour by meaning), legend, focus, filter | yes (`wb-map-perspective`, `wb-map-legend`, `wb-map-focus`, `wb-map-filter`) | Kumu metrics (centrality) not on the map | M | keep, reuse the graph's metrics |
+| Notes linked to topics, graph shows map links | yes (`wb-add-note`, `wb-extract-notes`) | none | none | done |
+| AI: summarise a branch, suggest branches | yes (`summarise-branch`, `suggest-branches`) | none | none | done |
+| Study mode (show, knew, missed) | yes (`wb-map-study`, `wb-study-*`) | none | none | done |
+| Templates for maps | yes (`wb-map-templates`) | count not checked | S | keep |
+| Presenting a map as slides | yes, by branch (`wbMapPresentSteps`) | none | none | done |
+| Cross links between branches with labels | yes (`wb-link-label`, `wb-map-link-radial`) | none | none | done |
+| Collaboration, real-time | no | Coggle's main feature | L | drop (single-user by design) |
+| Frames and swatches from designcraft | partly (frames and palettes on free boards) | not on maps | S | drop |
+
+Re-read 2026-10-10 (canvasdepth) against XMind and MindNode: the brief's
+map list is built; open, by how often met: a structure per branch, callouts,
+labels, `.xmind` out, stickers and votes. Earlier: (1) OPML and FreeMind export so a round trip is
+closed, (2) a branch-by-branch presentation, (3) Kumu-style metrics
+(centrality, communities) as a perspective, computed by the graph's own code.
+
+### Documents (prose), against wordcraft
+
+wordcraft facts used: 389 commands, styles, tables with formulas, TOC,
+footnotes, citations, comments, track changes, compare, accessibility
+checker, mail merge, docx round trip, a spelling dictionary from the Moby
+Hyphenator list. A document here is Markdown in CodeMirror.
+
+| Feature | Tessellate has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Find and replace, regex | yes (`doc-find-bar`, `doc-replace-one/all`) | regex toggle not checked | S | keep, verify |
+| Spelling with a personal dictionary | yes (`doc-dictionary-*`, `doc-spelling-variant`, Harper) | none | none | done |
+| Grammar | yes (`docGrammarAsk`, `doc-grammar-check`, Harper WASM) | none | none | done |
+| Track changes and accept or reject | yes (`doc-suggest-*`, `docSuggestResolve`) | none | none | done |
+| Margin comments | yes (`doc-comments`, `doc-margin`) | links and bookmarks in comments: Brief 42 | M | in Brief 42 |
+| Thesaurus | no (no thesaurus handler in `documents*.js`) | none | S | keep, trimmed table (policy 2) |
+| Word count and goal | yes (`doc-word-goal`, `doc-counts`) | none | none | done |
+| Outline and navigation pane | yes (`doc-outline`, `doc-sidebar-outline`) | none | none | done |
+| Table of contents | yes (`docFillToc`) | none | none | done |
+| Tables (insert, Tab between cells, alignment) | yes (`docFillTable`, markdown.js alignment) | no merge, no sort, no formulas | M | keep sort and formulas, see tables |
+| Footnotes, citations, bibliography | no (grep: no citation handler) | APA or MLA output | M | keep footnotes only; drop styles |
+| Styles gallery, themes, page layout | no | Markdown has no styles; width menu and serif toggle exist | L | drop (wrong model) |
+| Headers, footers, page numbers, columns | no | page layout is not a notebook need | L | drop |
+| Docx export | yes (`doc-export-docx`) | none | none | done |
+| Docx and odt and rtf import | partly (`docview.docx_to_markdown`, markitdown for others) | odt and rtf depend on the extra | S | keep |
+| PDF export | yes (`doc-export-pdf`) | none | none | done |
+| HTML, Markdown, zip export | yes (`doc-export-html/md/zip`) | none | none | done |
+| Focus mode, typewriter, dim others | yes (`doc-focus-*`, `doc-typewriter`, `doc-dim-others`) | none | none | done |
+| Read aloud | yes (`docReadAloudStart`) | none | none | done |
+| Autocorrect, smart punctuation, list autoformat | yes (`doc-autocorrect`, `doc-smart-punctuation`, `docListEnter`) | none | none | done |
+| Slash fills (date, table, TOC, emoji, signature) | yes (`docFillToken` and friends) | none | none | done |
+| Version history | yes (`doc-history-dialog`) | none | none | done |
+| AI actions with a diff | yes (`doc-ai-panel`, `doc-ai-diff`) | none | none | done |
+| Compare two documents | partly (history diff only) | arbitrary two-document compare | S | keep |
+| Accessibility checker | yes (`docAccessFindings`) | none | none | done |
+| Mail merge, envelopes | no | none | L | drop |
+| Macros | no | the skills system covers repeated work | L | drop |
+| Highlights on pages (key passages) | no | the owner's ask, Brief 42 | M | in Brief 42 |
+| Word-style shortcuts (F7 spell, F4 repeat) | partly | not checked as a set | S | keep, one shortcut audit |
+
+Next brief builds first: (1) highlights and annotations with persisted ranges
+(Brief 42), (2) a thesaurus from the trimmed table with a right-click action,
+(3) footnotes with a Markdown extension that exports to docx footnotes.
+
+### Documents (code), against VS Code's editor features
+
+VS Code's editor features list (basic editing, multi-cursor, IntelliSense,
+code navigation, refactoring, debugging, integrated terminal, tasks, source
+control); the extension ecosystem is out of scope. CodeMirror 6 is vendored
+(`frontend/vendor/codemirror/entry.js` exports state, view, commands, search,
+language, autocomplete, lint and the language packs).
+
+| Feature | Tessellate has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Syntax highlighting, 25+ languages | yes (entry.js: JS, Python, CSS, HTML, JSON, YAML, shell, SQL, TOML, Go, Rust, C family, Ruby, XML, Swift, R, Dockerfile, properties) | no TypeScript or PHP pack | S | keep |
+| Diagnostics and lint gutter | yes (`CM.lint`, `lintGutter` in `documents-code.js`, `core/syntaxcheck.py`) | JS and Python depth: Brief 42 | M | in Brief 42 |
+| Completion | yes (`autocompletion`, snippets, Emmet) | Brief 42 item 735 | M | in Brief 42 |
+| Hover docs | yes (`hoverTooltip`) | none | none | done |
+| Go to definition, references, find in documents | yes (`documents-code.js` header) | single file only | M | keep, cross-document later |
+| Rename symbol | no | none | M | keep, per file |
+| Code folding | yes (`foldGutter` in `documents.js`) | none | none | done |
+| Multiple cursors, rectangular selection | yes (`allowMultipleSelections`, `rectangularSelection` in `documents.js`) | not verified in a browser | none | done |
+| Bracket matching, auto-close, bracket colours | yes (`closeBrackets`, bracket colours) | none | none | done |
+| Indent guides, sticky scroll, colour swatches | yes (`documents-code.js` header) | none | none | done |
+| Go to line, command palette | partly (go to line yes; `openPalette` only the app palette) | editor commands are not in the palette | S | keep |
+| Minimap | partly (2 hits in `documents.js`; not verified) | confirm it renders | S | keep, verify |
+| Format document | yes (`doc-code-format`) | formatter per language not checked | S | keep |
+| Run code | yes (`doc-code-run`, JS sandbox, Python via the Pyodide extra) | output panel height and Stop: Brief 42 | M | in Brief 42 |
+| Whitespace render, word wrap | yes (`doc-whitespace`, `doc-code-wrap`) | none | none | done |
+| Diff view | partly (history diff) | side-by-side editing diff | M | keep, low |
+| Breadcrumbs / symbol outline | yes (`doc-crumbs`, code symbols in the outline) | none | none | done |
+| Quick fixes | yes (header of `documents-code.js`: "quick fixes") | none | none | done |
+| Split editor, tabs for several files | no | one document at a time | M | keep, split first |
+| Debugger | no | none | L | drop |
+| Integrated terminal, tasks, source control | no | not a notebook need | L | drop |
+| Vim or Emacs keymaps | no | none | S | drop |
+| Settings sync, workspaces | n/a | the notebook is the workspace | none | drop |
+| Problems panel | yes (`problems` 28 hits) | none | none | done |
+| p5 sketch kind | no (INBOX 735) | Brief 42 | M | in Brief 42 |
+
+Next brief builds first: (1) the completion switch and the p5 kind (Brief 42),
+(2) editor commands in the command palette and a split view, (3) rename
+symbol within a file.
+
+### Tables in notes and documents, against gridcraft
+
+gridcraft facts used: 500+ functions, dynamic arrays, a dependency-graph
+engine, sort and autofilter, conditional formats, validation, pivot tables,
+17 chart types, xlsx round trip, CSV and TSV. A table here is a Markdown
+table; the app has no sheet object.
+
+| Feature | Tessellate has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Insert a table, Tab between cells | yes (`docFillTable`, toolbar `table` in `note-edit-panels.js`) | none | none | done |
+| Column alignment | yes (`markdown.js` separator row) | none | none | done |
+| Copy as TSV or CSV, save as CSV | yes (`markdown.js` lines 855 to 869, "Save as CSV") | none | none | done |
+| Paste CSV or TSV into a table | no (no paste converter found in `documents.js`) | pasted spreadsheet cells stay plain text | S | keep |
+| Sort a column | no (no `sort` in `markdown.js`) | none | S | keep |
+| Formulas (SUM, AVERAGE, a cell reference) | no for the user (`simpleeval` is used only by the composer's calculator) | none | M | keep: a `=SUM(B2:B9)` in a cell, evaluated at render, 12 functions |
+| Number formats | no | currency and percent | S | keep, three formats |
+| Filter rows | no | none | S | keep |
+| Totals row | no | follows formulas | S | keep with formulas |
+| Conditional formatting, data bars | no | none | M | drop |
+| Pivot tables | no | none | L | drop; a chart question answers most of it |
+| Charts from a table | partly (`ask-chart.js` charts from questions, not from a selected table) | chart this table | M | keep |
+| xlsx and csv open | partly (`docview.py` reads .xlsx and .csv to Markdown through markitdown) | read only, one sheet view | S | keep |
+| xlsx write | no | none | M | drop; CSV export suffices |
+| Sheet as a document kind | no | a real grid with a cell editor | L | drop for now; revisit after formulas land |
+| Data validation, freeze panes, named ranges | no | none | M | drop |
+| Query a table in Ask | partly (composer tables, `ai/composer_tables.py`) | tables in notes are read as text | M | keep |
+
+Next brief builds first: (1) paste-to-table and column sort, (2) cell formulas
+with a small function set evaluated through the existing safe evaluator,
+(3) a chart-this-table action.
+
+### PDF viewer and OCR workspace, against pdfcraft
+
+pdfcraft facts used: render, search, bookmarks panel, page grid, merge,
+extract, split, forms, comments, redaction, passwords, accessibility checker,
+corpus-tested repair. Tessellate reads PDFs for text and renders pages as
+images (`core/pdfpages.py`, pypdfium2 under an optional extra), and the OCR
+workspace sits on those images.
+
+| Feature | Tessellate has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| View pages with zoom and fit | yes (`ocr-zoom-*`, `ocr-view` modes) | none | none | done |
+| Page rail and pager | yes (`ocr-rail`, `ocr-pager`) | none | none | done |
+| Text extraction | yes (`docview.extract`, markitdown, vision fallback) | none | none | done |
+| Search inside the file | yes (`ocr-find`, `ocr-find-count`) | none | none | done |
+| Region read and describe | yes (`ocr-region-read`, `ocr-region-describe`) | none | none | done |
+| Choice of readers and engines | yes (`ocr-reader-menu`, `ocr-engine`, RapidOCR install) | none | none | done |
+| Edit and save a reading | yes (`ocr-edit-*`) | none | none | done |
+| Send to note or chat | yes (`ocr-to-note`, `ocr-to-chat`) | none | none | done |
+| Bookmarks and outline of the PDF | partly (`library.js` and `routes_files.py` reference outline; not verified) | confirm the panel | S | keep, verify |
+| Highlights and comments on a PDF | no (grep for pdf annotate finds nothing) | the main reading tool | M | keep, stored apart from the file |
+| Page labels, thumbnails | partly (rail shows page images) | page labels | S | keep |
+| Merge, split, extract pages | no (`pdfpages.py` only renders) | page operations | M | drop; use a PDF tool, and pure-Python writers need a library |
+| Rotate, delete pages | no | none | M | drop |
+| Fill forms | no | none | M | drop |
+| Redaction | no | privacy use | M | drop |
+| Passwords | no (no decrypt path found) | encrypted PDFs are skipped | S | keep, ask for the password |
+| Table of contents from headings | partly | none | S | keep |
+| Accessibility check | no | none | M | drop |
+| Command palette | partly (the app palette lists the workspace) | none | none | done |
+
+Next brief builds first: (1) highlights and comments on PDF pages stored in
+the notebook, (2) the encrypted-PDF prompt, (3) verify the outline panel.
+
+### Image notes and the Library, against photocraft and lightcraft
+
+photocraft is layers and filters (Photoshop). lightcraft is a RAW developer
+plus a library (ratings, flags, collections, smart albums, compare and survey
+views, XMP). Only lightcraft's library half and a few photocraft basics fit a
+notebook.
+
+| Feature | Tessellate has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Library grid with filters and a selection bar | yes (`library.js`: `renderLibraryView`, `createLibrarySelectbar`) | none | none | done |
+| Lightbox with next and previous | yes (`lightbox.js`, `lightbox-view.js`) | none | none | done |
+| Captions and descriptions by a vision model | yes (`ai/captioning.py`, `ocr-describe`) | none | none | done |
+| Search by caption | yes (captions are indexed text) | none | none | done |
+| Sketch and annotate | yes (`media.js` sketch tools, `attachment-actions.js`) | arrows and shapes on a photo | S | keep |
+| EXIF read | partly (`core/imagesize.py`; EXIF fields not shown in the UI) | date taken, camera, place | S | keep |
+| Date taken on the timeline | no | photos by capture date | M | keep |
+| Ratings, flags, colour labels | no | culling | S | keep: a 0 to 5 rating and a flag |
+| Albums and smart albums | partly (categories and tags apply; no album object) | collections of images | M | keep through tags and saved filters |
+| Compare and survey view | no | none | M | drop |
+| Crop, rotate, flip | no (`icon-picker.js` crop is the avatar picker) | basic fix before filing | M | keep, canvas-based |
+| Brightness, contrast | no | none | S | drop |
+| Layers, masks, adjustment layers, filters | no | Photoshop scope | L | drop |
+| RAW decode | no | none | L | drop |
+| Duplicate detection | no | none | M | keep, perceptual hash in pure Python |
+| Face and people | no | none | L | drop (no models without torch) |
+| GPS to a map | no | none | M | keep after EXIF |
+| Colour palette from an image | no | none | S | keep for the palette picker |
+| Export with a size and format | no | none | S | drop |
+| Bulk delete and select | yes (`bulkDeleteLibraryMedia`) | none | none | done |
+
+Next brief builds first: (1) EXIF shown and used (date taken to the timeline,
+GPS), (2) rating and flag, (3) crop and rotate with a canvas editor.
+
+### Audio notes and meetings, against soundcraft
+
+soundcraft is a DAW (tracks, mixing, plugins, MIDI). What carries over to a
+notebook: waveform and time display, markers, loudness, record with punch and
+pre-roll, autosave, audio file formats. Meetings sit on `meetings.js` and
+`routes_meetings.py`.
+
+| Feature | Tessellate has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Record with a level meter and timer | yes (`meeting-record`, `meeting-wave`, `meeting-timer`, `startMicLevelMeter`) | none | none | done |
+| Pause and resume | yes (`meeting-pause`, `toggleMeetingPause`) | none | none | done |
+| Transcribe | yes (`meeting-transcript`, `meetings.js`) | no speaker labels | M | keep, WORLD_CLASS_PLAN audio |
+| Summary and action items with reminders | yes (`meetingSummarise`, `meetingRemind`) | none | none | done |
+| Save as note or document | yes (`meeting-save`, `meeting-save-doc`) | none | none | done |
+| Dictation into a field | yes (`toggleDictation`) | none | none | done |
+| Read aloud | yes (`speakText`, `docReadAloud`) | none | none | done |
+| Waveform of a saved recording | partly (live wave only; playback waveform not found) | none | M | keep |
+| Click a transcript line to seek | no (no seek handler found) | none | M | keep, needs timestamps |
+| Playback speed | no | the long-recording need | S | keep |
+| Markers and bookmarks while recording | no | none | S | keep |
+| Live captions | no | in WORLD_CLASS_PLAN | M | keep |
+| Export SRT or VTT | no | none | S | keep, from timestamps |
+| Silence trim, strip silence | no | none | M | drop |
+| Loudness (LUFS) | no | none | M | drop |
+| Fades, crossfades, edits, mixing, plugins | no | DAW scope | L | drop |
+| MIDI, notation, surround | no | none | L | drop |
+| Speaker diarization | no | needs a model | L | keep, behind the model gate |
+| Audio file formats (wav, mp3, flac, m4a) | partly (browser decoders; uploads accepted) | none | S | keep |
+| Autosave and crash recovery of a recording | not verified | long meetings | S | keep, verify |
+
+Next brief builds first: (1) timestamped transcript with click-to-seek and
+SRT or VTT export, (2) playback speed and a saved-recording waveform, (3)
+markers while recording.
+
+### Presentations from boards and maps, against deckcraft
+
+deckcraft facts used: masters and layouts, 150+ shapes, transitions and
+animations, presenter view, rehearse timings, pen, notes pages, pptx open and
+save, PDF and PNG export.
+
+| Feature | Tessellate has it | Gap in one line | Cost | Keep or drop |
+| --- | --- | --- | --- | --- |
+| Step through frames as slides | yes (`wb-present-bar`, `wb-present-prev/next/count/end`) | none | none | done |
+| Reorder slides | yes (Pages tab, decision 22) | none | none | done |
+| Full screen | yes (`wb-fullscreen`) | none | none | done |
+| Export a frame as an image | yes (`export-frame`) | none | none | done |
+| Export all frames as a PDF | partly (`wb-export` PDF; per-frame pages not checked) | one page per frame | S | keep, verify |
+| Speaker notes per frame | no | none | S | keep |
+| Presenter view (notes, next slide, timer) | no | none | M | keep |
+| Pen and laser while presenting | partly (board tools stay active; no laser) | none | S | keep |
+| Transitions between frames | partly (pan and zoom to the frame; no fade or morph choice) | none | S | keep, two options |
+| Build steps within a frame (reveal one item at a time) | no | maps: branch by branch | M | keep |
+| pptx export | no | opening in PowerPoint | L | drop; PDF is the exchange format |
+| pptx import | partly (`docview.py` reads .pptx text through markitdown) | read only | none | done |
+| Master slides, layouts, themes | no | none | L | drop; frames and templates cover it |
+| Rehearse timings | no | none | S | drop |
+| Outline to slides | partly (outline export exists; slides from an outline not) | none | M | keep |
+| Slides from a document | no | none | M | keep, headings become frames |
+
+Next brief builds first: (1) speaker notes per frame with a presenter view,
+(2) a per-frame PDF export checked on a real board, (3) branch-by-branch
+reveal for maps.
+
+## Repositories and libraries read, 2026-10-10
+
+Brief 40 part (b). Facts come from the repositories' public pages fetched on
+2026-10-10, PyPI's and npm's registry records, and jsDelivr headers for file
+sizes (measured, not remembered). The pages do not state a repository's disk
+size, and the GitHub API is not reachable from the sandbox without the
+repository attached, so "size" below is stars, commits and the size of what a
+build would ship, not a clone size. The yardstick is ROADMAP Direction policy
+1: pure Python or plain JS/WASM, offline, small, no compiled extensions,
+nothing added for what the stdlib or the app already does.
+
+### The forks and draw.io
+
+All nine ArtCraft repositories share one licence line: MIT or Apache-2.0 at
+the user's option, copyright ArtCraft Team and the repository's contributors,
+with the ArtCraft name, wordmark and logos excluded (forks must remove them).
+Bundled fonts and icons keep their own licences. Every one is a pure-Rust
+Cargo workspace with an egui front end, a `wgpu` or `vello_cpu` renderer, a
+WebAssembly build, a CLI, a JSON control channel and an MCP server over a
+command registry. None can be vendored into a no-build vanilla JS app
+(multi-megabyte WASM, canvas without a DOM), which is policy 2.
+
+| Repository | Licence | Stack | Scale (page figures) | Three things worth taking |
+| --- | --- | --- | --- | --- |
+| wordcraft | MIT or Apache-2.0; Moby hyphenation list is public domain | Rust, 389 commands, ~250 tests, krilla PDF | 46 commits, 2.2k stars | 1. The command catalogue as a checklist for the documents toolbar (styles, TOC, footnotes, track changes). 2. Its docx read and write behaviour as the reference for `docx_to_markdown`. 3. Agent tools (`inspect_document`, `batch`, `render_page`) as the shape for a document MCP surface. |
+| designcraft | MIT or Apache-2.0; fonts SIL OFL | Rust, Knuth-Plass composer, IDML, PDF/X-4, EPUB | 458 commits, 2.3k stars | 1. Frames, threaded stories and parent pages as a vocabulary for board frames and presentation layouts. 2. Named swatches (CMYK-aware) and character and paragraph styles for the board format panel. 3. EPUB and IDML as export targets worth knowing about; not for this app. |
+| deckcraft | MIT or Apache-2.0 | Rust, pptx open and save, 200+ commands | 43 commits, 1.1k stars | 1. Presenter view, rehearse timings, notes pages and handouts as the feature list for board presenting. 2. 150+ preset shapes with adjust handles as a catalogue to generate our shape JSON from. 3. Glued connectors and merge operations (union, subtract, intersect) as names for what shapes need. |
+| gridcraft | MIT or Apache-2.0 | Rust, 500+ functions, xlsx round trip, dependency-graph calc | 26 commits, 1.4k stars | 1. The function list ranked by use (SUM, AVERAGE, IF, VLOOKUP, XLOOKUP, COUNTIF) for a 12-function table formula set. 2. Dependency-graph recalculation as the model if formulas ever span tables. 3. Number format language (accounting, percent, date) for three formats. |
+| photocraft | MIT or Apache-2.0 | Rust, wgpu, 24 crates, PSD from Adobe's public spec | 1,123 commits, 37.4k stars | 1. The tile-based copy-on-write undo idea (cheap snapshots). 2. Its filter list ordered by use (crop, rotate, levels, sharpen) for a canvas editor. 3. Export As (format, quality, scale, size estimate) as the dialog shape. |
+| lightcraft | MIT or Apache-2.0; Inter font OFL | Rust, own RAW decoders, wgpu compute, XMP sidecars | 1,498 commits, 8.1k stars | 1. The library model: ratings 0 to 5, flags, colour labels, smart albums, field search (rating, ISO, camera, date, keyword). 2. XMP sidecar fields for what a photo carries (read `crs:`, keywords). 3. Compare and survey culling views as the pattern for choosing between near duplicates. |
+| pdfcraft | MIT or Apache-2.0 | Rust, `hayro` renderer, own PDF repair, 11 crates | 549 commits, 6.8k stars | 1. Its corpus method: open every file of the pdf.js test corpus and count (963 of 983). 2. Search as you type with step-through, a bookmarks panel with nested search, page labels. 3. Incremental saves and password handling (RC4 to AES-256) as the checklist for encrypted PDFs. |
+| soundcraft | MIT or Apache-2.0 | Rust, CLAP and VST3 hosting, audio-io for WAV, FLAC, MP3 | 145 commits, 1.1k stars | 1. Time display formats and markers (the notebook needs min:sec and timecode). 2. Loudness (LUFS) reporting on bounce, a measured number to show beside a recording. 3. Session audio health report (media missing, rate mismatch) as the model for a recording check. |
+| filmcraft | MIT or Apache-2.0; ffmpeg test oracle only | Rust, in-house codecs, OTIO and FCPXML interchange | 842 commits, 7.5k stars | 1. Caption tracks and SRT, WebVTT, SCC import and export (what meetings need). 2. Interchange formats (OpenTimelineIO, EDL) as proof that a timeline can be plain JSON. 3. The keyboard shortcut editor with Premiere, Final Cut and Avid presets as a pattern for a rebinding screen. |
+| jgraph/drawio | Apache-2.0 for code; icon sets, stencils and templates have separate terms including an Atlassian-product restriction | JavaScript, client side, distributed as war, Docker image, desktop | 126 commits on the page, 8.7k stars | 1. Stencil XML and the `mxfile` format: an offline converter to our shape JSON (BACKLOG 29e). 2. Connection points and the orthogonal router. 3. The format panel's grouping (Style, Text, Arrange), which `wb-format` already follows. Trap: the stencil terms differ from the code licence; read them before converting a library into the notebook. |
+
+### haifengl/smile: algorithms worth re-implementing small
+
+smile is Java under GPL-3.0 (as the sidebar lists it; commercial terms are
+also offered), so nothing is copied: only algorithm names are read for ideas,
+and any port is written from the published method. Its families include
+classification (Naive Bayes, SVM, trees), clustering (BIRCH, DBSCAN,
+K-Means, hierarchical, spectral), manifold (PCA, t-SNE, UMAP), NLP (bigram
+test, keyword extraction, stemmer), FP-growth association rules, nearest
+neighbour search (BK-tree, SimHash, LSH) and HMM and CRF.
+
+| Algorithm | What it would do here | Size of a small version | Verdict |
+| --- | --- | --- | --- |
+| Bigram collocation test (log-likelihood ratio) | Finds two-word terms in a notebook ("machine learning") for taxonomy suggestions and better keywords than RAKE alone | about 40 lines of Python | build, with a measured gain on the filing eval |
+| FP-growth, or plain pair counting | Tags and categories that co-occur ("notes tagged X are usually also Y"): the filing suggestions' second signal | pair counting 25 lines; FP-growth 80 | pair counting first |
+| Multinomial Naive Bayes | A second classifier for filing beside TF-IDF votes, trained on the person's own filed notes | about 50 lines with numpy | build if the eval beats TF-IDF alone |
+| K-means and DBSCAN over embeddings or TF-IDF | Merge suggestions for near-duplicate categories and topic discovery | K-means 40 lines, DBSCAN 35 | build when the embedder is on; TF-IDF otherwise |
+| SimHash | Near-duplicate notes and images (perceptual hash for photos) | about 30 lines | build |
+| BK-tree | A typo lookup alternative to SymSpell, needs no precomputed delete index | about 35 lines | skip; the trigram repair exists |
+| PCA through numpy SVD | A cheap 2-D projection for a "map of my notes" view | 6 lines | build with the graph track |
+| t-SNE, UMAP, spectral, BIRCH | Layout and streaming clusters | hundreds of lines each | drop |
+| HMM, CRF, SVM, boosting | Tagging and classification | large | drop; no measured need |
+
+### Candidate libraries
+
+Sizes are measured (jsDelivr content-length or the PyPI wheel) unless marked.
+
+| Candidate | Licence | Size | Pure Python or plain JS, offline | Replaces here | Verdict |
+| --- | --- | --- | --- | --- | --- |
+| symspell (algorithm only; symspellpy 6.10.0 is MIT) | MIT | wheel 2.6 MB (frequency dictionaries) | pure Python | spell repair for Ask typos (`question_noise.py` uses thefuzz; the app has trigram repair) | drop the package; the algorithm (precomputed deletes) is 60 lines but the trigram repair already runs; add it only if the eval shows misses |
+| parsedatetime 2.6 | Apache-2.0 | wheel 40 KB | pure Python | `ai/when.py` (378 lines) and `reminder_parser.py` (207) | drop; keep `when.py`, use parsedatetime's test phrases as extra cases (a read, not a dependency) |
+| KaTeX 0.16 | MIT | 275 KB script, 23 KB css, plus fonts | plain JS | the math renderer | drop; documents.js already renders a TeX subset as MathML and records why (about line 6650) |
+| mermaid 11 | MIT | 2.57 MB minified script | plain JS | the diagram fences in documents | drop; the app has its own Mermaid subset parser and renderer (`docRenderMermaidIn`, `whiteboard-interchange.js`) |
+| Pyodide 0.27 (v314 on npm now) | MPL-2.0 | stdlib zip 2.36 MB, WASM runtime about 10 MB, packages extra | WASM, offline once fetched | running Python documents | keep as the existing opt-in download (Settings, Packages); never vendor |
+| ruff-wasm (`@astral-sh/ruff-wasm-web`) | MIT | 8.7 MB wasm | WASM | Python lint and format in the browser | drop; the server side checks (`core/syntaxcheck.py`) and CodeMirror's parser are enough; revisit as a download |
+| eslint-linter-browserify | MIT | 1.29 MB minified | plain JS | JavaScript diagnostics beyond syntax | keep as an optional download if Brief 42 measures a gap; not vendored |
+| sql.js 1.11 | MIT | 653 KB wasm plus 49 KB js | WASM | running SQL in a SQL document | keep as an optional download; small and genuinely new |
+| transformers.js 3 and 4 | Apache-2.0 | about 10 MB library, models extra | WASM and WebGPU | in-browser embeddings without torch | drop for now; the embedder and Ollama paths cover it, and CPU WASM inference is slow on the old hardware this app targets |
+| vaderSentiment 3.3.2 | MIT | wheel 130 KB, lexicon 420 KB (vendored) | pure Python | composer sentiment | keep only where a test shows the gain (policy 1); the vendored copy already exists |
+| RAKE | MIT | 10 KB | pure Python (needs a stoplist; the NLTK dependency is avoided by the vendored copy) | keyword extraction | keep, vendored |
+| FlashText 2.7 | MIT | 10 KB | pure Python | taxonomy keyword candidates | keep (kept by policy 1) |
+| Whoosh 2.7.4 | BSD-2 | 1.9 MB vendored, wheel 470 KB | pure Python, unmaintained | search | drop; search is SQLite FTS5 plus bm25 (`search/engine.py`, `search/index.py`) |
+| networkx 3.x | BSD-3 | 8.1 MB vendored | pure Python | `notebook_stats.py` graph metrics | drop; write the metrics (degree, components, shortest path) in about 60 lines; the graph's layout is d3 in `graph-worker.js` |
+| NLTK 3.10 with WordNet | Apache-2.0 (WordNet has its own permissive licence) | wheel 1.8 MB; WordNet data tens of MB unpacked (not measured here) | pure Python plus data | synonyms, lemmas | drop; a trimmed synonym table from the Perplexity pack and the app's groups, measured on the eval (policy 2) |
+| textblob 0.20 | MIT | wheel 620 KB, requires NLTK | pure Python | sentiment, noun phrases | drop |
+| snips-nlu 0.20 | Apache-2.0 | wheel 140 KB; requires numpy under 2 and scikit-learn | needs compiled dependencies | intent parsing | drop; archived and blocked by numpy 2 |
+| adapt-parser 1.0 | Apache-2.0 | wheel 30 KB | pure Python | intent from keywords and entities | drop; `ai/intent.py` does this; its entity-and-require design is worth a read |
+| hunspell | MPL, GPL, LGPL by dictionary | C library plus dictionaries | compiled | spelling | drop; Harper WASM and the wordlist cover it |
+| Harper | Apache-2.0 | 16 MB in `frontend/vendor/harper` | WASM | grammar | keep (vendored); the 16 MB must stay lazy and off the boot gzip budget |
+| pyspellchecker 0.9 | MIT | wheel 7.2 MB | pure Python | already imported in `composer.py` line 403 | drop (policy 1 names it); trigram repair replaces it |
+| thefuzz and rapidfuzz | MIT | rapidfuzz is compiled, 1.2 to 2 MB wheels | compiled | `question_noise.py` line 4982 | drop; `difflib` (policy 1) |
+
+Found along the way (not Brief 40's to fix, recorded here): `requirements.txt`
+lists `sentence-transformers` (which requires torch) and the venv at
+`/home/user/MemoryMap-AI/.venv` is 1.5 GB because torch alone is 769 MB, which
+contradicts CLAUDE.md section 7's "do not install torch"; and `pint`,
+`langdetect`, `dateutil` and `networkx` are vendored (about 12 MB together).
+Both belong to Brief 35's triage.
+
+## Odysseus, fourth read 2026-10-10 (INBOX 747)
+
+Asked for directly (INBOX 747): *"analyse absolutely everything about it, from
+its features, how they are designed, metadata and libraries used. how it is
+packaged and more."* §33, §60 and "Odysseus read deeply, 2026-09-21" settled
+the provider layer, the tool and skill token budget, passive capture, MCP,
+hybrid search, compaction, endpoint fallback, Compare, Deep Research and three
+warnings; their "take" items stand in BACKLOG §11 and §18 and are not re-argued.
+This pass covers what changed since, and what those passes never looked at:
+packaging, metadata, provenance, the companion, the design system.
+
+**Method and its limit.** Head `a8c147b` (2026-10-07, `odysseus-dev/odysseus`),
+shallow clone read as files only; nothing was run (no launcher, script, test or
+container). History came from one `git fetch --depth=300`, which reaches back
+to 2026-08-20 (442 commits since 2026-09-15, 366 without merges), so the log
+is complete from the third read's date on but the tracker, review threads and
+CI results are not visible. Counts are `git ls-files` plus `wc -l`; "ours" is
+this repository at `79d82a486`. Every claim about our side was grepped first.
+Verdict words: **take** (build it), **adapt** (take the idea, change the shape),
+**decline** (with why), **have** (we already do it; the comparison is stated).
+
+### 1. What changed since 2026-09-14
+
+| Measure | Third read (`3b6c169`) | Now (`a8c147b`) | Note |
+| --- | --- | --- | --- |
+| Python lines, all | 247,751 | 471,497 | non-test 255,902; tests 215,595 |
+| Test files / lines | 839 / 109,308 | 1,328 / 215,595 | 9,996 test functions by grep (ours: 924 files, 159,142 lines, 8,543); 4 CI shards |
+| JS / CSS / HTML lines | 166,420 / 41,402 / 4,917 | 205,050 / 51,925 / 5,186 | CSS now 22 files; `style.css` (36,653 lines in §60) is gone |
+| Files tracked | not counted | 2,478 | diff since: 1,414 files, +374,395 / -111,339 |
+| Growth by directory | | tests +118,636; static +100,807 / -56,186; src +87,398; scripts +34,579; routes +18,147 / -10,413 | `services` -35,362 (catalogs emptied) |
+| Authors in the window | | three carry 435 of 442 commits | 197, 173 and 65; the other seven wrote one or two each |
+| Commit style | | 166 untyped, 106 fix, 36 test, 19 feat, 14 docs, 13 refactor | Conventional Commits asked for, not kept |
+
+| What changed | Evidence | Relevance to us |
+| --- | --- | --- |
+| Agent runtime rebuilt in "waves" 1 to 5 | `src/agent_runtime/` 17 files, 6,195 lines; `src/containment.py` 1,694; `process_lifecycle.py` 670; 20 files, 2,480 lines of Markdown in `docs/runtime-decomposition/` | A shell-wielding agent's problem. We have no shell tool (§33 declined it). Principles only: section 5 rows 1 and 2 |
+| Truthful completion: claim, outcome, observation, verdict | `agent_runtime/effects.py` 823 lines: `ExecutionOutcome`, `Impact`, `CleanupState` kept apart; "request, admission, dispatch, execution, verification are five facts" | The idea behind our `unsupported_claims` (agent.py:1203); theirs is stricter. Decline the machinery |
+| Turn contract: classify, then freeze what a turn may call | `docs/AGENT_TURN_CONTRACT.md`; `src/turn_contract.py` | Section 5 row 1 |
+| 159 commits on 09-17 and 09-18 alone (web research, artifact completion) | harness 0.20.6 to 0.20.19; `docs/search-quality-audit-20260917.md`: "not solved; no quality promotion claimed" | One bug class worth stealing: the harness appended citations the model never made (row 4) |
+| `style.css` (36,653 lines) split into 21 ordered fragments, mechanically, rules not regrouped | `static/css/00-tokens.css` header; `tests/css_snapshot/` | Section 7 |
+| `settings.js` into `settings/` (14 files), email library into `emailLibrary/` (12) and `routes/email/` | commits 09-29 and 09-30 | They are catching up to a split we did by file purpose |
+| Security sweep 10-05 and 10-06: NAT64 SSRF, ReDoS, parser DoS, delegated authority, cost-ledger key isolation, approval gate default on | 28 non-merge commits name it; `tests/test_redos_core_parsers.py` 859 lines | Gate and ReDoS: we have both (row 2). NAT64 and IPv6 loopback: row 3 |
+| Publication clearance: 21 assets removed, 14 restored with sha256, catalogs emptied | `PUBLICATION_ASSET_DECISIONS.md`, `THIRD_PARTY_PROVENANCE.json` | Section 4 |
+| CI and test infrastructure | 11 workflows (1,029 lines), pytest in 4 shards, `scripts/generate_env_reference.py`, `tests/smoke/`, `scripts/odysseus-dev` | Sections 2 and 5 |
+| Multiple ChatGPT subscriptions with usage, lazy Featherless discovery | `routes/chatgpt_subscription_routes.py`, `static/js/chatgptSubscriptionUsage.js` | Decline: account-bridging cloud providers |
+| Governance: private `lab`, public `dev`, curated `main`; ref-parity audit script | `scripts/ref_parity_audit.py`, `.github/pull_request_template.md` | Decline: a two-repo flow. Their agent-PR policy, see section 9 |
+
+Net read: +90% Python in 23 days and tests doubled, spent mostly on
+containment, test isolation and publication hygiene rather than new surfaces;
+`ROADMAP.md` still opens with "SQUASH BUGS" and prompt bloat.
+
+### 2. Packaging and distribution
+
+Odysseus ships four ways: Docker Compose (the README's only quick start), a
+PyInstaller "portable" Windows folder, a macOS launcher `.app` and `.dmg`, and a
+systemd unit. It has no installer, no signing, no release tags (none in the clone), no CHANGELOG, and no packaged-app smoke test. Our packaging is further
+along on every desktop row; the gaps are Docker, supply chain and macOS.
+
+| Piece (file:line) | What it does | Ours | Verdict |
+| --- | --- | --- | --- |
+| `Odysseus.spec`, `build-windows-portable.ps1`, `launcher.py` | PyInstaller onedir, `console=False`, `upx=True`, `hiddenimports=[]`, 9 data dirs/files. `launcher.py`: tkinter splash on a thread before app imports, `NullWriter` for windowless streams (l.25), `multiprocessing.freeze_support()` (l.22), pystray tray, browser opened after a fixed 3.5 s sleep | `packaging/windows/memorymap.spec` 289 lines lists every module by file (a hidden-import guard, measured 198/200 before), `installer.iss` 408, `installer.wxs` 157, `frozen_smoke.py` 400, `package-check.yml` 299 | **have**; theirs is the weaker design (fixed sleep, no import list, no smoke) |
+| `build-macos-app.sh` (179 lines) | Builds `dist/Odysseus.app` that runs the checkout's own venv (no Python bundled), install path baked in, `osascript` dialogs, port 7860 (7000 is held by AirPlay Receiver), `.icns` from `sips`, `.dmg` by `hdiutil` UDZO. Opens the UI in a chrome-less window with Chrome, Edge, Brave or Chromium `--app=URL` (l.109), else the default browser | Nothing for macOS: BACKLOG §79 says Gatekeeper needs a paid account and notarization. `start-desktop.sh` is the macOS path | **adapt**: a launcher the person builds on their own Mac is never quarantined, so Gatekeeper never sees it. `packaging/macos/make-app.sh` (S) plus the `--app=` window as the fallback when pywebview is absent (also Linux). Unverified without a Mac |
+| `install-service.sh` + `odysseus-ui.service` (19 lines) | Copies a unit with `YOURUSER` placeholders and `--host 0.0.0.0`, port 7000 (the app now defaults to 7011): stale and unsafe as shipped | Nothing; INSTALL.md has Docker for "a server or a NAS" | **adapt**: a user unit (`systemctl --user`), bound to 127.0.0.1, generated with real paths by `python -m tessellate --print-unit` (S). Decline their copy |
+| `Dockerfile` (132 lines) | `python:3.14-slim`, 21 apt packages (build-essential, cmake, git, nodejs, npm, chromium, tmux, nmap, ping, ssh, gosu...), Docker CLI tarball, agent-browser from npm; second stage only builds patched Real-ESRGAN wheels; `INSTALL_OPTIONAL` build arg keeps AGPL PyMuPDF out by default; no `HEALTHCHECK` | `docker/Dockerfile` 52 lines, slim 3.13, `WITH_EMBEDDER` arg (same idea), non-root `mm`, two volumes, no HEALTHCHECK | **have**; ours is a tenth of the surface, which is the point. Two defects of ours below |
+| `docker/entrypoint.sh` (155 lines) | `PUID`/`PGID` pattern: create the user, `chown` bind mounts on every start, skip recursive repair when a mount maps to a broad root such as `/home` or `/srv` (l.54, l.87), `gosu` so SIGTERM reaches uvicorn | Named volumes, `USER mm`; **no `mkdir`/`chown` for `/data` or `/models`** | **take** the cure, not the script: `RUN mkdir /data /models && chown mm:mm` before `USER` so the named volume inherits the owner (unverified: no daemon). Likely first-run `Permission denied` today |
+| `docker-compose.yml` (189 lines, 4 services) | odysseus + chromadb + searxng (pinned by tag and digest, with the issue number that forced it) + ntfy; `image:` GHCR with `build: .` as fallback; loopback port binds; searxng `cap_drop: ALL` | `docker/compose.yaml` 25 lines, one service | **have**. **Defect, measured**: our `build.context: ../..` resolves to `/home/user` (`docker compose -f docker/compose.yaml config`), so the build cannot find `docker/Dockerfile`. Fix is `..` |
+| `docker/gpu.*.yml` (19, 34), `host-docker.yml` (12), `host-network.yml` (21), `host-workspace.yml` (11) | Capabilities as opt-in overlays named in `COMPOSE_FILE`, each with a comment saying what it hands over ("raw socket access grants broad control"). The top-level `docker-compose.gpu-*.yml` are 208/211-line full copies (drift risk, guarded by `tests/test_gpu_compose_standalone.py`) | No overlays; a GPU Ollama is outside the container | **adapt** the pattern if we ever add an elevated mode: overlay, never a flag in the base file. Decline the copies |
+| `.github/workflows/docker-publish.yml` (153 lines) | Native amd64 and arm64 runners (no QEMU), push by digest, then one manifest-merge job; tags `latest`, `X.Y.Z`, immutable `X.Y.Z-<sha7>`, `dev`; `imagetools inspect` proves the tags resolved. README says pin the `-sha` tag in production | `release.yml` attaches a Windows installer and a Linux zip; **no container registry image**; `docker build` is by hand | **take** (M): GHCR multi-arch on tag, with the `X.Y.Z-<sha>` pin. Needs the owner's call on publishing an image |
+| `container-scan.yml`, `container-trivy.yml` | hadolint blocks (ignores DL3008 with a reason); Trivy advisory, PR runs hold a read-only token, SARIF upload only on a push to main | None | **take** (S): hadolint on `docker/Dockerfile`; Trivy once an image is published |
+| `.dockerignore` (root, 58 lines) with a test that secrets stay excluded | `tests/test_docker_devops_hardening.py` 293 lines: compose forwards every env var, base compose never mounts the socket, overlays do, entrypoint repairs stay inside mounts | `docker/.dockerignore` (7 lines) sits beside the Dockerfile; with `-f docker/Dockerfile` and context at the repo root BuildKit reads `docker/Dockerfile.dockerignore` or the root file, so ours is probably never read and the 461 MB `.git` goes in the context. No Docker test at all | **take** (S): move to `Dockerfile.dockerignore`, plus a static test that the compose context holds the Dockerfile, the ignore file sits where BuildKit looks, and `/data` is owned by `mm` |
+| `update_windows.bat`, `launch-windows.ps1` (173 lines) | Docker update script; venv bootstrap that detects the Windows `bash.exe` stubs in `System32` and `WindowsApps` (`Test-WindowsBashStub`) | `start.bat`, `start-desktop.bat`, installer | **have**; the stub-bash check is a good trap to know, we run no bash on Windows |
+
+The frozen-app story is a clean split: they never ran a frozen build in CI, we
+run one on every packaging pull request. Nothing here changes the §33 verdict
+that single-process SQLite is the simpler shape; their compose file needs three
+sidecars (ChromaDB, SearXNG, ntfy) before the app starts, which is also why
+their ROADMAP asks for "degraded-state reporting" for each of them.
+
+### 3. Metadata and dependencies
+
+| Piece | Odysseus | Ours | Verdict |
+| --- | --- | --- | --- |
+| `pyproject.toml` | 29 lines, pytest settings only: no `[project]`, not installable, run as `uvicorn app:app` from the checkout. Markers `area_*` (8), `sub_*` (from filenames, `tests/_taxonomy.py`), `slow`, `serial` | Full `[project]` (classifiers, urls, `memorymap` script, `voice`/`desktop` extras), ruff with `BLE001` | **have**; their `area_*` marker derived from the filename, with no file moves, is a cheap way to run "security tests only" (`-m area_security`). **adapt** (S) if a slice is ever wanted; `gate.sh --changed` already covers the routine case |
+| `requirements.txt` split | 36 packages, **4 carry any version bound** (`httpcore`, `pydantic`, `pydantic-settings`, `mcp<2`); `-optional` 9 packages with a licence reason on each (PyMuPDF AGPL, kokoro pinned with `python_version >= "3.11" and < "3.13"`); `-dev` is `-r requirements.txt` plus xdist; Dependabot groups pip, npm, actions and docker weekly | 19 packages, each with an upper bound by the file's own rule; `make lock` for exact pins; extras in `pyproject` | **have**; ours is the safer shape. One rule to copy: `markitdown==0.1.6` is "a release more than 30 days old" (their issue #485), a dependency-age floor against a poisoned fresh release. **adapt** (S): one line in `docs/CONTRIBUTING.md` and a Dependabot `cooldown` |
+| `package.json` | Private; dev only: `@playwright/test ^1.62.1` and `@antithesishq/bombadil ^0.7.0` (a property-based UI explorer: `tests/bombadil-spec.ts`, 107 lines of `always`/`eventually` rules over a random click walk) | `tests-e2e/` Playwright, 11 specs; `scratchpad/ui-sweeps/e2e648-crawl.js` presses every visible non-destructive button and flags dead ones and endless spinners | **have**; decline the dependency |
+| Two version numbers | `APP_VERSION = "1.0.3"` (`src/constants.py:8`) is the release; `HARNESS_VERSION` (0.20.19) is the behaviour build and must match `APP_BUILD_VERSION` (`tests/test_harness_version.py`). `/api/version` returns version, build and `source_commit` (`app.py:961`, `git rev-parse HEAD` with a 2 s timeout, `ODYSSEUS_SOURCE_COMMIT` override, "unknown" without `.git`); a footer under the Settings nav shows it to admins and hides "unknown" (`tests/test_settings_sidebar_build_provenance.py`) | `/health` returns `version` only (`api/app.py:1301`); no commit, no start time. CLAUDE.md §5 records "a stale uvicorn is why a correct fix did not work twice" | **take** (S): `source_commit` and `started_at` in `/health` and About; frozen builds stamp the commit at build time. Answers "is this the code I just changed" without a terminal |
+| Environment variables | `.env.example` has 3 live keys; the rest of the 117 `ODYSSEUS_*` reads are in a **generated** page, `website/configuration-reference.md` (286 lines, 81 for operators, 36 internal), built by an AST walk that also finds reads through helper functions and inside script strings; `tests/test_env_reference.py` fails when the page is stale or a variable lacks a note | 11 distinct `MEMORYMAP_*` names in `src`; all but `TESSELLATE_DESKTOP` (internal) appear in INSTALL, PRIVACY, TROUBLESHOOTING or ARCHITECTURE | **decline** the generator at this size; **adapt** (S) a 15-line test that every `MEMORYMAP_*` read in `src` is named in `docs/` |
+| `config/` | One file: `config/searxng/settings.yml`, a template with a `__SEARXNG_SECRET__` placeholder substituted by the compose entrypoint, so no secret lives in the repository | `search/searxng_docker.py` writes its own | **have** |
+| Libraries worth a look | `nh3` (Rust HTML sanitizer) for LLM-written report HTML; `croniter`, `icalendar`, `caldav`, `pyotp`; `qrcode[pil]` (server-side QR; SAN-162 dropped the vendored browser QR bundle); `rapidocr`; `markitdown`; `psd-tools` | Our clips become Markdown text server-side, so no untrusted HTML reaches the DOM; OCR is Tesseract or RapidOCR; no QR library | `nh3`, `psd-tools`: **decline**. `qrcode` (BSD, pure Python, has an SVG factory) is **take** only if the "trust this notebook on your phone" QR (WORLD_CLASS_PLAN, Placed from Brief 40) is built |
+
+### 4. Provenance and publication practice
+
+Odysseus spent roughly 2026-10-05 to 10-07 on a publication clearance: a maintainer
+review listed every non-code artifact, decided
+keep or drop, and wrote the result down. The record is worth more than the
+decisions. What the pasted `THIRD_PARTY_PROVENANCE.json` is, measured:
+
+| Layer | What it holds | Size and enforcement |
+| --- | --- | --- |
+| `THIRD_PARTY_PROVENANCE.json` | Top level: `scope` ("no broader asset clearance is asserted"), `authority_manifest_sha256`, `starting_tree`. Six `retained` entries, each: `action_id`, `identity`, `version`, `identity_proof` (byte-identical to a named release member, with sizes), `upstream_urls`, `license_basis`, `bundled_components` (the transitive libraries inside a minified bundle), `artifacts[]` (path, sha256, git oid, size), `modified: false`, `source_records[]` (url, final_url, bytes, sha256, saved path, what it `proves`), `notice`, `notice_sha256` | 49,157 bytes. `tests/test_publication_plan_b.py:19-28` recomputes size and sha256 of every artifact and notice from disk |
+| `licenses/` | 12 files, 167,050 bytes; two are generated aggregates (docx 34,658 bytes for 22 component licences; mammoth 41,096 bytes for 28) | A bundle's own licence is not enough: a UMD build carries its dependencies' |
+| `ACKNOWLEDGMENTS.md` (9,205 bytes) | Sections: adapted code (opencode MIT, llmfit MIT, Tongyi DeepResearch Apache-2.0, each with the files it was adapted into), services pulled by compose with their licence, vendored front-end libraries, runtime CDN libraries, fonts, Python dependencies with licence, "interoperated with, not bundled", and licence-compatibility notes | Linked from the provenance file; names the AGPL-optional PyMuPDF consequence |
+| `PUBLICATION_ASSET_DECISIONS.md` (7,661 bytes) | A ledger: `SAN-nnn` for 21 removed paths, then `RESTORE-nnn` for 14 put back with the sha256 and the commit that introduced each. States "omission is not a finding of infringement" | `test_publication_plan_b.py:31-75` asserts 21 and 14 entries, restored files hash-match, the still-omitted 7 do not exist and **no tracked file mentions their names** |
+| Packaging check | `Odysseus.spec`, the `.ps1`, the macOS script and the Dockerfile must each name `licenses`, `THIRD_PARTY_PROVENANCE.json` and `ACKNOWLEDGMENTS.md` | `test_distribution_paths_include_all_notices` (l.135) |
+| Scanner hygiene | `.gitleaks.toml` allows four package ids that look like keys, only in that file and only for that rule; `.gitattributes` keeps `static/lib/**` byte-identical | |
+| Data, not only code | `services/hwfit/data/*.json` were copied model catalogs; replaced by `[]`, 35,362 lines gone from `services`, with a README saying cold installs have no recommendations until a rescan | The "runtime metadata is user data, not a redistributable snapshot" rule |
+
+Ours, measured against it: `docs/THIRD_PARTY.md` (39 lines) has 7 browser rows
+and 1 Python row, each with version, licence and "used by"; no hashes, no
+upstream URL for the bundled-in parts, no notice-file hash.
+`tests/test_vendor_manifest.py` and `test_vendor_licences.py` check presence of a
+row and a LICENSE file, not content.
+
+| Finding | Evidence | Verdict |
+| --- | --- | --- |
+| **Not credited**: `frontend/board-library/drawio/` (5 stencil sets, 0.4 MB, converted from jgraph/drawio, Apache-2.0) and `icons.json` (2.4 MB, Phosphor glyphs as paths) | Neither is in `docs/THIRD_PARTY.md`; the manifest test only walks `vendor/` directories. The drawio folder has its own `LICENSE` and `NOTICE.txt` | **take** (S): rows now, and the manifest test walks `board-library/` too |
+| **No licence ships with the app**: no LICENSE text, no THIRD_PARTY.md in the installer, zip, MSI or image | `grep -in licen` over `installer.iss`, `installer.wxs`, both specs and `docker/Dockerfile` finds nothing; the spec bundles `CHANGELOG.md` only (`memorymap.spec:169`). AGPL asks that a conveyed copy carry the licence; MIT, BSD and Apache notices ask the same of a binary | **take** (S): bundle `LICENSE`, `docs/THIRD_PARTY.md` and `frontend/vendor/*/LICENSE`; the installer shows the AGPL on its first page; add their `test_distribution_paths_include_all_notices` shape. Unverified: whether PyInstaller already collects each wheel's `dist-info` licence files, check a built folder |
+| No byte check on vendored files | Their sha256 test would also have caught a silently re-built CodeMirror (ours is a patched build: `test_codemirror_bundle_is_the_patched_build` greps for the patch string only) | **adapt** (M): `frontend/vendor/PROVENANCE.json`, one row per artifact: path, sha256, size, version, upstream URL, licence id, notice path, and for built bundles `build: build.sh` plus `package.json` instead of an `identity_proof`. Test recomputes. Skip `bundled_components` except for CodeMirror and Harper |
+| Data tables of unknown origin | THIRD_PARTY.md already admits one (`ai/question_noise.py` misspellings, maybe CC BY-SA 4.0) | **adapt**: a "Data" row per shipped table with its origin and licence (the word list already has one; `SUGGESTED_MODELS` is hand-kept, so say so) |
+| A removal ledger | Their `SAN-`/`RESTORE-` ids with a test that omitted files stay omitted and unreferenced | **adapt** (S): a short "Removed" list in THIRD_PARTY.md when something leaves for licence reasons; the 15 MB / `.exe` case already named in `test_vendor_manifest.py` is the first entry |
+| The cleanest idea in the set: a *scope line* | "No broader asset clearance is asserted" | **take** (free): THIRD_PARTY.md says what it does and does not clear |
+
+### 5. Features by surface, not covered before
+
+Surfaces §33, §60 and the third read already judged (providers, tool and skill
+budget, passive memory, MCP, hybrid search, compaction, fallback, Compare, Deep
+Research, CalDAV, OCR, graph, whiteboard, timeline) are not repeated.
+
+| Surface | Odysseus (file:line, design) | Ours (grepped) | Verdict |
+| --- | --- | --- | --- |
+| Agent: turn contract | `src/turn_contract.py`; `docs/AGENT_TURN_CONTRACT.md:12-22`: classify capabilities, then freeze `required <= offered <= executable`; a required capability that is not offered **stops before inference** and says so | `focus_detail` offers by keyword and records why (`tools/__init__.py:4085`); a tool Settings has off is still tried and returns a `ToolError` (`:1753`, `:4777`) | **adapt** (S): when the words ask for a capability that is off ("search the web" with web off), answer in one line without a model call. A test per tool group |
+| Agent: approval gate | `THREAT_MODEL.md`: once untrusted content is in a run, state-changing tools wait for a separate approval; was off by default until 2026-10-06 | `_PARK_WHEN_TAINTED` (`agent.py:1257-1266`) parks writes and outbound tools, always on, no setting; `tests/test_injection_fence.py` | **have**; ours is stronger (a constant, not an env switch) |
+| Agent: what a source list means | Their own audit found the harness appended citations the model never made; fixed 2026-09-17 | Sources panel is built from what tools returned (`agent.py:906`, `:2232`); notes answers check each sentence (`grounding.ground_answer_sentences`) | **have**. Keep the rule: a source list is what was fetched |
+| Agent: background result into a chat | `docs/BACKGROUND_TOOL_JOBS.md`: dispatcher-supplied `origin_chat_id`; message and delivery marker commit in **one transaction** with a deterministic id; a startup worker reconciles missed callbacks; if synthesis is unavailable, an honest notice plus the report link | `DurableJob` and `JobRun` (`core/jobs.py`); no producer delivers into a chat | **adapt** when the first long job (a research read, a night run) must post into a conversation: deterministic message id, one transaction |
+| Agent: skills audit | `docs/skills-lifecycle.md`: at most 8 records per pass, oldest first; inconclusive retries after 1 day, failed repair after 1 week; All / Built-in / Approved / Draft | `AGENT_SKILLS_REFORM.md`; skills are the owner's, not auto-extracted at scale | **decline** the queue; the 1-day and 1-week retry ladder is a fair default if we ever audit |
+| Agent: bundled procedures | `resources/skills/` 12 `SKILL.md` in 6 groups; `verified-state-change`: read the target, change once, read it back, compare, repair only the mismatch | `unsupported_claims` (`agent.py:1203`) catches "saved" with no write; the write tools return the change | **have** in code; the 6 steps are a good test script for a real model (`pytest -m evals`) |
+| Agent: shell, containment, effect log | `src/containment.py` (bwrap, "no silent downgrade"), `process_lifecycle.py`, `effect_log.py` (append-only, fsync before dispatch) | No shell tool by decision (§33) | **decline**; the "report which dimensions were actually enforced" shape is the one idea, for the day `run_sandbox.py` grows limits |
+| Eval method | `docs/runtime-decomposition/COMPARISON_PROTOCOL.md`: the unit is one scenario; measured and estimated usage never summed; "useful work per round" as raw counts, no weighted score; a denial is not an unauthorized effect | `usage_source` marks estimated vs reported; `ai/bench.py` | **have** the first rule; adopt the second and third in any score we publish |
+| Security: SSRF address test | `src/url_safety.py:58-73`: `64:ff9b::/96` is decoded to its embedded IPv4 and judged strictly | `core/security.py` `is_internal_address` is `... or not address.is_global`. **Measured on Python 3.13.16: `64:ff9b::a9fe:a9fe` (NAT64 of 169.254.169.254), `64:ff9b::a00:1` and `64:ff9b::7f00:1` all report `is_global == True`**, so `public_addresses` lets them through | **take** (S): decode the /96 first, then judge the IPv4. Low risk (needs a NAT64 network and a hostile URL) but it is a measured hole |
+| Security: documentation | `THREAT_MODEL.md` (7,797 bytes): trust boundary, a role by capability table, the reserved-username sentinel, and a **Known gaps** list with issue numbers; `SECURITY.md` has a "publishing a fork" `git grep` for key patterns | `docs/SECURITY.md` (75 lines) has scope notes but no gap list; gaps live in WORLD_CLASS_PLAN 12 | **adapt** (S): a short "Known gaps" list in `docs/SECURITY.md` |
+| Backup | `scripts/odysseus-backup`: SQLite `.backup` API, `verify PATH` walks the tarball read-only, `restore --yes`; skips `deep_research/` and `mail-attachments/` unless asked | `core/backup.py:186` `verify_copy` at creation; integrity check before replace (`:294`); sealed bundles | **have**; a read-only "check this backup" before restoring is optional (S) |
+| Readiness | `src/readiness.py`: `/api/ready` is 503 unless the database answers and `data/` is writable; `/api/health` is liveness | `/health` (liveness), `/debug/health` (counts) | **adapt** with the Docker `HEALTHCHECK`: `/health` is enough; add `data_dir_writable` to it (S) |
+| Command line | 22 `scripts/odysseus-*` CLIs, 5,214 lines, all JSON, `odysseus <name>` dispatcher (git style), bash and zsh completions (92 and 72 lines); most read SQLite directly | `--export`, `--capture`, `tessellate.mcp_server` (210 lines, non-destructive tools only) | **adapt** (S): `python -m tessellate tool NAME --json` over `mcp_server.offered_tools()`, so a script gets the registry's rules. **Decline** the direct-DB pattern: their own Codex README forbids it for agents because it bypasses Settings |
+| External agents | `integrations/claude`, `integrations/codex`: the app serves a skill zip behind a scoped token; the skill is an intent router ("reminder at 5pm is a todo with a due date, not a calendar event") and a 403 rule ("treat 403 as an intentional restriction") | Settings has an MCP row with a connection snippet (`renderMcpSnippet`, `skills.js:912`) | **adapt** (S): add a `SKILL.md` to that row: note vs reminder vs board vs document, and "a refused tool is the person's choice". No tokens: stdio keeps the local boundary |
+| Dev loop | `scripts/odysseus-dev`: ports derived from the worktree path hash, own data dir, never adopts another checkout's index, readiness by `/api/ready`, detached with a recorded stop handle, `--from-pr N`; `odysseus-smoke`: one scenario per area, a table that prints `NOT RUN` and `NOT COVERED` with the reason (`tests/smoke/areas.py`) | `scratchpad/ui-sweeps/serve.sh PORT DIR` by hand; `tests-e2e` 11 specs; agents are told their port | **adapt** (S): port from `sha1(path)`, and a coverage table with declared gaps beside `tests-e2e` |
+| Reminders and notes | `routes/note/` (943 lines): a Keep-style flat `Note` (17 columns), `repeat`, `ai_classification` gated by a content hash, a button that spawns a chat to "solve this todo"; ntfy delivery with retry (`src/builtin_actions.py`, 2026-10-07) | Reminders with tray and browser notifications; checklists feed the Unfinished widget; no general tasks (BACKLOG §17) | **decline**: ours is richer and a task system is a decision, not a copy |
+| Weather, YouTube, email, vault, contacts, signatures, TTS/STT cloud, face recognition, ChatGPT/Copilot/Codex bridges | `src/agent_tools/weather_tools.py` (keyless Open-Meteo) and the rest | Offline by design; web is one opt-in | **decline** |
+| Photo editor | `static/js/editor/` 91 files, `13-image-editor.css` 4,902 lines, 29 Playwright specs, 3 plans (812 lines) | Boards and documents; no raster editing | **decline**: not a notebook |
+| Floating tool windows | `tileManager.js` 415, `modalSnap.js` 1,079, `modalManager.js` 1,573 lines: drag, snap to edge, minimise | `.dock` grammar (DESIGN.md) | **decline** |
+| Tests: what they assert | `tests/TESTING_STANDARD.md:116-135`: "behavioral-first", source-text assertions only with a docstring reason; 349 of 1,300 test files call `read_text` (27%) | **497 of 915 of ours call `read_text`** (54%; an upper bound, some read fixtures and docs), because the DOM is invisible to pytest and lints stand in | **adapt** (S): new source-text tests carry a docstring line saying why behaviour cannot be driven; count them in `gate.sh` output so the ratio is visible. Do not convert old ones |
+
+### 6. The companion and device pairing
+
+Four files, 531 lines (`companion/`), five routes under `/api/companion`:
+`ping`, `info`, `models` (the caller's own endpoints, never key material), `GET
+pair` (a form that never mints) and `POST pair` (admin cookie; mints). The phone
+client is an Expo app that is **not in this repository**; the server side is a
+contract of `{"v":1,"host","port","token"}` shown as a QR.
+
+| Design point | Where | Ours | Verdict |
+| --- | --- | --- | --- |
+| One-time `ody_` token, bcrypt hash plus 8-character prefix stored, scope `chat`, shown once | `pairing.py:182-205` | Single user; the password is the gate; LAN mode is HTTPS on 8443 with a certificate fingerprint to compare (`docs/PRIVACY.md`) | **decline** tokens: they add storage, a revoke screen and scopes (their THREAT_MODEL gap 4 says scopes are "coarse" and only `chat` or `admin`) |
+| Mint only on POST; GET renders a form | `routes.py:11-18` | Pairing is by password | **have** the lesson (never mint on a navigation) |
+| Host validation for a URL a phone will reuse | `pairing.py:40-72`: ASCII only, DNS labels, no `xn--`, **a single decimal or `0x` label is refused because a WHATWG URL parser reads `134744072` as `8.8.8.8` and the phone would send its token to a public address**; accepted: one label, `.local`, or IPv4 in 10/8, 100.64/10, 127/8, 169.254/16, 172.16/12, 192.168/16 | `netbind.host_allowed`, `lan_addresses` | **adapt**: when the QR trust guide is built (WORLD_CLASS_PLAN, Placed from Brief 40, item 2), the encoded URL goes through one validator with this test case |
+| LAN address discovery by UDP `connect` to 8.8.8.8, no packet sent | `pairing.py:131` | `netbind.py:315` does the same probe, plus IPv6 | **have** |
+| A QR carrying the pairing payload | `pairing_qr_png_data_uri` (`qrcode`) | WORLD_CLASS_PLAN lists a QR trust guide, unbuilt | **take** with that item (section 3, `qrcode`) |
+| Plain `http` only, because "the deployed v1 client understands only HTTP" | `parse_companion_base_url` | HTTPS, with iOS certificate rules measured (Brief 40) | Ours is the harder and better path; no change |
+
+### 7. Design system
+
+| Measure | Odysseus | Ours |
+| --- | --- | --- |
+| CSS | 51,925 lines, 22 files (a 36,653-line `style.css` split on 2026-09-29, **rules moved verbatim, not regrouped**) | 73,672 lines, 16 files, grouped by purpose |
+| `!important` | 1,930 (3.7 per 100 lines); their header counts 1,151 redeclared selectors | 174 (0.24 per 100 lines) |
+| Custom properties defined | 48, colour only (`00-tokens.css`: 180 lines, no spacing, radius, type or motion tokens) | 483, spacing, radius, type, motion and palette tokens (`test_style_scale.py`) |
+| Hex literals / `px` font-size declarations | 820 / 1,436 | 392 / 2 |
+| Themes | 19 presets, 10 animated background patterns, light as `:root.light`, 8 saved custom themes | 10 palettes, dark and light each, up to 20 saved looks |
+| Density | `density-compact` and `density-spacious` root classes | auto / comfortable / compact; Phase 12 refines it |
+| Fonts | 8 bundled WOFF2, 984 KB: Fira Code (UI default, so the whole UI is monospace), Inter, OpenDyslexic | System fonts plus the Phosphor icon font; a dyslexia face is BACKLOG item at `:1114` |
+| Accessibility markup in `index.html` | 136 `aria-` and 21 `role=` in 2,675 lines | 2,494 and 494 in 13,749 lines (about 18 and 3.6 per 100 lines, against 5 and 0.8) |
+| Reduced motion | 27 `prefers-reduced-motion` blocks | 45, plus an explicit Moving override |
+| Guardrails | `CONTRIBUTING.md` rules enforced by review: reuse variables, no emoji, no parallel components, screenshot required | `DESIGN.md` recipe index, `test_ui_recipes.py` (166 tests), `test_style_scale.py` (22) |
+| Cache busting | hand-bumped `?v=20260916...` strings; they document that two versions of one import path give two module instances | hash stamp (`_stamp_for`), classic scripts, no module identity problem |
+| Frontend map | `static/js/MODULE_SUMMARY.md`, 229 lines by hand | `docs/CODEMAP.md` generated, `test_codemap_fresh.py` |
+| Production strays | 4 design-exploration pages in `static/` (`*-variants.html`, 33 KB) served in production | none |
+
+The one thing they have that we do not is the **computed-style snapshot**
+(`tests/css_snapshot/README.md`, `scripts/css_snapshot.py`): Playwright reads
+`getComputedStyle` for 122 pinned properties on 676 elements (76 in the app
+shell, 14 on login, 586 synthesised from every selector declared more than once)
+in 24 variants (4 viewports x dark and light x 3 densities) = 16,224 snapshots in
+about 21 seconds, hashed into a committed `baseline.json`; a failure names the
+elements and variants whose hash moved, and the baseline is re-recorded only
+when the change was meant. Built because a mechanical file split can flip which
+rule wins and nothing else notices. **Adapt** (M): the same harness over our
+palettes and phone widths, run only at phase gates that move CSS
+(UI_MODERNISATION_PLAN Phases 12 and 13), not on every commit, since active UI
+work would re-record it daily. Our `ui-sweeps` measure one thing at a time
+(contrast, docks, touch); none can say "nothing else moved".
+
+### 8. The strongest things worth taking, ranked
+
+Size is S (under a day), M (a day or two). Each row is placed in
+`docs/roadmap/agent-remaining/odyssey-1010.md` for the orchestrator.
+
+| # | Take | Evidence | Size | Belongs in |
+| --- | --- | --- | --- | --- |
+| 1 | **Supply-chain hygiene for CI.** Pin every action to a commit SHA, `persist-credentials: false` on every checkout, `permissions: {}` by default, an actionlint and zizmor workflow, a checksum-pinned gitleaks job, dependency-review (blocking) and pip-audit (advisory), Dependabot weekly with grouped updates | Theirs: 53 of 53 `uses:` pinned, 11 workflows. Ours: **0 of 26 pinned, 0 of 5 workflows set `persist-credentials`**, no zizmor, no secret-scan job, no pip-audit. The riskiest line is `release.yml:115` `softprops/action-gh-release@v3` holding `contents: write` | S to M | WORLD_CLASS_PLAN 12 (security review) |
+| 2 | **Ship the licences and credit every shipped file.** AGPL text, `THIRD_PARTY.md` and each vendored LICENSE inside the installer, MSI, Linux zip and image, with a test per build file; credit `board-library/drawio/` (Apache-2.0) and `icons.json`; add `frontend/vendor/PROVENANCE.json` (sha256, size, version, upstream URL, licence, notice) with a recomputing test; a scope line in THIRD_PARTY.md | Section 4: nothing licence-shaped is in any packaging file; the manifest test walks `vendor/` only | S then M | BACKLOG 7; `docs/THIRD_PARTY.md`; `tests/test_vendor_manifest.py` |
+| 3 | **Docker that builds, with a test.** `build.context: ..`; `mkdir /data /models && chown mm` before `USER`; `Dockerfile.dockerignore`; `HEALTHCHECK` on `/health`; hadolint; a static test of those four. A GHCR multi-arch image with an immutable `X.Y.Z-<sha>` tag if the owner wants one | Measured: compose context resolves to `/home/user`; `.git` is 461 MB; no daemon here, so the volume owner is reasoned, not run | S | BACKLOG 7 |
+| 4 | **A running-build stamp** (`source_commit`, `started_at`, data dir id) in `/health` and Settings, About | Answers CLAUDE.md §5's stale-uvicorn trap; theirs is `app.py:961` plus a footer | S | WORLD_CLASS_PLAN 7 (small things) |
+| 5 | **NAT64 in the SSRF address test** | Measured on Python 3.13.16, three NAT64 addresses report global | S | WORLD_CLASS_PLAN 12 |
+| 6 | **A macOS launcher the person builds on their own Mac**, plus the Chromium `--app=URL` window as the fallback shell | `build-macos-app.sh:109`; unquarantined because it never left the machine; unverified without a Mac | S | BACKLOG 79 |
+| 7 | **Computed-style snapshot baseline** for CSS refactors, at phase gates only | 16,224 snapshots in about 21 s on their side; ours has no "nothing else moved" check | M | UI_MODERNISATION_PLAN Phases 12 and 13 |
+| 8 | **Say it before inference when a capability is off**, with a test per tool group | `turn_contract.py`; ours returns a `ToolError` after the model tried | S | CHAT_PLAN "The deterministic foundation" |
+| 9 | **Command line and a `SKILL.md` over the tool registry** | 22 CLIs and two integration skills on their side; ours is stdio MCP plus a snippet row | S | BACKLOG 29 |
+| 10 | **Dev loop details**: port from a hash of the worktree path; a smoke table that prints `NOT COVERED` with a reason | `scripts/odysseus-dev`, `tests/smoke/areas.py` | S | HANDOVER (agents table); `tests-e2e/README` |
+| 11 | **Visible test-honesty ratio**: new source-text tests say why in the docstring; `gate.sh` prints the count | 54% of our test files read file text, against 27% of theirs | S | WORLD_CLASS_PLAN 1 (consistency contract) |
+| 12 | **A Known gaps list** in `docs/SECURITY.md`, and a dependency-age floor (30 days) in CONTRIBUTING | `THREAT_MODEL.md` last section; `requirements-optional.txt` comment on issue #485 | S | `docs/SECURITY.md`; `docs/CONTRIBUTING.md` |
+
+### 9. Declined, with why
+
+| Declined | Why |
+| --- | --- |
+| The agent runtime waves (containment, effect log, resource authority, 6,195 lines plus 2,480 lines of design) | They answer a shell tool. We have none; our confirm cards and the taint gate cover the writes we do have |
+| Three sidecars (ChromaDB, SearXNG, ntfy) and a fat image (Chromium, nmap, Docker CLI, build-essential) | One process and SQLite is the product; their own ROADMAP asks for "degraded-state reporting" for each sidecar |
+| Account bridges: several ChatGPT subscriptions, Copilot, Codex, 33 provider specs | Not a local-first path; each is an ongoing break-fix |
+| Token pairing and `ody_` API tokens | One user, one password; tokens need storage, scopes and a revoke screen |
+| Photo editor, floating snap windows, 4 variant pages in production | Not a notebook; `.dock` is the window grammar |
+| Offline service-worker cache (`sw.js`, 318 lines) | The owner chose network-only so a stopped server fails loudly (`frontend/sw.js` header) |
+| CDN libraries at runtime (Pyodide, PDFObject from jsdelivr, CSP allows the host) | Contradicts "100% offline"; our extras download once into the data folder |
+| The internal loopback bearer token (`INTERNAL_TOOL_TOKEN`) | §60 settled it; our tools run in process. `THREAT_MODEL.md` shows the cost: a reserved username that grants admin |
+| Hand-bumped `?v=` strings, a mechanical CSS split with 1,930 `!important` | Our hash stamp and grouped files already avoid both |
+| Sharded CI (`tests/_shards.py`, 4 jobs), a generated env reference | Our suite is under 9 minutes on four cores and we read 11 `MEMORYMAP_*` names; revisit past the 25-minute CI timeout |
+| Bombadil UI explorer, SFT corpus tooling (about 60 scripts), `odysseus-*` CLIs that open SQLite directly | We have a button crawler; we do not train models; direct DB access bypasses Settings |
+| PR-description gates, `lab`/`dev`/`main`, an "open an issue first" rule for agent PRs | Our PRs come from the owner's own sessions |
+
+### 10. Not verified
+
+- Nothing in the repository was run: no launcher, build, compose file, test or
+  script. Container behaviour, PyInstaller output and CI results are source
+  reads only.
+- Our Docker findings come from `docker compose config` (parse only; there is
+  no daemon) and reading the Dockerfile. The root-owned `/data` volume and the
+  unread `docker/.dockerignore` are reasoned from Docker's documented rules.
+- The NAT64 result is from Python's `ipaddress` in this sandbox (3.13.16);
+  other Python versions differ in `is_global`. No NAT64 network was available.
+- Whether PyInstaller already copies each wheel's `dist-info` licence files into
+  our frozen folder was not checked; a built folder is needed.
+- Line and file counts are `git ls-files` plus `wc -l`; the 442-commit window
+  starts at the depth-300 fetch, which could hide earlier commits only if the
+  history is not linear. "Test files that call `read_text`" is a grep, not a
+  classification.
+- Their ROADMAP asks "do integrations even work", so no feature of theirs is
+  credited as working, only as designed.
+
+## Vendor candidates, 2026-10-11
+
+Brief 87 step 1 (INBOX 833): the owner asked whether the text-to-speech voice
+and dictation can be improved with something vendored, and what else could be
+taken in for the editor, whiteboard, mind map, search, filing and datasets.
+Research only; nothing here was installed, built or run. Licence checks are the
+root `LICENSE` file of each repository, fetched 2026-10-11; sizes and CPU
+figures are the projects' own statements and are marked "claimed" where no
+file was downloaded.
+
+**Licence rule applied** (the constraint at the top of this file): code under
+MIT, ISC, BSD, Apache-2.0 or GPL-3.0 may come into this AGPL-3.0 project with
+its notices kept. Apache-2.0 is one-way compatible with GPL-3.0 and so with
+AGPL-3.0. EPL-2.0 is not, unless the project grants a GPL secondary licence.
+Creative Commons share-alike data and non-commercial licences are refused.
+Model weights and voices carry their own licence, separate from the engine's,
+and are read per file.
+
+**What the repo does today** (grep, 2026-10-11):
+
+| Surface | Today |
+| --- | --- |
+| Dictation | `toggleDictation` (`frontend/js/media.js:630`) records the whole clip with `getUserMedia({ audio: true })` (no noise-suppression constraint), uploads it on the second press; `ai/voice.py:87` calls `model.transcribe(path)` with no `vad_filter`, no `language`, no `initial_prompt`, model `base`. The Extra is `faster-whisper` (`core/extras.py:401`). |
+| Captions | `ai/captions.py` talks to an optional external `whisper-server` (whisper.cpp dialect) at `TESSELLATE_CAPTIONS_URL`; `frontend/js/captions.js:142` opens the mic the same way. No installer fetches the helper. |
+| Read aloud | The browser's `speechSynthesis` (`media.js:702`, `documents-prose.js:1010`), local voices only. No downloadable voice, no Extra. |
+| Search | SQLite FTS5 (`search/engine.py`), BM25 sentence scoring (`ai/composer.py`), embeddings through `sentence-transformers` (`core/embedmodels.py`; torch is forbidden, so semantic search is an opt-in Extra). |
+| Editor | CodeMirror 6 vendored (`frontend/vendor/codemirror`), emmet, js-beautify, Harper (grammar, WASM), a hand-written Mermaid subset (`documents.js:8977`), a hand-written maths renderer (decision: no KaTeX, `documents.js:6979`). |
+| Whiteboard and map | Own canvas code (`whiteboard*.js`, `whiteboard-map.js`); `d3` v7 vendored (its `tree()` is the map layout per MINDMAP_PLAN 3.1). Freehand is one quadratic curve through points; no sketchy style found. |
+| Vendoring pattern | `frontend/vendor/<name>/` holds the committed built output plus `LICENSE`, `package.json`, `entry.js` and `build.sh`; no bundler runs at runtime. |
+
+### Table
+
+Columns: Fits = fits AGPL; CPU is for a 2020-class laptop core and claimed
+unless stated.
+
+| # | Candidate | Improves | Licence, Fits | Size | Offline | CPU cost | Replaces today | Recommendation |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 1 | Silero VAD (`snakers4/silero-vad`) | Dictation, captions: trims silence, stops Whisper hallucinating on pauses, auto-stop on silence | MIT (LICENSE read). Fits. Some mirrors show a CC BY-NC badge; the upstream file is MIT | About 2 MB ONNX | Yes | Under 1 ms per 30 ms chunk, one thread (claimed) | Nothing: no VAD today. `faster-whisper` already bundles the Silero ONNX, so `vad_filter=True` at `ai/voice.py:87` needs no new vendoring | **Take, first.** One argument for the server path (verify the installed `faster-whisper` has it); `@ricky0123/vad-web` (ISC) only if the page needs live auto-stop |
+| 2 | Piper, `OHF-Voice/piper1-gpl` | TTS voice: natural neural read-aloud, an audio overview | Engine GPL-3.0 (COPYING read); the MIT `rhasspy/piper` is archived. Fits (GPL into AGPL). Each voice has its own MODEL_CARD licence, read per voice | Voices roughly 20 MB (low) to 110 MB (high), about 60 MB for medium (claimed from Piper's voice list, not downloaded) | Yes after the voice download | Faster than real time on one core (claimed) | `speechSynthesis` in `media.js:702` and `documents-prose.js:1010` | **Take** as an Extra (`core/extras.py`) plus `/voice/speak`; keep `speechSynthesis` as the zero-download fallback. Records the correction already made above (repository moved, GPL) |
+| 3 | Kokoro-82M through `thewh1teagle/kokoro-onnx` | TTS voice: the best quality per size of the open options | Weights Apache-2.0 (hub card); `hexgrad/kokoro`, `hexgrad/misaki` Apache-2.0; `kokoro-onnx` MIT. Fits. Its phonemiser pulls espeak-ng (GPL-3.0), which also fits | 88 MB int8, 310 MB fp32 (claimed) | Yes after download | About real time on CPU at int8; fp32 slower (a Pixel 8a measured RTF 1.8, claimed) | Same as Piper. **Corrects the note above**, which said the ONNX route "nobody ships": `kokoro-onnx` is that route, `onnxruntime` plus numpy, no torch | **Take as the second voice** after Piper, once `onnxruntime` is an Extra for embeddings too; a listening pair against Piper settles the default |
+| 4 | sherpa-onnx (`k2-fsa`) | One runtime for ASR (streaming and offline), TTS (Piper and Matcha voices), Silero VAD, speech enhancement (GTCRN) | Apache-2.0 (LICENSE read). Fits. Per-model licences vary | Library not stated; models 20 MB to 1 GB | Yes; has WebAssembly builds | Streaming Zipformer models of 14M to 20M parameters run on a Cortex A7 (claimed) | Would replace both `faster-whisper` and the external caption helper | **Leave for now, revisit.** It is the tidy single dependency, but it replaces working code; take it only if rows 1 to 3 land and the Extras list is too long |
+| 5 | whisper.cpp (`ggml-org/whisper.cpp`) | Live captions, faster dictation, quantised models | MIT (LICENSE read). Fits | tiny 75 MB, base 142 MB, small 466 MB; q5_1 base 57 MiB (hub card) | Yes | `stream` example runs live; the repo measured 0.72 s for a 5 s window on tiny.en with `audio_ctx` cut | The captions helper, which is already designed around its server dialect | **Already adopted by design** (`ai/captions.py`). The gap is delivery: an Extra that fetches the binary and a model, as the module's docstring says. Take that step |
+| 6 | Moonshine (`moonshine-ai/moonshine`) | Streaming English dictation with very low latency on small CPUs | Code and default models MIT; legacy non-English models under a non-commercial community licence (LICENSE read). Fits for English | Its page says "tiny 1MB models" with no other sizes (confirm the real file sizes) | Yes | Built for live streaming (no figure) | Nothing; an alternative to row 5 | **Leave, measure later.** Needs a word-error comparison against `base` Whisper on the 20 fixture clips of Brief 87 step 2 |
+| 7 | RNNoise (`xiph/rnnoise`) | Noise suppression on the mic before Whisper | BSD-3-Clause (COPYING read). Fits | Weights well under 1 MB (not downloaded) | Yes | Light; designed for real-time voice calls | The mic opens with no constraints | **Skip as a vendor.** First turn on the browser's own `noiseSuppression`, `echoCancellation` and `autoGainControl` constraints at `media.js:644`, `captions.js:142` and `meetings.js:723`: free, no download. Revisit RNNoise only if a clip pair measures a gap |
+| 8 | DeepFilterNet (`Rikorose/DeepFilterNet`) | Higher-quality denoise than RNNoise, for recorded meetings | Dual MIT or Apache-2.0 (README read). Fits | Not stated on its page; a pre-built `deep-filter` binary exists | Yes | Real-time version exists; no figure on the page | Nothing | **Leave.** A binary to fetch and ship across three operating systems for a gain nobody has measured on this app's recordings; a post-process option on meeting audio later |
+| 9 | Browser audio constraints (not a vendor) | Dictation, captions, meetings: denoise, echo and level for free | Platform feature | 0 | Yes | Native | `getUserMedia({ audio: true })` | **Take with row 1**; it is the cheapest dictation win and needs one listening pair to prove |
+| 10 | faster-whisper settings (already a dependency) | Dictation accuracy: `language`, `initial_prompt` from note vocabulary, `beam_size`, model `small` | MIT. Fits | `base` about 140 MB, `small` about 460 MB (same weights as row 5) | Yes | `small` roughly 3x `base` | `model.transcribe(path)` with defaults | **Take** with row 1; the model choice is a Settings row, measured on the fixture clips |
+| 11 | perfect-freehand (`steveruizok`) | Whiteboard ink: pressure-style variable-width strokes that look like pen, not a thin line | MIT (read). Fits | A few KB | Yes | Per stroke, negligible | One quadratic curve through points (`whiteboard.js` freehand) | **Take.** Smallest cost for the most visible whiteboard polish; vendor under `frontend/vendor/perfect-freehand/` |
+| 12 | rough.js (`rough-stuff/rough`) | Whiteboard: a "sketchy" hand-drawn shape style, also for mind-map nodes | MIT (read). Fits | Under 100 KB minified (claimed) | Yes | Per shape; cache the paths | No sketch style found | **Take as an optional style** per board; vendor with its LICENSE; draw once to an offscreen path |
+| 13 | Excalifont and Virgil hand fonts (Excalidraw), `excalidraw/excalidraw` | Whiteboard text that matches the sketchy style | App is MIT (read); the fonts are SIL OFL-1.1 (confirm per font file). Fonts as separate files fit | Tens of KB per font file | Yes | None | Whatever text fonts the board offers | **Take with row 12**, after reading each font's own licence file. Do not take the Excalidraw app itself (React, bundler, MIT but a rewrite) |
+| 14 | tldraw | Whiteboard | Its own licence ("tldraw license", LICENSE.md read), not an open-source licence | n/a | n/a | n/a | n/a | **Refuse.** Not usable here whatever the quality |
+| 15 | rbush or flatbush (`mourner`) | Whiteboard: hit-testing and marquee over thousands of items (`whiteboard.js:5715` comment calls the marquee quadratic) | MIT (read). Fits | About 6 KB | Yes | Logarithmic queries | Linear scans | **Leave until measured.** Build a 5,000-item board; take it only if marquee or hover costs over 16 ms |
+| 16 | dagre (`dagrejs/dagre`) | Flowchart auto-layout (Mermaid import, board "tidy" for non-trees) | MIT (read). Fits | About 280 KB min (claimed) | Yes | Fine to a few hundred nodes | `mermaidFlowLayout` hand layout (`documents.js:9076`) | **Leave.** Take only if a measured crossing count on the Mermaid fixtures says the hand layout is poor |
+| 17 | ELK.js (`kieler/elkjs`) | Best layered layout | EPL-2.0 (read). Not compatible with AGPL unless a GPL secondary licence is granted | Large (WASM-like JS) | Yes | Heavy | Same as row 16 | **Refuse** on licence; dagre is the fallback |
+| 18 | markmap (`markmap/markmap`) | Mind map: outline text to a laid-out map | MIT (read). Fits | Lib plus view, with d3 already vendored | Yes | Light | `d3.tree()` in MINDMAP_PLAN 3.1 | **Leave for the code, read for ideas** (fold state, outline round trip). The map already has more than markmap draws |
+| 19 | MiniSearch (`lucaong/minisearch`) | Search boxes: prefix and fuzzy suggestions in the page (Brief 86) | MIT (read). Fits | About 30 KB min (claimed) | Yes | Index of a few thousand titles builds in milliseconds | Nothing; the recents list has no completion | **Leave.** Brief 86 needs prefix match over recents, titles, tags and categories: a sorted array does it; take MiniSearch only if fuzzy typo tolerance is added |
+| 20 | model2vec, `minishlab/potion-base-8M` and `potion-retrieval-32M` | Search and filing: embeddings with no torch | Code MIT (read); both models MIT (hub cards). Fits | 7.6M and 32.3M parameters; roughly 30 MB and 125 MB at fp32 (derived, not downloaded) | Yes | Static lookup tables: orders of magnitude faster than a transformer | `sentence-transformers` MiniLM or bge-small, which torch makes unusable in the default install | **Take, high.** Semantic search with numpy and the tokenizers wheel would be on by default instead of an opt-in Extra; check the retrieval score against `bge-small` on the repo's search fixtures first |
+| 21 | chrono-node (`wanasit/chrono`) | Reminders, filing by date: "next Tuesday at 3" | MIT (read). Fits | About 200 KB min (claimed) | Yes | Light | `ai/reminder_parser.py` (Python); this is JS | **Leave.** Wrong language for the server parser; compare fixtures only if the parser misses real phrasings |
+| 22 | GLiNER (`urchade/GLiNER`) | Filing: zero-shot named entities and labels from a list of categories | Apache-2.0 (read). Fits | ONNX exports of the small models are tens to hundreds of MB (claimed) | Yes | Moderate; per-note, background | `ai/entities.py`, `ai/taxonomy.py` heuristics | **Leave, backlog.** Revisit after row 20 gives an `onnxruntime` Extra |
+| 23 | lingua-py (`pemistahl/lingua-py`) | Filing, OCR and dictation: language of a note or clip | Apache-2.0 (read). Fits | Large with all languages, small with a subset | Yes | Light | Nothing (Whisper detects its own) | **Leave.** No surface asks for it |
+| 24 | Unicode CLDR emoji annotations | Editor: `:heart` shortcodes find more, in more words | Unicode licence (permissive; confirm on the file) | A few hundred KB as JSON | Yes | None | `DOC_EMOJI_SOURCE` (`documents-prose.js:1374`), a hand table | **Take if coverage is short.** Measure how many common names the table misses first |
+| 25 | WordNet (Princeton) | Editor: define and synonym lookup on a selection | WordNet licence, permissive (confirm text) | About 10 MB raw, less trimmed | Yes | Lookup | Nothing | **Backlog.** A small utility the owner might notice; not before rows 1 to 3 and 11 |
+| 26 | ProseMirror or Tiptap | Editor: rich-text structure | MIT (read). Fits | Hundreds of KB, needs `build.sh`-style bundling | Yes | Moderate | CodeMirror 6 markdown editor | **Refuse as a swap.** A rewrite of the documents surface for features CodeMirror can add one at a time |
+
+Left on earlier decisions, no row: Mermaid (hand subset, size and CSP), KaTeX
+(`documents.js:6979`), Yjs (no CRDT, WORLD_CLASS_PLAN 635).
+
+### Top five, ranked
+
+Scored on (impact on what the owner reported) x (licence clean) x (size and
+install cost) x (effort), each judgement stated.
+
+1. **Silero VAD through `faster-whisper`, plus the browser noise constraints
+   and `language`/`initial_prompt`/`small` settings (rows 1, 9, 10).** No new
+   download, one call site (`ai/voice.py:87`) and three `getUserMedia` calls.
+   The likeliest cause of poor dictation is Whisper being fed silence and
+   hum, not the model. Step 2's 20 fixture clips measure word error before
+   and after.
+2. **Piper (row 2).** The largest audible step up from `speechSynthesis`, GPL-3.0
+   fits, small voices, CPU-only, one Extra. Choose voices per MODEL_CARD.
+3. **Kokoro-82M via `kokoro-onnx` (row 3).** Better voice than Piper at 88 MB
+   int8 with no torch; second because it needs `onnxruntime` and a phonemiser
+   chain. The listening pair decides which is the default.
+4. **perfect-freehand and rough.js with the Excalidraw hand fonts (rows 11 to
+   13).** Under 100 KB together, MIT and OFL, and the whiteboard's ink and
+   shapes change from "diagram tool" to "pen on paper", the polish the owner
+   says is missing. Pair with WHITEBOARD_PLAN E5's small-things list.
+5. **model2vec `potion` models (row 20).** Moves semantic search from an
+   opt-in Extra to the default with numpy only. Highest uncertainty of the
+   five (retrieval quality is unmeasured against `bge-small`), so it ranks
+   last.
+
+### Not verified, stated plainly
+
+- Nothing was downloaded, installed or run. Every size, speed and quality
+  figure is the project's or hub's claim; "derived" means arithmetic on
+  parameter counts, not a measurement.
+- Piper voice sizes and per-voice licences (not fetched), the OFL status of
+  each Excalidraw font file, the Unicode and WordNet licence texts, and
+  whether the installed `faster-whisper` is new enough to bundle Silero VAD
+  were not checked and must be before step 2 or 3 starts.

@@ -122,7 +122,7 @@ def test_a_private_note_is_dropped_from_the_proposal_not_sent_to_the_model(
     """The boundary every AI-facing read path in this codebase holds. Dropped
     rather than refused: this is a list someone assembled by ticking boxes,
     and failing all of it over one private note is a dead end."""
-    from memorymap.core import vault
+    from tessellate.core import vault
 
     vault.close()
     vault.create(session, "test-passphrase")

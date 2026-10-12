@@ -4,7 +4,7 @@ delete-time reassignment that keeps rows from becoming invisible.
 
 from __future__ import annotations
 
-from memorymap.core.database import Category, Entry, EntryLink, Document
+from tessellate.core.database import Category, Entry, EntryLink, Document
 
 
 def _row(session, model, **kwargs):
@@ -281,7 +281,7 @@ def test_a_foreign_note_pointing_at_a_doomed_category_keeps_the_note(client, ses
 
 
 def test_deleting_a_space_deletes_its_chats(client, session):
-    from memorymap.core.database import Conversation
+    from tessellate.core.database import Conversation
 
     created = client.post("/spaces", json={"name": "Temporary"}).json()
     space_id = created["id"]
@@ -298,7 +298,7 @@ def test_deleting_a_space_clears_every_table_that_points_at_its_notes(client, se
     failed" on `DELETE FROM entries`: tables that point at notes (scores,
     derived facts) were on no purge list. References are now found from the
     schema, so a table added later cannot bring this back."""
-    from memorymap.core.database import DerivedFact, Entry, NoteScore
+    from tessellate.core.database import DerivedFact, Entry, NoteScore
 
     space = client.post("/spaces", json={"name": "Doomed"}).json()
     note = client.post(
@@ -318,7 +318,7 @@ def test_deleting_a_space_clears_every_table_that_points_at_its_notes(client, se
 def test_deleting_a_space_can_move_its_contents_to_another(client, session):
     """Owner, 0.3.31: delete a space's contents, or move them to a different
     space. A category both spaces have is merged, not duplicated."""
-    from memorymap.core.database import Category, Entry
+    from tessellate.core.database import Category, Entry
 
     source = client.post("/spaces", json={"name": "Old"}).json()["id"]
     target = client.post("/spaces", json={"name": "New"}).json()["id"]

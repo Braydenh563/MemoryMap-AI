@@ -22,7 +22,7 @@ from __future__ import annotations
 import re
 from html.parser import HTMLParser
 from pathlib import Path
-from tests._app_js import app_js_family, app_js_text, frontend_text
+from tests._app_js import app_js_family, app_js_text, frontend_text, with_pieces
 
 ROOT = Path(__file__).resolve().parent.parent
 CSS = sorted((ROOT / "frontend" / "css").glob("*.css"))
@@ -211,6 +211,8 @@ HAND_BUILT_SHEETS = {"sidebar-sheet-open", "graph-popup-sheet"}
 # than becoming a third hand-built sheet. A new variant adds its two names here
 # and nothing else; the test below is what keeps that true.
 SHEET_RECIPE = {
+    # The Guide above 600: no scrim, presses pass through (openSheet `modal: false`).
+    "sheet-modeless",
     "sheet-overlay",
     "sheet-card",
     "sheet-head",
@@ -631,7 +633,7 @@ def test_a_radial_places_its_slots_without_the_transform_properties() -> None:
     the chat jump-to-latest pill, both of which were reported before the cue
     was rewritten; this stops the ring re-learning it.
     """
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     placed = False
     for selector, body in _rules(css):
         if ".wb-map-radial-slot" not in selector:
@@ -658,7 +660,7 @@ def test_the_radial_band_is_cut_to_its_tiles() -> None:
     slots, and the caption hangs under the outer edge; a rule that goes back
     to sizing the band from the radius alone brings the overhang back.
     """
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     #: The map layer is whiteboard-map.js since the split; read both.
     js = "".join((ROOT / "frontend" / "js" / name).read_text(encoding="utf-8") for name in ("whiteboard.js", "whiteboard-map.js"))
     band = [body for selector, body in _rules(css) if selector.strip() == ".wb-map-radial::before"]
@@ -684,7 +686,7 @@ def test_the_radial_is_one_ring_cut_into_sectors() -> None:
     ring's own keys walk the sectors. A rule that goes back to sizing a slot
     as a tile, or a fit that stops writing the clip, is the old ring again.
     """
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     js = "".join((ROOT / "frontend" / "js" / name).read_text(encoding="utf-8") for name in ("whiteboard.js", "whiteboard-map.js"))
     slot = [body for selector, body in _rules(css) if selector.strip() == ".wb-map-radial .wb-map-radial-slot"]
     assert slot, "the sector rule is gone"
@@ -735,6 +737,11 @@ def test_every_board_tool_names_its_own_cursor() -> None:
     assert len(tools) >= 18, tools
     body = js[js.index("function wbCursorForTool(") : js.index("// The visible half of Select")]
     brushes = set(re.findall(r'"([a-z]+)"', js[js.index("const WB_BRUSH_TOOLS"):js.index("const WB_HIGHLIGHTER_ALPHA")]))
+    # The flyout's further shapes are brushes by the spread of their table's
+    # keys; the keys are read off the table, so a new one is still checked.
+    if "...Object.keys(WB_MORE_SHAPES)" in js[js.index("const WB_BRUSH_TOOLS"):js.index("const WB_HIGHLIGHTER_ALPHA")]:
+        more = js[js.index("const WB_MORE_SHAPES"):js.index("const WB_BRUSH_TOOLS")]
+        brushes |= set(re.findall(r'^  "(shape-[a-z-]+)": \{', more, re.M))
     # Pan is the one tool that deliberately returns "": the container's own
     # grab/grabbing pair is its cursor, and the comment on that line says so.
     assert 'return ""; // pan' in body
@@ -751,7 +758,7 @@ def test_an_item_does_not_promise_a_drag_under_a_tool_that_does_not_drag() -> No
     its text and a whiteboard object: 32 of those pairs answered `grab`
     while the click would have deleted, erased, drawn, filled or linked.
     """
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     guard = (
         '#whiteboard-container:not([data-current-tool="select"])'
         ':not([data-current-tool="pan"])'
@@ -1093,8 +1100,14 @@ LIST_ROWS = {
     ".bench-row": ".bench-results",
     #: The board's Layers tab (WHITEBOARD_PLAN decision 27).
     ".wb-layer-row": ".wb-layers-tree",
+    #: The board's named layers above that tree (canvasdepth, INBOX 797).
+    ".wb-named-layer": ".wb-named-layer-list",
     #: A meeting's action items, in its sheet (INBOX 644).
     ".meeting-action": ".meeting-actions-list",
+    #: Library, Recordings (WORLD_CLASS_PLAN 28.5 row 6).
+    ".recording-row": ".recordings-list",
+    #: A code file's snippets, in the code panel (INBOX 788).
+    ".doc-snippet-row": ".doc-snippet-list",
 }
 
 
@@ -1233,8 +1246,8 @@ def _function_body(text: str, name: str) -> str:
     thing to get wrong.
     """
     start = text.index(f"function {name}(")
-    rest = text.index("\nfunction ", start + 1)
-    return text[start:rest]
+    after = re.search(r"\n(?:async )?function ", text[start + 1 :])
+    return text[start : start + 1 + after.start()] if after else text[start:]
 
 
 def test_a_list_row_answers_in_place_rather_than_opening_a_popover() -> None:
@@ -1754,7 +1767,10 @@ def test_the_tours_dim_never_covers_the_control_it_describes() -> None:
     )
     panel = re.search(r"\n\.tour-block-panel \{(.*?)\n\}", css, re.S)
     assert panel, ".tour-block-panel has no rule; where is the tour's dim?"
-    assert "background: var(--scrim)" in panel.group(1), (
+    #: The scrim at 60%: the owner, 2026-10-10, "on the tour it is hard to
+    #: see the other features around the things highlighted". Still the
+    #: scrim, still on the four panels.
+    assert "background: color-mix(in srgb, var(--scrim) 60%, transparent)" in panel.group(1), (
         "the four panels around the hole are the dim, in the app's scrim "
         "colour: they are the rectangles tourdim.js can actually measure"
     )
@@ -2217,9 +2233,30 @@ def test_every_right_click_menu_has_a_long_press_twin():
     for name in ("app.js", "documents.js", "graph-canvas.js", "whiteboard.js", "whiteboard-map.js"):
         text = frontend_text(name)
         right_clicks = len(re.findall(r'addEventListener\(\s*"contextmenu"', text))
+        #: The selection bubble's return is not a menu: a finger already has the
+        #: system's own selection bar, and the helper steps aside for touch.
+        right_clicks -= text.count('addEventListener("contextmenu", selectionRestoreOnContextMenu)')
         calls = len(re.findall(r"\bwireLongPress\(", text))
         holds = calls - (1 if name == "app.js" else 0)  # app.js holds the definition
         assert right_clicks == holds, f"{name}: {right_clicks} right-click menus, {holds} long-press twins"
+
+def test_a_selection_bubble_returns_on_one_right_click_helper():
+    """Owner 2026-10-11: a dismissed selection bubble comes back on a right-click
+    of the selection. One helper owns it; a bubble is built in two files only."""
+    selection = frontend_text("selection.js")
+    assert len(re.findall(r'addEventListener\(\s*"contextmenu"', selection)) == 1
+    assert 'addEventListener("contextmenu", selectionRestoreOnContextMenu)' in selection
+    body = selection[selection.index("function selectionRestoreOnContextMenu(") :][:1800]
+    for needle in ("defaultPrevented", '"touch"', "selectionBarShow(", "syncSelectionPopup()", "event.preventDefault()"):
+        assert needle in body, needle
+    builders = sorted(
+        p.name
+        for p in (ROOT / "frontend" / "js").glob("*.js")
+        if re.search(r'className = "selection-(?:popup|bar) ', p.read_text(encoding="utf-8"))
+    )
+    assert builders == ["editor.js", "selection.js"], f"a new selection bubble must be shown by selectionRestoreOnContextMenu: {builders}"
+    assert "selectionRestoreOnContextMenu" in (ROOT / "docs" / "DESIGN.md").read_text(encoding="utf-8")
+
 
 # A `<details>` in index.html that heads no named family: prose disclosures in
 # the Help guide, the chat's thinking boxes and the like, which take their
@@ -2276,7 +2313,7 @@ def test_a_folded_settings_group_is_keyed_and_remembered() -> None:
         pane = key.split("-")[0]
         firsts.setdefault(pane, " open" in attrs)
     assert all(firsts.values()), f"a pane whose first fold starts closed: {firsts}"
-    js = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
+    js = with_pieces("settings.js")
     assert "wireSettingsFolds();" in js, "the folds' open state is remembered by wireSettingsFolds"
 
 
@@ -2365,7 +2402,7 @@ def test_every_inverse_scaled_grip_sets_its_own_anchor():
         "(INBOX 278, WHITEBOARD_PLAN)"
     )
 
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     rule = css.split(".wb-sketch-rotate-handle,\n.wb-rotate-handle-stem {")[1].split("}")[0]
     assert "scale(var(--wb-inv-zoom))" in rule, (
         "the grip rule this lint guards is gone or renamed; the lint and the "
@@ -2403,7 +2440,7 @@ def test_every_canvas_grip_is_one_size_to_the_hand():
     across at 2x against the 12px it is at 1x. This is that paragraph as a
     lint, so the next grip added is measured against it rather than after it.
     """
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     missing = [
         grip for grip in CANVAS_GRIPS
         if "scale(var(--wb-inv-zoom))" not in _rules_for(css, grip)
@@ -2427,7 +2464,7 @@ def test_a_grip_that_is_invisible_does_not_take_the_pointer():
     `display: none` at rest, `tests/test_board_pan_layers.py`), and that grip
     is revealed, so it takes the pointer on purpose. Those blocks are left out
     of the read rather than given a `pointer-events` that would never apply."""
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     css = re.sub(r"@starting-style\s*\{(?:[^{}]*\{[^{}]*\})*[^{}]*\}", "", css)
     offenders = []
     for grip in CANVAS_GRIPS:
@@ -2682,7 +2719,7 @@ def test_a_coarse_pointer_gets_the_touch_floor_at_every_width() -> None:
     iPad in landscape is 1024. The `:root` token and the dock's own floor are
     the two a regression would lose first."""
     touch_query = "@media (max-width: 819.98px), (pointer: coarse)"
-    shell = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    shell = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     token = re.search(r"@media[^{\n]*\{\s*:root\s*\{\s*--target-min:\s*2\.75rem;", shell)
     assert token and token.group(0).startswith(touch_query), (
         "the 44px --target-min is no longer declared for a coarse pointer at every width"
@@ -2831,16 +2868,13 @@ def _seg_track_names() -> set[str]:
 #: INBOX 665 (the owner: "i dont really like these multi pill elements exept
 #: in some small cases like the little view mode 2 pill ones"). A `.seg` well
 #: of four or more choices written in index.html, each with where its
-#: conversion is placed (agent-remaining/seg665-1006.md). The list may only
+#: conversion is placed (archive/agent-remaining/seg665-1006.md). The list may only
 #: shrink: a new well of four is a `<select>` or previews (DESIGN.md).
-SEG_OF_FOUR_PLACED = {
-    #: The one that stays (INBOX 670): the Attach picker's five sources, each
-    #: carrying the count of what is attached from it, are the picker dialog's
-    #: strip, which DESIGN.md's picker rows pin as equal segments across the
-    #: dialog (tabs with a count on each, one Tab stop, arrows between them),
-    #: and `test_a_picker_row_never_shrinks_and_its_sources_span_the_dialog`
-    #: holds that shape. A list there would hide the counts and add a click.
-    "note-picker-sources": "five sources in the picker dialog; DESIGN.md's picker row spans them as equal segments, pinned",
+SEG_OF_FOUR_PLACED: dict[str, str] = {
+    #: Empty since libr-1011 (ledger row 1234): the Attach picker's five sources
+    #: were the one well of four that stayed (INBOX 670); INBOX 715 ("i dont
+    #: like pills like that in popups") is later, and they are a
+    #: `.tabs-line.popup-kinds` strip carrying their counts now.
 }
 
 
@@ -2901,12 +2935,12 @@ def test_font_and_density_are_lists_that_keep_their_handlers() -> None:
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     font = html[html.index('<select id="font-seg"') :]
     font = font[: font.index("</select>")]
-    assert re.findall(r'value="(\w+)"', font) == ["system", "serif", "mono", "arial"]
+    assert re.findall(r'value="(\w+)"', font) == ["system", "serif", "mono", "arial", "readable"]
     density = html[html.index('<select id="density-seg"') :]
     density = density[: density.index("</select>")]
     assert re.findall(r'value="(\w+)"', density) == ["auto", "comfortable", "compact", "spacious"]
-    js = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
-    assert '$("font-seg").addEventListener("change"' in js and 'localStorage.setItem("font", e.target.value)' in js
+    js = with_pieces("settings.js")
+    assert '$("font-seg").addEventListener("change"' in js and 'prefs.set("font", e.target.value)' in js
     assert '$("density-seg").addEventListener("change"' in js
     assert '$("font-seg").value = appearancePref("font")' in js
     assert '$("density-seg").value = prefs.get("density", null) || "auto"' in js
@@ -3233,7 +3267,7 @@ def test_a_citation_mark_previews_its_source_on_the_help_popover_recipe() -> Non
     assert '"help-popover citation-peek"' in peek, "the peek is not a help popover"
     assert "placeHelpPopover(panel, link)" in peek, "the peek places itself instead of through the popover's placement"
     assert "document.body.appendChild(panel)" in peek, "the peek must leave for <body>, or a card's filter clips it"
-    assert "flashEntry(source.noteId)" in peek, "the peek has no way to the note"
+    assert "openNoteAtPassage(source.noteId" in peek, "the peek has no way to the note"
     for path in CSS:
         for selector, body in _rules(path.read_text(encoding="utf-8")):
             if "citation-peek" in selector:
@@ -3291,20 +3325,21 @@ def test_a_picker_row_never_shrinks_and_its_sources_span_the_dialog() -> None:
     a column flex box of one fixed height, so with more rows than fit every
     row shrank to the target floor (28px measured with 25 notes) while its
     32px tile stayed whole and hung over the next row's title. A row never
-    shrinks and has one height; the sources are a full-width `.seg` of
-    equal segments carrying their counts; the source is remembered; a title
+    shrinks and has one height; the sources are a full-width `.tabs-line.popup-kinds`
+    strip carrying their counts; the source is remembered; a title
     is clipped by the row's width (CSS), never by a character count."""
     rows = _css_block(".entry-pick-card > .entry-pick-list > li")
     assert "flex: none" in rows
     rich = _css_block(".entry-pick-list > .entry-pick-row")
     assert "height: var(--pick-row-h)" in rich
-    seg = _css_block(".entry-pick-card > .seg")
-    assert "align-self: stretch" in seg and "flex-wrap: nowrap" in seg
-    tab = _css_block(".entry-pick-card > .seg > button")
-    assert "flex: 1 1 0" in tab and "min-width: 0" in tab
+    seg = _css_block(".entry-pick-card > .picker-kinds")
+    assert "align-self: stretch" in seg and "overflow-x: auto" in seg
+    tab = _css_block(".entry-pick-card > .picker-kinds > button")
+    assert "flex: 1 1 auto" in tab and "min-width: 0" in tab
     source = frontend_text("selection.js")
     body = _function_body(source, "pickLibraryItemDialog")
     assert "seg-count" in body and "pickerRememberedSource" in body
+    assert 'seg.className = "tabs-line popup-kinds picker-kinds"' in body
     assert "noteLabel(row, 70)" not in _function_body(source, "libraryPickLabel")
 
 
@@ -3338,7 +3373,7 @@ def test_a_script_built_dialog_opens_with_the_dialog_head() -> None:
 #: 25; DESIGN.md, "A grid of things you place"). The icon and emoji picker is
 #: the third grid of glyphs (MINDMAP_PLAN decision 43; DESIGN.md, "An icon or
 #: an emoji, picked or dragged"): its tiles are dragged as well as picked.
-HAND_BUILT_OPTION_ROWS = {"documents.js": 1, "icon-picker.js": 1, "sheets-selects.js": 1, "spaces-find.js": 2, "whiteboard-library.js": 1}
+HAND_BUILT_OPTION_ROWS = {"documents.js": 1, "icon-picker.js": 1, "sheets-selects.js": 1, "search.js": 1, "spaces-find.js": 1, "whiteboard-library.js": 1}
 
 
 def test_only_the_rich_picker_stamps_its_anatomy() -> None:
@@ -3477,7 +3512,7 @@ def test_a_field_is_the_button_s_shape():
     forms = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
     base = next(body for sel, body in _rules(forms) if 'input[type="datetime-local"]' in sel and "box-sizing: border-box" in body)
     assert "border-radius: var(--radius-md)" in base
-    misc = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    misc = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     opener = next(body for sel, body in _rules(misc) if sel.strip() == ".select-opener")
     assert "border-radius: var(--radius-md)" in opener
 
@@ -3600,7 +3635,7 @@ def test_dialogs_and_panels_share_one_radius_token() -> None:
     bad = {cls: value for cls, value in last.items() if not allowed.fullmatch(value)}
     assert bad == {}, f"a dialog or panel has its own corner: {bad}"
     assert "notif-panel" in last and "agent-monitor" in last
-    misc = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    misc = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     shell = next(body for sel, body in _rules(misc) if ".help-popover" in sel and ".action-menu" in sel and "border-radius" in body)
     assert "border-radius: var(--radius-lg)" in shell, "the popover shell's corner moved off --radius-lg"
 
@@ -3629,7 +3664,7 @@ def test_the_attach_picker_is_a_panel_on_the_dialog_recipe() -> None:
     start = html.index('id="note-picker-panel"')
     panel = html[start : html.index('id="chat-model-panel"', start) if 'id="chat-model-panel"' in html[start:] else start + 6000]
     assert 'class="dialog-head"' in panel and "dialog-head-btn" in panel
-    assert 'class="seg seg-compact note-picker-sources"' in panel
+    assert 'class="tabs-line popup-kinds note-picker-sources"' in panel
     assert 'class="row space-dialog-actions note-picker-foot"' in panel
     assert 'id="note-picker-clear" class="ghost"' in panel and 'id="note-picker-done" class="accent"' in panel
     js = (ROOT / "frontend" / "js" / "chat-attach.js").read_text(encoding="utf-8")
@@ -3715,7 +3750,7 @@ def test_every_dialog_dims_the_page_with_the_one_scrim_token() -> None:
             m = re.search(r"(?<![\w-])background:\s*([^;]+);", body)
             if m and re.search(r"rgba\(\s*10,\s*12,\s*(18|24)", m.group(1)):
                 raise AssertionError(f"{path.name}: {selector!r} dims with a literal; use var(--scrim)")
-    misc = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    misc = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     rule = next(body for sel, body in _rules(misc) if ".command-palette-overlay" in sel and ".finder-overlay" in sel)
     assert "background: var(--scrim)" in rule, "Find anything must dim the app like the popup agent does, not replace it"
 
@@ -3729,8 +3764,10 @@ def test_a_hovered_row_keeps_its_hint_readable():
     tokens = (ROOT / "frontend" / "css" / "00-tokens-shell.css").read_text(encoding="utf-8")
     assert tokens.count("--row-hover-bg:") == 3, "light, dark and the system-dark block"
     for selector in ('.setting-check:has(input[type="checkbox"]:checked):hover', "  .check-row:hover", "  .setting-check:hover"):
-        at = text.index(selector + " {")
-        body = text[at : text.index("}", at)]
+        #: The rule may carry the hover's focus twin after it (Phase 13 decision 15).
+        m = re.search(re.escape(selector) + r"(?:,\s*[^{,]+)*\s*\{([^}]*)\}", text)
+        assert m, selector
+        body = m.group(1)
         assert "var(--row-hover-bg)" in body and "--ghost-btn-bg-hover" not in body, selector
 
 
@@ -3937,7 +3974,7 @@ def test_one_builder_draws_a_thinking_fold() -> None:
         ("palette.js", "thinkingBox = thinkingFold();"),
         ("help-chat.js", "const think = thinkingFold();"),
         ("capture-ask.js", 'thinkingFoldIn(thinkingHost)'),
-        ("chat-agent.js", 'thinkingFoldIn(thinkingHost)'),
+        ("writing-desk.js", 'thinkingFoldIn(thinkingHost)'),
     ):
         assert call in js[name], f"{name} no longer draws its reasoning with the one fold"
     html = re.sub(r"<!--.*?-->", "", (ROOT / "frontend" / "index.html").read_text(encoding="utf-8"), flags=re.S)
@@ -4006,7 +4043,8 @@ def test_an_assistant_head_asks_one_function_for_its_face() -> None:
     assert re.search(r'class="answer-title msg-role msg-role-assistant">\s*<span class="msg-avatar" data-assistant-head', index_html)
     assert re.search(r'<label for="draft-text"[^>]*>.{0,80}msg-avatar" data-assistant-head', index_html)
     assert "paintAssistantAvatar(holder, 20)" in chat[chat.index("function paintAssistantHeads") :][:200]
-    assert "paintAssistantAvatar(avatar, 20)" in chat[chat.index("function assistantHeadRow") :][:600]
+    #: `assistantHeadRow` moved to help-chat.js (lazy) with its only callers (Brief 101a).
+    assert "paintAssistantAvatar(avatar, 20)" in js["help-chat.js"][js["help-chat.js"].index("function assistantHeadRow") :][:600]
     assert "paintAssistantHeads()" in js["navigation.js"], "a section change fills the static heads"
     guide = js["help-chat.js"]
     assert guide.count("assistantHeadRow(GUIDE_NAME)") == 4, "a guide row, its pending row, the streamed one and the revealed one each open with the head"
@@ -4016,8 +4054,9 @@ def test_an_assistant_head_asks_one_function_for_its_face() -> None:
     assert "repaintAssistantAvatars()" in settings[settings.index('$("assistant-avatar").addEventListener') :][:300]
     index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert 'id="assistant-avatar"' in index and '<option value="emblem">App emblem</option>' in index
-    #: The emblem is the logo's own renderer, copied rather than drawn per reply.
-    assert "renderEmblem(scratch, size, { animate: true })" in js["assistant-avatar.js"]
+    #: The emblem is the logo's own builder (`emblemArt`), never a second
+    #: drawing of the mark, and a head is left out of the lift.
+    assert "emblemArt(size, { head: true })" in js["assistant-avatar.js"]
     assert "renderEmblem(" not in chat
 
 
@@ -4057,7 +4096,7 @@ def test_a_frame_is_one_kind_reached_three_ways() -> None:
     wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
     wbmap = (ROOT / "frontend" / "js" / "whiteboard-map.js").read_text(encoding="utf-8")
     index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     assert 'f: "frame",' in wb
     assert '"sticky", "text", "frame",' in wbmap, "a map's F never picks the frame"
     assert 'data-tool="frame"' in index and 'data-wb-insert="frame"' in index
@@ -4068,7 +4107,7 @@ def test_a_frame_is_one_kind_reached_three_ways() -> None:
     assert "wbCaptureBulkMoveOrigin(null, keys)" in wb[wb.index("function wbFrameDragOrigin(") :][:400]
     frame_rule = css[css.index(".wb-object-frame {") :][:600]
     assert "pointer-events: none;" in frame_rule and "background: transparent;" in frame_rule
-    guide = (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8")
+    guide = re.sub(r'"\s*\n\s*"', "", (ROOT / "src" / "tessellate" / "ai" / "help_chat.py").read_text(encoding="utf-8"))
     assert "F frame" in guide and "title drags it and what is inside it" in guide
     assert "Ctrl+Shift+L locks the selection" in guide
 
@@ -4080,7 +4119,7 @@ def test_a_locked_item_is_out_of_reach_in_one_way() -> None:
     by asking `wbIsLocked`: Select all, the marquee, the lasso, a group's
     click and a frame's drag. The way back is on the board's own menu."""
     wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     assert "#whiteboard-container .wb-locked,\n#whiteboard-container .wb-locked * {\n  pointer-events: none;" in css
     assert "return out.filter(([kind, item]) => !wbIsLocked(kind, item) && !wbHiddenOnBoard(kind, item));" in wb
     assert wb.count('if (wbIsLocked("object", obj)) continue;') == 2, "the marquee and the lasso"
@@ -4135,7 +4174,7 @@ def test_presenting_is_one_mode_with_one_bar() -> None:
     phase so no board key acts; the bar's text is a polite live region."""
     wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
     index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     assert 'data-wb-fn="present" data-wb-surface="board"' in index
     assert 'data-wb-fn="present" data-wb-surface="map"' in index, "a map presents by branch (MINDMAP_PLAN 21)"
     #: Studying a map (MINDMAP_PLAN decision 36) is the same mode and bar.
@@ -4148,7 +4187,7 @@ def test_presenting_is_one_mode_with_one_bar() -> None:
     keys = wb[wb.index("let wbPresent = null;") :]
     assert "event.stopImmediatePropagation();" in keys and "}, true);" in keys
     assert ".wb-board-menu [data-wb-surface]" in (ROOT / "frontend" / "js" / "whiteboard-map.js").read_text(encoding="utf-8")
-    guide = (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8")
+    guide = (ROOT / "src" / "tessellate" / "ai" / "help_chat.py").read_text(encoding="utf-8")
     assert "Present frames: one frame" in guide
 
 
@@ -4156,7 +4195,7 @@ def test_the_text_box_grip_stands_on_an_opaque_ground() -> None:
     """The "⠿" tab on a text box or sticky's top edge: `--card-bg` is a glass
     in most looks, so on a sticky's yellow the muted glyph measured 1.68:1 in
     dark (`scratchpad/ui-sweeps/wbgripink.js`; 7.86:1 on the opaque ground)."""
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     rule = css[css.index(".wb-object-grip {") :][:900]
     assert "background: var(--modal-bg-opaque);" in rule and "var(--card-bg)" not in rule.split("}")[0]
 
@@ -4169,7 +4208,7 @@ def test_a_maps_boundaries_and_summaries_are_drawn_in_one_pass() -> None:
     pointer; and a theme reset keeps them."""
     wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
     wm = (ROOT / "frontend" / "js" / "whiteboard-map.js").read_text(encoding="utf-8")
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     render = wb[wb.index("function renderWhiteboard()") :]
     assert render.index("wbRenderMapStructure();") > render.index("wbRenderMapEdges();")
     assert "if (wbIsMap()) wbRenderMapStructure();" in wb[wb.index("function wbQueueSelectionBar()") :][:400]
@@ -4206,33 +4245,20 @@ def test_a_comment_thread_is_one_popover_reached_three_ways() -> None:
     shell; every change goes through `wbSetComments`; the marks are painted
     after every render and follow a drag on the selection bar's frame."""
     wb = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     assert wb.count("wbOpenComments(") == 4, "the definition, the mark, the item menu, the topic menu"
     assert 'panel.className = "help-popover wb-comments";' in wb
-    assert "placeHelpPopover(panel, target);" in wb[wb.index("function wbOpenComments(") :][:7000]
-    assert wb.count("await wbSetComments(") == 2, "a post and a delete"
+    #: The window is the function's own length (it grew Attach and replies,
+    #: 2026-10-10): the placing must still be inside it.
+    opener = wb[wb.index("function wbOpenComments(") :]
+    assert "placeHelpPopover(panel, target);" in opener[: opener.index("\nfunction ", 10)]
+    assert wb.count("await wbSetComments(") == 2, "a post, and every change to a comment (reply, edit, resolve, delete)"
     assert "wbPaintCommentMarks();" in wb[wb.index("function renderWhiteboard()") :]
     assert "wbPaintCommentMarks();" in wb[wb.index("function wbQueueSelectionBar()") :][:300]
     assert '".wb-comment-pin",' in wb[wb.index("const WB_INV_ZOOM_GRIPS") :][:200]
     assert "#library-view-whiteboard.wb-presenting .wb-comment-marks {\n  display: none;" in css
-    guide = (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8")
+    guide = re.sub(r'"\s*\n\s*"', "", (ROOT / "src" / "tessellate" / "ai" / "help_chat.py").read_text(encoding="utf-8"))
     assert "Right-click an item, Comment…" in guide and "Comment… starts a thread" in guide
-
-
-def test_the_sketch_pads_ink_dots_close_up_in_the_tablet_band() -> None:
-    """INBOX 276: the pad's bar wrapped at 820 on Large text, 19px short, and
-    the width was in the rows (the group labels sit above them and are all
-    narrower). From 820 to 1023px the dots drop their gap; their own
-    transparent ring keeps them apart. Below 820 they are 2rem with a target a
-    gap wider than the disc, so the gap must stay (the band used to start at
-    600 and 6 pairs of targets overlapped at 700 on Large text with Spacious).
-    `scratchpad/ui-sweeps/sketchbar.js` is the measurement; this keeps the
-    rule from being lost in a merge."""
-    css = (ROOT / "frontend" / "css" / "02-chat-graph.css").read_text(encoding="utf-8")
-    assert "@media (min-width: 600px) and (max-width: 1023px) {\n  /* The long-hand" not in css
-    at = css.index("@media (min-width: 820px) and (max-width: 1023px) {")
-    block = css[at : css.index("\n}", at)]
-    assert ".sketch-toolbar .wb-tool-section-row.sketch-colors" in block and "column-gap: 0;" in block
 
 
 def test_the_writing_rooms_selects_get_their_own_line_on_a_phone() -> None:
@@ -4429,7 +4455,11 @@ def test_the_chat_sidebar_head_is_one_quiet_row():
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     start = html.index('<aside class="card sidebar-panel" id="chat-sidebar">')
     aside = html[start : html.index("</aside>", start)]
-    head = aside[aside.index('class="row space-between sidebar-head"') : aside.index('<ul id="conversation-list">')]
+    head = re.sub(r"<!--.*?-->", "", aside[aside.index('class="row space-between sidebar-head"') : aside.index('<p id="conv-empty"')], flags=re.S)
+    #: The empty line sits between the head and the list (the owner,
+    #: 2026-10-10: "should that no chats text be at the top not the bottom??").
+    between = aside[aside.index('<p id="conv-empty"') : aside.index('<ul id="conversation-list">')]
+    assert between.rstrip().endswith("</p>") and between.count("<") == 2
     assert 'id="chat-sidebar-sort"' in head and 'data-select-icon="ph-sort-descending"' in head
     new = re.search(r'<button id="chat-new"[^>]*>', head).group(0)
     assert 'class="ghost small icon-only"' in new and 'aria-label="New chat"' in new
@@ -4546,7 +4576,7 @@ def test_every_settings_pane_opens_on_its_dock() -> None:
         assert "help-head" not in attrs, f"{pane} opens on a bare help-head row: make it the pane's dock"
         if "dock" in attrs:
             assert tag == "div" and re.search(r'class="dock\b', attrs), pane
-    settings = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
+    settings = with_pieces("settings.js")
     body = _function_body(settings, "ensureSettingsPaneTitle")
     assert '"dock settings-pane-title"' in body and '"dock-identity"' in body
     find = (ROOT / "frontend" / "js" / "settings-find.js").read_text(encoding="utf-8")
@@ -4673,7 +4703,7 @@ def test_an_empty_line_in_a_small_panel_is_the_recipe():
         if "empty-line" not in classes and "empty-state" not in classes:
             off.add(ident.group(1))
     assert off <= EMPTY_LINES_NOT_YET, f"an empty line off the recipe: {sorted(off - EMPTY_LINES_NOT_YET)}"
-    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    css = "\n".join((ROOT / "frontend" / "css" / name).read_text(encoding="utf-8") for name in ("07-whiteboard-misc.css", "library-lazy.css"))
     rule = next(body for sel, body in _rules(css) if sel.strip() == ".empty-line")
     for part in ("var(--muted)", "var(--text-md)", "text-align: start", "margin: var(--space-3) 0"):
         assert part in rule, f".empty-line lost {part}"
@@ -4704,9 +4734,9 @@ def test_the_installed_models_are_model_cards():
     assert "buildModelCard(model, state)" in body and 'listed: "installed"' in body
     assert "list.dataset.sig === sig" in body, "a poll must not redraw the cards under an open menu"
     assert 'state.installed && !model.listed' in lazy
-    boot = (ROOT / "frontend" / "js" / "ai-tools.js").read_text(encoding="utf-8")
+    boot = with_pieces("ai-tools.js")
     assert "function renderInstalledModels" not in boot
-    status = (ROOT / "frontend" / "js" / "status.js").read_text(encoding="utf-8")
+    status = with_pieces("status.js")
     #: Drawn under the one check that the lazy settingsUi file has loaded.
     assert 'if (typeof renderSuggested === "function") {\n      renderInstalledModels(status);' in status
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
@@ -4721,7 +4751,7 @@ def test_the_autonomous_override_names_what_it_falls_back_to():
     model, and the autonomous pass's own override), and the override's
     default now says which model it means, in the per-feature pickers' words
     (INBOX 430): "Same as utility model (currently llama3.2)" (op4-1005)."""
-    js = (ROOT / "frontend" / "js" / "ai-tools.js").read_text(encoding="utf-8")
+    js = with_pieces("ai-tools.js")
     body = _function_body(js, "renderAutonomousModelPicker")
     assert "Same as utility model (currently ${fallback})" in body
     assert "status.utility_model || status.chat_model" in body
@@ -4872,7 +4902,7 @@ def test_every_rail_is_a_known_rail() -> None:
 def test_a_rail_rows_menu_is_a_plain_ghost_icon_that_fills_on_its_own_hover() -> None:
     css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
     plain = [body for selector, body in _rules(css) if all(menu in selector for menu in RAIL_MENUS) and selector.endswith("button")]
-    hover = [body for selector, body in _rules(css) if all(menu in selector for menu in RAIL_MENUS) and selector.endswith("button:hover")]
+    hover = [body for selector, body in _rules(css) if all(menu in selector for menu in RAIL_MENUS) and re.search(r"button:hover(,|$)", selector)]
     assert plain and hover, "the rail ⋯ recipe rule (08-consistency.css) is missing or no longer names every rail's menu"
     assert _rail_background(plain[0]) == "transparent", "a rail ⋯ has no fill at rest or while its row is hovered"
     assert _rail_background(hover[0]) == "var(--ghost-btn-bg)", "a rail ⋯ fills only under its own pointer"
@@ -4885,7 +4915,7 @@ def test_a_rail_rows_menu_is_a_plain_ghost_icon_that_fills_on_its_own_hover() ->
 #: dialog's Board | Mind map and the icon picker's Emoji | Icons were pills and
 #: are strips now. What is left is either a setting's value or a view of one
 #: pane (DESIGN.md's `.seg` row: two or three short choices), or a kind switch
-#: placed in `docs/roadmap/agent-remaining/board715-1006.md`. The lists only
+#: placed in `docs/roadmap/archive/agent-remaining/board715-1006.md`. The lists only
 #: shrink: a new pill in a popup fails here.
 SEG_IN_POPUPS = {
     "doc-history-filter": "Earlier versions: All or AI edits, a filter of one list",
@@ -4896,14 +4926,14 @@ SEG_IN_POPUPS = {
     "border-style-seg": "Settings: a value",
     "privacy-range": "Settings: a value",
     "log-view-toggle": "Settings: a view of one log",
-    "note-picker-sources": "PLACED: the Attach picker's sources, a kind switch",
 }
 SEG_BUILT_IN_SCRIPT = {
     ("app.js", "seg seg-compact confirm-seg"): "promptDialog's `segment`, a value",
     ("documents.js", "seg"): "the print setup's values",
     ("skills.js", "seg seg-compact chat-skill-pace"): "a skill's pace, a value",
     ("whiteboard.js", "seg seg-compact wb-export-seg"): "Export this board: the format, a value",
-    ("selection.js", "seg"): "PLACED: pickLibraryItemDialog's sources, a kind switch",
+    ("timeline-calendar.js", "seg seg-compact timeline-cal-span"): "not a popup: the calendar head's view mode (Month, Week, Day)",
+    ("dashboard.js", "seg focus-presets-seg"): "not a popup: the focus timer's length, a value (UI_MODERNISATION V8)",
 }
 
 
@@ -5004,7 +5034,7 @@ def test_the_library_hover_tick_shows_its_check_and_names_itself() -> None:
 #: class, `kebab-opener`, and it is styled once in 08-consistency.css; a surface
 #: that wants its ⋯ dressed differently does not get to say so.
 def test_the_kebab_opener_is_one_shared_ghost_icon_styled_once() -> None:
-    script = (ROOT / "frontend" / "js" / "sheets-selects.js").read_text(encoding="utf-8")
+    script = with_pieces("sheets-selects.js")
     assert 'opener.classList.add("icon-only", "kebab-opener")' in script, "kebabMenu's opener carries the shared class"
 
     shared = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
@@ -5063,3 +5093,732 @@ def test_a_rail_rows_title_takes_the_full_width_and_its_menu_overlays_it() -> No
     fades = [body for sel, body in _rules(css) if "#conversation-list li" in sel and "mask-image" in body]
     assert fades, "the end of a chat's title fades under its ⋮"
     assert any(":hover" in sel and "doc-item" in sel for sel, body in _rules(css) if "mask-image" in body)
+
+
+def test_a_note_cards_details_line_ends_the_card_and_keeps_the_space_before_edited() -> None:
+    """INBOX 760, the owner: "you still havent fixed the positioning of the
+    dates and times". The wiki-link row, the why line and the review answers
+    are built after `.entry-meta`, so a card with links showed its time 48px
+    (one row) to 113px (three, at 390) above the card's foot against 7.4px on
+    a card with none (`scratchpad/ui-sweeps/carddate.js`). Card view is a
+    column flex whose details line has the last `order`, and the "· edited"
+    suffix keeps its space as a no-break space, because a plain leading space
+    collapses inside the date's inline flex box."""
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    card = "#entry-list:not(.is-rows) > li"
+    rules = list(_rules(css))
+
+    def body(selector: str) -> str:
+        return "\n".join(b for s, b in rules if s == selector)
+
+    assert re.search(r"display\s*:\s*flex", body(card)) and re.search(r"flex-direction\s*:\s*column", body(card))
+    meta = body("#entry-list > li:not(.list-window-sentinel) > .entry-meta.entry-meta")
+    assert re.search(r"order\s*:\s*1\b", meta), "the details line is last in card view"
+    parts = body(f"{card}:not(.list-window-sentinel) > :not(.entry-meta, .entry-title)")
+    assert re.search(r"margin-bottom\s*:\s*0\b", parts), "flex margins do not collapse, so the parts drop theirs"
+    assert "!important" not in "\n".join([body(card), meta, parts])
+    # The row view is a grid placed by explicit cell; the card rule must not reach it.
+    assert ":not(.is-rows)" in card
+    # The suffix keeps its space as a no-break space in its text (a plain
+    # leading space collapses inside the date's inline flex box).
+    assert 'textContent: "\\u00a0· edited"' in (ROOT / "frontend" / "js" / "note-cards.js").read_text(encoding="utf-8")
+    # The phone rule that hides the suffix is still there.
+    assert re.search(r"display\s*:\s*none", body(".entry-meta.note-meta .entry-edited"))
+def test_the_no_model_notice_is_one_row_on_the_notice_recipe() -> None:
+    """INBOX 767 (the owner, 2026-10-10): the Chat tab's no-model line was "ugly
+    and on multiple rows": a long sentence, then the button and the close on a
+    second row, in a box of its own.
+
+    So it is the notice recipe now, in the recipe's order: the plug icon as the
+    first child (built by `setLabel` on the container, so `.notice > .ph`
+    styles it), one short sentence, the button, the close last. The long
+    explanation moved to the button's `title`.
+    """
+    status = app_js_text()
+    start = status.index("function renderAiOfflineNotice(")
+    body = status[start : status.index("\n}\n", start)]
+    order = [
+        body.index('setLabel(container, "ph:plugs")'),
+        body.index("container.append(text, link)"),
+        body.index("container.append(close)"),
+    ]
+    assert order == sorted(order), "the row's order is icon, sentence, button, close"
+    assert 'text.className = "ai-offline-text"' in body
+    assert "detail" in body and "link.title" in body, "the long half lives in the button's title"
+
+    #: Every container draws the recipe's box, so none keeps a private one.
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    for ident in ("chat-offline", "ask-offline", "draft-offline", "command-palette-offline"):
+        assert re.search(rf'id="{ident}" class="ai-offline-note notice hidden"', html), ident
+    dashboard = with_pieces("dashboard.js")
+    assert 'offline.className = "ai-offline-note notice hidden"' in dashboard
+
+    #: One short sentence per surface (under 90 characters), no exclamation mark.
+    sentences = re.findall(r'renderAiOfflineNotice\(\s*\$\("[a-z-]+"\),\s*"([^"]+)"', status)
+    assert len(sentences) == 4, sentences
+    for sentence in sentences:
+        assert len(sentence) < 90 and "!" not in sentence, sentence
+
+    css = "\n".join(path.read_text(encoding="utf-8") for path in CSS)
+    row = re.search(r"\n\.ai-offline-note\.notice \{(.*?)\n\}", css, re.S)
+    assert row and "align-items: center" in row.group(1), ".ai-offline-note.notice has no row rule"
+    assert re.search(r"\n\.ai-offline-text \{[^}]*flex: 1 1 12rem;[^}]*min-width: 0", css), (
+        "the sentence takes the spare width and can shrink, or the button is pushed out of the box"
+    )
+    #: `.notice` does not wrap; this row alone wraps, so the action steps to a
+    #: second row when the words would be squeezed under 12rem (mono, a narrow card).
+    notice = re.search(r"\n\.notice \{(.*?)\n\}", css, re.S).group(1)
+    assert "flex-wrap" not in notice and "flex-wrap: wrap" in row.group(1)
+    phone = re.search(r"@media \(max-width: 599\.98px\) \{\s*\.ai-offline-note\.notice \{(.*?)\n  \}(.*?)\n\}\n", css, re.S)
+    assert phone and "display: grid" in phone.group(1), "under 600px (599.98px) the row is a grid"
+    assert re.search(r"\.icon-only\) \{[^}]*grid-area: 2 / 2", phone.group(2)), "the button sits under the sentence"
+    assert re.search(r"\.ai-offline-note > \.icon-only \{[^}]*grid-area: 1 / 3", phone.group(2)), (
+        "the close stays at the end of the first row on a phone"
+    )
+
+
+
+
+def test_what_a_field_was_read_as_is_one_chip_row() -> None:
+    """DESIGN.md, "What a field's words were read as" (CHAT_PLAN decision 50):
+    the chips under a field come from quickadd.js alone, and no surface asks
+    the reading route for itself, so every field reads, asks and saves the
+    same way."""
+    own = {"quickadd.js"}
+    builders = [p.name for p in JS if p.name not in own and "qa-chips" in p.read_text(encoding="utf-8")]
+    assert not builders, f"a chip row built outside quickadd.js: {builders}"
+    readers = [
+        p.name
+        for p in JS
+        if p.name not in own and re.search(r"""["'`]/(?:api/)?read\?""", p.read_text(encoding="utf-8"))
+    ]
+    assert not readers, f"a surface asking /read itself rather than through quickAddAttach: {readers}"
+# Phase 12 decisions 2 and 3 (UI_MODERNISATION_PLAN; DESIGN.md, the ten rules
+# 4 and 6) had an icon button answer hover with its glyph alone; the owner
+# retired that on 2026-10-10 (INBOX 784/788): every button takes the one quiet
+# box, `test_every_button_answers_hover_with_the_same_quiet_box` below.
+_NOT = re.compile(r":not\((?:[^()]|\([^()]*\))*\)")
+
+
+def _served_rules():
+    from tessellate.api.asset_strip import strip_for_path
+
+    for path in CSS:
+        served = strip_for_path(path.name, path.read_bytes()).decode("utf-8")
+        served = re.sub(r"@(media|supports|container)[^{]*\{", "", served)
+        for m in re.finditer(r"([^{}]+)\{([^{}]*)\}", served):
+            yield path.name, [s.strip() for s in m.group(1).split(",")], m.group(2)
+
+
+#: The fills a button's hover may paint: the quiet tokens the recipe names (a
+#: tonal button's `--ghost-btn-bg`, a status item's `--chip-bg`, a row's veil,
+#: a surface step, the accent's low alpha for an open or chosen one, the filled
+#: button's own deeper step).
+_BUTTON_HOVER_OK = re.compile(
+    r"^(transparent|none|var\(--(ghost-btn-bg|ghost-btn-bg-hover|surface-2|chip-bg|hover-veil|row-hover-bg|accent-soft|accent-surface-hover|button-ground)\)"
+    r"|linear-gradient\(var\(--hover-veil\), var\(--hover-veil\)\)(?: var\(--[a-z-]+\))?)\s*(!important)?$"
+)
+
+
+def test_every_button_answers_hover_with_the_same_quiet_box() -> None:
+    """INBOX 784/788, the owner: "not all buttons have the same hover states ...
+    all the ui styles across the app need to be consistent". An icon button used
+    to answer hover with its glyph's colour and no box (Phase 12 decision 2) while
+    a labelled button beside it took a box; the top bar showed both. One recipe now
+    (DESIGN.md, "One hover for every button"): a quiet fill from the recipe's
+    tokens, the glyph to full ink, and the accent colour kept for what is chosen.
+    The tokens an icon's hover paints are no longer nulled, and no icon selector's
+    hover is a colour change alone."""
+    forms = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
+    assert not re.search(r":is\(button, summary\):is\(\.icon-only[^{]*\{[^}]*--hover-veil: transparent", forms), (
+        "an icon button's hover tokens are nulled again: that is the glyph-only grammar the owner retired"
+    )
+    assert not re.search(r":is\(\.icon-only, \.icon-button[^)]*\):is\(:hover, :focus-visible\) \{\s*--ink: var\(--accent-text\)", forms)
+    assert re.search(r":is\(button, summary\):is\(\.icon-only, \.icon-button[^{]*\{\s*--ghost-btn-bg: var\(--hover-veil\)", forms), (
+        "borderless buttons share one fill, the veil (the bell and 'All spaces' measured 0.12 and 0.07 side by side)"
+    )
+    assert re.search(
+        r":is\(button, summary\)\.ghost:is\(\.icon-only, \.icon-button\)[^{]*:is\(:hover, :focus-visible, \[aria-expanded=\"true\"\]\) \{\s*background: var\(--ghost-btn-bg\)",
+        forms,
+    ), "the icon button's hover fill is gone from 01-forms-settings.css"
+    bad = []
+    for name, sels, body in _served_rules():
+        hits = [s for s in sels if ":hover" in s and re.search(r"\.icon-(only|button)\b", _NOT.sub("", s))]
+        if not hits:
+            continue
+        values = re.findall(r"(?:^|;)\s*background(?:-color)?\s*:\s*([^;]+)", body)
+        for value in values:
+            if not _BUTTON_HOVER_OK.match(value.strip()):
+                bad.append(f"{name}: {hits[0][:80]} -> background {value.strip()[:40]}")
+        color = re.search(r"(?:^|;)\s*color\s*:\s*([^;]+)", body)
+        if color and not values and "accent" in color.group(1):
+            bad.append(f"{name}: {hits[0][:80]} -> only the glyph goes to {color.group(1).strip()[:30]}")
+    assert not bad, "an icon button's hover departs from the one recipe (DESIGN.md, One hover for every button):\n" + "\n".join(bad)
+
+
+def test_the_dashboards_search_doorway_answers_hover_with_the_box() -> None:
+    """`.dash-find` was the one button answering hover with its glyph and an
+    accent edge. It takes the veil box and full ink like every other button."""
+    bad = []
+    found = 0
+    for name, sels, body in _served_rules():
+        if not any("dash-find" in s and (":hover" in s or ":focus-visible" in s) for s in sels):
+            continue
+        found += 1
+        if "--hover-veil" not in body:
+            bad.append(f"{name}: {sels[0][:70]} has no veil")
+        if re.search(r"border-color\s*:\s*var\(--accent", body):
+            bad.append(f"{name}: {sels[0][:70]} answers with the accent edge")
+    assert found >= 2 and not bad, "\n".join(bad) or "the .dash-find hover rules are gone"
+
+
+def test_a_backlink_row_action_is_the_quiet_row_action() -> None:
+    """The unlinked mention's Link (Connections and a document's panel) was a
+    bordered ghost button. It is the list row's action: no edge or fill at
+    rest, the veil on hover, like the insight verdicts."""
+    css = (ROOT / "frontend" / "css" / "05-sidebars-themes.css").read_text(encoding="utf-8")
+    m = re.search(r"\.doc-backlink-foot > button\.doc-backlink-action \{([^}]*)\}", css)
+    assert m, "the backlink action's row recipe is gone"
+    assert re.search(r"border:\s*0", m.group(1)) and "background: transparent" in m.group(1)
+    assert re.search(r"doc-backlink-action:is\(:hover, :focus-visible\):not\(:disabled\) \{\s*background: var\(--hover-veil\)", css)
+
+
+def test_every_help_trigger_is_one_shape() -> None:
+    """The owner: "Some tooltip buttons are circles and some are rounded squares"."""
+    round_ = []
+    for name, sels, body in _served_rules():
+        if not any(re.search(r"graph-help-toggle|data-help-for", s) for s in sels):
+            continue
+        for value in re.findall(r"(?:^|;)\s*border-radius\s*:\s*([^;]+)", body):
+            if re.search(r"50%|999|radius-pill", value):
+                round_.append(f"{name}: {sels[0][:70]} -> {value.strip()}")
+    assert not round_, "a help trigger is drawn round; it takes the button radius:\n" + "\n".join(round_)
+
+
+def test_a_date_or_time_field_is_the_picker_recipe() -> None:
+    """Phase 12 decision 5: the page's date and time fields are enhanced at boot,
+    keep their native value (a write repaints, a focus lands on the face) and
+    read typed words with `ai/when`, never a second picker built by hand."""
+    selects = with_pieces("sheets-selects.js")
+    boot = selects[selects.index("function watchForSelects()"):]
+    boot = boot[: boot.index("new MutationObserver")]
+    assert 'querySelectorAll(\'input:is([type="date"], [type="time"])\')' in boot and "enhanceDateField(field)" in boot
+    body = selects[selects.index("function enhanceDateField(input)"):]
+    body = body[: body.index("\n}\n")]
+    for need in ('Object.defineProperty(input, "value"', "input.focus = (options) => opener.focus(options)",
+                 'ensureModule("dateField")', "dateFieldWire(input, opener, panel, label, isTime)"):
+        assert need in body, need
+    panel = (ROOT / "frontend" / "js" / "date-field.js").read_text(encoding="utf-8")
+    for need in ("wireHelpPopover(opener, panel)", '"/reminders/when"', '"timeline-monthpop-grid"'):
+        assert need in panel, need
+    others = [p.name for p in JS if p.name != "date-field.js" and "/reminders/when" in p.read_text(encoding="utf-8")]
+    assert not others, f"a second typed-date reader: {others}"
+
+
+def test_an_insights_verdicts_are_one_compact_pair_on_the_sentences_row() -> None:
+    """INBOX 782, the owner: "redesign the confirm and not right buttons ... and
+    any other similar instances of them across the app". Chat's pattern lines
+    and Tidy's Patterns draw them with `insightLine` (status.js); the
+    dashboard's ⋯ takes the same two items from `INSIGHT_VERDICT_ITEMS`. No
+    other file words the pair, and the pair is quiet (no edge, no fill at
+    rest), not two full-size bordered buttons under the sentence."""
+    status = with_pieces("status.js")
+    assert "function insightLine(" in status and "function insightVerdicts(" in status
+    assert "const INSIGHT_VERDICT_ITEMS" in status
+    copies = []
+    for path in JS:
+        text = path.read_text(encoding="utf-8")
+        code = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("//"))
+        if path.name != "status.js" and re.search(r"""["'](?:ph:x )?Not right["']""", code):
+            copies.append(path.name)
+        if path.name != "status.js" and "insightVerdicts(" in code:
+            copies.append(f"{path.name} calls the pair directly: use insightLine")
+    assert not copies, f"the Confirm and Not right pair is drawn in one place; also in: {copies}"
+    css = "\n".join(
+        m.group(0) for m in re.finditer(r"\.insight-verdict\s*\{[^}]*\}", (ROOT / "frontend" / "css" / "04-chat-dock-appearance.css").read_text(encoding="utf-8"))
+    )
+    assert "border: 0" in css and "background: transparent" in css, "the pair is quiet at rest"
+    for name in ("chat-attach.js", "tidy.js"):
+        assert "insightLine(" in (ROOT / "frontend" / "js" / name).read_text(encoding="utf-8"), name
+
+
+def test_a_changed_setting_is_marked_by_the_rows_recipe():
+    """DESIGN.md, "A setting changed from its default" (WORLD_CLASS_PLAN 25f).
+
+    One file marks a changed row and draws its reset; a second marker or a
+    reset built elsewhere would be two looks for one fact.
+    """
+    rows = (ROOT / "frontend" / "js" / "settings-rows.js").read_text(encoding="utf-8")
+    assert 'button.className = "icon-only ghost small setting-reset"' in rows
+    assert 'rowEl.classList.toggle("setting-modified", modified)' in rows
+    others = [p.name for p in JS if p.name != "settings-rows.js" and "setting-modified" in p.read_text(encoding="utf-8")]
+    assert not others, f"a changed setting marked outside settings-rows.js: {others}"
+    css = "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+    #: The bar sits in the gutter, outside the text edge (the owner,
+    #: 2026-10-11: an inset bar on the text edge clashed with the label).
+    rule = re.search(r"#settings-modal \.setting-modified::before \{([^}]*)\}", css)
+    assert rule and "background: var(--accent-text)" in rule.group(1)
+    assert "inset-inline-start: calc(-1 * var(--space-3))" in rule.group(1) and "border:" not in rule.group(1)
+
+
+def test_one_calendar_grid_of_dom_cells() -> None:
+    """TIMELINE_PLAN section 9 (decisions 14, 15, 16, 19): the app has one
+    calendar, the Timeline's, drawn by timeline-calendar.js as DOM cells in a
+    CSS grid (no SVG), every day through `timelineCalCell`, three rows and a
+    "+n" in a month cell, and its keys and drags on one delegated listener
+    each on the view's box, never one per cell. The reminders tab opens it
+    rather than drawing a month of its own."""
+    cal = (ROOT / "frontend" / "js" / "timeline-calendar.js").read_text(encoding="utf-8")
+    assert "const TIMELINE_CAL_ROWS = 3;" in cal
+    #: A press on a day opens it, and the written notes are chips with titles
+    #: wherever the cell has the room (the owner, 2026-10-11): fitted by
+    #: measuring, never by a count that ignores the cell's height.
+    assert "function timelineCalPick(" in cal and "timelineCalPick(cell.dataset.calDay)" in cal
+    assert 'event.key === "Enter" || event.key === " "' in cal
+    assert "timelineCalFit(grid)" in cal and "cell.clientHeight" in cal
+    assert "<svg" not in cal and "createElementNS" not in cal, "the calendar is DOM cells, not SVG"
+    assert cal.count('className = "timeline-cal-cell"') == 1, "every day is built by timelineCalCell"
+    for event in ("keydown", "dragstart", "dragover", "drop"):
+        assert len(re.findall(rf'addEventListener\("{event}"', cal)) == 1, event
+    code = app_js_text()
+    assert "function renderReminderCalendar" not in code, "one calendar (decision 19)"
+    assert 'timelineCalendarCall("timelineCalendarReminders")' in code
+    others = [p.name for p in JS if p.name != "timeline-calendar.js" and re.search(r"class(?:Name)?\s*=\s*[\"'][^\"']*-cal-grid", p.read_text(encoding="utf-8"))]
+    assert not others, f"a second month grid: {others}"
+
+
+def test_web_results_are_one_fold_read_in_place():
+    """CHAT_PLAN decision 66 (INBOX 810): web results are one fold in the
+    Thinking fold's look, a page read in place as text, built in one place."""
+    text = (ROOT / "frontend/js/ask-compose.js").read_text(encoding="utf-8")
+    body = text[text.index("function renderWebSources"):text.index("//: The digest's one offer")]
+    assert 'fold.className = "agent-step web-fold"' in body and 'summary.className = "fold-summary"' in body
+    assert "/websearch/read?url=" in body and "innerHTML" not in body and "iframe" not in body
+    builders = [p.name for p in (ROOT / "frontend/js").glob("*.js") if "web-fold" in p.read_text(encoding="utf-8")]
+    assert builders == ["ask-compose.js"], builders
+
+
+def test_why_this_answer_is_one_fold_built_once():
+    """CHAT_PLAN B30: how an answer was made is one fold in the Thinking
+    fold's look, its lines text (never markup), built in one place."""
+    text = (ROOT / "frontend/js/ask-compose.js").read_text(encoding="utf-8")
+    start = text.index("function renderAskWhy")
+    body = text[start:text.index("\n}\n", start)]
+    assert 'fold.className = "agent-step why-fold"' in body and 'summary.className = "fold-summary"' in body
+    assert "innerHTML" not in body and "textContent" in body
+    builders = [p.name for p in (ROOT / "frontend/js").glob("*.js") if "why-fold" in p.read_text(encoding="utf-8")]
+    assert builders == ["ask-compose.js"], builders
+
+
+def test_answer_shape_is_lifted_in_one_place():
+    """CHAT_PLAN decision 71: a count's figure and a who card are lifted from
+    the rendered answer in one function, on tokens, without markup strings."""
+    text = (ROOT / "frontend/js/ask-compose.js").read_text(encoding="utf-8")
+    body = text[text.index("function digestShape"):text.index("//: **Short by default, More expands**")]
+    assert 'className = "digest-figure"' in body and 'className = "digest-card"' in body
+    assert "innerHTML" not in body and "setLabel(head" in body
+    css = (ROOT / "frontend/css/ask-compose-lazy.css").read_text(encoding="utf-8")
+    card = css[css.index(".digest-card {"):css.index("}", css.index(".digest-card {"))]
+    for token in ("var(--surface-2)", "var(--border)", "var(--radius-md)", "var(--space-3)"):
+        assert token in card, token
+    builders = [p.name for p in (ROOT / "frontend/js").glob("*.js") if "digest-card" in p.read_text(encoding="utf-8")]
+    assert builders == ["ask-compose.js"], builders
+    more = text[text.index("function digestMore"):text.index("//: The digest's one offer")]
+    assert 'className = "linklike digest-more"' in more and "aria-expanded" in more and ".hidden = true" in more
+    ask = (ROOT / "frontend/js/capture-ask.js").read_text(encoding="utf-8")
+    assert "digestShape(answerEl, support.shape, support.figure)" in ask and "digestMore(answerEl, support.more)" in ask
+
+
+# A note's or document's name is shown through one helper (INBOX 820, the
+# owner: layers "and potentially other places in the app dont handle inline md
+# rendering or cut it out"; a board's Layers row read "Note card: **Current
+# Commit..."). `noteNamePlain(content, limit)` in chat-attach.js drops the
+# frontmatter, takes the first line with words and turns its Markdown into the
+# words it means. A hand-rolled `.split("\n")[0]` on a note's content hands the
+# reader the stored syntax, so each remaining one is named here with why it is
+# not a name; a new one fails the build.
+FIRST_LINE_SPLIT = re.compile(r'\.split\("\\n"\)\[0\]')
+FIRST_LINE_NOT_A_NAME = {
+    "capture-ask.js": 1,  # a figure caption's own words, not a note
+    "documents-code.js": 3,  # parser messages and a search seed from code
+    "documents-codekit.js": 2,  # a snippet's first line of code
+    "documents-prose.js": 1,  # a prose-check option's text
+    "documents.js": 2,  # an editor selection and a placeholder
+    "editor.js": 2,  # the link target a [[wiki link]] resolves by (stored words, brackets stripped)
+    "quick-note.js": 1,  # the quick-note field's own typed title
+}
+
+
+def test_a_note_is_named_through_note_name_plain_not_its_first_line() -> None:
+    found: dict[str, int] = {}
+    for path in JS:
+        text = "\n".join(line for line in path.read_text(encoding="utf-8").splitlines() if not line.lstrip().startswith("//"))
+        count = len(FIRST_LINE_SPLIT.findall(text))
+        if count:
+            found[path.name] = count
+    assert found == FIRST_LINE_NOT_A_NAME, (
+        f"a first-line split on content outside noteNamePlain: {found} (allowed {FIRST_LINE_NOT_A_NAME}); "
+        "name a note with noteNamePlain(content, limit) (chat-attach.js)"
+    )
+
+
+def test_note_name_plain_is_defined_once_and_used_by_the_name_sites() -> None:
+    text = (ROOT / "frontend" / "js" / "chat-attach.js").read_text(encoding="utf-8")
+    assert len(re.findall(r"^function noteNamePlain\(", text, flags=re.M)) == 1
+    used = {p.name for p in JS if "noteNamePlain(" in p.read_text(encoding="utf-8")}
+    for name in ("whiteboard.js", "dashboard.js", "graph.js", "menus.js", "palette.js", "notes-list.js", "phone-shell.js", "note-cards.js"):
+        assert name in used, name
+
+
+# --- INBOX 803: the quiet tier in a card, a disclosure row, a counted chip -----------
+
+
+def _forms_css() -> str:
+    return (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
+
+
+def test_a_ghost_in_a_card_is_quiet() -> None:
+    """The owner (INBOX 803): "Im still iffy about the design use of these
+    buttons styles in some places", three times over, each a tinted bordered
+    box inside a card or a panel. One rule draws the quiet tier for every
+    ghost in a card that is not a dialog, at the tonal rule's own weight
+    (`:where`), with the same tint under the pointer and the keyboard."""
+    css = _forms_css()
+    head = ":where(.card) button.ghost:where(:not(:is(dialog, .modal-card, .modal) *))"
+    rest = re.search(re.escape(head) + r" \{([^}]*)\}", css)
+    assert rest and "border-color: transparent" in rest.group(1) and "background: none" in rest.group(1)
+    assert re.search(
+        re.escape(head) + r":hover,\s*" + re.escape(head) + r":is\(:focus-visible, :has\(:focus-visible\)\) \{[^}]*--ghost-btn-bg",
+        css,
+    )
+    assert css.index(head) > css.index("button.ghost:hover,"), "after the tonal rule, so it wins on order"
+
+
+def test_a_disclosure_is_a_row_not_a_boxed_button() -> None:
+    css = _forms_css()
+    assert re.search(r"button\.ghost\.disclosure-row \{[^}]*width: 100%[^}]*border-color: transparent[^}]*background: none", css)
+    assert re.search(r"button\.ghost\.disclosure-row:hover,\s*button\.ghost\.disclosure-row:is\(:focus-visible", css)
+    assert '"ghost small disclosure-row night-kind-toggle"' in with_pieces("dashboard.js")
+
+
+def test_a_counted_filter_is_a_chip() -> None:
+    body = _function_body((ROOT / "frontend" / "js" / "graph-canvas.js").read_text(encoding="utf-8"), "gcFilterChip")
+    assert 'chip(label, "tag graph-filter-chip", onClick)' in body
+    assert "library-chip" not in body.replace("library-chip-count", "")
+
+
+# --- INBOX 804/810/813: row actions, a set to start, bar controls -------------------
+
+
+def _css_all() -> str:
+    return "\n".join(p.read_text(encoding="utf-8") for p in CSS)
+
+
+def test_a_rows_repeated_action_is_quiet_and_three_fold_into_its_menu() -> None:
+    """DESIGN.md, Row actions (INBOX 810): a column of thirty-one bordered
+    "Change" buttons was the loudest thing in the Shortcuts pane. A repeated
+    action is a quiet text button, a destructive one is muted until aimed at,
+    and a row of three or more keeps its first and folds the rest into ⋯."""
+    body = _function_body(with_pieces("sheets-selects.js"), "rowActions")
+    assert 'b.classList.add("quiet")' in body and 'b.classList.add("danger")' in body
+    assert "actions.length < 3" in body and "kebabMenu(actions.slice(1), ariaLabel)" in body
+    css = _forms_css()
+    assert re.search(r"button\.ghost\.quiet \{[^}]*border-color: transparent;[^}]*background: none", css)
+    assert re.search(r"button\.ghost\.quiet\.danger \{[^}]*color: var\(--muted\)", css)
+    assert re.search(
+        r"button\.ghost\.quiet\.danger:hover,\s*button\.ghost\.quiet\.danger:is\(:focus-visible, :has\(:focus-visible\)\) \{[^}]*color: var\(--error\)",
+        css,
+    )
+    for name, needle in (("settings.js", "rowActions(acts, "), ("settings-data.js", "rowActions([")):
+        assert needle in (ROOT / "frontend" / "js" / name).read_text(encoding="utf-8"), name
+
+
+def test_a_shortcuts_keys_are_its_rebind_button() -> None:
+    """The key chip is the button (title "Change"); no column of Change."""
+    body = _function_body((ROOT / "frontend" / "js" / "settings-wiring.js").read_text(encoding="utf-8"), "buildShortcutList")
+    assert '"ghost small quiet shortcut-key"' in body and "change.append(combo)" in body
+    assert 'change.title = capturing ? "Cancel" : "Change"' in body
+    assert "textContent = capturingShortcut === id ? \"Cancel\" : \"Change\"" not in body
+    assert re.search(r"\.shortcut-list button\.shortcut-key \{[^}]*min-height: var\(--target-min\)", _css_all())
+
+
+def test_a_set_to_start_is_rows_with_their_descriptions_not_a_wall() -> None:
+    """DESIGN.md, "A set of things to start" (INBOX 804): Help's fourteen tour
+    buttons became one row each, the section's name over its one-line blurb,
+    under the pane's one filled button (Start the tour) and a quiet second."""
+    tour = _function_body((ROOT / "frontend" / "js" / "tour.js").read_text(encoding="utf-8"), "renderTourReplay")
+    assert '"ghost small tour-row"' in tour and "tour-row-blurb" in tour and "section.blurb" in tour
+    assert 'createElement("li")' in tour
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert '<ul id="tour-replay-buttons"' in html
+    assert '<button id="tour-start-btn" class="small" type="button">' in html
+    assert re.search(r'<button id="show-guide-btn" class="ghost small quiet"', html)
+    css = _css_all()
+    assert re.search(r"button\.ghost\.tour-row \{[^}]*border-color: transparent;[^}]*background: none", css)
+
+
+def test_a_bar_has_one_select_one_filter_trigger_and_one_view_order() -> None:
+    """DESIGN.md, Bar controls (INBOX 813). One bar select: the dock's
+    edgeless inset, also in the Ask composer and the chat strip. One filter
+    trigger: icon and word, the word a `.dock-word` that leaves on a phone.
+    One view order: list, then grid."""
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    rule = re.search(
+        r"\.dock \.select-shell > \.select-opener,\s*\.ask-composer \.select-shell > \.select-opener,\s*"
+        r"\.chat-dock-controls \.select-shell > \.select-opener \{([^}]*)\}",
+        css,
+    )
+    assert rule and "border: 1px solid transparent" in rule.group(1) and "var(--field-inset)" in rule.group(1)
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    for summary in re.findall(r"<summary[^>]*>\s*<i class=\"ph ph-funnel-simple[^\n]*", html):
+        assert '<span class="dock-word">Filter</span>' in summary, summary[:120]
+    assert re.search(r"\.dock \.dock-menu > summary \.dock-word", _css_all())
+    for seg in re.findall(r'<div class="seg[^"]*"[^>]*>(.*?)</div>', html, re.S):
+        if "ph-rows" in seg and "ph-squares-four" in seg:
+            assert seg.index("ph-rows") < seg.index("ph-squares-four"), "a view switch is list, then grid"
+
+
+def test_the_documents_assistant_is_one_composer_at_one_height() -> None:
+    """INBOX 804: the asks, the field and its send were three heights and
+    three looks. The field is the search well with the send inside it; the
+    asks and tools are quiet chips; all at `--control-h`."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert '<form id="doc-assist-form" class="search-field doc-assist-form">' in html
+    css = (ROOT / "frontend" / "css" / "library-lazy.css").read_text(encoding="utf-8")
+    assert re.search(r"\.search-field\.doc-assist-form \{[^}]*height: var\(--control-h\)", css)
+    chips = re.search(r"\.doc-assist-asks > button\.ghost,\s*\.doc-assist-tools > button\.ghost \{([^}]*)\}", css)
+    assert chips and "height: var(--control-h)" in chips.group(1) and "border-color: transparent" in chips.group(1)
+    line = re.search(r"\.cm-console-line \{([^}]*)\}", css)
+    assert line and "padding: var(--space-1) var(--space-3)" in line.group(1), "the ring keeps clear of the rule above"
+
+
+def test_a_toasts_action_is_a_quiet_text_action() -> None:
+    """INBOX 811, the owner of a toast's bordered grey Undo: the action is
+    the accent's text on no face and no edge; the toast is wide enough that
+    a one-sentence notice and its Undo stay one line."""
+    css = (ROOT / "frontend" / "css" / "02-chat-graph.css").read_text(encoding="utf-8")
+    rule = re.search(r"\.toast-action,\s*\.toast \.toast-help \{([^}]*)\}", css)
+    assert rule and "background: none" in rule.group(1) and "color: var(--accent-text)" in rule.group(1)
+    assert "border: 1px solid transparent" in rule.group(1)
+    assert re.search(r"\.toast > \.toast-msg \{[^}]*text-wrap: pretty", css)
+    assert re.search(r"\.toast \{[^}]*max-width: 30rem", _forms_css())
+
+
+def test_a_menu_has_no_gap_at_its_ends() -> None:
+    """The owner: "some dropdown menus across the app have wierd gaps at the
+    start and end". A dock menu's section pads itself from the hairline
+    between sections, never from the menu's own first and last edge."""
+    css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    assert re.search(r"\.dock-menu-list > :is\(\.dock-menu-section, \.dock-arrange-label\):first-child \{\s*padding-top: 0;", css)
+    assert re.search(r"\.dock-menu-list > \.dock-menu-section:last-child \{\s*padding-bottom: 0;", css)
+    sweep = (ROOT / "scratchpad" / "ui-sweeps" / "menus.js").read_text(encoding="utf-8")
+    assert "inset top" in sweep and ".dock-menu-check" in sweep
+
+
+def test_an_address_for_another_device_is_one_block_drawn_by_one_renderer() -> None:
+    """INBOX 867, the owner of the receipt's run-on list of four addresses:
+    "can this be better styled and easier to read??". Settings, Other
+    devices and the privacy receipt draw one block, from one function: the
+    first address large with Copy, the rest behind a disclosure row."""
+    js = ROOT / "frontend" / "js"
+    controls = (js / "settings-controls.js").read_text(encoding="utf-8")
+    body = controls.split("function renderLanAddresses(", 1)[1].split("\n}\n", 1)[0]
+    assert '"lan-address"' in body and "copyToClipboard(" in body
+    assert "disclosure-row" in body and "aria-expanded" in body
+    assert 'renderLanAddresses($("account-lan-addresses")' in controls
+    assert 'renderLanAddresses(where' in (js / "settings-data.js").read_text(encoding="utf-8")
+    for name in ("settings-controls.js", "settings-data.js"):
+        text = (js / name).read_text(encoding="utf-8")
+        assert 'addresses.join(" or ")' not in text and '.join(", ") || listening.host' not in text, name
+def test_note_card_show_more_hugs_its_label():
+    """INBOX 901: a `display: block` button spans the card, so "Show more"
+    sat centred far from the text with a card-wide focus ring."""
+    css = (ROOT / "frontend" / "css" / "03-dashboard-widgets.css").read_text()
+    m = re.search(r"#entry-list:not\(\.is-rows\) \.entry-more \{([^}]*)\}", css)
+    assert m, "card-view .entry-more rule missing"
+    body = m.group(1)
+    assert "width: fit-content" in body
+    assert "text-align: start" in body
+    assert "width: 100%" not in body
+
+
+def test_assistant_tools_are_an_even_grid():
+    """The owner: the code assistant's four tool buttons wrapped 3+1."""
+    css = (ROOT / "frontend" / "css" / "library-lazy.css").read_text()
+    assert re.search(r"\.doc-assist-tools \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)", css)
+    assert not re.search(r"\.doc-assist-tools,\s*\.doc-assist-apply", css)
+
+
+def test_no_model_notice_action_keeps_its_border():
+    """The owner: the Connect a model action must read as a button. A card
+    quiets its ghost buttons to edgeless, so the notice restores the edge."""
+    css = (ROOT / "frontend" / "css" / "03-dashboard-widgets.css").read_text()
+    m = re.search(r"\.ai-offline-note > button\.ghost:not\(\.icon-only\) \{([^}]*)\}", css)
+    assert m, "no-model notice action rule missing"
+    assert "border-color: var(--ghost-btn-border)" in m.group(1)
+    assert "transparent" not in m.group(1)
+
+
+def test_file_reading_text_fits_up_to_a_page():
+    """The owner: the extracted text in a Files row was quite short."""
+    css = (ROOT / "frontend" / "css" / "library-lazy.css").read_text()
+    m = re.search(r"\.library-file-reading-text \{([^}]*)\}", css)
+    assert m and "max-height: min(28rem, 55vh)" in m.group(1)
+    shell = (ROOT / "frontend" / "css" / "00-tokens-shell.css").read_text()
+    assert re.search(r"\.library-image-card-fold > \.library-image-reading-body \{\s*max-height: 11rem", shell)
+#: DESIGN.md, "A control that acts on the computer Tessellate runs on". Every
+#: static control that reaches a `this_computer_only` route or a this-computer
+#: preference (routes_settings `_THIS_COMPUTER_PREFERENCES`).
+THIS_COMPUTER_CONTROLS = {
+    "llm-provider-select", "llm-provider-apply", "local-only-ai", "restore-bundle", "import-dir",
+    "pref-searxng", "searxng-detect", "searxng-start", "searxng-stop", "searxng-reinstall", "searxng-autostart",
+    "pref-update-check", "pref-auto-update", "pref-update-channel-main", "update-install-version",
+    "extras-list", "extras-bulk-install", "embed-choices", "embed-pull-go",
+    "embedding-apply", "pref-semantic-auto-install", "quit-btn", "app-quit",
+}
+
+
+class _ThisComputerScan(HTMLParser):
+    VOID = {"input", "img", "br", "hr", "meta", "link", "source", "wbr", "area", "col", "embed", "track"}
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.stack: list[bool] = []
+        self.marked: set[str] = set()
+
+    def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
+        inside = (bool(self.stack) and self.stack[-1]) or "data-this-computer" in attrs
+        if inside and attrs.get("id"):
+            self.marked.add(attrs["id"])
+        if tag not in self.VOID:
+            self.stack.append(inside)
+
+    def handle_endtag(self, tag):
+        if tag not in self.VOID and self.stack:
+            self.stack.pop()
+
+
+def test_a_control_that_acts_on_this_computer_says_so_elsewhere() -> None:
+    from tessellate.api.this_computer import REFUSAL
+
+    scan = _ThisComputerScan()
+    scan.feed((ROOT / "frontend" / "index.html").read_text(encoding="utf-8"))
+    assert not THIS_COMPUTER_CONTROLS - scan.marked, sorted(THIS_COMPUTER_CONTROLS - scan.marked)
+    skills = (ROOT / "frontend" / "js" / "skills.js").read_text(encoding="utf-8")
+    assert f'const THIS_COMPUTER_ONLY = "{REFUSAL}";' in skills
+    assert "markOtherDevice().catch" in skills
+
+
+def test_a_panel_head_is_a_title_and_not_the_eyebrow() -> None:
+    """Row 1586: `h3.panel-head` (and the board sidebar's and Format panel's
+    `h3.wb-sidebar-title`) names a whole card or column, so it draws in the
+    dialog title's voice; `.card h3` (the eyebrow, 12px) is for a label over
+    one group. Measured: five panel heads and both board panel heads at 12px
+    beside the Web panel's 16px."""
+    consistency = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    rule = next(
+        body for sel, body in _rules(consistency)
+        if ".card h3.panel-head" in sel and "h3.wb-sidebar-title" in sel
+    )
+    assert "font-size: var(--text-body)" in rule
+    assert "text-transform: none" in rule
+    assert "color: var(--ink)" in rule
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    heads = re.findall(r'<(\w+) class="panel-head\b', html)
+    assert heads and set(heads) == {"h3"}, f"a panel head left the h3 recipe: {sorted(set(heads))}"
+
+
+#: Filters built by hand before `listFilter` existed (row 1643): each keeps
+#: its own field because its list does more than hide rows (a sort, a scope,
+#: a count). May only shrink; a new long list calls `listFilter`.
+HAND_BUILT_FILTERS = {
+    "Filter widgets…", "Filter notes", "Filter headings…", "Filter this index…",
+    "Filter logs", "Filter tags", "Filter categories", "Filter names",
+}
+
+
+def test_a_long_list_is_typed_to_through_the_one_recipe() -> None:
+    """Row 1643 (WORLD_CLASS_PLAN 22.2, "every list with more than 20 rows
+    can be filtered by typing"): `listFilter` is the one builder, the
+    shortcut list (31 rows) and the space menu use it, and no new
+    hand-built "Filter ..." field joins the eight that predate it."""
+    selects = with_pieces("sheets-selects.js")
+    body = selects.split("function listFilter(", 1)[1][:3000]
+    assert 'field.className = "search-field list-filter hidden"' in body
+    assert 'event.key === "Escape"' in body and "list-filter-empty" in body
+    wiring = (ROOT / "frontend" / "js" / "settings-wiring.js").read_text(encoding="utf-8")
+    assert "listFilter(list, { label: \"Filter shortcuts\" })" in wiring.split("function buildShortcutList", 1)[1][:4000]
+    spaces = (ROOT / "frontend" / "js" / "spaces-find.js").read_text(encoding="utf-8")
+    assert "listFilter(menu," in spaces.split("function renderSpaceMenu", 1)[1][:3000]
+    found = set()
+    for path in [ROOT / "frontend" / "index.html", *sorted((ROOT / "frontend" / "js").glob("*.js"))]:
+        found |= set(re.findall(r'placeholder\s*=\s*"(Filter[^"]*)"', path.read_text(encoding="utf-8")))
+    assert found <= HAND_BUILT_FILTERS, f"a hand-built filter field: {sorted(found - HAND_BUILT_FILTERS)}; call listFilter"
+    assert found == HAND_BUILT_FILTERS, "a hand-built filter moved to listFilter: shrink HAND_BUILT_FILTERS"
+
+
+def test_the_local_chip_shows_the_privacy_verdict_and_opens_the_record() -> None:
+    """Row 1641 (WORLD_CLASS_PLAN 22.1 item 9): the top bar's Local chip reads
+    `/privacy/verdict`, opens Settings, Privacy, stays hidden until it has an
+    answer, and is a row of the phone's header menu below 600."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    header = re.search(r'<header id="top-bar">(.*?)</header>', html, re.S).group(1)
+    chip = re.search(r'<button id="privacy-chip"[^>]*>', header)
+    assert chip and "hidden" in chip.group(0), "the Local chip left the top bar, or shows before it knows"
+    status = with_pieces("status.js")
+    assert '"/privacy/verdict"' in status
+    assert 'openSettingsModal("privacy")' in status.split("function startPrivacyChip", 1)[1][:600]
+    # Its one call site: every unlock, beside the reminder watch.
+    assert "startPrivacyChip();" in status.split("function startReminderWatch(", 1)[1][:900]
+    phone = (ROOT / "frontend" / "js" / "phone-shell.js").read_text(encoding="utf-8")
+    rows = re.search(r"const PHONE_STATUS_ROWS = \[(.*?)\];", phone, re.S).group(1)
+    assert '"privacy-chip"' in rows
+    responsive = (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8")
+    assert "#top-bar #privacy-chip" in responsive
+
+
+def test_the_flag_marker_is_one_toggle_not_two_previews():
+    """Ledger 1546 (seg665 item 5): an on/off marker is a single pressed-state button."""
+    wm = frontend_text("whiteboard-map.js")
+    assert 'wbMapMarkerToggle("Flag"' in wm
+    assert 'wbMapMarkerSeg("Flag"' not in wm
+    toggle = wm[wm.index("function wbMapMarkerToggle("):]
+    toggle = toggle[: toggle.index("\n}\n")]
+    assert "aria-pressed" in toggle and "choose(!on)" in toggle
+def test_a_check_result_row_is_the_health_row_with_a_mark():
+    """DESIGN.md, "The result of a check on this computer": Settings, About,
+    Maintenance's rows are the Health group's `.setting-row`, the label led by
+    one `.doctor-mark` whose glyph and tone both carry the result, built in
+    one place."""
+    js = frontend_text("settings-controls.js")
+    build = js[js.index("function maintenanceDoctorRow(row) {"):]
+    build = build[: build.index("\n}\n")]
+    assert 'el.className = "setting-row doctor-row";' in build and "doctor-mark is-" in build
+    assert 'label.className = "setting-label";' in build and 'value.className = "setting-control muted";' in build
+    for tone, glyph in (("ok", "check-circle"), ("warn", "warning"), ("x", "x-circle")):
+        assert f'{tone}: ["{glyph}",' in js
+    builders = [p.name for p in JS if "doctor-mark" in p.read_text(encoding="utf-8")]
+    assert builders == ["settings-controls.js"], builders
+    css = _css_all()
+    for tone, token in (("ok", "--ok"), ("warn", "--warn"), ("x", "--error")):
+        assert re.search(rf"\.doctor-mark\.is-{tone} \{{\s*color: var\({token}\);", css), tone
+def test_the_drop_veil_takes_no_press_and_has_no_blur() -> None:
+    """DESIGN.md "A drop target" (ledger libr-1011 row 1266): the veil laid over
+    the window while files are dragged in must not catch the drag, and a blurred
+    full-window surface is the cost the glass-off list exists to avoid."""
+    css = (ROOT / "frontend" / "css" / "file-drop-lazy.css").read_text(encoding="utf-8")
+    veil = _css_block_in(css, ".drop-veil")
+    assert "pointer-events: none" in veil and "position: fixed" in veil
+    assert "backdrop-filter" not in css and "blur(" not in css
+    assert "var(--accent-soft)" in veil and "var(--accent)" in veil
+    design = (ROOT / "docs" / "DESIGN.md").read_text(encoding="utf-8")
+    assert "**The drop veil**" in design
+    for path in JS:
+        if path.name != "file-drop.js":
+            assert "drop-veil" not in path.read_text(encoding="utf-8"), f"{path.name} builds its own drop veil"
+
+
+def _css_block_in(css: str, selector: str) -> str:
+    start = css.index(selector + " {")
+    return css[start : css.index("}", start)]

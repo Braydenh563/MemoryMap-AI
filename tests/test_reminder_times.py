@@ -26,7 +26,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from memorymap.ai import reminder_parser
+from tessellate.ai import reminder_parser
 
 
 # --- the reported sentence --------------------------------------------------
@@ -251,6 +251,10 @@ def test_wall_clock_phrases_work_with_the_ai_off(client, text, kept, gone, day_o
     assert body["text"].lower() == kept, body["text"]
     assert gone not in body["text"].lower()
     due = datetime.fromisoformat(body["due_at"]).astimezone(timezone.utc)
+    now = datetime.now(timezone.utc)
+    if gone in ("tonight", "evening") and now.hour >= hour:
+        #: Said after the hour, "tonight" is the next whole hour, not a time gone by.
+        hour = (now.hour + 1) % 24
     assert due.hour == hour and due.minute == 0
     if day_offset is not None:
         assert due.date() == (datetime.now(timezone.utc) + timedelta(days=day_offset)).date()
@@ -276,7 +280,7 @@ def test_the_rules_are_tried_before_the_model(ai_client, monkeypatch):
 
 
 def test_a_reminder_that_is_only_a_time_keeps_a_name():
-    from memorymap.ai import when
+    from tessellate.ai import when
 
     now = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
     parsed = when.parse_reminder_text("tomorrow at 5pm", now)
@@ -284,10 +288,30 @@ def test_a_reminder_that_is_only_a_time_keeps_a_name():
 
 
 def test_the_placeholder_example_reads_its_priority_too():
-    from memorymap.ai import when
+    from tessellate.ai import when
 
     now = datetime(2026, 10, 5, 12, 0, tzinfo=timezone.utc)
     parsed = when.parse_reminder_text("Call mum tomorrow evening, high priority", now)
     assert parsed["text"] == "Call mum"
     assert parsed["priority"] == "high"
     assert parsed["due_at"] == datetime(2026, 10, 6, 18, 0, tzinfo=timezone.utc)
+
+
+@pytest.mark.parametrize(
+    "text, kept, recurring",
+    [
+        ("water the plants every tuesday", "water the plants", "weekly"),
+        ("every morning at 7 stretch", "stretch", "daily"),
+        ("remind me in 20 minutes to check the oven", "check the oven", "none"),
+    ],
+)
+def test_magic_add_keeps_the_words_and_the_repeat(client, text, kept, recurring):
+    """The engine probe's reminder rows (CHAT_PLAN F1): "every tuesday" was
+    saved once as "Water the plants every"; "every morning at 7" at 19:00."""
+    response = client.post("/reminders/parse", json={"text": text, "tz_offset_minutes": UTC})
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["text"].lower() == kept
+    assert body["recurring"] == recurring
+    if "morning at 7" in text:
+        assert datetime.fromisoformat(body["due_at"]).astimezone(timezone.utc).hour == 7

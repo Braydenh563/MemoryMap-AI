@@ -6,7 +6,7 @@ characters show in the document descriptions", the rows reading
 |------|`. Every case here is one of those, plus the marker a clip can split.
 """
 
-from memorymap.api.routes_library import _clip
+from tessellate.api.routes_library import _clip
 
 
 def test_wiki_links_become_their_titles():

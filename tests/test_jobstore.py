@@ -25,8 +25,8 @@ from pathlib import Path
 import pytest
 from sqlalchemy import select
 
-from memorymap.core import deps, jobs, jobstore
-from memorymap.core.database import DatabaseManager, DurableJob
+from tessellate.core import deps, jobs, jobstore
+from tessellate.core.database import DatabaseManager, DurableJob
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -284,7 +284,7 @@ def test_the_stream_sends_a_change(client, kinds, monkeypatch):
 
 def test_launch_resumes_through_the_pool(app_state, kinds):
     """`create_app` runs `jobs.resume`: a row left queued is run."""
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     db = deps.get_db()
     jobstore.record("test-remember", (5, Path("/left.png")), {}, db=db)
@@ -304,8 +304,8 @@ _CHILD = textwrap.dedent(
     from pathlib import Path
 
     sys.path.insert(0, {src!r})
-    from memorymap.core import jobruns, jobs, jobstore
-    from memorymap.core.database import DatabaseManager
+    from tessellate.core import jobruns, jobs, jobstore
+    from tessellate.core.database import DatabaseManager
 
     db_path, marks, mode = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]
     db = DatabaseManager(db_path)
@@ -391,13 +391,13 @@ class _patched_db:
         self.db = db
 
     def __enter__(self):  # noqa: ANN204
-        from memorymap.core import jobruns
+        from tessellate.core import jobruns
 
         self._before = jobruns._peek_db
         jobruns.set_database_source(lambda: self.db)
         return self
 
     def __exit__(self, *exc) -> None:  # noqa: ANN002
-        from memorymap.core import jobruns
+        from tessellate.core import jobruns
 
         jobruns.set_database_source(self._before)

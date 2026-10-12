@@ -279,6 +279,8 @@ const REVEAL_TARGETS = {
   },
   sketch: { open: () => openSketch(), el: "sketch-card", flash: false },
   meeting: { open: () => openMeetingRecorder(), el: "meeting-card", flash: false },
+  "voice-note": { open: () => ensureModule("meetings").then(() => openVoiceNote()), el: "meeting-card", flash: false },
+  recordings: { tab: "library", open: () => ensureModule("meetings").then(() => openRecordings()), el: "library-view-recordings", flash: false },
   //: Ctrl+D's own door (`openTodaysPage`, timeline.js): today's page where it
   //: lives, or the composer with the day's title. The composer's box is the
   //: element that is always there to land on.
@@ -287,6 +289,8 @@ const REVEAL_TARGETS = {
 
   // Ask & chat
   "chat-input": { tab: "chat", el: "chat-input", focus: true, flash: false },
+  "chat-answers": { tab: "chat", el: "chat-input", focus: true, flash: false },
+  "finder": { open: () => openFinder(), el: "finder-input", focus: true, flash: false },
   "chat-new": { tab: "chat", open: () => newChatConversation(), el: "chat-input", focus: true, flash: false },
   "chat-attach": { tab: "chat", open: () => $("attach-note").click(), el: "note-picker-panel" },
   "chat-conversations": { tab: "chat", el: "conversation-list", fallback: "chat-sidebar" },
@@ -391,7 +395,7 @@ const REVEAL_TARGETS = {
     el: "wb-boards-new-menu",
   },
   "board-create": { open: () => createNewBoard(), sel: ".prompt-card", built: "promptDialog", flash: false },
-  "map-create": { open: () => createConceptMap(), sel: ".prompt-card", built: "promptDialog", flash: false },
+  "map-create": { open: async () => { await revealBoardsGallery(); await wbNewUntitledBoard("map"); }, el: "whiteboard-container", flash: false },
   "map-keyboard": { open: () => revealBoard(true), el: "whiteboard-container", fallback: "wb-boards-new-menu" },
   "map-templates": { open: () => revealBoard(true), el: "wb-map-templates", fallback: "wb-boards-new-menu" },
   //: On a map, where laying the tree out again is one button; on a board
@@ -474,6 +478,8 @@ const REVEAL_TARGETS = {
   "widget-orphans": { open: () => revealDashWidget("orphans"), sel: '[data-widget="orphans"]', built: "renderDashboard" },
   "widget-unfinished": { open: () => revealDashWidget("unfinished"), sel: '[data-widget="unfinished"]', built: "renderDashboard" },
   "widget-pace": { open: () => revealDashWidget("pace"), sel: '[data-widget="pace"]', built: "renderDashboard" },
+  "widget-week": { open: () => revealDashWidget("week"), sel: '[data-widget="week"]', built: "renderDashboard" },
+  statistics: { open: () => openStatistics(), sel: ".stats-card", built: "openStatistics", flash: false },
   "widget-heatmap": { open: () => revealDashWidget("heatmap"), sel: '[data-widget="heatmap"]', built: "renderDashboard" },
   "widget-streak": { open: () => revealDashWidget("streak"), sel: '[data-widget="streak"]', built: "renderDashboard" },
   "dash-layout": {
@@ -592,3 +598,64 @@ async function revealFeature(key, arg = "") {
   return true;
 }
 
+
+// --- a source's quoted line, marked in its note (CHAT_PLAN 8 row 7) ----------
+//
+// `openNoteAtPassage` (capture-ask.js) flashes the note's card; this marks the
+// span the answer quoted inside it with the Custom Highlight API, so the
+// card's own markup, which the list redraws at will, is never rewritten.
+
+//: The passage, from a string or from the clicked card: its answer's first
+//: mark for this note carries the offsets into the note's text.
+function notePassageFor(id, from) {
+  if (typeof from === "string") return from;
+  const scope = from?.closest?.(".msg") || from?.closest?.("#tab-notes, #command-palette-results");
+  const marker = scope?.querySelector(`.answer-citation[data-note-id="${id}"][data-start]`);
+  const entry = allEntries.find((e) => e.id === id);
+  if (!marker || !entry) return "";
+  return plainText(String(entry.content || "").slice(Number(marker.dataset.start), Number(marker.dataset.end)));
+}
+
+//: Every character of `root`'s text with whitespace runs folded to one
+//: space, each mapped back to its node and offset, so a passage taken from
+//: the markdown finds itself in the rendered card.
+function foldedText(root) {
+  const map = [];
+  let text = "";
+  const walk = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  for (let node = walk.nextNode(); node; node = walk.nextNode()) {
+    for (let i = 0; i < node.data.length; i += 1) {
+      const ch = /\s/.test(node.data[i]) ? " " : node.data[i].toLowerCase();
+      if (ch === " " && text.endsWith(" ")) continue;
+      text += ch;
+      map.push([node, i]);
+    }
+  }
+  return { text, map };
+}
+
+function passageRange(root, passage) {
+  const want = passage.replace(/\s+/g, " ").trim().toLowerCase().slice(0, 160);
+  if (want.length < 3) return null;
+  const { text, map } = foldedText(root);
+  const at = text.indexOf(want);
+  if (at === -1) return null;
+  const range = document.createRange();
+  const [startNode, startOffset] = map[at];
+  const [endNode, endOffset] = map[at + want.length - 1];
+  range.setStart(startNode, startOffset);
+  range.setEnd(endNode, endOffset + 1);
+  return range;
+}
+
+async function markNotePassage(id, from) {
+  const passage = notePassageFor(id, from);
+  if (!passage || !window.Highlight) return false;
+  const body = await revealWait(() => document.querySelector(`#entry-list li[data-id="${id}"] .entry-content`), 2000);
+  const range = body && passageRange(body, passage);
+  if (!range) return false;
+  CSS.highlights.set("source-quote", new window.Highlight(range));
+  clearTimeout(markNotePassage.timer);
+  markNotePassage.timer = setTimeout(() => CSS.highlights.delete("source-quote"), 8000);
+  return true;
+}

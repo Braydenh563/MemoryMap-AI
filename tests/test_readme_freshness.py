@@ -11,8 +11,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from memorymap import __version__
-from memorymap.ai import skills, tools
+from tessellate import __version__
+from tessellate.ai import skills, tools
 
 ROOT = Path(__file__).resolve().parent.parent
 README = (ROOT / "README.md").read_text(encoding="utf-8")
@@ -52,7 +52,7 @@ def test_the_test_count_claim_is_not_stale_by_an_order() -> None:
     stale. `approx` counts `def test_` lines rather than collected cases,
     so it undercounts parametrised tests; the claim sits at or below it.
     """
-    claim = re.search(r"(\d,\d00)\+ tests", README)
+    claim = re.search(r"(\d{1,2},\d00)\+ tests", README)
     assert claim, "README should state the test count as N,N00+ tests"
     files = list((ROOT / "tests").glob("test_*.py"))
     approx = sum(len(re.findall(r"^\s*def test_", f.read_text(encoding='utf-8'), re.M)) for f in files)
@@ -93,7 +93,7 @@ def test_every_installable_extra_is_named_in_the_readme() -> None:
     extra's name in its label's brackets ("Run Python files (Pyodide)"). An
     extra added to `core/extras.py` fails this until the README says so; one
     that is not ready to install yet is not claimed."""
-    from memorymap.core import extras
+    from tessellate.core import extras
 
     for extra in extras.EXTRAS:
         if extra.unavailable:

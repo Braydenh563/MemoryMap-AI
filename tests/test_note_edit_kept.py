@@ -41,7 +41,7 @@ def test_every_change_is_kept_and_save_or_cancel_forgets_it():
     assert "\nofferKeptNoteEdit();" in source
 
 
-def _offer(kept: dict | None, note_content: str) -> dict:
+def _offer(kept: dict | None, note_content: str, api_error: str | None = None) -> dict:
     source = PANELS.read_text(encoding="utf-8")
     parts = [
         _function(source, "function keepNoteEditLocally(draft) {"),
@@ -54,22 +54,28 @@ const NOTE_EDIT_KEPT = "note-edit-draft";
 const store = {};
 const prefs = {
   setJSON: (k, v) => { store[k] = JSON.stringify(v); },
+  set: (k, v) => { store[k] = String(v); return true; },
   remove: (k) => { delete store[k]; },
   json: (k, fallback) => { try { const v = JSON.parse(store[k]); return v && typeof v === "object" ? v : fallback; } catch { return fallback; } },
 };
 let editingId = null;
 const toasts = [];
 function toastAction(message, label) { toasts.push([message, label]); }
-async function apiJson() { return { id: 4, content: NOTE_CONTENT }; }
+const keptEdit = { awaitsUnlock: false };
+async function apiJson() {
+  if (API_ERROR) throw Object.assign(new Error("x"), JSON.parse(API_ERROR));
+  return { id: 4, content: NOTE_CONTENT };
+}
 function withTitle(content, title) { return title ? `# ${title}\\n\\n${content}` : content; }
 function clipText(t) { return t; }
 function notePreviewText(t) { return t; }
 """
         + f"const NOTE_CONTENT = {json.dumps(note_content)};\n"
+        + f"const API_ERROR = {json.dumps(api_error)};\n"
         + (f"store[NOTE_EDIT_KEPT] = {json.dumps(json.dumps(kept))};\n" if kept else "")
         + "\n".join(parts)
         + """
-offerKeptNoteEdit().then(() => console.log(JSON.stringify({ toasts, kept: NOTE_EDIT_KEPT in store })));
+offerKeptNoteEdit().then(() => console.log(JSON.stringify({ toasts, kept: NOTE_EDIT_KEPT in store, waiting: keptEdit.awaitsUnlock })));
 """
     )
     result = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=30)
@@ -87,4 +93,27 @@ def test_a_kept_edit_is_offered_back():
 @pytest.mark.skipif(not shutil.which("node"), reason="needs node")
 def test_a_kept_edit_already_saved_is_dropped_quietly():
     out = _offer({"id": 4, "title": "Bike", "content": "the lock code is 2210"}, "# Bike\n\nthe lock code is 2210")
-    assert out == {"toasts": [], "kept": False}, out
+    assert out == {"toasts": [], "kept": False, "waiting": False}, out
+
+
+KEPT = {"id": 4, "title": "Bike", "content": "the lock code is 2210"}
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node")
+def test_a_locked_server_keeps_the_edit_and_waits_for_the_unlock():
+    # A restarted server answers 401 until sign-in; reading that as "the note
+    # is gone" threw the kept edit away (tests-e2e/specs/draft-recovery.spec.js).
+    out = _offer(KEPT, "x", api_error=json.dumps({"isLockout": True}))
+    assert out == {"toasts": [], "kept": True, "waiting": True}, out
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node")
+def test_an_unreachable_server_keeps_the_edit_too():
+    out = _offer(KEPT, "x", api_error=json.dumps({}))
+    assert out == {"toasts": [], "kept": True, "waiting": False}, out
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node")
+def test_a_note_that_is_gone_lets_the_edit_go():
+    out = _offer(KEPT, "x", api_error=json.dumps({"status": 404}))
+    assert out == {"toasts": [], "kept": False, "waiting": False}, out

@@ -13,9 +13,9 @@ import json
 
 import pytest
 
-from memorymap.core import deps, vault
-from memorymap.core.database import AskTurn, Conversation
-from memorymap.entry import manager
+from tessellate.core import deps, vault
+from tessellate.core.database import AskTurn, Conversation
+from tessellate.entry import manager
 
 SECRET = "# Zebrasecret plan\n\nMy bank PIN is 4417, the spare key is at Quokkatown station."
 QUOTE = "the spare key is at Quokkatown station"
@@ -87,7 +87,7 @@ def test_none_of_its_words_stay_in_the_file(client):
     data_dir = deps.get_config().data_dir
     raw = b"".join(
         (data_dir / name).read_bytes()
-        for name in ("memorymap.db", "memorymap.db-wal")
+        for name in ("tessellate.db", "tessellate.db-wal")
         if (data_dir / name).exists()
     ).lower()
     assert b"quokkatown" not in raw

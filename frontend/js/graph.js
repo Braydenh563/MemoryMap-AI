@@ -1,4 +1,4 @@
-// MemoryMap AI: Graph view subsystem (extracted from app.js).
+// Tessellate: Graph view subsystem (extracted from app.js).
 //
 // This is the "Graph" tab: the Obsidian-style force-directed map, its
 // alternate layouts (tree/radial/arc), path tracing between two notes,
@@ -50,6 +50,39 @@ let graphSvg = null;
 let graphZoom = null;
 let graphCanvas = null;
 let graphNodesRef = null;
+
+//: **A pin as a step on the undo stack** (INBOX 898). `before` and `after` are
+//: `{ x, y }` or null for "not pinned". Undo and Redo write the pin through
+//: `PUT /graph/pin/{id}` and set it on the live node of whichever renderer is
+//: drawn, so the map shows it without a reload.
+async function graphSetPin(id, point) {
+  const x = point ? point.x : null;
+  const y = point ? point.y : null;
+  await apiJson(`/graph/pin/${id}`, { method: "PUT", body: JSON.stringify({ x, y }) });
+  const live = (typeof gcTab !== "undefined" && gcTab?.byId?.get(id)) || (graphNodesRef || []).find((n) => n.id === id);
+  if (!live) return;
+  live.graph_pin_x = x;
+  live.graph_pin_y = y;
+  live.fx = x;
+  live.fy = y;
+  if (point) {
+    live.x = x;
+    live.y = y;
+  }
+  if (typeof gcTab !== "undefined" && gcTab?.byId?.get(id)) {
+    gcPost(point ? { type: "pin", id, x, y } : { type: "unpin", id }, gcTab);
+    gcRequestDraw(gcTab);
+  } else {
+    renderGraph();
+  }
+}
+
+function graphPinStep(label, changes) {
+  const each = (key) => async () => {
+    for (const change of changes) await graphSetPin(change.id, change[key]);
+  };
+  if (changes.length) pushUndo(label, each("before"), each("after"));
+}
 // A saved view's node positions (GRAPH_PLAN Phase 5, INBOX 275's neighbour
 // row), one render's worth. `graphApplyView` stashes `view.positions` here;
 // the next `renderGraphCanvas()` (graph-canvas.js, the default renderer)
@@ -190,6 +223,19 @@ function setGraphPhysicsEnabled(layoutKind) {
   // hover explanation is missing on exactly the words being greyed out.
   for (const label of box.querySelectorAll("label[for]")) {
     label.title = why;
+  }
+  //: The View section's Shape is the Force layout's too (the owner,
+  //: 2026-10-10: "the graph shape options shouldnt be enabled when on a view
+  //: other than force"): the worker's shapes are sets of forces, and Tree,
+  //: Radial and Arc place every note by rule. Dimmed with its reason, the
+  //: same as the sliders, rather than hidden.
+  const shape = $("graph-shape");
+  if (shape) {
+    shape.disabled = !applies;
+    shape.title = applies ? "How the force layout arranges itself" : "Shape applies to the Force layout only: pick Force under Layout to use it.";
+    $("graph-shape-row")?.classList.toggle("is-disabled", !applies);
+    const label = $("graph-shape-label");
+    if (label) label.title = applies ? "" : shape.title;
   }
 }
 
@@ -457,7 +503,16 @@ function arcPath(link) {
 // rows of text become illegible. Fit the *width*, never magnify past 1:1, and
 // start at the top, the panel pans, and a readable tree you scroll beats a
 // complete one you can't read.
-function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial, arc = false) {
+function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial, arc = false, instant = false) {
+  //: In the part of the map the overlays and open panels leave (INBOX 792,
+  //: `gcFitInsets`), as the force layout's fit is.
+  const ins = typeof gcTab !== "undefined" && gcTab.svg === svg ? gcFitInsets(gcTab) : null;
+  const offX = ins ? ins.left : 0;
+  const offY = ins ? ins.top : 0;
+  if (ins) {
+    width = Math.max(1, width - ins.left - ins.right);
+    height = Math.max(1, height - ins.top - ins.bottom);
+  }
   // Labels stick out past the node they belong to: to the right in a tree, in
   // every direction on a radial, and by however much the longest one happens
   // to be. Guessing that with a padding constant left label tips off the edge
@@ -487,6 +542,19 @@ function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial, arc 
   //: bowing above it (up to 0.3 of the span, `arcPath`) and the labels
   //: hanging below were outside the frame, which centred the bare line and
   //: zoomed in until it filled the width.
+  //: **A radial's names hang under its dots on every side** (the canvas
+  //: renderer centres a label under its node), so its pad is the same left
+  //: and right. The tree's +200 to the right only, kept above for the
+  //: labels a tree draws beside its dots, put the ring 60px left of the
+  //: view's centre (the owner, 2026-10-10: "it put me on a random corner").
+  if (radial && !drawn.width) {
+    box = {
+      x: Math.min(...xs) - 90,
+      y: Math.min(...ys) - 30,
+      width: Math.max(...xs) - Math.min(...xs) + 180,
+      height: Math.max(...ys) - Math.min(...ys) + 60,
+    };
+  }
   if (arc && !drawn.width) {
     const spanXs = Math.max(...xs) - Math.min(...xs);
     const spanYs = Math.max(...ys) - Math.min(...ys);
@@ -514,7 +582,10 @@ function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial, arc 
   //: of the screen reads as the whole of it. Its floor is the fit itself,
   //: whatever it costs the labels (they return as you zoom in, like any
   //: map's). A tree fits when it nearly does and otherwise fits its width.
-  const fit = radial || arc || both >= 0.8 ? both : (width - 20) / spanX;
+  //: "Nearly" was 0.8; at 0.55 a 34-note tree ran a column off the top and
+  //: bottom of the map (the owner, round 2, and INBOX 792: fit "should be
+  //: based on ... the screen resolution/size"), so it is 0.4 now.
+  const fit = radial || arc || both >= 0.4 ? both : (width - 20) / spanX;
   //: A radial the same (measured before: 1,051px across a 362px phone map
   //: and a 997px tablet one at the 0.35 floor).
   const scale = arc || radial ? Math.min(1, fit) : Math.max(0.35, Math.min(1, fit));
@@ -537,10 +608,13 @@ function frameTree(svg, zoomBehavior, canvas, nodes, width, height, radial, arc 
         : 10 - scale * minY;
   //: Same rule as `fitGraphToView`: see the note beside its own check.
   if (!graphMinimapFinite(tx, ty, scale)) return;
-  svg
-    .transition()
-    .duration(400)
-    .call(zoomBehavior.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+  const framed = d3.zoomIdentity.translate(tx + offX, ty + offY).scale(scale);
+  //: Instant is applied now, not as a zero-length transition: d3 runs that
+  //: on its next timer frame, and the canvas paints one frame before it.
+  //: As long as the notes' own glide (`GC_LAYOUT_MS`), so frame and notes
+  //: arrive together.
+  if (instant) svg.interrupt().call(zoomBehavior.transform, framed);
+  else svg.transition().duration(graphGlideMs(700)).call(zoomBehavior.transform, framed);
 }
 
 // --- tracing a path between two notes (§9) -----------------------------------
@@ -603,7 +677,7 @@ function setTracePanelOpen(open) {
   // difference between a tool and a glitch: the cursor becomes a crosshair
   // over the nodes and the graph card picks up a tinted edge.
   $("graph-card")?.classList.toggle("is-tracing", open);
-  localStorage.setItem("graph-trace-open", open ? "1" : "0");
+  prefs.set("graph-trace-open", open ? "1" : "0");
   if (open) {
     renderTraceState();
     // Re-opening the panel: most commonly by coming back to the Graph tab
@@ -1286,7 +1360,7 @@ function graphNodeUnder(dragged, event) {
 
 //: The kinds of connection a link can carry.
 //:
-//: **Mirrors `LINK_TYPES` in src/memorymap/core/database.py, and
+//: **Mirrors `LINK_TYPES` in src/tessellate/core/database.py, and
 //: `tests/test_link_types.py` fails the build if the two drift.** Duplicated
 //: rather than fetched because this list is needed to draw a dialog before any
 //: request has been made, and a picker that has to wait on the network to know
@@ -1446,15 +1520,20 @@ async function linkByDrop(from, to) {
   // The new link's own id, so Undo removes *this* link rather than whatever
   // link happens to join them, they may have been linked twice by different
   // routes, and guessing is how an undo deletes the wrong thing.
-  const made = (updated.links || []).find((link) => link.entry_id === to.id);
+  const action = await pushLinkCreateUndo(
+    from.id,
+    to.id,
+    updated,
+    { target_id: to.id, reason: details.reason, link_type: details.link_type },
+    "Linked two notes",
+    renderGraph
+  );
   toastAction(
     `Linked "${from.preview}" to "${to.preview}".`,
     "Undo",
     async () => {
-      if (!made) return;
-      await api(`/entries/${from.id}/links/${made.link_id}`, { method: "DELETE" });
-      await refreshEntries([from.id, to.id]).catch(() => {});
-      renderGraph();
+      settleUndoFromToast(action);
+      await action.undo();
       toast("Link removed.");
     }
   );
@@ -1550,7 +1629,7 @@ function graphGroups() {
 }
 
 function graphSetGroups(groups) {
-  localStorage.setItem(GRAPH_GROUPS_KEY, JSON.stringify(groups));
+  prefs.set(GRAPH_GROUPS_KEY, JSON.stringify(groups));
   graphRenderGroups();
   renderGraph();
 }
@@ -1734,7 +1813,22 @@ async function renderGraph() {
     graphRenderer() === "canvas" && canvas;
   if (svg) svg.classList.toggle("hidden", Boolean(useCanvas));
   if (canvas) canvas.classList.toggle("hidden", !useCanvas);
-  if (useCanvas) return renderGraphCanvas();
+  if (useCanvas) {
+    //: The first draw of a visit fades in once the layout has taken its first
+    //: frames, instead of showing the nodes mid-shuffle (owner, 2026-10-12:
+    //: "so it isnt so in your face"). A later redraw (a switch, a filter)
+    //: keeps what is on screen.
+    const first = !canvas.dataset.revealed;
+    if (first) canvas.classList.add("graph-entering");
+    try {
+      return await renderGraphCanvas();
+    } finally {
+      if (first) {
+        canvas.dataset.revealed = "1";
+        setTimeout(() => canvas.classList.remove("graph-entering"), 60);
+      }
+    }
+  }
   return renderGraphSvg();
 }
 
@@ -2268,7 +2362,7 @@ async function renderGraphSvg() {
       // the AI typed doesn't, so this only ever shows up on the guessed kind.
       const text =
         d.reason_confidence != null
-          ? `${d.reason} (${Math.round(d.reason_confidence * 100)}% confidence, deduced)`
+          ? `${d.reason} (deduced, ${deducedStrength(d.reason_confidence)})`
           : d.reason;
       el.append("title").text(text);
     }
@@ -2515,6 +2609,11 @@ async function renderGraphSvg() {
             d3.select(this).classed("graph-held", true);
             d.graph_pin_x = d.fx;
             d.graph_pin_y = d.fy;
+            graphPinStep("Moved a pinned note", [{
+              id: d.id,
+              before: d.wasPinnedBeforeThisDrag ? { x: d.dragStartX, y: d.dragStartY } : null,
+              after: { x: d.fx, y: d.fy },
+            }]);
             apiJson(`/graph/pin/${d.id}`, {
               method: "PUT",
               body: JSON.stringify({ x: d.graph_pin_x, y: d.graph_pin_y }),
@@ -2584,6 +2683,8 @@ async function renderGraphSvg() {
       if (d.isGroup) return;
       d.graph_pin_x = wasPinned ? null : d.fx;
       d.graph_pin_y = wasPinned ? null : d.fy;
+      const was = wasPinned ? { x: d.fx ?? d.x, y: d.fy ?? d.y } : null;
+      graphPinStep(wasPinned ? "Unpinned a note" : "Pinned a note", [{ id: d.id, before: was, after: d.graph_pin_x == null ? null : { x: d.graph_pin_x, y: d.graph_pin_y } }]);
       apiJson(`/graph/pin/${d.id}`, {
         method: "PUT",
         body: JSON.stringify({ x: d.graph_pin_x, y: d.graph_pin_y }),
@@ -2794,6 +2895,7 @@ async function renderGraphSvg() {
   // exists for exactly this kind of thing.
   $("graph-stats").textContent = parts.join(" · ");
   $("graph-stats").title = shape ? shape.replace(/^\s*: \s*/, "") : "";
+  graphSyncLayoutChip(layoutKind);
 
   // Hover-highlight (spotlight a note's connections). Uses the same dimming
   // pipeline as search so the two never fight each other.
@@ -3205,7 +3307,7 @@ function initGraphKeyboard() {
     const zoomKeys = { "+": 1.3, "=": 1.3, "-": 1 / 1.3, _: 1 / 1.3 };
     if (Object.prototype.hasOwnProperty.call(zoomKeys, event.key) && graphSvg && graphZoom) {
       event.preventDefault();
-      graphSvg.transition().duration(200).call(graphZoom.scaleBy, zoomKeys[event.key]);
+      graphSvg.transition().duration(graphGlideMs(200)).call(graphZoom.scaleBy, zoomKeys[event.key]);
       announce(zoomKeys[event.key] > 1 ? "Zoomed in." : "Zoomed out.");
       return;
     }
@@ -3223,7 +3325,7 @@ function initGraphKeyboard() {
       // fixed step would move a hair at high zoom and half the map at low.
       // Dividing by k keeps the movement a constant number of screen pixels.
       const k = d3.zoomTransform(graphSvg.node()).k || 1;
-      graphSvg.transition().duration(150).call(graphZoom.translateBy, dx / k, dy / k);
+      graphSvg.transition().duration(graphGlideMs(150)).call(graphZoom.translateBy, dx / k, dy / k);
       return;
     }
 
@@ -3278,50 +3380,96 @@ function initGraphKeyboard() {
   });
 }
 
+//: **A fit fills the free part of the map** (INBOX 775, the owner: "it
+//: didnt zoom in or fit to my screen?? I pressed the fit button and it didnt
+//: do much"). The margin was 9% of the short side on every edge, and the
+//: overlays (the dock, the legend, the minimap, the zoom strip) sat inside
+//: it or over the notes; measured on 34 notes at 1440x900, the dots spanned
+//: 0.80 of the height. The overlays are now kept clear as insets
+//: (`gcFitInsets`), and the margin inside what is left is 1.5%.
+const GRAPH_FIT_MARGIN = 0.015;
+//: How far a fit zooms in at most. A map of three notes reaches it; past it
+//: a dot is a disc the size of a button.
+const GRAPH_FIT_MAX_ZOOM = 2.5;
+//: Room for a name beside a dot, in screen pixels, before the drawn names
+//: are measured (`gcBalanceFit`): names keep their size under a zoom.
+const GRAPH_FIT_NAME_PX = 18;
+
+//: The most of the free width or height the names' overhang may take on one
+//: side. Names are kept on the canvas where they are placed (`gcClampBox`),
+//: so past this a long name is moved in rather than the map shrunk for it:
+//: on a 390 phone, three names 190px wide had the balance pass zoom 34 notes
+//: from k 0.72 down to 0.28, a third of the width.
+const GRAPH_FIT_OVER_SHARE = 0.08;
+
+//: The camera that puts `box` (world units: minX, maxX, minY, maxY) in the
+//: middle of the free part of a `width` x `height` map. `insets` are the
+//: overlays' depth on each edge and `over` the drawing's overhang past the
+//: box (names), both in screen pixels, so neither scales with the zoom. The
+//: floor is the fix for "zooms out like crazy": no single outlier can push
+//: the whole map below a still-readable scale.
+function graphFitFrame(box, width, height, insets = null, over = null) {
+  const edge = (o, side) => (o && Number.isFinite(o[side]) ? Math.max(0, o[side]) : 0);
+  const freeW = Math.max(1, width - edge(insets, "left") - edge(insets, "right"));
+  const freeH = Math.max(1, height - edge(insets, "top") - edge(insets, "bottom"));
+  const hang = (side) => Math.min(edge(over, side), GRAPH_FIT_OVER_SHARE * (side === "left" || side === "right" ? freeW : freeH));
+  const margin = Math.min(freeW, freeH) * GRAPH_FIT_MARGIN;
+  const spanX = Math.max(box.maxX - box.minX, 1);
+  const spanY = Math.max(box.maxY - box.minY, 1);
+  const raw = Math.min(
+    (freeW - 2 * margin - hang("left") - hang("right")) / spanX,
+    (freeH - 2 * margin - hang("top") - hang("bottom")) / spanY
+  );
+  const k = Math.max(0.25, Math.min(GRAPH_FIT_MAX_ZOOM, raw));
+  const cx = edge(insets, "left") + freeW / 2;
+  const cy = edge(insets, "top") + freeH / 2;
+  return {
+    k,
+    x: cx - ((box.minX + box.maxX) * k + hang("right") - hang("left")) / 2,
+    y: cy - ((box.minY + box.maxY) * k + hang("bottom") - hang("top")) / 2,
+  };
+}
+
 // Zoom/pan so every node fits with a margin (Wave N).
-function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height) {
+function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height, instant = false) {
   if (!nodes.length) return;
   // Reported: fit-to-view "zooms out like crazy so you only see the generic
-  // cluster blobs". Two bugs, both in how the old version measured the map:
-  // it bounded only the node *centres* (a node's halo, ring and the label
-  // drawn below it all extend past that point, so a real graph always
-  // rendered a bit outside the box this used to fit), and its scale had no
-  // floor: `Math.min(3, ...)` clamps how far it can zoom IN but not how far
-  // it can zoom OUT, so one node that drifted far from the rest (the collide
-  // simulation allows this) could shrink everything else to specks trying to
-  // fit it in frame too.
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  // cluster blobs". It bounded only the node *centres*, and its scale had no
+  // floor (`graphFitFrame` has one). The box is each dot's own extent; a
+  // name's room is in screen pixels (`GRAPH_FIT_NAME_PX`), and the tab's
+  // canvas then balances on the names it actually drew (`gcBalanceFit`).
+  const box = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity };
   for (const n of nodes) {
-    // Same pad the force simulation's own world-clamp uses (see the comment
-    // above it): node radius, the halo ring (+6) and the label drawn below
-    // the circle, so a fitted node's own name is never left outside frame.
-    const pad = graphNodeRadius(n) + 34;
-    minX = Math.min(minX, n.x - pad);
-    maxX = Math.max(maxX, n.x + pad);
-    minY = Math.min(minY, n.y - pad);
-    maxY = Math.max(maxY, n.y + pad);
+    const r = graphNodeRadius(n);
+    box.minX = Math.min(box.minX, n.x - r);
+    box.maxX = Math.max(box.maxX, n.x + r);
+    box.minY = Math.min(box.minY, n.y - r);
+    box.maxY = Math.max(box.maxY, n.y + r);
   }
-  const spanX = Math.max(maxX - minX, 1);
-  const spanY = Math.max(maxY - minY, 1);
-  // A comfortable margin scales with the container instead of a flat 60px,
-  // which was a sliver of a 1400px-wide window and most of a 300px panel.
-  const margin = Math.min(width, height) * 0.09;
-  const rawScale = Math.min(
-    (width - margin * 2) / spanX,
-    (height - margin * 2) / spanY
-  );
-  // The floor is the actual fix for "zooms out like crazy": no single
-  // outlier can push the whole map below a still-readable scale.
-  const scale = Math.max(0.25, Math.min(2.5, rawScale));
-  const tx = width / 2 - scale * (minX + maxX) / 2;
-  const ty = height / 2 - scale * (minY + maxY) / 2;
+  //: The Arc layout is one line of dots with its arcs rising above it, and the
+  //: arcs are not nodes, so the box was a strip and the line sat mid-screen
+  //: with the arcs cut off the top (owner, 2026-10-12: "it needs to fit a lot
+  //: lower on the screen"). The widest arc stands about a third of the line's
+  //: length over it; frame that too, so the line settles low and the arcs fit.
+  if (graphLayout() === "arc" && nodes.length === (typeof gcTab !== "undefined" && gcTab.nodes ? gcTab.nodes.length : nodes.length)) {
+    box.minY -= (box.maxX - box.minX) * 0.32;
+  }
+  const tab = typeof gcTab !== "undefined" && gcTab.svg === svg;
+  //: Fitted to the whole map is a view a panel may refit (`gcRefitForPanels`);
+  //: framed on some of it (a topic) is a place the person was taken to.
+  if (tab) gcTab.userZoomed = nodes.length !== gcTab.nodes.length;
+  const name = GRAPH_FIT_NAME_PX;
+  const fit = graphFitFrame(box, width, height, tab ? gcFitInsets(gcTab) : null, { left: name, right: name, top: name, bottom: name });
+  const scale = fit.k;
+  const tx = fit.x;
+  const ty = fit.y;
   //: **A transform is never built out of a number that is not one.** This is
   //: the app's own producer of the zoom transform, and d3 stores what it is
   //: handed: one NaN here becomes a NaN `k`, `x` and `y` on the node, and
   //: every later reader of it (the minimap's viewport rectangle, the zoom
   //: strip, a saved view) reads NaN out again, for as long as the person
   //: stays on the tab. `Math.max(0.25, Math.min(2.5, NaN))` is NaN, so the
-  //: clamps above are not the guard they look like: `Math.min` and
+  //: clamps in `graphFitFrame` are not the guard they look like: `Math.min` and
   //: `Math.max` propagate NaN rather than clamping it away, which is how an
   //: undefined width or a node with no position reaches this line looking
   //: clamped. Skipping the fit leaves the camera where it is, which is what
@@ -3331,14 +3479,23 @@ function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height) {
   //: motion gets the framed map at once (INBOX 443 (1)): the fit lands twice
   //: while a layout settles, and two half-second pans are the most movement
   //: this tab makes on its own.
-  const still = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-  svg
-    .transition()
-    .duration(still ? 0 : 500)
-    .call(
-      zoomBehavior.transform,
-      d3.zoomIdentity.translate(tx, ty).scale(scale)
-    );
+  const framed = d3.zoomIdentity.translate(tx, ty).scale(scale);
+  //: Instant is applied now (see `frameTree`): a zero-length transition
+  //: still lands a frame late.
+  //: The tab's canvas then balances the fit on what it actually drew
+  //: (`gcBalanceFit`): the pad above is a guess at the labels.
+  const balance = () => {
+    //: The whole map only: a fit to some of it (a topic, `showTopicInGraph`)
+    //: is framed on those notes, and balancing on all of them would undo it.
+    if (typeof gcTab !== "undefined" && gcTab.svg === svg && nodes.length === gcTab.nodes.length) {
+      gcTab.fitCheck = 2;
+      gcRequestDraw(gcTab);
+    }
+  };
+  if (instant) {
+    svg.interrupt().call(zoomBehavior.transform, framed);
+    balance();
+  } else svg.transition().duration(graphGlideMs(500)).call(zoomBehavior.transform, framed).on("end", balance);
 }
 
 // Dim everything except nodes that match the search box AND (when hovering)
@@ -3349,9 +3506,40 @@ function fitGraphToView(svg, canvas, zoomBehavior, nodes, width, height) {
 // next search or refresh.
 let graphHighlightIds = null;
 
+//: **A phrase in the search is a filter** (CHAT_PLAN section 2, the graph's
+//: row): "connected to Harbor", "untouched since June", "tagged work",
+//: "pinned" light the notes they leave, read and resolved by the server
+//: (`GET /read/filter`, ai/filters.py; this file reads no words itself). The
+//: words left over still match the preview. A box with no filter in it
+//: (`ids` null) is the plain search it always was.
+const graphPhrase = { q: "", ids: null, rest: "" };
+
+function graphReadPhrase(query) {
+  if (graphPhrase.q === query) return;
+  graphPhrase.q = query;
+  graphPhrase.ids = null;
+  if (!query) return;
+  apiJson("/read/filter?q=" + encodeURIComponent(query) + `&tz_offset_minutes=${-new Date().getTimezoneOffset()}`, { silent: true })
+    .then((got) => {
+      if (graphPhrase.q !== query || !got.ids) return;
+      graphPhrase.ids = new Set(got.ids);
+      graphPhrase.rest = (got.rest || "").toLowerCase();
+      applyGraphHighlight();
+    })
+    .catch(() => {});
+}
+
+function graphQueryMatch(id, preview, query) {
+  if (graphPhrase.ids && graphPhrase.q === query) {
+    return graphPhrase.ids.has(id) && (!graphPhrase.rest || preview.toLowerCase().includes(graphPhrase.rest));
+  }
+  return !query || preview.toLowerCase().includes(query);
+}
+
 function applyGraphHighlight() {
   const query = $("graph-search").value.trim().toLowerCase();
   if (query) graphHighlightIds = null; // typing takes over the spotlight
+  graphReadPhrase(query);
   // Reported: no way to cancel the "≈ Similar" highlight - it only ever
   // reset as a side effect of something else (typing over it, or a full
   // refresh). Same shape as #graph-focus-clear: shown exactly while there's
@@ -3377,7 +3565,7 @@ function applyGraphHighlight() {
       ? onPath.has(d.id)
       : graphHighlightIds
         ? graphHighlightIds.has(d.id)
-        : !query || d.preview.toLowerCase().includes(query);
+        : graphQueryMatch(d.id, d.preview, query);
 
   const neighbours =
     graphHoveredId != null && graphAdjacency
@@ -3434,10 +3622,7 @@ function renderGraphPopupHeader(entry, node) {
   //: the chip row below it: the note's own name was nowhere on a panel about
   //: that note. `entry.title` when the AI (or the owner) gave it one, the
   //: first line otherwise, which is what every other note surface shows.
-  const firstLine =
-    typeof notePreviewText === "function"
-      ? notePreviewText(entry.content || "").split("\n")[0]
-      : stripFrontmatter(entry.content).split("\n")[0];
+  const firstLine = noteNamePlain(entry.content);
   titleEl.textContent =
     entry.title || firstLine.slice(0, 80).trim() || node.category || "Note";
   //: The title is ellipsised to one line now, so the whole of it has to be
@@ -3467,6 +3652,8 @@ function renderGraphPopupHeader(entry, node) {
 async function openGraphPopup(event, node) {
   event.stopPropagation();
   graphPopupId = node.id;
+  //: The open note wears the focus ring (graph-canvas.js `openId`).
+  if (typeof gcTab !== "undefined" && gcTab.canvas) gcRequestDraw(gcTab);
   const popup = $("graph-popup");
   const status = $("graph-popup-status");
   status.textContent = "";
@@ -3511,6 +3698,8 @@ async function openGraphPopup(event, node) {
   syncGraphPopupSave();
   renderGraphPopupHeader(entry, node);
   renderGraphPopupInfo(entry);
+  renderGraphPopupTopic(entry);
+  renderGraphPopupProps(entry);
   renderGraphPopupMedia(entry);
   renderGraphPopupActions(entry);
   //: The editor is sized to the note it just received, not to a fixed slot.
@@ -3609,7 +3798,7 @@ function closeGraphLinkPeek() {
 function graphLinkKind(edge) {
   if (edge.kind === "similar") return `Similar in meaning${typeof edge.score === "number" ? `, ${Math.round(edge.score * 100)}%` : ""}`;
   if (edge.kind === "thread") return "Thread: one note continues the other";
-  if (edge.kind === "map") return "Joined on a concept map";
+  if (edge.kind === "map") return "Joined on a mind map";
   if (edge.kind === "comention") return `Named together in ${edge.weight} notes`;
   return edge.link_type && edge.link_type !== "related" ? `Link: ${edge.type_name || edge.link_type}${edge.type_inverse ? ` (${edge.type_inverse} the other way)` : ""}` : "Link";
 }
@@ -3639,7 +3828,7 @@ function openGraphLinkPeek(edge, event, nodes) {
   const facts = document.createElement("p");
   facts.className = "library-file-meta graph-link-peek-meta";
   facts.textContent = edge.reason_confidence != null
-    ? `Deduced, ${Math.round(edge.reason_confidence * 100)}% confidence`
+    ? `Deduced, ${deducedStrength(edge.reason_confidence)}`
     : edge.reason ? "In your words" : "";
   const notes = document.createElement("div");
   notes.className = "graph-link-peek-notes";
@@ -3676,6 +3865,14 @@ function openGraphLinkPeek(edge, event, nodes) {
         toast(error.message || "Couldn't change the link's direction.", true);
         return;
       }
+      pushRequestUndo(
+        next ? "Made a link two-way" : "Made a link one-way",
+        `/entries/${sourceId}/links/${edge.id}`,
+        "PATCH",
+        { two_way: !next },
+        { two_way: next },
+        () => renderGraph()
+      );
       for (const drawn of gcTab.edges) if (drawn.id === edge.id && drawn.kind === "link") drawn.two_way = next;
       edge.two_way = next;
       direction.setAttribute("aria-pressed", String(next));
@@ -3764,7 +3961,7 @@ function openGraphLinkPanel(edge, nodes) {
   if (edge.reason_confidence != null) {
     const note = document.createElement("p");
     note.className = "muted";
-    note.textContent = `Deduced (${Math.round(edge.reason_confidence * 100)}% confidence): editing replaces it with your own words.`;
+    note.textContent = `Deduced (${deducedStrength(edge.reason_confidence)}): editing replaces it with your own words.`;
     card.appendChild(note);
   }
 
@@ -3860,7 +4057,7 @@ function openGraphLinkPanel(edge, nodes) {
 //: picture is a library upload referenced from its own markdown drew nothing
 //: at all, `#graph-popup-media` hidden with 0 children. Pasted, dropped and
 //: AI-attached pictures all end up as `![alt](/media/...)` in the body and
-//: there is no column that mirrors them (`noteAnyImage` in shell-reminders.js says the
+//: there is no column that mirrors them (`noteAnyImage` in library.js says the
 //: same thing about the other direction), so a panel that reads only
 //: `entry.attachments` is blind to the commonest kind of image note there is.
 //:
@@ -3949,12 +4146,51 @@ function renderGraphPopupMedia(entry) {
   placeGraphPopup();
 }
 
+//: **The room a graph panel has** (the owner, 2026-10-11: "the graph popups
+//: get cut off now at the bottom", the action dock behind the status bar at
+//: a 1000px window): the map's box, ending where the shell's status bar
+//: starts if the box runs under it. Read from the bar's own box, which is
+//: `--status-bar-h` tall (00-tokens-shell.css), so the bound follows the
+//: shell's layout rather than a number copied here. Returns the box with
+//: `room`, the usable height from the box's top.
+function graphPanelRoom() {
+  const box = $("graph-box").getBoundingClientRect();
+  const bar = document.getElementById("status-bar");
+  const barTop = bar && bar.offsetParent !== null ? bar.getBoundingClientRect().top : innerHeight;
+  const bottom = Math.min(box.bottom, barTop, innerHeight);
+  return { box, room: Math.max(0, bottom - box.top) };
+}
+
+//: Placed again whenever it changes size after it was placed (the body's
+//: editor mounting, a picture arriving, the action row folding): placing
+//: only at known moments is what let a panel that grew afterwards hang
+//: past the map's bottom edge.
+const graphLate = {
+  newAt: null,
+  popupResize: null,
+};
+function watchGraphPopupSize(popup, place) {
+  if (typeof ResizeObserver !== "function" || popup.dataset.placeWatch) return;
+  popup.dataset.placeWatch = "1";
+  let frame = 0;
+  graphLate.popupResize = graphLate.popupResize || new ResizeObserver((entries) => {
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      for (const e of entries) e.target.graphPlace?.();
+    });
+  });
+  popup.graphPlace = place;
+  graphLate.popupResize.observe(popup);
+}
+
 // Clamp the popup inside the graph box. Called on open and again once the
 // note has loaded, since the popup is taller by then.
 function placeGraphPopup() {
   const popup = $("graph-popup");
+  watchGraphPopupSize(popup, placeGraphPopup);
   if (!graphPopupAnchor || popup.classList.contains("hidden")) return;
-  const box = $("graph-box").getBoundingClientRect();
+  const { box, room } = graphPanelRoom();
   //: **On a phone the panel is a sheet, and JS has to be the one to say so**
   //: (GRAPH_PLAN Phase 6). The position is inline `left`/`top` written here,
   //: which no stylesheet rule can override without `!important`, so a media
@@ -3964,16 +4200,16 @@ function placeGraphPopup() {
     popup.classList.add("graph-popup-sheet");
     // Three quarters of the map: enough to read the note, and the map it
     // came from stays visible above it so the sheet has an origin.
-    popup.style.maxHeight = `${Math.max(160, Math.round(box.height * 0.75))}px`;
+    popup.style.maxHeight = `${Math.max(160, Math.round(room * 0.75))}px`;
     popup.style.left = "0px";
     const sheet = popup.getBoundingClientRect();
-    popup.style.top = `${Math.max(0, Math.round(box.height - sheet.height))}px`;
+    popup.style.top = `${Math.max(0, Math.round(room - sheet.height))}px`;
     return;
   }
   popup.classList.remove("graph-popup-sheet");
-  // Never taller than the map it sits in, beyond that the popup scrolls
-  // itself rather than growing off the edge.
-  popup.style.maxHeight = `${Math.max(120, box.height - 16)}px`;
+  // Never taller than the room it has, beyond that its body scrolls inside
+  // it and the action dock stays pinned at its foot (the CSS's sticky row).
+  popup.style.maxHeight = `${Math.max(120, room - 16)}px`;
   const size = popup.getBoundingClientRect();
   const left = Math.min(
     Math.max(graphPopupAnchor.x - box.left + 12, 8),
@@ -3981,7 +4217,7 @@ function placeGraphPopup() {
   );
   const top = Math.min(
     Math.max(graphPopupAnchor.y - box.top + 12, 8),
-    Math.max(8, box.height - size.height - 8)
+    Math.max(8, room - size.height - 8)
   );
   popup.style.left = `${left}px`;
   popup.style.top = `${top}px`;
@@ -4001,6 +4237,129 @@ function placeGraphPopup() {
 //: was made, how connected it is, how often it has been read. A `·`-joined
 //: muted line says "the same kind of small fact" in a way five bordered chips
 //: cannot.
+//: A note (or a document's node) found and framed on the map: the half of
+//: `showNoteInGraph` (note-cards.js) that runs once the bundle is here.
+async function graphShowNote(id, { document: isDocument = false } = {}) {
+  if (isDocument) {
+    const box = $("graph-documents");
+    if (box && !box.checked) {
+      box.checked = true;
+      box.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  }
+  const nodeId = isDocument ? `document:${id}` : id;
+  const deadline = Date.now() + 4000;
+  let node = null;
+  while (Date.now() < deadline) {
+    node = graphNodeById(nodeId);
+    if (node && Number.isFinite(node.x)) break;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  if (!node || !Number.isFinite(node.x)) {
+    toast(`That ${isDocument ? "document" : "note"} is not on the graph right now: a filter or the view may be hiding it.`, "info");
+    return;
+  }
+  focusGraphNode(node);
+  if (typeof graphSvg !== "undefined" && graphSvg && typeof graphZoom !== "undefined" && graphZoom) {
+    graphSvg.transition().duration(graphGlideMs(400)).call(graphZoom.translateTo, node.x, node.y);
+  }
+}
+
+//: **A note's topic, in its panel** (the owner, 2026-10-10: "I still cant
+//: edit topics in the graph or anywhere else"). The chip opens the topic on
+//: the map; the pencil renames it in place (`gcRenameTopicInline`). Read from
+//: the map's own topics under the Topic colour rule, else asked for
+//: (`/graph/topics/of`, which a rename keeps current).
+async function renderGraphPopupTopic(entry) {
+  const box = $("graph-popup-topic");
+  if (!box) return;
+  box.classList.add("hidden");
+  box.replaceChildren();
+  let topic = null;
+  const mapped = graphStructure?.topics && graphStructure.topic_of?.[String(entry.id)];
+  if (mapped !== undefined && mapped !== null && graphStructure?.topics) {
+    topic = graphStructure.topics.find((t) => t.id === mapped) || null;
+  } else {
+    const row = await apiJson(`/graph/topics/of?ids=${entry.id}&members=1`, { silent: true }).catch(() => null);
+    topic = row?.topics?.[String(entry.id)] || null;
+  }
+  if (!topic || graphPopupId !== entry.id) return;
+  const mark = chip(`ph:circles-three ${topic.name}`, "tag", () => showTopicInGraph(entry.id));
+  mark.title = `In the topic ${topic.name}, ${topic.size} notes. Show it on the map`;
+  //: `members=1` above: a rename is stored by the topic's notes.
+  const rename = smallButton("ph:pencil-simple", "Rename the topic", () => gcRenameTopicInline(topic, mark, rename));
+  rename.classList.add("icon-only");
+  box.append(mark, rename);
+  box.classList.remove("hidden");
+}
+
+//: The map's topic for a note, the Topic colour rule switched on to find it
+//: (topics are only read under it). Null after five seconds without one.
+async function graphTopicFor(entryId) {
+  const colour = $("graph-colour");
+  if (colour && colour.value !== "topic") {
+    colour.value = "topic";
+    colour.dispatchEvent(new Event("change", { bubbles: true }));
+  }
+  const deadline = Date.now() + 5000;
+  while (Date.now() < deadline) {
+    const id = graphStructure?.topic_of?.[String(entryId)];
+    const topic = id === undefined ? null : graphStructure.topics?.find((t) => t.id === id);
+    if (topic && gcTab.nodes.some((node) => Number.isFinite(node.x)) && gcTab.alpha < 0.3) return topic;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return null;
+}
+
+//: A note's topic on the map: the Graph tab under the Topic colour rule, the
+//: topic's notes lit, its card open, and the camera on its notes (a note
+//: card's topic chip, `noteTopicChip`, and the panel's).
+async function showTopicInGraph(entryId) {
+  await switchTab("graph");
+  const topic = await graphTopicFor(entryId);
+  if (!topic) {
+    toast("That note's topic is not on the graph right now: a filter or the view may be hiding it.", "info");
+    return;
+  }
+  closeGraphPopup();
+  gcOpenTopic(topic);
+  const members = gcTopicMembers(topic);
+  if (members.length) fitGraphToView(gcTab.svg, null, gcTab.zoom, members, gcTab.dims.w, gcTab.dims.h);
+}
+
+//: **A note's properties, in its panel** (the owner, 2026-10-10: "is it
+//: possible to add and customise the metadata a little more??"). The
+//: `---` fields the card shows, each value a press that lights the notes on
+//: the map sharing it (`/entries/query`, the Notes filter's own question), and
+//: Properties to add or change them (the note's ⋯ has the same sheet).
+function renderGraphPopupProps(entry) {
+  const box = $("graph-popup-props");
+  if (!box) return;
+  const table = document.createElement("dl");
+  table.className = "note-props";
+  for (const [key, values] of Object.entries(entry.properties || {}).slice(0, 8)) {
+    const dt = document.createElement("dt");
+    dt.textContent = key;
+    const dd = document.createElement("dd");
+    for (const value of (values || []).filter(Boolean)) {
+      const shown = String(value).replace(/^\[\[|\]\]$/g, "");
+      const light = chip(shown, "refs", async () => {
+        const row = await apiJson(`/entries/query?q=${encodeURIComponent(propQuery(key, shown))}`, { silent: true }).catch(() => null);
+        if (!row) return;
+        graphHighlightIds = new Set(row.ids || []);
+        applyGraphHighlight();
+        toast(`${graphHighlightIds.size} note${graphHighlightIds.size === 1 ? "" : "s"} with ${key} ${shown}, lit on the map.`, "info");
+      });
+      light.title = `Light the notes whose ${key} is ${shown}`;
+      dd.append(light, " ");
+    }
+    if (!dd.firstChild) dd.textContent = "–";
+    table.append(dt, dd);
+  }
+  const edit = smallButton("ph:list-bullets Properties", "Add or change this note's properties (status, due, a type's fields), kept in its text", () => openNotePropertiesSheet(entry));
+  box.replaceChildren(...(table.firstChild ? [table] : []), edit);
+}
+
 function renderGraphPopupInfo(entry) {
   const box = $("graph-popup-info");
   const links = (entry.links || []).length;
@@ -4051,9 +4410,204 @@ function renderGraphPopupInfo(entry) {
 //: icons with no words anywhere, nothing is the odd one out, and the state
 //: the words carried (Favourite vs Favourited, Trace vs Trace to) is in the
 //: tooltip and in `aria-pressed`.
+//: **On a phone the same nine actions are two words and a menu.** Reported
+//: (INBOX 883, 884): "the buttons at the bottom of a note popup panel ...
+//: all wrap onto like 3 different rows when on phone", and "i have no clue
+//: what the buttons do as I cant hover over them and see a tooltip". Nine
+//: bare icons are readable with a pointer (the tooltip says what each is) and
+//: unreadable under a finger. Below 600, or on any device that cannot hover,
+//: the row is Open and Link as labelled buttons (the note's two most-used
+//: moves, the words in the button) and a ⋯ (`kebabMenu`) holding the rest as
+//: labelled rows, so every action has a visible name and the strip is one
+//: line. The list of actions is built once (`graphPopupActionList`) and drawn
+//: either way, so the two shapes cannot disagree about what a note can do.
+const GRAPH_POPUP_COMPACT = "(max-width: 599.98px), (hover: none)";
+
+function graphPopupActionList(entry) {
+  const tracingFrom = Boolean(traceFromNode);
+  const list = [
+    {
+      key: "open",
+      group: "read",
+      icon: "note-pencil",
+      word: "Open",
+      title: "Open this note in the Notes tab",
+      primary: true,
+      run: () => {
+        const id = entry.id;
+        closeGraphPopup();
+        flashEntry(id);
+      },
+    },
+    {
+      key: "similar",
+      group: "read",
+      icon: "approximate-equals",
+      word: "Similar notes",
+      title: "Highlight notes that mean something similar",
+      run: async () => {
+        const related = await apiJson(`/entries/${entry.id}/related`).catch(() => []);
+        if (!related.length) {
+          toast("No similar notes found.");
+          return;
+        }
+        // Reuse the existing highlight pass by searching for these ids.
+        graphHighlightIds = new Set(related.map((r) => r.id).concat(entry.id));
+        applyGraphHighlight();
+        closeGraphPopup();
+        toast(`Highlighted ${related.length} similar note${related.length === 1 ? "" : "s"}.`);
+      },
+    },
+    // Two clicks, the same shape as Link: this note becomes one end of the
+    // trace, and the next one you pick becomes the other. The tooltip says
+    // which end it will be, because a button that does two different things
+    // without saying which is a button you have to try to understand.
+    {
+      key: "trace",
+      group: "read",
+      icon: "path",
+      word: tracingFrom ? "Trace to here" : "Trace from here",
+      title: tracingFrom
+        ? "Trace to here: find how this note connects to the one you started from"
+        : "Trace from here: start tracing a path from this note",
+      run: () => {
+        closeGraphPopup();
+        setTraceEnd(tracingFrom ? "to" : "from", entry.id);
+        if (!tracingFrom) toast("Now pick the other note, use Trace to here.");
+      },
+    },
+    {
+      key: "grow",
+      group: "shape",
+      icon: "plant",
+      word: "Grow a linked note",
+      title: "Grow: add a new note linked to this one",
+      run: (event) => openGraphNewNote(event, entry.id),
+    },
+  ];
+  if (graphFocusModeId !== entry.id) {
+    list.push({
+      key: "focus",
+      group: "shape",
+      icon: "target",
+      word: "Focus on this note",
+      title: "Focus: isolate this note's neighbourhood",
+      run: () => {
+        graphFocusModeId = entry.id;
+        recordTabVisit("graph", `focus:${entry.id}`);
+        $("graph-focus-clear")?.classList.remove("hidden");
+        closeGraphPopup();
+        renderGraph();
+        toast("Focus Mode active. Showing local neighborhood.");
+      },
+    });
+  }
+  list.push(
+    {
+      key: "link",
+      group: "shape",
+      icon: "link",
+      word: "Link",
+      title: "Link: start linking this note to another",
+      run: () => {
+        closeGraphPopup();
+        beginOrCompleteLink(entry);
+        toast("Now click another note on the map to link them.");
+      },
+    },
+    {
+      key: "remind",
+      group: "shape",
+      icon: "alarm",
+      word: "Remind me",
+      title: "Remind me about this note",
+      run: () => {
+        closeGraphPopup();
+        switchTab("reminders");
+        $("reminder-text").value = `Follow up: ${stripFrontmatter(entry.content).trim().slice(0, 60)}`;
+        setDue(defaultDueValue()); // keeps the visible date/time fields in step
+        $("reminder-text").focus();
+      },
+    },
+    {
+      key: "favourite",
+      group: "keep",
+      icon: "star",
+      word: entry.pinned ? "Remove from Favourites" : "Add to Favourites",
+      title: entry.pinned ? "Remove from Favourites" : "Add to Favourites",
+      pressed: Boolean(entry.pinned),
+      run: async () => {
+        const was = Boolean(entry.pinned);
+        const flipped = await apiJson(`/entries/${entry.id}`, {
+          method: "PUT",
+          body: JSON.stringify({ pinned: !was }),
+        }).catch((e) => toast(e.message, true));
+        if (flipped) pushEntryPutUndo(entry.id, was ? "Removed from Favourites" : "Added to Favourites", { pinned: was }, { pinned: !was });
+        toast(entry.pinned ? "Removed from Favourites." : "Added to Favourites.");
+        closeGraphPopup();
+        await loadEntries().catch(() => {});
+        renderGraph();
+      },
+    },
+    {
+      key: "bin",
+      group: "keep",
+      icon: "trash",
+      word: "Move to the bin",
+      title: "Move this note to the bin",
+      danger: true,
+      run: async () => {
+        if (!(await confirmDialog("Move this note to the bin?"))) return;
+        closeGraphPopup();
+        try {
+          await binNoteWithUndo(entry);
+        } catch (e) {
+          toast(e.message, true);
+        }
+        renderGraph();
+      },
+    }
+  );
+  return list;
+}
+
+let graphPopupActionsEntry = null; // the note the row was last drawn for
+
 function renderGraphPopupActions(entry) {
+  graphPopupActionsEntry = entry;
   const box = $("graph-popup-actions");
   box.replaceChildren();
+  const list = graphPopupActionList(entry);
+  const compact = window.matchMedia(GRAPH_POPUP_COMPACT).matches;
+  box.classList.toggle("is-compact", compact);
+  if (compact) {
+    //: Open and Link are the two the words are spent on; the rest are the ⋯.
+    //: Open stays the one filled control (the ramp's "the action this surface
+    //: is for"), Link is tonal.
+    const shown = new Set(["open", "link"]);
+    const row = document.createElement("div");
+    row.className = "graph-popup-tool-group graph-popup-tool-shown";
+    for (const a of list.filter((x) => shown.has(x.key))) {
+      const b = smallButton(`ph:${a.icon} ${a.key === "open" ? "Open" : "Link"}`, a.title, (event) => a.run(event), !a.primary);
+      if (a.primary) b.classList.add("graph-popup-tool-primary");
+      row.appendChild(b);
+    }
+    const rest = list.filter((x) => !shown.has(x.key));
+    row.appendChild(
+      kebabMenu(
+        rest.map((a) => ({
+          label: `ph:${a.icon} ${a.word}`,
+          title: a.title,
+          run: () => a.run(null),
+          danger: a.danger,
+          group: a.group,
+        })),
+        "More note actions"
+      )
+    );
+    box.appendChild(row);
+    return;
+  }
 
   const group = (name) => {
     const el = document.createElement("div");
@@ -4061,147 +4615,45 @@ function renderGraphPopupActions(entry) {
     box.appendChild(el);
     return el;
   };
-  const read = group("read");
-  const shape = group("shape");
-  const keep = group("keep");
-
-  // read ---------------------------------------------------------------
-  //: The filled one. `smallButton(..., ghost=false)` is the accent recipe;
-  //: it stays square because `smallButton` adds `.icon-only` for a label
-  //: that is a glyph and nothing else.
-  const open = smallButton(
-    "ph:note-pencil",
-    "Open this note in the Notes tab",
-    () => {
-      const id = entry.id;
-      closeGraphPopup();
-      flashEntry(id);
-    },
-    false
-  );
-  //: The class, not just the absence of `.ghost`: a late rule paints every
-  //: `.icon-only:not(.ghost)` button tonal (07-whiteboard-misc.css, "a
-  //: control inside a grouped strip does not need its own ground"), so
-  //: leaving Open non-ghost made it *look* exactly like its eight
-  //: neighbours. Measured on the running panel, which is the only way that
-  //: was ever going to show up: the markup said one filled button and the
-  //: pixels said none.
-  open.classList.add("graph-popup-tool-primary");
-  read.appendChild(open);
-  read.appendChild(
-    smallButton("ph:approximate-equals", "Highlight notes that mean something similar", async () => {
-      const related = await apiJson(`/entries/${entry.id}/related`).catch(() => []);
-      if (!related.length) {
-        toast("No similar notes found.");
-        return;
-      }
-      // Reuse the existing highlight pass by searching for these ids.
-      graphHighlightIds = new Set(related.map((r) => r.id).concat(entry.id));
-      applyGraphHighlight();
-      closeGraphPopup();
-      toast(`Highlighted ${related.length} similar note${related.length === 1 ? "" : "s"}.`);
-    })
-  );
-  // Two clicks, the same shape as Link: this note becomes one end of the
-  // trace, and the next one you pick becomes the other. The tooltip says
-  // which end it will be, because a button that does two different things
-  // without saying which is a button you have to try to understand.
-  const tracingFrom = Boolean(traceFromNode);
-  read.appendChild(
-    smallButton(
-      "ph:path",
-      tracingFrom
-        ? "Trace to here: find how this note connects to the one you started from"
-        : "Trace from here: start tracing a path from this note",
-      () => {
-        closeGraphPopup();
-        setTraceEnd(tracingFrom ? "to" : "from", entry.id);
-        if (!tracingFrom) toast("Now pick the other note, use Trace to here.");
-      }
-    )
-  );
-
-  // shape --------------------------------------------------------------
-  shape.appendChild(
-    smallButton("ph:plant", "Grow: add a new note linked to this one", (event) =>
-      openGraphNewNote(event, entry.id)
-    )
-  );
-  if (graphFocusModeId !== entry.id) {
-    shape.appendChild(
-      smallButton("ph:target", "Focus: isolate this note's neighbourhood", () => {
-        graphFocusModeId = entry.id;
-        recordTabVisit("graph", `focus:${entry.id}`);
-        $("graph-focus-clear")?.classList.remove("hidden");
-        closeGraphPopup();
-        renderGraph();
-        toast("Focus Mode active. Showing local neighborhood.");
-      })
-    );
-  }
-  shape.appendChild(
-    smallButton("ph:link", "Link: start linking this note to another", () => {
-      closeGraphPopup();
-      beginOrCompleteLink(entry);
-      toast("Now click another note on the map to link them.");
-    })
-  );
-  shape.appendChild(
-    smallButton("ph:alarm", "Remind me about this note", () => {
-      closeGraphPopup();
-      switchTab("reminders");
-      $("reminder-text").value = `Follow up: ${stripFrontmatter(entry.content).trim().slice(0, 60)}`;
-      setDue(defaultDueValue()); // keeps the visible date/time fields in step
-      $("reminder-text").focus();
-    })
-  );
-
-  // keep ---------------------------------------------------------------
-  //: One glyph in both states, coloured when it is on, the note cards'
-  //: own rule, and for the reason `favouriteButton` (note-cards.js) records: the
-  //: "off" version used a *different icon*, and one of those was missing
-  //: from the font and drew nothing at all.
-  const favourite = smallButton(
-    "ph:star",
-    entry.pinned ? "Remove from Favourites" : "Add to Favourites",
-    async () => {
-      await apiJson(`/entries/${entry.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ pinned: !entry.pinned }),
-      }).catch((e) => toast(e.message, true));
-      toast(entry.pinned ? "Removed from Favourites." : "Added to Favourites.");
-      closeGraphPopup();
-      await loadEntries().catch(() => {});
-      renderGraph();
+  const groups = { read: group("read"), shape: group("shape"), keep: group("keep") };
+  for (const a of list) {
+    const b = smallButton(`ph:${a.icon}`, a.title, (event) => a.run(event), !a.primary);
+    if (a.primary) {
+      //: The class, not just the absence of `.ghost`: a late rule paints every
+      //: `.icon-only:not(.ghost)` button tonal (07-whiteboard-misc.css, "a
+      //: control inside a grouped strip does not need its own ground"), so
+      //: leaving Open non-ghost made it *look* exactly like its eight
+      //: neighbours. Measured on the running panel: the markup said one filled
+      //: button and the pixels said none.
+      b.classList.add("graph-popup-tool-primary");
     }
-  );
-  favourite.classList.toggle("is-favourite", Boolean(entry.pinned));
-  favourite.setAttribute("aria-pressed", String(Boolean(entry.pinned)));
-  keep.appendChild(favourite);
-  const bin = smallButton("ph:trash", "Move this note to the bin", async () => {
-    if (!(await confirmDialog("Move this note to the bin?"))) return;
-    await api(`/entries/${entry.id}`, { method: "DELETE" }).catch((e) =>
-      toast(e.message, true)
-    );
-    closeGraphPopup();
-    await refreshEntries([entry.id]).catch(() => {});
-    renderGraph();
-    toastAction("Moved to the bin.", "Undo", async () => {
-      await api(`/entries/${entry.id}/restore`, { method: "POST" });
-      await refreshEntries([entry.id]);
-      renderGraph();
-      toast("Note restored.");
-    }, { also: GO_TO_BIN });
+    if (a.key === "favourite") {
+      //: One glyph in both states, coloured when it is on, the note cards'
+      //: own rule (`favouriteButton`, note-cards.js).
+      b.classList.toggle("is-favourite", a.pressed);
+      b.setAttribute("aria-pressed", String(a.pressed));
+    }
+    //: Set apart by a gap of its own inside the keep group rather than by a
+    //: fourth divider: three groups is the structure.
+    if (a.key === "bin") b.classList.add("graph-popup-tool-bin");
+    groups[a.group].appendChild(b);
+  }
+}
+
+//: A rotation or a window resize can cross the compact line with a panel
+//: open; redraw the row so it is never the wrong shape for the width.
+try {
+  window.matchMedia(GRAPH_POPUP_COMPACT).addEventListener("change", () => {
+    const open = graphPopupId !== null && !$("graph-popup").classList.contains("hidden");
+    if (open && graphPopupActionsEntry) renderGraphPopupActions(graphPopupActionsEntry);
   });
-  //: Set apart by a gap of its own inside the keep group rather than by a
-  //: fourth divider: three groups is the structure, and a hairline whose
-  //: only job is to isolate one button would read as a fourth.
-  bin.classList.add("graph-popup-tool-bin");
-  keep.appendChild(bin);
+} catch (e) {
+  /* matchMedia is absent in some test shells; the row is drawn on open. */
 }
 
 function closeGraphPopup() {
   graphPopupId = null;
+  if (typeof gcTab !== "undefined" && gcTab.canvas) gcRequestDraw(gcTab);
   $("graph-popup").classList.add("hidden");
   clearGraphKeyboardFocus();
 }
@@ -4238,10 +4690,12 @@ async function saveGraphPopup() {
   status.classList.remove("error");
   status.textContent = "Saving…";
   try {
+    const wasTags = String(graphPopupClean.tags || "").split(",").map((t) => t.trim()).filter(Boolean);
     const saved = await apiJson(`/entries/${graphPopupId}`, {
       method: "PUT",
       body: JSON.stringify({ content: $("graph-popup-content").value, tags }),
     });
+    pushEntryPutUndo(graphPopupId, "Edited a note on the map", { content: graphPopupClean.content, tags: wasTags }, { content: $("graph-popup-content").value, tags });
     status.textContent = "Saved.";
     if (typeof offerWikiRename === "function") offerWikiRename(graphPopupId, saved);
     //: What was just written is the new clean state, so the button puts
@@ -4281,21 +4735,31 @@ function openGraphNewNote(event, linkFrom = null) {
     ? "This note will be linked to the one you grew it from."
     : "It joins the map as soon as you add it.";
   popup.classList.remove("hidden");
+  graphLate.newAt = event ? { x: event.clientX, y: event.clientY } : null;
+  placeGraphNewNote();
+  watchGraphPopupSize(popup, placeGraphNewNote);
+  $("graph-new-content").focus();
+}
 
-  const box = $("graph-box").getBoundingClientRect();
-  // Never taller than the map it sits in, beyond that the popup scrolls
+//: Where New note was asked for, kept so a later size change (its fields
+//: settling, the tag row) places it again from the same point: measured,
+//: it grew 30px after opening and its foot went under the status bar.
+function placeGraphNewNote() {
+  const popup = $("graph-new");
+  if (popup.classList.contains("hidden")) return;
+  const { box, room } = graphPanelRoom();
+  // Never taller than the room it has, beyond that the popup scrolls
   // itself rather than growing off the edge (same fix placeGraphPopup()
   // already has; this popup was missing it, so on a short viewport its
   // Save/Close/Tags controls rendered below the fold with nothing to
   // scroll them into view).
-  popup.style.maxHeight = `${Math.max(120, box.height - 16)}px`;
+  popup.style.maxHeight = `${Math.max(120, room - 16)}px`;
   const size = popup.getBoundingClientRect();
   // Centre it when there's no click position (toolbar button).
-  const rawX = event ? event.clientX - box.left + 12 : (box.width - size.width) / 2;
-  const rawY = event ? event.clientY - box.top + 12 : 60;
+  const rawX = graphLate.newAt ? graphLate.newAt.x - box.left + 12 : (box.width - size.width) / 2;
+  const rawY = graphLate.newAt ? graphLate.newAt.y - box.top + 12 : 60;
   popup.style.left = `${Math.min(Math.max(rawX, 8), Math.max(8, box.width - size.width - 8))}px`;
-  popup.style.top = `${Math.min(Math.max(rawY, 8), Math.max(8, box.height - size.height - 8))}px`;
-  $("graph-new-content").focus();
+  popup.style.top = `${Math.min(Math.max(rawY, 8), Math.max(8, room - size.height - 8))}px`;
 }
 
 function closeGraphNewNote() {
@@ -4325,6 +4789,7 @@ async function saveGraphNewNote() {
       body: JSON.stringify({ content, tags, defer_filing: true, inline_tags: true }),
     });
     if (created.filing_state === "pending") watchFiling(created);
+    pushEntryCreateUndo(created, "Added a note to the map");
     if (graphNewLinkFrom !== null) {
       await apiJson(`/entries/${graphNewLinkFrom}/links`, {
         method: "POST",
@@ -4797,6 +5262,19 @@ function graphMinimapPaint() {
   graphMinimapFrame();
 }
 
+//: **Every camera move glides on the motion token** (Brief 100 (d), INBOX
+//: 802: reset and recentre ease the view). The moves had seven durations of
+//: their own, 150 to 700ms, and only the fit asked about reduced motion, and
+//: only the system's: the zoom buttons, the arrow keys and Locate glided
+//: with the app's own Reduce motion on. Each keeps its length relative to the
+//: others, scaled by `--ui-slow` (0.2s, `gcTokens.hoverMs`), and is 0 when
+//: either setting asks for less motion or the token is off.
+function graphGlideMs(base) {
+  if (typeof gcStill === "function" && gcStill()) return 0;
+  const token = typeof gcTokens !== "undefined" && gcTokens.hoverMs != null ? gcTokens.hoverMs : 200;
+  return Math.round((base * token) / 200);
+}
+
 //: Every number that reaches an SVG attribute goes through here first. Named
 //: rather than inlined because it is checked in three places in this file and
 //: the shape of the bug it prevents (one NaN, four broken attributes, a
@@ -4952,7 +5430,7 @@ function initGraphMinimap() {
       .translate(graphDims.w / 2, graphDims.h / 2)
       .scale(scale)
       .translate(-cx, -cy);
-    const sel = animate ? graphSvg.transition().duration(250) : graphSvg;
+    const sel = animate ? graphSvg.transition().duration(graphGlideMs(250)) : graphSvg;
     sel.call(graphZoom.transform, target);
   };
 
@@ -5049,7 +5527,7 @@ function initGraphMinimap() {
 
   document.getElementById("graph-minimap-corner")?.addEventListener("change", (event) => {
     const choice = event.target.value;
-    localStorage.setItem(GRAPH_MINIMAP_CORNER_KEY, choice);
+    prefs.set(GRAPH_MINIMAP_CORNER_KEY, choice);
     applyMinimapPosition(choice);
   });
 
@@ -5077,7 +5555,7 @@ function initGraphMinimap() {
   applyMinimapSize(prefs.get(GRAPH_MINIMAP_SIZE_KEY, null));
   document.getElementById("graph-minimap-size")?.addEventListener("change", (event) => {
     const choice = event.target.value;
-    localStorage.setItem(GRAPH_MINIMAP_SIZE_KEY, choice);
+    prefs.set(GRAPH_MINIMAP_SIZE_KEY, choice);
     applyMinimapSize(choice);
   });
 }
@@ -5150,7 +5628,7 @@ async function graphSaveCurrentView() {
   if (!name) return;
   const views = graphSavedViews().filter((v) => v.name !== name); // same name replaces
   views.push({ name, ...graphCaptureView() });
-  localStorage.setItem(GRAPH_VIEWS_KEY, JSON.stringify(views));
+  prefs.set(GRAPH_VIEWS_KEY, JSON.stringify(views));
   renderGraphViews();
   toast(`Saved the view “${name}”.`);
 }
@@ -5174,8 +5652,8 @@ function graphApplyView(view) {
   // without this function needing to know which `set()` call that will be.
   graphPendingViewPositions =
     view.positions && Object.keys(view.positions).length ? view.positions : null;
-  localStorage.setItem("graph-layout", view.layout);
-  if (view.colour) localStorage.setItem("graph-colour", view.colour);
+  prefs.set("graph-layout", view.layout);
+  if (view.colour) prefs.set("graph-colour", view.colour);
   //: The layout is a list (INBOX 670; it was a radio group, which `set()` on
   //: its `<div>` wrote a `value` expando on and fired "change" from, so the
   //: map was right and the View menu still showed the old layout). The list
@@ -5201,7 +5679,7 @@ function graphApplyView(view) {
   graphHiddenCategories = new Set(view.hiddenCategories || []);
   graphHiddenKeys = new Set(view.hiddenKeys || []);
   if (Array.isArray(view.groups)) {
-    localStorage.setItem(GRAPH_GROUPS_KEY, JSON.stringify(view.groups));
+    prefs.set(GRAPH_GROUPS_KEY, JSON.stringify(view.groups));
     graphRenderGroups();
   }
 
@@ -5266,7 +5744,7 @@ function initGraphViews() {
       return;
     }
     if (!(await confirmDialog(`Delete the saved view “${name}”?`))) return;
-    localStorage.setItem(
+    prefs.set(
       GRAPH_VIEWS_KEY,
       JSON.stringify(graphSavedViews().filter((v) => v.name !== name))
     );
@@ -5310,13 +5788,13 @@ graphRestoreSwitches();
 //: their own surface.
 for (const id of ["graph-tags", "graph-attachments", "graph-unresolved"]) $(id)?.addEventListener("change", renderGraph);
 $("graph-arrows")?.addEventListener("change", (event) => {
-  localStorage.setItem("graph-arrows", event.target.checked ? "1" : "0");
+  prefs.set("graph-arrows", event.target.checked ? "1" : "0");
   gcRequestDraw();
 });
 for (const id of ["graph-label-fade", "graph-link-width"]) {
   $(id)?.addEventListener("input", () => gcRequestDraw());
   $(id)?.addEventListener("change", (event) => {
-    localStorage.setItem(id, event.target.value);
+    prefs.set(id, event.target.value);
     gcRequestDraw();
   });
 }
@@ -5324,7 +5802,7 @@ for (const prefix of ["focus", "pane"]) {
   for (const id of ["depth", "in", "out", "neighbours"]) {
     $(`graph-${prefix}-${id}`)?.addEventListener("change", (event) => {
       const box = event.target;
-      localStorage.setItem(box.id, box.type === "checkbox" ? (box.checked ? "1" : "0") : box.value);
+      prefs.set(box.id, box.type === "checkbox" ? (box.checked ? "1" : "0") : box.value);
       if (prefix === "focus") {
         if (graphFocusModeId) renderGraph();
       } else if (typeof renderGraphPane === "function" && graphPaneShownId != null) {
@@ -5335,7 +5813,7 @@ for (const prefix of ["focus", "pane"]) {
 }
 
 $("graph-label-plates")?.addEventListener("change", (event) => {
-  localStorage.setItem("graph-label-plates", event.target.checked ? "1" : "0");
+  prefs.set("graph-label-plates", event.target.checked ? "1" : "0");
   gcRequestDraw();
 });
 
@@ -5346,6 +5824,105 @@ $("graph-label-plates")?.addEventListener("change", (event) => {
 $("graph-reshuffle")?.addEventListener("click", () => {
   if (!gcReshuffle()) toast("Reshuffle works on the force layout: pick Force under Layout first.");
 });
+
+//: Moved from wiring.js (2026-10-10, the boot script budget): see the note
+//: left there.
+// On-screen zoom controls drive the same d3 zoom behaviour as scroll/pinch.
+//: **The map's head menus shut each other** (INBOX 796, the owner:
+//: "dropdown menus in the graph dont close when another is opened causing a
+//: visual clash and overlay for all 3 of these buttons"). The '?' and the
+//: gear stop their click from reaching the page, so their own outside-click
+//: close does not undo them, which also kept every other menu's
+//: outside-click close from running. Caught on the way down, before either
+//: handler runs: the others close, the one pressed then does what it does.
+//: In the tab's own bundle: the boot scripts have no bytes left.
+const GRAPH_HEAD_MENUS = "#graph-help-toggle, #graph-options-toggle, #graph-more-menu > summary";
+function graphCloseOtherMenus(opener) {
+  closeActionMenus();
+  for (const entry of [...openHelpPopovers]) if (entry.trigger !== opener) entry.close();
+  for (const menu of document.querySelectorAll("details.dock-menu[open]")) {
+    if (!menu.contains(opener)) menu.open = false;
+  }
+  const panel = $("graph-options");
+  if (panel && !panel.classList.contains("hidden") && !$("graph-options-toggle").contains(opener)) setGraphOptionsOpen(false);
+}
+document.addEventListener("click", (event) => {
+  const opener = event.target.closest?.(GRAPH_HEAD_MENUS);
+  if (opener) graphCloseOtherMenus(opener);
+}, true);
+
+function graphZoomBy(factor) {
+  if (!graphZoom || !graphSvg) return;
+  //: The zoom buttons move the camera as a gesture does: no settle fit or
+  //: panel refit may take it back (INBOX 792).
+  if (typeof gcTab !== "undefined" && gcTab.svg === graphSvg) gcTab.userZoomed = true;
+  graphSvg.transition().duration(graphGlideMs(200)).call(graphZoom.scaleBy, factor);
+}
+$("graph-zoom-in").addEventListener("click", () => graphZoomBy(1.3));
+$("graph-zoom-out").addEventListener("click", () => graphZoomBy(1 / 1.3));
+$("graph-zoom-fit").addEventListener("click", () => {
+  if (graphNodesRef && graphNodesRef.length) {
+    fitGraphToView(graphSvg, graphCanvas, graphZoom, graphNodesRef, graphDims.w, graphDims.h);
+  }
+});
+
+function toggleGraphFullscreen() {
+  const card = $("graph-card");
+  if (card) {
+    const isFull = card.classList.toggle("graph-fullscreen");
+    // **Full screen hides the app chrome** (INBOX 29: "the top bar stays").
+    // The card has covered the screen for a while, inset by one step and
+    // fixed, but the top bar, the tab bar inside it and the status bar were
+    // still laid out under it and still showing through that inset, so full
+    // screen read as a card sitting on the app rather than as the map having
+    // the screen. The class goes on <body> because the chrome is not inside
+    // the card: what is hidden is listed in 02-chat-graph.css beside the
+    // `.graph-fullscreen` rule itself.
+    document.body.classList.toggle("graph-fullscreen-on", isFull);
+    // The single zoom-cluster button now does both jobs a separate "Close
+    // Full Screen" toolbar button used to split between them, asked for
+    // directly: "move the close full screen button in the graph to be next
+    // to the new graph button or smth so it isnt making an extra row." That
+    // second button (`#graph-fullscreen-close`, toolbar) called this exact
+    // same function and existed only because this one gave no sign it also
+    // exits: so rather than relocate a redundant second button, this one
+    // now says which of its two jobs it will do next.
+    const fsBtn = $("graph-fullscreen");
+    if (fsBtn) {
+      fsBtn.title = isFull ? "Exit full screen" : "Full screen";
+      fsBtn.setAttribute("aria-label", fsBtn.title);
+      fsBtn.setAttribute("aria-pressed", String(isFull));
+      const icon = fsBtn.querySelector("i");
+      if (icon) icon.className = isFull ? "ph ph-arrows-in" : "ph ph-frame-corners";
+    }
+    // Trigger a resize event to ensure D3 SVG rescales properly
+    window.dispatchEvent(new Event('resize'));
+    if (graphNodesRef && graphNodesRef.length) {
+      setTimeout(() => {
+        const box = $("graph-box");
+        graphDims.w = box.clientWidth || 800;
+        graphDims.h = box.clientHeight || 540;
+        // Only the SVG renderer has a viewBox; `graphSvg` points at the
+        // <canvas> on the other one, and a `viewBox` attribute on a <canvas>
+        // means nothing. The canvas resizes itself from its ResizeObserver.
+        if (graphSvg && graphSvg.node() && graphSvg.node().tagName === "svg") {
+          graphSvg.attr("viewBox", [0, 0, graphDims.w, graphDims.h]);
+        }
+        if (graphSimulation) {
+          graphSimulation.force("center", d3.forceCenter(graphDims.w / 2, graphDims.h / 2));
+          graphSimulation.force("x", d3.forceX(graphDims.w / 2).strength(0.04));
+          graphSimulation.force("y", d3.forceY(graphDims.h / 2).strength(0.06));
+          graphSimulation.alpha(0.3).restart();
+        }
+        if (isFull) {
+          fitGraphToView(graphSvg, graphCanvas, graphZoom, graphNodesRef, graphDims.w, graphDims.h);
+        }
+      }, 50);
+    }
+  }
+}
+
+$("graph-fullscreen")?.addEventListener("click", toggleGraphFullscreen);
 
 // INBOX 693: the force layout's Shape (`gcShape`, the worker's `SHAPES`).
 // Remembered; a change re-lays the map out from where every note stands, so
@@ -5358,14 +5935,14 @@ $("graph-reshuffle")?.addEventListener("click", () => {
   shape.value = prefs.get("graph-shape", null) || "organic";
   if (!shape.value) shape.value = "organic";
   shape.addEventListener("change", () => {
-    localStorage.setItem("graph-shape", shape.value);
+    prefs.set("graph-shape", shape.value);
     graphHighlightIds = null;
     renderGraph();
   });
 })();
 
 $("graph-curved")?.addEventListener("change", (event) => {
-  localStorage.setItem("graph-curved", event.target.checked ? "1" : "0");
+  prefs.set("graph-curved", event.target.checked ? "1" : "0");
   //: The layout keeps dots clear of the lines as drawn (the worker's
   //: `clearanceForce`, INBOX 693), and a curve and a straight line pass
   //: different dots, so the forces hear about it and the map eases round.
@@ -5376,19 +5953,19 @@ $("graph-curved")?.addEventListener("change", (event) => {
 //: The cluster wash is on by default and remembered off (the owner: "the
 //: nebulae could be a togglable feature??"); like Curved links it is a redraw.
 $("graph-nebula")?.addEventListener("change", (event) => {
-  localStorage.setItem("graph-nebula", event.target.checked ? "1" : "0");
+  prefs.set("graph-nebula", event.target.checked ? "1" : "0");
   gcRequestDraw();
 });
 
 //: Link length by similarity changes the forces, so it is a relayout rather
 //: than a redraw (the owner: "distance based on similarity score or smth??").
 $("graph-length-score")?.addEventListener("change", (event) => {
-  localStorage.setItem("graph-length-score", event.target.checked ? "1" : "0");
+  prefs.set("graph-length-score", event.target.checked ? "1" : "0");
   renderGraph();
 });
 //: Group by category changes the forces too (graph-worker.js `applyGrouping`).
 $("graph-group")?.addEventListener("change", (event) => {
-  localStorage.setItem("graph-group", event.target.checked ? "1" : "0");
+  prefs.set("graph-group", event.target.checked ? "1" : "0");
   renderGraph();
 });
 
@@ -5423,7 +6000,7 @@ function graphSyncSimilarityRow() {
   slider.addEventListener("input", graphSyncSimilarityRow);
   slider.addEventListener("change", () => {
     try {
-      localStorage.setItem("graph-similarity-min", slider.value);
+      prefs.set("graph-similarity-min", slider.value);
     } catch (error) {
       /* A browser with storage refused still filters, it just forgets. */
     }
@@ -5563,10 +6140,15 @@ function graphResetToDefaults() {
     return;
   }
   graphApplySettings(GRAPH_DEFAULTS);
-  toastAction("Map settings reset to defaults.", "Undo", () => {
-    graphApplySettings(before);
-    toast("Map settings restored.");
-  });
+  offerUndo(
+    "Reset the map's settings",
+    "Map settings reset to defaults.",
+    () => {
+      graphApplySettings(before);
+      toast("Map settings restored.");
+    },
+    () => graphApplySettings(GRAPH_DEFAULTS)
+  );
 }
 
 document.getElementById("graph-options-reset")?.addEventListener("click", graphResetToDefaults);

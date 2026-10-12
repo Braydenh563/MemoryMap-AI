@@ -20,7 +20,7 @@ from __future__ import annotations
 import io
 from pathlib import Path
 
-from memorymap.core import docview
+from tessellate.core import docview
 from tests._app_js import app_js_text
 
 
@@ -207,12 +207,12 @@ def test_the_preview_is_the_one_response_allowed_to_be_framed(client):
 
 
 def test_the_app_may_frame_blobs_and_itself_but_nothing_else():
-    from memorymap.core import security
+    from tessellate.core import security
 
     policy = security.build_csp([])
     assert "frame-src 'self' blob:" in policy
     assert "frame-ancestors 'none'" in policy, (
-        "the other direction is unchanged: nothing may frame MemoryMap"
+        "the other direction is unchanged: nothing may frame Tessellate"
     )
 
 
@@ -265,7 +265,8 @@ def test_keywords_do_not_use_the_user_chosen_accent():
     `rgb(205, 213, 224)` against near-white text. Strings, numbers and
     comments reuse `--ok`, `--warn` and `--muted`, none of which are settable."""
     css_dir = Path(__file__).resolve().parents[1] / "frontend" / "css"
-    misc = (css_dir / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    #: The viewer's rules sit in the lightbox bundle's own sheet (the gzip budget).
+    misc = (css_dir / "07-whiteboard-misc.css").read_text(encoding="utf-8") + (css_dir / "lightbox-lazy.css").read_text(encoding="utf-8")
     rule = misc[misc.index(".lightbox-doc-pre .tok-keyword") :][:200]
     assert "var(--syntax-keyword)" in rule
     assert "var(--accent)" not in rule

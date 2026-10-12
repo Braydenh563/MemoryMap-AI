@@ -1,0 +1,365 @@
+{
+ "today": "2026-10-06",
+ "rows": [
+  {
+   "id": "web-01",
+   "question": "what is spring tides",
+   "pages": [
+    {
+     "url": "https://example.org/tides/0",
+     "title": "About spring tides",
+     "text": "Spring tides come at new and full moon, when the sun and moon pull in line. It is a common question in school."
+    },
+    {
+     "url": "https://example.net/minerals/0",
+     "title": "About the Mohs scale",
+     "text": "The Mohs scale ranks minerals by hardness, from talc at 1 to diamond at 10."
+    }
+   ],
+   "answer_url": "https://example.org/tides/0",
+   "answer_sentence": "Spring tides come at new and full moon, when the sun and moon pull in line."
+  },
+  {
+   "id": "web-02",
+   "question": "what is a leap year",
+   "pages": [
+    {
+     "url": "https://example.org/calendar/1",
+     "title": "About a leap year",
+     "text": "A leap year has 366 days, with the extra day added to February. It is a common question in school."
+    },
+    {
+     "url": "https://example.net/poetry/1",
+     "title": "About a haiku",
+     "text": "A haiku has three lines of five, seven and five syllables."
+    }
+   ],
+   "answer_url": "https://example.org/calendar/1",
+   "answer_sentence": "A leap year has 366 days, with the extra day added to February."
+  },
+  {
+   "id": "web-03",
+   "question": "what is the boiling point of water",
+   "pages": [
+    {
+     "url": "https://example.org/water/2",
+     "title": "About the boiling point of water",
+     "text": "Water boils at 100 degrees Celsius at sea level. It is a common question in school."
+    },
+    {
+     "url": "https://example.net/history/2",
+     "title": "About the Rosetta Stone",
+     "text": "The Rosetta Stone carries one decree in three scripts, which unlocked hieroglyphs."
+    }
+   ],
+   "answer_url": "https://example.org/water/2",
+   "answer_sentence": "Water boils at 100 degrees Celsius at sea level."
+  },
+  {
+   "id": "web-04",
+   "question": "what is the speed of sound",
+   "pages": [
+    {
+     "url": "https://example.org/sound/3",
+     "title": "About the speed of sound",
+     "text": "Sound travels at about 343 metres a second in air at room temperature. It is a common question in school."
+    },
+    {
+     "url": "https://example.net/astronomy/3",
+     "title": "About a solar eclipse",
+     "text": "A solar eclipse happens when the moon passes between the sun and the earth."
+    }
+   ],
+   "answer_url": "https://example.org/sound/3",
+   "answer_sentence": "Sound travels at about 343 metres a second in air at room temperature."
+  },
+  {
+   "id": "web-05",
+   "question": "what is the tallest mountain",
+   "pages": [
+    {
+     "url": "https://example.org/mountains/4",
+     "title": "About the tallest mountain",
+     "text": "Everest is the tallest mountain above sea level, at 8,849 metres. It is a common question in school."
+    },
+    {
+     "url": "https://example.net/maths/4",
+     "title": "About the Fibonacci sequence",
+     "text": "Each Fibonacci number is the sum of the two before it."
+    }
+   ],
+   "answer_url": "https://example.org/mountains/4",
+   "answer_sentence": "Everest is the tallest mountain above sea level, at 8,849 metres."
+  },
+  {
+   "id": "web-06",
+   "question": "what is photosynthesis",
+   "pages": [
+    {
+     "url": "https://example.org/plants/5",
+     "title": "About photosynthesis",
+     "text": "Photosynthesis turns light, water and carbon dioxide into sugar and oxygen. It is a common question in school."
+    },
+    {
+     "url": "https://example.net/climate/5",
+     "title": "About a carbon footprint",
+     "text": "A carbon footprint is the greenhouse gas a person or thing causes, in tonnes."
+    }
+   ],
+   "answer_url": "https://example.org/plants/5",
+   "answer_sentence": "Photosynthesis turns light, water and carbon dioxide into sugar and oxygen."
+  },
+  {
+   "id": "web-07",
+   "question": "what is a sourdough starter",
+   "pages": [
+    {
+     "url": "https://example.org/baking/6",
+     "title": "About a sourdough starter",
+     "text": "A sourdough starter is flour and water fermented by wild yeast and bacteria. It is a common question in school."
+    },
+    {
+     "url": "https://example.net/money/6",
+     "title": "About compound interest",
+     "text": "Compound interest is interest earned on earlier interest as well as on the sum."
+    }
+   ],
+   "answer_url": "https://example.org/baking/6",
+   "answer_sentence": "A sourdough starter is flour and water fermented by wild yeast and bacteria."
+  },
+  {
+   "id": "web-08",
+   "question": "what is the Mohs scale",
+   "pages": [
+    {
+     "url": "https://example.org/minerals/7",
+     "title": "About the Mohs scale",
+     "text": "The Mohs scale ranks minerals by hardness, from talc at 1 to diamond at 10. It is a common question in school."
+    },
+    {
+     "url": "https://example.net/physics/7",
+     "title": "About the Doppler effect",
+     "text": "The Doppler effect is the change in pitch as a source moves toward or away from you."
+    }
+   ],
+   "answer_url": "https://example.org/minerals/7",
+   "answer_sentence": "The Mohs scale ranks minerals by hardness, from talc at 1 to diamond at 10."
+  },
+  {
+   "id": "web-09",
+   "question": "what is a haiku",
+   "pages": [
+    {
+     "url": "https://example.org/poetry/8",
+     "title": "About a haiku",
+     "text": "A haiku has three lines of five, seven and five syllables. It is a common question in school."
+    },
+    {
+     "url": "https://example.net/poetry/8",
+     "title": "About a sonnet",
+     "text": "A sonnet is a poem of fourteen lines, often in iambic pentameter."
+    }
+   ],
+   "answer_url": "https://example.org/poetry/8",
+   "answer_sentence": "A haiku has three lines of five, seven and five syllables."
+  },
+  {
+   "id": "web-10",
+   "question": "what is the Rosetta Stone",
+   "pages": [
+    {
+     "url": "https://example.org/history/9",
+     "title": "About the Rosetta Stone",
+     "text": "The Rosetta Stone carries one decree in three scripts, which unlocked hieroglyphs. It is a common question in school."
+    },
+    {
+     "url": "https://example.net/biology/9",
+     "title": "About the human heart",
+     "text": "The human heart has four chambers: two atria and two ventricles."
+    }
+   ],
+   "answer_url": "https://example.org/history/9",
+   "answer_sentence": "The Rosetta Stone carries one decree in three scripts, which unlocked hieroglyphs."
+  },
+  {
+   "id": "web-11",
+   "question": "what is a solar eclipse",
+   "pages": [
+    {
+     "url": "https://example.org/astronomy/10",
+     "title": "About a solar eclipse",
+     "text": "A solar eclipse happens when the moon passes between the sun and the earth. It is a common question in school."
+    },
+    {
+     "url": "https://example.net/astronomy/10",
+     "title": "About a black hole",
+     "text": "A black hole is a region where gravity is so strong that light cannot escape."
+    }
+   ],
+   "answer_url": "https://example.org/astronomy/10",
+   "answer_sentence": "A solar eclipse happens when the moon passes between the sun and the earth."
+  },
+  {
+   "id": "web-12",
+   "question": "what is the Fibonacci sequence",
+   "pages": [
+    {
+     "url": "https://example.org/maths/11",
+     "title": "About the Fibonacci sequence",
+     "text": "Each Fibonacci number is the sum of the two before it. It is a common question in school."
+    },
+    {
+     "url": "https://example.net/work/11",
+     "title": "About the Pareto principle",
+     "text": "The Pareto principle says about 80 percent of effects come from 20 percent of causes."
+    }
+   ],
+   "answer_url": "https://example.org/maths/11",
+   "answer_sentence": "Each Fibonacci number is the sum of the two before it."
+  },
+  {
+   "id": "web-13",
+   "question": "what is a carbon footprint",
+   "pages": [
+    {
+     "url": "https://example.org/climate/12",
+     "title": "About a carbon footprint",
+     "text": "A carbon footprint is the greenhouse gas a person or thing causes, in tonnes. It is a common question in school."
+    },
+    {
+     "url": "https://example.net/words/12",
+     "title": "About a palindrome",
+     "text": "A palindrome reads the same backward as forward, like level or racecar."
+    }
+   ],
+   "answer_url": "https://example.org/climate/12",
+   "answer_sentence": "A carbon footprint is the greenhouse gas a person or thing causes, in tonnes."
+  },
+  {
+   "id": "web-14",
+   "question": "what is compound interest",
+   "pages": [
+    {
+     "url": "https://example.org/money/13",
+     "title": "About compound interest",
+     "text": "Compound interest is interest earned on earlier interest as well as on the sum. It is a common question in school."
+    },
+    {
+     "url": "https://example.net/tides/13",
+     "title": "About spring tides",
+     "text": "Spring tides come at new and full moon, when the sun and moon pull in line."
+    }
+   ],
+   "answer_url": "https://example.org/money/13",
+   "answer_sentence": "Compound interest is interest earned on earlier interest as well as on the sum."
+  },
+  {
+   "id": "web-15",
+   "question": "what is the Doppler effect",
+   "pages": [
+    {
+     "url": "https://example.org/physics/14",
+     "title": "About the Doppler effect",
+     "text": "The Doppler effect is the change in pitch as a source moves toward or away from you. It is a common question in school."
+    },
+    {
+     "url": "https://example.net/calendar/14",
+     "title": "About a leap year",
+     "text": "A leap year has 366 days, with the extra day added to February."
+    }
+   ],
+   "answer_url": "https://example.org/physics/14",
+   "answer_sentence": "The Doppler effect is the change in pitch as a source moves toward or away from you."
+  },
+  {
+   "id": "web-16",
+   "question": "what is a sonnet",
+   "pages": [
+    {
+     "url": "https://example.org/poetry/15",
+     "title": "About a sonnet",
+     "text": "A sonnet is a poem of fourteen lines, often in iambic pentameter. It is a common question in school."
+    },
+    {
+     "url": "https://example.net/water/15",
+     "title": "About the boiling point of water",
+     "text": "Water boils at 100 degrees Celsius at sea level."
+    }
+   ],
+   "answer_url": "https://example.org/poetry/15",
+   "answer_sentence": "A sonnet is a poem of fourteen lines, often in iambic pentameter."
+  },
+  {
+   "id": "web-17",
+   "question": "what is the human heart",
+   "pages": [
+    {
+     "url": "https://example.org/biology/16",
+     "title": "About the human heart",
+     "text": "The human heart has four chambers: two atria and two ventricles. It is a common question in school."
+    },
+    {
+     "url": "https://example.net/sound/16",
+     "title": "About the speed of sound",
+     "text": "Sound travels at about 343 metres a second in air at room temperature."
+    }
+   ],
+   "answer_url": "https://example.org/biology/16",
+   "answer_sentence": "The human heart has four chambers: two atria and two ventricles."
+  },
+  {
+   "id": "web-18",
+   "question": "what is a black hole",
+   "pages": [
+    {
+     "url": "https://example.org/astronomy/17",
+     "title": "About a black hole",
+     "text": "A black hole is a region where gravity is so strong that light cannot escape. It is a common question in school."
+    },
+    {
+     "url": "https://example.net/mountains/17",
+     "title": "About the tallest mountain",
+     "text": "Everest is the tallest mountain above sea level, at 8,849 metres."
+    }
+   ],
+   "answer_url": "https://example.org/astronomy/17",
+   "answer_sentence": "A black hole is a region where gravity is so strong that light cannot escape."
+  },
+  {
+   "id": "web-19",
+   "question": "what is the Pareto principle",
+   "pages": [
+    {
+     "url": "https://example.org/work/18",
+     "title": "About the Pareto principle",
+     "text": "The Pareto principle says about 80 percent of effects come from 20 percent of causes. It is a common question in school."
+    },
+    {
+     "url": "https://example.net/plants/18",
+     "title": "About photosynthesis",
+     "text": "Photosynthesis turns light, water and carbon dioxide into sugar and oxygen."
+    }
+   ],
+   "answer_url": "https://example.org/work/18",
+   "answer_sentence": "The Pareto principle says about 80 percent of effects come from 20 percent of causes."
+  },
+  {
+   "id": "web-20",
+   "question": "what is a palindrome",
+   "pages": [
+    {
+     "url": "https://example.org/words/19",
+     "title": "About a palindrome",
+     "text": "A palindrome reads the same backward as forward, like level or racecar. It is a common question in school."
+    },
+    {
+     "url": "https://example.net/baking/19",
+     "title": "About a sourdough starter",
+     "text": "A sourdough starter is flour and water fermented by wild yeast and bacteria."
+    }
+   ],
+   "answer_url": "https://example.org/words/19",
+   "answer_sentence": "A palindrome reads the same backward as forward, like level or racecar."
+  }
+ ]
+}

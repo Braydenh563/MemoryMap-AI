@@ -32,7 +32,7 @@ import json
 
 import pytest
 
-from memorymap.ai import skills, tools
+from tessellate.ai import skills, tools
 
 
 def _events(client, question, **body):

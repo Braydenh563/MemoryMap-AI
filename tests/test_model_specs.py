@@ -23,9 +23,9 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai.ollama_client import OllamaClient
-from memorymap.ai.openai_client import OpenAICompatClient
-from memorymap.ai.provider import known_context
+from tessellate.ai.ollama_client import OllamaClient
+from tessellate.ai.openai_client import OpenAICompatClient
+from tessellate.ai.provider import known_context
 
 
 @pytest.fixture

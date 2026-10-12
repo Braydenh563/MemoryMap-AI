@@ -49,9 +49,9 @@ def test_tick_sync_reads_the_card_and_fetches_nothing() -> None:
 def test_a_rearrangement_redraws_without_a_request() -> None:
     whiteboard = (JS / "whiteboard.js").read_text(encoding="utf-8")
     assert '$("library-boards-search")?.addEventListener("input", redrawLibraryBoardsGallery)' in whiteboard
-    sort = whiteboard[whiteboard.index("localStorage.setItem(BOARD_SORT_KEY, select.value);"):][:120]
+    sort = whiteboard[whiteboard.index("prefs.set(BOARD_SORT_KEY, select.value);"):][:120]
     assert "redrawLibraryBoardsGallery()" in sort
-    chip = whiteboard[whiteboard.index("localStorage.setItem(BOARD_FILTER_KEY, filter.key);"):][:120]
+    chip = whiteboard[whiteboard.index("prefs.set(BOARD_FILTER_KEY, filter.key);"):][:120]
     assert "redrawLibraryBoardsGallery()" in chip
     # A visit draws what it had, and redraws only when the answer changed.
     render = _body(whiteboard, "async function renderLibraryBoardsGallery()")

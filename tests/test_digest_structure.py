@@ -18,8 +18,8 @@ import json
 import re
 from datetime import timedelta
 
-from memorymap.api.routes_insights import digest_structure_note
-from memorymap.core.database import Entry, EntryLink, utcnow
+from tessellate.api.routes_insights import digest_structure_note
+from tessellate.core.database import Entry, EntryLink, utcnow
 
 
 def _note(session, content, days_ago=0, private=False):
@@ -129,8 +129,8 @@ def test_digest_never_sends_a_private_note_to_the_model(ai_client, fake_ollama):
     prompt, which is both a privacy leak (existence + category + timing of a
     private note, in a request sent to whatever backend the model is at) and a
     quality bug (the model summarising base64 gibberish it can't read)."""
-    from memorymap.core import deps
-    from memorymap.core.database import Entry
+    from tessellate.core import deps
+    from tessellate.core.database import Entry
 
     _save(ai_client, "an ordinary note about the garden")
     session = deps.get_db().session()
@@ -202,8 +202,8 @@ def test_digest_stream_degrades_when_ai_is_down(ai_client, fake_ollama):
 
 def _backdate(entry_id, days):
     """Move a note to noon on the user's own clock, `days` ago."""
-    from memorymap.core import deps
-    from memorymap.core.config import user_now
+    from tessellate.core import deps
+    from tessellate.core.config import user_now
 
     local = user_now(deps.get_config()).replace(hour=12, minute=0, second=0, microsecond=0)
     when = local - timedelta(days=days)
@@ -220,8 +220,8 @@ def _long_date(when):
 
 
 def test_the_digest_prompt_dates_each_note_and_names_today(ai_client, fake_ollama):
-    from memorymap.core import deps
-    from memorymap.core.config import user_now
+    from tessellate.core import deps
+    from tessellate.core.config import user_now
 
     saved = _save(ai_client, "I have work tonight")
     written = _backdate(saved["id"], 1)

@@ -253,10 +253,13 @@ def test_graph_fullscreen_escape_asks_rather_than_relies_on_order():
     check) instead of asking. Measured before/after with
     `scratchpad/ui-sweeps/graphfslightbox.js`.
     """
+    #: The click wiring moved to graph.js with the function (2026-10-10, the
+    #: boot budget); the Escape handler this guards stayed in wiring.js.
     source = app_js_text()
     match = re.search(
-        r'(?ms)\$\("graph-fullscreen"\)\?\.addEventListener\("click", toggleGraphFullscreen\);'
-        r".*?document\.addEventListener\(\"keydown\", \(event\) => \{.*?\n\}\);",
+        r'(?ms)document\.addEventListener\("keydown", \(event\) => \{\n'
+        r'  if \(event\.key !== "Escape"\) return;\n'
+        r'  if \(!\$\("graph-card"\)\?\.classList\.contains\("graph-fullscreen"\)\) return;.*?\n\}\);',
         source,
     )
     assert match, "graph full-screen Escape handler not found in app.js"

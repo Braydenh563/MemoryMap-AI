@@ -31,7 +31,7 @@ PY="${PY:-$ROOT/.venv/bin/python}"
 RUFF="$ROOT/.venv/bin/ruff"
 [ -x "$RUFF" ] || RUFF="$MAIN/.venv/bin/ruff"
 LOG="${GATE_LOG:-$ROOT/.gate}"
-mkdir -p "$LOG"
+mkdir -p "$LOG"; : > "$LOG/timings.txt"
 FULL=0; SWEEPS=0; CHANGED=0; STAGED=0
 for arg in "$@"; do
   case "$arg" in
@@ -69,8 +69,12 @@ ran=(); passed=(); failed=(); skipped=()
 step() {  # name, command...
   local name="$1" rc; shift
   ran+=("$name")
+  local t0=$SECONDS
   "$@" > "$LOG/$name.log" 2>&1
   rc=$?
+  # Seconds per step, beside the logs and not in the five lines: the slowest
+  # step is what to measure before trimming a gate (OPEN ledger row 1663).
+  echo "$name $((SECONDS - t0))s" >> "$LOG/timings.txt"
   if [ "$rc" = 0 ]; then passed+=("$name")
   elif [ "$rc" = 5 ]; then failed+=("$name (exit 5: no tests collected)")
   else failed+=("$name"); fi
@@ -118,7 +122,7 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   # comment, so the changed-test heuristic (a test naming a changed source
   # file) never selects it, and the first new string written after it landed
   # broke it. Caught by a full local run rather than by any gate that day.
-  tests/test_ai_name.py tests/test_frontend_symbols.py
+  tests/test_ai_name.py tests/test_frontend_symbols.py tests/test_codemap_fresh.py
   # The Guide's controls entries against the markup and the shortcut tables:
   # it reads `ai/help_chat.py` and the frontend together, so a help or a
   # control edit never names it. A help edit once put the Guide's whiteboard
@@ -141,6 +145,19 @@ LINTS=(tests/test_style_scale.py tests/test_ui_signatures.py tests/test_css_brac
   # drift on 2026-09-12 that every `--changed` gate that day had passed. One
   # second.
   tests/test_docs_site.py)
+# **The code map regenerates itself here**, never by hand: `docs/CODEMAP.md`
+# is what every agent greps instead of reading files (the orient skill), and
+# `tests/test_codemap_fresh.py` fails when a function has moved since the last
+# build. A gate that left the map stale would turn that lint into a chore, so
+# the gate rebuilds it (about 2.5 s) and, under --staged, stages it so the
+# commit carries the map its code matches.
+if [ -f "$ROOT/scripts/codemap.py" ]; then
+  "$PY" "$ROOT/scripts/codemap.py" > /dev/null 2>&1 || true
+  if [ "$STAGED" = 1 ] && ! git -C "$ROOT" diff --quiet -- docs/CODEMAP.md; then
+    git -C "$ROOT" add docs/CODEMAP.md
+  fi
+fi
+
 # **The lint set runs once.** Under `--staged` it runs against the index (the
 # scratch tree below) and not also against the working tree: the two used to
 # run back to back, so a staged commit paid for the lint set twice (over
@@ -176,19 +193,27 @@ fi
 #
 # `git checkout-index` writes the staged content of every tracked file into a
 # scratch tree, and the lints run there, which is what CI will see.
+# The scratch tree is a global with an EXIT trap: a gate killed mid-run
+# (a TERM from an impatient agent) skipped the inline `rm -rf`, and about
+# ninety 99 MB trees filled the disk on 2026-10-11. A trap cannot run on
+# SIGKILL, so each gate also sweeps its own kind left over two hours ago.
+GATE_TMP=""
+gate_cleanup() { [ -n "${GATE_TMP:-}" ] && rm -rf "$GATE_TMP"; GATE_TMP=""; }
+trap gate_cleanup EXIT
+trap 'exit 143' TERM
+trap 'exit 130' INT
+find "${TMPDIR:-/tmp}" -maxdepth 1 -name 'mmgate.*' -type d -mmin +120 -exec rm -rf {} + 2>/dev/null
 staged_lints() {
-  # No RETURN trap: this script runs under `set -u` and the trap body is
-  # evaluated after the local has gone, which fails as "tmp: unbound
-  # variable" and hides the real result. Clean up on both paths instead.
-  local tmp rc
-  tmp="$(mktemp -d)"
+  local rc
+  GATE_TMP="$(mktemp -d -t mmgate.XXXXXX)"
+  local tmp="$GATE_TMP"
   if git -C "$ROOT" checkout-index -a --prefix="$tmp/"; then
     (cd "$tmp" && "$PY" -m pytest -q -p no:warnings "${LINTS[@]}")
     rc=$?
   else
     rc=1
   fi
-  rm -rf "$tmp"
+  gate_cleanup
   return "$rc"
 }
 if [ "$STAGED" = 1 ]; then
@@ -255,7 +280,7 @@ changed_tests() {
   while read -r f; do
     case "$f" in
       tests/test_*.py) [ -f "$f" ] && echo "$f" ;;
-      src/memorymap/*.py|src/memorymap/*/*.py|frontend/js/*.js|frontend/sw.js|frontend/css/*.css)
+      src/tessellate/*.py|src/tessellate/*/*.py|frontend/js/*.js|frontend/sw.js|frontend/css/*.css)
         stem="$(basename "$f")"; stem="${stem%.*}"
         ls tests/test_"${stem}"*.py 2>/dev/null
         case "$stem" in routes_*) ls tests/test_"${stem#routes_}"*.py 2>/dev/null ;; esac
@@ -310,7 +335,7 @@ if [ "$SWEEPS" = 1 ]; then
   # dochighlight, spinnershape, featuremodels, btnrows, answersupport, listenerrounds)
   # outlived their files in the sweep cleanup and failed this mode for good;
   # `tests/test_gate_lint_set.py` keeps the list and the folder in step.
-  for s in errors docks contrast touch leaks keyboard diskspace sketchhighlighter vibecheck vibefail graphminimap wbgroupguides finder skillverify refchips phonehead phonesidebar phonecapture phoneswipe phonenotepage phonechat phoneshare phonedocs phonereminders graphphone wbphone draftreadonly wbexportimage ctrlwheelzoom guidescroll libreadingfoot libreader hoveronly wbtopbar820 docdaily doccodecopy dockeyboard skillsteps doctoolbarstate mindmapimage mindmapcurve wbtopbar spinners tagoffer imagefold imagecardfoot asktab mapperf maptwokinds mapbranchdrag mapmidpan tourdim toursteps slashicons uitrio animcost noteobject mapdoors maplayouts maptheme canvasconventions mapviewmenu companionscroll companionbeats companionperf companionsmooth companionmenu companionlife profilelook companionpin perchall iconfloor companionreact companioninteract libtlscroll wbshapetext wblinklabel maptasks maplinkcue; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
+  for s in errors fontmatrix docks contrast touch leaks keyboard diskspace sketchhighlighter vibecheck vibefail graphminimap wbgroupguides refchips phonehead phonesidebar phonecapture phoneswipe phonenotepage phoneshare phonedocs phonereminders graphphone wbphone draftreadonly wbexportimage ctrlwheelzoom libreadingfoot libreader hoveronly wbtopbar820 docdaily doccodecopy dockeyboard doctoolbarstate mindmapcurve wbtopbar spinners tagoffer imagefold imagecardfoot asktab mapperf maptwokinds mapbranchdrag mapmidpan tourdim toursteps slashicons uitrio animcost noteobject mapdoors maplayouts maptheme canvasconventions mapviewmenu companionscroll companionbeats companionperf companionsmooth companionmenu companionlife profilelook companionpin perchall iconfloor companionreact companioninteract libtlscroll wbshapetext maplinkcue; do step "sweep-$s" node "scratchpad/ui-sweeps/$s.js"; done
 else
   skipped+=("sweeps (--sweeps, needs BASE)")
 fi

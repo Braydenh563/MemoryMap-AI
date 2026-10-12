@@ -15,7 +15,7 @@ read-only parse that cannot damage anybody's text.
 
 from __future__ import annotations
 
-from memorymap.core import docmeta
+from tessellate.core import docmeta
 
 
 def test_no_frontmatter_is_no_properties():

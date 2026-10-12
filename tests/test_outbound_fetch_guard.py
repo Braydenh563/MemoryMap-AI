@@ -23,7 +23,7 @@ import pathlib
 
 import pytest
 
-SRC = pathlib.Path(__file__).resolve().parent.parent / "src" / "memorymap"
+SRC = pathlib.Path(__file__).resolve().parent.parent / "src" / "tessellate"
 
 #: The calls that leave this machine. `session.get`/`session.post` are not
 #: here: SQLAlchemy sessions use the same two names, and the modules that
@@ -68,6 +68,8 @@ REACHES_THE_NETWORK = {
     # Configured: the two clients above go through this, which is `requests`
     # with a redirect off the configured host and port refused (S6).
     "ai/provider_http.py": "configured",
+    "ai/captions.py": "configured",
+    "api/routes_bench.py": "configured",  # this server over 127.0.0.1 only (the live budgets)  # TESSELLATE_CAPTIONS_URL, refused unless loopback
     # Configured: the app's own SearXNG, which it downloads and starts itself.
     "search/searxng_install.py": "configured",
     # Configured: the update feed and the installer download, both pinned to an
@@ -142,7 +144,7 @@ def test_the_untrusted_fetcher_goes_through_the_shared_guard():
 def test_the_guard_refuses_every_way_in(monkeypatch):
     import ipaddress
 
-    from memorymap.core import security
+    from tessellate.core import security
 
     def resolves_to(*addresses: str) -> None:
         monkeypatch.setattr(security, "_resolve", lambda host: list(addresses))

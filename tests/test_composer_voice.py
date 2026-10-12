@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from memorymap.ai import composer_voice
+from tessellate.ai import composer_voice
 from tests import _voice_eval
 
 EM_DASH = chr(0x2014)

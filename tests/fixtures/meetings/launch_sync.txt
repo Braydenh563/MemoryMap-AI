@@ -1,0 +1,8 @@
+Okay, let's start. Thanks everyone for coming. First the launch date. The beta feedback was mixed and the payments work is not finished.
+After some back and forth we decided to move the public launch to November.
+Priya, can you walk us through the pricing? Priya said the survey favours a single plan. Everyone agreed that we keep one plan at nine pounds a month for the first year.
+On the tablet build, the crash reports are still coming in. We will drop the Android tablet build for this release.
+Sam will send the revised deck to the client by Friday.
+Action: Priya to book the venue for the launch event before 14 November.
+TODO: Alex updates the budget sheet tomorrow.
+Sam said the old venue was too small. That's everything, thanks all.

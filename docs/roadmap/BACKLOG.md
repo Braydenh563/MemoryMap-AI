@@ -353,7 +353,7 @@ like using Obsidian or Notion."* Ordered by how much each one gets in the way.
   - ~~live-preview editing where the markup renders in place instead of in a
     second pane~~ **Built (the CodeMirror 6 engine, DOCUMENTS_PLAN Phase 2 and section 17, `doclivemd.js`)**, the one that would change the feel and also the one that
     means giving up the textarea; worth doing deliberately, and last
-  - **Sub-pages.** **Next:** not in DOCUMENTS_PLAN and `documents` still has no `parent_id` (`core/database.py:1205`); needs a decision row there first, then an Alembic revision, `routes_documents.py` list/move routes and the sidebar tree in `documents.js`. Docs area, so it waits for the documents agent. Notion's documents nest into a tree; MemoryMap's are
+  - **Sub-pages.** **Next:** not in DOCUMENTS_PLAN and `documents` still has no `parent_id` (`core/database.py:1205`); needs a decision row there first, then an Alembic revision, `routes_documents.py` list/move routes and the sidebar tree in `documents.js`. Docs area, so it waits for the documents agent. Notion's documents nest into a tree; Tessellate's are
     flat. Worth deciding this one early rather than late, since it's a data
     model question (`documents` would need a `parent_id`) that every other
     item in this list is easier to build on top of than to retrofit under.
@@ -424,7 +424,7 @@ this stage. What shipped instead, since the alternative is a user on a
 six-month-old build with no way to know it: `update_check_enabled`
 preference (off by default, same reasoning as `web_search_enabled`, see
 `core/config.py`), a `GET /update/check` endpoint that compares
-`memorymap.__version__` against GitHub's `releases/latest` tag numerically
+`tessellate.__version__` against GitHub's `releases/latest` tag numerically
 (never lexically: "0.10.0" has to sort after "0.9.0"), and Settings → About
 wiring: the checkbox, a "Check now" button, and a silent check on startup
 that only ever toasts when a newer version genuinely exists. Two real bugs
@@ -459,7 +459,7 @@ webview is also where the genuine embedded browser from §3 becomes possible.
 PyInstaller can build either, a one-file executable that runs from a USB
 stick with `data/` beside it, or a real OS-integrated install (Start Menu
 entry, `/Applications`, an uninstaller). They want different things from
-`MEMORYMAP_DATA_DIR`: portable mode wants data relative to the executable by
+`TESSELLATE_DATA_DIR`: portable mode wants data relative to the executable by
 default (so the whole thing is one folder you can move); an installed app
 wants a proper per-user data directory (`%APPDATA%`, `~/Library/Application
 Support`, `~/.local/share`) so it survives a reinstall. Worth picking the
@@ -477,6 +477,14 @@ run their Windows branch, so they should be harmless elsewhere, but that is
 still unverified on real macOS/Linux hardware rather than reasoned from the
 code: the honest status is "should work," not "confirmed." The PyInstaller
 builds above are the part with no cross-platform equivalent yet at all.
+
+- (Odysseus, fourth read 2026-10-10) 
+- (Odysseus, fourth read 2026-10-10) 
+- (Odysseus, fourth read 2026-10-10) 
+- (Odysseus, fourth read 2026-10-10) 
+- (Odysseus, fourth read 2026-10-10) 
+- (Odysseus, fourth read 2026-10-10) 
+- (Odysseus, fourth read 2026-10-10) 
 
 ---
 
@@ -518,7 +526,7 @@ recurring causes are now written up as invariants in `docs/ARCHITECTURE.md` §10
 
 ~~**Port 8888 being taken was a dead end.**~~ **fixed.** `start()` now
 settles a port first (the wanted one, else 8080/8081/8890/8899, or
-`MEMORYMAP_SEARXNG_PORT`).
+`TESSELLATE_SEARXNG_PORT`).
 
 **SearXNG itself now installs, starts, answers its JSON API, passes
 `websearch.probe_searxng`, and returns real results on a user's own
@@ -1079,6 +1087,7 @@ Pickup notes (2026-10-05, read before building; deferred until after PR 162):
 - Undo is a single tool call posted back to `/chat/tools/execute` (`chat-agent.js`, `changeRow`). Its arguments may carry extra keys, which `move_notes` needs in order to put each note back in its old category.
 - `move_notes` to a space can reuse `routes_spaces.py`'s `move_notes_to_space`, once that body is lifted into a shared helper. `export_notes` writes into `_exports_dir()` (`routes_files.py`).
 - There is no calendar events table: `core/events.py` is the change log, and the timeline's kinds are note, board, document and reminder. The plan for `add_event`: a `Reminder` row with a new `kind` column, which needs one migration. The plan for `list_events`: read the timeline over a date window.
+- **Tried 2026-10-11 and deferred: L, not M.** Built and green: `Reminder.kind` (default `reminder`), migration `a1c5e8f2d7b3` after `d9b4e1a7c3f2` (guarded against the auto-migrator like `e6f2a9c4b1d7`, with its test), `add_event`, `list_events` and `delete_event` (the undo), `list_reminders` leaving events out, cards entries. `tests/test_manual_parity.py` then fails, correctly: a person has no way to make an event by hand, so the tool needs a kind control on the Reminders form (`shell-reminders.js` `addReminder`, `ReminderCreate.kind`), events drawn on the timeline and the Reminders list, and Help and Guide lines. Build the UI first, then the tools; the three tool bodies are small.
 
 **Checked against the registry 2026-10-04.** Built since this list was
 written: `create_document`, `related_notes`, `find_similar_notes`,
@@ -1250,6 +1259,7 @@ history. What's still weak:
   whether the tool registry can get there first before reaching for UI
   automation.
   **Next:** a decision for the owner (it needs its own cancellation and audit story); the `GET /chat/tools` and `POST /chat/tools/execute` registry (WORLD_CLASS_PLAN B8) is the cheaper route and is built.
+- (Odysseus, fourth read 2026-10-10) 
 
 ---
 
@@ -1286,6 +1296,7 @@ are now done** (§85, §86):
 - **Async httpx client**: **Next:** section 78 says the sync routes are correct, so this is optional; measure first with `scratchpad/ui-sweeps/apibench.js`, then switch only `ai/ollama_client.py`'s streaming read (nothing in `src/` uses `httpx.AsyncClient`, checked 2026-10-05). Touches the streaming path, which is what makes chat
   feel responsive, so a subtle regression wouldn't show up in tests. Do it with
   §6.
+  **Decided 2026-10-11 (data-1011): not built.** Section 78 stands (the sync routes are correct); the streaming read is the one path that would change, a regression there would not show in tests, and nothing measured asks for it.
 - ~~**Alembic migrations**: the additive auto-migrator cannot rename or drop, and
   won't survive a real schema change~~ **Built.** `migrations/` (Alembic),
   `_ensure_alembic_baseline()` (`core/database.py`) stamps any pre-existing
@@ -1659,7 +1670,7 @@ and the tray menu is Open / View Logs (opens Settings → Logs, the third
 AskUserQuestion answer this session) / Restart (`os.execv`, same process
 re-launched rather than a second one spawned) / Quit (`window.destroy()`,
 which is what actually unblocks the `webview.start()` call and lets the
-process exit). See `memorymap.__main__._start_tray`. `pystray` + `Pillow`
+process exit). See `tessellate.__main__._start_tray`. `pystray` + `Pillow`
 ride along with the existing `desktop` extra in `core/extras.py`, same
 button that already installs `pywebview`, and the Windows installer's
 PyInstaller spec bundles both, so this is always on for anyone who used the
@@ -1753,7 +1764,7 @@ thing anywhere in the app.
   mostly already exist. **(needs Opus)**: checked 2026-10-04, `GET /storage`
   still returns only `database_bytes`; the walk, the cache and the Settings
   line with its '?' are one design.
-  **Partly built 2026-10-05** (HISTORY.md, "backlog-1005"): `GET /storage` reports `uploads_bytes`, `media_bytes` and `backups_bytes` from a cached walk (`diskspace.dir_bytes`), and Settings, About, Health has a Files on disk row. **Next:** the per-extra footprint (`core/extras.py`: bytes of each installed extra's folder, beside its Remove button).
+  **Built 2026-10-11 (data-1011).** `GET /storage` reports `uploads_bytes`, `media_bytes`, `backups_bytes` and `extras_bytes` (`extras.installed_bytes`, the installed extras' own files); each extra's `disk_bytes` already sat beside its Remove button; Settings, About, Health draws Files on disk as one bar and a legend (DESIGN.md recipe `.storage-bar`, `scratchpad/ui-sweeps/storagebar.js`).
 - **One actual "your data" page, not the pieces scattered.** **Partly built:** Settings, Privacy, "Where your data went" (`frontend/index.html:11095`, `core/egress.py`) is the receipt. **Next:** a head line stating what is stored and where, with links to Export and the wipe above once it exists. The individual
   facts already exist: where the data lives and how big it is (README),
   what's in the audit log (Settings → Activity), what export and wipe do
@@ -1779,6 +1790,7 @@ thing anywhere in the app.
   likely solving a problem that doesn't exist yet at any realistic notebook
   size: worth measuring an actual `data/memorymap.db` before writing any
   compression code, not assuming it's needed. **(needs owner)**: see 79b.
+  **Measured and decided 2026-10-11 (data-1011): not built.** A 2,000-note notebook is a 4.2 MB file; the notes table is 426 KB of it (10%), the audit log and its indexes 1.2 MB (30%), the search index 0.6 MB. Compressing note text saves a tenth at most, and the log is already compacted (`events.compact`). Revisit only when a real notebook shows note text above 40% of the file.
 - **A synthesised export, not just a raw one.** **Skill built 2026-10-05** (HISTORY.md, "backlog-1005"): "Write a document from a tag" in `ai/skills.py`; the button on a graph or list selection is still open (it needs a place in the selection bar, a design call). Same item as sections 102 item 10 and 109.3 item 5. Export today (JSON/CSV/MD)
   is a dump of what's selected; Gemini's grounded suggestion was a step
   beyond that: pick a tag or a cluster and have the AI *compile* it into
@@ -1834,7 +1846,7 @@ don't have a shape yet, recorded so they aren't lost, not because any of
 them are close to being built:
 
 - **MCP tool support**: **Pointer:** WORLD_CLASS_PLAN B8 "Extensions" and PLAN.md harness row A7 ("MCP in and out"); the consume half waits on the trust model. "an in-built browser with MCP tool abilities to
-  accompany the web search". The Model Context Protocol would let MemoryMap
+  accompany the web search". The Model Context Protocol would let Tessellate
   either expose its own tools (§7 of `ARCHITECTURE.md`'s 58-tool registry) to
   other MCP clients, or consume external MCP servers as more tools for its
   own agent. Either direction is a real integration, not a checkbox, it
@@ -1845,13 +1857,14 @@ them are close to being built:
   odysseus's actual MCP implementation and split this into two: expose (no
   new trust model needed, build first) and consume (needs the trust model
   this paragraph already flagged, build second). **The expose half is built**
-  (`src/memorymap/mcp_server.py`, a stdio server over the tool registry,
+  (`src/tessellate/mcp_server.py`, a stdio server over the tool registry,
   checked 2026-10-04); consuming external servers is still open **(needs
   owner)**: it needs the trust model decided first.
 - **A VS Code extension.** **Next:** nothing is buildable until the owner states a purpose; the HTTP tool API (`GET /chat/tools`, `POST /chat/tools/execute`, WORLD_CLASS_PLAN B8) is the surface an extension would call. No stated purpose yet beyond the idea itself,
   worth asking what it would let someone do that the app's own web UI, PWA
   and desktop window don't, before scoping anything. **(needs owner)**
 - ~~**A browser clipper.**~~ **Built 2026-10-05** (WORLD_CLASS_PLAN row 24, D9): `POST /links/clip-page` (`routes_webclip.py`), the "Clip to MemoryMap" bookmarklet and `frontend/clip.html` / `clip.js`, `tests/test_webclip_page.py`. A packaged browser extension is not built; the bookmarklet is the capture path (HISTORY.md, "Moved from the plans, 2026-10-05 (docs hygiene before 0.4.0: BACKLOG)").
+- (Odysseus, fourth read 2026-10-10) 
 
 ## 29c. Whiteboard, brainstormed: not yet triaged
 
@@ -1912,7 +1925,7 @@ the fourth, links to objects, is built too (checked 2026-10-05, below).
   - `dragEndNode`'s own hit-test (app.js) loops `for (const node of
     wbState.nodes)`, an object is never even considered as a drop target
     for the live drag-to-link gesture.
-  - `add_whiteboard_link` (`src/memorymap/ai/tools/__init__.py`) does
+  - `add_whiteboard_link` (`src/tessellate/ai/tools/__init__.py`) does
     `session.get(WhiteboardNode, ...)` for both ends: passing an object's
     id raises "No whiteboard card with id …", not a working link.
   - The link sketch's own data shape (`sourceId`/`targetId`) has no
@@ -1993,7 +2006,7 @@ there as colliding with the no-torch constraint).
 - ~~**Orphaned media garbage collection**~~ **Built, see `core/media_gc.py:196` (`find_orphaned_media`, dry run first); it misses board backgrounds (`scratchpad/audit1005/features.md` FEAT-06).** Confirmed still genuinely
   missing (no `clean_orphaned_media`-shaped function anywhere), unlike the
   card-cascade claim above which turned out to already be fixed.
-- Smaller polish items: **Pointer:** `scratchpad/audit1005/features.md` section 4 rows C3 (resize from centre, flip), C9 (whole-object opacity) and C13 (status bar); the contextual quick bar is built (`.wb-context`). The spec's Part C lists and a live check didn't
+- Smaller polish items: **Decided 2026-10-11, WHITEBOARD_PLAN decision 40** (Alt resizes from the centre; flip, opacity and the status bar recorded with reasons). **Pointer:** `scratchpad/audit1005/features.md` section 4 rows C3 (resize from centre, flip), C9 (whole-object opacity) and C13 (status bar); the contextual quick bar is built (`.wb-context`). The spec's Part C lists and a live check didn't
   contradict, kept for reference rather than re-verified line by line:
   resize-from-center, flip h/v, whole-object opacity, a status bar
   (zoom/tool/item-count), a contextual quick-action bar near a fresh
@@ -2095,6 +2108,7 @@ clippings.
   capture surface, so a design call.
 - **A Readwise/Kindle importer**: **Pointer:** the imports agent (section 115 row 1 is the importer set; Readwise is not on it, so size it there first). It is a genuine integration and should be sized
   separately before anyone commits to it. **(needs owner)**
+  **Sized 2026-10-11 (data-1011), still needs the owner:** two readers in `entry/app_import.py` (`readwise`: the CSV with Highlight, Book Title, Book Author, Note, Location, Highlighted at; `kindle`: `My Clippings.txt`, blocks split on `==========`), a note per book keyed by a hash of title and author, a button each in Settings, Import & export, about 150 lines and two test files. The open question is a re-import: the clippings file only grows, and the rule that a note already here is left alone would skip a book that gained highlights. Recommendation: a note per book, and a re-import appends only the highlights not already in it, which needs the writer to merge into a source-keyed note (a new capability).
 
 ## 75. Voice memos: capture, storage, playback, and a dedicated library page
 
@@ -2240,6 +2254,8 @@ build. Also inherits the same tray/threading question above and would
 need its own answer, not an assumption it behaves like Linux. Worth
 deciding deliberately rather than discovering after building the rest.
 **Next:** `packaging/macos/` does not exist; the Apple Developer account and notarization are the owner's, so nothing is buildable here (the Linux spec, `packaging/linux/memorymap.spec`, is the template).
+
+- (Odysseus, fourth read 2026-10-10) 
 
 ---
 
@@ -2803,7 +2819,7 @@ preview is read-only because the text is *extracted*, `core/docview.py`'s
 own docstring makes the point that editing would mean writing text back into
 a format it was never in. Editing a .docx in place is not a feature this app
 can honestly offer. What it *can* offer, and what is probably meant: **import
-the extracted text as a real MemoryMap document**, which is then editable
+the extracted text as a real Tessellate document**, which is then editable
 like any other, with the original file kept as the source. That is a
 different feature from "edit the upload", and much more achievable, scope
 it as import, not as in-place editing.
@@ -2927,7 +2943,7 @@ laziness.
    raising the full window is small, purely local, and matches a pattern
    several competitors treat as table stakes.
 6. ~~**Inline citations in chat answers that point back to a specific note**~~ **Built (section 109.3 table row 6), see `ai/grounding.py` (numbered citations resolved against the retrieved notes) and CHAT_PLAN Phase 1.**
-   clickable to jump there. MemoryMap's retrieval already knows which
+   clickable to jump there. Tessellate's retrieval already knows which
    notes it drew on (`search_manager.retrieve_detailed`); what's unclear
    without a live model to check is whether the *rendered answer text*
    itself carries a per-claim link back to its source note, versus only a
@@ -3686,11 +3702,7 @@ anything already built is named as such so nobody rebuilds it.
   reversed. Now a preference (`ai_first_filing`), so this is a *choice*
   rather than a cost, but it is worth measuring on a slow model before
   assuming the default suits everyone.
-- **Three places independently decide what markdown means**: **Next:** one grammar module under `frontend/js/` (a table of token, open, close, label) read by `MD_ACTIONS` (`documents.js:8833`), `INLINE_MD` (`markdown.js`) and editor.js's "/" menu, load order per `tests/test_frontend_load_order.py`; `tests/test_highlight_colours.py` already pins the colour lists. `MD_ACTIONS`
-  (toolbars), `INLINE_MD`/`INLINE_MD_LEGACY` (the renderer), and editor.js's
-  "/" menu. The Red/Grey highlight bug (§110) lived precisely in the gap
-  between two of them. `tests/test_highlight_colours.py` pins the colour
-  lists, but the general fix is one grammar module the three consume.
+- **Three places independently decide what markdown means**: built 2026-10-11, DOCUMENTS_PLAN decision 13 (`MD_INLINE_MARKS`, read back through `INLINE_MD` by `tests/test_docs_1011.py`).
 
 ### 111.2 Features worth building, ranked by value per unit of work
 
@@ -3756,7 +3768,7 @@ Every competitor in this category is either cloud-first with AI (Notion AI, Mem,
 Reflect, Tana, NotebookLM, Saner) or local-first without it (Obsidian, Logseq,
 Anytype, Zettlr). The first group cannot promise privacy because the model is
 somebody else's server; the second cannot promise intelligence because there is
-nothing to ask. **MemoryMap is local-first *and* has a model**, and that is not a
+nothing to ask. **Tessellate is local-first *and* has a model**, and that is not a
 feature list: it is a category of its own, and almost nothing in the product
 currently *says* so.
 
@@ -3830,9 +3842,7 @@ Ranked by the gap between what it costs to build and what it would be worth.
   `dashboard.js`, `settings.js`, `documents.js`) worked and stopped. The next
   natural seams are chat (~6k lines), the lightbox (~1.2k) and the notifications
   centre. Each is a session's work and each makes the next bug cheaper to find.
-- **Three grammars for markdown** (§111.1): **Next:** section 111.1 carries the brief. `MD_ACTIONS`, `INLINE_MD`, and
-  editor.js's "/" menu each decide independently what the syntax means. Every
-  bug in the gap between them has been a real reported bug. One module.
+- **Three grammars for markdown** (§111.1): built 2026-10-11, see the entry above (DOCUMENTS_PLAN decision 13).
 - **The suite is 2,700 tests and ~8 minutes.** Still fine; worth watching. The
   lints (`test_style_scale`, `test_frontend_ids`, `test_icon_only_buttons`,
   `test_icon_label_gap`) are the cheapest tests in the file and have caught the
@@ -4145,3 +4155,234 @@ twenty); open, by impact with the rest of this file.
     it is still elsewhere (with a `Tour:` log line when it is). Headless
     walks of all 15 steps at 1.25x scale, with and without real scrollbars,
     were correct before and after, so the owner's run is the test.
+
+## Placed from the owner's list, 2026-10-10
+
+Entries are the owner's words, then the recommendation. Nothing here has a brief yet.
+
+### Ideas
+
+- "Read all my requests and chat messages sent during and since october 7, analyse them and log them for a new session as I want to start a new one. I also have A LOT of issues and bugs and things Ive written down and ive also tried to get gemini to improve the composer so Ill need oyu in the next session to analyse that open branch as well as the other open branches and fix znd improve everything but I wont send my lists in this session and instead at the start of the next one"
+  Recommendation: a process item, not a feature. The next session's first step is to read the owner's chat messages since 2026-10-07 and the owner's lists from that session, log them in the plans, then take the open Gemini branch under Brief 35. Not a brief; the orchestrator owns it.
+- "Like this is somewhat a hobby but it is also about ai, local llms and other things."
+  Recommendation: context for the scope of the insights and research work, not a request in its own right. Read it with Brief 40 and the insights item in CHAT_PLAN.
+- "Is it possible to create custom libraries like the ones vendored that are really good and extensive in their purpose, which can be open sourced and used across projects?? Maybe?? Maybe too much idk."
+  Recommendation: a later idea: a small, separately licensed library package built from the vendored engines, after the engine lands under Brief 39. Not scheduled.
+
+
+## Placed from Brief 40, 2026-10-10 (research and placement)
+
+Each row is a recommendation taken (standing order 3); the evidence is in
+[ANALYSIS.md](ANALYSIS.md) "Parity matrix, 2026-10-10" and "Repositories and
+libraries read, 2026-10-10".
+
+- **A Docker image.** Recommendation: build it, in two flavours from one
+  Dockerfile. Draft at `docker/Dockerfile` and `compose.yaml`
+  (not built: the sandbox has no Docker daemon). Measured from a venv of the
+  core requirements without `sentence-transformers`: 213 MB of site-packages
+  (numpy 70 with its libs, sqlalchemy 28, cryptography 16, uvloop 16), plus
+  the app's `src` 28 MB and `frontend` 35 MB (Harper's WASM is 16 of them),
+  plus the slim Python base (about 125 MB): about 400 MB on disk, roughly 150
+  MB pulled. With `sentence-transformers` and CPU torch (769 MB for torch
+  alone in this repository's own venv, 1.5 GB for the whole venv): about 1.6
+  GB. Volume layout: `/data` (`TESSELLATE_DATA_DIR`: database, files, the LAN
+  certificate, backups) and `/models` (`HF_HOME` and
+  `SENTENCE_TRANSFORMERS_HOME`: the embedder, Whisper, RapidOCR, the Pyodide
+  and needle downloads), so a notebook reset never re-downloads a model.
+  Ollama stays on the host (`OLLAMA_URL=http://host.docker.internal:11434`).
+  **Blocker found, three small changes first** (a brief, not a session):
+  `__main__.py:32` binds `127.0.0.1` as a constant, and `netbind.bind_host`
+  widens it only when the LAN preference is on and a password exists; a
+  browser reaching the container through Docker's bridge is "the network",
+  and an app with no password answers every network request 403 (SEC-01).
+  So the image needs `TESSELLATE_BIND` (default unchanged), a first-password
+  environment variable or `--set-password` (today only `--reset-password`
+  exists), and a decision on TLS (a reverse proxy in front, with plain http
+  inside the compose network). **What the Windows launcher does that a
+  container cannot:** the desktop window (pywebview) and tray, the Start menu
+  and the Repair shortcut, native file dialogs (`core/desktop_dialog.py`),
+  watching a folder on the host, the capture hotkey (`--capture`), OS
+  reminders and notifications, the firewall prompt and port search, and
+  launching Ollama and detecting a GPU. Everything else (the venv, the
+  update check, the health check) a container replaces. Keep for the owner's
+  NAS and server users; drop as a desktop install path.
+- **Reuse the system Python's packages.** Recommendation: offer it, never
+  default it. `start.sh` line 1070 and `start.bat` line 602 run
+  `python -m venv .venv`; the choice is `--system-site-packages` on that
+  line, chosen only when the installer can import `torch` and
+  `sentence_transformers` from the system Python (a saved 770 MB and a
+  working CUDA torch if the person has one) and the `--doctor` import check
+  passes afterwards; otherwise a clean venv, as now. Risks, in the order they
+  bite: (1) a system torch built against numpy 1.x imports the venv's numpy
+  2.4 and crashes at import; (2) a broken or half-removed global
+  site-packages (a bad `.pth`, a stale `dist-info`) poisons every launch with
+  an error that points nowhere near the cause; (3) `pip install -r
+  requirements.txt` sees a system package that satisfies the range and
+  silently does not install its own, so the app drifts when the system
+  package is upgraded; (4) the venv is no longer relocatable when the system
+  Python is replaced. Mitigation: record the choice in `.venv/pyvenv.cfg`
+  (it is already there as `include-system-site-packages`), print it in
+  `--doctor`, and fall back to a clean venv on the first import failure.
+- **Does a first install need the internet? Yes, once, and the app says so
+  in one place only.** `README.md` (line about "The first launch downloads
+  the search model"), `docs/INSTALL.md` (line 130) and
+  `docs/TROUBLESHOOTING.md` (line 64) say it about the search model;
+  `start.sh` line 1118 prints "Installing, this can take a few minutes" and
+  `start.bat` has no equivalent, with no word that it needs a connection;
+  the app's onboarding says nothing (no "internet" in `onboarding.js`).
+  Measured: the core packages are 213 MB installed, the search model adds
+  several hundred MB (more on Windows, where it brings torch). A person on a
+  train with a fresh clone gets pip errors that `is_network_error` turns into
+  a retry, which is right but late. Recommendation, three edits, one brief:
+  (1) the launchers print, before any download, "First start only: this
+  installs about 210 MB of packages and needs the internet once. After that
+  MemoryMap runs offline."; (2) the same sentence as the first line of
+  README "Install" and INSTALL.md "Before you start"; (3) onboarding's model
+  step says "Search by meaning needs a one-time download of a few hundred MB.
+  Skip it and keyword search still works." with a Skip. The packaged app
+  already has the Windows installer page line (`installer.iss` line 218).
+- **Parity programme, the next brief per surface** (full tables in
+  ANALYSIS.md). Whiteboard: the draw.io reader and shape-library converter,
+  connection points, named layers, five templates. Mind map: OPML and
+  FreeMind export, branch-by-branch presenting, centrality as a perspective.
+  Documents (prose): highlights (Brief 42), a thesaurus from the trimmed
+  table, footnotes. Documents (code): completion and the p5 kind (Brief 42),
+  editor commands in the palette and a split view, rename within a file.
+  Tables: paste-to-table and sort, cell formulas through the safe evaluator,
+  chart this table. PDF and OCR: highlights and comments stored in the
+  notebook, the encrypted-PDF prompt. Images and Library: EXIF used (date
+  taken on the timeline, GPS), rating and flag, crop and rotate. Audio and
+  meetings: timestamped transcript with click to seek and SRT or VTT export,
+  playback speed, markers. Presentations: speaker notes and a presenter view,
+  a per-frame PDF export checked on a real board.
+- **Library verdicts to carry into Brief 35's stripping**: drop networkx
+  (write the 60 lines `notebook_stats.py` uses), whoosh, pint, langdetect,
+  dateutil, pyspellchecker, thefuzz and rapidfuzz (difflib and the trigram
+  repair); keep flashtext, rake and the porter stemmer; vaderSentiment only
+  where a test shows the gain. Optional downloads, never vendored: Pyodide
+  (already), sql.js (new, 700 KB), eslint-linter-browserify (only if Brief 42
+  measures a gap). Re-implement small, each with an eval first: bigram
+  collocation, tag co-occurrence counting, multinomial Naive Bayes for filing,
+  K-means and DBSCAN for merge suggestions, SimHash for near duplicates.
+## Expert audit, 2026-10-10
+
+Brief 43. Each row: the probe (command), the number, the cause, the fix shape and the size (S under an hour, M a session, L a plan). Ranked by what a person feels. Measured on a host at load 6 to 14 on four cores, which inflates every time below roughly 2 to 3 times; the ratios between rows and the byte and row counts are exact. Fixed in the audit itself (not rows): a full backup now carries settings; markdown re-import keeps date and pin; the Tidy count (23 s to about 1.4 s, idle server CPU 14.7 percent to 0.3); a safety copy before a migration; select openers named with their value; no 401 on the lock screen; six test modules that could not be collected alone.
+
+| # | Probe and number | Cause | Fix shape | Size |
+| --- | --- | --- | --- | --- |
+| 1 | `audit-hw.js`, `audit-payload.js` at 5,000 seeded notes: the dashboard is drawn at 4.1 s unthrottled and 6.1 s at 4x CPU (2.2 s on an empty notebook, same host); 25 sequential `GET /entries?limit=200` pages, 3.8 MB, on every unlock | `_loadEntries` (notes-list.js) pages the whole notebook into `allEntries` so search, the sidebar and keyboard navigation work on one array | A windowed list: the first page and counts from the server, the rest on scroll or search; the dashboard widgets that "want the whole of it" (`dashEntries`) ask for their own aggregate endpoints. Re-measure the 2.5 s boot target on a quiet machine first | L |
+| 2 | `audit-down.js`, server refused after load: 7 of 7 tabs say "Can't reach MemoryMap. Retrying" (0 blank), but Graph and Library throw `ReferenceError: graphLayout is not defined` and `loadLibrary is not defined` from `switchTab` (navigation.js:1911, 1949) and sit on "Opening the graph…" | The lazy bundle never arrived, and `switchTab` calls its functions unguarded | `switchTab` awaits `ensureModule` and, when it resolves false, draws the `surfaceFailed` notice with Retry in the tab | S |
+| 3 | `scratchpad/search-relevance-1010.py`, 60 queries over the showcase notebook (71 notes): hybrid precision at 5 is 0.93, top-1 0.88, any right note in 5 is 0.98; lexical 0.76 / 0.82 / 0.83. Paraphrase top-1 is only 0.68 ("trainers wearing out", "how much did the holiday cost", "quick dinner ideas" put a wrong note first); the typo `pricng` finds nothing relevant (`w_standup`) | No correction offered for a one-letter drop in a six-letter word; paraphrase leans on the meaning signal available here (no embedding model installed) | Typo repair on short words (keyboard-distance already exists in question_noise.py: other agent's file); a paraphrase row set in the evals. Semantic search with a real embedder is not measured | M |
+| 4 | The Duplicates review, `entry/tidy.py` via `GET /tidy`: 4.4 to 5.8 s the first time at 5,000 near-identical notes; now cached until the notebook changes | The scan is quadratic in the notebook (already dense-matrix since ARCH-11) | Compute in a background job after a change and serve the last result; or a MinHash prefilter | M |
+| 5 | Exports re-imported: markdown now round-trips date and pin; `GET /export/json` has no import route at all; the HTML, docx and PDF round trips are unverified because markitdown, python-docx and a PDF writer are not installed in the sandbox | JSON export was built as a take-away; `POST /import/document` needs the `documents` extra | An "Import a MemoryMap JSON export" door beside Import markdown; run the docx and PDF diff on a machine with the extra | M |
+| 6 | Launcher update rollback: `start.sh` self-updates by `git pull --ff-only`; there is no way back to the previous version, and rolled-back code against a newer-stamped database logs "Can't locate revision" and carries on | No release pinning or previous-version record; the safety copy now covers the data only | Record the head before a pull; a `--rollback` flag that checks it out and says which backup to restore | M |
+| 7 | Attachments are accepted by extension only (`ATTACHMENT_SUFFIXES`, routes_files.py:94); the media upload at routes_files.py:3483 has a magic-number check, attachments do not | The suffix allowlist predates the sniffing helper | Run the media check on attachments whose suffix claims an image, PDF or archive | S |
+| 8 | The vendored engines broke the base branch's gates: `ruff` reports 1,140 errors in `src/tessellate/vendor/` (whoosh, networkx), `test_plan_hygiene` finds a conflict marker at `vendor/networkx/conftest.py:3`, `test_outbound_inventory` finds `vendor/vaderSentiment.py` and `vendor/whoosh/compat.py` able to open connections and unlisted, `test_readme_freshness` says the README's tool count (67) is stale; CodeQL's config does not ignore `vendor/` | Brief 39's vendoring landed without the exclusions the lints and the CodeQL config need | `extend-exclude` vendor in pyproject, `paths-ignore` it in `.github/codeql/codeql-config.yml`, add the two modules to `INVENTORY` as imported and never called, delete the marker, fix the README count | S |
+| 9 | `tests/test_chat_intent.py`: `classify("what can you do?")` returns `smalltalk`, not `about_app`; the capability prompt lacks "asking what you can do" (2 failures on the base) | The composer branch's change to intent.py or the composer tables (other agent's files) | Reproduce against `main`, then restore the capability route | S |
+| 10 | `axe.js`, light, 1440 px: 7 `label-content-name-mismatch` left after the select fix: `#status-notes`, `#entry-attach-existing`, `button[title="Add this note to a document"]`, `Sort results` (find), `Small model mode`, `Run Embeddings backfill now`, `How Atlas writes its answers`, a heatmap day button (`data-key`) | Icon-and-count buttons whose aria-label drops the visible count or word | Put the visible text first in each aria-label (status.js is another agent's file) | S |
+| 11 | `server rss` 285 MB with 5,000 notes after boot and a full list load (target 300); the page heap is 15 MB | The server holds the engines and caches; nothing measured per component | Profile with tracemalloc at 5,000 and 20,000 notes before it crosses 300 | S |
+| 12 | `GET /graph?slim=1` is 1.2 MB at 5,000 notes and is fetched twice per boot (`audit-payload.js`); the graph worker's frame time at 2,000 nodes was not measured (no linked fixture; graph*.js is another agent's) | The payload carries every node | Cap or tile the slim payload; run `gwperf.js` with `scratchpad/graph-fixture.js 2000` | M |
+| 13 | `python -m alembic upgrade head` on an empty file fails at the bookmarks migration (`NoSuchTableError: bookmarks`) | The table is born by `create_all()` after the baseline, so the chain only works behind `DatabaseManager`; `tests/test_alembic_full_chain.py` pins the supported path | Create the table in a migration, or document that Alembic is only run by the app | S |
+| 14 | `tests/test_learned_spec.py` and `tests/test_resurface_spec.py` still say "Strict-xfail until built", and CLAUDE.md section 7 says the specs are strict-xfail; `grep xfail tests/` finds no marker, and all 63 spec tests pass | The markers were removed as the features landed; the sentences were not | Reword the two docstrings and the CLAUDE.md paragraph | S |
+| 15 | Process: `git stash` is shared by every worktree. Two agents popped each other's stash in this audit (a packaging agent's 13 files appeared in this worktree) | A worktree's `git stash pop` takes whatever is on top | Add "never `git stash`; commit a WIP instead" to `scratchpad/AGENT_COMMON.md` and the brief protocol | S |
+
+Passed with a number, no row needed: the frontend lint set, three serial runs of 429 tests, 51 to 58 s each, no flake; `--durations=20` over the 17 `test_api*` and `test_chat*` files, 192 tests in 103 s serial, slowest 2.4 s; `fe1005-offline.js`, seven tabs in a French locale, zero requests to any other origin; the service worker has no `fetch` handler and caches nothing, stamped assets are `public, max-age=31536000, immutable`, the shell is `no-cache`; `keyboard.js`, `dockeyboard.js` and `errors.js` at four widths, zero findings; `a11yname.js`, zero unnamed controls; the router-walk test `tests/test_every_route_is_locked.py` already exists and passes (every route answers 401 to a stranger, an allowlist of 18 open paths with reasons); the unlock throttle exists with tests; the app's CSP has no `unsafe-inline` (the sandboxed Run pages keep theirs by design, on an opaque origin); CodeQL runs on every push and PR plus Mondays, `security-and-quality` queries, Python only, `.github/workflows/codeql.yml`; `autogrowfast.js` 3 of 3, 0 mismatches. The 0.3.0 schema itself cannot be rebuilt (history was squashed at 0.4.1); the baseline revision to head with data in place is the earliest testable chain.
+
+- **Live refresh across devices** (INBOX 881, the owner 2026-10-11: "what if I make a change on my phone?? does it live update??"). A save on one device does not refresh another device's open list or note. Recommendation: an `entries` event on the existing jobs stream; the list re-fetches, and an open note that has no unsaved edits takes the new text, while one with edits keeps the 409 Keep mine / theirs prompt.
+
+
+## Placed from INBOX, 2026-10-12 (grammar in digest answers)
+
+- INBOX 1299. **The owner, 2026-10-12, verbatim.** "this response from the ask subtab
+     is great! i would make a small tweak or two like it probably should have
+     said instead \"A week on, by 9 August, you mentioned that you had just
+     recently begun playing League of Legends...\" small grammar issues like
+     that ... can we use the vendored grammar repos like harper to improve
+     composer responses?? maybe that cna be fore next pr". Fixed now: "every a
+     week", "Your the split ... note". Next PR (recommendation, taken): a
+     dated digest line after "A week on, by D," reports in the past ("you
+     mentioned that you had ..."), and the vendored Harper rules run over
+     composer output as a test-time lint first, then as a post-pass on lead
+     capitals ("tuesday") and missing articles ("go to gym").
+
+## Start of the next PR (the owner, 2026-10-12, "log everything I've mentioned")
+
+First, in order:
+- Split the 17 seeded `composer_digest.py` rows plus `_prose` (18, seeded 2026-10-12 after the "Your the ... note" branch) back to 15 or below, and the 18 seeded functions that grew (INBOX 1298 says which; `python scripts/complexity.py`).
+- CodeQL "Unused global variable" on `lantrust._run_allowance` and `reminder_token._loaded_from`: both are read through `global` in functions; dismiss in the Security tab as false positives, or rewrite each as a small holder object so the rule cannot misfire.
+- Settings: the '?' help button in a section header sits mid-row; it belongs right-aligned with a token gap, left of "Reset N changes". No gap between a select ("5 minutes") and its per-row reset button.
+- Activity card: the Logs button wraps to its own row; pin it top-right (absolute) so the title never moves it.
+- OCR workspace through the "m o" chord opens with nothing selected and a blank viewer: select the first file, and when the page renderer package is missing say so with a link to Settings, Packages.
+- Packages: Live captions (whisper.cpp) has no install control; if it is not wired yet, show it disabled like llama.cpp.
+- Ask without the needle package: say so in a notice naming what it adds, never a quietly poorer answer; answer the owner's question of whether the composer needs it to call tools or only to retrieve.
+- Navigation chord: "m" (the old name's initial) to "t" (Tessellate), keeping "m" working. Not small: "t" is already the second key for Timeline (`TAB_JUMP_KEYS.t`, settings-wiring.js) and a repeated first key hides the guide, so "t t" would close it instead of jumping; Timeline needs another letter or the toggle rule changes. The whiteboard owns "m" (`wbOwnsChord`) and the key is named in help (`ai/help_chat.py`), the manual and `tests/test_manual_parity.py`. Owner asked for it, 2026-10-12.
+- Composer: past-tense reported speech after "A week on, by 9 August," ("you mentioned that you had just begun playing ..."); run the vendored Harper grammar rules over composer output (test-time lint first, then a post-pass for lead capitals such as "tuesday" and missing articles such as "go to gym").
+- The agent cap: the owner cannot fund two Opus agents at once right now; run one at a time, Sonnet for named fixes.
+- Companion physics: when the companion falls it is glitchy and choppy, about 4 frames a second (owner, 2026-10-12). Measure the fall loop's frame times first (`companion-motion` tests, `avatars.js`), then fix the step rate.
+- Chord key: "s" is Settings (`CHORD_ACTIONS.s`), so "View the Stack" on "s" collides; pick a free letter.
+- Rename leftovers, only if the owner asks: release asset names (`ASSET_PREFIX = "MemoryMap-AI-Setup-"`, routes_update.py), the exe "MemoryMap AI.exe" and the Start-menu ID, each with a migration. <!-- brand: keep -->
+- Unverified on Windows: the launcher splash (title lockup, centred links, `scripts/splash.ps1`; pwsh is not available here).
+- Graph load: it does not appear smoothly, it shifts or glitches in (owner, 2026-10-12). Record frames across the first second (node positions per frame, `graph-worker.js` settle, the canvas resize) and fade in once the layout has settled.
+- Mind map: with a popup tool panel showing, a two-finger trackpad pan is slow and laggy (owner, 2026-10-12). Likely the panel's blurred surface repainting under the moving canvas (DESIGN.md glass-off list) or a wheel handler doing layout work per event; measure frame times with and without the panel before fixing.
+- Atlas's head tilts toward the mouse like the other companions when that setting is on (owner, 2026-10-12; the Settings persona card shows the head only). Check the companion's look-at path covers the persona head and the chat avatar.
+- Composer without a model (owner, 2026-10-12 screenshots): (1) "search the web for sandwiches" with Web on answered "No note I found says anything about search or web or sandwiches" (the 2026-10-12 `asks_web` fix is in the head; re-test it first, the owner may be on an older build, then add a "Web is on but no search engine is set up" line when it still cannot search); (2) "what is the time right now" answers 18:53, with no am/pm option: read the clock format setting and say "6:53 pm"; (3) "what about the time in japan??" fell to notes: a follow-up must inherit the last turn's subject (time) and a place maps to a time zone (offline table); (4) no simple conversions (units, currency needs a rate so say so, time zones) and no conversation context across turns: add a `conversions` act in `ai/composer_acts` and carry the previous act and slots into a terse follow-up. These belong with CHAT_PLAN's deterministic engine, Brief 90 (the owner's typos are fixtures).
+- Popup agent: its answers carry no in-text citation numbers (owner, 2026-10-12, four screenshots: "notes about uni" answers in paragraphs with a Sources chip and note list but no superscript marks, as Ask and Chat have). Chat wires them through `addInlineCitations(bubble.querySelectorAll(".bubble-answer"), groundingSentences, meta.raw_results, turnSources)` from the `grounding` stream event (chat-attach.js ~2000, 2365); the popup agent (palette.js `cmdPaletteLinkNotes`, agent-activity.js) only links "note id N" text. Give the popup agent's answer element the same call and the same `grounding` event handling, then a test like Ask's.
+- CodeQL "Unused global variable" on `reminder_token._loaded_from` and `lantrust._run_allowance`: Copilot's autofix renames them `_unused_*`, which would mislead (both are read). Prefer a small holder object, or dismiss the alerts (owner, 2026-10-12, screenshots).
+- Chat "can you search the web?" with Web on: the Atlas bubble stays empty and the person is told to look at the logs, which are not human readable (owner, 2026-10-12). Every failed turn must end in a plain sentence naming what failed (no search engine set up, offline, model off) and the next step, never a blank bubble; and the Logs view needs a readable line for the failure. A "search up sandwich recipes" turn answered "I found 11 notes about up sandwich recipes" from notes: the verb "search up" is not read as a web ask (`_WEB_ASK` in composer_digest.py), and the leading "up" stays in the query.
+- Source notes: the source cards and the "Searched notes" chips show raw markdown ("**The Complete Social Skills Guide**", "Follow- Up", clipped mid-word starts such as "uding servers") instead of rendered inline markdown; run the snippet through the inline renderer (bold, italics, code, links) and start snippets at a word boundary.
+- Atlas and the companion need a refinement pass (owner, 2026-10-12): Atlas's right arm still looks disconnected from the body, arm movement is odd, some popup icons and actions are not animated (the juggling stars among them), and behaviour, motion and actions want more refinement and optimisation. Measure the arm joint against the torso per pose first (the crop shows the arm detached at the shoulder), then audit which popup actions have no animation.
+- Timer (Statistics): the "Breaks" toggle and its label are not vertically aligned, and the preset row (5, 15, 25, 50) and the minus, "25 min", plus stepper may belong on separate rows (owner, 2026-10-12, screenshots); measure the toggle and label centres, then split the rows at narrow widths at least.
+- New chat page: its content (the mark, "Explore your notebook with Atlas", the starter chips) appears a second or two late and all at once (owner, 2026-10-12). It waits for its starters (`renderChatEmptyState`, chat.js, `.chat-empty-waiting`); show the mark and heading at once, skeleton the chips, and fade each in.
+- One loading screen for every main page (owner, 2026-10-12: likes the bar-at-top "Opening documents" ring with skeleton pieces; wants it, with the sheen moving, on the others). Checked: `TAB_SKELETONS` (navigation.js) holds graph, library and documents only, because it covers a lazy tab's module load (`tabPlaceholder`; `tests/test_lazy_skeletons_598.py` requires one per lazy tab). Dashboard, Notes, Chat, Timeline and Reminders are boot-loaded, so their wait is a data fetch drawn by ad hoc skeletons (`showSkeletons`, `dashFillingSkeleton`, the calendar's `timeline-cal-loading`). Do: a `surfaceLoading(page, spec)` that reuses `tabSkeletonDock` and the ring line for any data wait past 400 ms, a spec each for dashboard, notes, chat, timeline (list and calendar), reminders, whiteboard and mind map, and check the sheen runs on every `.skeleton` (the reduced-motion breathe stays).
+- "Atlas, needle3" turns (owner, 2026-10-12: "all the needle stuff isnt working"): the tool-calling path labelled needle3 answered "What did I write this week?" with a counted-notes step and "You have no notes in this week" (correct on a Monday, but the answer should say the week it read, Monday to today, and offer last week). Check each needle-labelled step (count, search, open) against a real model and report what the label means in the UI; an unreadable model label is a bug in itself.
+- Missing packages (owner, 2026-10-12): wherever a feature needs a package that is not installed (viewing a PDF or other files, the needle tool-calling model, live captions, OCR), say so at the point of use with a short notice or a bell entry naming what it adds and a button to Settings, Packages; one shared helper (`capability` flags in routes_capabilities.py) so each surface asks the same question, and a lint that every gated control has its notice.
+- Composer understanding: fold every typo and phrasing the owner has used in this conversation into the fixtures (Brief 90: "tuesday" lead capitals, "bototm", "dissconnected", "wierd", "Cristopher", "gamin", "mouce", "search up", "what about the time in japan??", "hey :D", "can u pls") and generalise the classes (one-edit keyboard slips, dropped or doubled letters, missing apostrophes, trailing "??", emoticons, "u", "pls"), then widen what it understands: follow-up turns that inherit the last act and slot, time zones and 12-hour clocks, unit conversions, a web ask with no engine set up.
+- Backspace and delete are laggy in the editor (owner, 2026-10-12): profile the input path (the autocorrect and spelling passes on each keystroke, `tag-suggest`, the markdown preview repaint) with a long note and debounce what runs per key.
+- Search history panel (owner, 2026-10-12, "maybe next PR"): a panel of recent searches (Find anything, Ask, library) with re-run and clear, local only; the palette already keeps recents, start from there.
+- Guide answers "what can I do in the chat?? like what should I ask for??" (owner, 2026-10-12, screenshot: not good enough): it restates the question ("Taking that as ..."), then describes the "/" menu, when the person asked for ideas. For a "what should I ask / what can I do" question the Guide should answer with three to five concrete example questions for that surface (Chat: "What did I write this week?", "Summarise my notes in Hobbies", "What is due soon?", "Find notes about X", "Remind me to ... tomorrow"), each a tappable chip that fills the box, then one line on the "/" menu. Drop the "Taking that as" echo when the question was understood (it only helps on a low-confidence parse), and read "cna" and a trailing "??" as noise. Also give Chat's own empty page the same chips.
+- Dashboard default layout (owner, 2026-10-12): improve `DASH_DEFAULT_SHOWN` and `DASH_DEFAULT_WIDE` (dashboard.js ~139 to 190) using the owner's own order as the model (Digest, Notebook constellation, Quick capture, Recently added, Most used, Top tags, Recent questions, Tag cloud, Rediscover, Activity heatmap, Categories, Most-linked, Focus timer, Favourites, Reminders, Loose ends, Boards and maps, Recent documents, Writing pace, Tensions, Unfinished, Recent activity, While you were away, Bookmarks, Stats, Streak, Most opened this month, Filings to check, then This week and On this day). Only the constellation starts wide in the owner's layout; every widget that starts wide must have a working Narrow button in the Widgets sheet (the heatmap's did not once), so add a test that toggles every `DASH_DEFAULT_WIDE` widget to narrow and back.
+- Clock (owner, 2026-10-12): an Appearance setting for 12 or 24 hour time for the status bar clock, the dashboard and reminders clocks and Atlas's time answer (`utilities._hm`, which already speaks 12-hour on request), and a switch to turn the composer's clock answer off.
+- Splash (owner, 2026-10-12): the expanded log now sits under the step list (`scripts/splash.ps1` `Set-Layout`); not run on Windows from here. The log box's scrollbar is the system's white one against the dark card; a dark custom scrollbar needs a RichTextBox or an owner-drawn bar.
+- Hugging Face token (owner, 2026-10-12): Settings, Models (where models are pulled) and Search and index each get a section with a text field and a button for a Hugging Face access token, stored securely (the OS keychain where one exists, else the encrypted settings store; never in plain text, never logged, never in exports or backups), shown masked, and manageable: add, update, edit, delete, with a "Saved" state and a test button that checks it against the Hub without leaving the machine otherwise. Gated downloads (private or licence-gated repos) and the embedding model pull read it; a lint that no route returns it.
+
+
+- A full lag sweep and optimisation pass (owner, 2026-10-12): collapsing and uncollapsing notes in the list is glitchy and laggy, and many actions across the app feel slow. Measure first: record frame times and long tasks (PerformanceObserver `longtask`, `event` timing for INP) for the note list collapse, tab switches, the editor keystroke path, graph and mind map pan with a panel open, and dashboard load; rank by cost; fix the worst ten (layout thrash from per-note height reads, backdrop blur on moving surfaces, per-keystroke passes, animation on width and height), each with a before and after number and a ratchet test.
+\n
+- Whiteboard template zones (owner, 2026-10-12, screenshots: a "Cues" zone with sub-writing "Questions and key words"): double-clicking the sub-writing to edit it replaced its text with the zone's title ("Cues"), clicking off kept the change, and Undo did not bring the words back. Three faults: the edit box opens on the wrong string (the title, not the subtitle), the commit is not an undo step, and the commit saved the wrong field. Reproduce on a Cornell-style template zone first; the commit must push one undo entry with the field it edited.
+- Mind map pan lag with a node selected and its floating toolbar showing (owner, 2026-10-12, third report, "soooo incredibly laggy"): with a node selected the pan is slow. Profile it before touching it: pan with nothing selected, with a selected node and no toolbar, and with the toolbar; check whether the toolbar repositions through layout reads on every pan frame (`getBoundingClientRect` per pointermove), whether the selection ring redraws the whole SVG, and whether the toolbar's blur is on a moving surface (glass-off list). Fix: position the toolbar with a transform from cached geometry, throttle to one write per frame.
+- Image and sketch processing indicator (owner, 2026-10-12, screenshots of a sketch tile and its lightbox): nothing on the image itself says OCR or captioning is running for it. Add a small "Reading" or "Captioning" chip with a ring on the Library tile, the Notes attachment chip, the sketch card and the lightbox while its job runs (the jobs stream already carries the target id; `/jobs/stream` `runs`), then a quiet "Read" tick when it finishes, and the same skeleton sheen on the caption line until the words arrive.
+- Image lightbox details box (same screenshots): the "820 x 480 . Added ... . sketch-....png" box sits low over the page behind it with a rule inside and a dead strip under it, and the toolbar overlaps the Library tiles behind the lightbox. Give the details a proper bar attached to the viewer (one line, no inner rule) and a scrim that covers the page.
+- UI freezes while OCR and captioning start (owner, 2026-10-12): after uploading a sketch as a note, the Notes tab was glitchy for about ten seconds and the view-mode dropdown would not open until the OCR and caption jobs appeared in the agent popup. Something on the main thread or the event loop blocks while those jobs spin up: suspects are a synchronous model or engine load on the request thread (the caption model, the OCR engine import), the jobs stream replaying a large batch into `renderTasks`, or the server's single worker holding the first poll. Measure with a long-task observer and the server's request times during an upload; start jobs off the request path (a thread or process) and show the processing chip at once so the wait is visible.
+- Captioning and vision OCR when the model server is down (owner, 2026-10-12, logs and the bell): the log was a page of traceback for a plain refused connection (now one line: `captioning.server_unreachable`); the bell said "Failed: Captioning" but "Finished: Reading an image with the vision model" for a vision read that also failed, so the job must end failed when `vision_ocr_text` returns None because the server was down. Both should say in plain words "Ollama is not running: start it and press Read again", with a button on the image's chip, and a retry that runs by itself when the model comes back.
+
+## The 2026-10-12 sweep: everything said and not done, so nothing is missed
+
+Owner's list, in one place (each is also logged above where it has detail):
+- **Rename, finished this session:** release assets, the installer, the bundle folder and exe are now Tessellate (`Tessellate-Setup-*`, `Tessellate.exe`, `tessellate.spec`); existing users uninstall and reinstall. Left on purpose: the data-folder fallback (`%APPDATA%\MemoryMap AI` is read while it exists, so notes are not lost), `instance_lock.APP_NAMES`, the old-name help keywords, old shortcut cleanup in `start.*` and `uninstall.*`, the `memorymap` command alias, the LAN cert subject, browser storage keys, file-format ids. Check the first release builds an installer named `Tessellate-Setup-<version>`, and that the upgrade check in package-check.yml starts running once a release carries that name.
+- **README:** tagline options 1, 4 and 5 liked but "not quite right" (owner, 2026-10-12): write two more variants mixing them; the bold line is in README.md, docs/index.html and the repo description.
+- **Tool-call answers (needle and the composer):** an answer should state the tool result in words (the counts, the titles, the dates) and never send the reader to the steps to find it ("I found 11 notes about ... Open one from the rows below", "Finished 1 step"). Rule: every `tool_say` result carries its own sentence of findings plus the next action; add a test that no answer says "see the steps" or "below" without naming what is below.
+- **Still open from earlier this session, all in this file:** the lag sweep; Hugging Face token; processing indicator on images and sketches; lightbox details bar; UI freeze while OCR and captioning start; captioning and vision OCR failing when the server is down (job must end failed, plain notice); template zone edit and undo; mind map pan lag with a toolbar; Atlas and the companion refinement and the fall physics; composer: web search with no engine, follow-ups and context, conversions, am/pm and time zones, Harper grammar, the typo fixtures; popup agent in-text citations; Guide answers "what should I ask"; missing-package notices (whisper.cpp install, needle, PDF viewing); search history panel; 12/24 hour clock setting; chord key "t" and "s"; graph load fade tuning; the CodeQL alerts if any return; the full local suite was not completed.
+- **Not verified this session:** the Windows splash changes, the installer build after the rename, every UI change beyond the measured ones, the full local suite.
+
+- Composer quality outside Ask (owner, 2026-10-12): the composer is great in the Ask subtab and decent in the Guide, but sub par in Chat and in the needle (tool-calling) path, for web searches, specific questions about notes and how-to questions. Bring Chat to Ask's answer engine: route Chat's no-model turns through the same digest path, state tool results in words (see "Tool-call answers" above), and give how-to questions the Guide's topic lookup. Measure first with a fixture set of real Chat questions run through Ask, Guide and Chat side by side.
+- Slash commands in Chat and the composer (owner, 2026-10-12; idea from Compass's DETERMINISTIC_COMMANDS.md): `/` commands that run exact, model-free queries and answer in a bubble. One registry feeds the commands, `/help <command>` and the `/` autocomplete, so they cannot drift. Start: `/recent [n]`, `/count [tag or category]`, `/stats` (notes per category and week, streak, last note), `/tags`, `/due`, `/find <text>` (FTS5), `/time [place]`, `/open <note>`, `/help`. More (owner, 2026-10-12): `/calc <expression>` (exact arithmetic, units and percentages, through the existing `calculate` tool); `/made <date or range>` and `/edited <date or range>` (notes, boards, maps and documents created or changed on a day, "last week", "since 3 Oct"); `/list <type> [type ...]` (every object of one or several types: notes, documents, boards, maps, reminders, meetings, files); `/with <word or "phrase"> [in <type>]` (objects whose text contains the word or phrase, with the matching line shown); combinable, for example `/list notes documents edited last week with "invoice"`. Each answers as a sentence plus an interactive list (open, jump to the match), per the readable-results rule. Further candidates (owner asked, 2026-10-12), highest value first: `/today`, `/due [today|week]`, `/calc`, `/with`, `/stats`, `/untagged`, `/orphans`, `/random [type]`. Then retrieve (`/yesterday`, `/uncategorised`, `/linked <note>`, `/similar <note>`, `/duplicates`, `/long`, `/short`, `/pinned`), statistics (`/words [period]`, `/streak`, `/busiest`, `/top tags`, `/top categories`, `/growth`, `/storage`, `/compare <period> <period>`), time (`/overdue`, `/remind <text> <when>`, `/done <n>`, `/agenda`, `/countdown <date>`, `/age <note>`, `/date +30d`, `/weekday <date>`), calculation (`/convert 5 km to mi`, `/percent 15 of 80`, `/tip`, `/split`, `/sum` `/avg` `/min` `/max` over numbers in a tagged note), edits (`/new`, `/append <note> <text>`, `/tag`, `/move`, `/undo`, `/redo`; `/delete` and `/merge` keep their confirm step) and app (`/go <place>`, `/theme dark|light`, `/backup now`, `/export <type>`, `/skills`, `/status`, `/help <command>`). A missing argument returns a usage hint. Hybrid commands may add an optional AI summary after the exact result; every command works with no model. Help moves with the UI (standing order 13). Place the brief row in CHAT_PLAN.
+- Tool results are always readable (owner, 2026-10-12, scope widened the same day to every needle tool call, web search, `read_url`, file and document reads, the `/` commands and failures such as no search engine set up or the model off): every tool result reaches the chat bubble as plain sentences or an interactive panel (rows, cards, chips), never raw data. `tests/test_tool_say_coverage.py` holds the floor (every tool has a sayer; empty and failed results say a sentence). Next: a test per tool of a realistic result that checks the answer names the counts, titles or dates.
+- Natural Language Tools (arXiv 2510.14453, unverified for small models): letting the model name a tool in words instead of JSON may raise the needle's tool-calling accuracy; measure on the local model before adopting.
+- Composer direction for the next PR (owner, 2026-10-12): the composer takes `/` commands and also repairs the user's input. A mistyped command or a wrong argument is called out in a plain sentence, with the nearest alternatives as tappable chips ("There is no /recnt. Did you mean /recent?") and, when one reading is clearly right, the inferred one is run and said so ("Read as /recent 5."). Same for typos and unclear natural phrasing: infer, say what was inferred, offer the alternatives, never fail silently. The role: with a model on, the composer is the assistant and boost to it everywhere in the app (it answers what it can exactly, and hands the model exact facts, dates, counts and note excerpts to ground its reply); with no model it is a complete replacement that is just as good, never a lesser mode. Measure that claim with a side-by-side fixture set (the same questions with the model on and off) before saying it is met.
+- Command palette above the chat input (owner, 2026-10-12): typing `/` opens a small popup above the text bar, built from the same command registry as the commands and `/help`. It shows the closest commands as you type (fuzzy, so a typo still finds `/recent`), each row with its name, a one-line description and its structure (`/recent [n]`, `/made <date or range>`); Up and Down scroll, Enter or a tap fills the bar with the command and leaves the cursor on the first argument; Tab completes. Once a command is chosen the popup becomes its argument helper: argument names, example values, prefilled choices as chips (types, dates such as today and last week, your tags and categories, recent notes), and a live preview of how the composer reads it. Recently used commands come first; an empty `/` shows the groups (find, time, stats, edit, app). Built from DESIGN.md's recipes (the popup like the existing mention and suggest menus, `data-help-for` help, tokens for spacing), keyboard and touch complete, closes on Escape or a click away, never covers the send button, and works with no model. The registry and the popup cover every command named in the slash-command entries above, the first set and the further candidates (`/calc`, `/made`, `/edited`, `/list`, `/with`, `/today`, `/due`, `/stats`, `/untagged`, `/orphans`, `/random`, `/convert`, `/remind`, `/go`, `/theme`, `/backup` and the rest), each with its structure, an example and its argument chips. The aim is learnability: a person should discover every command, and its shape, without reading help.
+- Composer: natural language equals slash commands, and richer answers (owner, 2026-10-12): the composer must be able to do anything a `/` command does and infer the command from ordinary language ("what did I write last week" runs `/made last week`; "any untagged notes?" runs `/untagged`; "how much did I spend, from my expenses note" runs `/sum`). One registry means one set of actions with two entrances, the typed command and the inferred phrase; a phrase that could mean several commands offers them as chips and says which it picked. Answer shape: the reply may be a natural-language answer of a couple of paragraphs with the tool results set in the middle (the lead sentence, then the results as rows, cards or a table, then a closing line that interprets them and offers the next step), and a question that needs several tools (for example notes about a trip, the reminders due before it and the days left) runs them in order, shows each result in its own panel and ties them together in the prose. It must work with no model (rule-built prose from the results) and, with a model, hand the model the exact results to phrase. Judge it on a fixture set of multi-part questions, checking that every number, title and date in the prose appears in a tool result (the existing source check), before calling it smart.
+- Creation commands (owner, 2026-10-12): `/` commands that make new objects, each also reachable by natural language ("make me a mind map about the trip"). Notes: `/new <text>` (first line becomes the title), `/note <title>: <body>`, `/quick <text>` (straight into the inbox), `/journal` (today's entry, created once and reopened), `/daily`, `/idea <text>`, `/todo <text>` (a checklist note), `/list <title>: a, b, c` (a checklist from items), `/meeting <title>`, `/template <name>` (a note from a saved template), `/clip <url>` (a web page note), `/dictate`. Other objects: `/doc <title>` (document), `/sheet <title>` (spreadsheet), `/board <title>` (whiteboard), `/map <title>` (mind map), `/remind <text> <when>`, `/event <title> <when>` (timeline), `/category <name>`, `/tag <note> <tag>`, `/link <note> <note>`, `/skill <name>`, `/folder <name>`. Every creation answers with the new object as a clickable card ("Created the note “Pack list”"), is undoable with `/undo`, accepts `in <category>` and `tagged <tag>` suffixes (`/new buy milk in Errands tagged home`), and a missing title or a duplicate name gets a plain sentence with the closest alternatives instead of a silent failure. The same registry feeds the popup, so each shows its structure and an example as you type.
+- More slash command candidates (owner: "and more if you can think of any", 2026-10-12), all model-free and answered as a sentence plus an interactive list: `/starred`, `/pin <note>`, `/unpin`, `/star <note>`; time windows `/thisweek`, `/lastweek`, `/month`, `/oldest [n]`, `/onthisday` (notes from this date in past years), `/changed since <date>`; detected things `/todo` (open checkboxes across all notes), `/questions` (lines ending in a question mark), `/links` and `/urls` (notes containing links), `/images`, `/files`, `/people` and `/mentions <name>`, `/places`, `/dates` (notes that name a date), `/quotes`; per note `/tags <note>`, `/wordcount <note>`, `/readtime <note>`, `/versions <note>`, `/diff <note> <note>`; digests `/summary <period>` (a rule-built recap of a day, week or month), `/digest`; organising `/categories`, `/rename tag <old> <new>`, `/merge tags <a> <b>`, `/templates`, `/meeting <title>`, `/journal`; surfaces `/mindmap <note>`, `/graph <note>`, `/board <name>`, `/bin`, `/restore <note>`, `/history` (chat and search); utilities `/timer <minutes>`, `/focus 25`, `/stopwatch`, `/roll 2d6`, `/flip`, `/pick a, b, c`, `/random number <a> <b>`; app `/models`, `/web on|off`, `/lock`, `/shortcuts`, `/version`, `/about`. All join the one registry and the popup; a command that changes data (`/rename`, `/merge`, `/restore`, `/pin`) shows what it will do first and is undoable.
+- Bare commands guide the user (owner, 2026-10-12): a command typed with no arguments never fails or guesses; it opens its own guide. `/new` with nothing opens the new-note composer (or a small form: title, category, tags); `/remind` opens the reminder form; `/made` or `/edited` with no date opens a date picker with today, yesterday, this week and last week as chips; `/list` opens a type picker (checkboxes for notes, documents, boards, maps, reminders); `/with` asks for the word and the types; `/convert` and `/calc` show a short example and a keypad of units; `/go` offers the places as buttons; `/theme` and `/backup` show their choices. Each guide is a small panel in the chat (or the popup above the input), step by step when the command has several arguments ("Which type? Which period? Which word?"), with the answers filling the command line as it goes so the person learns the typed form, a back step and a cancel. Commands that navigate (`/go`, `/graph`, `/mindmap`) take the person straight to the place. The popup and the guides read the same registry, so a new command gets both for free: its argument list says whether each argument is a date, a type, a note, a tag, text or a choice, and which control asks for it.
+- Quick command bar from anywhere (owner, 2026-10-12): a small popup text bar for running quick commands, opened from any screen, linked to the existing command palette (`openPalette()`, Ctrl+K). Plan: the palette gains a command mode. Typing `/` in the palette (or a dedicated shortcut, for example Ctrl+/ , plus a button in the dock) turns it into the quick bar: one line, the same registry-driven suggestions above it (the command popup in the chat input), the same guides for a bare command, and the result shown right under the bar as the same readable bubble or panel, with "Open in chat" to continue it there. Results that change data show what they did with an Undo. It stays open for a follow-up command, closes on Escape or a click away, remembers recent commands, and works with no model. One command engine serves the chat input, the palette and the quick bar, so a command behaves the same in all three. Reuse the palette's existing dialog and the suggest-menu recipe in DESIGN.md; a global shortcut needs an entry in the shortcuts list and its help topic (standing order 13). Note what exists first: grep `openPalette` and the palette's own search before building.
+- Frame-cost sweep (owner asked, 2026-10-12, after the mind map selection bar was found placing itself in 30 ms a frame during a pan; fixed with a held measure, `tests/test_wb_pan_bar_hold.py`): the same class, something that follows the canvas or the pointer and re-measures each frame, may live elsewhere. Method: for each surface (board, graph, mind map with every bar and strip, documents toolbar, timeline, the companion and Atlas during a throw), select something, then pan, zoom or drag at a 6x CPU throttle and record per-frame time and `getBoundingClientRect` counts; anything over a few ms a frame is a candidate. Checked so far with nothing found by reading: the graph zoom handlers and the editor's `selectionBarSync`.
+- Companion and Atlas throw is laggy and framey (owner, 2026-10-12): profile first (a throw at a 6x throttle, frame times, long tasks, what runs per frame: the physics step, the SVG or DOM writes, a blurred layer under the moving sprite, layout reads), then fix the biggest; likely the same shape as the bar (reads after writes each frame) or per-frame style writes to many nodes.
+- Type tolerance everywhere (owner, 2026-10-12: "its just type tolerant in general. the composer should be tolerant of everything and use all the libraries and stuff to handle them, and that should be used to help with the searches and tools and commands"): "can u pls serch teh web for sandwiches" failed because one word ("serch") was missing from the speller's dictionary, patched by hand on 2026-10-12 (`question_noise.SLANG`: serch, serach, saerch, wbe). The repair machinery already exists (`question_noise.repair`: weighted edit distance with keyboard-neighbour, doubled-letter and swap costs, run-together splitting; `spelling.fix`; `utilities._heard` and `commands.read_typed` both call it) but its vocabulary is the asking words, so action and object words are only repaired when listed. Plan: build the speller's dictionary from the registries instead of by hand (every command and `/` command name, tool name and alias, utility trigger word, surface and category word, the notebook's own title, tag and category words), use one repair pass in front of every router (utility, command, search, `/`), run the topic of a search through fuzzy matching against the notebook's words and phrases (the composer already fits topic terms for scoring, `composer._fit_terms`; make it widen the search, not only the scoring), and always say what was assumed ("Read as: search the web for sandwiches") with the original one tap away. Add the owner's typos as fixtures (`fixtures/composer`) and a typo generator test: every registered command phrase with one keyboard-neighbour slip, one swap, one dropped and one doubled letter must route as the clean phrase does.
+- Chat while the AI answers (owner, 2026-10-12, screenshots): (1) "the bottom of the chat area gets cut off a bit, and its completely cut off": the pending or streaming bubble sits under the composer dock with the "Still writing" pill showing, so the follow-to-bottom has stopped or the scroller reserves no room for the dock; measured with the stream stalled at 1440x900 the scroller ends 8px above the dock (bottom 663, dock top 671) and the pending bubble fits, so the cut-off needs a growing reply to reproduce (stall a stream with a script that sends deltas on a timer). (2) "scrolling on the chat area is slow and glitchy while the ai is responding": the live renderer re-renders the answer from raw Markdown every frame (`liveMarkdownRenderer`) and the `is-streaming` caret, the progress line and the timer repaint under a scrolling layer; profile scrolling during a stream at a 6x throttle, then cap the render to one per frame, render only the changed tail block, and give the scroller `contain: content` and the bubbles `content-visibility: auto` once finished.
+- Composer ranks the tools the model is offered (owner, 2026-10-12): the composer reads a question's key words (after type repair) and scores every tool by how likely it is wanted, as a probability or percentage per tool, and that ranking decides the order and the cut: the top tools first, the least likely dropped first when the window is small. Why now: on 2026-10-12 `web_search` was appended last and so cut first on a small window, and the model, told about web search but not given the tool, thought for 150 seconds (fixed for a web ask with `tools.keep_first_for`; a general ranking removes the whole class). What exists: `toolwords.focus_detail` (keyword groups, `Focus.ranked` scores, `cues`), `tools.within_budget` (keeps `keep_first` or CORE_TOOLS first, then drops at the tail) and `composer_digest.asks_web`. Plan: one scorer, `rank_tools(question, history) -> [(tool, p)]`, built from the tool registry (names, aliases, descriptions, argument words, the `/` command registry) plus the repaired key words, entities (dates, notes, tags, places) and the previous turn's tools; `within_budget` consumes the order instead of a fixed list; the scores are logged in Settings, Logs ("offered: search_notes 0.92, web_search 0.81, create_note 0.12, held back ...") and shown in the "why" lines of a turn; a low top score offers a broader set and a clarifying question rather than a guess. Measure it: a fixture set of questions with their expected tools; report recall of the needed tool within the top 3, 5 and the budget cut, per model window size, against today's `focus_detail` ordering, before switching.
+- A tool to list the tools, and the skills (owner, 2026-10-12): the model can ask what it can do. Checked first: `list_skills` and `run_skill` exist (tools/__init__.py, in a keyword group, so a small window may not offer them) but no tool lists the tools; `tool_catalog()` builds that list for Settings only. Add `list_tools(filter?)` returning every registered tool as name, one-line description, group, and a state (offered this turn, available but held back by the window, off in Settings, needs web search or another setting turned on, needs Agent mode), and `describe_tool(name)` returning the full schema and a worked example (`call_example`), so a model that reaches for something it was not shown, or is asked "what can you do", looks it up instead of guessing or saying it cannot. Same for skills: `list_skills` always reachable (core, one line of schema) with each skill's name, purpose, inputs and whether it needs a tool that is off. Both are read-only, cost one short schema each, answer in words and a panel in the bubble (the readable-results rule), and the held-back state feeds the tool-ranking entry above so a held-back tool can be pulled in on request, which also covers the 2026-10-12 web case.
+- Activity panel, Agent runs tab: per-run actions and per-run detail (owner, 2026-10-12, screenshot with two finished runs, "Warming up the filing model" and "Describing sketch-...": "no way to delete or clear individual agent runs and also no way to see the logs or background process or status of each process"). Today: the panel's kebab has "Clear finished runs" (all at once) and "Show the log" (one shared log), and a run is an in-memory object (`agentRuns` in agent-activity.js, `addAgentRun`/`endAgentRun`) with a fold that is disabled when it has no steps, so a background job such as filing-model warm-up or a picture description has nothing to open. Build: (1) a kebab on every finished run (the `kebabMenu` recipe, DESIGN.md recipe 11): "Remove this run", "Copy its details", "Open its log", "Stop" while it runs; (2) every run opens to a facts block even with no steps: what it is, who started it (a chat turn, a skill, the night pass, an import, the app), state with the exact reason when it failed, started, finished and how long, the model used, tokens, the notes or files it touched (clickable), its own log lines filtered from the shared log (`/logs` by job id), and the next retry or schedule for a background job; (3) persist the last runs server side (a small `activity_runs` table, pruned to the last 100 and 30 days, Alembic revision) so a reload keeps them and Settings, Background tasks shows the same rows; (4) a filter (running, finished, failed) and "Clear failed" beside "Clear finished"; (5) the status bar's "2 runs" chip opens this tab. Help moves with it (standing order 13: the Activity panel's `data-help-for`, the Guide's topic and `tests/test_manual_parity.py`).
+- Composer probe, 2026-10-12 (19 everyday questions through the no-model route; 16 answered well: counts, date, percentages, conversions, lists, tags, categories, reminders, greetings, capability, how-to, navigation): found and fixed "which note mentions perth" (the word "mentions" was searched for as a subject; now an asking word). Found, not fixed: (1) "oldest note" answers "Nothing comes up for “oldest”": `list_notes` has no order argument (`tools/__init__.py` orders `created_at desc`); add `order: newest|oldest` to the schema, `tool_say` lead ("Your oldest note is ...") and the route's retrieval for the question; (2) "what did i write yesterday" with no note that day answers the generic "I couldn't find any saved notes matching that question": it should say "You didn't write any notes yesterday. Your last one was on <day>" (the cadence facts in `composer_digest` already hold the last-note date); (3) "when is my dentist appointment" answers with the booking note but adds "None of these notes mention “appointment”": treat appointment, booking, booked, check-up, visit as one meaning group in the synonyms (`composer._build_synonyms`) so the unmatched-word line stays quiet when a synonym is present.
+- Facts change over time (owner, 2026-10-12): the notebook, the AI and the composer must treat what a note says as true as of when it was written, so a newer note about the same thing supersedes an older one instead of confusing the answer. Example: a note on which days are uni days and which classes are taken this semester, then a similar note next semester; "what are my uni days" must answer from the newest, and mention the older only when comparing, noting the change, or being asked for it ("last semester you had Tuesday and Thursday; now Monday and Wednesday"). What exists to build on: `as_of` and `as_of_revisions` in the stream meta (answer as of a past date), `composer._disagreements` (names two notes that may disagree), the cadence and date facts in `composer_digest`, note `created_at`/`updated_at` and revisions. Plan: (1) recognise a recurring subject, a "state note" (schedule, address, job, plan, price, goal, routine, a list of current items), by shared entities, title shape and category across notes (embedding similarity plus the shared nouns), and link the pair as "supersedes" with a confidence; (2) retrieval ranks the newest of a superseding set first and marks older ones as past ("from March, since replaced"), never silently dropping them; (3) the composer answers with the current one, adds one line when an older one conflicts ("An older note, from semester 1, says Tuesday and Thursday"), and compares on request ("what changed since last semester": a rule-built diff of the two notes' lines); (4) the model is handed the dates with every note and the instruction to prefer the newest and to say when it is using an older one; (5) validity words in a note ("this semester", "until June", "as of 3 Oct", "from next week") are parsed into a validity window the engine uses to mark a note current, upcoming or past, and the notebook surfaces a gentle "this looks out of date" prompt when a window has ended or a newer similar note exists, with Merge, Keep both and Archive as the choices; (6) a timeline view per subject ("your uni days over time"). Measure with fixtures: pairs of state notes a semester apart plus questions whose right answer is the new one, the old one, or the change; check that the stale answer never appears unmarked.
+- Companion double-click leaves it floating (owner, 2026-10-12): double-clicking the companion to resize it leaves it stuck at that spot on the screen and floating, no longer perched on whatever it was perched on (a card, a bar, the dock). Reproduce with the double-click on a perched companion, then read the perch state (`companion-*.js`: where the anchor is kept, what the resize path writes: likely an absolute left/top that replaces the perch's anchor and is never handed back). Fix: resizing must keep the anchor and re-derive the position from it (perch offset in the anchor's frame), or re-perch on the nearest surface after the resize settles; add a sweep (perch, double-click, resize, scroll the anchor, check it follows).
+- Mind map pan with a node selected (owner, 2026-10-12, "insanely laggy ... maybe even more so now"): measured and fixed. A 120-topic map, a wheel pan with a topic selected, 4x CPU throttle: 71.8 s for 80 steps, 65 s of it in `wbUpdateSelectionBar` (rects, the topic's rendered size, the strip refilled, one forced layout of the board per frame); my first fix (hold the bar's measures) made a slow pan worse because every wheel gesture end re-measured in full. Now: the bar's measures and the selection box are held for the whole pan and the exact placement runs once, 250 ms after the pan goes quiet: 3.8 s, the same as with nothing selected, bar cost 24 ms. Not verified: a real GPU window (blurred panels over the canvas are not costed in a headless run), a drag pan with the Pan tool, and a pinch zoom.

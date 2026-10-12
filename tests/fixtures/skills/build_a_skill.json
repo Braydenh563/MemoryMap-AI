@@ -1,0 +1,63 @@
+{
+ "skill": "Build a skill",
+ "small_class": false,
+ "cases": [
+  {
+   "id": "weekly-invoices",
+   "notebook": [
+    {
+     "content": "Invoices go out every Friday",
+     "category": "Admin",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "invoice"
+    ]
+   },
+   "inputs": {
+    "task": "sending invoices"
+   }
+  },
+  {
+   "id": "reading-log",
+   "notebook": [
+    {
+     "content": "Finished Piranesi",
+     "category": "Reading",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "reading"
+    ]
+   },
+   "inputs": {
+    "task": "keeping a reading log"
+   }
+  },
+  {
+   "id": "meal-plan",
+   "notebook": [
+    {
+     "content": "Lentil soup on Mondays",
+     "category": "Cooking",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "meal"
+    ]
+   },
+   "inputs": {
+    "task": "planning meals"
+   }
+  }
+ ]
+}

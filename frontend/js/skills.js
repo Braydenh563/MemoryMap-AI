@@ -46,24 +46,10 @@ function stepsToText(steps) {
   return (steps || []).join("\n");
 }
 
-function textToSteps(text) {
-  return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
-
 function inputsToText(inputs) {
   return (inputs || [])
     .map((item) => (item.label && item.label !== `${item.name}?` ? `${item.name}: ${item.label}` : item.name))
     .join("\n");
-}
-
-function textToInputs(text) {
-  return textToSteps(text).map((line) => {
-    const [name, ...rest] = line.split(":");
-    return { name: name.trim(), label: rest.join(":").trim(), required: true };
-  });
 }
 
 function startEditingSkill(skill) {
@@ -372,6 +358,7 @@ async function loadChatSkills() {
   trigger.type = "button";
   trigger.id = "chat-skills-btn";
   trigger.className = "ghost small";
+  trigger.dataset.needsModel = "Skills require an AI model";
   trigger.setAttribute("aria-haspopup", "dialog");
   trigger.setAttribute("aria-expanded", "false");
   trigger.setAttribute("aria-controls", "chat-skills-panel");
@@ -414,6 +401,13 @@ function fillSkillSelect(select) {
       // "ph:gear" in the list, since setLabel has no element to build into.
       option.textContent = skill.name + (skill.changes ? "  (edits notes)" : "");
       option.title = skillSummary(skill);
+      //: Phase E, decision 2: measured below the bar on a small model, so
+      //: shown with why rather than offered and hoped.
+      if (skill.needs_larger_model) {
+        option.textContent += "  (needs a larger model)";
+        option.title = skill.needs_larger_model;
+        option.disabled = true;
+      }
       group.appendChild(option);
     }
     select.appendChild(group);
@@ -591,6 +585,10 @@ const AGENT_INTENT_RE = new RegExp(
     "tag|untag|re-?tag|link|unlink|organi[sz]e|tidy|clean ?up|sort|categori[sz]e|" +
     "create|make|add|save|append|update|edit|change|move|" +
     "schedule|remind me|set a reminder|" +
+    //: "Draft", "outline" and "generate" ask for something written; "fix",
+    //: "plan", "format" and "translate" are left out because "how do I
+    //: format a date" is a question, not a request to act.
+    "draft|outline|generate|" +
     "summari[sz]e (?:my|all|the|every)|go through (?:my|all|the)" +
     ")\\b",
   "i"
@@ -674,7 +672,10 @@ function renderChatNudge() {
       run: () => setChatMode("agent"),
     });
   }
-  if (!chatNudgeDismissed.has("skill")) {
+  //: A skill runs on a model with tools, so the offer waits for both (the
+  //: owner: "The ai model isnt running, skills are disabled, and it still
+  //: suggests skills").
+  if (!chatNudgeDismissed.has("skill") && $("tools-toggle")?.checked && !aiIsOff()) {
     const skill = skillMatchingDraft(text);
     if (skill) {
       offers.push({
@@ -761,6 +762,11 @@ function skillRow(skill) {
     row.appendChild(from);
   }
   if (skill.changes) row.appendChild(chip("ph:pencil-simple Changes notes", "item-fact item-writes"));
+  if (skill.needs_larger_model) {
+    const larger = chip("Needs a larger model", "item-fact");
+    larger.title = skill.needs_larger_model;
+    row.appendChild(larger);
+  }
   if ((skill.steps || []).length) {
     row.appendChild(chip(`${skill.steps.length} steps`, "item-fact"));
   }
@@ -901,6 +907,7 @@ async function saveToolSwitch(check, name) {
 }
 
 async function renderToolSettings() {
+  renderMcpSnippet();
   const list = $("tool-list");
   showSkeletons(list, 4, "li");
   const [catalog, prefs] = await Promise.all([
@@ -1063,13 +1070,68 @@ function downloadJson(filename, payload) {
 // not reliably distinguishable, and a wrong guess here is a silent failure in
 // the direction we are trying to fix.
 let isDesktopShell = null; // null = not yet asked
+//: One `/health` read for both questions below.
+let healthFactsOnce = null;
 
+function healthFacts() {
+  healthFactsOnce ||= apiJson("/health", { silent: true }).catch(() => null);
+  return healthFactsOnce;
+}
+
+//: `/health` answers per device: a phone on the network is never the desktop
+//: shell, so it downloads its exports to itself rather than writing them onto
+//: the computer's disk (the owner, 2026-10-11: "I pressed open file location
+//: for the support bundle on my phone and it opened up file explorer on my
+//: computer").
 async function desktopShell() {
   if (isDesktopShell === null) {
-    const health = await apiJson("/health", { silent: true }).catch(() => null);
+    const health = await healthFacts();
     isDesktopShell = !!(health && health.desktop);
   }
   return isDesktopShell;
+}
+
+//: The words the server refuses with (`api/this_computer.py` REFUSAL), shown
+//: before the press rather than after it. tests/test_ui_recipes.py holds them equal.
+const THIS_COMPUTER_ONLY = "Not available on this device. Do it on the computer Tessellate runs on.";
+
+//: DESIGN.md, "A control that acts on the computer Tessellate runs on": on
+//: another device, each `[data-this-computer]` block gets one note line and
+//: dimmed controls, `="hide"` is hidden, and a press toasts the note instead
+//: of asking the server for a 403. Help toggles inside still open.
+async function markOtherDevice() {
+  const health = await healthFacts();
+  if (!health || health.this_computer !== false) return;
+  document.documentElement.dataset.otherDevice = "1";
+  for (const block of document.querySelectorAll("[data-this-computer]:not([data-this-computer='hide'])")) {
+    const note = document.createElement("p");
+    note.className = "muted small this-computer-note";
+    note.textContent = THIS_COMPUTER_ONLY;
+    if (block.tagName === "SECTION") block.prepend(note);
+    else block.before(note);
+  }
+  document.addEventListener("click", refuseOnOtherDevice, true);
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") refuseOnOtherDevice(event);
+  }, true);
+}
+
+function onOtherDevice() {
+  return document.documentElement.dataset.otherDevice === "1";
+}
+
+//: At load, not from `startApp`: `/health` is open before the unlock, and the
+//: settings markup is already parsed (app.js is held to its gzip ratchet).
+markOtherDevice().catch(() => {});
+
+function refuseOnOtherDevice(event) {
+  const target = event.target instanceof Element ? event.target : null;
+  const control = target?.closest("button, input, select, textarea, label, a");
+  if (!control?.closest("[data-this-computer]")) return;
+  if (control.closest("[data-help-for], .help-body, summary")) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  toast(THIS_COMPUTER_ONLY, "info");
 }
 
 function blobToBase64(blob) {
@@ -1140,7 +1202,7 @@ async function saveFile(filename, blob) {
           toast(error.message || "Couldn't open the exports folder.", true);
         });
       }, { record: false });
-      if (typeof renderExportsList === "function") renderExportsList();
+      renderExportsList();
       //: **A saved file is a notification, not only a toast.** Asked for
       //: (INBOX 159): "exported or downloaded files and images etc should
       //: appear in the notifications to be accessible". A toast is gone in
@@ -1173,22 +1235,6 @@ async function saveFile(filename, blob) {
     action: { exports: true },
   });
   return { filename };
-}
-
-// Open a picker, parse the chosen file, hand the object to `apply`.
-function pickJsonFile(inputId, apply) {
-  const input = $(inputId);
-  input.onchange = async () => {
-    const file = input.files[0];
-    input.value = "";
-    if (!file) return;
-    try {
-      apply(JSON.parse(await file.text()));
-    } catch {
-      toast("That file isn't valid JSON.", "info");
-    }
-  };
-  input.click();
 }
 
 // --- Wave M: batch operations on notes ----------------------------------------------
@@ -1253,9 +1299,10 @@ function enterSelectMode() {
   fillBatchCategories();
   fillBatchMore();
   fillBatchCategories("timeline-batch-category-host");
+  fillBatchMore("timeline-batch-more-host");
   updateBatchCount();
   show("batch-bar");
-  $("select-btn").classList.add("active");
+  setActiveChoice($("select-btn"), true);
   syncTimelineSelectUi();
   // The table's tick column only exists while the mode is on, so entering or
   // leaving the mode is a repaint of it. Measured the other way: after a bulk
@@ -1268,7 +1315,7 @@ function exitSelectMode() {
   selectMode = false;
   selectedIds.clear();
   hide("batch-bar");
-  $("select-btn").classList.remove("active");
+  setActiveChoice($("select-btn"), false);
   syncTimelineSelectUi();
   paintTimeline();
   renderEntries();

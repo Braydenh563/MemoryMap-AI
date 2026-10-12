@@ -135,7 +135,7 @@ flows.note = async (env) => {
   //: Home inside the tags box moves the caret in the box (the notes list used to take
   //: it for "go to the first note" and move the focus away).
   env.at('Home in the tags box');
-  const tagsBox = env.page.locator('#entry-list .note-edit-tags').first();
+  const tagsBox = env.page.locator('#entry-list .note-edit-tag-input').first();
   await tagsBox.click();
   await env.page.keyboard.type('ab');
   await env.page.keyboard.press('Home');
@@ -328,10 +328,15 @@ flows.mindmap = async (env) => {
   await add.click();
   await env.wait(700);
   //: Home and the arrows belong to the text while a topic is being typed, not to the map.
-  await env.page.keyboard.type(`opic ${env.STAMP}${env.width}${env.theme}`);
+  //: Short, so it stays on one visual line: Home goes to the start of the
+  //: visual line, and a long stamp wraps in a narrow topic.
+  await env.page.keyboard.type('opic');
   await env.page.keyboard.press('Home');
   await env.page.keyboard.type('T');
-  await env.page.keyboard.press('Enter');
+  await env.page.keyboard.press('End');
+  await env.page.keyboard.type(` ${env.STAMP}${env.width}${env.theme}`);
+  //: Enter is a new line in a name (the owner, 2026-10-10); Escape keeps it.
+  await env.page.keyboard.press('Escape');
   await env.wait(1500);
   const after = await count();
   if (after !== before + 1) throw new Error(`the map has ${after} topics, wanted ${before + 1}`);
@@ -461,7 +466,9 @@ flows.ask = async (env) => {
     return t.trim().length > 30 && !/Searching your notes|Stargazing/.test(t) ? t : null;
   }, null, 20000);
   if (!answer) throw new Error('no answer was drawn');
-  if (!/no model|isn.t running|not running|not connected/i.test(answer)) throw new Error(`the no-model answer does not say so: ${answer.slice(0, 120)}`);
+  //: With no model the composer answers from the notes' own sentences (it no
+  //: longer announces the missing model in the answer itself).
+  if (!/Alpha project|Body text|no model|isn.t running|not running|not connected/i.test(answer)) throw new Error(`the no-model answer neither quotes the note nor says why: ${answer.slice(0, 120)}`);
   if (/error|traceback|undefined|\[object/i.test(answer)) throw new Error(`the answer carries a raw error: ${answer.slice(0, 160)}`);
   await env.overflow('ask answer');
   const connect = await env.page.locator('button:has-text("Connect a model")').count();
@@ -745,14 +752,14 @@ flows.palette = async (env) => {
   if (await env.page.isVisible('#palette-overlay')) throw new Error('the palette stayed open after running a command');
   const tab = await activeTab(env);
   if (!tab.includes('graph')) throw new Error(`"Go to Graph" left the app on ${tab.join(',')}`);
-  env.at('open a note from the palette');
+  //: The palette does not search what you keep (INBOX 666): a typed title offers
+  //: "Search everything for", and Enter there opens Find anything.
+  env.at('hand a typed title to Find anything');
   await openPaletteUi(env);
   await env.page.keyboard.type('Alpha project');
   await env.wait(900);
-  await env.page.keyboard.press('Enter');
-  await env.wait(1200);
-  const after = await activeTab(env);
-  if (!after.includes('notes')) throw new Error(`opening a note from the palette left the app on ${after.join(',')}`);
+  const typedRows = await env.js(() => [...document.querySelectorAll('#palette-overlay [role="option"]')].map((e) => e.textContent));
+  if (!typedRows.some((t) => /Search everything for/.test(t))) throw new Error('the palette offers no way on to Find anything for a typed title');
 };
 
 flows.tabs = async (env) => {
@@ -829,7 +836,9 @@ flows.select = async (env) => {
   try {
     await showNotesList(env);
     env.at('Select');
-    await env.page.locator('#select-btn').click();
+    //: Folded into the dock's menu on a narrow dock (data-fold-narrow), so the
+    //: page's own click reaches it whether it is a button or a menu row.
+    await env.js(() => document.getElementById('select-btn').click());
     await env.wait(500);
     for (const n of [a, b]) {
       env.at(`tick note ${n.id}`);

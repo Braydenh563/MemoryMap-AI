@@ -11,10 +11,10 @@ Not named `test_*.py` on purpose, as `_app_js.py`.
 
 from __future__ import annotations
 
-from memorymap.ai import budget as run_budget, skills, tools
-from memorymap.ai.skill_runner import Verification, run_skill
-from memorymap.core import deps
-from memorymap.entry import manager
+from tessellate.ai import budget as run_budget, skills, tools
+from tessellate.ai.skill_runner import Verification, run_skill
+from tessellate.core import deps
+from tessellate.entry import manager
 
 #: A skill name as a test or a fixture is likely to write it: `find_loose_ends`
 #: for "Find loose ends". Not a general lookup (`skills.find` is that, and it

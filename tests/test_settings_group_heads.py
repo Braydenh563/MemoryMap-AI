@@ -18,7 +18,7 @@ their mark), and a `.help-accordion` panel's body.
 A pane's title is the head in its `.settings-pane-title` dock when it has
 one (the pane-title bars, INBOX 599); otherwise the pane's first loose head.
 Before the lint knew the bar, every pane with one lost its title to the
-dock, so the next loose head (Background tasks' "Quit MemoryMap") was read
+dock, so the next loose head (Background tasks' "Quit Tessellate") was read
 as the title and passed, and the guard test below saw one pane of seven.
 """
 

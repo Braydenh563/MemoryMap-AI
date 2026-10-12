@@ -19,16 +19,23 @@ const BASE = process.env.BASE || 'http://127.0.0.1:8781';
 // which is what makes `(pointer: coarse)` match; `hasTouch` alone gives the
 // touch API without the media query, so the two are asked for together
 // everywhere in this directory.
+// `serviceWorkers: "block"` (OPEN 1108): `context.route` does not see what
+// the app's service worker serves after the first load, so a sweep that
+// overrides a CSS or JS file passes it or its override silently does nothing.
 const CTX_OPTS = ['hasTouch', 'isMobile', 'deviceScaleFactor', 'locale',
-  'timezoneId', 'colorScheme', 'reducedMotion', 'forcedColors', 'userAgent'];
+  'timezoneId', 'colorScheme', 'reducedMotion', 'forcedColors', 'userAgent', 'permissions',
+  'serviceWorkers'];
 async function boot(opts={}) {
   //: SCROLLBARS=1 draws real scrollbars, as Windows does (17px, taking
   //: layout width). Headless Chromium hides them by default, which is the
   //: one difference between a sweep and the owner's desktop window that no
   //: viewport or scale setting reproduces (INBOX 397).
-  const browser = await chromium.launch(
-    process.env.SCROLLBARS ? { ignoreDefaultArgs: ["--hide-scrollbars"] } : {}
-  );
+  //: `opts.args` are extra Chromium flags (the captions sweep's fake
+  //: microphone: --use-fake-device-for-media-stream and a WAV to play).
+  const browser = await chromium.launch({
+    ...(process.env.SCROLLBARS ? { ignoreDefaultArgs: ["--hide-scrollbars"] } : {}),
+    ...(opts.args ? { args: opts.args } : {}),
+  });
   const ctxOpts = {viewport: opts.viewport||{width:1440,height:900}, deviceScaleFactor: opts.scale || 1};
   for (const k of CTX_OPTS) if (opts[k] !== undefined) ctxOpts[k] = opts[k];
   const ctx = await browser.newContext(ctxOpts);
@@ -55,6 +62,22 @@ async function boot(opts={}) {
       if (look) localStorage.setItem('themePreset', look);
     } catch (e) {}
   }, process.env.LOOK || '');
+  // LOOK= must not leak into the data dir (ledger 1541): the app mirrors the
+  // look to the server's preferences, so a later sweep on the same dir would
+  // inherit it. The preset stays in this context's localStorage (set above);
+  // the write that would carry it to the server loses the key.
+  if (process.env.LOOK) {
+    await ctx.route((url) => /\/preferences$/.test(url.pathname), async (route) => {
+      const req = route.request();
+      if (req.method() !== 'PUT') return route.continue();
+      try {
+        const body = JSON.parse(req.postData() || '{}');
+        const strip = (o) => { if (o && typeof o === 'object') { delete o.themePreset; for (const k of Object.keys(o)) strip(o[k]); } };
+        strip(body);
+        return route.continue({ postData: JSON.stringify(body) });
+      } catch (e) { return route.continue(); }
+    });
+  }
   // GLASS=off (or on) sets the glass preference over whatever the look says,
   // for a sweep that has to hold with the glass-off list applied.
   await ctx.addInitScript((glass) => {
@@ -62,6 +85,14 @@ async function boot(opts={}) {
       if (glass) localStorage.setItem('glass', glass);
     } catch (e) {}
   }, process.env.GLASS || '');
+  // FONT=mono (or any `#font-seg` value) sweeps that Appearance font, so
+  // touch.js, docks.js and every sweep on this boot can run the font matrix
+  // (fontmatrix.js) the way errors.js does.
+  await ctx.addInitScript((font) => {
+    try {
+      if (font) localStorage.setItem('font', font);
+    } catch (e) {}
+  }, process.env.FONT || '');
   await ctx.addInitScript((t) => {
     try {
       localStorage.setItem('theme', t);
@@ -89,9 +120,18 @@ async function boot(opts={}) {
     await ctx.route(`**/css/${name}*`, (route) => route.fulfill({ body, contentType: 'text/css' }));
   }
   const page = await ctx.newPage();
+  //: SLOW=1 (a loaded machine, load past 30): every wait and the boot get
+  //: four times as long, so a sweep measures rather than times out.
+  if (process.env.SLOW) page.setDefaultTimeout(120000);
   page.on('pageerror', e=>console.log('PAGEERROR:', e.message, '\n', (e.stack||'').split('\n').slice(0,6).join('\n')));
   page.on('console', m=>{ if(m.type()==='error') console.log('CONSOLE-ERR:', m.text().slice(0,160)); });
-  await page.goto(BASE + '/', {waitUntil:'domcontentloaded'});
+  //: `clock`: the page's clock starts there and runs on (quickadd.js's phrase
+  //: set is written for one "now").
+  if (opts.clock) await page.clock.install({ time: new Date(opts.clock) });
+  //: PW_TIMEOUT=120000 on a machine so loaded that a page takes over 30 s to
+  //: answer (load average 40+): every wait in the sweep gets the longer limit.
+  if (process.env.PW_TIMEOUT) page.setDefaultTimeout(Number(process.env.PW_TIMEOUT));
+  await page.goto(BASE + '/', {waitUntil:'domcontentloaded', timeout: Number(process.env.PW_TIMEOUT) || 30000});
   //: **Two ways in** (OPEN.md, 0.3.3): a notebook with "Ask for a password
   //: when the app opens" turned off never shows `#lock-password` on this
   //: computer, and waiting for it timed out every sweep on such a data dir.
@@ -105,7 +145,7 @@ async function boot(opts={}) {
     const settled = !splash || splash.classList.contains('hidden');
     if (settled && overlay && overlay.classList.contains('hidden') && localStorage.getItem('token')) return 'app';
     return false;
-  }, null, {timeout:20000, polling:100})).jsonValue();
+  }, null, {timeout:Number(process.env.BOOT_MS||(process.env.SLOW?90000:20000)), polling:100})).jsonValue();
   if (way === 'lock') {
     await page.fill('#lock-password', PW);
     await page.click('#lock-submit');
@@ -118,6 +158,10 @@ async function boot(opts={}) {
   //: was filled again as it faded.
   await page.waitForFunction(() => !document.documentElement.classList.contains('shell-curtain')
     && !document.querySelector('#lock-overlay.lock-leaving'), null, { timeout: 15000, polling: 100 }).catch(() => {});
+  //: On a loaded machine the unlock answer lands after the fixed waits above, and the
+  //: field is still on screen (disabled, "Opening…"). Refilling it then waits on a
+  //: disabled input until the timeout. Give the first unlock the time it needs.
+  if (way === 'lock') await page.waitForFunction(() => document.getElementById('lock-overlay')?.classList.contains('hidden'), null, { timeout: Number(process.env.BOOT_MS||20000), polling: 200 }).catch(() => {});
   if (way === 'lock' && await page.$('#lock-password') && await page.isVisible('#lock-password')) {
     await page.fill('#lock-password', PW); await page.click('#lock-submit'); await page.waitForTimeout(3000);
   }
@@ -137,6 +181,11 @@ async function boot(opts={}) {
       if (no) no.click();
       return true;
     }, null, {timeout: 4000, polling: 200}).catch(() => {});
+  }
+  //: A fresh data dir shows the recovery-key dialog after the first password;
+  //: closed here so it cannot intercept a sweep's clicks. RECOVERY_ASK=1 keeps it.
+  if (!process.env.RECOVERY_ASK) {
+    await page.evaluate(() => { const d = document.getElementById('recovery-key-dialog'); if (d && d.open) d.close(); });
   }
   //: `signIn` says which way it came in: 'lock' or 'app' (sign-in off).
   return {browser, ctx, page, OUT, signIn: way};

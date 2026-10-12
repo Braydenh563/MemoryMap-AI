@@ -1,7 +1,7 @@
 """The messages that `core/`, `ai/`, `entry/` and `search/` write for a person.
 
 `tests/test_server_detail_wording.py` holds every literal `detail=` string in
-`src/memorymap/api/`. It cannot see a route that passes a *computed* message
+`src/tessellate/api/`. It cannot see a route that passes a *computed* message
 (`detail=str(exc)`, `detail=reason`, `detail=info["error"]`): those sentences
 are written elsewhere, and `frontend/js/status.js` `plainHttpError` shows them
 in a toast as they arrive (INBOX 472, "found, not fixed"). This reads the
@@ -29,9 +29,9 @@ from pathlib import Path
 
 import pytest
 
-from tests.test_server_detail_wording import API, _pieces, collect, problems
+from tests.test_server_detail_wording import API, _pieces, collect, label, problems, route_sources
 
-SRC = Path(__file__).resolve().parents[1] / "src" / "memorymap"
+SRC = Path(__file__).resolve().parents[1] / "src" / "tessellate"
 
 
 @dataclass(frozen=True)
@@ -61,6 +61,7 @@ class Source:
 SOURCES: tuple[Source, ...] = (
     Source("core/backup.py", raises=("FileNotFoundError", "ValueError"), functions=("restore_backup",)),
     Source("core/syntaxcheck.py", raises=("ValueError",), functions=("check",)),
+    Source("ai/insights.py", raises=("ValueError",), functions=("confirm", "dismiss")),
     Source("core/webclip.py", raises=("ClipRefused",)),
     Source(
         "core/security.py",
@@ -77,6 +78,7 @@ SOURCES: tuple[Source, ...] = (
     Source("core/ocr.py", assigns=("reason", "note"), functions=("engine_status",)),
     Source("core/docview.py", returns=("editability",), keywords=("message",)),
     Source("ai/voice.py", raises=("RuntimeError",), consts=("INSTALL_HINT",)),
+    Source("ai/captions.py", raises=("CaptionsError",), consts=("NO_HELPER_HINT", "NOT_LOCAL_HINT")),
     Source("entry/importer.py", raises=("RuntimeError",), consts=("INSTALL_HINT",)),
     Source(
         "entry/manager.py",
@@ -124,8 +126,8 @@ ALLOWLIST: dict[tuple[str, str], str] = {
     ),
     (
         "search/searxng_process.py",
-        "Every port MemoryMap tried for SearXNG was already in use ({}). Free "
-        "one of them, or choose another port with the MEMORYMAP_SEARXNG_PORT "
+        "Every port Tessellate tried for SearXNG was already in use ({}). Free "
+        "one of them, or choose another port with the TESSELLATE_SEARXNG_PORT "
         "setting, and press Start again.",
     ): (
         "the setting's name is the way out a person with every port taken "
@@ -293,6 +295,10 @@ def test_the_collector_finds_what_it_is_pointed_at():
 REVIEWED_COMPUTED: dict[tuple[str, str], str] = {
     ("app.py", "detail"): "the handler re-serialises an HTTPException's own detail: every raise site is checked",
     ("routes_auth.py", "problem"): "_new_password_problem in routes_auth.py, one fixed sentence",
+    ("routes_auth.py", "detail"): "the new-device gate in routes_auth.py picks one of two fixed sentences",
+    ("this_computer.py", "REFUSAL"): "a constant in this_computer.py, one fixed sentence",
+    ("routes_settings.py", "REFUSAL"): "api/this_computer.py REFUSAL, one fixed sentence",
+    ("routes_auth.py", "NO_PASSWORD_ELSEWHERE"): "one fixed sentence in routes_auth.py",
     ("routes_bench.py", "BUSY"): "a constant in routes_bench.py, checked below",
     ("routes_bench.py", "NOT_RUNNING"): "a constant in routes_bench.py, checked below",
     ("routes_bench.py", "NO_MODELS"): "a constant in routes_bench.py, checked below",
@@ -303,6 +309,9 @@ REVIEWED_COMPUTED: dict[tuple[str, str], str] = {
     ("routes_whiteboard.py", "detail"): "one of two literal sentences, chosen by what the XMind archive holds",
     ("routes_backups.py", "str(exc)"): "FileNotFoundError and ValueError from core/backup.py restore_backup",
     ("routes_categories.py", "str(exc)"): "ToolError (ai/tools/categories.py) and ValueError (entry/manager.py)",
+    ("routes_captions.py", "str(exc)"): "CaptionsError from ai/captions.py: its hint constants and literal sentences",
+    ("routes_recordings.py", "str(exc)"): "RuntimeError from ai/voice.py transcribe",
+    ("routes_recordings.py", "voice.INSTALL_HINT"): "ai/voice.py INSTALL_HINT",
     ("routes_chat.py", "str(exc)"): "ToolError from validate_make_plan and summarise_turns",
     ("routes_documents.py", "str(error)"): "ValueError from core/syntaxcheck.py check",
     ("routes_documents.py", "viewed.message or 'There was no readable text in that file.'"): "ViewedFile.message in core/docview.py",
@@ -310,7 +319,9 @@ REVIEWED_COMPUTED: dict[tuple[str, str], str] = {
     ("paging.py", "_BAD"): "a fixed sentence, the constant in api/paging.py",
     ("routes_entries.py", "librarian.AI_FAILED_MESSAGE"): "a constant in ai/librarian.py, checked there",
     ("routes_files.py", "reason"): "core/ocr.py unavailable_reason",
-    ("routes_files.py", "ocr.unavailable_reason('rapidocr')"): "core/ocr.py unavailable_reason",
+    ("routes_auth.py", "REFUSAL"): "a fixed sentence, the constant in api/this_computer.py",
+    ("routes_map_from_notes.py", "str(exc)"): "ValueError from map_from_note_entry in this module: a fixed sentence with the note id",
+        ("routes_files.py", "ocr.unavailable_reason('rapidocr')"): "core/ocr.py unavailable_reason",
     ("routes_files.py", "edit_message"): "core/docview.py editability",
     ("routes_files.py", "str(exc)"): "ValueError and FileExistsError from entry/manager.py, ValueError from core/ocr.py set_language",
     ("routes_learned.py", "str(exc)"): "ValueError from ai/learning.py record and ai/facts.py set_switches",
@@ -323,9 +334,11 @@ REVIEWED_COMPUTED: dict[tuple[str, str], str] = {
     ("routes_tidy.py", "str(exc)"): "ValueError from entry/tidy.py set_auto and LookupError from entry/tidy.py undo",
     ("routes_voice.py", "voice.INSTALL_HINT"): "ai/voice.py INSTALL_HINT",
     ("routes_voice.py", "over_limit_detail"): "the two callers pass literals, which collect() checks",
+    ("routes_insights.py", "str(exc)"): "ValueError from ai/insights.py confirm and dismiss",
     ("routes_voice.py", "str(exc)"): "RuntimeError from ai/voice.py transcribe",
     ("routes_webclip.py", "WEB_OFF"): "a constant in routes_webclip.py, checked below",
     ("routes_webclip.py", "str(exc)"): "ClipRefused from core/webclip.py",
+    ("routes_maintenance.py", "refusal"): "core/maintenance.py SHORTCUT_REFUSALS, fixed sentences keyed by reason",
     ("routes_websearch.py", "str(exc)"): "WebSearchError (search/websearch.py) and SearxngError (search/searxng_*.py)",
 }
 
@@ -355,7 +368,7 @@ RAW_DETAIL_OK: dict[tuple[str, str], str] = {
 
 def test_no_route_detail_carries_a_raw_exception():
     bad = []
-    for path in sorted(API.glob("*.py")):
+    for path in route_sources():
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if isinstance(node, ast.Call) and _name(node) in ("HTTPException", "StarletteHTTPException"):
@@ -363,8 +376,8 @@ def test_no_route_detail_carries_a_raw_exception():
                     if kw.arg != "detail":
                         continue
                     for hole in _holes(kw.value):
-                        if RAW_HOLE.search(hole) and (path.name, hole) not in RAW_DETAIL_OK:
-                            bad.append(f"{path.name}:{kw.value.lineno}")
+                        if RAW_HOLE.search(hole) and (label(path), hole) not in RAW_DETAIL_OK:
+                            bad.append(f"{label(path)}:{kw.value.lineno}")
     assert not bad, f"an f-string `detail` shows an exception's own text; log it and write a sentence: {bad}"
 
 
@@ -397,7 +410,7 @@ TRANSPORT_TEXT = "HTTPConnectionPool(host='127.0.0.1', port=11434): Max retries 
 
 
 def _boom(*_args, **_kwargs):
-    from memorymap.ai.ollama_client import OllamaError
+    from tessellate.ai.ollama_client import OllamaError
 
     raise OllamaError(f"Chat with 'x' failed: {TRANSPORT_TEXT}")
 
@@ -408,7 +421,7 @@ def _sentence(detail: str) -> None:
 
 
 def test_a_model_failure_in_improve_writing_is_a_sentence(ai_client, monkeypatch, caplog):
-    from memorymap.ai import librarian
+    from tessellate.ai import librarian
 
     caplog.set_level("WARNING")
     monkeypatch.setattr(librarian, "improve_writing", _boom)
@@ -420,7 +433,7 @@ def test_a_model_failure_in_improve_writing_is_a_sentence(ai_client, monkeypatch
 
 
 def test_a_model_failure_in_generate_title_is_a_sentence(ai_client, monkeypatch, caplog):
-    from memorymap.ai import librarian
+    from tessellate.ai import librarian
 
     caplog.set_level("WARNING")
     note = ai_client.post("/entries", json={"content": "buy milk and eggs"}).json()
@@ -432,7 +445,7 @@ def test_a_model_failure_in_generate_title_is_a_sentence(ai_client, monkeypatch,
 
 
 def test_a_model_failure_in_the_chat_summary_is_a_sentence(ai_client, monkeypatch, caplog):
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     caplog.set_level("WARNING")
     monkeypatch.setattr(tools, "summarise_turns", _boom)
@@ -472,7 +485,7 @@ def test_a_confirmed_tool_that_fails_answers_with_a_sentence_for_the_person(ai_c
 
 
 def test_a_clip_that_cannot_be_transcribed_does_not_show_the_exception(client, monkeypatch, caplog):
-    from memorymap.ai import voice
+    from tessellate.ai import voice
 
     caplog.set_level("WARNING")
     monkeypatch.setattr(voice, "whisper_available", lambda: True)
@@ -490,7 +503,7 @@ def test_a_clip_that_cannot_be_transcribed_does_not_show_the_exception(client, m
 
 
 def test_a_document_that_cannot_be_converted_does_not_show_the_exception(client, monkeypatch, caplog):
-    from memorymap.api import routes_settings
+    from tessellate.api import routes_settings
 
     caplog.set_level("WARNING")
     monkeypatch.setattr(routes_settings.importer, "markitdown_available", lambda: True)
@@ -507,8 +520,8 @@ def test_a_document_that_cannot_be_converted_does_not_show_the_exception(client,
 
 
 def test_the_install_hints_name_what_to_install():
-    from memorymap.ai import voice
-    from memorymap.entry import importer
+    from tessellate.ai import voice
+    from tessellate.entry import importer
 
     for hint, name in ((voice.INSTALL_HINT, "Voice notes"), (importer.INSTALL_HINT, "Import documents")):
         assert name in hint and "Settings, Packages" in hint

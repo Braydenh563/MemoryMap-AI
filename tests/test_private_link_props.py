@@ -12,9 +12,9 @@ import json
 import pytest
 from sqlalchemy import text
 
-from memorymap.core import crypto, vault
-from memorymap.core.database import EntryLink
-from memorymap.entry import manager
+from tessellate.core import crypto, vault
+from tessellate.core.database import EntryLink
+from tessellate.entry import manager
 
 SECRET = "Dr Weatherby"
 PROPS = {"doctor": SECRET, "count": 4}

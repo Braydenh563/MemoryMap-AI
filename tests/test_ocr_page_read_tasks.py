@@ -10,8 +10,8 @@ anywhere that the app was still working.
 
 from __future__ import annotations
 
-from memorymap.ai import vision_ocr
-from memorymap.api import routes_tasks
+from tessellate.ai import vision_ocr
+from tessellate.api import routes_tasks
 
 
 def test_a_running_page_read_is_listed_as_a_background_task():

@@ -1,0 +1,93 @@
+{
+ "skill": "Audit link reasons",
+ "small_class": false,
+ "cases": [
+  {
+   "id": "two-vague-links",
+   "notebook": [
+    {
+     "content": "Booked the flights to Lisbon for May",
+     "category": "Travel",
+     "tags": [
+      "travel"
+     ],
+     "links": [
+      1
+     ]
+    },
+    {
+     "content": "Lisbon hotel shortlist: Alfama or Baixa",
+     "category": "Travel",
+     "tags": [
+      "travel"
+     ]
+    },
+    {
+     "content": "Pack the travel adapter",
+     "category": "Inbox",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "answer_mentions": [
+     "link"
+    ]
+   }
+  },
+  {
+   "id": "garden-links",
+   "notebook": [
+    {
+     "content": "Tomatoes need staking this week",
+     "category": "Garden",
+     "tags": [
+      "garden"
+     ],
+     "links": [
+      1,
+      2
+     ]
+    },
+    {
+     "content": "Bought bamboo canes",
+     "category": "Garden",
+     "tags": [
+      "garden"
+     ]
+    },
+    {
+     "content": "Seed order for spring",
+     "category": "Garden",
+     "tags": [
+      "garden"
+     ]
+    }
+   ],
+   "expect": {
+    "answer_mentions": [
+     "link"
+    ]
+   }
+  },
+  {
+   "id": "no-links",
+   "notebook": [
+    {
+     "content": "Quarterly report draft is due Friday",
+     "category": "Work",
+     "tags": []
+    },
+    {
+     "content": "Lunch with Sam on Thursday",
+     "category": "Personal",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "answer_mentions": [
+     "link"
+    ]
+   }
+  }
+ ]
+}

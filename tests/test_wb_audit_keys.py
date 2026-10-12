@@ -191,7 +191,7 @@ def test_a_restore_rewrites_the_ids_older_history_entries_name():
     remap = _function_body(WB, "wbRemapUndoIds")
     # Both stacks, batches, the reparent target and a link's two ends.
     assert "wbUndoStack.forEach(walk)" in remap and "wbRedoStack.forEach(walk)" in remap
-    for needle in ("entry.entries.forEach(walk)", "entry.parentId", "entry.ids", "row.parent_id", "data.sourceId", "data.targetId"):
+    for needle in ("entry.entries.forEach(walk)", "entry.parentId", "entry.ids", "row.parent_id", "data.${field}", "sourceId", "targetId"):
         assert needle in remap
 
 

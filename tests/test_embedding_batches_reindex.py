@@ -6,9 +6,9 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
-from memorymap.ai import embeddings, model_manager
-from memorymap.core import deps
-from memorymap.core.database import EmbeddingRecord
+from tessellate.ai import embeddings, model_manager
+from tessellate.core import deps
+from tessellate.core.database import EmbeddingRecord
 from tests.test_embedding_batches import CountingEmbeddings
 
 

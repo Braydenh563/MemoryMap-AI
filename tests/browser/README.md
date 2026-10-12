@@ -6,8 +6,8 @@ turned out to be different from what reading the code suggested.**
 
 ```bash
 # 1. run the app (PYTHONPATH is required and is easy to forget)
-PYTHONPATH=src MEMORYMAP_DATA_DIR=/tmp/appdata \
-  .venv/bin/python -m uvicorn memorymap.api.app:create_app --factory --port 8781 &
+PYTHONPATH=src TESSELLATE_DATA_DIR=/tmp/appdata \
+  .venv/bin/python -m uvicorn tessellate.api.app:create_app --factory --port 8781 &
 
 # 2. drive it
 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers node tests/browser/audit.js

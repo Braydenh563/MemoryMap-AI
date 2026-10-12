@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from memorymap.core import deps
+from tessellate.core import deps
 
 
 def test_delete_unused_model(ai_client, fake_ollama):

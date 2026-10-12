@@ -1,0 +1,335 @@
+"""The per-run budget: how many tokens and how long one job may take.
+
+WORLD_CLASS_PLAN 4 B5, SESSION_BRIEFS Brief 13, spec in
+`tests/test_harness_verifier_spec.py`.
+
+**The gap this fills.** Every loop in `agent.py` is bounded per *turn*:
+`MAX_ROUNDS`, `EARNED_ROUNDS`, `MAX_TOOL_FAILURES`, the tool-result cap. A
+skill run is many turns, one per step, plus a retry per unmet contract and up
+to two re-plans, and every one of them starts its own fresh allowance. So a
+run that goes wrong does not loop, it *grinds*: ten steps, three attempts
+each, six rounds apiece, each round a full prefill of the system prompt, the
+notes and the tool schemas. Nothing anywhere knew what the whole thing had
+cost, and on a local model the cost the user actually feels is minutes of a
+saturated GPU.
+
+**Why a context variable and not a parameter.** Taken directly from
+`core/events.py`, which solved the same shape of problem for the actor of a
+write: the thing that has to be true is *every model call made inside a run
+counts against that run*, and a parameter threaded through `run_skill` into
+`run_agent` is true only of the call sites somebody remembered to change. A
+scope is true of the ones written later too, which is the whole point: the
+next feature that calls `run_agent` from inside a run (a verifier that asks
+the model, a re-plan, a summariser between steps) participates without
+knowing this module exists.
+
+**What it does not do.** It does not kill a request in flight: the check
+happens between rounds, so the longest a run can overshoot by is one model
+call. Stopping mid-stream would leave a half-written answer on screen and a
+tool call whose result nobody read, which is a worse failure than finishing
+the round. And it is advisory for *cost*, not for safety: nothing here can
+roll back a write the run already made, which is why a run that hits its
+budget still reports what it changed and how to undo it.
+
+**Not verified**: the token counts come from the provider's own `stats`, and
+`tests/` runs every provider against a fake transport (CLAUDE.md section 4).
+What is measured here is that a budget is charged, checked and enforced on
+the numbers a provider reports, not what a real 4B model reports for a real
+run.
+"""
+from __future__ import annotations
+
+import threading
+import time
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass, field
+
+#: Defaults, from Brief 13, corrected against a real run.
+#:
+#: Both were "a run that has gone wrong", not "a big job", and both were set
+#: from an assumption this module's own "Not verified" note flagged: that
+#: ninety seconds is longer than a ten-step run takes. Measured on the
+#: configuration this app is *for*, a local 4B model on the owner's machine:
+#: a nine-step skill spent 1,372 seconds getting through three steps, and the
+#: run was cut off by the time budget with six steps never attempted. The
+#: owner's report: "Cut off after 3 skill steps with barely any tool calls."
+#:
+#: A budget set where a working run hits it is a budget that teaches people to
+#: turn it off, which is this module's own stated test, and 90 seconds failed
+#: it by a factor of fifteen. Two corrections, both from what a run actually
+#: is rather than from a guess about speed:
+#:
+#: 1. **The token allowance is per step, not per run.** A skill is a queue of
+#:    independent jobs; charging nine of them against one step's worth of
+#:    tokens means every skill longer than about six rounds is stopped by
+#:    arithmetic rather than by anything going wrong. It is multiplied by the
+#:    number of steps in the run, so the allowance tracks the work asked for.
+#: 2. **There is no wall-clock default.** A local model is slow, and slow is
+#:    not wrong. Time measures the hardware, not the run: the same nine steps
+#:    that take 40 seconds against a hosted model take forty minutes against a
+#:    4B model on a laptop, and only one of those is a grind. What actually
+#:    bounds a grind is rounds and retries, which `agent.py` and the runner's
+#:    own attempt caps already hold. Anyone who wants a wall clock can set one
+#:    in Settings, under Tools, Run budget, and it is then honoured exactly.
+DEFAULT_TOKENS = 20_000
+DEFAULT_SECONDS = 0
+
+#: What a round is charged when the provider reports no token counts at all.
+#: Not zero: a transport that reports nothing would otherwise make the token
+#: half of the budget unenforceable, and "the budget silently did nothing"
+#: is the failure mode that matters. Roughly one small round.
+ASSUMED_ROUND_TOKENS = 500
+
+#: Tool calls one step may make, multiplied by the steps like the tokens
+#: (AGENT_SKILLS_REFORM Phase E, decision 3). A step has at most
+#: `skill_runner.STEP_EARNED_ROUNDS` rounds, each with a call or two, plus six
+#: pages of a list, and a large model batches several calls a round; 40 sits above that, so only a run that is looping on calls
+#: meets it. A skill may declare a lower cap (`skills.BUDGET_CAPS`).
+DEFAULT_CALLS_PER_STEP = 40
+
+#: The caps a skill may declare, and the most it may declare for each, so a
+#: skill file cannot buy itself an unbounded run by writing a large number.
+#: `steps` counts step attempts (a retried or re-planned step counts again).
+CAP_LIMITS = {"tokens": 200_000, "seconds": 7_200, "tool_calls": 400, "steps": 30}
+
+
+@dataclass
+class RunBudget:
+    """What one run may spend, and what it has spent.
+
+    `stopped` is set the first time a check fails, and stays set: the reason
+    a run ended has to survive to the `result` event, several turns later.
+    """
+
+    tokens: int = DEFAULT_TOKENS
+    seconds: float = DEFAULT_SECONDS
+    #: How many steps this budget is paying for. `tokens` is the allowance for
+    #: one of them, so the run's own allowance is the product: see the note on
+    #: the defaults above. One for an ordinary turn, which has no steps.
+    steps: int = 1
+    #: Caps a skill declared on top of the settings; 0 is none. `tool_calls`
+    #: is for the whole run, `max_steps` counts step attempts.
+    tool_calls: int = 0
+    max_steps: int = 0
+    spent_tokens: int = 0
+    rounds: int = 0
+    calls: int = 0
+    steps_run: int = 0
+    started_at: float = field(default_factory=time.monotonic)
+    stopped: str = ""
+    #: Set by Stop (the run's Activity job shares it). The loop reads it between
+    #: rounds, and a write tool reads it before it runs, because the thread
+    #: cannot be interrupted mid-call: a model reply that returned just after
+    #: Stop must not still write (Brief 101b).
+    stop_event: threading.Event | None = field(default=None, repr=False, compare=False)
+
+    def charge(self, stats: dict | None) -> None:
+        """Count one model round against this run."""
+        self.rounds += 1
+        used = 0
+        if isinstance(stats, dict):
+            for key in ("prompt_tokens", "output_tokens"):
+                value = stats.get(key)
+                if isinstance(value, int) and value > 0:
+                    used += value
+        self.spent_tokens += used or ASSUMED_ROUND_TOKENS
+
+    def count_call(self) -> None:
+        """Count one tool call the harness ran inside this run."""
+        self.calls += 1
+
+    def count_step(self) -> None:
+        """Count one step attempt, a retry or a re-plan included."""
+        self.steps_run += 1
+
+    def call_allowance(self) -> int:
+        """The run's tool-call cap: the declared one, else a step's worth per step."""
+        return self.tool_calls or DEFAULT_CALLS_PER_STEP * max(1, self.steps)
+
+    def usage(self) -> dict:
+        """What the run spent against each cap, for the result event (0 cap: none)."""
+        return {
+            "steps": self.steps_run,
+            "tool_calls": self.calls,
+            "tokens": self.spent_tokens,
+            "seconds": round(self.elapsed(), 1),
+            "caps": {
+                "steps": self.max_steps,
+                "tool_calls": self.call_allowance(),
+                "tokens": self.allowance(),
+                "seconds": int(self.seconds),
+            },
+        }
+
+    def elapsed(self) -> float:
+        return time.monotonic() - self.started_at
+
+    def allowance(self) -> int:
+        """What this whole run may spend, which is one step's worth per step.
+
+        Zero stays zero: "no limit" is a real answer and must not be turned
+        into a limit by multiplying it.
+        """
+        if not self.tokens:
+            return 0
+        return self.tokens * max(1, self.steps)
+
+    def stop_requested(self) -> bool:
+        """Whether Stop was pressed on the run this budget belongs to."""
+        return self.stop_event is not None and self.stop_event.is_set()
+
+    def exceeded(self) -> str:
+        """`""` while there is room, else the sentence saying what ran out.
+
+        One sentence, in the second person, because it is shown to the person
+        watching the run and has to say what to do next. Naming the number is
+        the difference between "it gave up" and "it did as much as it was
+        allowed to".
+        """
+        if self.stopped:
+            return self.stopped
+        if self.stop_requested():
+            self.stopped = (
+                "you pressed Stop. Its changes so far are kept and can be undone; "
+                "Resume picks up from here."
+            )
+            return self.stopped
+        self.stopped = self._over_count()
+        if self.stopped:
+            return self.stopped
+        allowed = self.allowance()
+        if allowed and self.spent_tokens >= allowed:
+            self.stopped = (
+                f"this run reached its budget of {allowed:,} tokens after "
+                f"{self.rounds} rounds. Resume picks up from here, or raise the "
+                "budget in Settings, under Tools, Run budget."
+            )
+        elif self.seconds and self.elapsed() >= self.seconds:
+            self.stopped = (
+                f"this run reached its time budget of {int(self.seconds)}s. "
+                "Resume picks up from here, or raise the budget in Settings, "
+                "under Tools, Run budget."
+            )
+        return self.stopped
+
+
+    def _over_count(self) -> str:
+        """The sentence for a run over its tool-call or step cap, else ""."""
+        #: Over, not at: a run may make its cap's last call and still read the
+        #: result; the check is between rounds, so it overshoots by one round.
+        if self.calls > self.call_allowance():
+            return (
+                f"this run reached its cap of {self.call_allowance()} tool calls. "
+                "Its changes so far are kept and can be undone; Resume picks up "
+                "from here."
+            )
+        if self.max_steps and self.steps_run > self.max_steps:
+            return (
+                f"this run reached its cap of {self.max_steps} step attempts. "
+                "Its changes so far are kept and can be undone; Resume picks up "
+                "from here."
+            )
+        return ""
+
+
+_current: ContextVar[RunBudget | None] = ContextVar("memorymap_run_budget", default=None)
+
+
+def current() -> RunBudget | None:
+    """The budget the code running right now is spending, if any.
+
+    None for an ordinary chat turn, which is bounded per turn already and has
+    no notion of a run to belong to.
+    """
+    return _current.get()
+
+
+@contextmanager
+def spending(budget: RunBudget | None):
+    """Everything done inside this block counts against `budget`.
+
+    Nested scopes are left alone deliberately, the same call the outermost
+    write scope in `core/events.py` makes: a run that somehow starts another
+    run is one job as far as cost is concerned, and giving the inner one a
+    fresh allowance is exactly the hole `tools.RUN_STARTERS` exists to close.
+    """
+    if budget is None or _current.get() is not None:
+        yield _current.get()
+        return
+    token = _current.set(budget)
+    try:
+        yield budget
+    finally:
+        try:
+            _current.reset(token)
+        except ValueError:
+            #: **A run's scope can end in a context that did not start it.**
+            #: `run_skill` holds this scope open across a generator's yields
+            #: (`skill_runner.run_skill`), and a generator is resumed in
+            #: whatever context is current at the time: the streaming route
+            #: advances it inside the request's context and something else can
+            #: close it, an abandoned response, the garbage collector, a
+            #: failing test's teardown. `ContextVar.reset` refuses a token from
+            #: another context with a `ValueError`, and raising out of a
+            #: `finally` here would bury the real failure's traceback under a
+            #: bookkeeping one: the log then reads as though the budget broke
+            #: the run, which cost one reader an afternoon already. The scope is
+            #: over either way, so clear the variable in whichever context is
+            #: running this instead. Clearing rather than leaving it: a context
+            #: that inherited the value would otherwise go on reporting a
+            #: finished run's budget as current.
+            _current.set(None)
+
+
+def from_settings(config, steps: int = 1) -> RunBudget:
+    """The budget one run gets, read from the user's settings.
+
+    `steps` is how many steps the run about to start has: the token allowance
+    is per step (see the defaults above), so a nine-step skill is not held to
+    a single step's worth of rounds.
+
+    Zero in either field means "no limit on this one", which is a real answer
+    for somebody running a ten-step audit over four thousand notes on hardware
+    they are happy to give an hour to, and is now the shipped default for the
+    wall clock. Never raises: a settings file holding the word "lots" falls
+    back to the default rather than failing the run that was about to start.
+    """
+    def _number(key: str, fallback):
+        try:
+            value = type(fallback)(config.get_preference(key, fallback))
+        except (TypeError, ValueError):
+            return fallback
+        return value if value >= 0 else fallback
+
+    return RunBudget(
+        tokens=int(_number("run_budget_tokens", DEFAULT_TOKENS)),
+        seconds=float(_number("run_budget_seconds", float(DEFAULT_SECONDS))),
+        steps=max(1, int(steps)),
+    )
+
+
+def _tighter(setting: float, declared: int) -> float:
+    """The stricter of two caps where 0 means none."""
+    if not declared:
+        return setting
+    return min(setting, declared) if setting else declared
+
+
+def for_skill(config, skill: dict) -> RunBudget:
+    """The settings' budget, tightened by the caps `skill` declares.
+
+    A skill's cap can only lower what Settings allows, never raise it: the
+    person's setting is the ceiling, the skill's author knows its normal size.
+    The token cap is for the whole run, so it is divided back to a step's
+    worth before it meets the per-step setting.
+    """
+    steps = max(1, len(skill.get("steps") or []))
+    spend = from_settings(config, steps=steps)
+    caps = skill.get("budget") or {}
+    if caps.get("tokens"):
+        spend.tokens = int(_tighter(spend.tokens, max(1, int(caps["tokens"]) // steps)))
+    spend.seconds = float(_tighter(spend.seconds, int(caps.get("seconds") or 0)))
+    spend.tool_calls = int(caps.get("tool_calls") or 0)
+    spend.max_steps = int(caps.get("steps") or 0)
+    return spend

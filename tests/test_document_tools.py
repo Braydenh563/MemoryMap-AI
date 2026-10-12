@@ -17,10 +17,10 @@ to the same head-of-document clip as no query at all.
 
 from __future__ import annotations
 
-from memorymap.ai import tools
-from memorymap.ai.tools._common import DOCUMENT_CHARS, PREVIEW_CHARS
-from memorymap.core import deps
-from memorymap.core.database import Document
+from tessellate.ai import tools
+from tessellate.ai.tools._common import DOCUMENT_CHARS, PREVIEW_CHARS
+from tessellate.core import deps
+from tessellate.core.database import Document
 
 
 class _NoEmbeddings:

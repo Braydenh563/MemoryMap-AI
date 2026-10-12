@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.api import routes_tasks
-from memorymap.core import extras
+from tessellate.api import routes_tasks
+from tessellate.core import extras
 
 
 @pytest.fixture(autouse=True)
@@ -247,7 +247,7 @@ def test_reinstalling_voice_while_its_model_is_loaded_is_refused(monkeypatch):
     """Windows locks the loaded .pyd/DLL exclusively; pip can run and still
     fail to replace it. Refusing up front says why, instead of a cryptic pip
     error nobody reading it would connect to "I used the mic earlier"."""
-    from memorymap.ai import voice
+    from tessellate.ai import voice
 
     monkeypatch.setattr(voice, "_loaded", ("base", object()))
     started, message = extras.start("voice", reinstall=True)
@@ -256,7 +256,7 @@ def test_reinstalling_voice_while_its_model_is_loaded_is_refused(monkeypatch):
 
 
 def test_removing_voice_while_its_model_is_loaded_is_refused(monkeypatch):
-    from memorymap.ai import voice
+    from tessellate.ai import voice
 
     monkeypatch.setattr(voice, "_loaded", ("base", object()))
     started, message = extras.remove("voice")
@@ -275,7 +275,7 @@ def test_voice_actions_are_unblocked_once_nothing_is_loaded(client, monkeypatch)
     its real "WARNING: Skipping faster-whisper as it is not installed." output
     through the shared `_state` global, failing on an assertion that had
     nothing to do with faster-whisper at all."""
-    from memorymap.ai import voice
+    from tessellate.ai import voice
 
     monkeypatch.setattr(voice, "_loaded", None)
     monkeypatch.setattr(extras, "_dispatch", _no_dispatch)
@@ -292,7 +292,7 @@ def test_the_guard_leaves_other_extras_alone(monkeypatch):
     against the real network (reported: it raced a later, unrelated test in
     `test_tasks.py` for control of the shared `taskhistory` singleton and
     intermittently made that one fail depending on how long pip took)."""
-    from memorymap.ai import voice
+    from tessellate.ai import voice
 
     monkeypatch.setattr(voice, "_loaded", ("base", object()))
     monkeypatch.setattr(extras, "_dispatch", _no_dispatch)
@@ -345,7 +345,7 @@ def test_a_failed_install_reason_reaches_the_history_card(client, monkeypatch):
     """`taskhistory` is what the Background tasks "Recently finished" card
     reads: it must carry the real reason itself, not a pointer to a log the
     card never renders."""
-    from memorymap.core import taskhistory
+    from tessellate.core import taskhistory
 
     monkeypatch.setattr(extras.subprocess, "Popen", _FailingPip)
     extras._run_install(extras.EXTRAS_BY_ID["voice"])
@@ -362,14 +362,14 @@ def test_a_failed_install_reaches_settings_logs(client, monkeypatch):
     output through `logging` (which backs Settings → Logs, `core/logbuffer`)
     and `_run_install` did not, so a failed *install*, the case actually
     reported: still never showed up there no matter what the panel said."""
-    from memorymap.core import logbuffer
+    from tessellate.core import logbuffer
 
     before = logbuffer.latest_seq()
     monkeypatch.setattr(extras.subprocess, "Popen", _FailingPip)
     extras._run_install(extras.EXTRAS_BY_ID["voice"])
 
     new_records = logbuffer.since(before)
-    ours = [r for r in new_records if r["logger"] == "memorymap.extras"]
+    ours = [r for r in new_records if r["logger"] == "tessellate.extras"]
     assert ours, "pip's failure never reached the memorymap.extras logger"
     assert ours[-1]["level"] == "ERROR"
     assert "No matching distribution found for faster-whisper" in ours[-1]["message"]
@@ -378,7 +378,7 @@ def test_a_failed_install_reaches_settings_logs(client, monkeypatch):
 def test_a_successful_install_also_reaches_settings_logs(client, monkeypatch):
     """The success path needs the same wiring, `_run_uninstall` logged both
     outcomes, `_run_install` logged neither."""
-    from memorymap.core import logbuffer
+    from tessellate.core import logbuffer
 
     class _Capture:
         def __init__(self, command, **kwargs):
@@ -391,7 +391,7 @@ def test_a_successful_install_also_reaches_settings_logs(client, monkeypatch):
     monkeypatch.setattr(extras.subprocess, "Popen", _Capture)
     extras._run_install(extras.EXTRAS_BY_ID["voice"])
 
-    ours = [r for r in logbuffer.since(before) if r["logger"] == "memorymap.extras"]
+    ours = [r for r in logbuffer.since(before) if r["logger"] == "tessellate.extras"]
     assert ours, "a successful install never reached Settings -> Logs either"
     assert ours[-1]["level"] == "INFO"
 
@@ -601,35 +601,14 @@ def test_no_extra_can_uninstall_the_apps_own_base_dependencies(session):
         assert "-r" not in extra.packages, f"{extra.id} installs from a requirements file"
 
 
-def test_the_word_exporter_is_an_installable_extra(client):
-    """A 501 that names a package is a dead end in a no-terminal app.
-
-    `GET /documents/{id}/export.docx` answers 501 when python-docx is missing,
-    and until this entry existed the message named the package and stopped
-    there: the reader was told what they lack and given nowhere to get it. The
-    allowlist is the only route to an install, so the button the message points
-    at has to exist here first.
-    """
-    body = client.get("/extras").json()
-    entry = next((e for e in body["extras"] if e["id"] == "docx"), None)
-    assert entry is not None, "no Word export extra in the catalogue"
-    assert extras.EXTRAS_BY_ID["docx"].packages == ("python-docx",)
-    assert extras.EXTRAS_BY_ID["docx"].module == "docx"
-    assert not extras.EXTRAS_BY_ID["docx"].unavailable, "the export button exists, so it is available"
-
-
-def test_the_word_export_501_points_at_the_settings_button(client):
-    """The message and the extra are checked together on purpose: a 501 that
-    names Settings while the catalogue has no such row would send somebody to
-    an empty screen."""
+def test_the_word_exporter_is_retired(client):
+    """Word files are written in the browser (documents-word.js), so the
+    python-docx extra and its 501 route went (Brief 42): no row offers a
+    package nothing calls, and the old route is gone rather than answering."""
+    assert "docx" not in extras.EXTRAS_BY_ID
+    assert all("docx" not in bundle.extras for bundle in extras.BUNDLES)
     made = client.post("/documents", json={"title": "Word export", "content": "# Hi\n"})
-    document_id = made.json()["id"]
-    response = client.get(f"/documents/{document_id}/export.docx")
-    if response.status_code == 200:
-        pytest.skip("python-docx is installed here, so there is no 501 to read")
-    assert response.status_code == 501
-    detail = response.json()["detail"]
-    assert "Settings, Packages" in detail and "Export to Word" in detail, detail
+    assert client.get(f"/documents/{made.json()['id']}/export.docx").status_code in (404, 405)
 
 
 # --- a packaged (frozen) build installs where it can import from ------------------
@@ -643,7 +622,7 @@ def test_a_frozen_build_installs_extras_into_its_own_folder(monkeypatch, tmp_pat
     own interpreter, and puts that folder on `sys.path`."""
     import sys
 
-    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("TESSELLATE_DATA_DIR", str(tmp_path))
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     target = extras.frozen_extras_dir()
     assert target == (tmp_path / "python-extras" / f"cp{sys.version_info.major}{sys.version_info.minor}").resolve()
@@ -690,7 +669,7 @@ def test_a_packaged_build_constrains_extras_with_its_bundled_requirements(tmp_pa
     assert source_path.is_file()
     root = extras.Path(extras.__file__).resolve().parents[3]
     for spec in ("windows", "linux"):
-        text = (root / "packaging" / spec / "memorymap.spec").read_text(encoding="utf-8")
+        text = (root / "packaging" / spec / "tessellate.spec").read_text(encoding="utf-8")
         assert '(str(REPO_ROOT / "requirements.txt"), "."),' in text, spec
 
 
@@ -717,14 +696,14 @@ def test_the_installer_page_runs_the_apps_own_installer():
     import re
 
     #: Every id the page can hand over, whether a box sends one or several
-    #: ("documents,pdfpages,docx," since 2026-09-24), is a real extra.
+    #: ("documents,pdfpages," since Brief 42), is a real extra.
     sent = [
         extra_id
         for group in re.findall(r"Packages \+ '([a-z,]+)'", iss)
         for extra_id in group.split(",")
         if extra_id
     ]
-    assert {"semantic", "voice", "documents", "pdfpages", "docx"} <= set(sent)
+    assert {"semantic", "voice", "documents", "pdfpages"} <= set(sent)
     for extra_id in sent:
         assert extra_id in extras.EXTRAS_BY_ID
 
@@ -764,7 +743,7 @@ def test_a_cancelled_install_leaves_nothing_behind(client, monkeypatch, tmp_path
 def test_packages_picked_in_setup_install_on_first_launch(client, monkeypatch, app_state):
     from pathlib import Path
 
-    from memorymap.api import app as app_module
+    from tessellate.api import app as app_module
 
     started = []
     monkeypatch.setattr(extras, "start_bulk", lambda action, ids=None, bundle="": (started.append((action, ids)), (True, "ok"))[1])
@@ -773,3 +752,44 @@ def test_packages_picked_in_setup_install_on_first_launch(client, monkeypatch, a
     app_module._install_pending_extras()
     assert started == [("install", ["semantic", "documents"])]
     assert not pending.exists()
+
+
+def test_a_pick_from_setup_is_kept_when_another_install_is_running(client, monkeypatch, app_state):
+    """Brief 101c: the list was deleted before `start_bulk` accepted it, so a
+    launch with an install already in hand lost what Setup was asked for."""
+    from pathlib import Path
+
+    from tessellate.api import app as app_module
+
+    monkeypatch.setattr(extras, "start_bulk", lambda action, ids=None, bundle="": (False, "Another install is already running."))
+    pending = Path(app_state.data_dir) / "pending-extras.txt"
+    pending.write_text("semantic", encoding="utf-8")
+    app_module._install_pending_extras()
+    assert pending.read_text(encoding="utf-8") == "semantic"
+
+
+def test_a_pick_from_setup_that_names_only_retired_packages_is_cleared(client, monkeypatch, app_state):
+    from pathlib import Path
+
+    from tessellate.api import app as app_module
+
+    pending = Path(app_state.data_dir) / "pending-extras.txt"
+    pending.write_text("docx", encoding="utf-8")
+    app_module._install_pending_extras()
+    assert not pending.exists()
+
+
+def test_the_first_launch_install_is_an_activity_row_with_progress_and_stop(client, monkeypatch):
+    """The owner (2026-10-07): no indicator, cannot minimise or close. The
+    bulk job is a row in `/tasks` with a fraction, its packages and Stop."""
+    monkeypatch.setattr(extras, "_dispatch", lambda *a, **k: None)
+    started, _ = extras.start_bulk("install", ["semantic", "voice"])
+    assert started is True
+    try:
+        job = next(t for t in client.get("/tasks").json()["tasks"] if t["kind"] == "extra")
+        assert job["label"] == "Installing 2 packages"
+        assert job["progress"] == 0 and len(job["steps"]) == 2
+        assert job["cancellable"] is True
+    finally:
+        extras.cancel()
+        extras._bulk.running = False

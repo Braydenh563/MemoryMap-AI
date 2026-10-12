@@ -71,7 +71,7 @@ def test_bad_props_are_refused(client):
 
 
 def test_deleting_a_custom_type_leaves_its_links_untyped(client, session):
-    from memorymap.core.database import EntryLink
+    from tessellate.core.database import EntryLink
 
     client.post("/relation-types", json={"name": "Cites", "inverse": "Cited by"})
     a, b = _note(client, "paper"), _note(client, "source")
@@ -108,7 +108,7 @@ def test_the_json_export_carries_types_and_props(client):
 
 
 def test_the_migration_adds_props_and_the_table_over_the_auto_migrator(tmp_path):
-    from memorymap.core.database import DatabaseManager, _ensure_alembic_baseline
+    from tessellate.core.database import DatabaseManager, _ensure_alembic_baseline
 
     db_path = tmp_path / "kg3.db"
     DatabaseManager(db_path)

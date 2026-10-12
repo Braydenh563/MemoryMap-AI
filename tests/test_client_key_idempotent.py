@@ -13,8 +13,8 @@ import threading
 
 from fastapi.testclient import TestClient
 
-from memorymap.api import routes_entries
-from memorymap.core import deps
+from tessellate.api import routes_entries
+from tessellate.core import deps
 
 
 def _count(client) -> int:
@@ -30,7 +30,7 @@ def test_a_resend_after_a_restart_is_the_same_note(client):
 
 
 def test_two_resends_at_once_make_one_note(client, app_state):
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     app = create_app()
     ids: list[int] = []

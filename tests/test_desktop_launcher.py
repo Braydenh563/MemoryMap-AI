@@ -23,28 +23,38 @@ from pathlib import Path
 
 import pytest
 
-import memorymap.__main__ as launcher
-from memorymap.core import startup_status
+import tessellate.__main__ as launcher
+from tessellate.core import startup_status
+
 
 
 @pytest.fixture(autouse=True)
+def _no_reminder_notifier(monkeypatch):
+    """`_run_desktop` starts the reminder notifier; a test of the window must
+    not post a real notification or leave a thread polling another test's
+    database."""
+    from tessellate.core import reminder_notifier
+
+    monkeypatch.setattr(reminder_notifier, "pick_backend", lambda: None)
+
+@pytest.fixture(autouse=True)
 def _restore_desktop_env_var():
-    """`_run_desktop` sets `MEMORYMAP_DESKTOP=1` directly on `os.environ`
+    """`_run_desktop` sets `TESSELLATE_DESKTOP=1` directly on `os.environ`
     (§35E: test_file_save.py keys export behaviour off it), not through
     `monkeypatch`. `monkeypatch.delenv(..., raising=False)` looks like the
     right guard but is a no-op when the var is already absent, it only
     records an undo step for a key it actually deletes, so it would NOT
     have caught this: it silently missed the leak in an earlier version of
-    this file, and MEMORYMAP_DESKTOP=1 stayed set for every test that ran
+    this file, and TESSELLATE_DESKTOP=1 stayed set for every test that ran
     afterwards in the same process. This restores the exact pre-test value
     (present or absent) no matter what the launcher does to it.
     """
-    original = os.environ.get("MEMORYMAP_DESKTOP")
+    original = os.environ.get("TESSELLATE_DESKTOP")
     yield
     if original is None:
-        os.environ.pop("MEMORYMAP_DESKTOP", None)
+        os.environ.pop("TESSELLATE_DESKTOP", None)
     else:
-        os.environ["MEMORYMAP_DESKTOP"] = original
+        os.environ["TESSELLATE_DESKTOP"] = original
 
 
 class _FakeEvents:
@@ -178,7 +188,7 @@ def test_windows_only_branch_is_not_taken_on_this_platform(monkeypatch, tmp_path
     import ctypes
 
     monkeypatch.setattr(ctypes, "windll", _FakeWindll, raising=False)
-    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("TESSELLATE_DATA_DIR", str(tmp_path))
     _quiet_server_thread(monkeypatch)
     _fake_webview(monkeypatch)
 
@@ -190,14 +200,14 @@ def test_windows_only_branch_is_not_taken_on_this_platform(monkeypatch, tmp_path
 def test_desktop_launcher_still_starts_the_window(monkeypatch, tmp_path):
     """Sanity check for the rest of `_run_desktop`, so a future edit to the
     icon/AppUserModelID block can't silently break window creation itself."""
-    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("TESSELLATE_DATA_DIR", str(tmp_path))
     _quiet_server_thread(monkeypatch)
     calls = _fake_webview(monkeypatch)
 
     launcher._run_desktop()
 
     assert calls["create_window"] is not None
-    assert calls["create_window"]["title"] == "MemoryMap AI"
+    assert calls["create_window"]["title"] == "Tessellate Notes"
     assert calls["start"] is not None
     # The window opens on the loading placeholder, not the real server URL, 
     # see the loading-window tests below for the handoff itself.
@@ -219,7 +229,7 @@ def test_loading_window_swaps_to_the_real_url_once_the_server_answers(monkeypatc
     one. Proven by actually running `_boot_and_swap` (`run_start_func=True`)
     against a fake server/progress poll, not just asserting it was wired up.
     """
-    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("TESSELLATE_DATA_DIR", str(tmp_path))
     monkeypatch.setattr(launcher, "_run_server", lambda: None)
     monkeypatch.setattr(launcher, "_wait_for_server_with_progress", lambda window, timeout=45.0: True)
     calls = _fake_webview(monkeypatch, run_start_func=True)
@@ -239,7 +249,7 @@ def test_loading_window_shows_an_error_if_the_server_never_comes_up(monkeypatch,
     """The other half: a server that never answers must not leave the window
     stuck on an indefinite spinner with no explanation, `_boot_and_swap`
     pushes `__mmSetError` into the page instead of calling `load_url`."""
-    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("TESSELLATE_DATA_DIR", str(tmp_path))
     monkeypatch.setattr(launcher, "_run_server", lambda: None)
     monkeypatch.setattr(launcher, "_wait_for_server_with_progress", lambda window, timeout=45.0: False)
     calls = _fake_webview(monkeypatch, run_start_func=True)
@@ -291,7 +301,7 @@ def test_tray_is_not_attempted_on_this_non_windows_platform(monkeypatch, tmp_pat
         raise AssertionError("_start_tray must not be called on this platform")
 
     monkeypatch.setattr(launcher, "_start_tray", _explode)
-    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("TESSELLATE_DATA_DIR", str(tmp_path))
     _quiet_server_thread(monkeypatch)
     _fake_webview(monkeypatch)
 
@@ -305,7 +315,7 @@ def test_the_taskbar_icon_is_a_png_on_linux_not_the_windows_ico(monkeypatch, tmp
     gets that one instead of gambling on the untested format."""
     assert sys.platform.startswith("linux"), "this test's premise requires a Linux sandbox"
 
-    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("TESSELLATE_DATA_DIR", str(tmp_path))
     _quiet_server_thread(monkeypatch)
     calls = _fake_webview(monkeypatch)
 
@@ -319,7 +329,7 @@ def test_the_taskbar_icon_is_a_png_on_linux_not_the_windows_ico(monkeypatch, tmp
 def test_desktop_launcher_degrades_if_icon_kwarg_is_unsupported(monkeypatch, tmp_path):
     """An older pywebview without `icon=` must not crash the launcher, the
     desktop app is the only way in for someone who installed it that way."""
-    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("TESSELLATE_DATA_DIR", str(tmp_path))
     _quiet_server_thread(monkeypatch)
     calls = _fake_webview(monkeypatch, icon_kwarg_supported=False)
 
@@ -462,9 +472,9 @@ def _config_dir(tmp_path, monkeypatch):
     deps.get_config(), a global singleton: point it at a fresh temp dir for
     this test only, and reset it afterward so it can't leak into other
     tests in this file or the ones that run after it."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
-    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("TESSELLATE_DATA_DIR", str(tmp_path))
     deps.reset_app_state()
     yield
     deps.reset_app_state()
@@ -525,7 +535,7 @@ def test_tray_hide_console_item_toggles_a_real_console_window_and_persists_it(
 
     # The last toggle left it shown, that choice must survive to the next
     # launch, not just this session (asked for directly).
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     assert deps.get_config().get_preference("show_console_on_startup") is True
 
@@ -568,7 +578,7 @@ def test_tray_has_no_hide_console_item_without_a_real_console(monkeypatch, tmp_p
     # just the tabs or settings modal", every entry between "New note" and
     # "View Logs" is the answer to that.
     assert texts == [
-        "Open MemoryMap AI",
+        "Open Tessellate",
         "New note",
         "Ask a question",
         "Search everything",
@@ -607,7 +617,7 @@ def test_desktop_startup_hides_the_console_when_user_view_is_chosen(
     `_maybe_relaunch_hidden` falls back to this ShowWindow attempt rather
     than actually relaunching: exercising the same fallback path a real
     Windows install without a standard CPython layout would hit."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     deps.get_config().set_preference("show_console_on_startup", False)
 
@@ -638,7 +648,7 @@ def test_console_is_hidden_before_the_slow_server_wait_not_after(monkeypatch, tm
     `_boot_and_swap`, run here via `run_start_func=True`, when the
     loading-window feature stopped the window itself waiting on
     `_wait_for_server`; the guarantee this test protects is unchanged.)"""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     deps.get_config().set_preference("show_console_on_startup", False)
 
@@ -663,7 +673,7 @@ def test_console_is_hidden_before_the_slow_server_wait_not_after(monkeypatch, tm
 def test_desktop_startup_leaves_the_console_shown_when_the_preference_says_so(
     monkeypatch, tmp_path, _config_dir
 ):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     deps.get_config().set_preference("show_console_on_startup", True)
 

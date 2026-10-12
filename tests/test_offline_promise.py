@@ -37,8 +37,8 @@ ROOT = Path(__file__).resolve().parents[1]
 #: made. A feature that reaches the network and is NOT here is the thing this
 #: file exists to catch, so adding a row is a deliberate act, not a formality.
 NETWORK_FEATURES = {
-    "web_search_enabled": "src/memorymap/search/websearch.py",
-    "update_check_enabled": "src/memorymap/api/routes_update.py",
+    "web_search_enabled": "src/tessellate/search/websearch.py",
+    "update_check_enabled": "src/tessellate/api/routes_update.py",
 }
 
 #: The AI provider is deliberately not in that set and the distinction is the
@@ -80,8 +80,8 @@ COPY = [
     *app_js_files(),
     ROOT / "frontend" / "js" / "dashboard.js",
     ROOT / "frontend" / "index.html",
-    ROOT / "src" / "memorymap" / "api" / "routes_websearch.py",
-    ROOT / "src" / "memorymap" / "api" / "routes_settings.py",
+    ROOT / "src" / "tessellate" / "api" / "routes_websearch.py",
+    ROOT / "src" / "tessellate" / "api" / "routes_settings.py",
     #: The two a person reads *before* installing, which is when the promise
     #: does most of its work. `PRIVACY.md` is the worse place to be wrong: its
     #: own heading says it exists to be precise "since it's the whole promise",
@@ -94,7 +94,7 @@ COPY = [
 
 def test_every_network_feature_is_off_by_default():
     """The promise holds on a fresh install or it is not a promise."""
-    config = (ROOT / "src" / "memorymap" / "core" / "config.py").read_text(encoding="utf-8")
+    config = (ROOT / "src" / "tessellate" / "core" / "config.py").read_text(encoding="utf-8")
     for preference in NETWORK_FEATURES:
         match = re.search(rf'"{preference}":\s*(\w+)', config)
         assert match, f"{preference} has no default in core/config.py"
@@ -106,11 +106,11 @@ def test_every_network_feature_is_off_by_default():
 
 def test_the_ai_provider_points_at_this_machine_by_default():
     """A remote provider is a destination the person typed, never a default."""
-    config = (ROOT / "src" / "memorymap" / "core" / "config.py").read_text(encoding="utf-8")
+    config = (ROOT / "src" / "tessellate" / "core" / "config.py").read_text(encoding="utf-8")
     assert re.search(r'"llm_provider":\s*"ollama"', config), (
         "the default provider must be the one that runs on this machine"
     )
-    client = (ROOT / "src" / "memorymap" / "ai" / "openai_client.py").read_text(encoding="utf-8")
+    client = (ROOT / "src" / "tessellate" / "ai" / "openai_client.py").read_text(encoding="utf-8")
     assert 'base_url: str = "http://localhost:1234/v1"' in client, (
         "the OpenAI-compatible client must default to a local address; a remote "
         "default would send notes off the machine with no one having chosen it"

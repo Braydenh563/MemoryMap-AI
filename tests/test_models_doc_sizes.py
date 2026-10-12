@@ -10,7 +10,7 @@ number is the one people see.
 import re
 from pathlib import Path
 
-from memorymap.ai.model_manager import SUGGESTED_MODELS
+from tessellate.ai.model_manager import SUGGESTED_MODELS
 
 DOC = Path(__file__).resolve().parents[1] / "docs" / "MODELS.md"
 ROW = re.compile(r"^\|\s*`([^`]+)`\s*\|\s*(~?[\d.]+\s*[GM]B)\s*\|(.*)\|\s*$")

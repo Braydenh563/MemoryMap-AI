@@ -25,8 +25,8 @@ import json
 
 import pytest
 
-from memorymap.ai import tools
-from memorymap.core.database import Entry, EntryLink
+from tessellate.ai import tools
+from tessellate.core.database import Entry, EntryLink
 
 
 def _note(session, content, tags=None, parent_id=None):
@@ -277,7 +277,7 @@ def test_suggestions_are_off_unless_asked_for(session, app_state, fake_embedding
     connects to this" question shouldn't pay for one it didn't ask for."""
     a = _note(session, "a joke about a scarecrow")
     _note(session, "another joke, also funny")
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     deps.get_embeddings().store_for_entry(session, a)
     session.commit()
@@ -290,7 +290,7 @@ def test_a_potential_connection_is_never_reported_as_a_real_one(
     """The one way this feature could mislead: "reads similarly" repeated back
     to the user as "these are linked". They live in separate lists, and the
     guess list says what it is."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     a = _note(session, "a joke about a scarecrow")
     b = _note(session, "another scarecrow joke, very funny")
@@ -311,7 +311,7 @@ def test_an_already_connected_note_is_not_also_suggested(
 ):
     """It is already in `related` as a fact. Repeating it as a guess would be
     the same note twice, described two different ways."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     a = _note(session, "a joke about a scarecrow")
     b = _note(session, "another scarecrow joke, very funny")
@@ -491,7 +491,7 @@ def test_notes_sharing_an_uppercase_tag_are_still_neighbours(session):
     """The tag index was keyed lowercase and then intersected against tags at
     their original case, so `#Work` matched the index, produced an empty
     intersection, and the two notes were reported as unrelated."""
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     first = _note(session, "the first", tags=["Work"])
     _note(session, "the second", tags=["Work"])
@@ -499,3 +499,20 @@ def test_notes_sharing_an_uppercase_tag_are_still_neighbours(session):
     result = tools.execute_tool(session, "related_notes", {"note_id": first.id})
     blob = json.dumps(result).lower()
     assert "the second" in blob
+
+
+def test_related_leaves_out_a_note_that_is_already_linked(ai_client):
+    """INBOX 1295: a press on a suggestion answered 400 "already linked"."""
+    joke = ai_client.post("/entries", json={"content": "a funny scarecrow joke"}).json()
+    pun = ai_client.post("/entries", json={"content": "another funny pun"}).json()
+    ai_client.post("/entries", json={"content": "a funny limerick"})
+    before = [e["id"] for e in ai_client.get(f"/entries/{joke['id']}/related").json()]
+    assert pun["id"] in before
+
+    linked = ai_client.post(f"/entries/{joke['id']}/links", json={"target_id": pun["id"]})
+    assert linked.status_code == 200
+    for subject in (joke, pun):
+        after = [e["id"] for e in ai_client.get(f"/entries/{subject['id']}/related").json()]
+        other = pun if subject is joke else joke
+        assert other["id"] not in after
+    assert len(after) <= len(before)

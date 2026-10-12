@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import re
 
-from _app_js import JS_DIR
+from tests._app_js import JS_DIR
 
 
 def _note(client, content: str, **extra) -> int:
@@ -158,13 +158,13 @@ def test_the_palette_ends_with_a_row_that_opens_find_anything():
     # Not counted as a feature in the usage ledger.
     assert "handoff" in _function(text, "paletteRun")
     # openFinder takes the text and runs the search.
-    finder = _function(_read("spaces-find.js"), "openFinder")
+    finder = _function(_read("search.js"), "openFinder")
     assert "prefill" in finder and "finderSearch()" in finder
 
 
 def test_find_anything_lists_its_actions_after_the_content_groups():
     """INBOX 666: the actions group (INBOX 270) sorts after every content kind."""
-    text = _read("spaces-find.js")
+    text = _read("search.js")
     kinds = text[text.index("const FINDER_KINDS = ["):]
     kinds = kinds[: kinds.index("];")]
     keys = re.findall(r'key: "(\w+)"', kinds)

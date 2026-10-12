@@ -106,5 +106,5 @@ def test_the_canvas_draws_no_arrow_on_a_two_way_link_and_the_menu_switches_it():
     assert 'else if (arrows && edge.kind === "link" && !edge.two_way) {' in canvas
     assert 'JSON.stringify({ two_way: next })' in graph
     assert 'direction.setAttribute("aria-pressed"' in graph
-    help_text = (ROOT / "src" / "memorymap" / "ai" / "help_chat.py").read_text(encoding="utf-8")
+    help_text = (ROOT / "src" / "tessellate" / "ai" / "help_chat.py").read_text(encoding="utf-8")
     assert "Two-way" in help_text

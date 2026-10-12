@@ -105,7 +105,7 @@ Every one of these was run against `8fbe541` on a fresh data dir at port 8802.
 | Sweep | Result |
 | --- | --- |
 | `mapplaces.js` | **15/15** at 1440x900 and **15/15** at 390x844 (11 before) |
-| `mapcore.js` | **16/16** light and **16/16** dark at 1440x900 (10 before) |
+| `mapcore.js` (removed 2026-10-12, recoverable from git history) | **16/16** light and **16/16** dark at 1440x900 (10 before) |
 | `mapstrip.js` | **39/39** at 1440 light, 1440 dark and 390x844 |
 | `mapdock.js` | **26/26** at 1440x900 and 390x844 |
 | `mapring.js` | **7/7** light (and dark, from the eighth run) |
@@ -126,7 +126,7 @@ Every one of these was run against `8fbe541` on a fresh data dir at port 8802.
 | `scratchpad/ui-sweeps/mapexportcard.js` | **3**, new: what the card of a map exported to the library says |
 | `scratchpad/ui-sweeps/mapnarrow.js` | **3**, new: the fold chevron and the template offer at 390x844 |
 | `scratchpad/ui-sweeps/maptidy.js` | **5**, new: a tidy's requests, its persistence, node size against the screen, and the framing after it |
-| `scratchpad/ui-sweeps/mapperspective.js` | **12**, new: the perspectives on a map of twenty note nodes, light and dark |
+| `scratchpad/ui-sweeps/mapperspective.js` (removed 2026-10-12, recoverable from git history) | **12**, new: the perspectives on a map of twenty note nodes, light and dark |
 | `scratchpad/ui-sweeps/wbrail.js` | **6**, new: the rail and the board's floating panels against the dock recipe |
 | `scratchpad/ui-sweeps/mindmap3.js` | **57**, re-run and green after two repairs to the sweep itself (see below) |
 | `scratchpad/ui-sweeps/mindmap-theme.js` (`THEME=dark`) | **9** (was 7), re-run: 9/9 dark at 1440, 8/9 dark at 390 (the one failure is the shell's own 7px overflow, below) |
@@ -134,7 +134,7 @@ Every one of these was run against `8fbe541` on a fresh data dir at port 8802.
 | `scratchpad/ui-sweeps/mapstrip.js` | **39** (was 33): the edit strip, both radials, the mid-line add, the grip, transplant, sever, the strip's own box, both rings against the edge of the canvas, and the four node shapes |
 | `scratchpad/ui-sweeps/panlag.js` | **5**, new: where a pan's work happens |
 | `scratchpad/ui-sweeps/mapresize.js` | the resize grip (item 177), from the sixth run's end |
-| `scratchpad/ui-sweeps/mapcore.js` | **10**, new: the core mark, the ellipse, the weight against a plain sibling, the round trip |
+| `scratchpad/ui-sweeps/mapcore.js` (removed 2026-10-12, recoverable from git history) | **10**, new: the core mark, the ellipse, the weight against a plain sibling, the round trip |
 | `scratchpad/ui-sweeps/mapspine.js` | **9**, new: the bar on a topic's edge, against the core weight, the plain shape and a downward map |
 | `scratchpad/ui-sweeps/mapline.js` | **13**, new: per-branch thickness on the ribbon and on a stroke, the arrowhead both ways, the dash, and the group a trunk is not shown |
 
@@ -197,7 +197,7 @@ broken on `#wb-selection-bar`, asks for `#wb-context` and runs: **39/39** at
 
 ### 4. Perspectives on a map that has notes on it: measured
 
-`scratchpad/ui-sweeps/mapperspective.js` builds twenty note nodes across four
+`scratchpad/ui-sweeps/mapperspective.js` (removed 2026-10-12, recoverable from git history) builds twenty note nodes across four
 categories and switches every Colour by: **12/12**. Category draws 5 colours
 (the four categories at 4.59:1 to 9.13:1 against the card, plus the quiet
 grey), age 2 (4.07:1), notes 2 (4.59:1) and branch 11 (worst 4.32:1), with the
@@ -431,7 +431,7 @@ not open. That is the same shape as the emblems and belongs to whoever owns
   a ground filled in the branch colour, one step larger type (13.6px to
   15.64px) and a star. The ink on the fill is computed per colour by WCAG
   luminance, so the label clears 4.5:1 on all ten palette entries (worst
-  4.62:1 on `#4e79a7`). `scratchpad/ui-sweeps/mapcore.js` 16/16 light and
+  4.62:1 on `#4e79a7`). `scratchpad/ui-sweeps/mapcore.js` (removed 2026-10-12, recoverable from git history) 16/16 light and
   16/16 dark at 1440x900 (10 checks before).
 - done `2db94de`: the first-open hint and the rail's help. One line under the
   template offer ("Click a topic for its ring of actions, or press Tab to add
@@ -496,7 +496,7 @@ list plus `git log`.
 - also repaired two more stale `mindmap.js` checks: `#wb-export-menu` has not existed since the export became a dialog, and the app's own selection popup was left over a later step's button (a click that hangs is a z-order bug). 68/76 at the start of this run, 74/76 now.
 - found, not fixed: the last two `mindmap.js` failures are one thing, a **2.6px** gap between a tree edge and the node it joins during and after a single-node drag (0px at rest, so it is the drag path's anchor, not the layout's). Under the sweep's 2px bar and invisible at 100%, but real.
 - next: list item 6 (perspectives on a map of twenty note nodes) and then item 8.
-- done `f9816e6`: "Left to do" item 4, perspectives on a map that has notes on it. `scratchpad/ui-sweeps/mapperspective.js` builds twenty notes across four categories (`POST /entries` with a `category` name: there is no POST /categories, a category is made by filing a note into it), hangs each on a map as a reference node, and reads `--wb-branch` off every rendered node under each perspective. 12/12 in light and 12/12 dark. Category gives 5 colours (the four plus the quiet grey), age 2, notes 2, branch 11; every colour that means something clears 3:1 against the card (worst 4.07:1 light, 4.09:1 dark, best 12.97:1) and all three non-branch perspectives draw the legend.
+- done `f9816e6`: "Left to do" item 4, perspectives on a map that has notes on it. `scratchpad/ui-sweeps/mapperspective.js` (removed 2026-10-12, recoverable from git history) builds twenty notes across four categories (`POST /entries` with a `category` name: there is no POST /categories, a category is made by filing a note into it), hangs each on a map as a reference node, and reads `--wb-branch` off every rendered node under each perspective. 12/12 in light and 12/12 dark. Category gives 5 colours (the four plus the quiet grey), age 2, notes 2, branch 11; every colour that means something clears 3:1 against the card (worst 4.07:1 light, 4.09:1 dark, best 12.97:1) and all three non-branch perspectives draw the legend.
 - found, not fixed: the quiet grey is `--muted` and measures **2.77:1** against the card in light (9.6:1 in dark). It carries no information (it is what a node wears when it has nothing to say under the perspective in force), so it is excluded from the bar here rather than raised: raising it means raising `--muted` for the whole app, which is another surface's decision.
 - next: list item 8, MINDMAP_PLAN §12.1 item 2's five sub-items and then INBOX 43's second half.
 - done `b16ef24`: "Left to do" item 5, INBOX 43's second half, as far as measurement supports. `scratchpad/ui-sweeps/wbrail.js` (6 checks, green) reads the rail and every floating panel against the Notes dock as the recipe renders. Already right: a control in the rail is one height (36px) and that is the dock's own, and one radius (50%). Wrong and now fixed: the zoom cluster and the tool row share the board's bottom edge and were drawn as two shapes, 14px radius and 4px of inset against 999px and 4px/6.4px. Both are a pill with the same inset now, by the rule already written in `06-timeline-dialogs.css` ("a pill is a single row of controls"). The three-class selector is deliberate: `.card.glass` sets that inset at (0,2,0), so a two-class rule ties and loses on file order, which is exactly what the first attempt measured.

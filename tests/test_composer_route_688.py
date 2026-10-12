@@ -9,8 +9,15 @@ of answer it is, and no model is called for it.
 from __future__ import annotations
 
 import json
+from datetime import date
 
-from memorymap.entry import manager
+from tessellate.ai import composer
+from tessellate.entry import manager
+
+
+#: "the 14th of next month", pinned to the day the note was written (B3).
+_NOW = date.today()
+NEXT_14 = f"14 {composer._MONTHS[_NOW.month % 12]}" + (f" {_NOW.year + 1}" if _NOW.month == 12 else "")
 
 
 def _ask(client, question: str, **body) -> dict:
@@ -28,7 +35,7 @@ def _ask(client, question: str, **body) -> dict:
 def _seed(session) -> None:
     manager.create_entry(
         session,
-        "# Harbor launch plan\n\nShip the mobile app to the public on the 14th of next month. "
+        "# Harbor launch plan\n\nShip the mobile app to the public on 14 November. "
         "Three gates before then: beta feedback closed and the pricing page signed off.",
     )
     manager.create_entry(session, "# Dentist\n\nCheck-up booked for the 21st. Ask about the night guard.")
@@ -42,8 +49,9 @@ def test_from_your_notes_composes_even_with_a_model_running(ai_client, fake_olla
     meta = out["meta"][0]
     assert meta["composed"] is True
     assert meta["answered_by"] is None
-    assert "**Harbor launch plan**" in out["text"]
-    assert "Ship the mobile app to the public on the 14th of next month." in out["text"].split("\n", 1)[0]
+    #: Decision 70: the fact first, said once with its day, not the note's
+    #: name over a quote.
+    assert out["text"].startswith(f"Ship the mobile app to the public on {NEXT_14}, from your note of")
     assert fake_ollama.librarian_reply not in out["text"]
     #: No model was asked for this answer.
     assert len(fake_ollama.chat_models) == calls_before
@@ -61,8 +69,8 @@ def test_the_composed_turn_is_saved_with_its_rows(ai_client, session):
     turns = ai_client.get("/ask-history").json()["turns"]
     assert len(turns) == 1
     turn = ai_client.get(f"/ask-history/{turns[0]['id']}").json()
-    assert "Check-up booked for the 21st." in turn["answer"]
-    assert any(row["sentence"] == "Check-up booked for the 21st." for row in turn["grounding"])
+    assert turn["answer"].startswith("Check-up booked for the 21st, from your note of")
+    assert any(row["sentence"] == "Check-up booked for the 21st" for row in turn["grounding"])
 
 
 def test_ai_is_still_the_model_when_a_model_runs(ai_client, fake_ollama, session):
@@ -82,7 +90,7 @@ def test_with_no_model_the_ask_box_composes(client, session):
     _seed(session)
     out = _ask(client, "What is the Harbor launch plan?", notes_only=True, use_tools=False)
     assert out["meta"][0]["composed"] is True
-    assert "**Harbor launch plan**" in out["text"]
+    assert out["text"].startswith(f"Ship the mobile app to the public on {NEXT_14}")
 
 
 def test_with_no_model_a_chat_message_is_composed_too(client, session):
@@ -94,7 +102,7 @@ def test_with_no_model_a_chat_message_is_composed_too(client, session):
     out = _ask(client, "What is the Harbor launch plan?", use_tools=False)
     assert out["meta"][0]["composed"] is True
     assert "No model is running" not in out["text"]
-    assert "Ship the mobile app to the public on the 14th of next month." in out["text"].split("\n", 1)[0]
+    assert f"Ship the mobile app to the public on {NEXT_14}," in out["text"].split("\n", 1)[0]
     assert len(out["grounding"]) == 1 and out["grounding"][0]["exact"] is True
     assert isinstance(out["grounding"][0]["next"], list)
 
@@ -126,6 +134,39 @@ def test_tell_me_more_is_read_against_the_turn_before(client, session):
     assert not said & told
 
 
-def test_a_greeting_still_hints_rather_than_composing(ai_client, session):
+def test_a_greeting_is_answered_by_the_app_when_answering_from_notes(ai_client, session):
+    """Engine probe P2 (2026-10-10): with From your notes chosen, "hey" got no
+    answer at all; it gets the app's own reply, as Chat with no model does.
+    With the model answering, the Ask box still hints (test_ask_focus)."""
     out = _ask(ai_client, "hey", notes_only=True, use_tools=False, answer_from="notes")
-    assert "hint" in out and not out.get("answer")
+    assert "hint" not in out and out["text"] in composer.SOCIAL["greeting"]
+
+
+class _NeedleStandIn:
+    """What `tool_fallback.for_tools` hands back when the needle extra is
+    installed and no model server runs: something that is not `req.ollama`."""
+
+    def is_running(self) -> bool:
+        return True
+
+
+def test_small_talk_with_only_the_tool_fallback_is_answered_by_the_app(client, session, monkeypatch):
+    """The 2026-10-10 triage, decision 8 (routes_chat `conversational`): the
+    tools-only extra writes no prose, so "thanks" with no model server is
+    answered by `composer.social`, never handed to it, even in Agent mode."""
+    from tessellate.ai import tool_fallback
+
+    monkeypatch.setattr(tool_fallback, "for_tools", lambda _primary: _NeedleStandIn())
+    out = _ask(client, "thanks", use_tools=True)
+    assert out["meta"][0]["answered_by"] is None
+    assert out["text"] in composer.SOCIAL["thanks"]
+
+
+def test_a_notes_question_with_no_model_is_still_composed(client, session, monkeypatch):
+    from tessellate.ai import tool_fallback
+
+    monkeypatch.setattr(tool_fallback, "for_tools", lambda _primary: _NeedleStandIn())
+    _seed(session)
+    out = _ask(client, "When is the dentist check-up?", use_tools=False)
+    assert out["meta"][0]["composed"] is True
+    assert "Check-up booked for the 21st," in out["text"]

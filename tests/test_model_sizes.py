@@ -19,7 +19,7 @@ than blended: `measured` or `approximate`, and the UI can say which.
 
 from __future__ import annotations
 
-from memorymap.ai.model_manager import SUGGESTED_MODELS
+from tessellate.ai.model_manager import SUGGESTED_MODELS
 
 
 def _flat(body: dict) -> dict[str, dict]:

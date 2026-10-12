@@ -13,9 +13,9 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import fence, librarian
-from memorymap.core.database import Entry
-from memorymap.entry import manager
+from tessellate.ai import fence, librarian
+from tessellate.core.database import Entry
+from tessellate.entry import manager
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -46,7 +46,7 @@ def test_a_page_the_browser_sends_becomes_a_note_with_its_source(client, session
 
 def test_it_works_with_the_web_switched_off(client):
     # No fetch is made, so the web switch (off by default) does not apply.
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     assert not deps.get_config().get_preference("web_search_enabled", False)
     response = client.post("/links/clip-page", json={"url": "https://a.example/", "title": "A", "html": PAGE})
@@ -98,7 +98,7 @@ def test_the_clip_page_stamps_follow_the_version():
     page's stamps are the version itself, and a bump that missed them fails."""
     import re
 
-    from memorymap import __version__
+    from tessellate import __version__
 
     html = (ROOT / "frontend" / "clip.html").read_text(encoding="utf-8")
     stamps = set(re.findall(r'\?v=([^"]+)"', html))

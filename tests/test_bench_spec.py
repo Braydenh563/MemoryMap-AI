@@ -14,8 +14,8 @@ import threading
 
 import pytest
 
-from memorymap.ai import bench
-from memorymap.entry import manager
+from tessellate.ai import bench
+from tessellate.entry import manager
 
 NOTES = [
     ("Cooking", "The sourdough starter needs feeding with rye flour every morning before the kettle boils."),
@@ -167,7 +167,7 @@ def test_the_routes_run_report_and_use_a_model(ai_client, fake_ollama, monkeypat
     assert {row["model"] for row in state["report"]["models"]} == {"good", "worse"}
     used = ai_client.post("/models/chat-model", json={"name": "good"})
     assert used.status_code == 200
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     assert deps.get_model_manager().chat_model() == "good"
 

@@ -23,14 +23,15 @@ def _panel() -> str:
     return INDEX[start : INDEX.index("</aside>", start)]
 
 
-def test_three_tabs_on_a_tabs_line_and_one_tabpanel() -> None:
+def test_four_tabs_on_a_tabs_line_and_one_tabpanel() -> None:
+    #: Data, the fourth, is Edit data (canvasdepth2, `tests/test_wb_edit_data.py`).
     panel = _panel()
     strip = re.search(r'<div class="tabs-line wb-format-tabs" id="wb-format-tabs" role="tablist"[^>]*>(.*?)</div>', panel, re.S)
     assert strip, "the tabs are a .tabs-line (DESIGN.md: a second-level strip)"
-    assert re.findall(r'data-format-tab="(\w+)"', strip.group(1)) == ["style", "text", "arrange"]
+    assert re.findall(r'data-format-tab="(\w+)"', strip.group(1)) == ["style", "text", "arrange", "data"]
     assert "<i " not in strip.group(1), "second-level tabs are words only"
     assert 'role="tabpanel"' in panel
-    assert re.findall(r'data-format-panel="(\w+)"', panel) == ["style", "text", "arrange"]
+    assert re.findall(r'data-format-panel="(\w+)"', panel) == ["style", "text", "arrange", "data"]
 
 
 def test_every_control_is_named() -> None:
@@ -105,3 +106,25 @@ def test_a_shapes_text_takes_size_weight_and_alignment() -> None:
     paint = paint[: paint.index("\n}\n")]
     for field in ("label_size", "label_bold", "label_italic", "label_align", "label_color"):
         assert f"parsed.{field}" in paint, field
+
+
+def test_a_multi_selection_shows_what_it_shares_and_says_mixed() -> None:
+    """The owner, 2026-10-11: "if I highlight and select multiple objects, cna
+    I cnahge the properties they share which are available in the properties
+    side panel??" The rows are the fields every selected kind takes (not the
+    union, which showed a fill for a shape and a line together), and a value
+    the items differ on reads Mixed instead of the first item's value. The
+    browser half (one edit, one Undo, across the selection) is
+    `scratchpad/ui-sweeps/wbcolour-mixed.js`."""
+    sync = FORMAT[FORMAT.index("function wbFormatSync(") :]
+    sync = sync[: sync.index("\n}\n")]
+    assert "fieldSets.every((s) => s.has(f))" in sync
+    assert "for (const k of kinds) for (const f of WB_FMT_FIELDS[k]" not in sync
+    shown = FORMAT[FORMAT.index("function wbFmtShowMixed(") :]
+    shown = shown[: shown.index("\n}\n")]
+    for part in ('"wb-mixed"', 'option.hidden = true', '"Mixed"', 'el.placeholder'):
+        assert part in shown, part
+    assert "indeterminate = mixed(" in sync
+    assert '"mixed"' in sync and '? "Mixed"' in sync
+    # Every edit still goes through the one-gesture writer.
+    assert "await wbRecordGesture(async () => {" in FORMAT[FORMAT.index("async function wbFmtApply(") :][:400]

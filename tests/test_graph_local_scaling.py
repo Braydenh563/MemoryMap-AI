@@ -21,9 +21,9 @@ import time
 import pytest
 from sqlalchemy import delete, insert, select
 
-from memorymap.api import routes_graph
-from memorymap.core.database import Entry, EntryLink
-from memorymap.entry import paths
+from tessellate.api import routes_graph
+from tessellate.core.database import Entry, EntryLink
+from tessellate.entry import paths
 
 
 def _notebook(session, n: int, seed: int = 11) -> list[int]:

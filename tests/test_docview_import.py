@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from memorymap.core import docview
+from tessellate.core import docview
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 

@@ -57,6 +57,10 @@ START_SH = ROOT / "start.sh"
 START_BAT = ROOT / "start.bat"
 START_DESKTOP_SH = ROOT / "start-desktop.sh"
 START_DESKTOP_BAT = ROOT / "start-desktop.bat"
+#: One-double-click files for the launcher's actions (the owner 2026-10-11:
+#: "I just need easy ways to run the set scripts and actions").
+ACTION_SH = [ROOT / n for n in ("doctor.sh", "reinstall.sh", "tools.sh")]
+ACTION_BAT = ["doctor.bat", "reinstall.bat", "tools.bat"]
 UNINSTALL_SH = ROOT / "uninstall.sh"
 UNINSTALL_BAT = ROOT / "uninstall.bat"
 
@@ -68,27 +72,27 @@ def _read(path: Path) -> str:
 class TestPortFromEnv:
     """`--port N` reaches the server.
 
-    The launcher exports MEMORYMAP_PORT; before this was read, the flag
+    The launcher exports TESSELLATE_PORT; before this was read, the flag
     moved the launcher's port checks and the URL it opened but left the
     server itself on 8000, so `--port 8010` opened a browser at a port
     nothing was listening on.
     """
 
     def test_default_is_8000(self, monkeypatch):
-        from memorymap.__main__ import _port_from_env
+        from tessellate.__main__ import _port_from_env
 
-        monkeypatch.delenv("MEMORYMAP_PORT", raising=False)
+        monkeypatch.delenv("TESSELLATE_PORT", raising=False)
         assert _port_from_env() == 8000
 
     def test_a_number_is_honoured(self):
-        from memorymap.__main__ import _port_from_env
+        from tessellate.__main__ import _port_from_env
 
         assert _port_from_env("8010") == 8010
         assert _port_from_env(" 8781 ") == 8781
 
     @pytest.mark.parametrize("raw", ["", "abc", "80.5", "0", "-1", "65536", "99999999"])
     def test_junk_falls_back_rather_than_raising(self, raw):
-        from memorymap.__main__ import _port_from_env
+        from tessellate.__main__ import _port_from_env
 
         assert _port_from_env(raw) == 8000
 
@@ -96,24 +100,25 @@ class TestPortFromEnv:
         """PORT is what the desktop paths and _run_server actually use."""
         import importlib
 
-        monkeypatch.setenv("MEMORYMAP_PORT", "8123")
-        launcher = importlib.reload(importlib.import_module("memorymap.__main__"))
+        monkeypatch.setenv("TESSELLATE_PORT", "8123")
+        launcher = importlib.reload(importlib.import_module("tessellate.__main__"))
         try:
             assert launcher.PORT == 8123
         finally:
-            monkeypatch.delenv("MEMORYMAP_PORT", raising=False)
+            monkeypatch.delenv("TESSELLATE_PORT", raising=False)
             importlib.reload(launcher)
 
     def test_start_sh_exports_the_variable_the_module_reads(self):
-        assert re.search(r"export\s+MEMORYMAP_PORT=", _read(START_SH))
+        assert re.search(r"export\s+TESSELLATE_PORT=", _read(START_SH))
 
     def test_start_bat_sets_the_variable_the_module_reads(self):
-        assert 'set "MEMORYMAP_PORT=!MM_PORT!"' in _read(START_BAT)
+        assert 'set "TESSELLATE_PORT=!MM_PORT!"' in _read(START_BAT)
 
 
 class TestTheShellScriptsParse:
     @pytest.mark.parametrize(
-        "script", ["start.sh", "start-desktop.sh", "uninstall.sh"]
+        "script",
+        ["start.sh", "start-desktop.sh", "uninstall.sh", "doctor.sh", "reinstall.sh", "tools.sh"],
     )
     def test_bash_n(self, script):
         result = subprocess.run(
@@ -122,7 +127,7 @@ class TestTheShellScriptsParse:
         assert result.returncode == 0, result.stderr
 
     def test_they_are_executable(self):
-        for script in (START_SH, START_DESKTOP_SH, UNINSTALL_SH):
+        for script in (START_SH, START_DESKTOP_SH, UNINSTALL_SH, *ACTION_SH):
             assert os.access(script, os.X_OK), script
 
 
@@ -160,8 +165,8 @@ class TestOneLauncherTwoSpellings:
     """`start --doctor` has to be the same sentence on both platforms."""
 
     def test_the_help_texts_list_the_same_flags_in_the_same_order(self):
-        sh = _help_flags(_read(START_SH), "MemoryMap AI launcher", "MM_HELP\n}")
-        bat = _help_flags(_read(START_BAT), "echo MemoryMap AI launcher", "\n:log")
+        sh = _help_flags(_read(START_SH), "Tessellate launcher", "MM_HELP\n}")
+        bat = _help_flags(_read(START_BAT), "echo Tessellate launcher", "\n:log")
         assert sh == FLAG_ORDER, sh
         assert bat == FLAG_ORDER, bat
 
@@ -198,7 +203,7 @@ class TestStatusProtocol:
             assert "MM_STEP_TOTAL=5" in text and "MM_STEP_TOTAL=4" in text
 
     def test_the_line_shape_is_the_one_the_parser_expects(self):
-        from memorymap.core.launch_status import parse_line
+        from tessellate.core.launch_status import parse_line
 
         assert parse_line("2|5|Python|Building the environment|active") is not None
 
@@ -226,7 +231,7 @@ class TestBatchFileRules:
         out = re.sub(r"(?i)\becho\(", "echo ", out)
         return out.replace("^(", "").replace("^)", "")
 
-    @pytest.mark.parametrize("name", ["start.bat", "uninstall.bat", "start-desktop.bat"])
+    @pytest.mark.parametrize("name", ["start.bat", "uninstall.bat", "start-desktop.bat", *ACTION_BAT])
     def test_no_parenthesis_inside_an_echo_within_a_block(self, name):
         """cmd reads the ) as the end of the block and the script dies."""
         depth = 0
@@ -242,7 +247,7 @@ class TestBatchFileRules:
             depth += unquoted.count("(") - unquoted.count(")")
         assert not offenders, offenders
 
-    @pytest.mark.parametrize("name", ["start.bat", "uninstall.bat", "start-desktop.bat"])
+    @pytest.mark.parametrize("name", ["start.bat", "uninstall.bat", "start-desktop.bat", *ACTION_BAT])
     def test_the_blocks_balance(self, name):
         depth = 0
         for ln in self._lines(ROOT / name):
@@ -252,7 +257,7 @@ class TestBatchFileRules:
             assert depth >= 0, ln
         assert depth == 0
 
-    @pytest.mark.parametrize("name", ["start.bat", "uninstall.bat"])
+    @pytest.mark.parametrize("name", ["start.bat", "uninstall.bat", *ACTION_BAT])
     def test_every_goto_and_call_target_exists(self, name):
         text = _read(ROOT / name)
         labels = {
@@ -390,7 +395,7 @@ class TestUninstallers:
         assert bat.index('if not "!REPLY!"=="DELETE"') < bat.index(bat_removals[0])
 
     def test_the_export_entry_point_exists(self):
-        text = (ROOT / "src" / "memorymap" / "__main__.py").read_text(encoding="utf-8")
+        text = (ROOT / "src" / "tessellate" / "__main__.py").read_text(encoding="utf-8")
         assert "--export" in text
 
 
@@ -399,8 +404,8 @@ class TestTheDoctorRunsHere:
     contract Linux CI can actually execute."""
 
     def test_it_exits_0_or_1_and_prints_the_table(self, tmp_path):
-        env = dict(os.environ, MEMORYMAP_DATA_DIR=str(tmp_path / "data"))
-        env.pop("MEMORYMAP_PORT", None)
+        env = dict(os.environ, TESSELLATE_DATA_DIR=str(tmp_path / "data"))
+        env.pop("TESSELLATE_PORT", None)
         result = subprocess.run(
             ["./start.sh", "--doctor"],
             cwd=ROOT,
@@ -415,13 +420,13 @@ class TestTheDoctorRunsHere:
         # under a full suite running beside it, and did not reproduce in
         # forty runs afterwards, so the next occurrence needs to arrive
         # with its own evidence rather than a bare label name.
-        assert "MemoryMap AI - checks" in out, out + result.stderr
+        assert "Tessellate - checks" in out, out + result.stderr
         for label in ("Python", ".venv", "Disk", "Port", "Updates", "Notes", "Last run"):
             assert label in out, f"{label} missing from:\n{out}"
         assert "[ok]" in out or "[x]" in out, out
 
     def test_an_unknown_flag_exits_2_with_the_help(self, tmp_path):
-        env = dict(os.environ, MEMORYMAP_DATA_DIR=str(tmp_path / "data"))
+        env = dict(os.environ, TESSELLATE_DATA_DIR=str(tmp_path / "data"))
         result = subprocess.run(
             ["./start.sh", "--no-browsr"],
             cwd=ROOT,
@@ -436,7 +441,7 @@ class TestTheDoctorRunsHere:
 
     @pytest.mark.parametrize("bad", ["abc", "0", "70000"])
     def test_a_bad_port_exits_2(self, bad, tmp_path):
-        env = dict(os.environ, MEMORYMAP_DATA_DIR=str(tmp_path / "data"))
+        env = dict(os.environ, TESSELLATE_DATA_DIR=str(tmp_path / "data"))
         result = subprocess.run(
             ["./start.sh", "--port", bad],
             cwd=ROOT,
@@ -448,7 +453,7 @@ class TestTheDoctorRunsHere:
         assert result.returncode == 2, result.stdout
 
     def test_version_prints_the_version_and_the_paths(self, tmp_path):
-        env = dict(os.environ, MEMORYMAP_DATA_DIR=str(tmp_path / "data"))
+        env = dict(os.environ, TESSELLATE_DATA_DIR=str(tmp_path / "data"))
         result = subprocess.run(
             ["./start.sh", "--version"],
             cwd=ROOT,
@@ -458,7 +463,7 @@ class TestTheDoctorRunsHere:
             timeout=60,
         )
         assert result.returncode == 0
-        assert "MemoryMap AI" in result.stdout
+        assert "Tessellate" in result.stdout
         assert "Your notes:" in result.stdout
 
 
@@ -480,13 +485,13 @@ class TestSelfRepairStructure:
             )
 
     def test_both_scripts_check_the_real_import_chain(self):
-        """`import memorymap` alone (src/memorymap/__init__.py) never fails
+        """`import tessellate` alone (src/tessellate/__init__.py) never fails
         just because a real dependency like python-dotenv is gone - it is a
-        five-line package with no imports of its own. `memorymap.api.app`
-        is what `python -m memorymap` actually loads first, so it is the
+        five-line package with no imports of its own. `tessellate.api.app`
+        is what `python -m tessellate` actually loads first, so it is the
         only check that can see a missing dependency at all."""
         for text in (_read(START_SH), _read(START_BAT)):
-            assert "import memorymap.api.app" in text
+            assert "import tessellate.api.app" in text
             # The old, shallow check may still be named in a comment
             # explaining why it was not enough; it must not still be a
             # command anywhere.
@@ -552,7 +557,7 @@ class TestSelfRepair:
     named 'dotenv'` traceback and exit 1, no repair, because the existing
     NEED_INSTALL marker check only asks "did requirements.txt's hash
     change", and the existing relink check only asks "does `import
-    memorymap` work" - neither one imports the dependency that was
+    tessellate` work" - neither one imports the dependency that was
     actually deleted.
     """
 
@@ -660,7 +665,7 @@ if __name__ == "__main__":
         ).stdout.split()[0]
         (repo / ".venv" / ".mm_installed").write_text(req_hash, encoding="utf-8")
         healthy = subprocess.run(
-            [str(venv_py), "-c", "import memorymap.api.app"], capture_output=True
+            [str(venv_py), "-c", "import tessellate.api.app"], capture_output=True
         )
         assert healthy.returncode == 0, "the scratch venv is not healthy before this test even breaks it"
         return repo
@@ -670,7 +675,7 @@ if __name__ == "__main__":
         (not deleted outright) so the fake pip above can put it straight
         back the moment start.sh's own step 2 asks it to "install". Moved,
         not `memorymap` itself: deleting `memorymap` is exactly what the
-        pre-existing relink check already catches (`import memorymap`
+        pre-existing relink check already catches (`import tessellate`
         alone succeeds no matter which real dependency is gone - it is a
         five-line package with no imports of its own) - this is the gap
         that check has, which this self-repair closes.
@@ -686,7 +691,7 @@ if __name__ == "__main__":
         assert moved >= 2, "python-dotenv was not where this test expected it"
         venv_py = repo / ".venv" / "bin" / "python"
         broken = subprocess.run(
-            [str(venv_py), "-c", "import memorymap.api.app"], capture_output=True
+            [str(venv_py), "-c", "import tessellate.api.app"], capture_output=True
         )
         assert broken.returncode != 0, "moving dotenv aside did not actually break the import"
         return stash
@@ -694,8 +699,8 @@ if __name__ == "__main__":
     def _run(self, repo: Path, stash: Path, port: int, **extra_env: str) -> subprocess.Popen:
         env = dict(
             os.environ,
-            MEMORYMAP_DATA_DIR=str(repo / "data"),
-            MEMORYMAP_PORT=str(port),
+            TESSELLATE_DATA_DIR=str(repo / "data"),
+            TESSELLATE_PORT=str(port),
             MM_TEST_RESTORE_FROM=str(stash),
             MM_TEST_RESTORE_TO=str(self._site_packages(repo / ".venv")),
             **extra_env,
@@ -772,8 +777,8 @@ if __name__ == "__main__":
             cwd=repo,
             env=dict(
                 os.environ,
-                MEMORYMAP_DATA_DIR=str(repo / "data"),
-                MEMORYMAP_PORT=str(self._free_port()),
+                TESSELLATE_DATA_DIR=str(repo / "data"),
+                TESSELLATE_PORT=str(self._free_port()),
                 MM_AUTO_REPAIRED="1",
             ),
             stdin=subprocess.DEVNULL,
@@ -828,18 +833,37 @@ class TestTheWindowsSplash:
         assert "0x25CF" in t  # dot, active
         assert "$rowName" in t and "$rowDetail" in t
 
-    def test_the_real_bar_counts_finished_steps_not_the_current_one(self):
+    def test_the_one_bar_counts_finished_steps_in_the_app_accent(self):
+        """Brief 85: a stock ProgressBar was green under the system theme and
+        a Marquee bar white beside it. One hand-painted bar in the accent."""
         t = self.text
-        assert '$progress.Style    = "Continuous"' in t
+        assert "$progress" not in t and "$bar." not in t
+        assert "$barFill.BackColor = $accent" in t
         assert '$_.State -eq "done"' in t
         assert "$pct = [int](($done * 100) / $total)" in t
 
-    def test_the_marquee_is_only_inside_the_active_step(self):
-        """Both bars exist for different reasons: see $bar and $progress."""
+    def test_the_mark_is_decoded_before_the_window_is_shown(self):
+        """The icon used to appear about a second after the window."""
         t = self.text
-        assert '$bar.Style    = "Marquee"' in t
-        assert "$bar.Visible = $false" in t
-        assert "$bar.Visible = $true" in t
+        assert t.index("$logoBmp = New-LogoBitmap") < t.index("ShowDialog()")
+        assert "DrawImage($logoBmp" in t
+
+    def test_the_mark_is_the_three_cell_logo_not_the_old_nodes(self):
+        t = self.text
+        assert "35.3,48.7" in t and "57.3,18.4" in t  # favicon.svg cells
+        assert "78.5, 40.7" not in t  # the old five-node ring
+
+    def test_the_tagline_and_a_borderless_rounded_window(self):
+        t = self.text
+        assert '"Your notes, pieced together"' in t
+        assert '$form.FormBorderStyle = "None"' in t
+        assert "New-RoundRegion" in t
+
+    def test_the_links_show_at_once_and_the_list_after_a_second(self):
+        t = self.text
+        assert "$SHOW_LINKS_AFTER = 0" in t
+        assert "$SHOW_LIST_AFTER  = 1" in t
+        assert "$st.failed" in t
 
     def test_the_active_step_shows_its_elapsed_seconds(self):
         assert "TotalSeconds" in self.text
@@ -853,11 +877,11 @@ class TestTheWindowsSplash:
         assert "as plain files you can copy" in t
         assert "TotalSeconds -ge 6" in t
 
-    def test_the_footer_has_all_three_buttons(self):
+    def test_the_footer_has_all_three_links(self):
         t = self.text
-        assert '"Details"' in t
-        assert '"Copy diagnostics"' in t
-        assert '"Cancel"' in t
+        assert 'New-FooterLink "Details"' in t
+        assert 'New-FooterLink "Copy diagnostics"' in t
+        assert 'New-FooterLink "Cancel"' in t
 
     def test_cancel_writes_the_control_file_the_launcher_polls(self):
         t = self.text
@@ -873,7 +897,7 @@ class TestTheWindowsSplash:
         t = self.text
         assert "function Show-ErrorCard" in t
         assert '$btnDetails.Text = "Open log"' in t
-        assert '$btnRetry.Text         = "Try again"' in t
+        assert 'New-FooterLink "Try again"' in t
         assert "Start-Process -FilePath $LauncherPath" in t
 
     def test_the_three_ways_to_die_survive(self):
@@ -925,7 +949,7 @@ class TestOneDesignThreeSurfaces:
     reads as three different programs."""
 
     def test_the_same_tips_appear_on_every_surface(self):
-        main = _read(ROOT / "src" / "memorymap" / "__main__.py")
+        main = _read(ROOT / "src" / "tessellate" / "__main__.py")
         ps1 = _read(ROOT / "scripts" / "splash.ps1")
         html = _read(ROOT / "frontend" / "index.html")
         shared = "Your notes never leave this machine."
@@ -938,7 +962,7 @@ class TestOneDesignThreeSurfaces:
             assert tip in ps1, tip
 
     def test_the_loading_window_seeds_itself_from_the_launcher(self):
-        main = _read(ROOT / "src" / "memorymap" / "__main__.py")
+        main = _read(ROOT / "src" / "tessellate" / "__main__.py")
         assert "def _loading_html" in main
         assert "launch_status.read_file" in main
         # Read before _close_launch_splash deletes the file: create_window's
@@ -946,7 +970,7 @@ class TestOneDesignThreeSurfaces:
         assert main.index("html=_loading_html()") < main.index("_close_launch_splash()\n    #")
 
     def test_reduced_motion_is_respected_on_the_python_window(self):
-        main = _read(ROOT / "src" / "memorymap" / "__main__.py")
+        main = _read(ROOT / "src" / "tessellate" / "__main__.py")
         assert "prefers-reduced-motion: reduce" in main
         assert "animation: none" in main
 
@@ -963,8 +987,7 @@ class TestTheSplashLayoutDoesNotOverlap:
     HEIGHTS = {  # control -> its own height, from the Size line beside it
         "hint": 18,
         "tip": 18,
-        "progress": 8,
-        "status": 26,
+        "status": 20,
     }
 
     def _ps1(self) -> str:
@@ -987,42 +1010,40 @@ class TestTheSplashLayoutDoesNotOverlap:
         rows = self._int(r"\$MAX_ROWS\s*=\s*(\d+)")
         top = self._int(r"\$ROW_TOP\s*=\s*(\d+)")
         step = self._int(r"\$ROW_STEP\s*=\s*(\d+)")
-        buttons = self._int(
+        links = self._int(
             r"\$b\.Location\s*=\s*New-Object System\.Drawing\.Point\(\$x, (\d+)\)"
         )
         collapsed = self._int(r"\$COLLAPSED_HEIGHT\s*=\s*(\d+)")
+        links_h = self._int(r"\$LINKS_HEIGHT\s*=\s*(\d+)")
         expanded = self._int(r"\$EXPANDED_HEIGHT\s*=\s*(\d+)")
 
-        bands = [("steps", top, top + rows * step)]
-        for name in ("hint", "tip", "progress", "status"):
+        bands = []
+        for name in ("status", "tip"):
             y = self._y(name)
             bands.append((name, y, y + self.HEIGHTS[name]))
-        bands.append(("buttons", buttons, buttons + 26))
-
+        bands.append(("links", links, links + 20))
+        bands.append(("hint", self._y("hint"), self._y("hint") + self.HEIGHTS["hint"]))
+        bands.append(("steps", top, top + rows * step))
         for (name_a, _, end_a), (name_b, start_b, _) in zip(bands, bands[1:]):
             assert end_a <= start_b, name_a + " runs into " + name_b
 
-        # The footer has to fit inside the collapsed window, and the details
-        # box inside the expanded one.
-        assert bands[-1][2] <= collapsed
+        # Collapsed holds the tip; the links row fits in the next height.
+        assert bands[1][2] <= collapsed
+        assert links + 20 <= links_h
         details_y = self._y("details")
         details_h = self._int(
             r"\$details\.Size\s*=\s*New-Object System\.Drawing\.Size\(\d+, (\d+)\)"
         )
-        assert details_y >= collapsed
+        assert details_y >= top + rows * step
         assert details_y + details_h <= expanded
 
-    def test_the_retry_button_shares_the_footer_row(self):
-        footer = self._int(
-            r"\$b\.Location\s*=\s*New-Object System\.Drawing\.Point\(\$x, (\d+)\)"
-        )
-        assert self._y("btnRetry") == footer
+    def test_the_retry_link_shares_the_links_row(self):
+        assert "$btnRetry   = New-FooterLink" in self._ps1()
 
     def test_rows_past_the_end_are_blanked_not_left_stale(self):
         """The marquee is moved to the active row, and a list longer than
         MAX_ROWS would otherwise park it beyond the last row that exists."""
         ps1 = self._ps1()
-        assert "$ROW_TOP + $BAR_DROP + $i * $ROW_STEP" in ps1
         assert "$i -ge $count" in ps1
 
 
@@ -1035,8 +1056,8 @@ class TestAFlagMissingItsValue:
     """
 
     def _run(self, script: str, args: list[str], tmp_path):
-        env = dict(os.environ, MEMORYMAP_DATA_DIR=str(tmp_path / "data"))
-        env.pop("MEMORYMAP_PORT", None)
+        env = dict(os.environ, TESSELLATE_DATA_DIR=str(tmp_path / "data"))
+        env.pop("TESSELLATE_PORT", None)
         # The uninstaller runs in a scratch copy even for a flag that should
         # fail before it removes anything: "should" is the word this module
         # once got wrong (see `_repo_venv_is_not_a_fixture`).
@@ -1054,7 +1075,7 @@ class TestAFlagMissingItsValue:
         result = self._run("start.sh", ["--port"], tmp_path)
         assert result.returncode == 2, result.stdout + result.stderr
         assert "--port needs a number" in result.stdout
-        assert "MemoryMap AI launcher" in result.stdout
+        assert "Tessellate launcher" in result.stdout
 
     def test_uninstall_sh_export_with_no_value(self, tmp_path):
         result = self._run("uninstall.sh", ["--export"], tmp_path)
@@ -1080,10 +1101,10 @@ class TestTheDesktopShortcut:
     def _env(self, home, tmp_path):
         env = dict(os.environ)
         env["HOME"] = str(home)
-        env["MEMORYMAP_DATA_DIR"] = str(tmp_path / "data")
-        # Nothing must be able to look like a running MemoryMap and stop the
+        env["TESSELLATE_DATA_DIR"] = str(tmp_path / "data")
+        # Nothing must be able to look like a running Tessellate and stop the
         # uninstaller half way through this test.
-        env["MEMORYMAP_PORT"] = "9"
+        env["TESSELLATE_PORT"] = "9"
         return env
 
     def test_it_writes_an_entry_and_the_uninstaller_removes_it(self, tmp_path):
@@ -1171,7 +1192,7 @@ class TestBothUninstallersRejectAnExportWithNoPath:
 def test_the_self_update_relaunch_cannot_run_an_empty_command():
     """Reported with a screenshot: "Checking for updates..." then
     `'""' is not recognized as an internal or external command` and
-    "MemoryMap AI has stopped".
+    "Tessellate has stopped".
 
     That is the self-update relaunch with `MM_SELF` empty: cmd reports the
     empty program name and the script exits, so the app never starts. The
@@ -1247,9 +1268,9 @@ class TestUpdatesAskOnce:
         repo = _scratch_repo(tmp_path)
         (repo / ".git").mkdir()
         bin_dir, calls = self._fake_git(tmp_path)
-        env = dict(os.environ, MEMORYMAP_DATA_DIR=str(tmp_path / "data"))
+        env = dict(os.environ, TESSELLATE_DATA_DIR=str(tmp_path / "data"))
         env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
-        env.pop("MEMORYMAP_PORT", None)
+        env.pop("TESSELLATE_PORT", None)
         result = subprocess.run(
             ["./start.sh", "--doctor"],
             cwd=repo,
@@ -1274,9 +1295,9 @@ class TestUpdatesAskOnce:
             '{\n  "update_choice_made": true,\n  "auto_update_enabled": true\n}\n'
         )
         bin_dir, calls = self._fake_git(tmp_path)
-        env = dict(os.environ, MEMORYMAP_DATA_DIR=str(data))
+        env = dict(os.environ, TESSELLATE_DATA_DIR=str(data))
         env["PATH"] = f"{bin_dir}{os.pathsep}{env['PATH']}"
-        env.pop("MEMORYMAP_PORT", None)
+        env.pop("TESSELLATE_PORT", None)
         result = subprocess.run(
             ["./start.sh", "--doctor"],
             cwd=repo,
@@ -1348,7 +1369,7 @@ def test_the_windows_shortcut_lands_on_the_desktop_the_shell_shows():
     for name, text in (("start.bat", start_bat), ("uninstall.bat", uninstall_bat)):
         assert "%USERPROFILE%\\Desktop\\MemoryMap AI.lnk" not in text, name
         assert "[Environment]::GetFolderPath('Desktop')" in text, name
-        assert 'set "MM_LNK=!MM_DESKTOP!\\MemoryMap AI.lnk"' in text, name
+        assert 'set "MM_LNK=!MM_DESKTOP!\\Tessellate.lnk"' in text, name
     sub = start_bat.split("\n:desktop_dir", 1)[1].split("exit /b 0", 1)[0]
     assert "GetFolderPath" in sub
     assert sub == uninstall_bat.split("\n:desktop_dir", 1)[1].split("exit /b 0", 1)[0]
@@ -1362,3 +1383,39 @@ def test_a_path_with_an_apostrophe_survives_the_shortcut_powershell():
     assert "'!MM_PS_LNK!'" in line and "'!MM_PS_HOME!start.bat'" in line
     assert "!MM_LNK!'" not in line and "'!MM_HOME!" not in line
     assert 'set "MM_PS_HOME=!MM_HOME:\'=\'\'!"' in text
+
+
+class TestTheActionFiles:
+    """Each action file runs the launcher's own flag, so an action has one
+    implementation; read, never run (reinstall deletes `.venv`)."""
+
+    @pytest.mark.parametrize(
+        "name,flag",
+        [("doctor.sh", "--doctor"), ("doctor.bat", "--doctor"),
+         ("reinstall.sh", "--reinstall"), ("reinstall.bat", "--reinstall")],
+    )
+    def test_it_calls_the_launcher_flag(self, name, flag):
+        assert re.search(r"start\.(sh|bat)\"? " + re.escape(flag), _read(ROOT / name))
+
+    @pytest.mark.parametrize("name", ["reinstall.sh", "reinstall.bat"])
+    def test_reinstall_asks_first(self, name):
+        text = _read(ROOT / name)
+        assert "Continue?" in text and "--yes" in text
+
+    @pytest.mark.parametrize("name", ["tools.sh", "tools.bat"])
+    def test_the_menu_offers_every_launcher_action(self, name):
+        text = _read(ROOT / name)
+        for flag in ("--doctor", "--logs", "--shortcut", "--version"):
+            assert flag in text, flag
+        for script in ("start-desktop", "reinstall", "uninstall"):
+            assert script in text, script
+
+    def test_the_menu_quits_on_q(self):
+        out = subprocess.run(
+            ["bash", str(ROOT / "tools.sh")], input="q\n", capture_output=True, text=True, timeout=30
+        )
+        assert out.returncode == 0 and "Tessellate tools" in out.stdout
+
+    @pytest.mark.parametrize("name", ACTION_BAT)
+    def test_bat_files_are_crlf_on_disk(self, name):
+        assert b"\r\n" in (ROOT / name).read_bytes()

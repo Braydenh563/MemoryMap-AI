@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import composer
+from tessellate.ai import composer
 
 EM_DASH = chr(0x2014)
 

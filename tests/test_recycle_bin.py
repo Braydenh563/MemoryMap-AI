@@ -17,8 +17,8 @@ from __future__ import annotations
 import json
 from datetime import timedelta
 
-from memorymap.core import deps
-from memorymap.core.database import (
+from tessellate.core import deps
+from tessellate.core.database import (
     Attachment,
     Document,
     DocumentLink,
@@ -97,7 +97,7 @@ def test_purging_one_note_takes_its_vectors_links_and_files_with_it(client, sess
     """The whole point of sharing `_hard_delete` between the two paths. A purge
     that left an embedding behind would leave a note that is gone from every
     list and still turns up in semantic search."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     other = _note(session, "the note on the other end of the link")
     goner = _note(session, "the note being purged")
@@ -327,7 +327,7 @@ def test_empty_bin_now(client):
 
 
 def test_expired_bin_entries_purged(client):
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     saved = client.post("/entries", json={"content": "ancient history"}).json()
     client.delete(f"/entries/{saved['id']}")
@@ -361,8 +361,8 @@ def test_every_table_pointing_at_an_entry_is_handled_when_one_is_destroyed():
     """
     import inspect
 
-    from memorymap.core.database import Base
-    from memorymap.entry import manager
+    from tessellate.core.database import Base
+    from tessellate.entry import manager
 
     # Comments stripped first, and that is not fussiness: the first version
     # of this test searched the raw source, and the paragraph in
@@ -394,7 +394,7 @@ def test_every_table_pointing_at_an_entry_is_handled_when_one_is_destroyed():
 
 
 def _model_name(table) -> str:  # noqa: ANN001
-    from memorymap.core.database import Base
+    from tessellate.core.database import Base
 
     for mapper in Base.registry.mappers:
         if mapper.local_table is table:

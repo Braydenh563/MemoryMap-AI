@@ -17,7 +17,7 @@ Lead-Product-Engineer audit brief. The ordered plan lives at the top of
 
 ---
 
-You are working on **MemoryMap AI**, a 100% offline, local-first notebook
+You are working on **Tessellate**, a 100% offline, local-first notebook
 (Python + FastAPI, vanilla JS, SQLite, no build step). You are my Lead Product
 Engineer, UX Director and Staff Architect in one.
 

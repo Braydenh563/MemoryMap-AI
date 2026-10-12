@@ -4,8 +4,9 @@ reports uploads, pictures and backups next to the database, from a cached walk."
 from __future__ import annotations
 
 import os
+from tests._app_js import with_pieces
 
-from memorymap.core import deps, diskspace
+from tessellate.core import deps, diskspace
 
 
 def _write(folder, name, size):
@@ -44,3 +45,38 @@ def test_storage_reports_the_three_folders(client):
     assert body["uploads_bytes"] == 2000
     assert body["media_bytes"] == 300
     assert body["backups_bytes"] == 40
+
+
+def test_storage_reports_what_the_installed_extras_weigh(client, monkeypatch):
+    """The breakdown's last segment (BACKLOG section 26, the owner: see what an
+    optional feature costs before deciding to keep it)."""
+    from tessellate.core import extras
+
+    first, second = extras.EXTRAS[0], extras.EXTRAS[1]
+    monkeypatch.setattr(extras, "is_installed", lambda extra: extra.id in (first.id, second.id))
+    monkeypatch.setitem(extras._footprints, first.id, ("1.0", 5_000))
+    monkeypatch.setitem(extras._footprints, second.id, ("2.0", None))  # no size known counts as none
+    assert extras.installed_bytes() == 5_000
+    body = client.get("/storage")
+    assert body.json()["extras_bytes"] == 5_000
+
+
+def test_the_storage_bar_is_one_recipe():
+    """Settings, About draws `GET /storage` as one bar and a legend (DESIGN.md,
+    the recipe index): drawn by settings-data.js, styled by a lazy sheet, and
+    the old one-line text is gone. Driven in a browser by `storagebar.js`."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    page = (root / "frontend" / "index.html").read_text(encoding="utf-8")
+    data_js = (root / "frontend" / "js" / "settings-data.js").read_text(encoding="utf-8")
+    settings_js = with_pieces("settings.js")
+    sheet = (root / "frontend" / "css" / "settings-data-lazy.css").read_text(encoding="utf-8")
+    assert 'id="storage-bar"' in page and 'role="img"' in page[page.index('id="storage-bar"') - 80 : page.index('id="storage-bar"') + 120]
+    assert 'id="storage-legend"' in page and "health-files-size" not in page + settings_js
+    assert "renderStorageBreakdown" in settings_js and "/css/settings-data-lazy.css" in data_js
+    # Every kind the server reports gets a segment colour, and none is a literal.
+    for key in ("database_bytes", "uploads_bytes", "media_bytes", "backups_bytes", "extras_bytes"):
+        assert f'"{key}"' in data_js and f'data-kind="{key}"' in sheet
+    assert "#" not in "".join(line.split("/*")[0] for line in sheet.splitlines() if "{" in line or ":" in line)
+    assert "style=" not in data_js.split("async function renderStorageBreakdown")[1].split("//: The schedule")[0]

@@ -105,7 +105,9 @@ function docFileType() {
 
 // Everything about the editor that depends on the type, applied in one place
 // so a type change and opening a document of that type cannot diverge.
-function syncDocFileType() {
+//: `prose: false` from `openDocument`, whose deferred `renderDocTools` runs
+//: the same check a frame later (DOCUMENTS 25 row 7).
+function syncDocFileType({ prose = true } = {}) {
   const type = docFileType();
   const picker = $("doc-file-type");
   if (picker) picker.value = type.ext;
@@ -131,6 +133,7 @@ function syncDocFileType() {
   if (!type.previewable && !DOC_VIEWS_UNRENDERED.includes(docView)) setDocView("source");
   //: The engine's own language and wrapping, where it is mounted.
   docCmSyncFileType();
+  docCmApplySpellcheck();
 
   // The formatting toolbar is markdown syntax. In a .py file every button on
   // it inserts something wrong.
@@ -141,13 +144,22 @@ function syncDocFileType() {
   //: document never shows both or neither.
   $("doc-code-format")?.classList.toggle("hidden", type.previewable || ["txt", "csv"].includes(type.ext));
   $("doc-code-run")?.classList.toggle("hidden", !docRunnable(type));
+  docRunSyncAvailability(type);
   //: Wrapping and whitespace are about a file that does not wrap by itself:
   //: every type but prose, plain text and CSV included (INBOX 402).
-  for (const id of ["doc-code-wrap-row", "doc-whitespace-row"]) $(id)?.classList.toggle("hidden", type.previewable);
+  for (const id of ["doc-code-wrap-row", "doc-whitespace-row", "doc-minimap-row"]) $(id)?.classList.toggle("hidden", type.previewable);
 
   // Line numbers, and the monospace/tab behaviour that goes with them.
+  //: On the fallback textarea only. CodeMirror owns its own `class` and
+  //: rewrites it on every focus change, so a class toggled onto the view's
+  //: DOM is gone at the first focus; the engine's `doc-content-code` is
+  //: declared through `editorAttributes` (documents-ide.js, `docIdeSlot`),
+  //: mounted with the code tools on exactly the types this is true for.
   const code = !type.previewable;
-  docSurface()?.classList.toggle("doc-content-code", code);
+  docBoxEl()?.classList.toggle("doc-content-code", code);
+  $("tab-documents")?.classList.toggle("doc-is-code", code);
+  //: The code panel (INBOX 788) comes back with a code file if it was open.
+  if (code && prefs.get("docCodeSide", "")) docCodeSideFrom(prefs.get("docCodeSide", ""), true);
   applyDocGutter();
 
   // A menu row, so it can say the whole thing rather than "⬇ .py".
@@ -163,7 +175,7 @@ function syncDocFileType() {
   //: drawn *on the document* now, so switching a markdown file to `.py` left
   //: squiggles under words in code until this ran: `renderDocProse` empties
   //: the findings for a code file, and the decorations go with them.
-  renderDocProse();
+  if (prose) renderDocProse();
 }
 
 // The dock's kebab closes when you pick something from it, and when you click
@@ -278,6 +290,7 @@ foldDocMenuGroup("ph:download-simple Download or print", [
 ]);
 foldDocMenuGroup("ph:layout Editor and layout", [
   "doc-format-toggle", "doc-width-menu", "doc-toolbar-mode", "doc-code-wrap-row", "doc-whitespace-row",
+  "doc-minimap-row",
 ]);
 foldDocMenuGroup("ph:pencil-simple While you write", [
   "doc-dim-others", "doc-typewriter", "doc-serif", "doc-margin-reader", "doc-autocorrect-row", "doc-complete-row",
@@ -639,7 +652,7 @@ function setDocView(mode) {
   if (!type.previewable && !DOC_VIEWS_UNRENDERED.includes(mode)) mode = "source";
   docView = DOC_VIEWS.includes(mode) ? mode : "source";
   try {
-    localStorage.setItem(DOC_VIEW_KEY, docView);
+    prefs.set(DOC_VIEW_KEY, docView);
   } catch {
     // A private window with storage blocked is not a reason to refuse to
     // change view: the choice just does not survive the reload.
@@ -825,12 +838,8 @@ function renderDocList() {
       [
         makeMenuItem("ph:pencil-simple Rename", "Rename this document", async () => {
           const next = await promptDialog("Rename this document:", doc.title || "");
-          if (!next) return;
-          await apiJson(`/documents/${doc.id}`, {
-            method: "PUT",
-            body: JSON.stringify({ title: next }),
-          }).catch((e) => toast(e.message, true));
-          loadDocuments(currentDoc?.id);
+          if (!next || next === doc.title) return;
+          await renameDocumentWithUndo(doc, next).catch((e) => toast(e.message, true));
         }),
         appLinkMenuItem("document", doc.id),
         // Not destructive, so not grouped with Delete below, same
@@ -838,12 +847,7 @@ function renderDocList() {
         // for entries (BACKLOG §30b's named remaining scope: chats and
         // documents). Reachable again from the Library's Shelved filter.
         makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not deleted", async () => {
-          await apiJson(`/documents/${doc.id}/archive`, { method: "PUT" }).catch((e) =>
-            toast(e.message, true)
-          );
-          if (currentDoc && currentDoc.id === doc.id) currentDoc = null;
-          toast("Archived.");
-          loadDocuments(currentDoc?.id);
+          await archiveDocumentWithUndo(doc).catch((e) => toast(e.message, true));
         }),
         makeMenuItem("ph:trash Delete", "Delete this document", async () => {
           if (
@@ -895,6 +899,16 @@ function showNoDocument() {
   renderDocComments();
 }
 
+//: Runs `paint` once the frame with the new text has been drawn, if no later
+//: open has started since (`docOpenSeq`).
+function docAfterFirstPaint(seq, paint) {
+  requestAnimationFrame(() =>
+    setTimeout(() => {
+      if (seq === docOpenSeq) paint();
+    }, 0)
+  );
+}
+
 async function openDocument(id) {
   //: **Only the newest call opens** (tests/test_new_document_opens_new.py):
   //: the tab's loader opening the last document and New document opening
@@ -928,25 +942,30 @@ async function openDocument(id) {
   $("doc-title").disabled = false;
   docBoxEl().disabled = false;
   $("doc-title").value = doc.title;
-  docResetDocument(doc.content, doc.id);
+  docResetDocument(doc.content, doc.id, { repaint: false });
   scheduleUndoBar();
   docDirty = false;
   $("doc-saved").textContent = "Saved";
   // Before the renders below: it decides which of them are even reachable
   // (a code document has no Live or Split) and puts the editor into the
   // right mode first, so nothing paints twice.
-  syncDocFileType();
+  syncDocFileType({ prose: false });
   renderDocPreview();
   renderDocStats();
-  //: The status bar and the prose check belong to the document, so they are
-  //: repainted with it rather than waiting for the first keystroke.
-  renderDocTools();
-  renderDocOutline();
   renderDocProperties();
-  renderDocNotes();
-  renderDocBacklinks();
-  renderDocBookmarks();
-  renderDocComments();
+  //: **The first screen first** (DOCUMENTS 25 row 7). The prose check, the
+  //: outline and the side panels belong to the document and are repainted
+  //: with it, a frame after the text is painted rather than before: each
+  //: lays the editor out again (the outline asks which line the caret shows),
+  //: measured at 390 as 607ms of a 1,286ms open for the outline alone.
+  docAfterFirstPaint(seq, () => {
+    renderDocTools();
+    renderDocOutline();
+    renderDocNotes();
+    renderDocBacklinks();
+    renderDocBookmarks();
+    renderDocComments();
+  });
   renderDocList();
   //: Before the place is restored, which stays last (tests/test_doc_long.py).
   offerKeptDocEdit(doc);
@@ -989,7 +1008,7 @@ function docPositionsWrite(map) {
     for (const stale of keys.slice(DOC_POSITIONS_MAX)) delete map[stale];
   }
   try {
-    localStorage.setItem(DOC_POSITIONS_KEY, JSON.stringify(map));
+    prefs.set(DOC_POSITIONS_KEY, JSON.stringify(map));
   } catch {
     // Storage blocked or full: the document just opens at the top, as before.
   }
@@ -1141,6 +1160,7 @@ function docMentionsHost(create = false) {
     host = document.createElement("div");
     host.className = "doc-outline-wrap doc-mentions-wrap";
     const heading = document.createElement("h3");
+    heading.className = "doc-outline-title";
     heading.append(
       document.createTextNode("Unlinked mentions "),
       docSectionCount("doc-mentions-count")
@@ -1245,6 +1265,15 @@ async function docLinkMention(row, button) {
       return;
     }
     const next = content.slice(0, row.start) + `[[${title}]]` + content.slice(row.end);
+    const mentionUndo = () =>
+      pushRequestUndo(
+        `Linked a mention in ${row.title}`,
+        row.kind === "note" ? `/entries/${row.id}` : `/documents/${row.id}`,
+        "PUT",
+        { content },
+        { content: next },
+        () => (row.kind === "note" ? loadEntries() : loadDocuments(currentDoc?.id))
+      );
     if (row.kind === "note") {
       await apiJson(`/entries/${row.id}`, {
         method: "PUT",
@@ -1258,6 +1287,7 @@ async function docLinkMention(row, button) {
       });
       await loadDocuments(currentDoc?.id);
     }
+    mentionUndo();
     toast(`Linked from ${row.title}.`);
   } catch (error) {
     toast(error.message, true);
@@ -1356,19 +1386,9 @@ function renderDocNotes() {
       showNotesSection("browse"); // focusing inside a hidden section does nothing
       flashEntry(note.id);
     });
-    const remove = smallButton("ph:x", "Detach this note from the document", async () => {
-      currentDoc = await apiJson(
-        `/documents/${currentDoc.id}/notes/${note.id}`,
-        { method: "DELETE" }
-      );
-      renderDocNotes();
-      // Detaching can move a note *into* the backlinks list: it may still
-      // mention this document by [[title]], and that connection only becomes
-      // visible once it is no longer filed under it.
-      renderDocBacklinks();
-      // The note keeps existing, only the connection went.
-      loadEntries();
-    });
+    const remove = smallButton("ph:x", "Detach this note from the document", () =>
+      unlinkDocNoteWithUndo(note).catch((e) => toast(e.message, true))
+    );
     item.append(open, remove);
     list.appendChild(item);
   }
@@ -1389,13 +1409,12 @@ async function renderDocBookmarks() {
   list.replaceChildren();
   for (const bookmark of attached) {
     const item = document.createElement("li");
-    //: **The link and its ✕ are one row.** Reported as "References stacks a
-    //: close button above its own select": `.outline-link` is `width: 100%`,
-    //: so the remove button beside it had nowhere to go but the next line,
-    //: and a reference read as two controls with no relationship. The class
-    //: is what makes the `li` a flex row and lets the link shrink; nothing
-    //: about the buttons themselves changes.
-    item.className = "doc-outline-row";
+    //: **One row per reference** (the owner, 2026-10-10: "references ... with
+    //: the buttons on them"): its icon and title, then two icon buttons that
+    //: lie over the row's right end only while the row is pointed at or
+    //: focused (always on touch), so a long title keeps its width at rest.
+    //: Earlier a link chip, an "Aa" and an X sat loose beside each other.
+    item.className = "doc-outline-row doc-ref-row";
     const open = document.createElement("button");
     open.type = "button";
     open.className = "outline-link";
@@ -1405,20 +1424,21 @@ async function renderDocBookmarks() {
     // use, so a bookmark saved before INBOX 310's write-time check existed
     // can't reach window.open() with an unlisted scheme from here either.
     open.addEventListener("click", () => window.open(safeHref(bookmark.url), "_blank", "noopener,noreferrer"));
-    const remove = smallButton("ph:x", "Remove this reference", async () => {
-      await apiJson(`/documents/${currentDoc.id}/bookmarks/${bookmark.id}`, { method: "DELETE" });
-      renderDocBookmarks();
-    });
-    remove.classList.add("doc-outline-row-action");
     //: **Into the text, not only beside it** (owner, 0.3.31: "how do I
     //: hyperlink or attach bookmark references in a document??"). Writes
     //: `[title](url)` at the caret, the way `docLinkBack` writes `[[Source]]`:
     //: every insert in this editor goes where you are.
-    const insert = smallButton("ph:text-aa", "Insert as a link where the caret is", () =>
+    const insert = smallButton("ph:cursor-text", "Insert a link to it at the caret", () =>
       docInsertReferenceLink(bookmark)
     );
-    insert.classList.add("doc-outline-row-action");
-    item.append(open, insert, remove);
+    const remove = smallButton("ph:link-break", "Remove it from this document", () =>
+      docBookmarkWithUndo(bookmark.id, false).catch((e) => toast(e.message, true))
+    );
+    const tools = document.createElement("span");
+    tools.className = "doc-ref-tools";
+    for (const button of [insert, remove]) button.classList.add("icon-only", "doc-outline-row-action");
+    tools.append(insert, remove);
+    item.append(open, tools);
     list.appendChild(item);
   }
 }
@@ -1492,12 +1512,8 @@ async function attachBookmarkToDocument() {
   document.addEventListener("keydown", onEscape, true);
   select.addEventListener("change", async () => {
     if (!select.value || !currentDoc) return;
-    await apiJson(`/documents/${currentDoc.id}/bookmarks`, {
-      method: "POST",
-      body: JSON.stringify({ bookmark_id: Number(select.value) }),
-    });
+    await docBookmarkWithUndo(Number(select.value), true).catch((e) => toast(e.message, true));
     close();
-    renderDocBookmarks();
   });
   const cancel = smallButton("ph:x", "Don't attach a link", close);
   cancel.classList.add("doc-outline-row-action");
@@ -1554,6 +1570,225 @@ const DOC_TEMPLATES = [
     docTitle: "{{isodate}}",
     content: "# {{isodate}}\n\n## What happened\n\n- \n\n## Still open\n\n- [ ] \n\n## Next\n\n- \n",
   },
+  //: **A p5.js sketch** (INBOX 735, the owner: "since p5.js is vendored, can
+  //: it be a document option in the text editor??"). A JavaScript document
+  //: whose Run shows the canvas beside the code, through the vendored p5
+  //: only (run-core.js finds `setup` and `createCanvas`; Brief 69, D6).
+  {
+    id: "p5", title: "p5.js sketch", group: "code", hint: "Code and a live canvas: Run draws it beside the editor.",
+    docTitle: "Sketch {{isodate}}",
+    fileType: "js",
+    content: "// A p5.js sketch: Run (Ctrl+Shift+Enter) draws it in the panel below.\nfunction setup() {\n  createCanvas(400, 300);\n}\n\nfunction draw() {\n  background(240);\n  circle(mouseX, mouseY, 40);\n}\n",
+  },
+  //: **Code templates** (INBOX 788, the owner: "can you add code templates
+  //: as document templates as well??"). One starter per language the editor
+  //: runs or highlights, each a document of its own type so it opens in the
+  //: code view (`fileType`), and each one that runs says how in its first
+  //: lines. `group` puts them under the gallery's Code heading. Template
+  //: literals, so a `${` inside the code is escaped as `\${`.
+  {
+    id: "py-script", group: "code", title: "Python script", hint: "A main function and a test: Run runs the test.",
+    docTitle: "Script {{isodate}}", fileType: "py",
+    content: `"""{{title}}: what this script does, in one line."""
+
+
+def greet(name: str) -> str:
+    return f"Hello, {name}"
+
+
+def main() -> None:
+    print(greet("world"))
+
+
+# Run (Ctrl+Shift+Enter) runs a file's tests when it has any, so it runs
+# this one; move the test to its own file to run main() instead.
+def test_greet():
+    assert greet("Ada") == "Hello, Ada"
+
+
+if __name__ == "__main__":
+    main()
+`,
+  },
+  {
+    id: "py-cli", group: "code", title: "Command line tool", hint: "Python with argparse: options, help and an exit code.",
+    docTitle: "CLI {{isodate}}", fileType: "py",
+    content: `"""{{title}}: a command line tool.
+
+From a terminal: python cli.py --name Ada --times 2
+"""
+
+import argparse
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Say hello.")
+    parser.add_argument("--name", default="world", help="who to greet")
+    parser.add_argument("--times", type=int, default=1, help="how many times")
+    parser.add_argument("-v", "--verbose", action="store_true", help="say more")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    for _ in range(args.times):
+        print(f"Hello, {args.name}")
+    if args.verbose:
+        print(f"Greeted {args.times} time(s).")
+    return 0
+
+
+if __name__ == "__main__":
+    # The sandbox has no command line, so Run passes these arguments.
+    main(["--name", "Ada", "--times", "2", "--verbose"])
+`,
+  },
+  {
+    id: "fastapi", group: "code", title: "FastAPI endpoint", hint: "A small API: a model, a read route and a create route.",
+    docTitle: "API {{isodate}}", fileType: "py",
+    content: `"""{{title}}: a FastAPI app.
+
+Serve it from a terminal with fastapi and uvicorn installed:
+    uvicorn app:app --reload
+"""
+
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
+
+app = FastAPI()
+
+
+class Item(BaseModel):
+    name: str
+    price: float
+
+
+ITEMS: dict[int, Item] = {}
+
+
+@app.get("/items/{item_id}")
+def read_item(item_id: int) -> Item:
+    if item_id not in ITEMS:
+        raise HTTPException(status_code=404, detail="Item not found")
+    return ITEMS[item_id]
+
+
+@app.post("/items/{item_id}", status_code=201)
+def create_item(item_id: int, item: Item) -> Item:
+    ITEMS[item_id] = item
+    return item
+`,
+  },
+  {
+    id: "js-module", group: "code", title: "JavaScript with tests", hint: "Functions and their tests: Run runs describe, it and expect.",
+    docTitle: "Module {{isodate}}", fileType: "js",
+    content: `// {{title}}: functions, then their tests.
+// Run (Ctrl+Shift+Enter) runs the tests with describe, it and expect.
+
+function slugify(text) {
+  return String(text)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+describe("slugify", () => {
+  it("joins words with hyphens", () => {
+    expect(slugify("Hello World")).toBe("hello-world");
+  });
+
+  it("drops punctuation at the ends", () => {
+    expect(slugify("  Hi, there.  ")).toBe("hi-there");
+  });
+});
+`,
+  },
+  {
+    id: "html-page", group: "code", title: "HTML page", hint: "A page with a style and a script: Run shows it below.",
+    docTitle: "Page {{isodate}}", fileType: "html",
+    content: `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{title}}</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; line-height: 1.5; }
+    button { padding: 0.5rem 1rem; }
+  </style>
+</head>
+<body>
+  <h1>{{title}}</h1>
+  <p>Run (Ctrl+Shift+Enter) shows this page in the panel below.</p>
+  <button id="count" type="button">Clicked 0 times</button>
+  <script>
+    let clicks = 0;
+    document.getElementById("count").addEventListener("click", (event) => {
+      clicks += 1;
+      event.target.textContent = \`Clicked \${clicks} times\`;
+    });
+  </script>
+</body>
+</html>
+`,
+  },
+  {
+    id: "sql-schema", group: "code", title: "SQL schema", hint: "Two tables, some rows and a join: Run shows each result.",
+    docTitle: "Schema {{isodate}}", fileType: "sql",
+    content: `-- {{title}}: Run (Ctrl+Shift+Enter) runs each statement against an
+-- empty in-memory SQLite database and shows every result as a table.
+
+CREATE TABLE authors (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE
+);
+
+CREATE TABLE books (
+    id INTEGER PRIMARY KEY,
+    author_id INTEGER NOT NULL REFERENCES authors (id),
+    title TEXT NOT NULL,
+    published INTEGER
+);
+
+INSERT INTO authors (name) VALUES ('Ursula K. Le Guin'), ('Italo Calvino');
+INSERT INTO books (author_id, title, published) VALUES
+    (1, 'The Dispossessed', 1974),
+    (2, 'Invisible Cities', 1972);
+
+SELECT authors.name, books.title, books.published
+FROM books
+JOIN authors ON authors.id = books.author_id
+ORDER BY books.published;
+`,
+  },
+  {
+    id: "readme", group: "code", title: "README", hint: "What it is, how to install, use and test it.",
+    docTitle: "README",
+    content: "# {{title}}\n\nOne sentence on what this is and who it is for.\n\n## Install\n\n```bash\npip install -r requirements.txt\n```\n\n## Use\n\n```bash\npython main.py --help\n```\n\n## Test\n\n```bash\npython -m pytest\n```\n\n## Licence\n\n\n",
+  },
+  {
+    id: "notebook", group: "code", title: "Notebook", hint: "Notes and code in cells, Jupyter style, in one Python file.",
+    docTitle: "Notebook {{isodate}}", fileType: "py",
+    content: `# %% [markdown]
+# # {{title}}
+# Notes and code in one file, Jupyter style. Each \`# %%\` line starts a
+# cell. Run (Ctrl+Shift+Enter) runs the file; the palette's Run the cell
+# at the caret (Ctrl+Shift+P) runs one.
+
+# %%
+numbers = [3, 1, 4, 1, 5, 9, 2, 6]
+total = sum(numbers)
+print(f"{len(numbers)} numbers, total {total}")
+
+# %% [markdown]
+# ## What the numbers say
+
+# %%
+mean = total / len(numbers)
+print(f"mean {mean:.2f}, largest {max(numbers)}")
+`,
+  },
 ];
 
 function docTemplateFill(template) {
@@ -1573,21 +1808,42 @@ function docTemplateFill(template) {
   //: A template's gallery label and the title it gives the document are not
   //: always the same words: "Daily" names the choice in the gallery, and the
   //: document it makes is called by its day (`docTitle`, section 14).
-  const title = template.id === "blank" ? "Untitled" : fill(template.docTitle || template.title);
+  const title = template.id === "blank" ? docNextName() : fill(template.docTitle || template.title);
   return {
     title,
     content: fill(template.content).replaceAll("{{title}}", title),
+    //: A code template (the p5 sketch) makes a document of its own type.
+    ...(template.fileType ? { file_type: template.fileType } : {}),
   };
 }
 
+//: **A new document needs no name** (INBOX 739, the owner: "auto naming of
+//: the whiteboards, mindmaps and documents like \"untitled #\" so the user
+//: isnt forced to name a new object"). The next free number after every
+//: "Untitled document N" there is, as `wbUntitledNames` does for boards and
+//: maps, so a deleted one's number is not reused while a higher one exists.
+// DOC-UNTITLED-BEGIN
+function docUntitledName(titles) {
+  const pattern = /^untitled document (\d{1,6})$/i;
+  let top = 0;
+  for (const title of titles || []) {
+    const match = pattern.exec(String(title || "").trim());
+    if (match) top = Math.max(top, Number(match[1]));
+  }
+  return `Untitled document ${top + 1}`;
+}
+// DOC-UNTITLED-END
+const docNextName = () => docUntitledName(docs.map((d) => d.title));
+
 async function createDocument(template = null) {
-  const body = template ? docTemplateFill(template) : { title: "Untitled", content: "" };
+  const body = template ? docTemplateFill(template) : { title: docNextName(), content: "" };
   const doc = await apiJson("/documents", {
     method: "POST",
     body: JSON.stringify(body),
   });
   loadCaptureDocuments(); // so Capture can attach to it straight away
   await loadDocuments(doc.id);
+  offerCreateUndo(doc);
   $("doc-title").focus();
   $("doc-title").select();
 }
@@ -1656,7 +1912,18 @@ function openDocTemplateDialog() {
   if (!dialog || !list) return;
   docTemplateMade = false;
   list.replaceChildren();
+  //: Writing first, then Code (INBOX 788): a heading row where the group
+  //: changes, not a second list, so the arrows still walk every row.
+  let group = "";
   for (const template of DOC_TEMPLATES) {
+    if ((template.group || "writing") !== group) {
+      group = template.group || "writing";
+      const head = document.createElement("li");
+      head.setAttribute("role", "presentation");
+      head.className = "doc-template-group muted text-xs";
+      head.textContent = group === "code" ? "Code" : "Writing";
+      list.appendChild(head);
+    }
     const li = document.createElement("li");
     li.setAttribute("role", "presentation");
     const button = document.createElement("button");
@@ -1701,7 +1968,8 @@ function showDocTemplatePreview(template) {
   page.className = "doc-template-page md";
   const filled = docTemplateFill(template);
   if (filled.content) {
-    renderMarkdown(page, filled.content);
+    //: A code template previews as the code it makes, not as prose.
+    renderMarkdown(page, template.fileType ? `\`\`\`${template.fileType}\n${filled.content}\`\`\`\n` : filled.content);
   } else {
     const empty = document.createElement("p");
     empty.className = "muted doc-template-empty";
@@ -1720,7 +1988,7 @@ async function ensureDocumentExists() {
   creatingDocument = (async () => {
     const doc = await apiJson("/documents", {
       method: "POST",
-      body: JSON.stringify({ title: "Untitled", content: "" }),
+      body: JSON.stringify({ title: docNextName(), content: "" }),
     });
     currentDoc = doc;
     docs.unshift({ ...doc });
@@ -1764,7 +2032,9 @@ let docConflictOpen = false;
 async function saveDocument({ silent = false } = {}) {
   if (!currentDoc || docConflictOpen) return;
   clearTimeout(docSaveTimer);
-  const title = $("doc-title").value.trim() || "Untitled";
+  //: An emptied title keeps a name of the same kind rather than going back to a bare "Untitled".
+  const title = $("doc-title").value.trim()
+    || (/^untitled document \d+$/i.test(currentDoc.title || "") ? currentDoc.title : docNextName());
   const content = docText();
   try {
     const saved = await apiJson(`/documents/${currentDoc.id}`, {
@@ -1784,6 +2054,8 @@ async function saveDocument({ silent = false } = {}) {
     forgetDocEditLocally(saved.id);
     $("doc-saved").textContent = "Saved";
     if (!silent) toast("Document saved.");
+    //: An open preview shows what was saved (D6).
+    docRunAfterSave();
     docs = docs.map((d) => (d.id === saved.id ? { ...d, ...saved } : d));
     renderDocList();
   } catch (error) {
@@ -1848,6 +2120,7 @@ async function expandNoteIntoDocument(entry) {
         content: `${body}\n\n---\n\nExpanded from note #${entry.id}.\n`,
       }),
     });
+    offerCreateUndo(doc);
     switchTab("documents");
     await loadDocuments(doc.id);
     toast(`Started a document from this note, the note itself is untouched.`);
@@ -1874,9 +2147,9 @@ function getDocWordGoal(id) {
 function setDocWordGoal(id, goal) {
   if (!id) return;
   if (goal > 0) {
-    localStorage.setItem(docWordGoalKey(id), String(goal));
+    prefs.set(docWordGoalKey(id), String(goal));
   } else {
-    localStorage.removeItem(docWordGoalKey(id));
+    prefs.remove(docWordGoalKey(id));
   }
 }
 
@@ -1892,7 +2165,7 @@ function setDocWordGoal(id, goal) {
 //: four places that mean "the document changed", and because a goal is
 //: per-document state while the counts are pure arithmetic over the box.
 function renderDocStats() {
-  const words = (docText().match(/\S+/g) || []).length;
+  const { words } = textCounts(docText());
   const goal = currentDoc ? getDocWordGoal(currentDoc.id) : 0;
   const button = $("doc-word-goal");
   const label = $("doc-goal-label");
@@ -2243,7 +2516,7 @@ function docOutlineSetFolds(folds) {
   const store = docOutlineFoldStore();
   if (!store) return;
   try {
-    localStorage.setItem(store, JSON.stringify([...folds]));
+    prefs.set(store, JSON.stringify([...folds]));
   } catch {
     //: Nothing to do and nothing worth saying: the fold still applies to the
     //: outline on screen, it just will not survive a reload.
@@ -2304,7 +2577,7 @@ function docScanHeadings(text) {
   const lines = String(text == null ? "" : text).split("\n");
   lines.forEach((line, index) => {
     // A "# " inside a code fence is code, not a heading.
-    if (line.trim().startsWith("```")) inFence = !inFence;
+    if (/^(```|~~~)/.test(line.trim())) inFence = !inFence;
     if (inFence) return;
     const match = /^(#{1,4})\s+(.*\S)\s*$/.exec(line);
     if (match) {
@@ -2384,6 +2657,11 @@ function docSectionRange(headings, index, lineCount) {
 //
 // Bracketed by `DOC-COMMANDS-BEGIN`/`END` so `tests/test_doc_commands.py` can
 // read the table's shape without a browser.
+//
+// **Every row says its chord or "none"** (DOCUMENTS_PLAN section 25 row 6):
+// an empty `keys` was a row nobody had decided about. "none" is a decision
+// (no free chord that means it anywhere else, or a chord the app gives to
+// something else), and the palette and the sheet show nothing for it.
 
 // DOC-COMMANDS-BEGIN
 
@@ -2428,44 +2706,44 @@ const DOC_COMMANDS = [
   { id: "indent", icon: "ph:text-indent", label: "Indent the line or list item", keys: "Tab", run: null },
   { id: "outdent", icon: "ph:text-outdent", label: "Outdent the line or list item", keys: "Shift+Tab", run: null },
   { id: "move-section", icon: "ph:arrows-down-up", label: "Move the section, from the outline", keys: "Alt+↑ / Alt+↓", run: null },
-  { id: "ul", icon: "ph:list-bullets", label: "Bulleted list", keys: "", run: () => applyMarkdown("ul") },
-  { id: "ol", icon: "ph:list-numbers", label: "Numbered list", keys: "", run: () => applyMarkdown("ol") },
-  { id: "task", icon: "ph:check-square", label: "Task list", keys: "", run: () => applyMarkdown("task") },
-  { id: "quote", icon: "ph:quotes", label: "Quote", keys: "", run: () => applyMarkdown("quote") },
-  { id: "link", icon: "ph:link", label: "Link", keys: "", run: () => applyMarkdown("link") },
-  { id: "view-edit", icon: "ph:pencil-simple", label: "Edit this document", keys: "",
+  { id: "ul", icon: "ph:list-bullets", label: "Bulleted list", keys: "Ctrl+Shift+8", run: () => applyMarkdown("ul") },
+  { id: "ol", icon: "ph:list-numbers", label: "Numbered list", keys: "Ctrl+Shift+7", run: () => applyMarkdown("ol") },
+  { id: "task", icon: "ph:check-square", label: "Task list", keys: "Ctrl+Shift+9", run: () => applyMarkdown("task") },
+  { id: "quote", icon: "ph:quotes", label: "Quote", keys: "none", run: () => applyMarkdown("quote") },
+  { id: "link", icon: "ph:link", label: "Link", keys: "none", run: () => applyMarkdown("link") },
+  { id: "view-edit", icon: "ph:pencil-simple", label: "Edit this document", keys: "none",
     run: () => setDocView(lastEditView) },
-  { id: "view-read", icon: "ph:book-open", label: "Read this document", keys: "",
+  { id: "view-read", icon: "ph:book-open", label: "Read this document", keys: "none",
     run: () => setDocView("rendered") },
   { id: "formatting", icon: "ph:text-aa", label: "Show or hide the formatting toolbar", keys: "Ctrl+Shift+X",
     run: () => toggleDocToolbar() },
   { id: "focus", icon: "ph:corners-out", label: "Focus mode: only the page, the whole window", keys: "F11",
     run: () => docRunControl("doc-focus-toggle", "Focus mode") },
-  { id: "typewriter", icon: "ph:arrows-in-line-horizontal", label: "Typewriter scrolling", keys: "",
+  { id: "typewriter", icon: "ph:arrows-in-line-horizontal", label: "Typewriter scrolling", keys: "none",
     run: () => docRunControl("doc-typewriter", "Typewriter scrolling") },
-  { id: "dim-others", icon: "ph:circle-half-tilt", label: "Dim every paragraph but this one", keys: "",
+  { id: "dim-others", icon: "ph:circle-half-tilt", label: "Dim every paragraph but this one", keys: "none",
     run: () => docRunControl("doc-dim-others", "Dimming") },
-  { id: "serif", icon: "ph:text-aa", label: "Serif reading face", keys: "",
+  { id: "serif", icon: "ph:text-aa", label: "Serif reading face", keys: "none",
     run: () => docRunControl("doc-serif", "The serif face") },
-  { id: "goal", icon: "ph:target", label: "Set a word goal", keys: "",
+  { id: "goal", icon: "ph:target", label: "Set a word goal", keys: "none",
     run: () => docRunControl("doc-word-goal", "The word goal") },
-  { id: "ai", icon: "ph:sparkle", label: "Ask Atlas to edit this document", keys: "",
+  { id: "ai", icon: "ph:sparkle", label: "Ask Atlas to edit this document", keys: "none",
     run: () => docRunControl("doc-ai", "AI editing") },
-  { id: "extract", icon: "ph:scissors", label: "Extract notes from this document", keys: "",
+  { id: "extract", icon: "ph:scissors", label: "Extract notes from this document", keys: "none",
     run: () => docRunControl("doc-extract", "Extracting notes") },
-  { id: "map-headings", icon: "ph:tree-structure", label: "Map this document's headings", keys: "",
+  { id: "map-headings", icon: "ph:tree-structure", label: "Map this document's headings", keys: "none",
     run: () => docRunControl("doc-map-headings", "Mapping the headings") },
-  { id: "history", icon: "ph:clock-counter-clockwise", label: "Every version this document has had", keys: "",
+  { id: "history", icon: "ph:clock-counter-clockwise", label: "Every version this document has had", keys: "none",
     run: () => docRunControl("doc-history", "Version history") },
-  { id: "connections", icon: "ph:graph", label: "What this document is joined to", keys: "",
+  { id: "connections", icon: "ph:graph", label: "What this document is joined to", keys: "none",
     run: () => docRunControl("doc-connections", "Connections") },
-  { id: "export-md", icon: "ph:download-simple", label: "Download as .md", keys: "",
+  { id: "export-md", icon: "ph:download-simple", label: "Download as .md", keys: "none",
     run: () => docRunControl("doc-export-md", "The markdown export") },
-  { id: "export-html", icon: "ph:file-html", label: "Download as one .html file", keys: "",
+  { id: "export-html", icon: "ph:file-html", label: "Download as one .html file", keys: "none",
     run: () => docRunControl("doc-export-html", "The HTML export") },
-  { id: "export-docx", icon: "ph:file-doc", label: "Download as Word (.docx)", keys: "",
+  { id: "export-docx", icon: "ph:file-doc", label: "Download as Word (.docx)", keys: "none",
     run: () => docRunControl("doc-export-docx", "The Word export") },
-  { id: "export-pdf", icon: "ph:file-pdf", label: "Print or save as PDF", keys: "",
+  { id: "export-pdf", icon: "ph:file-pdf", label: "Print or save as PDF", keys: "none",
     run: () => docRunControl("doc-export-pdf", "The PDF export") },
   //: `code: true` rows are offered by the palette only while a code
   //: document is open; the shortcut sheet lists them always, marked by
@@ -2480,15 +2758,15 @@ const DOC_COMMANDS = [
     code: true, run: () => docCodeCommentAtCaret(docSurface(), true) },
   //: Emmet's editing commands (INBOX 402). No chord: VS Code has none for
   //: them either, and every free one is spoken for by something commoner.
-  { id: "emmet-wrap", icon: "ph:brackets-angle", label: "Wrap the selection with an Emmet abbreviation", keys: "",
+  { id: "emmet-wrap", icon: "ph:brackets-angle", label: "Wrap the selection with an Emmet abbreviation", keys: "none",
     code: true, run: () => docEmmetWrap() },
-  { id: "emmet-balance-out", icon: "ph:arrows-out-line-horizontal", label: "Select the enclosing tag (Emmet balance outward)", keys: "",
+  { id: "emmet-balance-out", icon: "ph:arrows-out-line-horizontal", label: "Select the enclosing tag (Emmet balance outward)", keys: "none",
     code: true, run: () => docEmmetBalance(false) },
-  { id: "emmet-balance-in", icon: "ph:arrows-in-line-horizontal", label: "Select the tag inside (Emmet balance inward)", keys: "",
+  { id: "emmet-balance-in", icon: "ph:arrows-in-line-horizontal", label: "Select the tag inside (Emmet balance inward)", keys: "none",
     code: true, run: () => docEmmetBalance(true) },
   //: VS Code's Ctrl+Shift+O, without the chord: the registry gives it to a
   //: new chat. The outline panel lists the same symbols.
-  { id: "symbols", icon: "ph:list-magnifying-glass", label: "Go to a symbol in this file", keys: "",
+  { id: "symbols", icon: "ph:list-magnifying-glass", label: "Go to a symbol in this file", keys: "none",
     code: true, run: () => docOpenSymbols() },
   { id: "definition", icon: "ph:arrow-square-in", label: "Go to where the name at the caret is defined", keys: "F12",
     code: true, run: () => docGoToDefinition() },
@@ -2496,12 +2774,75 @@ const DOC_COMMANDS = [
     code: true, run: () => docShowReferences() },
   { id: "find-documents", icon: "ph:magnifying-glass", label: "Find in every document", keys: "Ctrl+Shift+F",
     run: () => docFindInDocuments() },
+  { id: "replace-documents", icon: "ph:swap", label: "Replace in every document", keys: "none",
+    run: () => openDocReplace() },
   { id: "run", icon: "ph:play", label: "Run this file and show its output", keys: "Ctrl+Shift+Enter",
     code: true, run: () => docRunCode() },
+  { id: "run-tests", icon: "ph:flask", label: "Run the tests in this file", keys: "none",
+    code: true, run: () => docRunCode({ mode: "test" }) },
+  { id: "run-selection", icon: "ph:text-indent", label: "Run the selected lines", keys: "none",
+    code: true, run: () => docRunSelection() },
+  //: The code panel (INBOX 788, documents-codekit.js).
+  { id: "assistant", icon: "ph:sparkle", label: "Assistant: explain, fix, write tests or refactor", keys: "none",
+    code: true, run: () => docCodeSideFrom("assist") },
+  { id: "snippets", icon: "ph:puzzle-piece", label: "Snippets: insert one, or save the selection as one", keys: "none",
+    code: true, run: () => docCodeSideFrom("snippets") },
+  { id: "run-cell", icon: "ph:rows", label: "Run the cell at the caret (between # %% markers)", keys: "none",
+    code: true, run: () => docRunCell() },
+  //: Brief 70 (DOCUMENTS_PLAN 23, I2): Debug on VS Code's own keys, bound in
+  //: the editor by `docDebugExtension` for the kinds it steps.
+  { id: "debug", icon: "ph:bug", label: "Debug this file, or continue to the next breakpoint", keys: "F5",
+    code: true, run: () => docDebugAct("continue") },
+  { id: "debug-breakpoint", icon: "ph:circle", label: "Add or remove a breakpoint on the caret's line", keys: "F9",
+    code: true, run: () => docDebugToggleHere() },
+  { id: "debug-over", icon: "ph:arrow-bend-down-right", label: "Step over the line (while debugging)", keys: "F10",
+    code: true, run: () => docDebugAct("over") },
+  //: F11 is Focus mode's ("focus" above) except while a session is paused,
+  //: as VS Code shares it between Step into and Full screen.
+  { id: "debug-in", icon: "ph:arrow-elbow-down-right", label: "Step into the call (while debugging)", keys: "F11 while debugging",
+    code: true, run: () => docDebugAct("in") },
+  { id: "debug-out", icon: "ph:arrow-elbow-left-up", label: "Step out of the function (while debugging)", keys: "Shift+F11",
+    code: true, run: () => docDebugAct("out") },
+  { id: "debug-stop", icon: "ph:stop", label: "Stop debugging", keys: "Shift+F5",
+    code: true, run: () => docDebugAct("stop") },
   { id: "code-wrap", icon: "ph:text-align-left", label: "Wrap long lines in a code file", keys: "Alt+Z",
     code: true, run: () => docToggleCodeDraw("codeWrap") },
-  { id: "whitespace", icon: "ph:paragraph", label: "Show whitespace in a code file", keys: "",
+  { id: "whitespace", icon: "ph:paragraph", label: "Show whitespace in a code file", keys: "none",
     code: true, run: () => docToggleCodeDraw("whitespace") },
+  //: Brief 42 (documents-ide.js). The two fold chords are CodeMirror's
+  //: `foldKeymap`, bound since Phase 2; Ctrl+Shift+M is VS Code's.
+  { id: "fold-all", icon: "ph:arrows-in-line-vertical", label: "Fold every block in a code file", keys: "Ctrl+Alt+[",
+    code: true, run: () => docIdeFoldAll(false) },
+  { id: "unfold-all", icon: "ph:arrows-out-line-vertical", label: "Unfold every block in a code file", keys: "Ctrl+Alt+]",
+    code: true, run: () => docIdeFoldAll(true) },
+  { id: "problems", icon: "ph:warning-circle", label: "List every problem in this file", keys: "Ctrl+Shift+M",
+    code: true, run: () => docPanelToggle("problems") },
+  //: Brief 71 (I3, D8): the panel and its Console on VS Code's chords, the
+  //: editor's palette, the split and this table as a sheet. The chords are
+  //: answered in documents-ide.js (`docIdeKeydown`), which stops them before
+  //: the registry's own Ctrl+Shift+P and Ctrl+Shift+Y.
+  { id: "panel", icon: "ph:terminal-window", label: "Show or hide the panel: Output, Problems, Tests, Console", keys: "Ctrl+J",
+    code: true, run: () => docPanelToggle(null) },
+  { id: "console", icon: "ph:terminal", label: "Open the console: a line of Python or JavaScript in what the last run left", keys: "Ctrl+Shift+Y",
+    code: true, run: () => docPanelToggle("console") },
+  { id: "debug-panel", icon: "ph:bug", label: "Open the Debug tab: variables, watches, the call stack and breakpoints", keys: "Ctrl+Shift+D",
+    code: true, run: () => docPanelToggle("debug") },
+  { id: "command-palette", icon: "ph:command", label: "Run an editor command by name (also F1)", keys: "Ctrl+Shift+P",
+    code: true, run: () => docIdeOpenPalette() },
+  { id: "split", icon: "ph:columns", label: "Split the editor: this file again, beside itself", keys: "Ctrl+\\",
+    code: true, run: () => docIdeToggleSplit() },
+  { id: "outline", icon: "ph:tree-view", label: "Show the outline: this file's symbols, following the caret", keys: "none",
+    code: true, run: () => showDocSidebarSection("outline") },
+  { id: "keybindings", icon: "ph:keyboard", label: "Every editor command and its key", keys: "Ctrl+K Ctrl+S",
+    code: true, run: () => docIdeOpenKeys() },
+  { id: "minimap", icon: "ph:sidebar-simple", label: "Show the minimap in a code file", keys: "none",
+    code: true, run: () => docIdeToggleMinimap() },
+  { id: "compare-version", icon: "ph:git-diff", label: "Compare with a saved version", keys: "none",
+    code: true, run: () => docIdeCompareMenu() },
+  { id: "compare-revert", icon: "ph:arrow-counter-clockwise", label: "Put back the compared hunk at the caret", keys: "none",
+    code: true, run: () => docIdeRevertAtCaret() },
+  { id: "compare-stop", icon: "ph:x", label: "Stop comparing with a saved version", keys: "none",
+    code: true, run: () => docIdeStopCompare() },
 ];
 
 // DOC-COMMANDS-END
@@ -2528,7 +2869,7 @@ function docPaletteCommands() {
   return DOC_COMMANDS.filter((command) => command.run && (!command.code || code)).map((command) => ({
     group: "This document",
     label: `${command.icon} ${command.label}`,
-    keys: command.keys,
+    keys: command.keys === "none" ? "" : command.keys,
     run: command.run,
   }));
 }
@@ -2541,7 +2882,7 @@ function renderDocShortcutSheet(list) {
   if (!list) return;
   list.replaceChildren();
   for (const command of DOC_COMMANDS) {
-    if (!command.keys) continue;
+    if (!command.keys || command.keys === "none") continue;
     const li = document.createElement("li");
     const keys = document.createElement("span");
     keys.className = "shortcut-keys";
@@ -3533,11 +3874,23 @@ const DOC_GUTTER_BASELINE = 0.43;
 //: 200 and the gutter stuck at 139, which is two and a half lines of drift
 //: that grows the further down you scroll. Same height, same content height,
 //: same range, and the assignment is then exact.
+//: **Every read, then every write** (OPEN 1076, perfpolish): a write and a
+//: layout read per gutter forced one layout per gutter; read all of them
+//: first and the writes cost one layout after.
 function syncDocGutterMetrics(only = null) {
+  const jobs = [];
   for (const { gutter, box } of docGutters()) {
     if (only && box !== only) continue;
     if (gutter.classList.contains("hidden")) continue;
     const metrics = getComputedStyle(box);
+    jobs.push({
+      gutter,
+      metrics: Object.fromEntries([...DOC_GUTTER_PROPS, "fontSize"].map((prop) => [prop, metrics[prop]])),
+      own: parseFloat(getComputedStyle(gutter).fontSize),
+      height: box.offsetHeight,
+    });
+  }
+  for (const { gutter, metrics, own, height } of jobs) {
     for (const prop of DOC_GUTTER_PROPS) gutter.style[prop] = metrics[prop];
     //: **On the text's baseline, not its centre** (INBOX 590). A smaller
     //: figure in the same line box is centred on the row, which puts its
@@ -3545,12 +3898,12 @@ function syncDocGutterMetrics(only = null) {
     //: (measured 2.1px for 11.2px figures beside 16px text, `gutter.js`).
     //: The figures move down by that much and the bottom padding gives it
     //: back, so the column's scroll range stays the box's.
-    const drop = DOC_GUTTER_BASELINE * (parseFloat(metrics.fontSize) - parseFloat(getComputedStyle(gutter).fontSize));
+    const drop = DOC_GUTTER_BASELINE * (parseFloat(metrics.fontSize) - own);
     if (drop > 0) {
       gutter.style.paddingTop = `calc(${metrics.paddingTop} + ${drop.toFixed(2)}px)`;
       gutter.style.paddingBottom = `max(0px, calc(${metrics.paddingBottom} - ${drop.toFixed(2)}px))`;
     }
-    gutter.style.height = `${box.offsetHeight}px`;
+    gutter.style.height = `${height}px`;
   }
 }
 
@@ -3575,9 +3928,11 @@ function watchDocGutter(box) {
 }
 
 function renderDocGutter(only = null) {
-  for (const { gutter, box } of docGutters()) {
-    if (only && box !== only) continue;
-    if (gutter.classList.contains("hidden")) continue;
+  const pairs = docGutters().filter(({ gutter, box }) => (!only || box === only) && !gutter.classList.contains("hidden"));
+  //: The layout reads first, for the reason `syncDocGutterMetrics` gives.
+  const heights = pairs.map(({ box }) => box.offsetHeight);
+  const tops = pairs.map(({ box }) => box.scrollTop);
+  for (const [index, { gutter, box }] of pairs.entries()) {
     const lines = box.value.split("\n").length;
     // One text node of numbers, not one element per line: a 5,000-line file
     // is 5,000 elements to build and lay out on every keystroke otherwise,
@@ -3598,8 +3953,8 @@ function renderDocGutter(only = null) {
     //: Height on every paint, not only on mount: the textarea grows and
     //: shrinks with the pane, with the chat dock, and with its own resize
     //: handle, and none of those tells this code anything.
-    gutter.style.height = `${box.offsetHeight}px`;
-    gutter.scrollTop = box.scrollTop;
+    gutter.style.height = `${heights[index]}px`;
+    gutter.scrollTop = tops[index];
   }
 }
 
@@ -4846,7 +5201,11 @@ function docHtmlToMarkdown(html) {
         if (inner) out.push(inner.split("\n").map((line) => `> ${line}`.trimEnd()).join("\n"));
       } else if (tag === "PRE") {
         const code = child.textContent.replace(/\n$/, "");
-        out.push("```\n" + code + "\n```");
+        //: A block's language, when the page names it (`language-js` on the
+        //: pre or its code, as GitHub and a Word import write it).
+        const inner = child.querySelector("code");
+        const lang = (/(?:^|\s)language-([\w+#-]+)/.exec(`${child.className} ${inner?.className || ""}`) || [])[1] || "";
+        out.push("```" + lang + "\n" + code + "\n```");
       } else if (tag === "TABLE") {
         const grid = [...child.querySelectorAll("tr")].map((tr) =>
           [...tr.children].map((cell) => inline(cell).replace(/\s+/g, " ").replace(/\|/g, "\\|").trim())
@@ -6259,7 +6618,7 @@ function docRevealBlock(blockId) {
 // The model is pure string work with no DOM and no app globals, so
 // `tests/test_doc_comments.py` runs it in node, the same way the table,
 // frontmatter, columns and block-reference models are tested. The footnote
-// conversion exists twice, here and in `src/memorymap/core/docexport.py`
+// conversion exists twice, here and in `src/tessellate/core/docexport.py`
 // (the server exports cannot call into this file), and that test runs both
 // over one fixture and asserts the two agree byte for byte.
 
@@ -6918,9 +7277,22 @@ function docMathRender(tex, display = false) {
 //: The compartment decision 3 names: Live is this editor with the markdown
 //: decorations on, Source is the same editor with them off. Nothing else
 //: differs between the two views, which is the whole point.
+//: **A reconfigure that changes nothing is skipped** (DOCUMENTS 25 row 7).
+//: Each one is a view update that reads the DOM selection and lays the page
+//: out: measured on a 241-line file, the open spent 103ms here and 75ms in the
+//: gutter's twin below re-saying what `docCmExtensions` had just built. The
+//: live set is cached instances (`docLivePlugin`, the two fields), so on or
+//: off is the whole of its state, as the line numbers' preference is the
+//: gutter's.
+function docCmPartIs(part, on) {
+  const current = part.get(docCmView.state);
+  return Boolean(current && current.length) === Boolean(on);
+}
+
 function docSetLiveDecorations(on) {
   const CM = window.CM6;
   if (!docCmView || !CM || !docCmParts.live) return;
+  if (docCmPartIs(docCmParts.live, on)) return;
   docCmView.dispatch({
     effects: docCmParts.live.reconfigure(on ? docLiveExtensions(CM) : []),
   });
@@ -9712,11 +10084,11 @@ const MD_ACTIONS = {
   h1: { line: "# " },
   h2: { line: "## " },
   h3: { line: "### " },
-  bold: { wrap: "**", placeholder: "bold text" },
-  italic: { wrap: "*", placeholder: "italic text" },
-  strike: { wrap: "~~", placeholder: "struck through" },
-  code: { wrap: "`", placeholder: "code" },
-  highlight: { wrap: "==", placeholder: "highlighted" },
+  bold: { wrap: MD_INLINE_MARKS.bold, placeholder: "bold text" },
+  italic: { wrap: MD_INLINE_MARKS.italic, placeholder: "italic text" },
+  strike: { wrap: MD_INLINE_MARKS.strike, placeholder: "struck through" },
+  code: { wrap: MD_INLINE_MARKS.code, placeholder: "code" },
+  highlight: { wrap: MD_INLINE_MARKS.highlight, placeholder: "highlighted" },
   clearformat: { custom: "clearformat" },
   //: The one icon and emoji picker (MINDMAP_PLAN decision 46).
   emoji: { custom: "emoji" },
@@ -10115,8 +10487,11 @@ function exportDocumentBundle() {
   return downloadDocumentExport("export.zip", "document.zip");
 }
 
-function exportDocumentDocx() {
-  return downloadDocumentExport("export.docx", "document.docx");
+//: Written in the browser by documents-word.js (Brief 42), loaded on the
+//: first press: no server extra to install, so no 501.
+async function exportDocumentDocx() {
+  if (!(await lazyScript("/js/documents-word.js"))) return toast("The Word writer could not be loaded.", true, { action: ["Try again", exportDocumentDocx] });
+  return docWordExport();
 }
 
 //: The same fetch, name and save as the zip and the Word file (audit FE-16:
@@ -10303,7 +10678,7 @@ function docExportHtmlDocument(title, bodyHtml, savedOn) {
 // DOC-EXPORT-HTML-END
 
 //: What comes out of the app and what does not. Everything in this list is
-//: something that works only inside a running MemoryMap: a button with a
+//: something that works only inside a running Tessellate: a button with a
 //: listener that no longer exists, an icon whose font is not in the file, a
 //: link to `/documents/12`. Shipped as-is they would be an empty square, a
 //: dead control and a 404; dropped, the page reads.
@@ -10684,7 +11059,7 @@ function docPrintSetupDialog() {
   }).then((setup) => {
     if (!setup) return null;
     try {
-      localStorage.setItem(DOC_PRINT_KEY, JSON.stringify(setup));
+      prefs.set(DOC_PRINT_KEY, JSON.stringify(setup));
     } catch {
       /* this print still uses it */
     }
@@ -10742,14 +11117,173 @@ async function deleteDocumentWithUndo(doc) {
       await loadDocuments();
     }
   );
-  toastAction("Document moved to the bin.", "Undo", async () => {
+  toastAction(`Moved ${toastName(title, "the document")} to the bin.`, "Undo", async () => {
     await action.undo();
     //: `settleUndoFromToast`, not a bare stack pop: the toast's Undo and the
     //: status bar's Undo are the same action, and without this a later Ctrl+Z
     //: would run the same restore a second time.
     settleUndoFromToast(action);
-    toast("Document restored.");
+    toast(`Restored ${toastName(title, "the document")}.`);
   });
+}
+
+//: **Every act on a document is one undo step** (DOCUMENTS 24 row 1, rule
+//: 1.8). Each goes through `offerUndo`: the step on the app's stack (Ctrl+Z,
+//: the status bar, its history menu) and the toast's Undo are one entry, and
+//: each undo is the server's own inverse (unarchive, re-attach, the old title
+//: put back), so nothing is re-created under a new id. Measured with
+//: `undo.js` and `docacts76.js`: 2 of 11 acts undid before this, 11 of 11 after.
+function docPutFields(id, fields) {
+  return apiJson(`/documents/${id}`, { method: "PUT", body: JSON.stringify(fields) });
+}
+
+async function renameDocumentWithUndo(doc, next) {
+  const before = doc.title || "Untitled";
+  const put = async (title) => {
+    await docPutFields(doc.id, { title });
+    if (currentDoc?.id === doc.id) $("doc-title").value = title;
+    await loadDocuments(currentDoc?.id);
+  };
+  await docPutFields(doc.id, { title: next });
+  offerUndo(`Renamed “${clipText(before, 40)}”`, `Renamed to “${clipText(next, 40)}”.`, () => put(before), () => put(next));
+  await loadDocuments(currentDoc?.id);
+}
+
+async function archiveDocumentWithUndo(doc) {
+  const archive = async () => {
+    await apiJson(`/documents/${doc.id}/archive`, { method: "PUT" });
+    if (currentDoc?.id === doc.id) currentDoc = null;
+    await loadDocuments(currentDoc?.id);
+  };
+  await archive();
+  offerUndo(
+    `Archived “${clipText(doc.title || "Untitled", 40)}”`,
+    "Archived. It is in the Library's Shelved filter.",
+    async () => {
+      await apiJson(`/documents/${doc.id}/unarchive`, { method: "PUT" });
+      await loadDocuments(doc.id);
+    },
+    archive
+  );
+}
+
+//: Creating is an act too: its undo bins the new document (the recycle bin
+//: keeps its id), its redo brings the same one back. On the stack with no
+//: toast: the new page opening is the answer, and a toast on every page made
+//: would be noise.
+function offerCreateUndo(doc) {
+  pushUndo(
+    `Created “${clipText(doc.title || "Untitled", 40)}”`,
+    async () => {
+      await apiJson(`/documents/${doc.id}`, { method: "DELETE" });
+      if (currentDoc?.id === doc.id) currentDoc = null;
+      await loadDocuments(currentDoc?.id);
+    },
+    async () => {
+      await apiJson(`/documents/${doc.id}/restore`, { method: "POST" });
+      await loadDocuments(doc.id);
+    }
+  );
+}
+
+//: Several documents made by one act (an import): one step that bins them all
+//: and, on redo, brings the same ones back.
+function offerCreatedDocsUndo(docs) {
+  if (docs.length === 1) return offerCreateUndo(docs[0]);
+  const each = (verb) => async () => {
+    for (const doc of docs) {
+      if (verb === "bin") await apiJson(`/documents/${doc.id}`, { method: "DELETE" });
+      else await apiJson(`/documents/${doc.id}/restore`, { method: "POST" });
+    }
+    await loadDocuments(currentDoc?.id);
+  };
+  return pushUndo(`Imported ${docs.length} documents`, each("bin"), each("restore"));
+}
+
+//: A note's link to this document, either way round. The server answers with
+//: the whole document, which is what the panel draws from.
+async function docSetNoteLink(docId, noteId, linked) {
+  const full = linked
+    ? await apiJson(`/documents/${docId}/notes`, { method: "POST", body: JSON.stringify({ entry_id: noteId }) })
+    : await apiJson(`/documents/${docId}/notes/${noteId}`, { method: "DELETE" });
+  if (currentDoc?.id === docId) currentDoc = full;
+  renderDocNotes();
+  //: Detaching can move a note *into* the backlinks list: it may still
+  //: mention this document by [[title]], and that connection only becomes
+  //: visible once it is no longer filed under it.
+  renderDocBacklinks();
+  loadEntries();
+}
+
+async function unlinkDocNoteWithUndo(note) {
+  const docId = currentDoc.id;
+  await docSetNoteLink(docId, note.id, false);
+  offerUndo("Detached a note", "Note detached. The note itself is kept.", () => docSetNoteLink(docId, note.id, true), () => docSetNoteLink(docId, note.id, false));
+}
+
+async function docSetBookmark(docId, bookmarkId, attached) {
+  await (attached
+    ? apiJson(`/documents/${docId}/bookmarks`, { method: "POST", body: JSON.stringify({ bookmark_id: bookmarkId }) })
+    : apiJson(`/documents/${docId}/bookmarks/${bookmarkId}`, { method: "DELETE" }));
+  if (currentDoc?.id === docId) renderDocBookmarks();
+}
+
+async function docBookmarkWithUndo(bookmarkId, attached) {
+  const docId = currentDoc.id;
+  await docSetBookmark(docId, bookmarkId, attached);
+  offerUndo(
+    attached ? "Attached a link" : "Removed a link",
+    attached ? "Link attached." : "Link removed.",
+    () => docSetBookmark(docId, bookmarkId, !attached),
+    () => docSetBookmark(docId, bookmarkId, attached)
+  );
+}
+
+//: The restored text goes in outside the editor's own history: the restore is
+//: one step on the app's stack, and the same change in both would have Ctrl+Z
+//: undo it twice.
+function docWriteOutsideHistory(text) {
+  const CM = window.CM6;
+  if (!docCmView || !CM) {
+    docSurface().text = text;
+    return;
+  }
+  const current = docCmView.state.doc.toString();
+  if (current === text) return;
+  const [from, to, insert] = docUndoDiffRange(current, text);
+  docCmView.dispatch({ changes: { from, to, insert }, annotations: CM.state.Transaction.addToHistory.of(false) });
+}
+
+function docShowSaved(saved) {
+  docs = docs.map((d) => (d.id === saved.id ? { ...d, ...saved } : d));
+  if (currentDoc?.id !== saved.id) {
+    renderDocList();
+    return;
+  }
+  currentDoc = saved;
+  docWriteOutsideHistory(saved.content || "");
+  $("doc-title").value = saved.title || "";
+  renderDocPreview();
+  docDirty = false;
+  $("doc-saved").textContent = "Saved";
+  renderDocList();
+}
+
+//: **A restore is one step, not a confirm** (DOCUMENTS 24 row 4, the rule
+//: note-history.js's `restoreTo` already follows): it happens at once and
+//: Ctrl+Z puts back, byte for byte, the text and title that were on screen.
+async function restoreDocVersionWithUndo(entry) {
+  const docId = currentDoc.id;
+  const before = { content: docText(), title: $("doc-title").value.trim() || undefined, revision_source: "restore" };
+  const restore = async () =>
+    docShowSaved(await apiJson(`/documents/${docId}/revisions/${entry.id}/restore`, { method: "POST" }));
+  await restore();
+  offerUndo(
+    `Restored the version from ${whenText(entry.created_at)}`,
+    "Restored. Undo puts back the version you had.",
+    async () => docShowSaved(await docPutFields(docId, before)),
+    restore
+  );
 }
 
 async function deleteCurrentDocument() {
@@ -11184,7 +11718,7 @@ async function openDocAiHistory() {
       line.textContent = entry.instruction || (entry.verb === "remove" ? "Removed a selection" : "AI edit");
       const meta = document.createElement("p");
       meta.className = "muted text-sm";
-      const when = new Date(entry.created_at).toLocaleString();
+      const when = whenText(entry.created_at);
       meta.textContent = entry.selection_excerpt
         ? `${when} · “${entry.selection_excerpt}”`
         : when;
@@ -11485,7 +12019,65 @@ function docRenderDiff(host, ops, options) {
     line.append(mark, text);
     host.appendChild(line);
   }
+  if (opts.split) docDiffSplitLayout(host, opts.split);
   return host;
+}
+
+//: **Side by side** (DOCUMENTS 24 row 4, Google Docs and every code review
+//: tool): the same rows `docRenderDiff` drew, placed on a two-column grid
+//: rather than drawn a second way. A removed run sits on the left against the
+//: added run that replaced it on the right, line for line; an unchanged line
+//: shows on both sides; a gap or a hunk head spans the two. `labels` names
+//: the columns.
+function docDiffSplitLayout(host, labels) {
+  host.classList.add("doc-diff-split");
+  const heads = labels.map((words) => {
+    const head = document.createElement("div");
+    head.className = "doc-diff-gap doc-diff-split-head";
+    head.textContent = words;
+    return head;
+  });
+  const items = [...host.children];
+  host.prepend(...heads);
+  heads.forEach((head, i) => {
+    head.style.gridRow = "1";
+    head.style.gridColumn = String(i + 1);
+  });
+  let row = 2;
+  let run = { left: 0, right: 0 };
+  const place = (el, col, at) => {
+    el.style.gridRow = String(at);
+    el.style.gridColumn = col;
+  };
+  const flush = () => {
+    row += Math.max(run.left, run.right);
+    run = { left: 0, right: 0 };
+  };
+  for (const el of items) {
+    const removed = el.classList.contains("diff-removed");
+    const added = el.classList.contains("diff-added");
+    if (removed && !run.right) {
+      place(el, "1", row + run.left++);
+      continue;
+    }
+    if (added) {
+      place(el, "2", row + run.right++);
+      continue;
+    }
+    flush();
+    if (removed) {
+      place(el, "1", row + run.left++);
+      continue;
+    }
+    if (!el.classList.contains("doc-diff-line")) {
+      place(el, "1 / -1", row++);
+      continue;
+    }
+    const twin = el.cloneNode(true);
+    place(el, "1", row);
+    place(twin, "2", row++);
+    el.after(twin);
+  }
 }
 
 function docDiffHunkHead(hunk, index, total, skipped, onToggle) {
@@ -11586,19 +12178,20 @@ function renderDocHistoryList() {
   const empty = $("doc-history-empty");
   if (!list || !empty) return;
   docHistoryOpenDiff = null;
-  const shown = docHistoryEntries.filter(
-    (entry) => docHistoryFilter === "all" || (entry.source || "edit") === "ai"
-  );
+  const shown = docHistoryEntries.filter((entry) => {
+    if (docHistoryFilter === "named") return Boolean(entry.name);
+    return docHistoryFilter === "all" || (entry.source || "edit") === "ai";
+  });
   list.replaceChildren();
   empty.classList.toggle("hidden", shown.length > 0);
   if (!shown.length) {
     //: The filter's empty state says which filter is on. "Nothing yet" under an
     //: AI filter on a document with forty hand edits is a lie about the
     //: document rather than a fact about the filter.
-    empty.textContent =
-      docHistoryFilter === "ai"
-        ? "No AI edits in this document's history."
-        : "Nothing yet: this document has not been changed since it was made.";
+    empty.textContent = {
+      ai: "No AI edits in this document's history.",
+      named: "No named versions yet. Name this version keeps the text as it stands now.",
+    }[docHistoryFilter] || "Nothing yet: this document has not been changed since it was made.";
     return;
   }
   for (const entry of shown) list.appendChild(docHistoryRow(entry));
@@ -11626,9 +12219,16 @@ function docHistoryRow(entry) {
   text.className = "doc-ai-history-text";
   const line = document.createElement("p");
   line.textContent = `${shape.label} · ${docHistoryDelta(entry.word_delta)}`;
+  //: A named version leads with its name, the way Google Docs lists them.
+  if (entry.name) {
+    const name = document.createElement("strong");
+    name.className = "doc-history-name";
+    name.textContent = entry.name;
+    line.prepend(name, " · ");
+  }
   const meta = document.createElement("p");
   meta.className = "muted text-sm";
-  meta.textContent = `${new Date(entry.created_at).toLocaleString()} · ${entry.words} words`;
+  meta.textContent = `${whenText(entry.created_at)} · ${entry.words} words`;
   //: The opening of the version itself. A row saying only "You, 20 May,
   //: +140 words" makes you open every entry to find the one you want, which
   //: is the work this list is supposed to save.
@@ -11641,7 +12241,7 @@ function docHistoryRow(entry) {
   //: and nothing drawn over the content it is about.
   const diffBox = document.createElement("div");
   diffBox.className = "doc-history-diff hidden";
-  text.append(line, meta, preview, diffBox);
+  text.append(line, meta, preview);
 
   const changes = document.createElement("button");
   changes.type = "button";
@@ -11660,7 +12260,7 @@ function docHistoryRow(entry) {
     const full = await apiJson(
       `/documents/${currentDoc.id}/revisions/${entry.id}`
     ).catch(() => null);
-    if (!full) return toast("Couldn't open that version.", true);
+    if (!full) return toast("Couldn't open that version.", true, { action: ["Try again", () => view.click()] });
     $("doc-history-dialog").close();
     //: Through the lightbox, which is already the app's read-only viewer for
     //: a document's text: including its find bar, which is how anyone
@@ -11668,7 +12268,7 @@ function docHistoryRow(entry) {
     openLightbox(
       [
         {
-          filename: `${full.title || "Untitled"}, ${new Date(full.created_at).toLocaleString()}`,
+          filename: `${full.title || "Untitled"}, ${whenText(full.created_at)}`,
           kind: currentDoc.file_type === "md" ? "markdown" : "code",
           text: full.content || "",
           addedAt: full.created_at || "",
@@ -11684,31 +12284,12 @@ function docHistoryRow(entry) {
   restore.textContent = "Restore";
   restore.title = "Put the document back to this version";
   restore.addEventListener("click", async () => {
-    //: Asked first, because this replaces what is on screen. Cheap to undo
-    //: (the restore keeps the version it replaced) but not obviously so from
-    //: the outside, and a confirm is what says it is a real change.
-    const ok = await confirmDialog(
-      `Put this document back to the version from ${new Date(entry.created_at).toLocaleString()}?\n\n` +
-        "The version you have now is kept in the history, so this is undoable.",
-      { confirmLabel: "Restore it" }
-    );
-    if (!ok) return;
+    //: At once, no confirm: the restore is one step on the undo stack and its
+    //: toast says how to take it back (DOCUMENTS 24 row 4).
     restore.disabled = true;
     try {
-      const saved = await apiJson(
-        `/documents/${currentDoc.id}/revisions/${entry.id}/restore`,
-        { method: "POST" }
-      );
-      currentDoc = saved;
-      docSurface().text = saved.content || "";
-      $("doc-title").value = saved.title || "";
-      renderDocPreview();
-      docDirty = false;
-      $("doc-saved").textContent = "Saved";
-      docs = docs.map((d) => (d.id === saved.id ? { ...d, ...saved } : d));
-      renderDocList();
+      await restoreDocVersionWithUndo(entry);
       $("doc-history-dialog").close();
-      toast("Restored. The version you had is in the history.");
     } catch (error) {
       toast(error.message || "Couldn't restore that version.", true);
     } finally {
@@ -11718,9 +12299,96 @@ function docHistoryRow(entry) {
 
   const actions = document.createElement("span");
   actions.className = "row doc-history-actions";
-  actions.append(changes, view, restore);
-  row.append(icon, text, actions);
+  actions.append(changes, view, restore, docHistoryRowMenu(entry));
+  //: The diff takes the row's whole width, under all three columns, so a
+  //: side-by-side pair has room for two readable columns.
+  row.append(icon, text, actions, diffBox);
   return row;
+}
+
+//: The row's less-used acts behind its ⋯ (`kebabMenu`): name or rename the
+//: version, take the name off, and on a code document compare it in the
+//: editor (the merge view, `docIdeCompareWith`).
+function docHistoryRowMenu(entry) {
+  const items = [
+    makeMenuItem(
+      `ph:bookmark-simple ${entry.name ? "Rename this version" : "Name this version"}`,
+      "A name keeps this version easy to find, and the edits after it never fold into it",
+      () => docNameVersion(entry)
+    ),
+  ];
+  if (entry.name) {
+    items.push(makeMenuItem("ph:bookmark-simple Remove the name", "Keep the version, without its name", () => docSetVersionName(entry, "")));
+  }
+  //: The code view, as docIdeCodeView reads it; its commands call documents-ide.js directly too.
+  if (docCmView && currentDoc && !docFileType().previewable) {
+    items.push(
+      makeMenuItem("ph:git-diff Compare in the editor", "Show this version against the editor's text, change by change", () => {
+        $("doc-history-dialog").close();
+        docIdeCompareWith(entry.id, whenText(entry.created_at));
+      })
+    );
+  }
+  return kebabMenu(items, "More for this version", { vertical: true });
+}
+
+//: **A prompt asked from inside the history dialog.** `promptDialog` mounts
+//: its overlay on `<body>`, and a `showModal()` dialog makes everything
+//: outside it inert, so the prompt opened beneath the history unreachable
+//: (measured: the click at its centre landed on the history). Moved into the
+//: open modal as soon as it is made (the executor runs synchronously), the
+//: same escape `wireHelpPopover` makes for a "?". Done here rather than in
+//: app.js, whose gzipped size is held by `test_static_compression.py`.
+function docPromptInModal(message, initial) {
+  const asked = promptDialog(message, initial);
+  const overlay = document.body.lastElementChild;
+  const modal = document.querySelector("dialog:modal");
+  if (modal && overlay?.classList.contains("confirm-overlay")) {
+    modal.appendChild(overlay);
+    overlay.querySelector("input")?.select();
+  }
+  return asked;
+}
+
+async function docNameVersion(entry) {
+  const next = await docPromptInModal(entry.name ? "Rename this version:" : "Name this version:", entry.name || "");
+  if (next === null || next === undefined) return;
+  await docSetVersionName(entry, next);
+}
+
+//: Naming is an act like any other: one undo step that puts the old name back.
+async function docSetVersionName(entry, name) {
+  const docId = currentDoc.id;
+  const before = entry.name || "";
+  const put = async (value) => {
+    await apiJson(`/documents/${docId}/revisions/${entry.id}`, { method: "PUT", body: JSON.stringify({ name: value }) });
+    if (currentDoc?.id === docId && $("doc-history-dialog")?.open) await openDocHistory();
+  };
+  try {
+    await put(name);
+  } catch (error) {
+    return toast(error.message || "Couldn't name that version.", true);
+  }
+  offerUndo(name.trim() ? `Named a version “${clipText(name.trim(), 40)}”` : "Removed a version's name", name.trim() ? "Version named." : "Name removed.", () => put(before), () => put(name));
+}
+
+//: Google Docs's "Name current version": the text as it stands, saved first so
+//: the name holds what is on screen.
+async function docNameCurrentVersion() {
+  if (!currentDoc) return;
+  const name = await docPromptInModal("Name this version:", "");
+  if (!name || !name.trim()) return;
+  if (docDirty) await saveDocument({ silent: true });
+  const docId = currentDoc.id;
+  let made;
+  try {
+    made = await apiJson(`/documents/${docId}/revisions`, { method: "POST", body: JSON.stringify({ name }) });
+  } catch (error) {
+    return toast(error.message || "Couldn't name this version.", true);
+  }
+  if ($("doc-history-dialog")?.open) await openDocHistory();
+  const entry = { id: made.id, name: made.name };
+  offerUndo(`Named a version “${clipText(made.name, 40)}”`, "Version named. It is under Named in the history.", () => docSetVersionName(entry, ""), () => docSetVersionName(entry, made.name));
 }
 
 async function toggleDocHistoryDiff(entry, row, button, box) {
@@ -11763,12 +12431,14 @@ async function toggleDocHistoryDiff(entry, row, button, box) {
     const head = document.createElement("p");
     head.className = "muted text-sm doc-diff-head";
     const against = newer
-      ? `the version from ${new Date(newer.created_at).toLocaleString()}`
+      ? `the version from ${whenText(newer.created_at)}`
       : "the document as it is now";
     head.textContent = `+${stat.added} −${stat.removed} lines, against ${against}.`;
     const view = document.createElement("div");
     box.append(head, view);
-    docRenderDiff(view, ops, { emptyText: "The text is the same; only the title changed." });
+    //: Side by side where the dialog has the room, one column on a phone.
+    const split = box.clientWidth >= 560 ? ["This version", newer ? "The version after it" : "Now"] : null;
+    docRenderDiff(view, ops, { emptyText: "The text is the same; only the title changed.", split });
   } catch (error) {
     box.replaceChildren();
     const failed = document.createElement("p");
@@ -11778,7 +12448,124 @@ async function toggleDocHistoryDiff(entry, row, button, box) {
   }
 }
 
+// --- Replace in every document (DOCUMENTS 24 row 9) ---------------------------
+//
+// VS Code's replace across files: a pattern (plain or a regular expression,
+// matched with or without case), the documents it would change and how many
+// times, then Replace all. The texts are rebuilt here and written in one
+// request (`POST /documents/contents`), and the one undo step writes the
+// originals back the same way, so fifty documents change, or change back,
+// whole. Each changed document keeps the version it replaced in its history.
+const docReplace = { matches: [], timer: 0 };
+
+function docReplacePattern() {
+  const find = $("doc-replace-find").value;
+  if (!find) return null;
+  const flags = $("doc-replace-case").checked ? "g" : "gi";
+  const source = $("doc-replace-regex").checked ? find : find.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  try {
+    return new RegExp(source, flags);
+  } catch (error) {
+    return { error: error.message };
+  }
+}
+
+async function openDocReplace() {
+  if (docDirty) await saveDocument({ silent: true });
+  const dialog = $("doc-replace-dialog");
+  if (!dialog) return;
+  if (!dialog.open) dialog.showModal();
+  const view = docCmView;
+  const picked = view && !view.state.selection.main.empty ? view.state.sliceDoc(view.state.selection.main.from, view.state.selection.main.to).split("\n")[0] : "";
+  if (picked) $("doc-replace-find").value = picked;
+  $("doc-replace-find").focus();
+  $("doc-replace-find").select();
+  await renderDocReplace();
+}
+
+//: The documents a replace would change, read fresh: the list's own rows hold
+//: no text, and a count from stale text would promise a change it cannot make.
+async function docReplaceScan(pattern) {
+  const out = [];
+  for (const doc of await apiJson("/documents/contents")) {
+    const count = doc.content.match(pattern)?.length || 0;
+    if (count) out.push({ ...doc, count });
+  }
+  return out;
+}
+
+async function renderDocReplace() {
+  const summary = $("doc-replace-summary");
+  const list = $("doc-replace-list");
+  const run = $("doc-replace-run");
+  const pattern = docReplacePattern();
+  list.replaceChildren();
+  run.disabled = true;
+  docReplace.matches = [];
+  if (!pattern || pattern.error) {
+    summary.textContent = pattern?.error ? `That pattern does not read: ${pattern.error}` : "Type what to find.";
+    return;
+  }
+  summary.textContent = "Searching…";
+  const matches = await docReplaceScan(pattern);
+  if (String(docReplacePattern()) !== String(pattern)) return;
+  docReplace.matches = matches;
+  const total = matches.reduce((sum, m) => sum + m.count, 0);
+  summary.textContent = matches.length
+    ? `${total} match${total === 1 ? "" : "es"} in ${matches.length} document${matches.length === 1 ? "" : "s"}.`
+    : "No document has it.";
+  for (const match of matches) {
+    const row = document.createElement("li");
+    row.className = "doc-ai-history-entry";
+    row.textContent = `${match.title || "Untitled"} · ${match.count}`;
+    list.appendChild(row);
+  }
+  run.disabled = !matches.length;
+}
+
+async function docWriteContents(items) {
+  await apiJson("/documents/contents", { method: "POST", body: JSON.stringify({ documents: items }) });
+  const open = items.find((item) => item.id === currentDoc?.id);
+  if (open) docShowSaved(await apiJson(`/documents/${open.id}`));
+  loadDocuments(currentDoc?.id);
+}
+
+async function runDocReplace() {
+  const pattern = docReplacePattern();
+  if (!pattern || pattern.error || !docReplace.matches.length) return;
+  //: A plain replace is plain: `$&` and `$1` mean something only to a pattern.
+  const typed = $("doc-replace-with").value;
+  const replacement = $("doc-replace-regex").checked ? typed : typed.replace(/\$/g, "$$$$");
+  const before = docReplace.matches.map((m) => ({ id: m.id, content: m.content }));
+  const after = docReplace.matches.map((m) => ({ id: m.id, content: m.content.replace(pattern, replacement) }));
+  const total = docReplace.matches.reduce((sum, m) => sum + m.count, 0);
+  try {
+    await docWriteContents(after);
+  } catch (error) {
+    return toast(error.message || "Couldn't replace. Nothing was changed.", true);
+  }
+  $("doc-replace-dialog").close();
+  offerUndo(
+    `Replaced ${total} in ${after.length} document${after.length === 1 ? "" : "s"}`,
+    `Replaced ${total} in ${after.length} document${after.length === 1 ? "" : "s"}. Undo takes it all back.`,
+    () => docWriteContents(before),
+    () => docWriteContents(after)
+  );
+}
+
+for (const id of ["doc-replace-find", "doc-replace-regex", "doc-replace-case"]) {
+  $(id)?.addEventListener(id === "doc-replace-find" ? "input" : "change", () => {
+    clearTimeout(docReplace.timer);
+    docReplace.timer = setTimeout(renderDocReplace, 250);
+  });
+}
+$("doc-replace-run")?.addEventListener("click", runDocReplace);
+$("doc-replace-with")?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !$("doc-replace-run").disabled) runDocReplace();
+});
+
 $("doc-history")?.addEventListener("click", openDocHistory);
+$("doc-history-name")?.addEventListener("click", docNameCurrentVersion);
 //: The AI assistant's own model. `openFeatureModelSheet` lives in app.js,
 //: which loads first, and is the same sheet the Chat tab and the writing desk
 //: open: one picker, three ways in.
@@ -11798,7 +12585,7 @@ function showDocSidebarSection(name) {
     button.setAttribute("aria-selected", String(active));
     button.tabIndex = active ? 0 : -1;
   }
-  localStorage.setItem(DOC_SIDEBAR_STORE, wanted);
+  prefs.set(DOC_SIDEBAR_STORE, wanted);
   //: A hidden list has no scroll position to correct, so the mark made while
   //: the Documents tab was showing could not bring its row into view. Asked
   //: again on the way in, when the outline has a box.
@@ -11839,6 +12626,15 @@ function initDocSidebarTabs() {
 }
 
 // --- documents wiring ---
+//: The code panel's ways in (INBOX 788), each fetching documents-codekit.js
+//: on its first press. `keep` reopens a tab without toggling it shut.
+async function docCodeSideFrom(tab, keep = false) {
+  if (!(await lazyScript("/js/documents-codekit.js"))) return toast("The code panel could not be loaded.", true, { action: ["Try again", () => docCodeSideFrom(tab, keep)] });
+  if (keep) docCodeSideOpen(tab, { auto: true });
+  else docCodeSideToggle(tab);
+}
+$("doc-code-snippets-open")?.addEventListener("click", () => docCodeSideFrom("snippets"));
+$("doc-code-assist-open")?.addEventListener("click", () => docCodeSideFrom("assist"));
 $("doc-new").addEventListener("click", () => createDocument());
 $("doc-new-template")?.addEventListener("click", openDocTemplateDialog);
 $("doc-template-list")?.addEventListener("keydown", docTemplateListKeys);
@@ -12522,6 +13318,11 @@ function noteSurfaceUpdate(host, update) {
   //: never raises for a typed character (the same call `docCmUpdate` makes
   //: for the document, and for the same reason).
   if (typeof editorHandleInput === "function") editorHandleInput(surface);
+  //: Autocorrect (autocorrect.js, Brief 94) hears a typed change as an event,
+  //: a microtask later: it may dispatch, which an update in progress refuses.
+  if (update.transactions.some((tr) => tr.isUserEvent("input.type"))) {
+    queueMicrotask(() => host.dispatchEvent(new CustomEvent("note-typed", { bubbles: true, detail: surface })));
+  }
 }
 
 function noteSurfaceMirror(host, view) {
@@ -12638,6 +13439,11 @@ async function mountNoteSurface(host, options = {}) {
     return textareaSurface(host);
   }
   if (!CM || noteSurfaceViews.has(host)) return noteSurfaceFor(host) || textareaSurface(host);
+  //: **The box can be gone by the time the editor has loaded.** A board
+  //: card's editor closed with Escape while CodeMirror was still loading
+  //: (measured at 390 under load, cardarrows sweep) left `host.parentNode`
+  //: null and threw at the `insertBefore` below.
+  if (!host.parentNode) return textareaSurface(host);
   //: Read before the wrapper below moves the textarea: moving a focused
   //: element in the DOM blurs it, so by the time the view exists the answer
   //: is always "no".
@@ -12872,7 +13678,7 @@ function applyDocWidth(wide) {
 
 function setDocWidth(wide) {
   try {
-    localStorage.setItem(DOC_WIDTH_KEY, wide ? "wide" : "measure");
+    prefs.set(DOC_WIDTH_KEY, wide ? "wide" : "measure");
   } catch {
     // A private window can refuse storage; the mode still applies for now.
   }
@@ -13023,7 +13829,7 @@ function applyDocSerif(on) {
 
 function docRememberReading(key, on, apply) {
   try {
-    localStorage.setItem(key, on ? "1" : "0");
+    prefs.set(key, on ? "1" : "0");
   } catch {
     // A private window can refuse storage; the mode still applies for now.
   }
@@ -13429,6 +14235,8 @@ document.addEventListener("keydown", (event) => {
   if (event.key !== "F11" || event.ctrlKey || event.metaKey || event.altKey || event.shiftKey) return;
   const tab = $("tab-documents");
   if (!tab || tab.classList.contains("hidden")) return;
+  //: While a debug session is on, F11 is Step into (Brief 70), as in VS Code.
+  if (docDebugOn()) return;
   event.preventDefault();
   toggleDocFocus();
 });
@@ -13459,7 +14267,7 @@ $("doc-connections").addEventListener("click", () => {
   // behind the dialog otherwise, and it is the same width as the dialog's
   // own left edge.
   $("doc-dock-menu")?.removeAttribute("open");
-  openConnections("documents", currentDoc.id, currentDoc.title || "This document");
+  lazyScript("/js/connections.js").then(() => openConnections("documents", currentDoc.id, currentDoc.title || "This document"));
 });
 $("doc-copy-link").addEventListener("click", () => {
   $("doc-dock-menu")?.removeAttribute("open");
@@ -13477,6 +14285,9 @@ $("doc-ai").addEventListener("click", openDocAiPanel);
 //: whole file (`docFormatCode`). The press takes the focus from the editor,
 //: so it is handed back: formatting is a step in the middle of typing.
 $("doc-code-run")?.addEventListener("click", () => docRunCode());
+//: DOCUMENTS_PLAN 25 row 2: Run on a .py document with no Python yet is
+//: disabled, and this line beside it is the way to the install.
+$("doc-code-run-why")?.addEventListener("click", () => docRunOpenPythonExtra());
 
 $("doc-code-format").addEventListener("click", async () => {
   await docFormatCode("auto");
@@ -13576,6 +14387,7 @@ $("doc-find-next").addEventListener("click", () => docFindStep(1));
 $("doc-find-prev").addEventListener("click", () => docFindStep(-1));
 $("doc-replace-one").addEventListener("click", docReplaceOne);
 $("doc-replace-all").addEventListener("click", docReplaceAll);
+$("doc-replace-everywhere").addEventListener("click", () => openDocReplace());
 
 //: Leaving with unsaved edits would lose them; autosave hasn't fired yet.
 //: The `beforeunload` guard for this is centralised in navigation.js
@@ -13609,8 +14421,8 @@ function docToolbarMode() {
   try {
     const stored = prefs.get(DOC_TOOLBAR_MODE_KEY, null);
     if (stored === "row" && !prefs.get(DOC_TOOLBAR_MODE_MIGRATED_KEY, null)) {
-      localStorage.removeItem(DOC_TOOLBAR_MODE_KEY);
-      localStorage.setItem(DOC_TOOLBAR_MODE_MIGRATED_KEY, "1");
+      prefs.remove(DOC_TOOLBAR_MODE_KEY);
+      prefs.set(DOC_TOOLBAR_MODE_MIGRATED_KEY, "1");
       return "wrap";
     }
     return stored === "row" ? "row" : "wrap";
@@ -13647,12 +14459,12 @@ function applyDocToolbarMode(mode) {
 
 function setDocToolbarMode(mode) {
   try {
-    localStorage.setItem(DOC_TOOLBAR_MODE_KEY, mode);
+    prefs.set(DOC_TOOLBAR_MODE_KEY, mode);
     //: A choice made now is never the pre-2026-09-09 default the migration
     //: in `docToolbarMode` clears. Without the flag, the first read after
     //: choosing "row" cleared it back to "wrap": the next press chose "row"
     //: again (the toggle could not go back) and a reload lost it.
-    localStorage.setItem(DOC_TOOLBAR_MODE_MIGRATED_KEY, "1");
+    prefs.set(DOC_TOOLBAR_MODE_MIGRATED_KEY, "1");
   } catch {
     /* private mode: it just won't be remembered */
   }
@@ -13713,10 +14525,11 @@ function docGutterWanted(isCode) {
 
 function setDocGutter(on) {
   try {
-    localStorage.setItem(DOC_GUTTER_KEY, on ? "1" : "0");
+    prefs.set(DOC_GUTTER_KEY, on ? "1" : "0");
   } catch {
     /* private mode: the choice holds for this session only */
   }
+  document.documentElement.dataset.noteGutter = on ? "on" : "off";
   applyDocGutter();
 }
 
@@ -13825,7 +14638,7 @@ function applyDocToolbarCollapsed(collapsed, only = null) {
 
 function setDocToolbarCollapsed(collapsed) {
   try {
-    localStorage.setItem(DOC_TOOLBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
+    prefs.set(DOC_TOOLBAR_COLLAPSED_KEY, collapsed ? "1" : "0");
   } catch {
     /* private mode: it just won't be remembered */
   }
@@ -13836,7 +14649,7 @@ function setDocToolbarCollapsed(collapsed) {
     let told = false;
     try {
       told = prefs.get(DOC_TOOLBAR_HINT_KEY, null) === "1";
-      localStorage.setItem(DOC_TOOLBAR_HINT_KEY, "1");
+      prefs.set(DOC_TOOLBAR_HINT_KEY, "1");
     } catch {
       /* private mode: said every time, which is the safe side */
     }
@@ -14339,7 +15152,6 @@ function docCaretPoint(box) {
 
 // --- the status bar -----------------------------------------------------------
 
-const DOC_READING_WPM = 220;
 
 //: Line and column are 1-based, because that is what every editor and every
 //: error message in the world means by them.
@@ -14364,7 +15176,7 @@ function docCaretStats(box) {
   //: and a selection count that lagged the selection would be worse than
   //: none. Counted only when there is a selection to count, so the common
   //: case (a caret, no range) still does no work at all.
-  const words = selected ? (box.text.slice(range.from, range.to).match(/\S+/g) || []).length : 0;
+  const words = selected ? textCounts(box.text.slice(range.from, range.to)).words : 0;
   return {
     line: line.number,
     column: range.from - line.from + 1,
@@ -14510,6 +15322,14 @@ function renderDocToolbarState() {
   }
 }
 
+//: The lines a reader sees: `textCounts(...).lines` is `wc -l` (newlines), so a
+//: last line with no newline after it is one more, and an empty text has none.
+function docLineCount(text) {
+  const value = String(text || "");
+  if (!value) return 0;
+  return textCounts(value).lines + (value.endsWith("\n") ? 0 : 1);
+}
+
 //: The counts. A whole-document pass, which is why it is scheduled rather
 //: than run on the keystroke (see `scheduleDocFacts`).
 function renderDocCounts() {
@@ -14519,19 +15339,20 @@ function renderDocCounts() {
   //: count, the character total or the reading time. Measured on a 128-word
   //: document with two comments in it: 134 words counted before this, 128
   //: after, which is the number the same document's Read view shows.
-  const text = docCommentStrip(docText());
-  const words = (text.match(/\S+/g) || []).length;
-  const chars = text.length;
-  const minutes = words / DOC_READING_WPM;
-  const read =
-    !words ? "" : minutes < 1 ? "under a min" : minutes < 60
-      ? `${Math.round(minutes)} min read`
-      : `${(minutes / 60).toFixed(1)}h read`;
+  //: Counted by `textCounts` (settings-wiring.js), the one count the
+  //: composer, this bar and the server share: characters are code points, as
+  //: `wc -m` counts them, so an emoji is one, not two.
+  const stripped = docCommentStrip(docText());
+  const { words, chars, read } = textCounts(stripped);
+  const lines = docLineCount(stripped);
   //: Characters first, because that is the one the existing header line never
-  //: showed and the one that was asked for by name.
+  //: showed and the one that was asked for by name. Lines (OPEN ledger 299)
+  //: come before the reading time, which is what a phone's ellipsis drops
+  //: first.
   counts.textContent = [
     `${chars.toLocaleString()} char${chars === 1 ? "" : "s"}`,
     `${words.toLocaleString()} word${words === 1 ? "" : "s"}`,
+    lines ? `${lines.toLocaleString()} line${lines === 1 ? "" : "s"}` : "",
     read,
   ]
     .filter(Boolean)
@@ -14806,7 +15627,7 @@ function docSpellable(text, word, start, end) {
   if (word.length < 2) return false;
   //: An acronym (API, HTTP, NASA) is not in any word list and is not a typo.
   if (word === word.toUpperCase()) return false;
-  //: An internal capital means an identifier or a product name: MemoryMap,
+  //: An internal capital means an identifier or a product name: Tessellate,
   //: docSurface, YouTube. Splitting and checking the halves would flag half
   //: the identifiers in any technical note.
   if (/[A-Z]/.test(word.slice(1))) return false;
@@ -14814,8 +15635,13 @@ function docSpellable(text, word, start, end) {
   //: more letters is part of something that is not prose: utf-8, app.js,
   //: me@example.com, C:\\Users. The word regex stops at those characters, so
   //: the only way to see them is to look at what is on either side.
-  const before = start > 0 ? text[start - 1] : "";
-  const after = end < text.length ? text[end] : "";
+  //: A suggestion's marker is a boundary, not a symbol (OPEN 1088): `{++`
+  //: before and `++}` after (and the other CriticMarkup pairs) left
+  //: `{++faque++}` with no finding while `{++the faque ++}` had one.
+  const opened = /(?:\{\+\+|\{--|\{~~|\{==|\{>>|~>)$/.test(text.slice(Math.max(0, start - 3), start));
+  const closed = /^(?:\+\+\}|--\}|~~\}|==\}|<<\}|~>)/.test(text.slice(end, end + 3));
+  const before = start > 0 && !opened ? text[start - 1] : "";
+  const after = end < text.length && !closed ? text[end] : "";
   if (/[0-9_/@\\#$%&*+=<>~]/.test(before) || /[0-9_/@\\#$%&*+=<>~]/.test(after)) return false;
   if (after === "." && /[A-Za-z]/.test(text[end + 1] || "")) return false;
   if (before === "." && /[A-Za-z]/.test(text[start - 2] || "")) return false;
@@ -15167,6 +15993,84 @@ function docProseFindings(text) {
     .sort((a, b) => a.start - b.start);
 }
 
+//: **Spelling in a code file: comments and the words inside strings, never
+//: code** (the owner, 2026-10-11: `is_leap`, `urFucked` and the `f"The` of an
+//: f-string were underlined). The squiggles were the browser's own, on because
+//: the word list loads only on a prose pass and a code file never made one.
+//: Now the browser's checker is off in a code file (`docCmSpellcheck`) and
+//: this draws the app's own marks, which open the same suggestion popover as
+//: prose. The text is masked to the comment and string nodes of the syntax
+//: tree, everything else blanked at the same length so every offset still
+//: names the document's characters: a string's prefix (f, r, b, u) and quotes
+//: and a comment's marker are blanked too, and so is an f-string's `{expr}`.
+function docCodeProseMask(text) {
+  const CM = window.CM6;
+  if (!CM || !docCmView || docCmView.state.doc.length !== text.length) return "";
+  const state = docCmView.state;
+  const tree = CM.language.ensureSyntaxTree(state, state.doc.length, 50) || CM.language.syntaxTree(state);
+  const keep = new Uint8Array(text.length);
+  const blank = (from, length) => keep.fill(0, from, from + length);
+  tree.iterate({
+    enter(node) {
+      if (/Interpolation|Escape|FormatReplacement/i.test(node.name)) {
+        blank(node.from, node.to - node.from);
+        return false;
+      }
+      const string = /string|template/i.test(node.name);
+      const comment = /comment/i.test(node.name);
+      if (!string && !comment) return undefined;
+      keep.fill(1, node.from, node.to);
+      if (string) {
+        const head = /^[rRbBuUfF]{0,3}(?:"""|'''|"|'|`)/.exec(text.slice(node.from, node.from + 6));
+        if (head) blank(node.from, head[0].length);
+        const tail = /(?:"""|'''|"|'|`)$/.exec(text.slice(Math.max(node.from, node.to - 3), node.to));
+        if (tail) blank(node.to - tail[0].length, tail[0].length);
+      } else {
+        const head = /^(?:\/\/+|\/\*+|#+|--|<!--|;+|%+)/.exec(text.slice(node.from, node.from + 5));
+        if (head) blank(node.from, head[0].length);
+        const tail = /(?:\*+\/|-->)$/.exec(text.slice(Math.max(node.from, node.to - 4), node.to));
+        if (tail) blank(node.to - tail[0].length, tail[0].length);
+      }
+      return undefined;
+    },
+  });
+  let masked = "";
+  for (let i = 0; i < text.length; i += 1) masked += keep[i] || text[i] === "\n" ? text[i] : " ";
+  return masked;
+}
+
+function docCodeSpellFindings(text) {
+  if (!text.trim()) return [];
+  docLoadWordlist();
+  if (!docWordlistReady()) return [];
+  const masked = docCodeProseMask(text);
+  if (!masked.trim()) return [];
+  const found = [];
+  const dictionary = docDictionary();
+  const word = /[A-Za-z']+/g;
+  let hit;
+  while ((hit = word.exec(masked)) !== null) {
+    const lower = hit[0].toLowerCase();
+    if (dictionary.has(lower)) continue;
+    const at = hit.index;
+    const base = { start: at, end: at + hit[0].length, text: hit[0], rule: "spelling" };
+    const better = DOC_AUTOCORRECT[lower];
+    if (better) {
+      found.push({ ...base, message: `“${hit[0]}” is probably “${better}”`, replacement: docMatchCase(hit[0], better) });
+      continue;
+    }
+    if (!docSpellable(masked, hit[0], at, at + hit[0].length)) continue;
+    const looked = docSpellLookup(hit[0]);
+    if (looked.known) continue;
+    found.push({
+      ...base,
+      message: looked.sure ? `“${hit[0]}” is probably “${looked.sure}”` : `“${hit[0]}” is not in the dictionary`,
+      replacement: looked.sure ? docMatchCase(hit[0], looked.sure) : null,
+    });
+  }
+  return found.filter((finding) => !docProseIgnored.has(docProseKey(finding)));
+}
+
 let docProseFound = [];
 
 function renderDocProse() {
@@ -15184,7 +16088,7 @@ function renderDocProse() {
   //: And Check with AI's findings (`docAiFindings`), located afresh in the
   //: text as it is now, so an applied or edited-away one simply goes.
   docProseFound = isCode
-    ? []
+    ? docCodeSpellFindings(text)
     : docProseExtras(text, docProseFindings(text)).concat(docAiFindings(text)).sort((a, b) => a.start - b.start);
   chip.hidden = isCode;
   count.textContent = docProseFound.length
@@ -15694,6 +16598,9 @@ function docProseFix(finding) {
     renderDocProse();
     return toast("That text has changed, the list is refreshed.", "info");
   }
+  //: Its own step in the editor's history (Ctrl+Z, rule 1.8), never folded
+  //: into the typing before it.
+  docUndoBreak();
   box.value = docProseApply(box.value, finding);
   markDocDirty();
   box.dispatchEvent(new Event("input", { bubbles: true }));
@@ -15716,6 +16623,7 @@ function docProseFixAll() {
     applied += 1;
   }
   if (!applied) return toast("Nothing left to fix.", "info");
+  docUndoBreak();
   box.value = text;
   markDocDirty();
   box.dispatchEvent(new Event("input", { bubbles: true }));
@@ -16088,6 +16996,10 @@ const DOC_TOOL_KEYS = {
   //: INBOX 402: VS Code's Alt+Z and "render whitespace", for a code file.
   codeWrap: "doc-code-wrap",
   whitespace: "doc-whitespace",
+  //: Brief 42: a name missing here was stored under the key "undefined".
+  codeMinimap: "doc-minimap",
+  //: Brief 69 (D6): Preview live in the run panel.
+  runLive: "doc-run-live",
 };
 
 function docToolPref(name, fallback) {
@@ -16101,7 +17013,7 @@ function docToolPref(name, fallback) {
 
 function docSaveToolPref(name, on) {
   try {
-    localStorage.setItem(DOC_TOOL_KEYS[name], on ? "1" : "0");
+    prefs.set(DOC_TOOL_KEYS[name], on ? "1" : "0");
   } catch {
     /* private mode: it just won't be remembered */
   }
@@ -16567,6 +17479,28 @@ if (typeof wireLongPress === "function") {
   });
 }
 
+//: **Hover opens it too, in a code file** (the owner, 2026-10-11): a squiggle
+//: under a comment's or a string's word answers a pause of the pointer as it
+//: answers a click or a right-click, with the same popover. A pause, not a
+//: pass: moving across a line must not open a menu per word. Not focused, like
+//: the plain click, so typing carries on; prose keeps click and right-click.
+const DOC_HOVER_SUGGEST_MS = 450;
+const docHoverSuggest = { timer: 0, mark: null };
+document.addEventListener("mouseover", (event) => {
+  const mark = event.target instanceof Element ? event.target.closest(".cm-finding") : null;
+  if (mark === docHoverSuggest.mark) return;
+  clearTimeout(docHoverSuggest.timer);
+  docHoverSuggest.mark = mark;
+  if (!mark || docFileType().previewable || !docToolsBoxFor(mark)) return;
+  const point = { x: event.clientX, y: event.clientY };
+  docHoverSuggest.timer = setTimeout(() => {
+    if (docHoverSuggest.mark !== mark || !mark.isConnected) return;
+    const finding = docFindingOfMark(mark);
+    if (!finding || docSuggestOpenFor === finding) return;
+    docOpenSuggestFor(finding, false, point);
+  }, DOC_HOVER_SUGGEST_MS);
+});
+
 //: Anywhere else closes it, the rule every menu in this app follows.
 document.addEventListener("mousedown", (event) => {
   const menu = $("doc-suggest-menu");
@@ -16770,7 +17704,7 @@ function docProseApplyWidth(width) {
   //: padding beside it read the same property (07-whiteboard-misc.css).
   ($("tab-documents") || panel).style.setProperty("--doc-prose-w", `${clamped}px`);
   try {
-    localStorage.setItem(DOC_PROSE_WIDTH_KEY, String(clamped));
+    prefs.set(DOC_PROSE_WIDTH_KEY, String(clamped));
   } catch {
     /* private mode: it just won't be remembered */
   }
@@ -16866,7 +17800,7 @@ function applyDocProseDock() {
 function toggleDocProseDock() {
   const next = docProseDockChoice() === "right" ? "bottom" : "right";
   try {
-    localStorage.setItem(DOC_PROSE_DOCK_KEY, next);
+    prefs.set(DOC_PROSE_DOCK_KEY, next);
   } catch {
     /* private mode: it moves for this session only */
   }
@@ -17054,8 +17988,11 @@ async function docDictionaryWrite(words) {
 async function docDictionaryAdd(word) {
   const clean = String(word || "").trim();
   if (!clean) return;
-  await docDictionaryWrite([...docDictionary(), clean.toLowerCase()]);
-  toast(`“${clean}” added to your dictionary.`);
+  const lower = clean.toLowerCase();
+  const without = () => docDictionaryWrite([...docDictionary()].filter((other) => other !== lower));
+  const add = () => docDictionaryWrite([...docDictionary(), lower]);
+  await add();
+  offerUndo(`Added “${clean}” to the dictionary`, `“${clean}” added to your dictionary.`, without, add);
 }
 
 //: Findings dismissed for this sitting only. Not persisted, deliberately:
@@ -17376,7 +18313,7 @@ function docFindingAnswerRows(finding) {
     kind: "action",
     id: "ignore",
     label: "ph:eye-slash Ignore in this document",
-    title: "Stop flagging this wording in this document until MemoryMap is restarted",
+    title: "Stop flagging this wording in this document until Tessellate is restarted",
     run: (close = () => {}) => {
       close();
       docProseIgnore(finding);
@@ -17762,7 +18699,7 @@ async function docTranslatePassage(text) {
   if (!language) return;
   docLastTranslateLanguage = language;
   const box = document.getElementById("chat-input");
-  if (!box) return toast("The chat isn't available right now.", true);
+  if (!box) return toast("The chat isn't available right now.", "info");
   switchTab("chat");
   box.value = `Translate this into ${language}, and keep the formatting:\n\n${text}`;
   box.focus();
@@ -17825,7 +18762,7 @@ function docAiDiscussInChat() {
   const text = (box?.text || "").trim();
   if (!text) return toast("Nothing to discuss yet.", "info");
   const input = document.getElementById("chat-input");
-  if (!input) return toast("The chat isn't available right now.", true);
+  if (!input) return toast("The chat isn't available right now.", "info");
   const range = box ? box.selection() : null;
   const selection = range ? box.text.slice(range.from, range.to).trim() : "";
   switchTab("chat");
@@ -18236,6 +19173,39 @@ function docUndo() {
   return document.execCommand("undo");
 }
 
+//: **When each of this document's own steps was made**, by history depth and
+//: per document (its history is kept per document for the session), so the
+//: status bar can tell whether Ctrl+Z belongs to the editor or to an act on
+//: the app's stack (`appStackIsNewer`, status.js). A scripted write outside
+//: the history (a restored version) is not a step and is not stamped.
+const docHistoryTimes = new Map();
+const docHistoryUndone = new Map();
+
+function docHistoryStamp(update) {
+  const CM = window.CM6;
+  if (!CM || !currentDoc) return;
+  const id = currentDoc.id;
+  if (update.transactions.some((tr) => tr.isUserEvent("undo"))) {
+    docHistoryUndone.set(id, Date.now());
+    return;
+  }
+  if (update.transactions.some((tr) => tr.isUserEvent("redo"))) return;
+  if (update.transactions.every((tr) => tr.annotation(CM.state.Transaction.addToHistory) === false)) return;
+  const times = docHistoryTimes.get(id) || [];
+  times[CM.commands.undoDepth(update.state)] = Date.now();
+  docHistoryTimes.set(id, times);
+}
+
+window.docUndoAt = () => {
+  if (!docCmView || !window.CM6 || !currentDoc) return 0;
+  const depth = window.CM6.commands.undoDepth(docCmView.state);
+  return depth ? (docHistoryTimes.get(currentDoc.id) || [])[depth] || 0 : 0;
+};
+window.docRedoAt = () => {
+  if (!docCmView || !window.CM6 || !currentDoc) return 0;
+  return window.CM6.commands.redoDepth(docCmView.state) ? docHistoryUndone.get(currentDoc.id) || 0 : 0;
+};
+
 //: For the status bar's pair (`surfaceHistory`): this document's own steps.
 window.docCanUndo = () => (docCmView && window.CM6 ? window.CM6.commands.undoDepth(docCmView.state) > 0 : Boolean(currentDoc));
 window.docCanRedo = () => (docCmView && window.CM6 ? window.CM6.commands.redoDepth(docCmView.state) > 0 : Boolean(currentDoc));
@@ -18300,7 +19270,7 @@ function loadCodeMirror() {
     //: Said out loud once. Silence here would be the "policy silently
     //: refusing the work" shape: the editor would quietly stay a textarea and
     //: nobody would know why the new features were missing.
-    console.warn(`MemoryMap: ${error.message}. The plain editor is still available.`);
+    console.warn(`Tessellate: ${error.message}. The plain editor is still available.`);
     return null;
   });
   return docCmLoad;
@@ -18375,11 +19345,17 @@ function docCmLanguageFor(CM, ext) {
     case "kt": return stream(CM.kotlin);
     case "rb": return stream(CM.ruby);
     case "xml": return stream(CM.xml);
+    case "svg": return stream(CM.xml);
     //: Added with the modes themselves (2026-09-09). `ini` is CodeMirror's
     //: `properties` mode, which is what that format is called there.
     case "swift": return stream(CM.swift);
     case "r": return stream(CM.r);
     case "ini": return stream(CM.properties);
+    //: Bundled with the editor already (entry.js), so 0 bytes more.
+    case "diff": return stream(CM.diff);
+    case "dockerfile": return stream(CM.dockerFile);
+    case "vb": return stream(CM.vb);
+    case "vbs": return stream(CM.vbScript);
     //: **`php` and `csv` stay plain text on purpose.** `@codemirror/lang-php`
     //: is a full Lezer grammar that also drags in lang-html, measured at
     //: +28,563 bytes gzipped, 10.6% of this bundle, for one language; and a
@@ -18632,33 +19608,66 @@ function docCmTheme(CM) {
       },
       ".cm-lint-marker-error": { backgroundColor: "var(--error)" },
       ".cm-lint-marker-warning": { backgroundColor: "var(--warn)" },
+      //: **The diagnostic card** (the owner, 2026-10-10: "this popup is poorly
+      //: designed and spaced"). Measured before: the message and its fix on one
+      //: line, 6.4px of padding above and 9.6 beside, a 3px coloured edge as the
+      //: only sign of severity and the card with no ground of its own. Now a
+      //: severity glyph (a Phosphor character, in the kind's ink: an error is
+      //: never the colour alone), the message as the card's one line of ink, and
+      //: the fix on its own row under the message, indented to the message's
+      //: edge, as a button of the app's size. A second fix sits beside the
+      //: first. The card is the opaque tooltip ground below, with an inset
+      //: from the line it is about so it never touches it.
       ".cm-diagnostic": {
-        padding: "var(--space-2) var(--space-4)",
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "flex-start",
+        columnGap: "var(--space-2)",
+        rowGap: "var(--space-2)",
+        maxWidth: "min(26rem, 80vw)",
+        padding: "var(--space-3) var(--space-4)",
         marginLeft: "0",
         fontSize: "var(--text-sm)",
-        borderLeft: "3px solid var(--muted)",
+        lineHeight: "1.45",
+        borderLeft: "none",
+        "--diagnostic-ink": "var(--muted)",
       },
-      ".cm-diagnostic-error": { borderLeftColor: "var(--error)" },
-      ".cm-diagnostic-warning": { borderLeftColor: "var(--warn)" },
-      ".cm-diagnostic-info, .cm-diagnostic-hint": { borderLeftColor: "var(--accent)" },
-      ".cm-tooltip-lint": { padding: "0", borderRadius: "var(--radius-sm, 6px)" },
-      //: A quick fix on the hover card. The library's own is white on a
-      //: fixed dark grey, a black slab on this app's light page; here it is
-      //: the quiet tinted button, on its own line under the message it
-      //: answers, with the accent edge on hover and on keyboard focus.
+      ".cm-diagnostic::before": {
+        content: '"\\e4f8"',
+        fontFamily: "Phosphor",
+        fontSize: "1rem",
+        lineHeight: "1.3",
+        width: "1rem",
+        flex: "none",
+        color: "var(--diagnostic-ink)",
+      },
+      ".cm-diagnostic-error": { "--diagnostic-ink": "var(--error)" },
+      ".cm-diagnostic-warning": { "--diagnostic-ink": "var(--warn)" },
+      ".cm-diagnostic-info, .cm-diagnostic-hint": { "--diagnostic-ink": "var(--accent-text)" },
+      ".cm-diagnostic-error::before": { content: '"\\e4f8"' },
+      ".cm-diagnostic-warning::before": { content: '"\\e4e0"' },
+      ".cm-diagnostic-info::before, .cm-diagnostic-hint::before": { content: '"\\e2ce"' },
+      ".cm-diagnosticText": { flex: "1 1 calc(100% - 1rem - var(--space-2))", minWidth: "0", color: "var(--text)", fontWeight: "500", overflowWrap: "anywhere" },
+      ".cm-diagnosticText + .cm-diagnosticAction": { marginLeft: "calc(1rem + var(--space-2))" },
+      ".cm-tooltip-lint": { padding: "0", borderRadius: "var(--radius-md)" },
+      //: A quick fix on the hover card, the quiet tinted button on its own
+      //: row under the message it answers (the library's own is white on a
+      //: fixed dark grey), at the dense control height, with the accent edge
+      //: on hover and on keyboard focus.
       ".cm-diagnosticAction": {
         font: "inherit",
         fontSize: "var(--text-sm)",
         color: "var(--text)",
         backgroundColor: "var(--accent-soft)",
-        border: "none",
-        borderRadius: "var(--radius-sm, 6px)",
-        padding: "var(--space-1) var(--space-3)",
-        margin: "var(--space-2) var(--space-2) 0 0",
+        border: "1px solid transparent",
+        borderRadius: "var(--radius-md)",
+        padding: "0 var(--space-3)",
+        margin: "0",
+        minHeight: "var(--control-h-dense)",
         cursor: "pointer",
       },
       ".cm-diagnosticAction:hover, .cm-diagnosticAction:focus-visible": {
-        boxShadow: "inset 0 0 0 1px var(--accent)",
+        borderColor: "var(--accent)",
         outline: "none",
       },
       //: **Opaque, where the tooltip above is glass.** `--card` is 55%
@@ -18670,6 +19679,16 @@ function docCmTheme(CM) {
       ".cm-tooltip.cm-tooltip-hover, .cm-tooltip.cm-tooltip-autocomplete": {
         backgroundColor: "var(--modal-bg-opaque)",
       },
+      ".cm-tooltip.cm-tooltip-hover": {
+        borderRadius: "var(--radius-md)",
+        boxShadow: "var(--shadow-md)",
+        overflow: "hidden",
+      },
+      //: A gap between the card and the line it is about (measured 1px before):
+      //: the library sets only the card's top and left, so the gap is a shift
+      //: away from the line, whichever side it chose.
+      ".cm-tooltip.cm-tooltip-hover.cm-tooltip-above": { transform: "translateY(calc(-1 * var(--space-1)))" },
+      ".cm-tooltip.cm-tooltip-hover.cm-tooltip-below": { transform: "translateY(var(--space-1))" },
       ".cm-tooltip.cm-tooltip-autocomplete": {
         borderRadius: "var(--radius-sm, 6px)",
         boxShadow: "var(--shadow-md)",
@@ -18737,7 +19756,9 @@ function docCmTheme(CM) {
         borderBottom: "1px solid var(--border)",
       },
       ".cm-run-title": { fontWeight: "600", color: "var(--text)" },
-      ".cm-run-status": { color: "var(--muted)", fontSize: "var(--text-sm)" },
+      //: The status gives way first when the head is tight (Brief 70: a
+      //: Python run's head with Input shown ran 60px past at 1440).
+      ".cm-run-status": { color: "var(--muted)", fontSize: "var(--text-sm)", minWidth: "0", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
       ".cm-run-spacer": { flex: "1" },
       ".cm-run-body": { flex: "1", minHeight: "0", display: "flex", flexDirection: "column" },
       ".cm-run-frame": { display: "none", border: "0", width: "100%", flex: "3", minHeight: "0" },
@@ -18765,9 +19786,115 @@ function docCmTheme(CM) {
       ".cm-run-row.is-info, .cm-run-row.is-debug": { color: "var(--muted)" },
       ".cm-run-text": { flex: "1", whiteSpace: "pre-wrap", overflowWrap: "anywhere" },
       ".cm-run-line": { color: "var(--muted)", fontSize: "var(--text-xs)", whiteSpace: "nowrap" },
+      //: A SQL statement's result (Brief 69, D5): the count on the row's
+      //: first line, the table under it at the row's full width, scrolling
+      //: sideways inside the row rather than widening the panel.
+      ".cm-run-row.is-table": { flexWrap: "wrap" },
+      ".cm-run-table-wrap": { flexBasis: "100%", minWidth: "0", overflowX: "auto" },
+      ".cm-run-table": { borderCollapse: "collapse", fontSize: "var(--text-xs)" },
+      ".cm-run-table th, .cm-run-table td": {
+        border: "1px solid var(--border)",
+        padding: "var(--space-1) var(--space-2)",
+        textAlign: "left",
+        whiteSpace: "nowrap",
+      },
+      ".cm-run-table th": { fontWeight: "600", backgroundColor: "var(--surface-2)" },
+      ".cm-run-table td.is-null": { color: "var(--muted)", fontStyle: "italic" },
+      ".cm-run-more": { margin: "var(--space-1) 0 0", color: "var(--muted)" },
+      //: A test (D7): its state's icon, its name, its time, its line; a
+      //: failure's message under it in the row's own ink.
+      ".cm-run-test": { flexWrap: "wrap" },
+      ".cm-run-test.is-pass > .ph": { color: "var(--ok)" },
+      ".cm-run-test .cm-run-text": { flex: "1" },
+      ".cm-run-ms": { color: "var(--muted)", fontSize: "var(--text-xs)", whiteSpace: "nowrap" },
+      ".cm-run-why": { flexBasis: "100%", margin: "var(--space-1) 0 0", whiteSpace: "pre-wrap", font: "inherit", overflowWrap: "anywhere" },
+      ".cm-run-summary": { fontWeight: "600" },
+      //: Input (D9): the lines Python's input() reads, a field under the head.
+      ".cm-run-stdin-wrap": {
+        display: "flex",
+        flexDirection: "column",
+        gap: "var(--space-1)",
+        padding: "var(--space-1) var(--space-2)",
+        borderBottom: "1px solid var(--border)",
+      },
+      ".cm-run-stdin-label": { color: "var(--muted)", fontSize: "var(--text-sm)" },
+      ".cm-run-stdin": { fontFamily: "var(--mono, ui-monospace, monospace)", fontSize: "var(--text-sm)", resize: "vertical", minHeight: "0" },
+      //: input() asked mid-run (Brief 70): the prompt, then the field the
+      //: answer is typed in, on the row the answer will take.
+      ".cm-run-ask": { flex: "1", display: "flex", alignItems: "baseline", gap: "var(--space-2)", minWidth: "0" },
+      ".cm-run-ask .cm-run-text": { flex: "none" },
+      ".cm-run-ask-field": { flex: "1", minWidth: "0", fontFamily: "inherit", fontSize: "inherit" },
       //: Run on a .py file before the Pyodide extra is installed: the row's
       //: one action, kept whole beside the sentence it answers.
       ".cm-run-install": { flex: "none", whiteSpace: "nowrap" },
+      //: The Debug tab: the five actions and where it stopped, the exception
+      //: if that is why, then Variables, Watch, Call stack and Breakpoints as
+      //: columns that fold to a stack on a narrow panel.
+      //: The Debug tab is one of the panel's panes (Brief 71): shown and hidden
+      //: by `.hidden`, like the others.
+      ".cm-debug": { display: "flex", flex: "1", minHeight: "0", overflow: "auto", flexDirection: "column" },
+      ".cm-debug-bar": {
+        display: "flex",
+        flexWrap: "wrap",
+        alignItems: "center",
+        gap: "var(--space-1)",
+        padding: "var(--space-1) var(--space-2)",
+        borderBottom: "1px solid var(--border)",
+      },
+      ".cm-debug-where": { color: "var(--muted)", fontSize: "var(--text-sm)", marginInlineStart: "var(--space-2)" },
+      ".cm-debug-thrown": {
+        margin: "0",
+        padding: "var(--space-1) var(--space-3)",
+        maxHeight: "8rem",
+        overflow: "auto",
+        whiteSpace: "pre-wrap",
+        overflowWrap: "anywhere",
+        fontFamily: "var(--mono, ui-monospace, monospace)",
+        fontSize: "var(--text-xs)",
+        color: "var(--error)",
+        backgroundColor: "var(--error-soft)",
+        borderBottom: "1px solid var(--border)",
+      },
+      ".cm-debug-grid": { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(13rem, 1fr))" },
+      ".cm-debug-section": {
+        minWidth: "0",
+        padding: "var(--space-1) var(--space-2)",
+        borderInlineEnd: "1px solid var(--border)",
+        borderBottom: "1px solid var(--border)",
+      },
+      ".cm-debug-title": { margin: "0 0 var(--space-1)", fontSize: "var(--text-sm)", fontWeight: "600", color: "var(--text)" },
+      ".cm-debug-list": { listStyle: "none", margin: "0", padding: "0", fontSize: "var(--text-sm)" },
+      ".cm-debug-row": { display: "flex", alignItems: "baseline", gap: "var(--space-2)", minWidth: "0" },
+      ".cm-debug-name, .cm-debug-value": { fontFamily: "var(--mono, ui-monospace, monospace)" },
+      ".cm-debug-name": { flex: "none", maxWidth: "45%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--accent-text)" },
+      ".cm-debug-value": { flex: "1", minWidth: "0", whiteSpace: "pre-wrap", overflowWrap: "anywhere", color: "var(--text)" },
+      ".cm-debug-row.is-error .cm-debug-value": { color: "var(--error)" },
+      ".cm-debug-row.has-children": { display: "block" },
+      ".cm-debug-tree > summary": { display: "flex", alignItems: "baseline", gap: "var(--space-2)", minWidth: "0", cursor: "pointer", listStyle: "none" },
+      ".cm-debug-tree > summary::-webkit-details-marker": { display: "none" },
+      ".cm-debug-tree > summary::before": { content: '"\\25B8"', flex: "none", color: "var(--muted)" },
+      ".cm-debug-tree[open] > summary::before": { content: '"\\25BE"' },
+      ".cm-debug-children": { paddingInlineStart: "var(--space-3)", borderInlineStart: "1px solid var(--border)", marginInlineStart: "var(--space-1)" },
+      ".cm-debug-sub": { marginTop: "var(--space-1)", color: "var(--muted)", fontSize: "var(--text-xs)" },
+      ".cm-debug-empty": { color: "var(--muted)" },
+      ".cm-debug-go": { minWidth: "0", textAlign: "start", fontFamily: "var(--mono, ui-monospace, monospace)" },
+      ".cm-debug-remove": { marginInlineStart: "auto", flex: "none" },
+      ".cm-debug-watch-add": { width: "100%", minHeight: "var(--target-min)", marginTop: "var(--space-1)", fontFamily: "var(--mono, ui-monospace, monospace)", fontSize: "var(--text-sm)" },
+      //: The breakpoint lane, left of the numbers, as VS Code's: a dot, red,
+      //: amber with a condition; a faint one under the pointer says a click
+      //: puts one there. The stopped line is lit across the text.
+      ".cm-debug-gutter .cm-gutterElement": { display: "flex", alignItems: "center", justifyContent: "center", width: "0.875rem", cursor: "pointer" },
+      ".cm-debug-bp": { display: "inline-block", width: "0.625rem", height: "0.625rem", borderRadius: "50%", backgroundColor: "var(--error)" },
+      ".cm-debug-bp.is-cond": { backgroundColor: "var(--warn)" },
+      ".cm-debug-gutter .cm-gutterElement:hover:not(:has(.cm-debug-bp))::before": {
+        content: '""',
+        width: "0.625rem",
+        height: "0.625rem",
+        borderRadius: "50%",
+        backgroundColor: "var(--error)",
+        opacity: "0.35",
+      },
+      ".cm-debug-here": { backgroundColor: "var(--warn-soft)" },
       //: Sticky scroll: the enclosing scopes' first lines over the top of the
       //: scroller, on the opaque ground words laid over words take, with the
       //: hairline and small shadow of a bar that sits above content.
@@ -19413,6 +20540,10 @@ function docCmHighlight(CM) {
       { tag: [t.punctuation, t.separator, t.bracket, t.operator], ...punctuation },
       { tag: [t.meta, t.processingInstruction], color: "var(--muted)" },
       { tag: t.invalid, color: "var(--error)" },
+      //: A patch's added and removed lines (the diff mode's only tokens
+      //: besides `@@`): without these a `.diff` drew in one colour.
+      { tag: t.inserted, color: "var(--ok)" },
+      { tag: t.deleted, color: "var(--error)" },
       { tag: t.link, color: "var(--accent-text)", textDecoration: "underline" },
       //: Markdown's own tags, so Source view on a `.md` file is not the one
       //: file type in the editor with no highlighting at all. Live view draws
@@ -19484,6 +20615,10 @@ function docCmKeymap(CM) {
     { key: "Mod-1", run: () => { applyMarkdown("h1"); return true; } },
     { key: "Mod-2", run: () => { applyMarkdown("h2"); return true; } },
     { key: "Mod-3", run: () => { applyMarkdown("h3"); return true; } },
+    //: Google Docs' list chords; the base key is read, so Shift's `*` is 8.
+    { key: "Mod-Shift-8", run: () => { applyMarkdown("ul"); return true; } },
+    { key: "Mod-Shift-7", run: () => { applyMarkdown("ol"); return true; } },
+    { key: "Mod-Shift-9", run: () => { applyMarkdown("task"); return true; } },
     //: One gesture, one entry point: `toggleDocFindBar` opens the engine's
     //: panel here and the app's own bar on the fallback, so this binding does
     //: not have to know which is on screen.
@@ -19540,6 +20675,17 @@ function docTableCellClick(event, view) {
 // which the Library bundle loads before this file. See its header.
 // -----------------------------------------------------------------------------
 
+
+//: The code editor's minimap, merge view, palette rows and output grip
+//: (documents-ide.js, Brief 42), fetched as this file runs rather than listed
+//: in app.js's bundle table, whose gzipped size is ratcheted. A code file
+//: opened before it lands gets its tools again once it has.
+lazyScript("/js/documents-ide.js").then(() => {
+  const CM = window.CM6;
+  if (docCmView && CM && docCmParts.code && !docFileType().previewable) {
+    docCmView.dispatch({ effects: docCmParts.code.reconfigure(docCodeTools(CM)) });
+  }
+});
 
 function docCmExtensions(CM) {
   const type = docFileType();
@@ -19658,7 +20804,8 @@ function docCmExtensions(CM) {
 //: while this app has no dictionary of its own to check against.
 function docCmSpellcheck(CM) {
   return CM.view.EditorView.contentAttributes.of({
-    spellcheck: docWordlistReady() ? "false" : "true",
+    //: A code file never takes the browser's squiggles (`docCodeSpellFindings`).
+    spellcheck: docWordlistReady() || !docFileType().previewable ? "false" : "true",
   });
 }
 
@@ -19679,6 +20826,7 @@ function docCmApplySpellcheck() {
 //: pipeline for typed and scripted edits alike.
 function docCmUpdate(update) {
   if (update.docChanged) {
+    docHistoryStamp(update);
     docSurfaceChanged();
     docHistoryPersist();
     //: **Autocorrect, which never ran once under the engine.** The delegated
@@ -19846,7 +20994,7 @@ async function ensureDocEditor() {
   } catch (error) {
     docCmBroken = true;
     console.warn(
-      `MemoryMap: the editor could not start (${error.message}). The plain editor is still available.`
+      `Tessellate: the editor could not start (${error.message}). The plain editor is still available.`
     );
     return null;
   }
@@ -19999,6 +21147,7 @@ function docFenceGutterOn() {
 function docCmSyncGutter() {
   const CM = window.CM6;
   if (!docCmView || !CM || !docCmParts.gutter) return;
+  if (docCmPartIs(docCmParts.gutter, docFenceGutterOn())) return;
   docCmView.dispatch({ effects: docCmParts.gutter.reconfigure(docCmGutter(CM)) });
 }
 
@@ -20468,7 +21617,11 @@ function docHeadingFold(CM) {
 const docHistories = new Map();
 let docHistoryOwner = null;
 
-function docResetDocument(text, id = null) {
+//: `repaint: false` when the caller repaints the findings itself a frame
+//: later (`openDocument`, through `renderDocTools`): the findings plugin is
+//: rebuilt by `setState` from the same list, and the extra dispatch was a
+//: second layout of the page (138ms of a 573ms open at 390).
+function docResetDocument(text, id = null, { repaint = true } = {}) {
   const CM = window.CM6;
   if (!docCmView || !CM) {
     const surface = docSurface();
@@ -20497,7 +21650,7 @@ function docResetDocument(text, id = null) {
   //: it is used" shape: the view would come back in Source's configuration
   //: while the view control still said Live, and nothing would log a thing.
   docSetLiveDecorations(docView === "live");
-  docCmRepaintFindings();
+  if (repaint) docCmRepaintFindings();
   //: The `[!kind]-` callouts, folded as their markers ask, on the one event
   //: that means "a different document is on screen now".
   docFoldMarkedCallouts();
@@ -20619,3 +21772,4 @@ function calloutMenuItems(current, fold, apply) {
   }
   return items;
 }
+

@@ -17,7 +17,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from memorymap.api.asset_strip import strip_js
+from tessellate.api.asset_strip import strip_js
 
 JS = Path(__file__).resolve().parents[1] / "frontend" / "js"
 
@@ -45,7 +45,7 @@ def _silent_writes() -> list[str]:
 
 def test_the_named_writes_say_when_they_fail():
     named = {
-        "navigation.js": "/memory/${pref.id}",
+        "settings-controls.js": "/memory/${pref.id}",
         "settings-data.js": "/backups/${item.name}",
         "ask-history.js": "/ask-history/${id}`, { method: \"DELETE\" })",
         "suggestions-inbox.js": "/entries/tensions/accept",

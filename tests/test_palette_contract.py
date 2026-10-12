@@ -41,7 +41,12 @@ def test_the_palette_is_commands_and_places_only():
     source = _palette_matches_source()
     for group in ("Notes", "Documents", "Files", "Boards & maps", "Reminders", "Conversations"):
         assert f'group: "{group}"' not in source, f"the palette lists {group} again"
-    assert "paletteCommands()" in source and "notesPaletteCommands(" in source
+    #: The hand-written rows are gathered in `paletteBase` since Brief 90.
+    text = app_js_text()
+    base = text[text.index("function paletteBase(") :]
+    base = base[: base.index("\nfunction ")]
+    assert "paletteBase(" in source
+    assert "paletteCommands()" in base and "notesPaletteCommands(" in base
 
 
 def test_the_palette_returns_every_group_it_builds():

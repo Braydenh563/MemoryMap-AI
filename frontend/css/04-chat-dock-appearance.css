@@ -61,10 +61,6 @@
   font-weight: 600;
 }
 
-.graph-trace-arrow {
-  color: var(--muted);
-}
-
 /* The strip's own caption: redesigned twice this session (ROADMAP.md
    item 5). Round one put one row per note plus one row per connector,
    stacked vertically, and was reported back immediately as "crushes the
@@ -82,13 +78,6 @@
   font-size: var(--text-md);
 }
 
-.graph-trace-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-2);
-}
-
 .graph-trace-path {
   display: flex;
   flex-wrap: wrap;
@@ -101,28 +90,6 @@
   /* Inset like the panel around it: the chips sat on this box's own edges
      (the owner, 2026-09-14: "there's just no padding around the text"). */
   padding: var(--space-2) var(--space-3);
-}
-
-/* Arrow + reason, one unit between two note chips, quiet relative to the
-   chips, because the chips are what you clicked for. `white-space: nowrap`
-   keeps the arrow glued to its label; the *unit* still wraps freely with
-   the rest of the row, it just never splits mid-arrow. */
-.graph-trace-connector {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  color: var(--muted);
-  font-size: var(--text-sm);
-  white-space: nowrap;
-}
-
-.graph-trace-arrow-icon {
-  color: var(--border);
-}
-
-.graph-trace-step {
-  color: var(--muted);
-  font-size: var(--text-sm);
 }
 
 /* A real chip: the earlier plain text-link read as a wall of underlined
@@ -179,7 +146,8 @@
   white-space: nowrap;
 }
 
-.graph-trace-note:hover {
+.graph-trace-note:hover,
+.graph-trace-note:is(:focus-visible, :has(:focus-visible)) {
   background-image: linear-gradient(var(--hover-veil), var(--hover-veil));
   text-decoration: none;
 }
@@ -234,7 +202,8 @@
   display: none;
 }
 
-.story-mode-btn:hover {
+.story-mode-btn:is(:hover, :focus-visible),
+.story-mode-btn:is(:focus-visible, :has(:focus-visible)) {
   background: var(--accent-surface-hover);
   text-decoration: none;
 }
@@ -433,13 +402,6 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   font-size: var(--text-sm);
 }
 
-/* The route's own sentence for why a forgotten note was chosen, under its
-   row and indented to the row's text. */
-.notes-rail-why {
-  font-size: var(--text-xs);
-  padding-left: var(--space-3);
-  margin-top: calc(-1 * var(--space-1));
-}
 
 /* Below the width the script draws it at, never: see NOTES_RAIL_MIN_WIDTH in
    notes-list.js, which has to name the same number. The note's own
@@ -683,7 +645,8 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
 }
 
 #chat-sidebar .sidebar-head .select-opener-icon:hover,
-#chat-sidebar .sidebar-head .select-opener-icon[aria-expanded="true"] {
+#chat-sidebar .sidebar-head .select-opener-icon[aria-expanded="true"],
+#chat-sidebar .sidebar-head .select-opener-icon:is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg);
   color: var(--ink);
 }
@@ -789,7 +752,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   border-radius: var(--radius-md);
   background: var(--accent-soft);
   color: var(--accent-text);
-  font-size: 1.15rem;
+  font-size: var(--text-h3);
   line-height: 1;
 }
 
@@ -910,7 +873,8 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   cursor: pointer;
 }
 
-.link-button:hover {
+.link-button:is(:hover, :focus-visible),
+.link-button:is(:focus-visible, :has(:focus-visible)) {
   color: color-mix(in oklab, var(--accent-text) 70%, var(--ink));
 }
 
@@ -980,6 +944,15 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
      The background was never needed. The dock is the last flex child of the
      card, not a sticky overlay, so nothing scrolls underneath it, the
      hairline above is what separates it, and that is enough. */
+}
+
+/* The one-line hint under the composer when Agent runs with no model
+   (INBOX 840). Muted and small, one line that wraps rather than clips. */
+.chat-agent-hint {
+  margin: 0;
+  padding-inline: var(--space-2);
+  font-size: var(--text-sm);
+  line-height: 1.4;
 }
 
 /* One strip rather than three stacked rows.
@@ -1153,9 +1126,20 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
   background-repeat: no-repeat;
 }
 
+/* The settings gear is an icon-only button, so it takes the icon-button corner
+   (DESIGN.md, "An icon-only button": `--radius-md`, never a circle). The pill
+   above is for the strip's wide chips and fields; on a 32px square it drew a
+   perfect circle beside the composer row's rounded squares (INBOX 841). */
+.chat-dock-controls .chat-dock-more>button.icon-only {
+  border-radius: var(--radius-md);
+}
+
 .chat-dock-controls select:hover,
 .chat-dock-controls>.chat-tool-group>button:hover,
-.chat-dock-controls .chat-dock-more>button:hover {
+.chat-dock-controls .chat-dock-more>button:hover,
+.chat-dock-controls select:is(:focus-visible, :has(:focus-visible)),
+.chat-dock-controls>.chat-tool-group>button:is(:focus-visible, :has(:focus-visible)),
+.chat-dock-controls .chat-dock-more>button:is(:focus-visible, :has(:focus-visible)) {
   border-color: var(--accent);
   background-color: var(--accent-soft);
 }
@@ -1290,6 +1274,9 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
 .chat-skill-pace {
   flex: 0 0 auto;
   margin: 0;
+  /* Off the strip on a phone, so the strip's track rules miss it (INBOX 694). */
+  padding: 1px;
+  gap: 0;
 }
 
 .chat-skill-pace button {
@@ -1559,12 +1546,13 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
 }
 
 .graph-node:hover circle.graph-halo,
-.graph-node.graph-focus circle.graph-halo {
+.graph-node.graph-focus circle.graph-halo,
+.graph-node:is(:focus-visible, :has(:focus-visible)) circle.graph-halo {
   opacity: 0.34;
 }
 
 .graph-node text.graph-pin-badge {
-  font-size: 0.7rem;
+  font-size: var(--text-xs);
   stroke: none;
   pointer-events: none;
 }
@@ -1752,32 +1740,15 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
      (DESIGN.md, "Control height"). 36px, above the app's 28px floor,
      because these carry no label to widen them. */
   --control-h: var(--control-h-lg);
-}
-
-.graph-popup-tool-group {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-/* The hairline is the only thing between two groups. Drawn by the second of
-   the pair (the chat dock's own recipe, 06-timeline-dialogs.css) so it can
-   never be left dangling at the end of the row, and in --border rather than
-   --divider for the same reason that dock uses it: --divider is the line
-   between stacked rows, faint because the rows are already apart, and two
-   groups of icons standing shoulder to shoulder need a mark you can see. */
-.graph-popup-tool-group+.graph-popup-tool-group::before {
-  content: "";
-  align-self: stretch;
-  width: 1px;
-  margin-inline: var(--space-2);
-  background: var(--border);
-}
-
-/* Bin is set apart inside its own group by a gap rather than a fourth
-   hairline: three groups is the structure. */
-.graph-popup-tool-bin {
-  margin-left: var(--space-3);
+  /* **Pinned at the panel's foot** (the owner, 2026-10-11: "the graph
+     popups get cut off now at the bottom"): a long note scrolls under it,
+     so the dock is always whole and in reach. Sticky against the panel's
+     own scrollport; the chip tint over the panel's opaque ground, so text
+     scrolling under it does not show through. */
+  position: sticky;
+  bottom: calc(-1 * var(--graph-popup-pad));
+  z-index: 1;
+  background: linear-gradient(var(--chip-bg) 0 0), var(--modal-bg-opaque);
 }
 
 /* A row of icons with no words has to be tall enough to hit: 2.25rem (36px)
@@ -1937,7 +1908,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
 .md-table {
   border-collapse: collapse;
   width: 100%;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
 }
 
 .md-table th,
@@ -2032,7 +2003,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
 /* Task #40: the restart row (`#about-restart-row`, added after this
    `.about-hero p` override was written) is a `.row`, not a `<p>`, so the
    centred `text-align` above still reached it, measured before this fix,
-   "Restart MemoryMap" wrapped to two lines that each centred independently
+   "Restart Tessellate" wrapped to two lines that each centred independently
    (57px vs 73px wide, left edges 8px apart) and the muted hint beside it did
    the same. `.row` covers the hint (`text-align` inherits into its `<span>`
    fine), but a `<button>` does not take an inherited `text-align`, the UA
@@ -2090,11 +2061,11 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
 
 .setting-label>span {
   font-weight: 600;
-  font-size: 0.92rem;
+  font-size: var(--text-lg);
 }
 
 .setting-label small {
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   line-height: 1.35;
 }
 
@@ -2129,7 +2100,7 @@ body.scroll-top-visible #tab-notes .layout > .tab-main {
 }
 
 .slider-value {
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   min-width: 2.8rem;
@@ -2193,7 +2164,8 @@ label.setting-check,
    390: Settings > Learned's first row held the 18% fill, its muted hint
    at 3.83:1). */
 @media (hover: hover) {
-  .setting-check:hover {
+  .setting-check:hover,
+  .setting-check:is(:focus-visible, :has(:focus-visible)) {
     background: var(--row-hover-bg);
   }
 }
@@ -2211,7 +2183,8 @@ label.setting-check,
 }
 
 @media (hover: hover) {
-  .setting-check:has(input:checked):hover {
+  .setting-check:has(input:checked):hover,
+  .setting-check:has(input:checked):is(:focus-visible, :has(:focus-visible)) {
     background: color-mix(in srgb, var(--accent) 20%, transparent);
   }
 }
@@ -2281,13 +2254,13 @@ label.setting-check,
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
-  font-size: 0.92rem;
+  font-size: var(--text-lg);
   font-weight: 600;
 }
 
 .setting-check small {
   font-weight: 400;
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   line-height: 1.35;
 }
 
@@ -2300,12 +2273,12 @@ label.setting-check,
 .advanced-css summary {
   cursor: pointer;
   font-weight: 600;
-  font-size: 0.92rem;
+  font-size: var(--text-lg);
 }
 
 .advanced-css textarea {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
 }
 
 @media (max-width: 599.98px) {
@@ -2366,9 +2339,9 @@ label.setting-check,
 .onboarding-dot {
   width: 0.5rem;
   height: 0.5rem;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--border);
-  transition: background var(--motion-slow) var(--ease-out);
+  transition: background var(--ui-base) var(--ease-out);
 }
 
 .onboarding-dot.active {
@@ -2408,7 +2381,7 @@ label.setting-check,
 
 .help-accordion p {
   margin: 0 0 0.5rem;
-  font-size: 0.92rem;
+  font-size: var(--text-lg);
 }
 
 /* The "Related:" row under a topic, quick navigation to the settings
@@ -2502,18 +2475,6 @@ label.setting-check,
   margin-bottom: 0;
 }
 
-.help-chat-msg.is-pending {
-  color: var(--muted);
-  font-style: italic;
-}
-
-.help-chat-badges,
-.help-chat-open {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
 /* The answer's two views (INBOX 430): Atlas's answer or the app's help,
    above the prose, the width of its two words. */
 .help-chat-views {
@@ -2542,7 +2503,7 @@ label.setting-check,
 
 .searxng-host p {
   margin: 0.4rem 0 0;
-  font-size: 0.85rem;
+  font-size: var(--text-md);
 }
 
 .setup-snippet {
@@ -2550,7 +2511,7 @@ label.setting-check,
   padding: 0.6rem 0.8rem;
   /* Concentric: a well inside its accordion (DESIGN.md rule 3, op4-1005). */
   border-radius: var(--radius-inner);
-  font-size: 0.8rem;
+  font-size: var(--text-base);
   /* A pasted command or a stack trace is wider than the dialog. It wraps
      rather than scrolling sideways (INBOX 622: nothing in Settings scrolls
      sideways; measured 395px of snippet in a 242px box at 390), and the
@@ -2588,7 +2549,8 @@ label.setting-check,
   position: relative;
 }
 
-.provider-option:hover {
+.provider-option:hover,
+.provider-option:is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg-hover);
 }
 
@@ -2596,7 +2558,8 @@ label.setting-check,
   background: var(--accent-soft);
 }
 
-.provider-option:has(input:checked):hover {
+.provider-option:has(input:checked):hover,
+.provider-option:has(input:checked):is(:focus-visible, :has(:focus-visible)) {
   background: color-mix(in srgb, var(--accent) 20%, transparent);
 }
 
@@ -2621,7 +2584,7 @@ label.setting-check,
 }
 
 .provider-option .muted {
-  font-size: 0.85rem;
+  font-size: var(--text-md);
 }
 
 /* A button that reads as a link, used for "that setting lives over there"
@@ -2663,8 +2626,21 @@ label.setting-check,
   cursor: pointer;
 }
 
-.linklike:hover {
+.linklike:is(:hover, :focus-visible),
+.linklike:is(:focus-visible, :has(:focus-visible)) {
   text-decoration-thickness: 2px;
+}
+
+/* A link that holds an icon underlines its words, not the icon (INBOX 803).
+   A button is `inline-flex`, and a decoration on a flex container reaches
+   every in-flow item, the icon included. As an inline-block the words sit in
+   an inline formatting context, where an inline-block icon is atomic and the
+   decoration stops at its edge. */
+:is(.linklike, .link-button):has(> .ph) {
+  display: inline-block;
+}
+:is(.linklike, .link-button) > .ph {
+  display: inline-block;
 }
 
 /* A badge sitting *in* a sentence, rather than in a row of its own. In a row
@@ -2700,7 +2676,7 @@ span > .chip {
   border: 1px solid var(--glass-border);
   background: var(--card);
   color: var(--ink);
-  font-size: 1.15rem;
+  font-size: var(--text-h3);
   line-height: 1;
   box-shadow: var(--glass-shadow);
   backdrop-filter: blur(var(--glass-blur)) saturate(160%) brightness(1.04);
@@ -2781,7 +2757,7 @@ span > .chip {
   height: 1em;
   vertical-align: -0.19em;
   translate: none;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: radial-gradient(circle, var(--category-dot) 0 30%, transparent calc(30% + 0.5px));
 }
 
@@ -2811,9 +2787,15 @@ span > .chip {
   pointer-events: auto;
 }
 
+/* `#sidebar li > :not(.count)` clips its children for the ellipsis (01); this
+   span holds one button and no text, so its ring (INBOX 784) has to show. */
+#category-list li > .category-actions {
+  overflow: visible;
+}
+
 .category-actions button {
   padding: 0 0.25rem;
-  font-size: 0.75rem;
+  font-size: var(--text-sm);
   line-height: 1.4;
 }
 
@@ -2980,7 +2962,9 @@ span > .chip {
 
 @media (hover: hover) {
   .note-picker-row:hover,
-  .note-picker-cell:hover {
+  .note-picker-cell:hover,
+  .note-picker-row:is(:focus-visible, :has(:focus-visible)),
+  .note-picker-cell:is(:focus-visible, :has(:focus-visible)) {
     background: var(--row-hover-bg);
   }
 }
@@ -3039,7 +3023,7 @@ span > .chip {
   flex: 0 0 auto;
   width: 0.5em;
   height: 0.5em;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   background: var(--category-dot);
 }
 
@@ -3053,7 +3037,7 @@ span > .chip {
   width: 1.25rem;
   height: 1.25rem;
   border: 1.5px solid var(--control-edge);
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   color: transparent;
   font-size: var(--text-sm);
   transition:
@@ -3100,11 +3084,13 @@ span > .chip {
 }
 
 /* On a picture the check sits in its corner, on an opaque ground so it reads
-   over any photo. */
+   over any photo. Its offset is the cell's padding plus one step, so it sits
+   inside the picture's corner rather than on its edge (the owner, 2026-10-11:
+   "push these selection circles ... a little further from the corner"). */
 .note-picker-cell .note-picker-check {
   position: absolute;
-  top: var(--space-3);
-  right: var(--space-3);
+  top: calc(var(--space-2) + var(--space-3));
+  right: calc(var(--space-2) + var(--space-3));
   background: var(--modal-bg-opaque);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
@@ -3251,7 +3237,7 @@ span > .chip {
   border-left: 2px solid var(--accent);
   border-radius: var(--radius-sm);
   background: var(--card);
-  font-size: 0.85rem;
+  font-size: var(--text-md);
 }
 
 .chat-nudge.hidden {
@@ -3333,7 +3319,8 @@ span > .chip {
   line-height: 1;
 }
 
-.attachment-remove:hover {
+.attachment-remove:is(:hover, :focus-visible),
+.attachment-remove:is(:focus-visible, :has(:focus-visible)) {
   color: var(--error);
 }
 
@@ -3481,7 +3468,7 @@ span > .chip {
 }
 
 #draft-count {
-  font-size: 0.8rem;
+  font-size: var(--text-base);
 }
 
 /* --- the desk's own rows (WORLD_CLASS_PLAN D16) -----------------------------
@@ -3794,7 +3781,8 @@ span > .chip {
 }
 
 @media (hover: hover) {
-  .doc-item-button:hover {
+  .doc-item-button:hover,
+  .doc-item-button:is(:focus-visible, :has(:focus-visible)) {
     background: var(--surface-3);
   }
 }
@@ -3933,7 +3921,7 @@ span > .chip {
 
 .doc-list-icon {
   flex: 0 0 auto;
-  font-size: 1.3rem;
+  font-size: var(--text-h2);
   color: var(--muted);
 }
 
@@ -3956,7 +3944,7 @@ span > .chip {
 }
 
 .doc-list-meta {
-  font-size: 0.8rem;
+  font-size: var(--text-base);
 }
 
 .doc-main {
@@ -4165,7 +4153,8 @@ span > .chip {
 }
 
 .doc-dock .doc-dock-menu-btn:hover,
-.doc-dock-menu[open] > .doc-dock-menu-btn {
+.doc-dock-menu[open] > .doc-dock-menu-btn,
+.doc-dock .doc-dock-menu-btn:is(:focus-visible, :has(:focus-visible)) {
   background: var(--chip-bg);
   border-color: var(--accent);
 }
@@ -4183,7 +4172,8 @@ span > .chip {
   justify-content: center;
 }
 
-.doc-dock .doc-focus-toggle.ghost:hover {
+.doc-dock .doc-focus-toggle.ghost:hover,
+.doc-dock .doc-focus-toggle.ghost:is(:focus-visible, :has(:focus-visible)) {
   background: var(--chip-bg);
   border-color: var(--accent);
 }
@@ -4366,7 +4356,7 @@ span > .chip {
      the actions onto their own row once the title would otherwise go below
      a readable width, instead of shrinking the title toward zero. */
   min-width: 8rem;
-  font-size: 1.15rem;
+  font-size: var(--text-h3);
   font-weight: 600;
   border: 1px solid transparent;
   background: none;
@@ -4392,7 +4382,7 @@ span > .chip {
    text; only the save state reserves room, because only it changes width as
    you type. */
 .doc-actions .muted {
-  font-size: 0.8rem;
+  font-size: var(--text-base);
 }
 
 /* A goal that's set says so with the accent, the same way the chat dock's
@@ -4454,7 +4444,7 @@ span > .chip {
 
 #doc-content.doc-content-code {
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 0.92rem;
+  font-size: var(--text-lg);
 }
 
 /* **The code pane must not soft-wrap, or the numbers cannot be right.**
@@ -4597,7 +4587,7 @@ span > .chip {
      over the whole range that fits and stops exactly where the panel does. */
   max-height: 100%;
   font-family: var(--mono, ui-monospace, monospace);
-  font-size: 0.92rem;
+  font-size: var(--text-lg);
   line-height: 1.6;
 }
 
@@ -4679,7 +4669,7 @@ span > .chip {
      unrelated to the #doc-panes-manual resize mechanism right above this rule
      despite looking like the same symptom. */
   margin: 0;
-  font-size: 0.8rem;
+  font-size: var(--text-base);
 }
 
 .doc-hint kbd {
@@ -4956,42 +4946,51 @@ span > .chip {
   --pick-row-h: 3.5rem;
 }
 
-/* **The sources are the in-dialog segmented control** (`.confirm-seg`, the
-   New board dialog's recipe): the track spans the dialog and the segments
-   share it equally, one height. It was `align-self: flex-start`, a well
-   wider than its pills on one side and empty on the other (INBOX 572). The
-   count after each name is the `.seg-count`, quiet text. */
-.entry-pick-card > .seg {
+/* **The sources are a tab strip under the head** (INBOX 715, superseding the
+   segmented well of INBOX 572/670: "i dont like pills like that in popups").
+   `.tabs-line.popup-kinds` spans the dialog; a tab shares the strip, and the
+   strip scrolls when the words do not fit rather than cutting one. The count
+   after each name is the `.seg-count`, quiet text. */
+.entry-pick-card > .picker-kinds {
   align-self: stretch;
-  flex-wrap: nowrap;
   max-width: 100%;
   margin: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
-.entry-pick-card > .seg > button {
+.entry-pick-card > .picker-kinds > button {
   display: inline-flex;
-  flex: 1 1 0;
+  flex: 1 1 auto;
   align-items: center;
   justify-content: center;
   min-width: 0;
-  height: var(--control-h-lg);
-  padding-inline: var(--space-2);
+  padding-inline: var(--space-3);
   white-space: nowrap;
   font-size: var(--text-sm);
 }
 
-/* A phone's quarter of the track holds the name or the name and its count,
-   not both on one line: the count goes under the name, smaller, and every
-   segment keeps the one (touch) height. */
+.picker-kinds .seg-count {
+  margin-left: var(--space-1);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+}
+
+.picker-kinds .seg-count:empty {
+  display: none;
+}
+
+/* A phone's strip holds the name or the name and its count, not both on one
+   line: the count goes under the name, smaller. */
 @media (max-width: 599.98px) {
-  .entry-pick-card > .seg > button {
+  .entry-pick-card > .picker-kinds > button {
     flex-direction: column;
-    height: var(--target-min);
-    padding-inline: var(--space-1);
+    justify-content: center;
+    padding-inline: var(--space-2);
     line-height: 1.15;
   }
 
-  .entry-pick-card > .seg .seg-count {
+  .entry-pick-card > .picker-kinds .seg-count {
     margin-left: 0;
     font-size: var(--text-xs);
   }
@@ -5337,7 +5336,8 @@ span > .chip {
   height: auto;
 }
 
-.chat-context-pill:hover {
+.chat-context-pill:hover,
+.chat-context-pill:is(:focus-visible, :has(:focus-visible)) {
   border-color: var(--border);
   color: var(--ink);
 }
@@ -5393,7 +5393,6 @@ span > .chip {
   border-color: color-mix(in srgb, var(--error) 45%, transparent);
   font-weight: 600;
 }
-
 
 /* **The document's title reads as a title, not as a form field.**
 
@@ -5483,18 +5482,25 @@ input.doc-title-input::placeholder {
 
 
 /* The picker's source strip. It sits above the search box because it decides
-   what that box searches -- reading order and cause order agree here. A `.seg`
-   rather than a bespoke row so it is the same control the Notes sub-tabs and
-   the Library sub-tabs already are, which is what makes it read as navigation
-   instead of as four more filters. */
+   what that box searches -- reading order and cause order agree here. A
+   `.tabs-line.popup-kinds` (INBOX 715), the strip the Notes and Library
+   sub-tabs already are, so it reads as navigation instead of as five more
+   filters. */
 .note-picker-sources {
   flex: 0 0 auto;
   align-self: stretch;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
-.note-picker-sources button {
-  flex: 1 1 0;
+.note-picker-sources.tabs-line > button {
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
   gap: var(--space-2);
+  padding-inline: var(--space-3);
 }
 
 /* How many of this source are attached, on its own tab, so the other four
@@ -5521,7 +5527,7 @@ input.doc-title-input::placeholder {
     flex-wrap: nowrap;
   }
 
-  .note-picker-sources button {
+  .note-picker-sources.tabs-line > button {
     position: relative;
     flex: 1 1 auto;
     min-width: 0;
@@ -5695,8 +5701,11 @@ input.doc-title-input::placeholder {
 .tour-block-panel {
   position: fixed;
   /* The dim itself. See the note above: it is here, on four rectangles laid
-     out from the same box as the cut-out, rather than on one giant shadow. */
-  background: var(--scrim);
+     out from the same box as the cut-out, rather than on one giant shadow.
+     60% of the scrim, lighter than a dialog's, so a step's neighbours stay
+     legible (the owner, 2026-10-10: "on the tour it is hard to see the other
+     features around the things highlighted"). */
+  background: color-mix(in srgb, var(--scrim) 60%, transparent);
   pointer-events: auto;
 }
 
@@ -5790,14 +5799,41 @@ input.doc-title-input::placeholder {
   gap: var(--space-2);
 }
 
-/* Settings, help and guide: the whole tour first, then one button per section.
-   Wrapping, because the section names are words and the settings column is
-   narrow at phone widths. */
+/* Settings, help and guide: the whole tour and the welcome first, then one
+   quiet row per section, its name over what it covers (INBOX 804: a wall of
+   fourteen bordered buttons). Two columns where the pane is wide enough for
+   a blurb to stay one line, one under it. */
 .tour-replay-buttons {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+  gap: 0 var(--space-4);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+button.ghost.tour-row {
+  display: grid;
+  justify-content: start;
+  justify-items: start;
+  gap: 0;
+  width: 100%;
+  height: auto;
+  padding: var(--space-2);
+  border-color: transparent;
+  background: none;
+  text-align: start;
+  font-weight: 500;
+  white-space: normal;
+}
+button.ghost.tour-row:hover,
+button.ghost.tour-row:is(:focus-visible, :has(:focus-visible)) {
+  border-color: transparent;
+  background: var(--hover-veil);
+}
+.tour-row-blurb {
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 400;
 }
 
 /* **A model picker is as wide as a short name, not as the id** (owner: "fix
@@ -5818,16 +5854,11 @@ input.doc-title-input::placeholder {
 }
 
 
-/* The welcome and the tour buttons as one row of equal buttons (Help,
-   redesigned): the tour buttons sit beside Replay the welcome rather than
-   under it, so the replay-tour margin goes. */
+/* The whole tour (the pane's one filled button) and Replay the welcome, the
+   quiet one beside it; the sections are the list under them. */
 .tour-replay-row {
   gap: var(--space-2);
   align-items: center;
-}
-
-.tour-replay-row > .tour-replay-buttons {
-  display: contents;
 }
 
 /* A formatting toolbar's icon buttons are flat like its text buttons (B, I,
@@ -5929,7 +5960,7 @@ input.doc-title-input::placeholder {
 .manage-cat-search-icon {
   position: absolute;
   inset-inline-start: var(--space-3);
-  font-size: 1rem;
+  font-size: var(--text-body);
   color: var(--muted);
   pointer-events: none;
 }
@@ -5975,7 +6006,8 @@ input.doc-title-input::placeholder {
   cursor: default;
 }
 
-.manage-cat-row:hover {
+.manage-cat-row:hover,
+.manage-cat-row:is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg);
 }
 
@@ -6037,7 +6069,7 @@ input.doc-title-input::placeholder {
 .manage-cat-dot {
   width: 0.625rem;
   height: 0.625rem;
-  border-radius: 50%;
+  border-radius: var(--radius-pill);
   flex: 0 0 auto;
   background: var(--category-dot);
 }
@@ -6087,7 +6119,8 @@ input.doc-title-input::placeholder {
   cursor: pointer;
 }
 
-.swatch-option:hover:not([aria-checked="true"]) {
+.swatch-option:hover:not([aria-checked="true"]),
+.swatch-option:is(:focus-visible, :has(:focus-visible)):not([aria-checked="true"]) {
   box-shadow: 0 0 0 var(--space-1) var(--modal-bg-opaque), 0 0 0 calc(var(--space-1) + 2px) var(--muted);
 }
 
@@ -6158,7 +6191,8 @@ button.manage-cat-count {
   cursor: pointer;
 }
 
-button.manage-cat-count:hover {
+button.manage-cat-count:hover,
+button.manage-cat-count:is(:focus-visible, :has(:focus-visible)) {
   color: var(--ink);
   text-decoration: underline;
 }
@@ -6272,7 +6306,8 @@ button.manage-cat-count:hover {
 }
 
 .manage-cat-menu > button:hover,
-.manage-cat-menu > button[aria-expanded="true"] {
+.manage-cat-menu > button[aria-expanded="true"],
+.manage-cat-menu > button:is(:focus-visible, :has(:focus-visible)) {
   color: var(--ink);
   background: var(--chip-bg);
 }
@@ -6389,4 +6424,53 @@ button.manage-cat-count:hover {
    were in the same position. */
 .chat-dock:has(#note-picker-panel:not(.hidden), .chat-skills-panel:not(.hidden), #chat-dock-more-panel:not(.hidden)) {
   z-index: 46;
+}
+
+/* **An insight's verdicts: one compact pair on the sentence's own row**
+   (INBOX 782; `insightLine`, status.js). The words take the room, the pair sits
+   at the end, quiet at rest (no fill, no edge) with a tint on hover, and wraps
+   under the words on a narrow screen. One rule for Chat's pattern lines and
+   Tidy's Patterns; the dashboard's ⋯ carries the same two items. */
+.insight-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  margin: var(--space-2) 0;
+}
+.insight-text {
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+.insight-verdicts {
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: var(--space-1);
+  margin-inline-start: auto;
+}
+.insight-verdict {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--control-h-dense);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.insight-verdict:is(:hover, :focus-visible) {
+  background: var(--hover-veil);
+  color: var(--ink);
+}
+.insight-verdict.is-confirm .ph {
+  color: var(--ok);
+}
+@media (pointer: coarse) {
+  .insight-verdict {
+    min-height: var(--target-min);
+  }
 }

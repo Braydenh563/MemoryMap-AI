@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import followups
+from tessellate.ai import followups
 
 
 def test_plain_lines_come_through_in_order():

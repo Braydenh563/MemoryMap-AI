@@ -13,7 +13,7 @@ from __future__ import annotations
 import threading
 import time
 
-from memorymap.core import jobs, model_gate
+from tessellate.core import jobs, model_gate
 
 
 def test_background_waits_for_an_interactive_call_and_then_goes():

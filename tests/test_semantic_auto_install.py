@@ -7,13 +7,14 @@ Settings switch that is bound to the preference."""
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
 
-from memorymap.api import routes_tasks
-from memorymap.core import config as config_module
-from memorymap.core import deps, extras
+from tessellate.api import routes_tasks
+from tessellate.core import config as config_module
+from tessellate.core import deps, extras
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -34,7 +35,7 @@ def _missing_package(service, monkeypatch):
 def _allow_auto_install(monkeypatch):
     # The suite may run with the guard on; these tests are about the
     # preference, so the env var must not be what stops the install.
-    monkeypatch.delenv("MEMORYMAP_NO_AUTO_INSTALL", raising=False)
+    monkeypatch.delenv("TESSELLATE_NO_AUTO_INSTALL", raising=False)
     yield
     # A test here starts a fake install (`_no_dispatch`) that never finishes;
     # left running it showed up in every later /tasks test on the worker.
@@ -155,13 +156,14 @@ def test_the_switch_is_bound_to_the_preference():
 
 
 def test_the_guide_tells_the_choice():
-    from memorymap.ai import help_chat, help_topics_more
+    from tessellate.ai import help_chat, help_topics_more
 
     text = (
         Path(help_chat.__file__).read_text(encoding="utf-8")
         + Path(help_topics_more.__file__).read_text(encoding="utf-8")
     )
-    assert "Install search by meaning automatically" in text
+    joined = re.sub(r'"\s*\n\s*"', "", text)
+    assert "Install search by meaning automatically" in joined
 
 
 # --- the first-time notice (a lazy module) ----------------------------------

@@ -32,8 +32,8 @@ from __future__ import annotations
 
 import json
 
-from memorymap.ai import agent, skill_runner, skills
-from memorymap.core import deps
+from tessellate.ai import agent, skill_runner, skills
+from tessellate.core import deps
 
 
 def _events(client, question, **body):

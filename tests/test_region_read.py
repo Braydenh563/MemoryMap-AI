@@ -23,9 +23,9 @@ from __future__ import annotations
 
 import io
 
-from memorymap.ai import captioning, vision_ocr
-from memorymap.core import deps
-from memorymap.core.database import PageRead
+from tessellate.ai import captioning, vision_ocr
+from tessellate.core import deps
+from tessellate.core.database import PageRead
 
 #: The smallest real PNG, a 1x1 greyscale pixel. Enough to satisfy the magic
 #: number check, which is the only thing this endpoint looks at before handing

@@ -7,9 +7,9 @@ import json
 
 from sqlalchemy import select
 
-from memorymap.core.config import ConfigManager
-from memorymap.core.database import AuditLog, Category
-from memorymap.entry import manager
+from tessellate.core.config import ConfigManager
+from tessellate.core.database import AuditLog, Category
+from tessellate.entry import manager
 
 
 def test_config_creates_data_dir_and_defaults(tmp_path):
@@ -182,7 +182,7 @@ def test_old_database_gains_new_columns_without_data_loss(tmp_path):
     keep the old rows."""
     import sqlite3
 
-    from memorymap.core.database import DatabaseManager, Entry
+    from tessellate.core.database import DatabaseManager, Entry
 
     db_path = tmp_path / "old.db"
     connection = sqlite3.connect(db_path)

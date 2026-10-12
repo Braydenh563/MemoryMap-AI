@@ -99,6 +99,73 @@ def _declared_anywhere(path: Path) -> set[str]:
 #: been loaded, with the reason each one is safe. A name here is a promise that
 #: somebody checked the path, not a way to quiet the test.
 REACHED_AFTER_LOAD = {
+    #: Settings, About, Maintenance: settings.js's showSettingsSection calls it
+    #: in the .then of ensureModule('settingsControls').
+    "renderMaintenance": "settingsControls, called in the .then of ensureModule('settingsControls') in showSettingsSection",
+    #: The history row's Logs button: it sits in Settings, whose window loads settingsControls first.
+    "openTaskLog": "settingsControls, the Settings window awaits it before any row in it can be pressed",
+    #: Background jobs, Report: the click awaits ensureModule('appImport') first.
+    "openImportReport": "appImport, called after `await ensureModule('appImport')` in the Report button's click",
+    #: Connections, opened in the .then of lazyScript('/js/connections.js') at its three callers.
+    "openConnections": "connections, called in the .then of lazyScript('/js/connections.js')",
+    #: The palette's Translate this row, in the .then of ensureModule('translate').
+    "translateCaught": "translate, called in the .then of ensureModule('translate') on its palette row",
+    #: Brief 88: a source opens its note at the quoted line, in the .then of
+    #: ensureModule('reveal') in capture-ask.js's openNoteAtPassage.
+    "markNotePassage": "reveal, called in the .then of ensureModule('reveal') in openNoteAtPassage",
+    #: Decision 70: the digest answer's one offer, in the .then of
+    #: ensureModule('askCompose') in renderAnswerGrounding.
+    "digestOffer": "askCompose, called in the .then of ensureModule('askCompose') in renderAnswerGrounding",
+    "digestShape": "askCompose, called in the .then of ensureModule('askCompose') in renderAnswerGrounding",
+    "digestMore": "askCompose, called in the .then of ensureModule('askCompose') in renderAnswerGrounding",
+    #: The answer's foot (B12, B30, B31, decision 73, follow-ups), moved out of
+    #: capture-ask.js to keep the boot scripts under their ratchet.
+    "citationVerdictRow": "askCompose, called in the .then of ensureModule('askCompose') in openCitationPeek",
+    "askAnswerMenu": "askCompose, called in the .then of ensureModule('askCompose') in askQuestion",
+    "renderAskInsights": "askCompose, called in the .then of ensureModule('askCompose') in askQuestion",
+    "renderAskWhy": "askCompose, called in the .then of ensureModule('askCompose') in askQuestion",
+    "renderAskFollowups": "askCompose, passed to the .then of ensureModule('askCompose') in askQuestion",
+    #: B12: an answer's mind map is tidied after `await openWhiteboardBoard`,
+    #: which loads the library bundle first (askKeepAsMap, capture-ask.js).
+    "wbMapTidyFresh": "library, called after await openWhiteboardBoard in askKeepAsMap's Open",
+    #: Brief bootdiet: the catalogue is in the palette's bundle, and every other
+    #: reader (Tools and features, Quick access, startApp's recovered recordings)
+    #: awaits `lazyScript` / `ensureModule` before it reads or calls.
+    "featureCatalog": "appPalette, the palette's bundle names it; openFeatures and renderQuickLinks await lazyScript('/js/app-features.js') first",
+    "noteRecoveredRecordings": "meetings, called in the .then of ensureModule('meetings') in dashboard.js's startApp hook",
+    #: INBOX 784: the Notes column's rows are drawn by connections.js;
+    #: renderNotesRail awaits lazyScript('/js/connections.js') before any of them.
+    "withBacklinks": "connections, renderNotesRail awaits lazyScript('/js/connections.js') before drawing",
+    "buildConnectionGroups": "connections, renderNotesRail awaits lazyScript('/js/connections.js') before drawing",
+    "connectionRowEl": "connections, notesRailNearGroup runs inside renderNotesRail after it awaited the bundle",
+    #: Brief 89: the palette's small tools, each called in the .then of
+    #: ensureModule('utilities') on its own palette row (settings-panes.js).
+    "startUtilityTimer": "utilities, called in the .then of ensureModule('utilities') on the palette's timer rows",
+    "startStopwatch": "utilities, called in the .then of ensureModule('utilities') on the palette's stopwatch row",
+    "countSelection": "utilities, called in the .then of ensureModule('utilities') on the palette's Count words row",
+    #: Brief 47: the findAnything shortcut closes the box only while
+    #: #finder-overlay is shown, and only openFinder (the same bundle) shows it.
+    "closeFinder": "search, the findAnything shortcut, only while the box openFinder drew is open",
+    #: chat.js moved these out for the boot gzip ratchet (2026-10-10); each
+    #: is called in the `.then` of its own `ensureModule` on the same line.
+    "renderChatContextPop": "usageLedger, called in the .then of ensureModule('usageLedger') in renderChatContextMeter",
+    "showWebReader": "webClip, called in the .then of ensureModule('webClip') in openWebReader",
+    "askAgainMenu": "askHistory, called in the .then of ensureModule('askHistory') in loadRecentQuestions",
+    "answerSuggestedTags": "tagSuggest, called in the .then of ensureModule('tagSuggest') by answerTags",
+    "openNoteTagPopover": "tagSuggest, called in the .then of ensureModule('tagSuggest') by the \"+ Tag\" chip (note-cards.js)",
+    "settingsPrefsSeen": "settingsData, called in the .then of ensureModule('settingsData') by the apiJson wrapper (status.js)",
+    "clearRecentSearches": "searchSuggest, called in the .then of ensureModule('searchSuggest') by the web panel's Clear (chat.js)",
+    "renderSettingsHistory": "settingsData, called in the .then of ensureModule('settingsData') when Data opens (settings.js)",
+    "renderSettingsClear": "settingsData, called in the .then of ensureModule('settingsData') when Data opens (settings.js)",
+    "renderStorageBreakdown": "settingsData, called in the .then of ensureModule('settingsData') when About's health block draws (settings.js)",
+    "openSearchSuggest": "searchSuggest, called in the .then of ensureModule('searchSuggest') by the focus listener (capture-ask.js)",
+    "questionsForNote": "questionsView, called in the .then of ensureModule('questionsView') by a card's question count",
+    "webFollowUp": "webClip, called in sendChatMessage after `await ensureModule('webClip')` in the same condition",
+    "readerBookmark": "webClip, the reader's bookmark button, whose listener awaits ensureModule('webClip') first",
+    #: Brief 84: a Chat answer's bar of counts, drawn in the .then of its ensureModule.
+    "drawAskChart": "askHistory, called in the .then of ensureModule('askHistory') in the chat's onChart",
+    "saveWebPageAsNote": "webClip, the reader's Save button, on screen only after showWebReader (same bundle) drew a page",
+    "dateFieldWire": "dateField, called in enhanceDateField's first press after `await ensureModule('dateField')` in the same condition",
     #: WORLD_CLASS_PLAN section 17 row 4: called inside
     #: `ensureModule("askHistory").then(...)` in `askQuestion`, so the bundle
     #: has loaded by the time the call runs.
@@ -109,7 +176,16 @@ REACHED_AFTER_LOAD = {
     #: INBOX 644: saveMeetingNote (media.js) awaits ensureModule("meetings")
     #: and calls only when it loaded, as openNavHistoryMenu does.
     "meetingSaveTranscript": "meetings, called by saveMeetingNote after awaiting ensureModule('meetings')",
+    #: Brief 101a: the recorder's Escape (settings-wiring.js) runs only while
+    #: `#meeting-overlay` is showing, and meetings.js is what shows it.
+    "closeMeetingRecorder": "meetings, the Escape handler in settings-wiring.js runs it only while #meeting-overlay is open, which only meetings.js opens",
     "renderAskChart": "askHistory, called from ensureModule('askHistory').then in askQuestion",
+    #: The 2026-10-10 triage: a composed answer's cited names are linked
+    #: once ask-compose.js is in (`addInlineCitations`, capture-ask.js).
+    "linkCitedTitles": "askCompose, called from ensureModule('askCompose').then in addInlineCitations",
+    "markSaidSentences": "askCompose, called beside linkCitedTitles in the same ensureModule('askCompose').then",
+    "renderActCard": "askCompose, called from ensureModule('askCompose').then in renderToolConfirm (chat-agent.js)",
+    "renderWebSources": "askCompose, called from ensureModule('askCompose').then in chat-attach's onWebSources",
     #: The Escape handler (settings-wiring.js) closes the welcome card only
     #: when `#onboarding-overlay` is showing, and the only thing that shows it
     #: is `openOnboarding`, whose stand-in loads the bundle first.
@@ -149,7 +225,10 @@ REACHED_AFTER_LOAD = {
     #: drawn, which is the intended degradation.
     "settingsIndexWatchSection": "settingsUi, awaited by openSettingsModal before a section is shown",
     "renderHelpTopics": "settingsUi, awaited by openSettingsModal on the line before the call",
+    "renderCredits": "settingsUi, awaited by openSettingsModal two lines before the call",
     "renderSettingResults": "settingsUi, called from the search field inside the open dialog",
+    "settingQueryAlts": "settingsUi, called from filterSettings, the search field inside the open dialog (an empty query returns before it)",
+    "meaningHolds": "settingsUi (meaning.js), called from filterSettings beside settingQueryAlts; without the bundle the plain substring rule runs",
     "settingResultsKey": "settingsUi, called from the search field inside the open dialog",
     "renderSuggested": "settingsUi, called from the status poll only while Settings is open (renderSettings), and Settings awaits the bundle first",
     #: The installed models moved beside it (op4-1005): the same poll branch,
@@ -175,8 +254,9 @@ REACHED_AFTER_LOAD = {
     "fitGraphToView": "graph, called from the Graph tab's own dispatch",
     "setGraphPhysicsEnabled": "graph, called from the Graph tab's own dispatch",
     "applyGraphHighlight": "graph, called from the Graph tab's own controls",
-    "graphNodeById": "graph, called by showNoteInGraph after `await switchTab(\"graph\")`",
-    "focusGraphNode": "graph, called by showNoteInGraph after `await switchTab(\"graph\")`",
+    "graphShowNote": "graph, called by showNoteInGraph after `await switchTab(\"graph\")`",
+    "showTopicInGraph": "graph, called by a note card's topic chip after `await switchTab(\"graph\")`",
+    "toggleGraphFullscreen": "graph, called only while #graph-card is already full screen, which only graph.js can have made it",
     "wbOwnsChord": "library, asked by the global shortcut handler; with the bundle absent no board is open, so no chord can be the board's and the guard's false is the right answer",
     "openLibraryItem": "library, called from a row the Library itself drew",
     "renderDocPreview": "library, called from the document editor's own update path",

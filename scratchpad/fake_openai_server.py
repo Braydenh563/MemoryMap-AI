@@ -94,6 +94,12 @@ ANSWER = (
 #: Calls per tool round (`--calls`, `FAKE_CALLS`); see the module docstring.
 CALLS = max(1, int(os.environ.get("FAKE_CALLS") or 1))
 
+#: A slow backend (`FAKE_STREAM_DELAY_MS`, ledger 1530): the plain-text answer
+#: arrives as `STREAM_PIECES` pieces with this pause before each, so a Stop
+#: pressed mid-answer has something to stop. 0 is the ordinary instant stand-in.
+STREAM_DELAY_MS = int(os.environ.get("FAKE_STREAM_DELAY_MS") or 0)
+STREAM_PIECES = 8
+
 
 def _pick_tools(tools: list[dict], count: int) -> list[tuple[str, dict]]:
     """`count` distinct tools out of what the request offered, the preferred
@@ -109,6 +115,15 @@ def _pick_tools(tools: list[dict], count: int) -> list[tuple[str, dict]]:
     return [(n, arguments.get(n, {})) for n in picked[:count]]
 
 
+#: A scripted run (`FAKE_SCRIPT=calls.json`, Brief 87): a JSON list of
+#: `[name, arguments]`, one popped per tool round while it lasts, so a plan
+#: run can make a different write in each step. Then the default pick.
+_SCRIPT: list = []
+if os.environ.get("FAKE_SCRIPT"):
+    with open(os.environ["FAKE_SCRIPT"], encoding="utf-8") as handle:
+        _SCRIPT = json.load(handle)
+
+
 def _pick_tool(tools: list[dict]) -> tuple[str, dict] | None:
     """The tool to call, chosen out of what this very request offered."""
     names = []
@@ -119,6 +134,13 @@ def _pick_tool(tools: list[dict]) -> tuple[str, dict] | None:
             names.append(name)
     if not names:
         return None
+    #: Popped only by a request that offers the scripted tool, so a side
+    #: request (a classifier, a title) does not eat a step's write.
+    if os.environ.get("FAKE_LOG"):
+        print("offered", len(names), "script", [c[0] for c in _SCRIPT], ",".join(names), flush=True)
+    if _SCRIPT and _SCRIPT[0][0] in names:
+        name, arguments = _SCRIPT.pop(0)
+        return name, arguments
     arguments = {**ARGUMENTS, **_ENV_ARGUMENTS}
     for preferred in (*_ENV_TOOLS, *PREFERRED_TOOLS):
         if preferred in names:
@@ -406,7 +428,14 @@ class Handler(BaseHTTPRequestHandler):
                 )
             self._sse_send(frame({}, finish="tool_calls"))
         else:
-            for piece in (ANSWER[:40], ANSWER[40:]):
+            if STREAM_DELAY_MS:
+                size = max(1, -(-len(ANSWER) // STREAM_PIECES))
+                pieces = [ANSWER[i : i + size] for i in range(0, len(ANSWER), size)]
+            else:
+                pieces = [ANSWER[:40], ANSWER[40:]]
+            for piece in pieces:
+                if STREAM_DELAY_MS:
+                    time.sleep(STREAM_DELAY_MS / 1000)
                 self._sse_send(frame({"content": piece}))
             self._sse_send(frame({}, finish="stop"))
         self._sse_close()

@@ -11,9 +11,9 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from memorymap.core.database import utcnow
-from memorymap.entry import manager
-from memorymap.search import engine
+from tessellate.core.database import utcnow
+from tessellate.entry import manager
+from tessellate.search import engine
 
 NOTE = "---\nstatus: open\ntype: meeting\n---\n# Kiln plan\n\nFire on Thursday."
 UNTITLED = "---\nstatus: open\n---\nFire the kiln on Thursday."
@@ -94,7 +94,7 @@ def test_a_search_hit_is_titled_by_the_line_after_the_block(client, session):
 
 
 def test_an_ask_card_has_no_block():
-    from memorymap.ai import cards
+    from tessellate.ai import cards
 
     item = cards._note_item({"id": 3, "content": UNTITLED})
     assert item["label"].startswith("Fire the kiln")
@@ -118,7 +118,7 @@ def test_the_frontends_raw_content_clips_read_past_the_block():
 
 
 def test_a_contradictions_excerpt_has_no_block():
-    from memorymap.ai import tensions
+    from tessellate.ai import tensions
 
     _no_block(tensions._excerpt(UNTITLED))
 
@@ -133,4 +133,8 @@ def test_the_dashboards_note_widgets_read_past_the_block():
     text = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
     assert "const raw = stripFrontmatter(entry.content || \"\")" in text
     assert "truncateMarkdownSafe(stripFrontmatter(note.content), 239)" in text
-    assert "stripFrontmatter(row.entry.content || \"\").split(\"\\n\")" in text
+    #: The unfinished-checklists title is a note's name, which `noteNamePlain` (INBOX 820) cuts
+    #: past the block itself; the shared helper replaced a hand-rolled `.split("\n")[0]`.
+    assert "noteNamePlain(row.entry.content)" in text
+    helper = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "chat-attach.js").read_text(encoding="utf-8")
+    assert "stripFrontmatter(String(content ?? \"\"))" in helper

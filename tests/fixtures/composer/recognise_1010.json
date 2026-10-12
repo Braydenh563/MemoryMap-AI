@@ -1,0 +1,1702 @@
+{
+ "now": "2026-10-06T14:30",
+ "rows": [
+  {
+   "text": "tomorrow",
+   "locale": "en-GB",
+   "expect": [
+    "date|tomorrow|2026-10-07"
+   ],
+   "alt": []
+  },
+  {
+   "text": "tonight",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|tonight|2026-10-06T20:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "next friday",
+   "locale": "en-GB",
+   "expect": [
+    "date|next friday|2026-10-16"
+   ],
+   "alt": []
+  },
+  {
+   "text": "last friday",
+   "locale": "en-GB",
+   "expect": [
+    "date|last friday|2026-10-02"
+   ],
+   "alt": []
+  },
+  {
+   "text": "this friday",
+   "locale": "en-GB",
+   "expect": [
+    "date|this friday|2026-10-09"
+   ],
+   "alt": []
+  },
+  {
+   "text": "friday",
+   "locale": "en-GB",
+   "expect": [
+    "date|friday|2026-10-09"
+   ],
+   "alt": []
+  },
+  {
+   "text": "in 3 days",
+   "locale": "en-GB",
+   "expect": [
+    "date|in 3 days|2026-10-09"
+   ],
+   "alt": []
+  },
+  {
+   "text": "in two weeks",
+   "locale": "en-GB",
+   "expect": [
+    "date|in two weeks|2026-10-20"
+   ],
+   "alt": []
+  },
+  {
+   "text": "end of the month",
+   "locale": "en-GB",
+   "expect": [
+    "date|end of the month|2026-10-31"
+   ],
+   "alt": []
+  },
+  {
+   "text": "next month",
+   "locale": "en-GB",
+   "expect": [
+    "range|next month|2026-11-01..2026-11-30/month"
+   ],
+   "alt": []
+  },
+  {
+   "text": "the 21st",
+   "locale": "en-GB",
+   "expect": [
+    "date|the 21st|2026-10-21"
+   ],
+   "alt": []
+  },
+  {
+   "text": "21st of next month",
+   "locale": "en-GB",
+   "expect": [
+    "date|21st of next month|2026-11-21"
+   ],
+   "alt": []
+  },
+  {
+   "text": "on the 14th",
+   "locale": "en-GB",
+   "expect": [
+    "date|the 14th|2026-10-14"
+   ],
+   "alt": []
+  },
+  {
+   "text": "march",
+   "locale": "en-GB",
+   "expect": [
+    "range|march|2026-03-01..2026-03-31/month"
+   ],
+   "alt": [
+    "range|march|2027-03-01..2027-03-31/month"
+   ]
+  },
+  {
+   "text": "in march",
+   "locale": "en-GB",
+   "expect": [
+    "range|in march|2026-03-01..2026-03-31/month"
+   ],
+   "alt": [
+    "range|in march|2027-03-01..2027-03-31/month"
+   ]
+  },
+  {
+   "text": "since march",
+   "locale": "en-GB",
+   "expect": [
+    "range|since march|2026-03-01..2026-10-06/month"
+   ],
+   "alt": []
+  },
+  {
+   "text": "the week before last",
+   "locale": "en-GB",
+   "expect": [
+    "range|the week before last|2026-09-21..2026-09-27/week"
+   ],
+   "alt": []
+  },
+  {
+   "text": "yesterday",
+   "locale": "en-GB",
+   "expect": [
+    "date|yesterday|2026-10-05"
+   ],
+   "alt": []
+  },
+  {
+   "text": "a week ago",
+   "locale": "en-GB",
+   "expect": [
+    "date|a week ago|2026-09-29"
+   ],
+   "alt": []
+  },
+  {
+   "text": "3 weeks ago",
+   "locale": "en-GB",
+   "expect": [
+    "date|3 weeks ago|2026-09-15"
+   ],
+   "alt": []
+  },
+  {
+   "text": "noon",
+   "locale": "en-GB",
+   "expect": [
+    "time|noon|12:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "at 5",
+   "locale": "en-GB",
+   "expect": [
+    "time|5|17:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "5pm",
+   "locale": "en-GB",
+   "expect": [
+    "time|5pm|17:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "at 17:30",
+   "locale": "en-GB",
+   "expect": [
+    "time|17:30|17:30"
+   ],
+   "alt": []
+  },
+  {
+   "text": "tomorrow at 9",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|tomorrow at 9|2026-10-07T09:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "next tuesday morning",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|next tuesday morning|2026-10-13T09:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "first thing monday",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|first thing monday|2026-10-12T09:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "end of day",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|end of day|2026-10-06T17:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "in an hour",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|in an hour|2026-10-06T15:30"
+   ],
+   "alt": []
+  },
+  {
+   "text": "in 90 minutes",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|in 90 minutes|2026-10-06T16:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "christmas",
+   "locale": "en-GB",
+   "expect": [
+    "date|christmas|2026-12-25"
+   ],
+   "alt": []
+  },
+  {
+   "text": "new year",
+   "locale": "en-GB",
+   "expect": [
+    "date|new year|2027-01-01"
+   ],
+   "alt": []
+  },
+  {
+   "text": "q4",
+   "locale": "en-GB",
+   "expect": [
+    "range|q4|2026-10-01..2026-12-31/quarter"
+   ],
+   "alt": []
+  },
+  {
+   "text": "mid november",
+   "locale": "en-GB",
+   "expect": [
+    "date|mid november|2026-11-15"
+   ],
+   "alt": []
+  },
+  {
+   "text": "2026-11-02",
+   "locale": "en-GB",
+   "expect": [
+    "date|2026-11-02|2026-11-02"
+   ],
+   "alt": []
+  },
+  {
+   "text": "2/11",
+   "locale": "en-GB",
+   "expect": [
+    "date|2/11|2026-11-02"
+   ],
+   "alt": [
+    "date|2/11|2027-02-11"
+   ]
+  },
+  {
+   "text": "11/2",
+   "locale": "en-GB",
+   "expect": [
+    "date|11/2|2027-02-11"
+   ],
+   "alt": [
+    "date|11/2|2026-11-02"
+   ]
+  },
+  {
+   "text": "nov 2",
+   "locale": "en-GB",
+   "expect": [
+    "date|nov 2|2026-11-02"
+   ],
+   "alt": []
+  },
+  {
+   "text": "the day after tomorrow",
+   "locale": "en-GB",
+   "expect": [
+    "date|the day after tomorrow|2026-10-08"
+   ],
+   "alt": []
+  },
+  {
+   "text": "later today",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|later today|2026-10-06T17:30"
+   ],
+   "alt": []
+  },
+  {
+   "text": "this weekend",
+   "locale": "en-GB",
+   "expect": [
+    "range|this weekend|2026-10-10..2026-10-11/week"
+   ],
+   "alt": []
+  },
+  {
+   "text": "next weekend",
+   "locale": "en-GB",
+   "expect": [
+    "range|next weekend|2026-10-17..2026-10-18/week"
+   ],
+   "alt": []
+  },
+  {
+   "text": "in a fortnight",
+   "locale": "en-GB",
+   "expect": [
+    "date|in a fortnight|2026-10-20"
+   ],
+   "alt": []
+  },
+  {
+   "text": "on my birthday",
+   "locale": "en-GB",
+   "expect": [],
+   "alt": []
+  },
+  {
+   "text": "2/11",
+   "locale": "en-US",
+   "expect": [
+    "date|2/11|2027-02-11"
+   ],
+   "alt": [
+    "date|2/11|2026-11-02"
+   ]
+  },
+  {
+   "text": "11/2",
+   "locale": "en-US",
+   "expect": [
+    "date|11/2|2026-11-02"
+   ],
+   "alt": [
+    "date|11/2|2027-02-11"
+   ]
+  },
+  {
+   "text": "12/25/2026",
+   "locale": "en-US",
+   "expect": [
+    "date|12/25/2026|2026-12-25"
+   ],
+   "alt": []
+  },
+  {
+   "text": "25/12/2026",
+   "locale": "en-GB",
+   "expect": [
+    "date|25/12/2026|2026-12-25"
+   ],
+   "alt": []
+  },
+  {
+   "text": "5 pounds",
+   "locale": "en-GB",
+   "expect": [
+    "money|5 pounds|5 GBP"
+   ],
+   "alt": [
+    "quantity|5 pounds|5 pounds"
+   ]
+  },
+  {
+   "text": "5 pounds",
+   "locale": "en-US",
+   "expect": [
+    "quantity|5 pounds|5 pounds"
+   ],
+   "alt": [
+    "money|5 pounds|5 GBP"
+   ]
+  },
+  {
+   "text": "it was 30 degrees out",
+   "locale": "en-GB",
+   "expect": [
+    "temperature|30 degrees|30 °C"
+   ],
+   "alt": []
+  },
+  {
+   "text": "it was 86 degrees out",
+   "locale": "en-US",
+   "expect": [
+    "temperature|86 degrees|86 °F"
+   ],
+   "alt": []
+  },
+  {
+   "text": "what did I write in march",
+   "locale": "en-GB",
+   "expect": [
+    "range|in march|2026-03-01..2026-03-31/month"
+   ],
+   "alt": []
+  },
+  {
+   "text": "what did I do on friday",
+   "locale": "en-GB",
+   "expect": [
+    "date|friday|2026-10-02"
+   ],
+   "alt": []
+  },
+  {
+   "text": "notes from last week",
+   "locale": "en-GB",
+   "expect": [
+    "range|last week|2026-09-28..2026-10-04/week"
+   ],
+   "alt": []
+  },
+  {
+   "text": "what did I write this week",
+   "locale": "en-GB",
+   "expect": [
+    "range|this week|2026-10-05..2026-10-11/week"
+   ],
+   "alt": []
+  },
+  {
+   "text": "last month",
+   "locale": "en-GB",
+   "expect": [
+    "range|last month|2026-09-01..2026-09-30/month"
+   ],
+   "alt": []
+  },
+  {
+   "text": "last year",
+   "locale": "en-GB",
+   "expect": [
+    "range|last year|2025-01-01..2025-12-31/year"
+   ],
+   "alt": []
+  },
+  {
+   "text": "this year",
+   "locale": "en-GB",
+   "expect": [
+    "range|this year|2026-01-01..2026-12-31/year"
+   ],
+   "alt": []
+  },
+  {
+   "text": "the last 30 days",
+   "locale": "en-GB",
+   "expect": [
+    "range|the last 30 days|2026-09-06..2026-10-06/day"
+   ],
+   "alt": []
+  },
+  {
+   "text": "past week",
+   "locale": "en-GB",
+   "expect": [
+    "range|past week|2026-09-29..2026-10-06/week"
+   ],
+   "alt": []
+  },
+  {
+   "text": "two days ago",
+   "locale": "en-GB",
+   "expect": [
+    "date|two days ago|2026-10-04"
+   ],
+   "alt": []
+  },
+  {
+   "text": "the day before yesterday",
+   "locale": "en-GB",
+   "expect": [
+    "date|the day before yesterday|2026-10-04"
+   ],
+   "alt": []
+  },
+  {
+   "text": "since friday",
+   "locale": "en-GB",
+   "expect": [
+    "range|since friday|2026-10-02..2026-10-06/day"
+   ],
+   "alt": []
+  },
+  {
+   "text": "in september",
+   "locale": "en-GB",
+   "expect": [
+    "range|in september|2026-09-01..2026-09-30/month"
+   ],
+   "alt": [
+    "range|in september|2027-09-01..2027-09-30/month"
+   ]
+  },
+  {
+   "text": "early november",
+   "locale": "en-GB",
+   "expect": [
+    "range|early november|2026-11-01..2026-11-10/day"
+   ],
+   "alt": []
+  },
+  {
+   "text": "late october",
+   "locale": "en-GB",
+   "expect": [
+    "range|late october|2026-10-21..2026-10-31/day"
+   ],
+   "alt": []
+  },
+  {
+   "text": "end of the week",
+   "locale": "en-GB",
+   "expect": [
+    "date|end of the week|2026-10-11"
+   ],
+   "alt": []
+  },
+  {
+   "text": "end of the year",
+   "locale": "en-GB",
+   "expect": [
+    "date|end of the year|2026-12-31"
+   ],
+   "alt": []
+  },
+  {
+   "text": "christmas eve",
+   "locale": "en-GB",
+   "expect": [
+    "date|christmas eve|2026-12-24"
+   ],
+   "alt": []
+  },
+  {
+   "text": "new year's eve",
+   "locale": "en-GB",
+   "expect": [
+    "date|new year's eve|2026-12-31"
+   ],
+   "alt": []
+  },
+  {
+   "text": "5 november",
+   "locale": "en-GB",
+   "expect": [
+    "date|5 november|2026-11-05"
+   ],
+   "alt": []
+  },
+  {
+   "text": "october 20th",
+   "locale": "en-GB",
+   "expect": [
+    "date|october 20th|2026-10-20"
+   ],
+   "alt": []
+  },
+  {
+   "text": "20 oct 2027",
+   "locale": "en-GB",
+   "expect": [
+    "date|20 oct 2027|2027-10-20"
+   ],
+   "alt": []
+  },
+  {
+   "text": "on the 1st",
+   "locale": "en-GB",
+   "expect": [
+    "date|the 1st|2026-11-01"
+   ],
+   "alt": []
+  },
+  {
+   "text": "notes since 1 september",
+   "locale": "en-GB",
+   "expect": [
+    "range|since 1 september|2026-09-01..2026-10-06/day"
+   ],
+   "alt": []
+  },
+  {
+   "text": "what did I write last week about harbor",
+   "locale": "en-GB",
+   "expect": [
+    "range|last week|2026-09-28..2026-10-04/week"
+   ],
+   "alt": []
+  },
+  {
+   "text": "how many days until christmas",
+   "locale": "en-GB",
+   "expect": [
+    "date|christmas|2026-12-25"
+   ],
+   "alt": []
+  },
+  {
+   "text": "what day is 2026-12-25",
+   "locale": "en-GB",
+   "expect": [
+    "date|2026-12-25|2026-12-25"
+   ],
+   "alt": []
+  },
+  {
+   "text": "what's due this week",
+   "locale": "en-GB",
+   "expect": [
+    "range|this week|2026-10-05..2026-10-11/week"
+   ],
+   "alt": []
+  },
+  {
+   "text": "next year",
+   "locale": "en-GB",
+   "expect": [
+    "range|next year|2027-01-01..2027-12-31/year"
+   ],
+   "alt": []
+  },
+  {
+   "text": "q1 2027",
+   "locale": "en-GB",
+   "expect": [
+    "range|q1 2027|2027-01-01..2027-03-31/quarter"
+   ],
+   "alt": []
+  },
+  {
+   "text": "in 2027",
+   "locale": "en-GB",
+   "expect": [
+    "range|in 2027|2027-01-01..2027-12-31/year"
+   ],
+   "alt": []
+  },
+  {
+   "text": "9:30 pm",
+   "locale": "en-GB",
+   "expect": [
+    "time|9:30 pm|21:30"
+   ],
+   "alt": []
+  },
+  {
+   "text": "21:00",
+   "locale": "en-GB",
+   "expect": [
+    "time|21:00|21:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "at 9",
+   "locale": "en-GB",
+   "expect": [
+    "time|9|09:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "midnight",
+   "locale": "en-GB",
+   "expect": [
+    "time|midnight|00:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "tomorrow evening",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|tomorrow evening|2026-10-07T18:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "tomorrow morning",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|tomorrow morning|2026-10-07T09:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "tomorrow at 5pm",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|tomorrow at 5pm|2026-10-07T17:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "friday at 3pm",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|friday at 3pm|2026-10-09T15:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "next monday at 10:15",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|next monday at 10:15|2026-10-12T10:15"
+   ],
+   "alt": []
+  },
+  {
+   "text": "monday 9am",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|monday 9am|2026-10-12T09:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "9am tomorrow",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|9am tomorrow|2026-10-07T09:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "this afternoon",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|this afternoon|2026-10-06T15:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "this evening",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|this evening|2026-10-06T18:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "in 20 minutes",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|in 20 minutes|2026-10-06T14:50"
+   ],
+   "alt": []
+  },
+  {
+   "text": "in half an hour",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|in half an hour|2026-10-06T15:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "in 1.5 hours",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|in 1.5 hours|2026-10-06T16:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "in 2 hours",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|in 2 hours|2026-10-06T16:30"
+   ],
+   "alt": []
+  },
+  {
+   "text": "in a couple of hours",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|in a couple of hours|2026-10-06T16:30"
+   ],
+   "alt": []
+  },
+  {
+   "text": "in an hour and a half",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|in an hour and a half|2026-10-06T16:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "in 6 months",
+   "locale": "en-GB",
+   "expect": [
+    "date|in 6 months|2027-04-06"
+   ],
+   "alt": []
+  },
+  {
+   "text": "in a year",
+   "locale": "en-GB",
+   "expect": [
+    "date|in a year|2027-10-06"
+   ],
+   "alt": []
+  },
+  {
+   "text": "two hours before midnight",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|two hours before midnight|2026-10-06T22:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "an hour before 5pm",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|an hour before 5pm|2026-10-06T16:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "2026-11-02T15:00",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|2026-11-02T15:00|2026-11-02T15:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "from 3pm to 5pm",
+   "locale": "en-GB",
+   "expect": [
+    "range|from 3pm to 5pm|15:00..17:00/time"
+   ],
+   "alt": []
+  },
+  {
+   "text": "3-5pm",
+   "locale": "en-GB",
+   "expect": [
+    "range|3-5pm|15:00..17:00/time"
+   ],
+   "alt": []
+  },
+  {
+   "text": "from monday to friday",
+   "locale": "en-GB",
+   "expect": [
+    "range|from monday to friday|2026-10-12..2026-10-16/day"
+   ],
+   "alt": []
+  },
+  {
+   "text": "every tuesday",
+   "locale": "en-GB",
+   "expect": [
+    "recurrence|every tuesday|FREQ=WEEKLY;BYDAY=TU"
+   ],
+   "alt": []
+  },
+  {
+   "text": "every morning at 7",
+   "locale": "en-GB",
+   "expect": [
+    "recurrence|every morning at 7|FREQ=DAILY;BYHOUR=7;BYMINUTE=0"
+   ],
+   "alt": []
+  },
+  {
+   "text": "every day",
+   "locale": "en-GB",
+   "expect": [
+    "recurrence|every day|FREQ=DAILY"
+   ],
+   "alt": []
+  },
+  {
+   "text": "daily",
+   "locale": "en-GB",
+   "expect": [
+    "recurrence|daily|FREQ=DAILY"
+   ],
+   "alt": []
+  },
+  {
+   "text": "weekly",
+   "locale": "en-GB",
+   "expect": [
+    "recurrence|weekly|FREQ=WEEKLY"
+   ],
+   "alt": []
+  },
+  {
+   "text": "monthly",
+   "locale": "en-GB",
+   "expect": [
+    "recurrence|monthly|FREQ=MONTHLY"
+   ],
+   "alt": []
+  },
+  {
+   "text": "every year",
+   "locale": "en-GB",
+   "expect": [
+    "recurrence|every year|FREQ=YEARLY"
+   ],
+   "alt": []
+  },
+  {
+   "text": "every month on the 1st",
+   "locale": "en-GB",
+   "expect": [
+    "recurrence|every month on the 1st|FREQ=MONTHLY;BYMONTHDAY=1"
+   ],
+   "alt": []
+  },
+  {
+   "text": "every other friday",
+   "locale": "en-GB",
+   "expect": [
+    "recurrence|every other friday|FREQ=WEEKLY;INTERVAL=2;BYDAY=FR"
+   ],
+   "alt": []
+  },
+  {
+   "text": "every 2 weeks",
+   "locale": "en-GB",
+   "expect": [
+    "recurrence|every 2 weeks|FREQ=WEEKLY;INTERVAL=2"
+   ],
+   "alt": []
+  },
+  {
+   "text": "every 3 days",
+   "locale": "en-GB",
+   "expect": [
+    "recurrence|every 3 days|FREQ=DAILY;INTERVAL=3"
+   ],
+   "alt": []
+  },
+  {
+   "text": "every weekday",
+   "locale": "en-GB",
+   "expect": [
+    "recurrence|every weekday|FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"
+   ],
+   "alt": []
+  },
+  {
+   "text": "every weekend",
+   "locale": "en-GB",
+   "expect": [
+    "recurrence|every weekend|FREQ=WEEKLY;BYDAY=SA,SU"
+   ],
+   "alt": []
+  },
+  {
+   "text": "each monday at 9am",
+   "locale": "en-GB",
+   "expect": [
+    "recurrence|each monday at 9am|FREQ=WEEKLY;BYDAY=MO;BYHOUR=9;BYMINUTE=0"
+   ],
+   "alt": []
+  },
+  {
+   "text": "every evening",
+   "locale": "en-GB",
+   "expect": [
+    "recurrence|every evening|FREQ=DAILY;BYHOUR=18;BYMINUTE=0"
+   ],
+   "alt": []
+  },
+  {
+   "text": "standup weekdays at 9:30",
+   "locale": "en-GB",
+   "expect": [
+    "recurrence|weekdays at 9:30|FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR;BYHOUR=9;BYMINUTE=30"
+   ],
+   "alt": []
+  },
+  {
+   "text": "bins out on mondays",
+   "locale": "en-GB",
+   "expect": [
+    "recurrence|mondays|FREQ=WEEKLY;BYDAY=MO"
+   ],
+   "alt": []
+  },
+  {
+   "text": "remind me every 2 weeks to pay the cleaner",
+   "locale": "en-GB",
+   "expect": [
+    "recurrence|every 2 weeks|FREQ=WEEKLY;INTERVAL=2"
+   ],
+   "alt": []
+  },
+  {
+   "text": "remind me about the dentist tomorrow",
+   "locale": "en-GB",
+   "expect": [
+    "date|tomorrow|2026-10-07"
+   ],
+   "alt": []
+  },
+  {
+   "text": "call mum on friday at 6",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|friday at 6|2026-10-09T18:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "pay rent on the 1st",
+   "locale": "en-GB",
+   "expect": [
+    "date|the 1st|2026-11-01"
+   ],
+   "alt": []
+  },
+  {
+   "text": "water the plants every tuesday",
+   "locale": "en-GB",
+   "expect": [
+    "recurrence|every tuesday|FREQ=WEEKLY;BYDAY=TU"
+   ],
+   "alt": []
+  },
+  {
+   "text": "dentist 21st 9am",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|21st 9am|2026-10-21T09:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "buy milk",
+   "locale": "en-GB",
+   "expect": [],
+   "alt": []
+  },
+  {
+   "text": "remind me in 20 minutes to check the oven",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|in 20 minutes|2026-10-06T14:50"
+   ],
+   "alt": []
+  },
+  {
+   "text": "next week: renew passport",
+   "locale": "en-GB",
+   "expect": [
+    "range|next week|2026-10-12..2026-10-18/week"
+   ],
+   "alt": []
+  },
+  {
+   "text": "Harbor launch 14 nov",
+   "locale": "en-GB",
+   "expect": [
+    "date|14 nov|2026-11-14"
+   ],
+   "alt": []
+  },
+  {
+   "text": "every morning at 7 stretch",
+   "locale": "en-GB",
+   "expect": [
+    "recurrence|every morning at 7|FREQ=DAILY;BYHOUR=7;BYMINUTE=0"
+   ],
+   "alt": []
+  },
+  {
+   "text": "remind me to remind me",
+   "locale": "en-GB",
+   "expect": [],
+   "alt": []
+  },
+  {
+   "text": "call Sam tomorrow at 5pm",
+   "locale": "en-GB",
+   "expect": [
+    "person|Sam|Sam",
+    "datetime|tomorrow at 5pm|2026-10-07T17:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "meet Priya at the Harbor Cafe on thursday",
+   "locale": "en-GB",
+   "expect": [
+    "person|Priya|Priya",
+    "place|Harbor Cafe|Harbor Cafe",
+    "date|thursday|2026-10-08"
+   ],
+   "alt": []
+  },
+  {
+   "text": "flight to Lisbon on 2 november",
+   "locale": "en-GB",
+   "expect": [
+    "place|Lisbon|Lisbon",
+    "date|2 november|2026-11-02"
+   ],
+   "alt": []
+  },
+  {
+   "text": "dinner with @sam friday",
+   "locale": "en-GB",
+   "expect": [
+    "person|@sam|sam",
+    "date|friday|2026-10-09"
+   ],
+   "alt": []
+  },
+  {
+   "text": "#launch review next tuesday",
+   "locale": "en-GB",
+   "expect": [
+    "tag|#launch|launch",
+    "date|next tuesday|2026-10-13"
+   ],
+   "alt": []
+  },
+  {
+   "text": "submit report by end of day",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|end of day|2026-10-06T17:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "take the bins out tonight",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|tonight|2026-10-06T20:00"
+   ],
+   "alt": []
+  },
+  {
+   "text": "book flights in two weeks",
+   "locale": "en-GB",
+   "expect": [
+    "date|in two weeks|2026-10-20"
+   ],
+   "alt": []
+  },
+  {
+   "text": "doctor 3/11 at 10am",
+   "locale": "en-GB",
+   "expect": [
+    "datetime|3/11 at 10am|2026-11-03T10:00"
+   ],
+   "alt": [
+    "datetime|3/11 at 10am|2027-03-11T10:00"
+   ]
+  },
+  {
+   "text": "renew insurance in 6 months",
+   "locale": "en-GB",
+   "expect": [
+    "date|in 6 months|2027-04-06"
+   ],
+   "alt": []
+  },
+  {
+   "text": "Meeting with Priya about pricing",
+   "locale": "en-GB",
+   "expect": [
+    "person|Priya|Priya"
+   ],
+   "alt": []
+  },
+  {
+   "text": "squats at 80kg",
+   "locale": "en-GB",
+   "expect": [
+    "quantity|80kg|80 kilograms"
+   ],
+   "alt": []
+  },
+  {
+   "text": "convert 5 miles to km",
+   "locale": "en-GB",
+   "expect": [
+    "quantity|5 miles|5 miles"
+   ],
+   "alt": []
+  },
+  {
+   "text": "Loaf 6: 78% hydration",
+   "locale": "en-GB",
+   "expect": [
+    "number|6|6",
+    "quantity|78%|78 percent"
+   ],
+   "alt": []
+  },
+  {
+   "text": "Boiler pressure 0.8 bar",
+   "locale": "en-GB",
+   "expect": [
+    "quantity|0.8 bar|0.8 bar"
+   ],
+   "alt": []
+  },
+  {
+   "text": "ran 10k in 52 minutes",
+   "locale": "en-GB",
+   "expect": [
+    "quantity|10k|10 kilometres",
+    "duration|52 minutes|3120"
+   ],
+   "alt": []
+  },
+  {
+   "text": "the oven at 200°C",
+   "locale": "en-GB",
+   "expect": [
+    "temperature|200°C|200 °C"
+   ],
+   "alt": []
+  },
+  {
+   "text": "it's 72°F outside",
+   "locale": "en-GB",
+   "expect": [
+    "temperature|72°F|72 °F"
+   ],
+   "alt": []
+  },
+  {
+   "text": "costs $12.50",
+   "locale": "en-GB",
+   "expect": [
+    "money|$12.50|12.5 USD"
+   ],
+   "alt": []
+  },
+  {
+   "text": "€30 for the tickets",
+   "locale": "en-GB",
+   "expect": [
+    "money|€30|30 EUR"
+   ],
+   "alt": []
+  },
+  {
+   "text": "paid 1,200 dollars rent",
+   "locale": "en-GB",
+   "expect": [
+    "money|1,200 dollars|1200 USD"
+   ],
+   "alt": []
+  },
+  {
+   "text": "£4.50 coffee",
+   "locale": "en-GB",
+   "expect": [
+    "money|£4.50|4.5 GBP"
+   ],
+   "alt": []
+  },
+  {
+   "text": "30 usd",
+   "locale": "en-GB",
+   "expect": [
+    "money|30 usd|30 USD"
+   ],
+   "alt": []
+  },
+  {
+   "text": "3rd attempt",
+   "locale": "en-GB",
+   "expect": [
+    "ordinal|3rd|3"
+   ],
+   "alt": []
+  },
+  {
+   "text": "the first draft",
+   "locale": "en-GB",
+   "expect": [
+    "ordinal|first|1"
+   ],
+   "alt": []
+  },
+  {
+   "text": "page 41",
+   "locale": "en-GB",
+   "expect": [
+    "number|41|41"
+   ],
+   "alt": []
+  },
+  {
+   "text": "2h50 marathon",
+   "locale": "en-GB",
+   "expect": [
+    "duration|2h50|10200"
+   ],
+   "alt": []
+  },
+  {
+   "text": "1.5 litres of water",
+   "locale": "en-GB",
+   "expect": [
+    "quantity|1.5 litres|1.5 litres"
+   ],
+   "alt": []
+  },
+  {
+   "text": "2 cups of flour",
+   "locale": "en-GB",
+   "expect": [
+    "quantity|2 cups|2 cups"
+   ],
+   "alt": []
+  },
+  {
+   "text": "12 * 7",
+   "locale": "en-GB",
+   "expect": [
+    "number|12|12",
+    "number|7|7"
+   ],
+   "alt": []
+  },
+  {
+   "text": "a 5 km run",
+   "locale": "en-GB",
+   "expect": [
+    "quantity|5 km|5 kilometres"
+   ],
+   "alt": []
+  },
+  {
+   "text": "6 feet tall",
+   "locale": "en-GB",
+   "expect": [
+    "quantity|6 feet|6 feet"
+   ],
+   "alt": []
+  },
+  {
+   "text": "weighs 150 lbs",
+   "locale": "en-GB",
+   "expect": [
+    "quantity|150 lbs|150 pounds"
+   ],
+   "alt": []
+  },
+  {
+   "text": "100 mph",
+   "locale": "en-GB",
+   "expect": [
+    "quantity|100 mph|100 miles an hour"
+   ],
+   "alt": []
+  },
+  {
+   "text": "500 GB drive",
+   "locale": "en-GB",
+   "expect": [
+    "quantity|500 GB|500 gigabytes"
+   ],
+   "alt": []
+  },
+  {
+   "text": "2 tbsp olive oil",
+   "locale": "en-GB",
+   "expect": [
+    "quantity|2 tbsp|2 tablespoons"
+   ],
+   "alt": []
+  },
+  {
+   "text": "350 kcal",
+   "locale": "en-GB",
+   "expect": [
+    "quantity|350 kcal|350 kilocalories"
+   ],
+   "alt": []
+  },
+  {
+   "text": "5 acres",
+   "locale": "en-GB",
+   "expect": [
+    "quantity|5 acres|5 acres"
+   ],
+   "alt": []
+  },
+  {
+   "text": "20 minutes",
+   "locale": "en-GB",
+   "expect": [
+    "duration|20 minutes|1200"
+   ],
+   "alt": []
+  },
+  {
+   "text": "for 3 hours",
+   "locale": "en-GB",
+   "expect": [
+    "duration|3 hours|10800"
+   ],
+   "alt": []
+  },
+  {
+   "text": "an hour and a half",
+   "locale": "en-GB",
+   "expect": [
+    "duration|an hour and a half|5400"
+   ],
+   "alt": []
+  },
+  {
+   "text": "ten minutes",
+   "locale": "en-GB",
+   "expect": [
+    "duration|ten minutes|600"
+   ],
+   "alt": []
+  },
+  {
+   "text": "4 days",
+   "locale": "en-GB",
+   "expect": [
+    "duration|4 days|345600"
+   ],
+   "alt": []
+  },
+  {
+   "text": "Whetstone at 15 degrees",
+   "locale": "en-GB",
+   "expect": [
+    "quantity|15 degrees|15 degrees"
+   ],
+   "alt": []
+  },
+  {
+   "text": "60 kph",
+   "locale": "en-GB",
+   "expect": [
+    "quantity|60 kph|60 kilometres an hour"
+   ],
+   "alt": []
+  },
+  {
+   "text": "1 tsp salt",
+   "locale": "en-GB",
+   "expect": [
+    "quantity|1 tsp|1 teaspoons"
+   ],
+   "alt": []
+  },
+  {
+   "text": "3 kWh a day",
+   "locale": "en-GB",
+   "expect": [
+    "quantity|3 kWh|3 kilowatt hours"
+   ],
+   "alt": []
+  },
+  {
+   "text": "1013 hPa",
+   "locale": "en-GB",
+   "expect": [
+    "quantity|1013 hPa|1013 hectopascals"
+   ],
+   "alt": []
+  },
+  {
+   "text": "a 60 W bulb",
+   "locale": "en-GB",
+   "expect": [
+    "quantity|60 W|60 watts"
+   ],
+   "alt": []
+  },
+  {
+   "text": "0.5 mm",
+   "locale": "en-GB",
+   "expect": [
+    "quantity|0.5 mm|0.5 millimetres"
+   ],
+   "alt": []
+  },
+  {
+   "text": "version 2.1",
+   "locale": "en-GB",
+   "expect": [
+    "number|2.1|2.1"
+   ],
+   "alt": []
+  },
+  {
+   "text": "32 psi in the tyres",
+   "locale": "en-GB",
+   "expect": [
+    "quantity|32 psi|32 pounds per square inch"
+   ],
+   "alt": []
+  },
+  {
+   "text": "a 2 hp motor",
+   "locale": "en-GB",
+   "expect": [
+    "quantity|2 hp|2 horsepower"
+   ],
+   "alt": []
+  },
+  {
+   "text": "email me at sam@example.com",
+   "locale": "en-GB",
+   "expect": [
+    "email|sam@example.com|sam@example.com"
+   ],
+   "alt": []
+  },
+  {
+   "text": "see https://example.com/docs",
+   "locale": "en-GB",
+   "expect": [
+    "url|https://example.com/docs|https://example.com/docs"
+   ],
+   "alt": []
+  },
+  {
+   "text": "www.example.org",
+   "locale": "en-GB",
+   "expect": [
+    "url|www.example.org|https://www.example.org"
+   ],
+   "alt": []
+  },
+  {
+   "text": "call +44 7700 900123",
+   "locale": "en-GB",
+   "expect": [
+    "phone|+44 7700 900123|+447700900123"
+   ],
+   "alt": []
+  },
+  {
+   "text": "ring 07700 900123 tomorrow",
+   "locale": "en-GB",
+   "expect": [
+    "phone|07700 900123|07700900123",
+    "date|tomorrow|2026-10-07"
+   ],
+   "alt": []
+  },
+  {
+   "text": "(555) 123-4567",
+   "locale": "en-GB",
+   "expect": [
+    "phone|(555) 123-4567|5551234567"
+   ],
+   "alt": []
+  },
+  {
+   "text": "tagged #harbor and #launch",
+   "locale": "en-GB",
+   "expect": [
+    "tag|#harbor|harbor",
+    "tag|#launch|launch"
+   ],
+   "alt": []
+  },
+  {
+   "text": "@priya can you review",
+   "locale": "en-GB",
+   "expect": [
+    "person|@priya|priya"
+   ],
+   "alt": []
+  },
+  {
+   "text": "hello",
+   "locale": "en-GB",
+   "expect": [],
+   "alt": []
+  },
+  {
+   "text": "what is memorymap",
+   "locale": "en-GB",
+   "expect": [],
+   "alt": []
+  },
+  {
+   "text": "asdfgh",
+   "locale": "en-GB",
+   "expect": [],
+   "alt": []
+  },
+  {
+   "text": "summarise my gym notes",
+   "locale": "en-GB",
+   "expect": [],
+   "alt": []
+  },
+  {
+   "text": "the may queen",
+   "locale": "en-GB",
+   "expect": [],
+   "alt": []
+  },
+  {
+   "text": "march forward",
+   "locale": "en-GB",
+   "expect": [],
+   "alt": []
+  },
+  {
+   "text": "tell me a joke",
+   "locale": "en-GB",
+   "expect": [],
+   "alt": []
+  },
+  {
+   "text": "who is Sam",
+   "locale": "en-GB",
+   "expect": [],
+   "alt": []
+  },
+  {
+   "text": "open settings",
+   "locale": "en-GB",
+   "expect": [],
+   "alt": []
+  },
+  {
+   "text": "delete the boiler note",
+   "locale": "en-GB",
+   "expect": [],
+   "alt": []
+  },
+  {
+   "text": "notes about porto",
+   "locale": "en-GB",
+   "expect": [],
+   "alt": []
+  },
+  {
+   "text": "wed the two ideas",
+   "locale": "en-GB",
+   "expect": [],
+   "alt": []
+  }
+ ]
+}

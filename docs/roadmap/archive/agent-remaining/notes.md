@@ -9,7 +9,7 @@ Items, in order: 239, 240, 241, 238, 232.
   `frontend/js/app.js` `buildTableBlock` (an X in the bar, focus in and out) and
   `wireEscapedActionMenu`'s `place()` (an escaped menu is lifted one tier above
   its opener's surface), `frontend/css/05-sidebars-themes.css` (the seam after
-  the menu wrap), `scratchpad/ui-sweeps/tablefullclose.js` (new).
+  the menu wrap), `scratchpad/ui-sweeps/tablefullclose.js` (removed 2026-10-12, recoverable from git history) (new).
   Measured: the X is 28x28 at the head's right edge, border 0px, ground
   transparent, reachable; Back read back as `DIV.md-table-wrap` under the
   pointer before (menu 1020 under panel 2400) and `BUTTON.menu-item` after

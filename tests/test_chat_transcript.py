@@ -152,13 +152,12 @@ def test_a_touch_action_row_has_room_of_its_own_under_its_message() -> None:
 
 def test_a_citation_mark_takes_a_finger_sized_tap_on_a_touch_screen() -> None:
     """The mark opens the peek, the only way to a source on a phone, and was
-    10 by 13px: a tap 8px off any edge missed. Under the touch floor an
-    invisible box `--target-min` tall takes it (23 by 44px measured at 390,
-    the line's own height unchanged at 46px)."""
+    10 by 13px: a tap 8px off any edge missed. An invisible box `--target-min`
+    tall takes it (23 by 44px measured at 390, the line's own height unchanged
+    at 46px); at every width since Brief 88, where it was 10 by 13 at 1440."""
     sheet = (ROOT / "frontend" / "css" / "02-chat-graph.css").read_text(encoding="utf-8")
-    block = sheet[sheet.index("@media (max-width: 819.98px), (pointer: coarse) {\n  .answer-citation-link {") :]
-    block = block[: block.index("\n}\n")]
-    after = block[block.index(".answer-citation-link::after") :]
+    after = sheet[sheet.index("\n.answer-citation-link::after {") :]
+    after = after[: after.index("\n}\n")]
     assert "height: var(--target-min)" in after, "the mark's touch box is not the touch floor's height"
     assert "position: absolute" in after, "the touch box must not take room in the line"
 

@@ -11,7 +11,7 @@ readers, three answers for the same text.
 
 from __future__ import annotations
 
-from memorymap.entry import manager
+from tessellate.entry import manager
 
 
 def _note(client, content):
@@ -67,7 +67,7 @@ def test_a_note_reference_row_says_links_to_it_for_an_aliased_link(client):
 
 
 def test_links_to_reads_the_target_only():
-    from memorymap.api import routes_entries
+    from tessellate.api import routes_entries
 
     assert routes_entries._links_to("x [[The roof quote|the builder]]", "the roof quote")
     assert not routes_entries._links_to("x [[The roof quote and more|y]]", "the roof quote")
@@ -81,8 +81,8 @@ def test_the_shown_part_is_what_a_label_reads():
 
 
 def test_previews_show_the_shown_text():
-    from memorymap.ai import extractor
-    from memorymap.api import routes_entries, routes_graph
+    from tessellate.ai import extractor
+    from tessellate.api import routes_entries, routes_graph
 
     assert routes_entries._preview("go [[A|B]]") == "go B"
     assert extractor._short_preview("go [[A|B]]") == "go B"

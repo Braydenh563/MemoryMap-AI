@@ -7,7 +7,7 @@ the model's tier (forced where the harness forces). Also "two calls in one
 reply": requests that need two tools at once, counted by calls in the first
 reply. No model needed for the classification line.
 
-    MEMORYMAP_EVALS_URL=... MEMORYMAP_EVALS_MODEL=... PYTHONPATH=src \\
+    TESSELLATE_EVALS_URL=... TESSELLATE_EVALS_MODEL=... PYTHONPATH=src \\
         .venv/bin/python scratchpad/harness_firstcall.py [--only imperatives,questions,pairs]
 """
 
@@ -21,12 +21,12 @@ from pathlib import Path
 
 import requests
 
-from memorymap.ai import agent
-from memorymap.core import deps
+from tessellate.ai import agent
+from tessellate.core import deps
 
 logging.disable(logging.WARNING)
-URL = os.environ.get("MEMORYMAP_EVALS_URL", "")
-MODEL = os.environ.get("MEMORYMAP_EVALS_MODEL", "")
+URL = os.environ.get("TESSELLATE_EVALS_URL", "")
+MODEL = os.environ.get("TESSELLATE_EVALS_MODEL", "")
 
 IMPERATIVES = [
     ("Make a note: buy oat milk and eggs", {"create_note"}),

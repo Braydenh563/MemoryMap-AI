@@ -12,9 +12,9 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import model_cards
-from memorymap.ai.model_manager import SUGGESTED_MODELS
-from memorymap.core import hardware
+from tessellate.ai import model_cards
+from tessellate.ai.model_manager import SUGGESTED_MODELS
+from tessellate.core import hardware
 
 
 # --- the numbers ------------------------------------------------------------------
@@ -106,14 +106,14 @@ def test_a_starting_pick_fits_a_modest_computer():
 
 
 def test_the_memory_can_be_overridden_for_a_container(monkeypatch):
-    monkeypatch.setenv("MEMORYMAP_RAM_GB", "12")
+    monkeypatch.setenv("TESSELLATE_RAM_GB", "12")
     assert hardware.total_memory_gb() == 12.0
-    monkeypatch.setenv("MEMORYMAP_RAM_GB", "not a number")
+    monkeypatch.setenv("TESSELLATE_RAM_GB", "not a number")
     assert hardware.total_memory_bytes() is None or hardware.total_memory_bytes() > 0
 
 
 def test_the_real_memory_is_a_positive_number_where_the_platform_can_say(monkeypatch):
-    monkeypatch.delenv("MEMORYMAP_RAM_GB", raising=False)
+    monkeypatch.delenv("TESSELLATE_RAM_GB", raising=False)
     total = hardware.total_memory_bytes()
     assert total is None or total > 256 * 1024**2
 
@@ -122,7 +122,7 @@ def test_the_real_memory_is_a_positive_number_where_the_platform_can_say(monkeyp
 
 
 def test_the_catalogue_route_carries_what_the_card_shows(ai_client, monkeypatch):
-    monkeypatch.setenv("MEMORYMAP_RAM_GB", "16")
+    monkeypatch.setenv("TESSELLATE_RAM_GB", "16")
     body = ai_client.get("/models/suggested").json()
     flat = {m["name"]: m for models in body.values() for m in models}
     llama = flat["llama3.2"]
@@ -142,7 +142,7 @@ def test_the_catalogue_says_unknown_when_the_memory_is_not_known(ai_client, monk
 
 
 def test_the_hardware_route_reports_the_memory(client, monkeypatch):
-    monkeypatch.setenv("MEMORYMAP_RAM_GB", "8")
+    monkeypatch.setenv("TESSELLATE_RAM_GB", "8")
     assert client.get("/models/hardware").json() == {"ram_gb": 8.0}
     monkeypatch.setattr(hardware, "total_memory_bytes", lambda: None)
     assert client.get("/models/hardware").json() == {"ram_gb": None}

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.core import deps, embedmodels
+from tessellate.core import deps, embedmodels
 
 
 @pytest.fixture(autouse=True)

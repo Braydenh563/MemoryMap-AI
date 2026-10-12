@@ -79,3 +79,18 @@ def test_the_settings_steps_name_the_width_the_section_strip_changes_at() -> Non
     assert "640.02px" not in TOUR
     css = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
     assert "@media (max-width: 819.98px) {\n  /* Beside the search field, not under it." in css
+
+
+def test_a_hover_only_target_is_revealed_by_its_card_for_the_step() -> None:
+    """INBOX 745 (d): "the hover menu button doesn show on the tour". The
+    Library step "A card's menu" framed an empty square. Measured on the
+    running app: the menu is 28px wide at opacity 1 during the step, and the
+    class is gone after Next (0 `.tour-reveal`)."""
+    wait = _body("tourWaitForTarget")
+    assert wait.index("tourReveal(found.el)") < wait.index("tourVisible(found.el)")
+    assert '.closest?.(".library-card")' in _body("tourReveal")
+    assert "tourReveal(null)" in _body("tourClose")
+    assert "tourReveal(null)" in _body("tourShow")
+    root = ROOT / "frontend" / "css"
+    shell = (root / "00-tokens-shell.css").read_text(encoding="utf-8")
+    assert ".library-card.tour-reveal .library-card-menu" in shell

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from memorymap.ai import voice
+from tessellate.ai import voice
 
 
 def test_status_reports_unavailable_with_hint(client, monkeypatch):
@@ -116,7 +116,7 @@ def test_transcribe_meeting_rejects_empty_recording(client, monkeypatch):
 def test_transcribe_meeting_rejects_oversized_recording(client, monkeypatch):
     # The real ceiling is 300MB, too large to actually upload in a test, so
     # the ceiling itself is lowered instead of the payload being enlarged.
-    from memorymap.api import routes_voice
+    from tessellate.api import routes_voice
 
     monkeypatch.setattr(voice, "whisper_available", lambda: True)
     monkeypatch.setattr(routes_voice, "MAX_MEETING_AUDIO_BYTES", 10)
@@ -130,7 +130,7 @@ def test_transcribe_meeting_rejects_oversized_recording(client, monkeypatch):
 def test_transcribe_meeting_has_its_own_higher_ceiling_than_transcribe(client, monkeypatch):
     # The whole point of the second endpoint: a recording too big for the
     # quick-note limit is still accepted here.
-    from memorymap.api import routes_voice
+    from tessellate.api import routes_voice
 
     monkeypatch.setattr(voice, "whisper_available", lambda: True)
     monkeypatch.setattr(voice, "transcribe", lambda path, model_size="base": "ok")
@@ -178,3 +178,38 @@ def test_the_chosen_voice_model_reaches_the_transcriber(client, monkeypatch):
         "/voice/transcribe", files={"file": ("clip.webm", b"fake-audio", "audio/webm")}
     )
     assert seen["model_size"] == "small"
+
+
+def test_a_clip_is_decoded_here_when_pyav_refuses_faster_whispers_argument(monkeypatch, tmp_path):
+    """The owner's log, 2026-10-11: faster-whisper 1.1 passes `metadata_errors`
+    to `av.open`, PyAV 14 refuses it, and every recording failed to transcribe.
+    The samples are decoded here and handed over instead."""
+    from types import SimpleNamespace
+
+    from tessellate.ai import voice
+
+    class Model:
+        def transcribe(self, audio):
+            if isinstance(audio, str):
+                raise TypeError("open() got an unexpected keyword argument 'metadata_errors'")
+            return [SimpleNamespace(start=0.0, end=1.5, text=" hello there ")], None
+
+    monkeypatch.setattr(voice, "whisper_available", lambda: True)
+    monkeypatch.setattr(voice, "_get_model", lambda size: Model())
+    monkeypatch.setattr(voice, "_decode_samples", lambda path: [0.0] * 16000)
+    assert voice.transcribe_segments(tmp_path / "clip.webm") == [{"start": 0, "end": 1500, "text": "hello there"}]
+
+
+def test_any_other_type_error_from_the_model_is_not_swallowed(monkeypatch, tmp_path):
+    import pytest
+
+    from tessellate.ai import voice
+
+    class Model:
+        def transcribe(self, audio):
+            raise TypeError("something else")
+
+    monkeypatch.setattr(voice, "whisper_available", lambda: True)
+    monkeypatch.setattr(voice, "_get_model", lambda size: Model())
+    with pytest.raises(TypeError, match="something else"):
+        voice.transcribe_segments(tmp_path / "clip.webm")

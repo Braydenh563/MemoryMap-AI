@@ -25,7 +25,7 @@ const VIEWPORT = (() => {
   return { width: w || 1440, height: h || 900 };
 })();
 const SIZES = (process.env.SIZES || "12,200").split(",").map(Number);
-const LAYOUTS = ["tree-right", "tree-left", "tree-both", "tree-down", "radial"];
+const LAYOUTS = ["tree-right", "tree-left", "tree-both", "tree-down", "radial", "logic-right", "timeline", "fishbone", "tree-table"];
 
 const results = [];
 function check(label, ok, detail) {
@@ -148,6 +148,16 @@ function outline(n, name) {
           read.leftOfTrunk > 0 && read.rightOfTrunk > 0 && gap <= Math.ceil(n / 3),
           `${read.leftOfTrunk} left, ${read.rightOfTrunk} right, gap ${gap}`);
       }
+      //: MINDMAP_PLAN 15 row 6: the timeline runs right of its centre, the
+      //: fishbone's bones run left of its head.
+      if (layout === "timeline") {
+        check(`${layout} runs right of the centre at ${n}`, read.leftOfTrunk === 0 && read.rightOfTrunk > 0,
+          `${read.leftOfTrunk} left, ${read.rightOfTrunk} right`);
+      }
+      if (layout === "fishbone") {
+        check(`${layout} lays its bones left of the head at ${n}`, read.leftOfTrunk >= n - 1 && read.rightOfTrunk === 0,
+          `${read.leftOfTrunk} left, ${read.rightOfTrunk} right`);
+      }
       if (layout === "tree-left") {
         check(`${layout} grows away from the trunk to the left at ${n}`,
           read.leftOfTrunk >= n - 1 && read.rightOfTrunk === 0,
@@ -158,7 +168,7 @@ function outline(n, name) {
 
   // The choice survives the server, and the bar moves to the edge the parent
   // is on. Driven through the picker, which is the route a person takes.
-  for (const layout of ["tree-left", "tree-both"]) {
+  for (const layout of ["tree-left", "tree-both", "logic-right", "timeline", "fishbone", "tree-table"]) {
     await page.selectOption("#wb-map-layout", layout);
     await page.waitForTimeout(1800);
     const after = await page.evaluate(async (want) => {
@@ -177,6 +187,12 @@ function outline(n, name) {
     show(after);
     check(`${layout} survives the round trip through the server`, after.stored === layout,
       `stored ${after.stored}`);
+    if (!["tree-left", "tree-both"].includes(layout)) {
+      const drawn = await page.evaluate(() => [...document.querySelectorAll("#wb-zoom-group .wb-map-edges .wb-map-edge")].map((e) => e.getAttribute("d") || "").filter((d) => /^M/.test(d)).length);
+      check(`${layout} draws a line to every topic but the centre`, drawn >= after.topics - 1, `${drawn} lines, ${after.topics} topics`);
+      if (process.env.SHOTS) await page.screenshot({ path: `${process.env.SHOTS}/layout-${layout}.png` });
+      continue;
+    }
     check(`${layout} carries the branch bar on the edge the parent is on`,
       after.mirrored > 0 && parseFloat(after.right) > parseFloat(after.left),
       `${after.mirrored} mirrored topics, right ${after.right} against left ${after.left}`);

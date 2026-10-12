@@ -78,8 +78,20 @@
   // not a failure (app.js filters it the same way, BENIGN_BROWSER_NOTICE).
   // This listener outlives boot, so without the same test here it posted
   // five "[browser/error]" lines from the notes view (the owner at release).
+  // **Not this app's** (the owner's support bundle, 2026-10-11, from Safari
+  // on an iPhone: "[browser/csp] blocked style-src-elem: inline
+  // (user-script)" twice and "[browser/error] Script error."). Safari names
+  // what its extensions and its own page helpers inject "user-script", and
+  // a script from another origin fails as a bare "Script error." with no
+  // file; this app's scripts are same-origin, so its own errors always say
+  // where. Neither is logged, and neither tells anyone the app is broken.
+  var FOREIGN_SOURCE = /^(user-script|webkit-masked-url:|(chrome|moz|safari|safari-web|ms-browser)-extension:)/;
+  function foreignError(event) {
+    return /^Script error\.?$/.test(event.message || "") && !event.filename;
+  }
   window.addEventListener("error", function (event) {
     if (/^ResizeObserver loop /.test(event.message || "")) return;
+    if (foreignError(event) || FOREIGN_SOURCE.test(event.filename || "")) return;
     report(
       "error",
       event.message,
@@ -88,7 +100,7 @@
     say(
       "Something failed while starting: " +
         (event.message || "a script error") +
-        ". Close MemoryMap and start it again. If it keeps happening this is " +
+        ". Close Tessellate and start it again. If it keeps happening this is " +
         "a bug, and the message above is the useful part of the report."
     );
   });
@@ -97,6 +109,7 @@
   // failure mode most likely to leave a completely blank app, so it is
   // reported specifically, with the one thing that actually fixes it.
   document.addEventListener("securitypolicyviolation", function (event) {
+    if (FOREIGN_SOURCE.test(event.sourceFile || "") || FOREIGN_SOURCE.test(event.blockedURI || "")) return;
     report(
       "csp",
       "blocked " + (event.violatedDirective || "script-src") + ": " + (event.blockedURI || "inline"),
@@ -105,8 +118,8 @@
     say(
       "The app blocked one of its own scripts (" +
         (event.violatedDirective || "script-src") +
-        "). This usually means the MemoryMap server is still running from " +
-        "before an update. Close MemoryMap completely and start it again."
+        "). This usually means the Tessellate server is still running from " +
+        "before an update. Close Tessellate completely and start it again."
     );
   });
 
@@ -164,7 +177,7 @@
   setTimeout(function () {
     say(
       "This is taking longer than it should. Try again, and if it still " +
-        "doesn't finish, close MemoryMap completely and start it again."
+        "doesn't finish, close Tessellate completely and start it again."
     );
     var splash = document.getElementById("boot-splash");
     if (splash && !splash.classList.contains("boot-splash-leaving")) offerReload(splash);

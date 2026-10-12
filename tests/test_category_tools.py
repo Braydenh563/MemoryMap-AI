@@ -15,9 +15,9 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import select
 
-from memorymap.ai import tools
-from memorymap.core.database import Category, Entry
-from memorymap.entry import manager
+from tessellate.ai import tools
+from tessellate.core.database import Category, Entry
+from tessellate.entry import manager
 
 
 def _names(session) -> list[str]:

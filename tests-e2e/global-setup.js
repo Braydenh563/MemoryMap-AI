@@ -80,6 +80,12 @@ async function signIn(baseURL, statePath) {
     localStorage.setItem("nm-buddy-hint", "done");
   });
   const token = await page.evaluate(() => localStorage.getItem("token"));
+  //: The update question waits its turn behind the welcome, the tour and
+  //: the recovery key (`firstRunTurn`), so it can open after the click
+  //: above looked for it and sit over every later spec's first click (CI,
+  //: 2026-10-11: every E2E run hit its 15-minute limit). Answered on the
+  //: server as well, the same "Don't check", so it never opens again.
+  await call(baseURL, token, "POST", "/update/choice", { check: false });
   await page.context().storageState({ path: statePath });
   await browser.close();
   return token;
@@ -121,3 +127,5 @@ module.exports = async () => {
   await seed(config.BASE_URL, token);
   await signIn(config.FRESH_URL, path.join(__dirname, ".auth-fresh.json"));
 };
+//: The draft-recovery spec signs in to a server of its own the same way.
+module.exports.signIn = signIn;

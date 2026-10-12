@@ -18,8 +18,8 @@ the note's vector is built from the note's own words.
 from __future__ import annotations
 
 
-from memorymap.core import media_process
-from memorymap.core.database import Entry, MediaUpload
+from tessellate.core import media_process
+from tessellate.core.database import Entry, MediaUpload
 from tests._app_js import app_js_text
 
 
@@ -36,7 +36,7 @@ def _upload(session, filename="sketch-2026-01-01.png", **fields):
 
 
 def test_a_notes_pictures_contribute_their_readings(client):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     with deps.get_db().session() as session:
         _upload(
@@ -55,7 +55,7 @@ def test_a_notes_pictures_contribute_their_readings(client):
 
 
 def test_a_note_with_no_pictures_adds_nothing(client):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     with deps.get_db().session() as session:
         assert media_process.media_text_for(session, "just words") == ""
@@ -64,7 +64,7 @@ def test_a_note_with_no_pictures_adds_nothing(client):
 def test_a_picture_nothing_has_read_yet_adds_nothing(client):
     """Captioning runs in the background. A note saved a second before its
     picture was described must embed as itself, not as an empty label."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     with deps.get_db().session() as session:
         _upload(session, filename="plain.png")
@@ -74,7 +74,7 @@ def test_a_picture_nothing_has_read_yet_adds_nothing(client):
 def test_one_picture_cannot_swamp_the_note(client):
     """A transcribed page is thousands of characters; a note whose embedding is
     nine-tenths OCR is no longer a vector for the note."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     with deps.get_db().session() as session:
         _upload(session, filename="long.png", vision_ocr_text="x" * 5000)
@@ -88,8 +88,8 @@ def test_one_picture_cannot_swamp_the_note(client):
 def test_the_embedded_text_carries_the_caption(client):
     """The half that makes it searchable. "the diagram of the pond" matched
     nothing at all before this, however good the caption was."""
-    from memorymap.ai.embeddings import embedding_text
-    from memorymap.core import deps
+    from tessellate.ai.embeddings import embedding_text
+    from tessellate.core import deps
 
     with deps.get_db().session() as session:
         _upload(session, caption="A pond with a leafy creature beside it")
@@ -105,8 +105,8 @@ def test_the_note_itself_is_never_rewritten(client):
     """The caption is the app's reading of a picture, not something the user
     typed. Derived on the way past, so a picture captioned later improves
     search without the note being edited."""
-    from memorymap.ai.embeddings import embedding_text
-    from memorymap.core import deps
+    from tessellate.ai.embeddings import embedding_text
+    from tessellate.core import deps
 
     with deps.get_db().session() as session:
         _upload(session, caption="described later")
@@ -120,8 +120,8 @@ def test_the_note_itself_is_never_rewritten(client):
 
 
 def test_a_plain_note_embeds_exactly_what_it_did_before(client):
-    from memorymap.ai.embeddings import embedding_text
-    from memorymap.core import deps
+    from tessellate.ai.embeddings import embedding_text
+    from tessellate.core import deps
 
     with deps.get_db().session() as session:
         entry = Entry(content="beans need netting")
@@ -133,8 +133,8 @@ def test_a_plain_note_embeds_exactly_what_it_did_before(client):
 def test_enrichment_never_blocks_an_embedding(client, monkeypatch):
     """It runs inside the save path for every note. A failure here must cost
     the caption, not the vector."""
-    from memorymap.ai.embeddings import embedding_text
-    from memorymap.core import deps
+    from tessellate.ai.embeddings import embedding_text
+    from tessellate.core import deps
 
     def boom(*_args, **_kwargs):
         raise RuntimeError("no")
@@ -176,8 +176,8 @@ def test_a_skill_run_is_recorded(client):
     the library??" Correct, and the panel was not the broken half, a grep for
     a `log_action` call with entity_type "skill" returned nothing at all, so
     the reader was reading rows no writer produced."""
-    from memorymap.ai import skill_runner
-    from memorymap.core import deps
+    from tessellate.ai import skill_runner
+    from tessellate.core import deps
 
     with deps.get_db().session() as session:
         skill_runner._record_run(
@@ -193,8 +193,8 @@ def test_a_skill_run_is_recorded(client):
 
 
 def test_a_stopped_run_says_where_it_stopped(client):
-    from memorymap.ai import skill_runner
-    from memorymap.core import deps
+    from tessellate.ai import skill_runner
+    from tessellate.core import deps
 
     with deps.get_db().session() as session:
         skill_runner._record_run(session, {"name": "Half a job"}, [], 2, 5, False)
@@ -204,8 +204,8 @@ def test_a_stopped_run_says_where_it_stopped(client):
 
 def test_a_paused_run_is_not_reported_as_a_failure(client):
     """Manual mode stops after every step on purpose."""
-    from memorymap.ai import skill_runner
-    from memorymap.core import deps
+    from tessellate.ai import skill_runner
+    from tessellate.core import deps
 
     with deps.get_db().session() as session:
         skill_runner._record_run(session, {"name": "Careful"}, [], 1, 4, True)
@@ -215,8 +215,8 @@ def test_a_paused_run_is_not_reported_as_a_failure(client):
 def test_recording_never_fails_a_finished_run(client, monkeypatch):
     """A run that did real work must not raise at its last line over its own
     bookkeeping."""
-    from memorymap.ai import skill_runner
-    from memorymap.core import deps
+    from tessellate.ai import skill_runner
+    from tessellate.core import deps
 
     with deps.get_db().session() as session:
         monkeypatch.setattr(session, "commit", lambda: (_ for _ in ()).throw(RuntimeError))
@@ -228,8 +228,8 @@ def test_the_filter_happens_before_the_limit(client):
     twenty events *of any kind*; filtering those in the browser meant a real
     history of skill runs showed as "none found" on any notebook where the
     last twenty things were note edits."""
-    from memorymap.ai import skill_runner
-    from memorymap.core import deps
+    from tessellate.ai import skill_runner
+    from tessellate.core import deps
 
     with deps.get_db().session() as session:
         skill_runner._record_run(session, {"name": "Early run"}, [], None, 1, False)

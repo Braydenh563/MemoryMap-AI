@@ -262,8 +262,25 @@ def frames():
         element("retro", "Retrospective, four columns", ["retro", "review", "went well"], retro, rw, rh),
         element("swot", "SWOT, two by two", ["strengths", "weaknesses", "opportunities", "threats", "analysis"], swot, sw, sh),
         element("timeline", "Timeline lane", ["timeline", "roadmap", "steps", "milestones"], lane, 960, 240),
+        element("swimlanes-rows", "Swimlanes, three rows", SWIM_TAGS, _swimlanes(True), 1000, 520),
+        element("swimlanes-columns", "Swimlanes, three columns", SWIM_TAGS, _swimlanes(False), 1000, 640),
     ]
     return {"key": "frames", "name": "Frames", "items": items}
+
+
+SWIM_TAGS = ["swimlane", "pool", "lane", "process", "bpmn", "cross-functional"]
+
+
+def _swimlanes(rows):
+    """A pool (draw.io's swimlane container) as a frame round three lane
+    frames, in rows or in columns (canvasdepth, INBOX 797)."""
+    items = [{"key": "pool", "kind": "object", "type": "frame", "data": {"content": "Process"},
+              "x": 0, "y": 0, "w": 1000, "h": 520 if rows else 640, "z": -2}]
+    for i in range(3):
+        x, y, w, h = (20, 56 + i * 160, 960, 130) if rows else (20 + i * 324, 56, 312, 564)
+        items.append({"key": f"lane{i}", "kind": "object", "type": "frame", "data": {"content": f"Lane {i + 1}"},
+                      "x": x, "y": y, "w": w, "h": h, "z": -1})
+    return items
 
 
 # --- Templates: a whole starting layout, dragged in from the Library -----------

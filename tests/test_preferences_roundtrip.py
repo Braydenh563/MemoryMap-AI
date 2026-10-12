@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.api.routes_settings import PreferencesBody
+from tessellate.api.routes_settings import PreferencesBody
 from tests._app_js import app_js_text
 
 JS_DIR = Path(__file__).resolve().parents[1] / "frontend" / "js"
@@ -33,7 +33,7 @@ def test_every_key_the_frontend_sends_is_in_the_body():
 
 def test_every_key_the_frontend_reads_comes_back():
     reads = set(re.findall(r"prefsCache\??\.([a-z_]+)", app_js_text()))
-    from memorymap.api.routes_settings import get_preferences
+    from tessellate.api.routes_settings import get_preferences
 
     returned = set(get_preferences())
     assert not sorted(reads - returned), sorted(reads - returned)
@@ -53,8 +53,8 @@ def test_a_switch_turned_off_stays_off(client, key):
 @pytest.mark.parametrize("on", [True, False])
 def test_the_launch_switch_decides_whether_startup_warms_the_model(app_state, monkeypatch, on):
     """INBOX 509: off leaves the model to its first use."""
-    from memorymap.ai import embeddings
-    from memorymap.api.app import create_app
+    from tessellate.ai import embeddings
+    from tessellate.api.app import create_app
 
     calls = []
     monkeypatch.setattr(embeddings, "start_warmup", lambda *a, **k: calls.append(1))

@@ -119,7 +119,8 @@ def test_dots_lines_rings_and_pills_all_draw_from_their_lit_ness():
     assert "const key = node.colour;" in draw
     # Each node's alpha is its own lit-ness; FE-04's batched small dots carry
     # it in their batch key (eight steps), large ones set it directly.
-    assert "let alpha = gcLitAlpha(node._lit);" in draw and "ctx.globalAlpha = alpha;" in draw
+    # A note new to the picture also fades in (`gcBornAlpha`, INBOX 775 round 2).
+    assert "let alpha = gcLitAlpha(node._lit) * born;" in draw and "ctx.globalAlpha = alpha;" in draw
     # Edges: bucketed by an eleven-step level, not a dim flag.
     assert "edge._lit = gcFadeToward(edge._lit" in draw and "|${level}`" in draw
     assert "|${dim}`" not in draw
@@ -128,7 +129,7 @@ def test_dots_lines_rings_and_pills_all_draw_from_their_lit_ness():
     # The score pills fade, the last note's as a ghost.
     assert "s.pillGhost" in draw and "gcDrawPill(ctx, drawn, k, gcSmooth(s.pillA))" in draw
     # And the loop keeps asking for frames until every fade has landed.
-    assert "if (easing || fading || gliding) gcRequestDraw(s);" in draw
+    assert "if (easing || fading || gliding || s.bornPending) gcRequestDraw(s);" in draw
 
 
 def test_a_line_answers_the_pointer_and_a_click_opens_its_peek():

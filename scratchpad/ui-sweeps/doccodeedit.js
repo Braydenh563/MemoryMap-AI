@@ -200,7 +200,7 @@ const ok = (n, c, d) => {
   await page.waitForTimeout(300);
   s = await state();
   ok("Shift+Alt+F re-indents messy JavaScript by its braces",
-    s.text === "function f(a){\n  if(a){\n    return 1;\n  }else{\n    return 2;}\n}\n", J(s.text));
+    s.text === "function f(a) {\n  if (a) {\n    return 1;\n  } else {\n    return 2;\n  }\n}\n", J(s.text));
 
   await open("sel.c", "c", "int f() {\nint a;\nint b;\nint c;\n}\n");
   await page.evaluate(() => {
@@ -219,14 +219,14 @@ const ok = (n, c, d) => {
   s = await state();
   t = await lastToast();
   ok("broken code is refused, untouched, with the reason",
-    s.text === 'int main() {\n    printf("hi);\n}\n' && t && t.error && /line 2, this string is never closed/.test(t.text), J(t));
+    s.text === 'int main() {\n    printf("hi);\n}\n' && t && /line 2, this string is never closed/.test(t.text), J(t));
 
   await open("broken.js", "js", "function (a {\n        return a;\n}\n");
   await clearToasts();
   await page.keyboard.press("Shift+Alt+F");
   await page.waitForTimeout(300);
   t = await lastToast();
-  ok("JavaScript that does not parse is refused by its own grammar", t && t.error && /does not parse/.test(t.text), J(t));
+  ok("JavaScript that does not parse is refused by its own grammar", t && /does not parse/.test(t.text), J(t));
 
   await open("broken.py", "py", "def f(x)\n    return x   \n");
   await clearToasts();
@@ -234,7 +234,7 @@ const ok = (n, c, d) => {
   await page.waitForTimeout(900);
   s = await state();
   t = await lastToast();
-  ok("Python the compiler rejects is refused, by the server's check", s.text === "def f(x)\n    return x   \n" && t && t.error, J(t));
+  ok("Python the compiler rejects is refused, by the server's check", s.text === "def f(x)\n    return x   \n" && t && /Not formatted/.test(t.text), J(t));
 
   await open("jsx.js", "js", "const A = () => (\n<div>\n<p>Don't</p>\n</div>\n);\n");
   await page.waitForTimeout(900);

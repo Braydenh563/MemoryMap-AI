@@ -41,14 +41,14 @@ def _job(name: str) -> str:
 def test_windows_job_smoke_tests_the_exe_before_the_installer():
     job = _job("build-windows-installer")
     smoke = job.index("Smoke test the frozen app")
-    assert 'MemoryMap AI.exe" &' in job[smoke:]
+    assert 'Tessellate.exe" &' in job[smoke:]
     assert smoke < job.index("Install Inno Setup")
 
 
 def test_linux_job_smoke_tests_the_binary_before_packing():
     job = _job("build-linux-package")
     smoke = job.index("Smoke test the frozen app")
-    assert 'MemoryMap AI" &' in job[smoke:]
+    assert 'Tessellate" &' in job[smoke:]
     #: Named "Pack the build" since the Linux download became a tarball as
     #: well as a zip. This test caught the rename, which is what it is for:
     #: the assertion is that the smoke test runs *before* whatever packages
@@ -91,7 +91,7 @@ def test_windows_job_builds_the_msi_after_the_smoke_test():
 def test_windows_job_uploads_the_exe():
     job = _job("build-windows-installer")
     upload = job[job.index("Upload installers to the release") :]
-    assert "MemoryMap-AI-Setup-*.exe" in upload, (
+    assert "Tessellate-Setup-*.exe" in upload, (
         "the .exe installer dropped out of the upload step's files: list"
     )
 
@@ -125,12 +125,12 @@ def test_the_msi_is_off_and_the_upload_step_does_not_expect_one():
 def test_windows_msi_filename_carries_name_version_platform_and_arch():
     # The brief's own naming convention (<name>-<version>-<platform>-<arch>),
     # matched to what the Linux job already produces
-    # (MemoryMap-AI-${VERSION}-linux-x86_64.zip), so the exact same shape
-    # of filename identifies a MemoryMap AI release on either platform.
+    # (Tessellate-${VERSION}-linux-x86_64.zip), so the exact same shape
+    # of filename identifies a Tessellate release on either platform.
     job = _job("build-windows-installer")
     msi_step = job[job.index("Build the .msi installer") : job.index("Upload installers to the release")]
-    assert "MemoryMap-AI-" in msi_step, "the MSI filename is missing the app name"
-    assert "$env:MEMORYMAP_VERSION" in msi_step, "the MSI filename is missing the version"
+    assert "Tessellate-" in msi_step, "the MSI filename is missing the app name"
+    assert "$env:TESSELLATE_VERSION" in msi_step, "the MSI filename is missing the version"
     assert "windows-x86_64" in msi_step, "the MSI filename is missing the platform/arch"
     assert msi_step.count(".msi") >= 1, "the built file is missing the .msi extension"
 
@@ -138,10 +138,10 @@ def test_windows_msi_filename_carries_name_version_platform_and_arch():
 def test_windows_exe_filename_carries_name_version_platform_and_arch():
     # The .exe's own filename is set in installer.iss (OutputBaseFilename),
     # not in release.yml, which only globs for it at upload time
-    # (MemoryMap-AI-Setup-*.exe): a glob that would still match a filename
+    # (Tessellate-Setup-*.exe): a glob that would still match a filename
     # with the platform/arch dropped from it. This is the lint on the actual
     # source of the name, matched to what installer.iss produces today,
-    # MemoryMap-AI-Setup-{#MyAppVersion}-windows-x86_64.exe, the same shape
+    # Tessellate-Setup-{#MyAppVersion}-windows-x86_64.exe, the same shape
     # WORLD_CLASS_PLAN's H6 decisions section records.
     text = INSTALLER_ISS
     line = next(
@@ -149,7 +149,7 @@ def test_windows_exe_filename_carries_name_version_platform_and_arch():
         "",
     )
     assert line, "installer.iss has no OutputBaseFilename= line"
-    assert "MemoryMap-AI-Setup-" in line, "the .exe filename is missing the app name"
+    assert "Tessellate-Setup-" in line, "the .exe filename is missing the app name"
     assert "{#MyAppVersion}" in line, "the .exe filename is missing the version"
     assert "windows-x86_64" in line, "the .exe filename is missing the platform/arch"
 
@@ -161,7 +161,7 @@ def test_linux_zip_filename_carries_name_version_platform_and_arch():
     #: cannot find is a test that fails on the rename rather than on the
     #: thing it is about, which is exactly what happened here.
     zip_step = job[job.index("Pack the build") :]
-    assert "MemoryMap-AI-" in zip_step, "the zip filename is missing the app name"
+    assert "Tessellate-" in zip_step, "the zip filename is missing the app name"
     assert "${VERSION}" in zip_step, "the zip filename is missing the version"
     assert "linux-x86_64" in zip_step, "the zip filename is missing the platform/arch"
 
@@ -184,12 +184,12 @@ def test_installer_wxs_exists_and_is_well_formed_xml():
 
 def test_installer_wxs_matches_the_exe_installer_on_name_publisher_and_version():
     text = WXS.read_text(encoding="utf-8")
-    assert 'Name="MemoryMap AI"' in text, "the MSI's product name must match the .exe installer's AppName"
-    assert 'Manufacturer="MemoryMap AI"' in text, (
+    assert 'Name="Tessellate"' in text, "the MSI's product name must match the .exe installer's AppName"
+    assert 'Manufacturer="Tessellate"' in text, (
         "the MSI's manufacturer must match the .exe installer's AppPublisher"
     )
     # Both installers take their version from the same workflow output
-    # (needs.resolve-version.outputs.version / $MEMORYMAP_VERSION), so a
+    # (needs.resolve-version.outputs.version / $TESSELLATE_VERSION), so a
     # release always ships an .exe and an .msi carrying the same number.
     assert "$(var.Version)" in text, "the MSI's version must come from the build-time Version variable"
 
@@ -225,7 +225,7 @@ def test_installer_wxs_is_per_machine_with_a_start_menu_shortcut_and_no_data_del
 # it is plain Python, not a PyInstaller build).
 
 INSTALLER_ISS = (ROOT / "packaging" / "windows" / "installer.iss").read_text(encoding="utf-8")
-MAIN_PY = ROOT / "src" / "memorymap" / "__main__.py"
+MAIN_PY = ROOT / "src" / "tessellate" / "__main__.py"
 
 
 def test_a_repair_shortcut_exists_beside_the_ordinary_one():

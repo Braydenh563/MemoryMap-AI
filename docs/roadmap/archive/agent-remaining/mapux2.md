@@ -147,7 +147,7 @@ branch head first (`canvasconventions.js` 20/47 there), then built.
   drag preview is the remaining half of §13.2's "one gesture produces either,
   decided by something invisible".
 
-- **`scratchpad/ui-sweeps/mapstyle.js` fails its "radial slot" check on the
+- **`scratchpad/ui-sweeps/mapstyle.js` (removed 2026-10-12, recoverable from git history) fails its "radial slot" check on the
   base branch too** (`claude/open-sections-a-b`, measured by stashing this
   worktree's changes and re-running it): the slot it measures reads `w: 0`.
   Not this work's, not investigated.

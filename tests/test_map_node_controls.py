@@ -85,3 +85,131 @@ def test_one_resize_grip_on_the_corner_and_shift_scales_the_text():
     # One size to the hand at every zoom: the sheet writes the inverse zoom
     # onto it (tests/test_wb_navigator_cost.py keeps the list whole).
     assert "scale(var(--wb-inv-zoom))" in rule
+
+
+def test_a_door_never_opens_on_its_topic_and_has_one_selected_and_one_reset_look():
+    """INBOX 814 (the owner: "when I change stuff in the tools for a mindmap
+    node, I cant actually see what the difference is until I click off it").
+    Measured on the base at 1440x560, 390x844 and 1440x420: the Shape door
+    (336 by 210) covered the topic it edits, so a change that painted at once
+    was covered at once. `scratchpad/ui-sweeps/mapfixmenu.js` is the
+    measurement (rect intersection 0 at five viewports, the computed style
+    changing before deselect); this pins the shape."""
+    wb = frontend_text("whiteboard.js")
+    assert "wbMapStripMenuOffTopic(menu, toggle)" in _body("whiteboard.js", "wbTrackMapStripMenu")
+    assert 'menu.classList.contains("wb-map-strip-menu")) wbMapStripMenuOffTopic' in wb
+    assert "function escapeMenuToBody(" in frontend_text("menus.js")
+    css = _css()
+    chosen = css[css.index(".wb-map-pick.is-inherited {") :]
+    chosen = chosen[: chosen.index("}")]
+    assert "background: var(--accent-surface)" in chosen and "inset" not in chosen
+    assert ".wb-map-pick.is-inherited:not(.active)" not in css
+    reset = css[css.index(".wb-map-pick-follow,\n#wb-map-reset {") :]
+    assert "color: var(--muted)" in reset[: reset.index("}")]
+    row = _body("whiteboard-map.js", "wbMapPickRow")
+    assert "button.disabled = following" in row
+
+
+def test_the_format_bar_follows_a_boards_edited_text_and_the_topic_buttons_step_aside():
+    """INBOX 817: while a topic's text is edited the bar (bold to comment)
+    stayed where it opened through a pan or zoom and could lie across the text,
+    and the + / link buttons, fold toggle and grip overlapped the text box.
+    `scratchpad/ui-sweeps/mapeditbar.js` measures the gap (8px, 0 intersection
+    after a 200px pan and a zoom to 150%, at 1440 and 390)."""
+    editor = frontend_text("editor.js")
+    show = editor[editor.index("function selectionBarShow("):]
+    show = show[: show.index("\n}\n")]
+    assert "getSelection()" in show and "range.bottom + gap" in show
+    work = _body("whiteboard.js", "wbZoomFrameWork")
+    assert "selectionBarSync()" in work
+    lazy = (ROOT / "css" / "library-lazy.css").read_text(encoding="utf-8")
+    rule = lazy[lazy.index(".wb-map-node.wb-text-editing .wb-map-actions"):]
+    rule = rule[: rule.index("}")]
+    assert ".wb-map-collapse" in rule and ".wb-map-resize-grip" in rule and "display: none" in rule
+
+
+def test_a_tree_lines_label_moves_with_the_line_on_every_frame_of_a_drag():
+    """INBOX 818 (the owner: "labels on mind map links dont move with the
+    links"). Measured by `scratchpad/ui-sweeps/maplabels.js`: during a 200px
+    topic drag the label was 102px from its line's midpoint (the drag redrew
+    the path, its twin and the handle, never the label; it caught up only at
+    the drop), and at rest it stood 8.5px above the midpoint (`dy` -0.4em).
+    After: 0px at rest, in the live frame, after the drop, a relayout, a pan
+    and a zoom."""
+    wm = frontend_text("whiteboard-map.js")
+    update = wm[wm.index("function wbUpdateMapEdges("):]
+    update = update[: update.index("\n}\n")]
+    assert "_wbLabel" in update and "edge_label_dx" in update
+    assert ".wb-map-edge-label" in wm[wm.index("function wbMapEdgeContext("):][:900]
+    assert "text.dataset.child = path.dataset.child" in wm
+    apply = wm[wm.index("function wbMapEdgeApply("):]
+    apply = apply[: apply.index("\n}\n")]
+    assert '"dominant-baseline", "central"' in apply and '"dy"' not in apply
+
+
+def test_a_tools_kind_popover_is_lifted_clear_of_its_options_bar():
+    """INBOX 823: the Line and Arrow choice (the Shapes popover) opened 6,232px2
+    under the options bar (Size, Plain, Solid) beside it, z 20 under z 22.
+    `scratchpad/ui-sweeps/toolpop.js` measures 0 at 1440 and 390; this pins it."""
+    wb = frontend_text("whiteboard.js")
+    assert "wbLiftMenuOffOptionsBar(menu);" in wb[wb.index("function wbOpenDockedMenu("):][:3200]
+    lift = wb[wb.index("function wbLiftMenuOffOptionsBar("):]
+    lift = lift[: lift.index("\n  }\n")]
+    assert 'getElementById("wb-context")' in lift and "style.translate" in lift
+
+
+def test_layers_says_what_a_tinted_row_means_and_nests_a_frames_items():
+    """INBOX 824 (the owner asked whether the tint meant "in the frame"). The
+    head counts the board's selection with a Clear, and a frame's items are
+    nested under its row (measured by the mapfix sweep, since removed: head "2
+    selected on the board", 3 nested rows indented 4 to 12.8px, folded to 0,
+    Clear back to "Nothing selected", at 1440 and 390)."""
+    html = _html()
+    assert 'id="wb-layers-selected-count"' in html and 'id="wb-layers-clear"' in html
+    lib = frontend_text("whiteboard-library.js")
+    assert "wbLayersSelectedHead(selected.size)" in _body("whiteboard-library.js", "wbRenderLayers")
+    rows = _body("whiteboard-library.js", "wbLayerRows")
+    assert "wbFrameContents(frame.item, { withLocked: true })" in rows and "held: true" in rows
+    assert "wbLayerFoldedFrames" in lib and 'aria-expanded' in lib
+
+
+def test_a_frame_fits_its_contents_from_a_handle_a_corner_and_its_menu():
+    """INBOX 821: double-click an edge handle fits that edge to what the frame
+    holds plus 32 units, a corner two, the menu all four; an empty frame stays;
+    one Undo step (`scratchpad/ui-sweeps/framefit.js`: gaps 32, undo back to
+    the start, at 1440 and 390)."""
+    wb = frontend_text("whiteboard.js")
+    fit = _body("whiteboard.js", "wbFrameFit")
+    assert "WB_FRAME_FIT_MARGIN = 32" in wb and "wbPushUndo({ action: \"move\"" in fit
+    assert "holds nothing to fit" in fit and "prefers-reduced-motion" in fit and "150ms" in fit
+    assert "wbFrameFit(" in wb[wb.index('const handle = e.target.closest?.(".wb-resize-handle, .wb-map-resize-grip");'):][:900]
+    assert 'id: "fit-frame"' in frontend_text("whiteboard-commands.js")
+
+
+def test_a_page_row_renames_in_place_and_has_a_kebab():
+    """INBOX 822 (the owner: "I cant rename frames in the pages sidebar").
+    Double-click (`detail === 2`, because the first press redraws the list and
+    no `dblclick` follows), F2 or the row's kebab runs the canvas title's own
+    editor on the row's name; `scratchpad/ui-sweeps/pagerename.js` measures
+    Enter keeps, Escape cancels, one Undo step, the canvas title follows."""
+    lib = frontend_text("whiteboard-library.js")
+    rename = _body("whiteboard-library.js", "wbPageRename")
+    assert "wbEditFrameTitle(nameEl, frame)" in rename
+    menu = _body("whiteboard-library.js", "wbPageMenu")
+    for words in ("Rename", "Fit to contents", "Present from here", "Delete the frame"):
+        assert words in menu
+    assert "e.detail === 2" in lib and 'e.key === "F2") wbPageRename(id)' in lib
+    assert 'querySelector("[contenteditable]")' in lib
+
+
+def test_a_selected_connector_has_a_visible_label_button():
+    """INBOX 819 (part 1): a connector took a label only by Enter on the
+    selected line and nothing on screen said so. The bar's Label button
+    (`scratchpad/ui-sweeps/connlabel.js`: shown, opens the editor, the label
+    draws and survives a reload at 1440 and 390). Its look (size, bold, colour,
+    chip, position) and the double-click are open: see mapfix-1011.md."""
+    html = _html()
+    assert 'id="wb-prop-label"' in html and "ph-tag" in html
+    wb = frontend_text("whiteboard.js")
+    assert 'getElementById("wb-prop-label")?.addEventListener("click"' in wb
+    assert 'labelButton.classList.toggle("hidden", !wbLinkTakesLabel(item, parsed))' in wb

@@ -11,13 +11,13 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from memorymap.core import deps
-from memorymap.core.database import Entry
+from tessellate.core import deps
+from tessellate.core.database import Entry
 
 
 @pytest.fixture()
 def board_client(app_state):
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
     from tests.fakes import FakeEmbeddingService, FakeOllama
 
     deps.override_ai(
@@ -160,7 +160,7 @@ def test_a_sketch_round_trips_on_its_own_board(board_client, session):
 def test_an_enormous_sketch_is_refused_rather_than_stored(board_client):
     """The stroke list arrives as text and nothing bounded it, so a runaway
     client could fill the notebook's disk one PUT at a time."""
-    from memorymap.api.routes_whiteboard import MAX_SKETCH_CHARS
+    from tessellate.api.routes_whiteboard import MAX_SKETCH_CHARS
 
     too_big = board_client.post(
         "/whiteboard/sketches", json={"data": "x" * (MAX_SKETCH_CHARS + 1)}
@@ -277,7 +277,7 @@ def test_a_board_says_when_it_last_changed(board_client, session):
     because drawing on a board never touches its note."""
     from datetime import datetime, timedelta
 
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     created = board_client.post("/whiteboard/boards", json={"name": "Trip plan"}).json()
     entry = session.get(Entry, created["id"])
@@ -395,6 +395,7 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         "bg": None, "border_color": None,
         # Added with the text-box formatting controls; None until set.
         "align": None,
+        "valign": None,
         "md": None,
         # Added with mindmaps (MINDMAP_PLAN.md Phase 1). A text box is not a
         # map node, so all three stay None, asserted rather than omitted
@@ -430,9 +431,19 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         "boundary_label": None,
         "summary": None,
         "summary_span": None,
+        # And with a structure per branch (canvasdepth2, XMind's).
+        "branch_layout": None,
+        # And a callout over a topic (canvasdepth2).
+        "callout": None,
+        # And labels under a topic (canvasdepth2).
+        "labels": None,
+        # And reaction stamps and votes on a topic (canvasdepth2).
+        "stamps": None,
         "spine": None,
         # And with a topic's fill (one topic, or its whole branch).
         "fill": None,
+        #: A topic's shadow or glow (MINDMAP_PLAN §14.4, 2026-10-10).
+        "effect": None,
         "edge_width": None,
         "edge_arrow": None,
         # And with §12.1 item 5's draggable waypoint on a line, and item 2's
@@ -451,6 +462,13 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         # the library item it was placed from.
         "name": None,
         "hidden": None,
+        # The named layer it is on (canvasdepth); None for none.
+        "layer": None,
+        # A table's cells and header row (canvasdepth2); None on a text box.
+        "cells": None,
+        "header": None,
+        # Its custom properties, the Format panel's Data tab (canvasdepth2).
+        "props": None,
         "page": None,
         "alpha": None,
         "shadow": None,
@@ -464,10 +482,14 @@ def test_a_text_object_round_trips_with_its_own_style(board_client):
         "markers": None,
         #: An emoji placed as a sticker (MINDMAP_PLAN decision 44); None on a plain text.
         "sticker": None,
+        #: A sticky note's paper (the owner, 2026-10-10); None on a plain text.
+        "sticky": None,
         #: A frame drawn as a panel: its ground tint and the line of hint text
         #: inside it (INBOX 715, the board templates); None on a plain text.
         "tint": None,
         "hint": None,
+        # And with the sticky note's corner flap, per note (INBOX 792).
+        "fold": None,
     }
 
     moved = board_client.put(
@@ -525,7 +547,7 @@ def test_a_legacy_traversing_url_still_cannot_delete_an_outside_file(board_clien
     by anything that skips it) must still not be able to unlink whatever it
     names. Deleting an object unlinks nothing now (the test below), so this
     holds by construction; kept so a later change cannot bring it back."""
-    from memorymap.core.database import WhiteboardObject
+    from tessellate.core.database import WhiteboardObject
 
     outsider = deps.get_config().data_dir / "SURVIVOR.txt"
     outsider.write_text("important")
@@ -623,7 +645,7 @@ def test_moving_a_card_keeps_it_on_its_board(ai_client, session):
 
 def test_the_frontend_sends_the_board_when_it_moves_a_card():
     """The guard for the half of that bug that lives in the browser."""
-    from memorymap.api.app import FRONTEND_DIR
+    from tessellate.api.app import FRONTEND_DIR
 
     # The whiteboard subsystem moved out of app.js into its own file, loaded
     # by a second <script> tag, see index.html, so this comment now lives
@@ -1085,3 +1107,30 @@ def test_duplicating_a_board_copies_a_cards_thread(board_client, session):
     assert copy.status_code == 201, copy.text
     state = board_client.get(f"/whiteboard/?board_id={copy.json()['id']}").json()
     assert [n["comments"] for n in state["nodes"]] == [thread]
+
+
+def test_a_comment_keeps_its_edit_its_resolve_and_its_reply(board_client, session):
+    """The owner, 2026-10-10: "there's no way to edit a comment", and comments
+    "need a lot of improvement". A comment may say when it was edited, that
+    it is resolved, and which comment it answers; a comment that says none of
+    these comes back exactly as it went in (no nulls added to old threads)."""
+    note = _note(session)
+    card = board_client.post("/whiteboard/nodes", json={"entry_id": note.id}).json()
+    url = f"/whiteboard/nodes/{card['id']}"
+    thread = [
+        {"id": "c1", "text": "Check this date", "at": "2026-10-04T10:00:00Z", "edited": "2026-10-05T09:00:00Z", "resolved": True},
+        {"id": "c2", "text": "Done, see https://example.com/a", "at": "2026-10-05T10:00:00Z", "reply_to": "c1"},
+        {"id": "c3", "text": "Plain", "at": ""},
+    ]
+    put = board_client.put(url, json={"entry_id": note.id, "comments": thread})
+    assert put.status_code == 200, put.text
+    assert put.json()["comments"] == thread
+    state = board_client.get("/whiteboard/").json()
+    assert next(n for n in state["nodes"] if n["id"] == card["id"])["comments"] == thread
+    made = board_client.post(
+        "/whiteboard/objects", json={"kind": "text", "data": {"content": "s", "comments": thread}, "width": 200, "height": 80}
+    ).json()
+    state = board_client.get("/whiteboard/").json()
+    assert next(o for o in state["objects"] if o["id"] == made["id"])["data"]["comments"] == thread
+    bad = [{"id": "c1", "text": "x", "at": "", "reply_to": "y" * 41}]
+    assert board_client.put(url, json={"entry_id": note.id, "comments": bad}).status_code == 422

@@ -243,6 +243,110 @@ window.addEventListener("storage", (event) => {
   purgeLockedContent();
   showLockScreen(false);
 });
+//: The lock form's submit (moved from app.js, whose only caller is here).
+async function submitLockForm() {
+  const password = $("lock-password").value;
+  const errorLine = $("lock-error");
+  errorLine.textContent = "";
+  const mode = $("lock-overlay").dataset.mode;
+  //: A new password needs 8 (SEC-17); one set before that still unlocks.
+  const floor = mode === "setup" ? 8 : 4;
+  if (password.length < floor) {
+    errorLine.textContent = `Use at least ${floor} characters.`;
+    return;
+  }
+  if (mode === "prompt") {
+    const prompt = lockPrompt;
+    if (!prompt) return;
+    try {
+      await prompt.submit(password);
+    } catch (error) {
+      errorLine.textContent = error.message;
+      return;
+    }
+    settleLockPrompt(true);
+    return;
+  }
+  try {
+    const body = await lockRequest(mode, password, errorLine);
+    prefs.set("token", body.token);
+    if (body.warning) toast(body.warning, "info");
+    vaultOpen = mode === "setup" ? true : Boolean(body.vault_open);
+    lockedByHand = false;
+    $("lock-password").value = "";
+    // **Give the focus back, or every single-key shortcut in the app is
+    // dead.** Hiding the overlay does not move focus off the field inside
+    // it, so `document.activeElement` stayed `#lock-password` for the whole
+    // session that followed. Every handler that (correctly) refuses to steal
+    // a keystroke while someone is typing, the whiteboard's V/H/P tool keys,
+    // its `n` and `/`, and the same guard elsewhere, therefore returned
+    // immediately on every press, until the reader happened to click some
+    // other focusable control. Found while testing the tool shortcuts: they
+    // did nothing at all from a freshly unlocked app.
+    $("lock-password").blur();
+    //: The overlay stays up as the opening curtain and fades over the
+    //: drawn page (`curtainShell`, `liftLockScreen`).
+    $("lock-btn").classList.remove("hidden");
+    // Signing in starts a session, and a session starts at the front of every
+    // tab: see `resetNavigationForNewSession`. Here as well as at load
+    // because the lock screen is an *overlay*, not a page: unlocking after an
+    // idle lock never reloads anything, so the load-time reset alone would
+    // leave every sub-tab exactly where it was hours ago. Called before
+    // `startApp()`, which is what reads the stored section back.
+    resetNavigationToDefaults();
+    setBusy($("lock-submit"), true, "Opening…");
+    const opening = startApp();
+    curtainShell(opening);
+    //: The step after setup (INBOX 663): a recovery key, offered once the
+    //: app is drawn, skippable. The password just chosen goes with it so
+    //: the offer does not ask for it again; account-recovery.js drops it
+    //: when the dialog closes.
+    if (mode === "setup") offerRecoveryKey(password);
+  } catch (error) {
+    errorLine.textContent = error.message;
+  }
+}
+
+//: **A new device waits for Allow by itself** (lansafe-1011's leftover): the
+//: server holds an unlock from an unknown phone 45 s for this computer's
+//: Allow, then answers 403 with `device_pending`. Asking again at once picks
+//: the same held request back up, so the phone keeps waiting, up to
+//: `LOCK_DEVICE_WAIT_MS`, instead of telling its owner to press Unlock again
+//: after walking to the computer. Editing the field stops it.
+const LOCK_DEVICE_WAIT_MS = 180_000;
+async function lockRequest(mode, password, errorLine) {
+  const until = Date.now() + LOCK_DEVICE_WAIT_MS;
+  for (;;) {
+    try {
+      const body = await apiJson(`/auth/${mode === "setup" ? "setup" : "unlock"}`, {
+        method: "POST",
+        body: JSON.stringify({ password }),
+        //: A 401 here is "that password is wrong", said under the field. Left
+        //: unclaimed, apiJson read it as an expired session and the field said
+        //: "Locked".
+        ownsAuthErrors: true,
+        silent: true,
+      });
+      errorLine.textContent = "";
+      return body;
+    } catch (error) {
+      const waiting = error.body?.device_pending && Date.now() < until && $("lock-password").value === password;
+      if (!waiting) {
+        setBusy($("lock-submit"), false);
+        throw error;
+      }
+      errorLine.textContent = "Waiting for the computer to allow this device. Choose Allow in the notice there.";
+      setBusy($("lock-submit"), true, "Waiting…");
+      //: A full wait queue answers at once; a pause keeps that from spinning.
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+      if ($("lock-password").value !== password) {
+        setBusy($("lock-submit"), false);
+        throw error;
+      }
+    }
+  }
+}
+
 $("lock-submit").addEventListener("click", submitLockForm);
 //: The lock field's own show-password toggle (the browser's reveal vanished
 //: once the field lost focus). Shown text is never kept: a lock resets it.
@@ -560,7 +664,9 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (e.key === "Escape" && !$("palette-overlay").classList.contains("hidden")) {
-    closePalette();
+    //: A '?' open on the palette (its foot) takes this Escape for itself; the
+    //: next one closes the palette (`menus.js` marks the press as spent).
+    if (!e.helpPopoverSpent) closePalette();
     return;
   }
   if (e.key === "Escape" && !$("sketch-overlay").classList.contains("hidden")) {
@@ -710,7 +816,7 @@ document.addEventListener("keydown", (e) => {
       && !boardOwns
     ) {
       tabJumpArmedAt = performance.now();
-      //: Asked for: "m" rather than "g" (m for MemoryMap, and "g" collided
+      //: Asked for: "m" rather than "g" (m for Tessellate, and "g" collided
       //: with Graph's own letter), and "some visual assistance and guides":
       //: the first key shows the chord's targets for as long as it is armed,
       //: so the second key is never a guess.
@@ -797,8 +903,8 @@ function maybeShowOnboarding() {
   if (prefs.get("tourDone", null)) return;
   if (typeof openTour !== "function") return;
   if (typeof TOUR_ENABLED !== "undefined" && !TOUR_ENABLED) return;
-  localStorage.setItem("tourDone", "1");
-  toastAction("There is a guided tour of MemoryMap now.", "Take the tour", () => {
+  prefs.set("tourDone", "1");
+  toastAction("There is a guided tour of Tessellate now.", "Take the tour", () => {
     openTour("basics");
   });
 }
@@ -933,6 +1039,9 @@ const DEFAULT_SHORTCUTS = {
   //: for the reason `askAgent` records: collisions are checked here, and the
   //: shortcuts sheet is built from this table.
   toggleCompanion: { keys: "Ctrl+Shift+Y", label: "Show or hide the companion" },
+  //: INBOX 896, the owner: "add a hotkey" for the status bar's Other devices
+  //: panel. Alt+L was free here and in the browsers this runs in; L for LAN.
+  lanPanel: { keys: "Alt+L", label: "Other devices on this network: open the switch and the trusted networks" },
   navigateBack: { keys: "Alt+ArrowLeft", label: "Go back to the previous page or view" },
   navigateForward: { keys: "Alt+ArrowRight", label: "Go forward again" },
 };
@@ -1007,7 +1116,7 @@ restampShortcutHints();
 // establishes the disabled state the HTML already carries, not a real render.
 renderUndoBar();
 
-// "m" then a letter jumps tabs (m for MemoryMap), GitHub and Gmail's own "go to" chord, and
+// "m" then a letter jumps tabs (m for Tessellate), GitHub and Gmail's own "go to" chord, and
 // the reason it isn't in DEFAULT_SHORTCUTS/rebindable above: a chord needs
 // somewhere to hold the first keypress while it waits for the second, and
 // that's state this file has to own regardless, so it lives beside the
@@ -1049,6 +1158,10 @@ const CHORD_ACTIONS = {
   //: the same word the status bar's button uses. The key stays `a`.
   a: { label: "Guide", icon: "ph:compass", run: () => askAtlasAbout("") },
   p: { label: "Popup agent", icon: "ph:strategy", run: () => toggleAgentPalette() },
+  //: A place, not an act (the owner: "add the ocr workspace to the 'm' quick
+  //: nav"): `group: "go"` draws it under "Go to", and it opens the way the
+  //: Library's own door does, through the reveal target.
+  o: { label: "OCR workspace", icon: "ph:scan", group: "go", run: () => revealFeature("page-reader") },
 };
 let tabJumpArmedAt = 0;
 
@@ -1092,7 +1205,7 @@ function saveShortcutOverrides() {
   for (const [id, def] of Object.entries(DEFAULT_SHORTCUTS)) {
     if (shortcuts[id].keys !== def.keys) overrides[id] = shortcuts[id].keys;
   }
-  localStorage.setItem(SHORTCUT_STORE, JSON.stringify(overrides));
+  prefs.set(SHORTCUT_STORE, JSON.stringify(overrides));
   restampShortcutHints();
 }
 
@@ -1221,6 +1334,7 @@ function runShortcut(id) {
       switchTab("chat");
       openNotePicker();
     },
+    lanPanel: () => openLanPanel(),
     // Same call the status bar's own Back/Forward buttons already make.
     navigateBack: () => stepTabHistory(-1),
     navigateForward: () => stepTabHistory(1),
@@ -1229,7 +1343,7 @@ function runShortcut(id) {
 }
 
 function resetShortcuts() {
-  localStorage.removeItem(SHORTCUT_STORE);
+  prefs.remove(SHORTCUT_STORE);
   shortcuts = loadShortcuts();
   restampShortcutHints();
   renderShortcutList();
@@ -1264,36 +1378,48 @@ function renderShortcutList() {
   }
 }
 
+//: **The key chip is the button** (INBOX 810, Row actions): a column of
+//: thirty-one bordered "Change" buttons was the heaviest thing in the pane,
+//: louder than the keys it changes. Pressing the keys starts the rebind and
+//: pressing them again cancels it; its words say which ("Change" or
+//: "Cancel"), and the back-to-default is a quiet icon after the words.
 function buildShortcutList(list) {
   list.replaceChildren();
   for (const [id, def] of Object.entries(shortcuts)) {
     const li = document.createElement("li");
-    const combo = document.createElement("kbd");
-    combo.textContent = capturingShortcut === id ? "Press keys…" : def.keys;
-    if (capturingShortcut === id) combo.classList.add("capturing");
-
-    const label = document.createElement("span");
-    label.textContent = def.label;
-
+    const capturing = capturingShortcut === id;
     const change = document.createElement("button");
-    change.className = "ghost small";
+    change.className = "ghost small quiet shortcut-key";
     change.type = "button";
-    change.textContent = capturingShortcut === id ? "Cancel" : "Change";
-    change.setAttribute("aria-label", `Change the shortcut for: ${def.label}`);
+    const combo = document.createElement("kbd");
+    combo.textContent = capturing ? "Press keys…" : def.keys;
+    if (capturing) combo.classList.add("capturing");
+    change.append(combo);
+    change.title = capturing ? "Cancel" : "Change";
+    change.setAttribute(
+      "aria-label",
+      capturing ? `Cancel changing the shortcut for: ${def.label}` : `Change the shortcut for: ${def.label}, now ${def.keys}`
+    );
     change.addEventListener("click", () => {
       capturingShortcut = capturingShortcut === id ? null : id;
       setShortcutStatus(
         capturingShortcut ? "Press the keys you want, or Escape to cancel." : ""
       );
       renderShortcutList();
+      //: The list was redrawn: the focus goes back to the same row's keys.
+      list.querySelector(`[data-shortcut="${id}"] .shortcut-key`)?.focus();
     });
+
+    const label = document.createElement("span");
+    label.textContent = def.label;
+    li.dataset.shortcut = id;
+    li.append(change, label);
 
     // Only offer "default" when it isn't already the default.
     const changed = def.keys !== DEFAULT_SHORTCUTS[id].keys;
-    li.append(combo, label, change);
     if (changed) {
       const revert = document.createElement("button");
-      revert.className = "ghost small";
+      revert.className = "ghost small quiet icon-only";
       revert.type = "button";
       setLabel(revert, "ph:arrow-counter-clockwise");
       revert.title = `Back to ${DEFAULT_SHORTCUTS[id].keys}`;
@@ -1307,6 +1433,8 @@ function buildShortcutList(list) {
     }
     list.appendChild(li);
   }
+  //: Thirty-one rows: typed to (row 1643, `listFilter`).
+  if (typeof listFilter === "function") listFilter(list, { label: "Filter shortcuts" })?.refresh();
 }
 
 // While rebinding, this handler runs before everything else and swallows the
@@ -1467,7 +1595,7 @@ if (noteSort === "forgotten") loadForgottenOrder().then(() => renderEntries());
 $("note-sort").addEventListener("change", async (e) => {
   noteSort = e.target.value;
   try {
-    localStorage.setItem("notes-sort", noteSort);
+    prefs.set("notes-sort", noteSort);
   } catch {
     /* storage blocked: this session only */
   }
@@ -1481,7 +1609,7 @@ $("note-sort").addEventListener("change", async (e) => {
 $("notes-page-size").value = notesPageSize;
 $("notes-page-size").addEventListener("change", (e) => {
   notesPageSize = e.target.value;
-  localStorage.setItem("notes-page-size", notesPageSize);
+  prefs.set("notes-page-size", notesPageSize);
   notesCurrentPage = 1;
   renderEntries();
 });
@@ -1543,15 +1671,27 @@ function renderCaptureFiles() {
 //: time in the foot"), in the words a document's own count line uses
 //: (`renderDocCounts`, documents.js) and at its 220 words a minute, so one
 //: piece of writing reads the same length in both places.
-const CAPTURE_READING_WPM = 220;
+//: **One count for a text, everywhere it is shown** (CHAT_PLAN section 2,
+//: the documents row): words, characters and lines as `wc -w`, `wc -m` and
+//: `wc -l` give them, and the reading time. The server's twin is
+//: `ai/utilities.py` `counts`; tests/test_text_utilities.py holds both to
+//: `wc` on one fixture. Here, not in documents.js, because the composer
+//: below counts at boot and the documents bundle is lazy.
+const TEXT_READING_WPM = 220;
+function textCounts(text) {
+  const value = String(text || "");
+  const words = (value.match(/\S+/g) || []).length;
+  const minutes = words / TEXT_READING_WPM;
+  const read = !words ? "" : minutes < 1 ? "under a min" : minutes < 60 ? `${Math.round(minutes)} min read` : `${(minutes / 60).toFixed(1)}h read`;
+  let chars = 0;
+  for (const _ of value) chars += 1;
+  return { words, chars, lines: (value.match(/\n/g) || []).length, minutes, read };
+}
 
 function captureCountText(text) {
-  const words = (String(text || "").match(/\S+/g) || []).length;
+  const { words, read } = textCounts(text);
   const head = `${words.toLocaleString()} word${words === 1 ? "" : "s"}`;
-  if (!words) return head;
-  const minutes = words / CAPTURE_READING_WPM;
-  const read = minutes < 1 ? "under a min read" : `${Math.round(minutes)} min read`;
-  return `${head} · ${read}`;
+  return words ? `${head} · ${read}` : head;
 }
 
 $("entry-content").addEventListener("input", (e) => {
@@ -1562,8 +1702,8 @@ $("entry-content").addEventListener("input", (e) => {
   //: back holding three blank lines after a reload, which hid the empty
   //: placeholder). Newlines left behind by a removed image or a stray Enter
   //: must not be kept and restored as if they were writing.
-  if (e.target.value.trim()) localStorage.setItem("captureDraft", e.target.value);
-  else localStorage.removeItem("captureDraft");
+  if (e.target.value.trim()) prefs.set("captureDraft", e.target.value);
+  else prefs.remove("captureDraft");
   renderEntryAttachmentChips();
   // The "go to it" link belongs to the note you just saved, not the one you
   // are now writing: drop it as soon as typing starts.
@@ -1592,7 +1732,7 @@ const STAGED_IN_DRAFT = /!\[[^\]\n]{0,200}\]\(staged:[^)\n]{1,120}\)\n?/g;
   //: a staged image can leave nothing else) restores as nothing, so the
   //: box stays empty and its placeholder shows.
   if (!draft.trim()) {
-    localStorage.removeItem("captureDraft");
+    prefs.remove("captureDraft");
     if (lostImages) toast("Your restored draft only held images that were never uploaded, so it was cleared.");
     return;
   }
@@ -1625,8 +1765,8 @@ for (const [id, key] of [["entry-title", "captureDraftTitle"], ["entry-tags", "c
   } catch {}
   field.addEventListener("input", () => {
     try {
-      if (field.value.trim()) localStorage.setItem(key, field.value);
-      else localStorage.removeItem(key);
+      if (field.value.trim()) prefs.set(key, field.value);
+      else prefs.remove(key);
     } catch {}
   });
 }
@@ -1634,113 +1774,6 @@ for (const [id, key] of [["entry-title", "captureDraftTitle"], ["entry-tags", "c
 $("sketch-btn").addEventListener("click", openSketch);
 $("sketch-close").addEventListener("click", closeSketch);
 $("sketch-save").addEventListener("click", saveSketch);
-$("sketch-clear").addEventListener("click", () => {
-  // Clears strokes only: the background layer (§37G's uploaded image, or
-  // blank white) is untouched, so Clear can't lose the photo being annotated.
-  const canvas = $("sketch-canvas");
-  canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
-});
-$("sketch-upload-image").addEventListener("click", () => $("sketch-image-input").click());
-$("sketch-image-input").addEventListener("change", () => {
-  const file = $("sketch-image-input").files[0];
-  $("sketch-image-input").value = ""; // lets the same file be picked again
-  sketchUploadImage(file);
-});
-$("sketch-size").addEventListener("input", () => {
-  sketchPen.size = Number($("sketch-size").value);
-  syncSketchSizeReadout();
-});
-// `input` previews live while dragging the swatch; `change` (fires once, on
-// release) is what persists, dragging across ten hues shouldn't write ten
-// times, same reasoning as the whiteboard's own background picker.
-$("sketch-bg-color-picker").addEventListener("input", (e) => {
-  sketchBgColor = e.target.value;
-  sketchDrawBackground();
-  sketchDirty = true; // a background colour is as much a change as a stroke
-});
-$("sketch-bg-color-picker").addEventListener("change", (e) => {
-  localStorage.setItem(SKETCH_BG_KEY, e.target.value);
-});
-for (const button of document.querySelectorAll(".sketch-color")) {
-  button.addEventListener("click", () => {
-    sketchPen.color = button.dataset.color;
-    // Picking a colour means you want to draw, not erase. The eraser button
-    // was renamed `sketch-tool-eraser` when the toolbar became icons, and this
-    // one call kept the old `sketch-eraser` id: so the optional-chain
-    // swallowed it and the eraser stayed lit while the pen drew, which reads
-    // as the colour swatches not working.
-    //
-    // **It does not mean you want the pen**, which is what this did until it
-    // was measured: "highlighter, then yellow" left `sketchTool` at "pen" and
-    // drew an opaque yellow line (one pass at 176.0 luminance on a 255.0
-    // paper, which is the ink's own value, so no translucency at all). The
-    // highlighter, the shapes and the text tool all take the ink too, so only
-    // the eraser is switched away from here.
-    const wasErasing = sketchPen.eraser;
-    sketchPen.eraser = false;
-    if (wasErasing) {
-      sketchTool = "pen";
-      $("sketch-tool-eraser")?.classList.remove("active");
-      $("sketch-tool-pen")?.classList.add("active");
-    }
-    document
-      .querySelectorAll(".sketch-color")
-      .forEach((b) => b.classList.toggle("active", b === button));
-  });
-}
-const sketchCanvas = $("sketch-canvas");
-sketchCanvas.addEventListener("pointerdown", sketchStart);
-sketchCanvas.addEventListener("pointermove", sketchMove);
-sketchCanvas.addEventListener("pointerup", sketchEnd);
-sketchCanvas.addEventListener("pointerleave", sketchEnd);
-
-$("sketch-undo").addEventListener("click", () => {
-  if (sketchHistory.length === 0) return;
-  const canvas = $("sketch-canvas");
-  const ctx = canvas.getContext("2d");
-  sketchRedoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-  const last = sketchHistory.pop();
-  ctx.putImageData(last, 0, 0);
-  sketchDirty = true;
-});
-$("sketch-redo").addEventListener("click", () => {
-  if (sketchRedoStack.length === 0) return;
-  const canvas = $("sketch-canvas");
-  const ctx = canvas.getContext("2d");
-  sketchHistory.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-  const next = sketchRedoStack.pop();
-  ctx.putImageData(next, 0, 0);
-  sketchDirty = true;
-});
-
-const sketchToolsList = ["pen", "highlighter", "eraser", "line", "rect", "circ", "arrow", "text"];
-for (const tool of sketchToolsList) {
-  const btn = $(`sketch-tool-${tool}`);
-  if (btn) {
-    btn.addEventListener("click", () => {
-      sketchTool = tool === "eraser" ? "pen" : tool;
-      sketchPen.eraser = (tool === "eraser");
-      for (const t of sketchToolsList) {
-        const tBtn = $(`sketch-tool-${t}`);
-        if (tBtn) tBtn.classList.toggle("active", t === tool);
-      }
-    });
-  }
-}
-
-document.addEventListener("keydown", (e) => {
-  if ((e.ctrlKey || e.metaKey) && !$("sketch-overlay").classList.contains("hidden")) {
-    if (e.key === "z") {
-      if (e.shiftKey) $("sketch-redo").click();
-      else $("sketch-undo").click();
-      e.preventDefault();
-    } else if (e.key === "y") {
-      $("sketch-redo").click();
-      e.preventDefault();
-    }
-  }
-});
-
 // Wave H: dictation + read-aloud.
 $("mic-note").addEventListener("click", () =>
   toggleDictation($("mic-note"), $("entry-content"))
@@ -1750,29 +1783,24 @@ $("mic-chat").addEventListener("click", () =>
 );
 $("speak-btn").addEventListener("click", () => speakText($("ai-answer").textContent));
 
-// Meeting notes (§17).
-$("meeting-close").addEventListener("click", closeMeetingRecorder);
-wireBackdropClose($("meeting-overlay"), () => closeMeetingRecorder());
-$("meeting-record").addEventListener("click", toggleMeetingRecording);
-$("meeting-save").addEventListener("click", saveMeetingNote);
-$("meeting-save-doc")?.addEventListener("click", saveMeetingDocument);
-$("meeting-pause")?.addEventListener("click", toggleMeetingPause);
-$("meeting-copy")?.addEventListener("click", (event) =>
-  copyToClipboard($("meeting-transcript").value, event.currentTarget)
-);
-$("meeting-discard").addEventListener("click", resetMeetingUI);
-$("meeting-transcript").addEventListener("input", () => autoGrow($("meeting-transcript")));
-
-// PWA: the shell caches itself so the app opens instantly (Wave F).
-// When a new service worker takes over (after an update), reload once so
-// the page never runs new HTML against stale cached CSS/JS (Wave O fix).
+// PWA (WORLD_CLASS_PLAN decision 49): sw.js caches stamped files, vendored
+// libraries and icons, and shows offline.html when the server is not
+// running; it never caches the shell or the API. When a new service worker
+// takes over (after an update), reload once so the page never runs new HTML
+// against stale cached CSS/JS (Wave O fix).
 if ("serviceWorker" in navigator) {
   // Only reload when an EXISTING worker is replaced (a real update): not
   // on the first install, whose clients.claim() also fires controllerchange
   // and would reload the page mid-setup (Wave O fix).
   const hadController = Boolean(navigator.serviceWorker.controller);
   // sw.js stays at the root, not in js/: a worker only controls its own path.
-  navigator.serviceWorker.register("/sw.js").catch(() => {});
+  // The app version rides on the URL: the worker names its cache for it, and
+  // a release is a new URL, so the browser installs the new worker at once.
+  // `updateViaCache: "none"` because a `?v=` URL is served as immutable.
+  const appVersion = /^\?v=(\d+\.\d+\.\d+)/.exec(lazyAssetStamp("/js/app.js"))?.[1] || "dev";
+  navigator.serviceWorker
+    .register(`/sw.js?v=${appVersion}`, { updateViaCache: "none" })
+    .catch(() => {});
   let swReloaded = false;
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (!hadController || swReloaded) return;
@@ -1780,6 +1808,45 @@ if ("serviceWorker" in navigator) {
     location.reload();
   });
 }
+
+// Install as an app (WORLD_CLASS_PLAN 25d): Settings, About. Chromium offers
+// the install through `beforeinstallprompt`, which is held until the button is
+// pressed; it fires nothing once installed, and `appinstalled` hides the row.
+// iPhone has no such event, so the row says how instead of offering a button.
+const installPrompt = { event: null };
+function renderInstallRow() {
+  const row = $("about-install-row");
+  if (!row) return;
+  const installed =
+    window.matchMedia?.("(display-mode: standalone)").matches || navigator.standalone === true;
+  const iphone =
+    /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const canPrompt = Boolean(installPrompt.event);
+  row.classList.toggle("hidden", installed || !(canPrompt || iphone));
+  $("about-install").classList.toggle("hidden", !canPrompt);
+  $("about-install-note").textContent = canPrompt
+    ? "Opens in its own window, with its own icon."
+    : "On iPhone: tap Share, then Add to Home Screen.";
+}
+window.addEventListener("beforeinstallprompt", (event) => {
+  event.preventDefault();
+  installPrompt.event = event;
+  renderInstallRow();
+});
+window.addEventListener("appinstalled", () => {
+  installPrompt.event = null;
+  renderInstallRow();
+});
+$("about-install")?.addEventListener("click", async () => {
+  const offered = installPrompt.event;
+  if (!offered) return;
+  installPrompt.event = null; // the event can be used once
+  offered.prompt();
+  await offered.userChoice.catch(() => {});
+  renderInstallRow();
+});
+renderInstallRow();
 
 // The generative brand emblem's initial draw (Wave O) moved to settings.js's
 // own tail (§88.3 item 4): renderBrandLogo() itself stays here (used far
@@ -1837,6 +1904,12 @@ function fileDropBox(el) {
   const host = el?.closest?.(".note-surface")?.noteSurfaceHost;
   return host instanceof HTMLTextAreaElement ? host : null;
 }
+
+//: Files dragged in from outside the window load the drop-to-Library module
+//: (file-drop.js), which starts itself and takes only the drops nothing else did.
+document.addEventListener("dragenter", (e) => {
+  if (Array.from(e.dataTransfer?.types || []).includes("Files")) ["/css/file-drop-lazy.css", "/js/file-drop.js"].forEach(lazyScript);
+});
 
 document.addEventListener("drop", async (e) => {
   const box = fileDropBox(e.target);
@@ -1908,6 +1981,13 @@ document.addEventListener("paste", async (e) => {
 //: Images are deliberately *not* staged: an image in the middle of a
 //: paragraph is content, and it needs to be inline markdown at the point in
 //: the text where it was dropped, not an attachment at the bottom.
+
+//: The one place that knows the staged placeholder's shape, so the renderer
+//: and the rewrite cannot disagree about it (moved from app.js, its only users
+//: are here).
+function stagedImageUrl(key) {
+  return `${STAGED_URL_PREFIX}${key}`;
+}
 
 //: **Images wait for the note too now.**
 //:
@@ -2051,6 +2131,7 @@ async function handleFileUpload(textarea, files) {
   textarea.value = originalText.substring(0, cursorPosition) + textToInsert + originalText.substring(selectionEnd);
   textarea.dispatchEvent(new Event('input', { bubbles: true }));
 
+  let added = 0;
   for (const file of files) {
     const formData = new FormData();
     formData.append("file", file);
@@ -2071,6 +2152,7 @@ async function handleFileUpload(textarea, files) {
         : `[${res.filename}](${res.url})\n`;
       textarea.value = textarea.value.replace(`![Uploading ${file.name}…]()\n`, fileMarkdown);
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      added += 1;
     } catch (err) {
       // Reported directly (§89 item 2): an upload failure rendered as if it
       // were the AI's own message: literal error text left sitting in the
@@ -2085,6 +2167,7 @@ async function handleFileUpload(textarea, files) {
       toast(err.message || `Couldn't upload "${file.name}".`, true);
     }
   }
+  if (added) pushTextUndo("Added a file", textarea, originalText, textarea.value);
 }
 
 // ROADMAP.md Tier 2 §16c: paste and drag-drop already reached Capture (the
@@ -2140,7 +2223,11 @@ $("pref-single-keys").checked = singleKeysOn();
   window.openPalette = (...args) => {
     const input = $("palette-input");
     if (!window.paletteEarly) {
-      const early = (window.paletteEarly = { returnFocus: document.activeElement });
+      //: What was selected, before the palette's box takes the focus (Count
+      //: words and Insert template act on it, app-palette.js `paletteCaught`).
+      const held = window.getSelection();
+      const range = held?.rangeCount ? held.getRangeAt(0).cloneRange() : null;
+      const early = (window.paletteEarly = { returnFocus: document.activeElement, selection: String(held || ""), range });
       early.onKey = (e) => e.key === "Enter" && (e.preventDefault(), (early.enter = true));
       input.value = "";
       input.addEventListener("keydown", early.onKey);

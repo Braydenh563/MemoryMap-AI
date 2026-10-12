@@ -12,7 +12,7 @@
 //   * Escape closes it and focus goes back to the button that opened it;
 //   * a tab behind More lights the More column, so the bar says where you are
 //     on all seven tabs rather than on the four it shows;
-//   * two taps to anything: the four in the bar are one, the six rows in the
+//   * two taps to anything: the four in the bar are one, the seven rows in the
 //     sheet (the three tabs, Ask the agent, Guide, Settings) are two.
 //
 //   BASE=http://127.0.0.1:8943 PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers \
@@ -41,7 +41,7 @@ const WIDTHS = (process.env.WIDTHS || '390,360,320').split(',').map(Number);
     const page = await ctx.newPage();
     page.on('pageerror', (e) => fail(`pageerror: ${e.message}`));
     await page.goto(BASE + '/', { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('#lock-password', { state: 'visible', timeout: 20000 });
+    await page.waitForSelector('#lock-password', { state: 'visible', timeout: Number(process.env.BOOT_MS || 20000) });
     await page.fill('#lock-password', PW); await page.click('#lock-submit'); await page.waitForTimeout(2500);
     if (await page.$('#lock-password') && await page.isVisible('#lock-password')) {
       await page.fill('#lock-password', PW); await page.click('#lock-submit'); await page.waitForTimeout(2500);
@@ -121,7 +121,8 @@ const WIDTHS = (process.env.WIDTHS || '390,360,320').split(',').map(Number);
       //: Six rows by design (app.js `PHONE_MORE_TABS`): Dashboard, Timeline,
       //: Reminders, then Ask the agent, Guide and Settings, added for the
       //: header controls a phone-width bar has no room for (INBOX 190).
-      if (sheet.rows.length !== 6) fail(`${sheet.rows.length} rows in the sheet, not six`);
+      //: Seven since the Commands row (phone-shell.js openPhoneMoreSheet).
+      if (sheet.rows.length !== 7) fail(`${sheet.rows.length} rows in the sheet, not seven`);
       if (!sheet.focusIn) fail('the sheet did not take focus');
       sheet.rows.forEach((r) => { if (r.h < MIN) fail(`sheet row ${r.name} is ${r.h}px tall`); });
     }

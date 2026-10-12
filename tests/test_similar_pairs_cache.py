@@ -13,9 +13,9 @@ import json
 import pytest
 from sqlalchemy import delete
 
-from memorymap.ai import embeddings as embeddings_module
-from memorymap.core.database import EmbeddingRecord, Entry
-from memorymap.search import engine
+from tessellate.ai import embeddings as embeddings_module
+from tessellate.core.database import EmbeddingRecord, Entry
+from tessellate.search import engine
 
 
 def _note(session, content, private=False):

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 
 def test_reader_strips_scripts_and_markup():
-    from memorymap.search import websearch
+    from tessellate.search import websearch
 
     page = """
     <html><head><title>A Page</title></head>
@@ -22,7 +22,7 @@ def test_reader_strips_scripts_and_markup():
 def test_reader_returns_structured_blocks():
     """Headings, paragraphs and list items come back separately so the reader
     can lay a page out instead of dumping one wall of text."""
-    from memorymap.search import websearch
+    from tessellate.search import websearch
 
     page = """
     <html><head><title>Doc</title></head><body>
@@ -60,7 +60,7 @@ def test_reader_opens_an_ordinary_result_page(client, monkeypatch):
     Guards this against the host allowlist that briefly shipped and rejected
     every real page, since the engines it allowed are never where results are.
     """
-    from memorymap.search import websearch
+    from tessellate.search import websearch
 
     monkeypatch.setattr(
         websearch,
@@ -78,7 +78,7 @@ def test_reader_opens_an_ordinary_result_page(client, monkeypatch):
 
 def test_reader_refuses_a_link_that_points_at_this_machine(client, monkeypatch):
     """A search result must not be able to make the app fetch localhost."""
-    from memorymap.search import websearch
+    from tessellate.search import websearch
 
     def boom(*args, **kwargs):  # pragma: no cover: must never be reached
         raise AssertionError("the guard should have stopped this request")
@@ -92,7 +92,7 @@ def test_reader_refuses_a_link_that_points_at_this_machine(client, monkeypatch):
 
 def test_reader_refuses_a_url_carrying_credentials(client, monkeypatch):
     """"http://ok.example@evil.example/" reads as one host and resolves to another."""
-    from memorymap.search import websearch
+    from tessellate.search import websearch
 
     def boom(*args, **kwargs):  # pragma: no cover: must never be reached
         raise AssertionError("the guard should have stopped this request")
@@ -105,7 +105,7 @@ def test_reader_refuses_a_url_carrying_credentials(client, monkeypatch):
 
 def test_reader_refuses_a_redirect_into_the_local_network(client, monkeypatch):
     """A public page must not be able to 302 the app onto localhost."""
-    from memorymap.search import websearch
+    from tessellate.search import websearch
 
     seen = []
 

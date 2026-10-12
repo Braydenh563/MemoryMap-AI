@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import sampling
-from memorymap.ai.ollama_client import OllamaClient
+from tessellate.ai import sampling
+from tessellate.ai.ollama_client import OllamaClient
 
 
 @pytest.fixture()

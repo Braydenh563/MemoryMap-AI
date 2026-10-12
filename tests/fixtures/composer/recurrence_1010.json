@@ -1,0 +1,186 @@
+{
+ "about": "Brief 85's recurrence and early-alert set (TIMELINE_PLAN 11 row 8): each phrase typed as a reminder on Wednesday 14 October 2026 at 10:00, and what the store must keep: the title, the due time, the repeat (a word or the rule itself) and the alert in minutes before. Read by ai/recognise.py alone; tests/test_recurrence_1010.py scores it, the bar 1.0.",
+ "now": "2026-10-14T10:00:00",
+ "phrases": [
+  {
+   "text": "standup every weekday at 9am",
+   "expect": {
+    "title": "Standup",
+    "due_at": "2026-10-15T09:00",
+    "recurring": "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR",
+    "alert_minutes": null
+   }
+  },
+  {
+   "text": "pay the cleaner every 2 weeks",
+   "expect": {
+    "title": "Pay the cleaner",
+    "due_at": "2026-10-15T09:00",
+    "recurring": "FREQ=WEEKLY;INTERVAL=2",
+    "alert_minutes": null
+   }
+  },
+  {
+   "text": "team lunch on the last friday of the month at 12:30",
+   "expect": {
+    "title": "Team lunch",
+    "due_at": "2026-10-30T12:30",
+    "recurring": "FREQ=MONTHLY;BYDAY=-1FR",
+    "alert_minutes": null
+   }
+  },
+  {
+   "text": "gym every other monday at 7am",
+   "expect": {
+    "title": "Gym",
+    "due_at": "2026-10-19T07:00",
+    "recurring": "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO",
+    "alert_minutes": null
+   }
+  },
+  {
+   "text": "dentist friday at 9am, alert 1 day before",
+   "expect": {
+    "title": "Dentist",
+    "due_at": "2026-10-16T09:00",
+    "recurring": "none",
+    "alert_minutes": 1440
+   }
+  },
+  {
+   "text": "call Sam tomorrow at 5pm an hour before",
+   "expect": {
+    "title": "Call Sam",
+    "due_at": "2026-10-15T17:00",
+    "recurring": "none",
+    "alert_minutes": 60
+   }
+  },
+  {
+   "text": "book club every first tuesday at 7pm",
+   "expect": {
+    "title": "Book club",
+    "due_at": "2026-11-03T19:00",
+    "recurring": "FREQ=MONTHLY;BYDAY=1TU",
+    "alert_minutes": null
+   }
+  },
+  {
+   "text": "rent due on the 1st every month, 2 days before",
+   "expect": {
+    "title": "Rent due",
+    "due_at": "2026-11-01T09:00",
+    "recurring": "monthly",
+    "alert_minutes": 2880
+   }
+  },
+  {
+   "text": "water the plants every weekend",
+   "expect": {
+    "title": "Water the plants",
+    "due_at": "2026-10-17T09:00",
+    "recurring": "FREQ=WEEKLY;BYDAY=SA,SU",
+    "alert_minutes": null
+   }
+  },
+  {
+   "text": "review budget every 3 months",
+   "expect": {
+    "title": "Review budget",
+    "due_at": "2026-10-15T09:00",
+    "recurring": "FREQ=MONTHLY;INTERVAL=3",
+    "alert_minutes": null
+   }
+  },
+  {
+   "text": "flight on friday at 6am, remind me 2 hours before",
+   "expect": {
+    "title": "Flight",
+    "due_at": "2026-10-16T06:00",
+    "recurring": "none",
+    "alert_minutes": 120
+   }
+  },
+  {
+   "text": "report every last friday at 4pm",
+   "expect": {
+    "title": "Report",
+    "due_at": "2026-10-30T16:00",
+    "recurring": "FREQ=MONTHLY;BYDAY=-1FR",
+    "alert_minutes": null
+   }
+  },
+  {
+   "text": "piano lesson every tuesday at 5pm, 30 minutes before",
+   "expect": {
+    "title": "Piano lesson",
+    "due_at": "2026-10-20T17:00",
+    "recurring": "weekly",
+    "alert_minutes": 30
+   }
+  },
+  {
+   "text": "bin day every other thursday",
+   "expect": {
+    "title": "Bin day",
+    "due_at": "2026-10-15T09:00",
+    "recurring": "FREQ=WEEKLY;INTERVAL=2;BYDAY=TH",
+    "alert_minutes": null
+   }
+  },
+  {
+   "text": "take vitamins every day at 8am",
+   "expect": {
+    "title": "Take vitamins",
+    "due_at": "2026-10-15T08:00",
+    "recurring": "daily",
+    "alert_minutes": null
+   }
+  },
+  {
+   "text": "parents call every sunday at 6pm",
+   "expect": {
+    "title": "Parents call",
+    "due_at": "2026-10-18T18:00",
+    "recurring": "weekly",
+    "alert_minutes": null
+   }
+  },
+  {
+   "text": "pay invoice on the 15th, the day before",
+   "expect": {
+    "title": "Pay invoice",
+    "due_at": "2026-10-15T09:00",
+    "recurring": "none",
+    "alert_minutes": 1440
+   }
+  },
+  {
+   "text": "council meeting the second wednesday of the month at 7pm",
+   "expect": {
+    "title": "Council meeting",
+    "due_at": "2026-10-14T19:00",
+    "recurring": "FREQ=MONTHLY;BYDAY=2WE",
+    "alert_minutes": null
+   }
+  },
+  {
+   "text": "fortnightly sync with Ana",
+   "expect": {
+    "title": "Sync with Ana",
+    "due_at": "2026-10-15T09:00",
+    "recurring": "FREQ=WEEKLY;INTERVAL=2",
+    "alert_minutes": null
+   }
+  },
+  {
+   "text": "renew passport next monday at 10am, a week before",
+   "expect": {
+    "title": "Renew passport",
+    "due_at": "2026-10-19T10:00",
+    "recurring": "none",
+    "alert_minutes": 10080
+   }
+  }
+ ]
+}

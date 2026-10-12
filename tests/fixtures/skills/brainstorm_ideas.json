@@ -1,0 +1,63 @@
+{
+ "skill": "Brainstorm ideas",
+ "small_class": true,
+ "cases": [
+  {
+   "id": "birthday",
+   "notebook": [
+    {
+     "content": "Mum likes gardening and crosswords",
+     "category": "Family",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "birthday"
+    ]
+   },
+   "inputs": {
+    "topic": "Mum's birthday"
+   }
+  },
+  {
+   "id": "team-lunch",
+   "notebook": [
+    {
+     "content": "The team liked the dumpling place last time",
+     "category": "Work",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "lunch"
+    ]
+   },
+   "inputs": {
+    "topic": "a team lunch"
+   }
+  },
+  {
+   "id": "garden",
+   "notebook": [
+    {
+     "content": "The back corner of the garden gets no sun",
+     "category": "Garden",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "garden"
+    ]
+   },
+   "inputs": {
+    "topic": "the garden"
+   }
+  }
+ ]
+}

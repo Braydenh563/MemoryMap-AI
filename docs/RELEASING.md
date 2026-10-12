@@ -1,4 +1,4 @@
-# Releasing MemoryMap AI
+# Releasing Tessellate
 
 How to cut a version and publish the Windows installer and the Linux package.
 Everything after you push a tag is automatic. This page is mostly about the few
@@ -19,7 +19,7 @@ For when you have done this before and need the commands:
 
 ```
 # 1. Bump the version everywhere it lives (see the checklist below)
-#    src/memorymap/__init__.py, pyproject.toml, the ?v= stamps in
+#    src/tessellate/__init__.py, pyproject.toml, the ?v= stamps in
 #    frontend/index.html, capture.html and clip.html, and the README's
 #    "Version 0.x.y." line
 
@@ -29,7 +29,7 @@ For when you have done this before and need the commands:
 cp CHANGELOG.md docs/CHANGELOG.md
 
 # 3. Commit
-git add src/memorymap/__init__.py pyproject.toml README.md \
+git add src/tessellate/__init__.py pyproject.toml README.md \
   frontend/index.html frontend/capture.html frontend/clip.html \
   CHANGELOG.md docs/CHANGELOG.md
 git commit -m "Release 0.4.0" && git push
@@ -38,7 +38,7 @@ git commit -m "Release 0.4.0" && git push
 git tag v0.4.0
 git push origin v0.4.0
 
-# 5. Watch https://github.com/Braydenh563/MemoryMap-AI/actions
+# 5. Watch https://github.com/Braydenh563/Tessellate/actions
 #    Jobs run as: resolve-version, github-release, then
 #    build-windows-installer and build-linux-package in parallel
 #    (about 10 to 15 minutes each). When all are green, the .exe, the
@@ -60,13 +60,13 @@ does not set them for you.
 
 ### 1. Bump the version everywhere it lives
 
-`__version__` in `src/memorymap/__init__.py` is the source of truth. It shows in
+`__version__` in `src/tessellate/__init__.py` is the source of truth. It shows in
 **Settings, About**, in the Windows installer's file properties, and is what the
 in-app update check (`GET /update/check`) compares against GitHub's latest
 release tag. **A tag that disagrees with it stops the release**: the first job
 of `release.yml` compares the two and fails before anything is built, and
 the workflow reads the installer's own version from this file too and passes it
-to `installer.iss` as `/DMyAppVersion` (which refuses a `MEMORYMAP_VERSION` that
+to `installer.iss` as `/DMyAppVersion` (which refuses a `TESSELLATE_VERSION` that
 says otherwise).
 
 The same number is written in four more places. Two have a lint that fails the
@@ -120,7 +120,7 @@ changelog entry.
 
 Push only from a state where CI passes on the branch you are releasing from. The
 release workflow does not run the test suite: it trusts that the tagged code
-already passed CI. For a change to the packaging itself (`memorymap.spec`,
+already passed CI. For a change to the packaging itself (`tessellate.spec`,
 `installer.iss`, the workflow), check that **Package check**
 (`.github/workflows/package-check.yml`) is green too. It builds the frozen Windows
 app and the installer, installs them silently and starts the app, so a packaging
@@ -158,15 +158,15 @@ after the release exists:
   `sentence-transformers` and torch. Settings, Packages treats those as an
   optional post-install, like voice dictation, and a multi-hundred-MB download in
   the base installer would contradict that.
-- Runs PyInstaller against `packaging/windows/memorymap.spec`. It is a onedir
+- Runs PyInstaller against `packaging/windows/tessellate.spec`. It is a onedir
   build: a onefile build would re-extract itself on every launch, a poor fit for
   an app meant to open like a normal desktop app.
 - **Smoke-tests the frozen app.** It starts the built executable on a scratch data
   folder and fails the release unless the app serves its page within a minute.
 - Runs Inno Setup against `packaging/windows/installer.iss` with
-  `/DMyAppVersion=` the version in `src/memorymap/__init__.py`; it refuses a
-  `MEMORYMAP_VERSION` (the tag) that differs.
-- Uploads `MemoryMap-AI-Setup-<version>-windows-x86_64.exe` to the release. The
+  `/DMyAppVersion=` the version in `src/tessellate/__init__.py`; it refuses a
+  `TESSELLATE_VERSION` (the tag) that differs.
+- Uploads `Tessellate-Setup-<version>-windows-x86_64.exe` to the release. The
   WiX `.msi` steps are present but switched off: its toolkit's licence terms
   stopped the release build.
 
@@ -175,9 +175,9 @@ parallel with the Windows job:
 
 - Installs GTK and WebKit for pywebview's Linux backend, then the same trimmed
   dependency set without the system-tray pieces.
-- Runs PyInstaller against `packaging/linux/memorymap.spec` and smoke-tests the
+- Runs PyInstaller against `packaging/linux/tessellate.spec` and smoke-tests the
   result the same way.
-- Uploads `MemoryMap-AI-<version>-linux-x86_64.tar.gz` and a `.zip` of the same
+- Uploads `Tessellate-<version>-linux-x86_64.tar.gz` and a `.zip` of the same
   build. The tarball is the one to recommend: a zip does not reliably carry the
   executable bit, and a launcher without it cannot be started.
 
@@ -187,15 +187,15 @@ not as something you `pip install`; the reason is in the comment at the top of
 
 ## Verifying the release
 
-1. Open the [Actions tab](https://github.com/Braydenh563/MemoryMap-AI/actions)
+1. Open the [Actions tab](https://github.com/Braydenh563/Tessellate/actions)
    and confirm every job finished green. The two build jobs are the ones that can
    genuinely fail (a dependency drifting, an Inno Setup syntax error, PyInstaller
    missing a hidden import), so watch them rather than assume.
-2. Open the [release itself](https://github.com/Braydenh563/MemoryMap-AI/releases)
+2. Open the [release itself](https://github.com/Braydenh563/Tessellate/releases)
    and confirm:
    - the description matches what you wrote in `CHANGELOG.md`, not GitHub's
      generic notes (a sign the header rename was missed);
-   - `MemoryMap-AI-Setup-<version>-windows-x86_64.exe`, the Linux `.tar.gz` and
+   - `Tessellate-Setup-<version>-windows-x86_64.exe`, the Linux `.tar.gz` and
      the Linux `.zip` are all attached.
 3. **If you can reach a Windows machine, run the installer once.** The pipeline
    proves the build starts and serves its page, and the Package check proves a

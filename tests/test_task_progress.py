@@ -15,9 +15,9 @@ import time
 
 import pytest
 
-from memorymap.ai import model_manager
-from memorymap.core import extras
-from memorymap.core import jobs as bgpool
+from tessellate.ai import model_manager
+from tessellate.core import extras
+from tessellate.core import jobs as bgpool
 
 
 @pytest.fixture(autouse=True)
@@ -89,7 +89,7 @@ def test_a_bulk_install_lists_each_package_with_its_outcome(client, monkeypatch)
 
 
 def test_the_app_update_download_is_a_row(client, monkeypatch):
-    from memorymap.api import routes_update
+    from tessellate.api import routes_update
 
     state = routes_update._state
     monkeypatch.setattr(state, "running", True)

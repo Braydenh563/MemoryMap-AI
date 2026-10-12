@@ -2,14 +2,14 @@
 the source it's meant to cover.
 
 Nothing here can run PyInstaller itself, that only happens in CI, on
-windows-latest (packaging/windows/memorymap.spec's own header comment says
+windows-latest (packaging/windows/tessellate.spec's own header comment says
 so). What this guards against is cheaper and just as real: a module reached
 only through `importlib.import_module` (searxng_manager.py's `__getattr__`
 facade, the same "picked by name at runtime" shape as the uvicorn/sqlalchemy/
 pywebview/pystray entries already in the spec) going missing from a frozen
 build because nobody remembered to list it. That exact bug shipped once,
 confirmed by a real user's support bundle: "ModuleNotFoundError: No module
-named 'memorymap.search.searxng_docker'" on a packaged Windows install.
+named 'tessellate.search.searxng_docker'" on a packaged Windows install.
 """
 
 from __future__ import annotations
@@ -20,11 +20,11 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.search import searxng_manager
+from tessellate.search import searxng_manager
 
 ROOT = Path(__file__).resolve().parents[1]
-SPEC_PATH = ROOT / "packaging" / "windows" / "memorymap.spec"
-LINUX_SPEC_PATH = ROOT / "packaging" / "linux" / "memorymap.spec"
+SPEC_PATH = ROOT / "packaging" / "windows" / "tessellate.spec"
+LINUX_SPEC_PATH = ROOT / "packaging" / "linux" / "tessellate.spec"
 ISS_PATH = ROOT / "packaging" / "windows" / "installer.iss"
 FRONTEND = ROOT / "frontend"
 
@@ -33,7 +33,7 @@ FRONTEND = ROOT / "frontend"
 def test_every_searxng_facade_module_is_a_hidden_import(spec):
     spec_text = spec.read_text(encoding="utf-8")
     for module_name in searxng_manager._FACADE_NAMES:
-        needle = f"memorymap.search.{module_name}"
+        needle = f"tessellate.search.{module_name}"
         assert needle in spec_text, (
             f"{needle} is reached only via searxng_manager's dynamic "
             "__getattr__ and must be listed in the spec's hiddenimports, "
@@ -53,6 +53,11 @@ def _page_references() -> set[str]:
     found: set[str] = set()
     html = (FRONTEND / "index.html").read_text(encoding="utf-8")
     for url in re.findall(r'(?:src|href)="(/[^"#?]+)', html):
+        #: `/auth/...` is the server's own route (the lock screen's "Install the
+        #: certificate" link answers from `routes_auth.py`), not a file under
+        #: frontend/ to bundle.
+        if url.startswith("/auth/"):
+            continue
         found.add(url.lstrip("/"))
     app = (FRONTEND / "js" / "app.js").read_text(encoding="utf-8")
     lazy = re.search(r"const LAZY_MODULES = \{(.*?)\n\};", app, re.S)
@@ -236,7 +241,7 @@ def test_a_silent_update_reopens_the_app_it_closed():
     body = body[body.index("function ShouldRelaunch") :]
     body = body[: body.index("\nend;")]
     assert "WizardSilent" in body and "{param:RELAUNCH|0}" in body
-    updater = (ROOT / "src" / "memorymap" / "api" / "routes_update.py").read_text(encoding="utf-8")
+    updater = (ROOT / "src" / "tessellate" / "api" / "routes_update.py").read_text(encoding="utf-8")
     assert '"/RELAUNCH=1"' in updater
 
 
@@ -274,5 +279,5 @@ def test_the_packaged_exe_has_no_tk_splash():
     code = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#"))
     assert "Splash(" not in code
     assert "splash.binaries" not in code
-    main = (ROOT / "src" / "memorymap" / "__main__.py").read_text(encoding="utf-8")
+    main = (ROOT / "src" / "tessellate" / "__main__.py").read_text(encoding="utf-8")
     assert "html=_loading_html()" in main

@@ -15,9 +15,9 @@ import subprocess
 
 import pytest
 
-from memorymap.core import events
-from memorymap.core.database import AuditLog
-from memorymap.entry import manager
+from tessellate.core import events
+from tessellate.core.database import AuditLog
+from tessellate.entry import manager
 from tests._app_js import JS_DIR
 
 AI = "system:librarian"

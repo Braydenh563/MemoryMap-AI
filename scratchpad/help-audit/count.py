@@ -19,6 +19,13 @@ DESC_CLASS = re.compile(r"muted|hint|desc|intro|help|note|caption|lead|explain|b
 POPOVER_CLASS = re.compile(r"graph-help-panel|help-body|help-popover|setting-hint|wb-help|search-help|capture-help|help-accordion|onboard|empty-state|tour-")
 EXEMPT_ID = re.compile(r"^(onboarding|tour|welcome)")
 
+# A container is not a paragraph: a <dialog>, a <details> or any element that
+# holds a block or a control adds up its children's short lines into one long
+# "text" (the note-template dialog, the notes ⋯ menu, the chat subline's
+# popover all did). Each child is still measured on its own.
+BLOCK = {"p", "div", "section", "ul", "ol", "li", "button", "dialog", "details",
+         "form", "fieldset", "label", "table", "select", "h1", "h2", "h3", "h4"}
+
 VOID = {"br", "img", "input", "hr", "meta", "link", "source", "area", "col"}
 
 
@@ -32,7 +39,7 @@ class P(HTMLParser):
         if tag in VOID:
             return
         a = dict(attrs)
-        self.stack.append([tag, a, [], self.getpos()[0], False])
+        self.stack.append([tag, a, [], self.getpos()[0], False, tag in ("dialog", "details")])
 
     def handle_startendtag(self, tag, attrs):
         pass
@@ -48,7 +55,7 @@ class P(HTMLParser):
                 return
 
     def _finish(self, node):
-        tag, attrs, parts, line, had_hit = node
+        tag, attrs, parts, line, had_hit, container = node
         text = " ".join("".join(parts).split())
         cls = attrs.get("class", "")
         idv = attrs.get("id", "")
@@ -66,16 +73,18 @@ class P(HTMLParser):
             # `label small.muted` over 90 chars in the Settings modal into
             # exactly this task's "?" popover, at runtime. A static scan
             # cannot see that, so exempt the shape it matches on.
-            if anc[0] == "label" and tag == "small" and "muted" in cls:
+            if (anc[0] == "label" or "setting-label" in anc[1].get("class", "").split()) and tag == "small" and "muted" in cls:
                 in_popover = True
         hit = False
-        if len(text) > 120 and descriptive and not had_hit and not in_popover:
+        if len(text) > 120 and descriptive and not had_hit and not in_popover and not container:
             self.hits.append((line, tag, cls, idv, text))
             hit = True
         if self.stack:
             self.stack[-1][2].append(text)
             if hit or had_hit or in_popover:
                 self.stack[-1][4] = True
+            if tag in BLOCK:
+                self.stack[-1][5] = True
 
     def handle_data(self, data):
         if self.stack:

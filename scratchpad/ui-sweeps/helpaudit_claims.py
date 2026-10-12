@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(ROOT / "src"), str(ROOT / "tests")]
 
 import test_help_settings_paths as lint  # noqa: E402
-from memorymap.ai import help_chat  # noqa: E402
+from tessellate.ai import help_chat  # noqa: E402
 
 #: Words that start a sentence or name the product, never a control.
 NOT_CONTROLS = {

@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.api.routes_documents import PREVIEW_CHARS, _preview
-from memorymap.api.routes_whiteboard import PREVIEW_POINTS, _preview_points
-from memorymap.core import vault
+from tessellate.api.routes_documents import PREVIEW_CHARS, _preview
+from tessellate.api.routes_whiteboard import PREVIEW_POINTS, _preview_points
+from tessellate.core import vault
 
 
 @pytest.fixture
@@ -54,7 +54,7 @@ def test_preview_keeps_its_blocks_apart():
 
 
 def test_a_note_preview_keeps_its_list_apart_too():
-    from memorymap.api.routes_library import _clip
+    from tessellate.api.routes_library import _clip
 
     assert _clip("Groceries:\n- oat milk\n- eggs\n- spinach") == "Groceries: oat milk · eggs · spinach"
     assert _clip("One line, as most notes are.") == "One line, as most notes are."
@@ -164,7 +164,7 @@ def test_labels_stay_with_their_own_positions(client):
     """The obvious way to break this while every number still looks
     plausible: sample the positions and the labels separately, and hand back
     a board whose cards all say the wrong thing. One stride, applied once."""
-    from memorymap.api.routes_whiteboard import _preview_items
+    from tessellate.api.routes_whiteboard import _preview_items
 
     #: Eight fields per row: x, y, kind, label, colour, width, height since the
     #: preview started carrying each item's own size (INBOX 68), and the drawn

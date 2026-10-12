@@ -181,6 +181,18 @@ async function openBookmarkAttachPicker(entry, done) {
       method: "POST",
       body: JSON.stringify({ bookmark_id: Number(id) }),
     });
+    const repaint = () => (editingId === entry.id ? done() : null);
+    pushUndo(
+      "Attached a link to a note",
+      async () => {
+        await apiJson(`/entries/${entry.id}/bookmarks/${Number(id)}`, { method: "DELETE" });
+        repaint();
+      },
+      async () => {
+        await apiJson(`/entries/${entry.id}/bookmarks`, { method: "POST", body: JSON.stringify({ bookmark_id: Number(id) }) });
+        repaint();
+      }
+    );
   } catch (error) {
     toast(error.message, true);
     return;
@@ -223,6 +235,7 @@ function renderEditForm(li, entry) {
   titleInput.type = "text";
   titleInput.maxLength = 200;
   titleInput.className = "note-edit-title";
+  titleInput.dataset.autocorrect = ""; // autocorrect.js serves it
   titleInput.placeholder = "Title";
   titleInput.setAttribute("aria-label", "Title: becomes the note's leading heading");
   titleInput.value = draft ? draft.title : parts.title;
@@ -238,6 +251,7 @@ function renderEditForm(li, entry) {
   //: per-note id: `editingId` allows exactly one open edit form at a time.
   textarea.id = "entry-edit-content";
   textarea.className = "note-edit-box";
+  textarea.dataset.autocorrect = "";
   //: Ctrl+B/Ctrl+I/Ctrl+Shift+S, same as the capture box (documents.js:
   //: `wireMdFormatShortcuts`). Passed the element itself, not its id: this
   //: textarea is not in the document yet, and a fresh one exists every
@@ -492,6 +506,21 @@ function renderEditForm(li, entry) {
   meta.className = "note-edit-meta";
   row.classList.add("note-edit-actions");
   meta.append(categoryChip, tagField);
+  //: **The tags turned down on this note, each one press from coming back**
+  //: (the owner, 2026-10-10: "is there a way to undo it or see the list of
+  //: things not to show again"). At the end of the properties line, quiet,
+  //: only when there are any.
+  if (entry.discarded_tags?.length) {
+    const down = document.createElement("span");
+    down.className = "muted note-edit-turned-down";
+    down.append("Not suggested:");
+    for (const tag of entry.discarded_tags) {
+      const back = chip(`ph:arrow-counter-clockwise #${tag}`, "", () => answerTags(entry, { restore: [tag] }));
+      back.title = `Suggest #${tag} for this note again`;
+      down.append(" ", back);
+    }
+    meta.append(down);
+  }
   //: Words and reading time while the note is open (WORLD_CLASS_PLAN 5 item
   //: 9): the count a document's head carries, for a note, at the documents'
   //: 220 words a minute; the properties block is not prose, so not counted.
@@ -540,6 +569,9 @@ ${textarea.value}`).match(/\S+/g) || []).length;
   surface.className = "note-composer note-edit-surface";
   surface.append(titleInput, meta, toolbarEl, textarea);
   li.append(surface, chipsHost, foot);
+  //: The editor's offers (quickadd.js `noteOffersAttach`): a form
+  //: opened before the bundle loads has none rather than an error.
+  if (typeof noteOffersAttach === "function") noteOffersAttach(textarea, { after: surface, category: categorySelect, entryId: entry.id });
   // The same line-number gutter the capture box and the documents editor
   // carry (documents.js `mountGutterFor`); it follows the one remembered
   // choice, so a person who turned numbers on in Capture sees them here too.
@@ -596,10 +628,35 @@ function forgetNoteEditLocally() {
 //: Run once, when this file arrives (app.js preloads it three seconds after
 //: start). A kept edit whose text is already the note's (saved from another
 //: window, say) is dropped without a word.
+//: **Only a note that is gone, or already equal, lets the copy go.** A
+//: server that restarted since the last visit answers the first requests
+//: with 401 until the person signs in (sessions live in memory), and this
+//: runs three seconds after start, on a slow boot while the lock screen is
+//: still up: the failed read counted as "no such note" and threw the kept
+//: edit away (found by tests-e2e/specs/draft-recovery.spec.js). A locked
+//: or unreachable server keeps the copy; a lock waits for the unlock, which
+//: runs `startApp` again.
+const keptEdit = { awaitsUnlock: false };
+const startAppBeforeKeptEdit = window.startApp;
+window.startApp = async function () {
+  const opened = startAppBeforeKeptEdit ? await startAppBeforeKeptEdit.apply(this, arguments) : undefined;
+  if (keptEdit.awaitsUnlock) {
+    keptEdit.awaitsUnlock = false;
+    offerKeptNoteEdit();
+  }
+  return opened;
+};
+
 async function offerKeptNoteEdit() {
   const kept = prefs.json(NOTE_EDIT_KEPT, {});
   if (!Number.isInteger(kept.id) || editingId !== null) return;
-  const note = await apiJson(`/entries/${kept.id}`, { silent: true }).catch(() => null);
+  let note = null;
+  try {
+    note = await apiJson(`/entries/${kept.id}`, { silent: true });
+  } catch (error) {
+    if (error.isLockout) keptEdit.awaitsUnlock = true;
+    if (error.isLockout || error.status !== 404) return;
+  }
   const keptText = withTitle(String(kept.content || "").trim(), kept.title);
   //: The form holds a typed note's block aside, so a kept body is the note's
   //: text after its block.
@@ -607,7 +664,7 @@ async function offerKeptNoteEdit() {
     forgetNoteEditLocally();
     return;
   }
-  const name = kept.title || clipText(notePreviewText(note.content).split("\n")[0], 40) || "a note";
+  const name = kept.title || noteNamePlain(note.content, 40) || "a note";
   toastAction(`Your unsaved changes to “${name}” were kept.`, "Open them", async () => {
     await switchTab("notes");
     showNotesSection("browse");

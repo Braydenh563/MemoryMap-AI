@@ -126,14 +126,35 @@ function openLightbox(items, startIndex = 0, opts = {}) {
       if (!(await confirmDialog(`Delete ${whose} reading of this image? You can read it again any time.`))) return;
       self.disabled = true;
       try {
-        const updated = await apiJson(`/media/${id}/${source === "vision" ? "vision-ocr" : "ocr"}`, {
-          method: "POST",
-          body: JSON.stringify({ text: "" }),
-        });
-        Object.assign(item, lightboxReadingsFor(updated));
-        if (overlay.isConnected) renderInfo(item, true);
-        if (typeof loadLibrary === "function") loadLibrary();
+        //: To the reading bin, not away (the OCR workspace's own route): Undo
+        //: restores that row, Redo bins the reading again. The panel is
+        //: redrawn from the fields it held, as they were and as they become.
+        const bin = () => apiJson(`/media/${id}/readings/${source}`, { method: "DELETE" });
+        const fields = ["text", "byline", "altText", "altByline", "textSource", "altSource"];
+        const was = Object.fromEntries(fields.map((key) => [key, item[key]]));
+        const now =
+          source === item.textSource
+            ? { text: item.altText || "", byline: item.altText ? "Text read with Tesseract OCR" : "", altText: "", altByline: "", textSource: item.altSource || "", altSource: "" }
+            : { altText: "", altByline: "", altSource: "" };
+        const repaint = (values) => {
+          Object.assign(item, values);
+          if (overlay.isConnected) renderInfo(item, true);
+          if (typeof loadLibrary === "function") loadLibrary();
+        };
+        let held = (await bin())?.binned_id;
+        repaint(now);
         toast("Reading deleted.");
+        pushUndo(
+          "Deleted a reading",
+          async () => {
+            if (held) await apiJson(`/reading-bin/${held}/restore`, { method: "POST" });
+            repaint(was);
+          },
+          async () => {
+            held = (await bin())?.binned_id;
+            repaint(now);
+          }
+        );
       } catch (err) {
         toast(err.message || "Could not delete that reading.", true);
       } finally {
@@ -843,10 +864,12 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     if (!lightboxEditTarget) return;
     button.disabled = true;
     try {
+      const wasText = lightboxEditTarget.text;
       const saved = await apiJson(lightboxEditTarget.url, {
         method: "PUT",
         body: JSON.stringify({ text: docEdit.value }),
       });
+      pushRequestUndo("Edited a file's text", lightboxEditTarget.url, "PUT", { text: wasText }, { text: saved.text ?? docEdit.value }, () => lightboxLoadExtractedText?.());
       //: Re-rendered from what the server wrote back, not from what was
       //: typed. They are the same today; if they ever differ, a normalised
       //: line ending, a file the OS rewrote, the reader should be looking at
@@ -1098,7 +1121,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
         },
       });
     }
-    return kebabMenu(
+    const menu = kebabMenu(
       [
         ...items,
         {
@@ -1112,6 +1135,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
                 method: "PUT",
                 body: JSON.stringify({ original_name: next.trim() }),
               });
+              pushRequestUndo("Renamed an image", `/media/${item.id}`, "PUT", { original_name: item.filename || "" }, { original_name: updated.original_name });
               item.filename = updated.original_name;
               renderInfo(item, true);
             } catch (err) {
@@ -1125,7 +1149,8 @@ function openLightbox(items, startIndex = 0, opts = {}) {
           run: async () => {
             if (!(await confirmDialog(`Delete "${item.filename || "this image"}"?`))) return;
             try {
-              await apiJson(`/media/${item.id}`, { method: "DELETE" });
+              const gone = await apiJson(`/media/${item.id}`, { method: "DELETE" });
+              pushTokenUndo(`Deleted “${item.filename || "an image"}”`, [{ del: [`/media/${item.id}`, "DELETE"], restore: "/media/restore", token: gone.undo_token }], () => (typeof renderLibraryImagesGallery === "function" ? renderLibraryImagesGallery() : null));
               items.splice(index, 1);
               if (!items.length) {
                 close();
@@ -1140,6 +1165,12 @@ function openLightbox(items, startIndex = 0, opts = {}) {
       ],
       "More actions for this image"
     );
+    //: The row's height, as Save and Find are (the owner, 2026-10-10: "These
+    //: elements in the lightbox aren't the same height"; measured at 1440:
+    //: this ⋯ 28px beside 32px). Inline: boot CSS is at its cap.
+    const opener = menu.querySelector("button");
+    opener.style.minHeight = opener.style.minWidth = "max(2rem, var(--target-min))";
+    return menu;
   };
   const syncMoreMenu = (item) => {
     moreMenu?.remove();
@@ -1324,7 +1355,7 @@ function openLightbox(items, startIndex = 0, opts = {}) {
     clearFind();
     find.classList.remove("hidden");
 
-    // A native MemoryMap document (the Documents list) or a real Attachment
+    // A native Tessellate document (the Documents list) or a real Attachment
     // row each has its own text/info endpoint; a `/media/` upload has a
     // third. All three converge on the same `AttachedFileTextOut` shape, so
     // everything past this point reads one variable rather than branching
@@ -1415,6 +1446,18 @@ function openLightbox(items, startIndex = 0, opts = {}) {
           payload.message || "There's no readable text in this file.",
           ...editNotes,
         ].join(" · ");
+        //: **The way to fix it, beside the reason** (the owner, 2026-10-10: "it
+        //: failed to let me view the pdf doc I had as the package wasn't
+        //: installed, it should have given me a link to nav to install or an
+        //: install button directly"): one Install, opening Settings at that
+        //: package's row, as the OCR engine line does (DESIGN.md).
+        if (payload.extra) {
+          const install = smallButton("ph:download-simple Install", "Open Settings, Packages at this package", () => {
+            close();
+            revealFeature("extra-row", payload.extra);
+          }, false);
+          docNote.append(" ", install);
+        }
         docNote.classList.remove("hidden");
         return;
       }
@@ -1959,4 +2002,12 @@ function codeScanner(family) {
   const scanner = new RegExp(parts.join("|"), "g");
   codeScanners.set(family, scanner);
   return scanner;
+}
+
+//: Which family a filename is in. Extension only: content sniffing guesses
+//: wrong on short files and there is nothing to gain: a file this app can
+//: view arrived with a suffix it recognised (`docview.CODE_SUFFIXES`).
+function codeFamilyFor(filename) {
+  const suffix = /\.([a-z0-9]+)$/i.exec(String(filename || ""));
+  return CODE_LANGUAGES[(suffix?.[1] || "").toLowerCase()] || "generic";
 }

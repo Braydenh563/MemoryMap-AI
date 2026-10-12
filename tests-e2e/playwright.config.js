@@ -23,22 +23,22 @@
 // cache and this config works unchanged.
 //
 // Local knobs (all optional):
-//   MEMORYMAP_E2E_PORT      the notebook server's port (first-run uses +1)
-//   MEMORYMAP_E2E_DATA_DIR  where the two data dirs go (wiped at start)
-//   MEMORYMAP_PYTHON        the interpreter that runs the app
+//   TESSELLATE_E2E_PORT      the notebook server's port (first-run uses +1)
+//   TESSELLATE_E2E_DATA_DIR  where the two data dirs go (wiped at start)
+//   TESSELLATE_PYTHON        the interpreter that runs the app
 const { defineConfig, devices } = require("@playwright/test");
 const os = require("os");
 const path = require("path");
 
-const PORT = Number(process.env.MEMORYMAP_E2E_PORT || 8799);
+const PORT = Number(process.env.TESSELLATE_E2E_PORT || 8799);
 const FRESH_PORT = PORT + 1;
-//: MEMORYMAP_E2E_URL and MEMORYMAP_E2E_FRESH_URL drive servers someone else
+//: TESSELLATE_E2E_URL and TESSELLATE_E2E_FRESH_URL drive servers someone else
 //: started instead (each on its own empty data dir): how the same specs were
 //: run against the v0.3.32 release to compare (e2e-1005.md).
-const BASE_URL = process.env.MEMORYMAP_E2E_URL || `http://127.0.0.1:${PORT}`;
-const FRESH_URL = process.env.MEMORYMAP_E2E_FRESH_URL || `http://127.0.0.1:${FRESH_PORT}`;
-const DATA_ROOT = process.env.MEMORYMAP_E2E_DATA_DIR || path.join(os.tmpdir(), `memorymap-e2e-${PORT}`);
-const PYTHON = process.env.MEMORYMAP_PYTHON || "python";
+const BASE_URL = process.env.TESSELLATE_E2E_URL || `http://127.0.0.1:${PORT}`;
+const FRESH_URL = process.env.TESSELLATE_E2E_FRESH_URL || `http://127.0.0.1:${FRESH_PORT}`;
+const DATA_ROOT = process.env.TESSELLATE_E2E_DATA_DIR || path.join(os.tmpdir(), `memorymap-e2e-${PORT}`);
+const PYTHON = process.env.TESSELLATE_PYTHON || "python";
 
 // The data dir is wiped in the server's own command, not here: this file is
 // loaded again in every worker process, and a wipe at load would delete the
@@ -47,7 +47,7 @@ function server(port, dir) {
   return {
     command:
       `rm -rf "${dir}" && mkdir -p "${dir}" && ` +
-      `${PYTHON} -m uvicorn memorymap.api.app:create_app --factory --port ${port}`,
+      `${PYTHON} -m uvicorn tessellate.api.app:create_app --factory --port ${port}`,
     url: `http://127.0.0.1:${port}/auth/status`,
     reuseExistingServer: false,
     timeout: 60_000,
@@ -55,9 +55,9 @@ function server(port, dir) {
     env: {
       ...process.env,
       PYTHONPATH: "src",
-      MEMORYMAP_DATA_DIR: dir,
+      TESSELLATE_DATA_DIR: dir,
       // Settings, Packages must not start installing extras mid-run.
-      MEMORYMAP_NO_AUTO_INSTALL: "1",
+      TESSELLATE_NO_AUTO_INSTALL: "1",
       // No spec asserts on a real embedding model, so it need only be fast
       // and offline: without these a runner with no cached model tries to
       // download one on the first save and HuggingFace's rate limit stalls
@@ -77,10 +77,10 @@ module.exports = defineConfig({
   // two files sharing the notebook cannot see each other's work, and the one
   // spec that cannot share (first-run: restore replaces the notebook, the
   // lock ends every session) has its own server. Three workers is what keeps
-  // the job inside six minutes on a four-core runner; MEMORYMAP_E2E_WORKERS
+  // the job inside six minutes on a four-core runner; TESSELLATE_E2E_WORKERS
   // to change it.
   fullyParallel: false,
-  workers: Number(process.env.MEMORYMAP_E2E_WORKERS || 3),
+  workers: Number(process.env.TESSELLATE_E2E_WORKERS || 3),
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   // "github" alone annotates the run but writes no report to disk; the CI
@@ -115,7 +115,12 @@ module.exports = defineConfig({
     },
     {
       name: "notebook",
-      testIgnore: /first-run\.spec\.js/,
+      // CI runs the budgets alone, after the flows (TESSELLATE_E2E_BUDGETS_APART):
+      // timed beside two other workers on a shared runner, a different budget
+      // missed on each run while HEAD measured no slower (e2efix2, 2026-10-11).
+      testIgnore: process.env.TESSELLATE_E2E_BUDGETS_APART
+        ? [/first-run\.spec\.js/, /budgets\.spec\.js/]
+        : /first-run\.spec\.js/,
       use: {
         ...devices["Desktop Chrome"],
         baseURL: BASE_URL,
@@ -127,11 +132,14 @@ module.exports = defineConfig({
     },
   ],
   webServer: [
-    process.env.MEMORYMAP_E2E_URL ? null : server(PORT, path.join(DATA_ROOT, "notebook")),
-    process.env.MEMORYMAP_E2E_FRESH_URL ? null : server(FRESH_PORT, path.join(DATA_ROOT, "fresh")),
+    process.env.TESSELLATE_E2E_URL ? null : server(PORT, path.join(DATA_ROOT, "notebook")),
+    process.env.TESSELLATE_E2E_FRESH_URL ? null : server(FRESH_PORT, path.join(DATA_ROOT, "fresh")),
   ].filter(Boolean),
 });
 
 module.exports.BASE_URL = BASE_URL;
 module.exports.FRESH_URL = FRESH_URL;
 module.exports.E2E_PASSWORD = "e2e-smoke-test-password";
+module.exports.PORT = PORT;
+module.exports.DATA_ROOT = DATA_ROOT;
+module.exports.PYTHON = PYTHON;

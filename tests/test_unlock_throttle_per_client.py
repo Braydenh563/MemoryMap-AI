@@ -15,7 +15,7 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from memorymap.api import routes_auth
+from tessellate.api import routes_auth
 
 
 @pytest.fixture()

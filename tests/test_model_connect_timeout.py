@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from fakes_http import FakeResponse
 
-from memorymap.ai import ollama_client
-from memorymap.ai import openai_client as openai_module
+from tessellate.ai import ollama_client
+from tessellate.ai import openai_client as openai_module
 
 
 def test_openai_compatible_chat_connects_with_a_short_limit(monkeypatch, openai_client):
@@ -23,7 +23,7 @@ def test_openai_compatible_chat_connects_with_a_short_limit(monkeypatch, openai_
         seen.append(timeout)
         return FakeResponse(payload={"choices": [{"message": {"content": "hi"}}]})
 
-    monkeypatch.setattr("memorymap.ai.openai_client.requests.post", fake_post)
+    monkeypatch.setattr("tessellate.ai.openai_client.requests.post", fake_post)
     openai_client.chat("m", [{"role": "user", "content": "hello"}])
     assert seen and seen[0] == (openai_module.CONNECT_TIMEOUT_SECONDS, 600.0)
 
@@ -35,7 +35,7 @@ def test_ollama_chat_connects_with_a_short_limit(monkeypatch):
         seen.append(timeout)
         return FakeResponse(payload={"message": {"content": "hi"}})
 
-    monkeypatch.setattr("memorymap.ai.ollama_client.requests.post", fake_post)
+    monkeypatch.setattr("tessellate.ai.ollama_client.requests.post", fake_post)
     client = ollama_client.OllamaClient(base_url="http://localhost:11434")
     monkeypatch.setattr(client, "runtime_options", lambda model, mode=None: {})
     monkeypatch.setattr(client, "request_extras", lambda mode, model: {})

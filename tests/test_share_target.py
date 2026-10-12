@@ -26,13 +26,14 @@ def test_the_manifest_declares_a_get_share_target():
 
 def test_the_app_reads_exactly_the_names_the_manifest_sends():
     app = app_js_text()
-    declared = re.search(r"const SHARE_PARAMS = \[([^\]]*)\]", app)
-    assert declared, "SHARE_PARAMS is missing from app.js"
+    intake = (ROOT / "frontend" / "js" / "shared-intake.js").read_text(encoding="utf-8")
+    declared = re.search(r"const SHARE_PARAMS = \[([^\]]*)\]", intake)
+    assert declared, "SHARE_PARAMS is missing from shared-intake.js"
     names = set(re.findall(r'"([^"]+)"', declared.group(1)))
     manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
     assert names == set(manifest["share_target"]["params"].values())
     assert "takeSharedIntake" in app[app.index("function startApp()") :], "the intake is not a boot step"
-    assert "history.replaceState" in app[app.index("function takeSharedIntake()") :][:1600], (
+    assert "history.replaceState" in intake[intake.index("function takeSharedIntake()") :][:1600], (
         "the query must be cleared, or a reload shares it again"
     )
 

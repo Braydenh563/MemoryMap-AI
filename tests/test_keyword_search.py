@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.core.database import Entry
-from memorymap.search import search_manager
+from tessellate.core.database import Entry
+from tessellate.search import search_manager
 
 
 @pytest.fixture()
@@ -173,7 +173,7 @@ def test_an_index_built_without_stemming_is_rebuilt_once(tmp_path):
     rebuilds that index (never the notes) exactly once."""
     from sqlalchemy import text
 
-    from memorymap.core.database import DatabaseManager
+    from tessellate.core.database import DatabaseManager
 
     db_path = tmp_path / "old.db"
     db = DatabaseManager(db_path)

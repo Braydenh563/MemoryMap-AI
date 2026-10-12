@@ -1,0 +1,60 @@
+/* settings-data-lazy.css: the storage bar in Settings, About (settings-data.js
+   `renderStorageBreakdown`). Loaded with the bar, so the boot sheet is untouched. */
+.storage-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.storage-bar {
+  display: flex;
+  gap: var(--space-1);
+  height: var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--chip-bg);
+  overflow: hidden;
+}
+
+/* A segment is as wide as its share (`flex-grow` is its bytes, set through the
+   CSSOM: the CSP refuses a style attribute). A sliver stays visible. */
+.storage-seg {
+  flex: 1 1 0;
+  min-width: var(--space-1);
+}
+
+.storage-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-xs);
+}
+
+.storage-legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.storage-total {
+  font-weight: 600;
+}
+
+.storage-swatch {
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-pill);
+  flex: none;
+}
+
+/* One hue, five weights, so both themes hold and no kind borrows a status
+   colour; the legend names each, the bar never has to be read by colour alone. */
+.storage-seg[data-kind="database_bytes"], .storage-swatch[data-kind="database_bytes"] { background: var(--accent); }
+.storage-seg[data-kind="uploads_bytes"], .storage-swatch[data-kind="uploads_bytes"] { background: color-mix(in srgb, var(--accent) 70%, var(--ink)); }
+.storage-seg[data-kind="media_bytes"], .storage-swatch[data-kind="media_bytes"] { background: color-mix(in srgb, var(--accent) 76%, transparent); }
+.storage-seg[data-kind="backups_bytes"], .storage-swatch[data-kind="backups_bytes"] { background: var(--muted); }
+.storage-seg[data-kind="extras_bytes"], .storage-swatch[data-kind="extras_bytes"] { background: color-mix(in srgb, var(--muted) 80%, transparent); }

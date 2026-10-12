@@ -1,0 +1,32 @@
+{
+ "about": "The Guide with no model, asked the way people type (the composer ledger's 'the Guide, 25 gold'). Each row: the question, the topics that answer it (the first topic must be one), and words of which the answer's first line must hold one. Measured 2026-10-11.",
+ "questions": [
+  ["how do i turn on web search", ["websearch"], ["settings, web search"]],
+  ["wheres the dark mode", ["appearance", "themes"], ["appearance"]],
+  ["how do i backup my notes", ["import-export", "storage"], ["backup"]],
+  ["can i export everything to markdown", ["import-export", "storage"], ["markdown"]],
+  ["how do i link two notes", ["links"], ["[["]],
+  ["how do i make a mind map from a note", ["mind-maps", "mind-map-features"], ["mind map"]],
+  ["how do i change the ai model", ["models"], ["settings, models"]],
+  ["why is the chat so slow", ["performance"], ["performance mode"]],
+  ["how do i delete a category", ["manage-categories"], ["delete"]],
+  ["can i lock a note with a password", ["security", "lock", "encryption"], ["password"]],
+  ["how do i undo deleting a note", ["undo-bin"], ["undo", "bin"]],
+  ["where did my deleted notes go", ["undo-bin"], ["bin"]],
+  ["how do i set a reminder that repeats every week", ["reminders", "reminders-controls"], ["recurring", "every", "repeat"]],
+  ["how do i import my notes from notion", ["import-apps"], ["notion"]],
+  ["how do i use the graph", ["graph"], ["graph"]],
+  ["whats the whiteboard for", ["whiteboard"], ["canvas"]],
+  ["how do i record a meeting", ["meetings"], ["record"]],
+  ["can i use it on my phone", ["phone"], ["phone"]],
+  ["how do i change the font size", ["appearance", "accessibility"], ["font"]],
+  ["how do i search for an exact phrase", ["search", "find-anything", "notes-controls"], ["quoted phrase"]],
+  ["how do i pin a note", ["act-pin", "favourites", "chat-acts", "notes-controls"], ["pin", "star"]],
+  ["how do i add a tag to lots of notes at once", ["notes-controls", "tag-manager"], ["several notes", "select"]],
+  ["how do i make my own skill", ["skills"], ["new skill"]],
+  ["is my data sent anywhere", ["privacy"], ["nothing leaves", "nothing is sent", "leaves your machine"]],
+  ["how do i renmae a tag", ["tag-manager", "tags-categories"], ["rename"]],
+  ["how do I create a note", ["capture"], ["capture a thought", "notes tab"]],
+  ["where do I find settings", ["settings-overview"], ["gear"]]
+ ]
+}

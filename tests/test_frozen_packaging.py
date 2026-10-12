@@ -32,8 +32,8 @@ def test_alembic_ini_is_plain_ascii():
 
 
 SPECS = (
-    ROOT / "packaging" / "windows" / "memorymap.spec",
-    ROOT / "packaging" / "linux" / "memorymap.spec",
+    ROOT / "packaging" / "windows" / "tessellate.spec",
+    ROOT / "packaging" / "linux" / "tessellate.spec",
 )
 
 
@@ -49,10 +49,10 @@ def _spec_app_modules(spec: Path) -> list[str]:
 
 
 def _imported_by_name() -> set[str]:
-    """Every `importlib.import_module("memorymap...")` with a literal name."""
-    pattern = re.compile(r"""import_module\(\s*["'](memorymap(?:\.\w+)+)["']\s*\)""")
+    """Every `importlib.import_module("tessellate...")` with a literal name."""
+    pattern = re.compile(r"""import_module\(\s*["'](tessellate(?:\.\w+)+)["']\s*\)""")
     names: set[str] = set()
-    for path in (ROOT / "src" / "memorymap").rglob("*.py"):
+    for path in (ROOT / "src" / "tessellate").rglob("*.py"):
         names.update(pattern.findall(path.read_text(encoding="utf-8")))
     return names
 
@@ -60,21 +60,21 @@ def _imported_by_name() -> set[str]:
 def test_both_specs_bundle_every_app_module():
     """PyInstaller does not follow `importlib.import_module("x")`. Measured on
     a build of the Windows spec before this list: 198 of 200 modules, and
-    `memorymap.ai.needle_provider` (imported only by name, from
+    `tessellate.ai.needle_provider` (imported only by name, from
     `ai/tool_fallback.py`) was one of the two missing, so the needle extra
     raised ModuleNotFoundError on every packaged install."""
     # `routes_settings._desktop_entry` falls back to importing the entry
     # script by name only outside a packaged build (its docstring).
-    by_name = _imported_by_name() - {"memorymap.__main__"}
-    assert "memorymap.ai.needle_provider" in by_name
+    by_name = _imported_by_name() - {"tessellate.__main__"}
+    assert "tessellate.ai.needle_provider" in by_name
     for spec in SPECS:
         text = spec.read_text(encoding="utf-8")
         assert "*APP_MODULES," in text, f"{spec.name} does not hand APP_MODULES to hiddenimports"
         modules = set(_spec_app_modules(spec))
         missing = sorted(by_name - modules)
         assert not missing, f"{spec.name} misses {missing}"
-        assert "memorymap.__main__" not in modules, "the entry script must not be bundled twice"
-        assert {"memorymap", "memorymap.core.backup_bundle", "memorymap.core.ocr"} <= modules
+        assert "tessellate.__main__" not in modules, "the entry script must not be bundled twice"
+        assert {"tessellate", "tessellate.core.backup_bundle", "tessellate.core.ocr"} <= modules
 
 
 def test_the_bootloader_splash_is_asked_for_only_when_the_bootloader_made_one(monkeypatch):
@@ -83,7 +83,7 @@ def test_the_bootloader_splash_is_asked_for_only_when_the_bootloader_made_one(mo
     import sys
     import types
 
-    from memorymap import __main__ as launcher
+    from tessellate import __main__ as launcher
 
     fake = types.ModuleType("pyi_splash")
     monkeypatch.setitem(sys.modules, "pyi_splash", fake)
@@ -104,7 +104,7 @@ def test_a_packaged_build_writes_no_bytecode_beside_itself():
     import subprocess
     import sys
 
-    code = "import sys; sys.frozen = True; import memorymap.__main__; print(sys.dont_write_bytecode)"
+    code = "import sys; sys.frozen = True; import tessellate.__main__; print(sys.dont_write_bytecode)"
     env = {**os.environ, "PYTHONPATH": str(ROOT / "src"), "PYTHONDONTWRITEBYTECODE": ""}
     env.pop("PYTHONDONTWRITEBYTECODE")
     done = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, env=env, timeout=120)  # noqa: S603
@@ -143,7 +143,7 @@ def test_both_specs_carry_the_standard_library_the_extras_import():
 
 def test_the_installer_reads_its_version_from_the_code():
     """No version number typed into installer.iss: both workflows read
-    `__version__` from src/memorymap/__init__.py and pass it as
+    `__version__` from src/tessellate/__init__.py and pass it as
     /DMyAppVersion, and the script stops without one (and refuses a tag that
     differs). An ISPP line reader did this first and found nothing on CI's
     Windows runner (2026-10-05, "No __version__ line")."""
@@ -154,7 +154,7 @@ def test_the_installer_reads_its_version_from_the_code():
         flow = (ROOT / ".github" / "workflows" / workflow).read_text(encoding="utf-8")
         read = flow.index("-Pattern '^__version__ = \"([^\"]+)\"'")
         assert read < flow.index('"/DMyAppVersion=$version" packaging\\windows\\installer.iss'), workflow
-    init = (ROOT / "src" / "memorymap" / "__init__.py").read_text(encoding="utf-8")
+    init = (ROOT / "src" / "tessellate" / "__init__.py").read_text(encoding="utf-8")
     lines = [line for line in init.splitlines() if line.startswith("__version__ = ")]
     assert len(lines) == 1 and lines[0].count('"') == 2, lines
 
@@ -234,9 +234,9 @@ def test_repair_leaves_a_running_copys_window_profile_alone(tmp_path, monkeypatc
     import sys
     import types
 
-    from memorymap import __main__ as launcher
+    from tessellate import __main__ as launcher
 
-    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("TESSELLATE_DATA_DIR", str(tmp_path))
     profile = tmp_path / "webview"
     profile.mkdir()
     (profile / "Local State").write_text("{}", encoding="utf-8")
@@ -278,3 +278,31 @@ def test_both_specs_leave_bytecode_out_of_the_bundle():
         assert namespace["_without_bytecode"](keep + drop) == keep, spec
         assert text.index("a.datas = _without_bytecode(a.datas)") < text.index("COLLECT("), spec
         assert text.index("a.datas = _without_bytecode(a.datas)") > text.index("a = Analysis("), spec
+
+
+def test_the_packaged_exe_starts_the_launcher_splash_itself(monkeypatch, tmp_path):
+    """The owner: the packaged exe showed a blank "tk" window, then no splash.
+    It now starts scripts/splash.ps1 (bundled by the spec) on the
+    MM_SPLASH_FILE protocol `_close_launch_splash` already ends."""
+    import sys
+
+    from tessellate import __main__ as launcher
+
+    assert '"scripts" / "splash.ps1"), "scripts")' in (ROOT / "packaging/windows/tessellate.spec").read_text(encoding="utf-8")
+    (tmp_path / "scripts").mkdir()
+    (tmp_path / "scripts" / "splash.ps1").write_text("", encoding="utf-8")
+    spawned = []
+    monkeypatch.setattr(sys, "platform", "win32")
+    monkeypatch.setattr(sys, "frozen", True, raising=False)
+    monkeypatch.setattr(sys, "_MEIPASS", str(tmp_path), raising=False)
+    monkeypatch.delenv("MM_SPLASH_FILE", raising=False)
+    monkeypatch.setenv("TEMP", str(tmp_path))
+    monkeypatch.setattr("tempfile.tempdir", str(tmp_path))
+    monkeypatch.setattr("subprocess.Popen", lambda argv, **kw: spawned.append(argv))
+    launcher._start_frozen_splash()
+    status = Path(__import__("os").environ["MM_SPLASH_FILE"])
+    assert spawned and "-StatusFile" in spawned[0] and str(status) in spawned[0]
+    assert status.read_text(encoding="utf-8").startswith("1|1|Start|")
+    spawned.clear()
+    launcher._start_frozen_splash()  # one splash per launch: the variable is set
+    assert not spawned

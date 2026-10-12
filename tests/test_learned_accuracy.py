@@ -4,8 +4,8 @@ half against later half, computed from the rows, never estimated."""
 
 from __future__ import annotations
 
-from memorymap.ai import learning
-from memorymap.entry import manager
+from tessellate.ai import learning
+from tessellate.entry import manager
 
 
 def _auto_filed(session, text: str, category: str):

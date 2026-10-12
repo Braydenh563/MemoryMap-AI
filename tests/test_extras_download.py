@@ -27,7 +27,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.core import extra_downloads, extras
+from tessellate.core import extra_downloads, extras
 from tests.native_binaries import elf64
 
 
@@ -164,7 +164,7 @@ def test_every_download_is_pinned_https_with_a_sha256_and_a_size():
             assert download.url.startswith("https://"), download.url
             assert re.fullmatch(r"[0-9a-f]{64}", download.sha256), download.url
             assert download.size > 0, download.url
-            assert download.unpack in {"file", "tar", "zip"}, download.url
+            assert download.unpack in {"file", "tar", "zip", "gzip"}, download.url
             for _member, name in download.members:
                 assert re.fullmatch(r"[A-Za-z0-9._-]+", name) and name not in {".", ".."}
     assert found >= 3
@@ -267,7 +267,7 @@ def test_only_https_or_a_loopback_mirror_is_fetched():
 
 
 def test_a_mirror_changes_only_the_address_never_the_hash(client, monkeypatch, server):
-    """`MEMORYMAP_EXTRAS_MIRROR` is for a machine with no internet (and for
+    """`TESSELLATE_EXTRAS_MIRROR` is for a machine with no internet (and for
     the browser sweep): the same file name from a local folder, still held to
     the pinned sha256."""
     archive = _tar_bz2(PYODIDE_FILES)
@@ -349,7 +349,7 @@ def test_a_download_extra_never_reaches_pip(client, monkeypatch, server):
 
 
 def test_the_install_reaches_the_task_history(client, monkeypatch, server):
-    from memorymap.core import taskhistory
+    from tessellate.core import taskhistory
 
     _point_at(monkeypatch, "pyodide", server, {"core.tar.bz2": _tar_bz2(PYODIDE_FILES)})
     extras.start("pyodide")

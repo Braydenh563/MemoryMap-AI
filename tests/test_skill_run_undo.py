@@ -19,10 +19,10 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
-from memorymap.ai import skill_runner
-from memorymap.core import events
-from memorymap.core.database import AuditLog, Entry
-from memorymap.entry import manager
+from tessellate.ai import skill_runner
+from tessellate.core import events
+from tessellate.core.database import AuditLog, Entry
+from tessellate.entry import manager
 from tests._app_js import app_js_text
 
 TAG = "ai:tag_note@qwen"
@@ -113,6 +113,6 @@ def test_chat_offers_the_runs_undo_and_keeps_it_on_reopen():
     from pathlib import Path
 
     lazy = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "note-history.js").read_text(encoding="utf-8")
-    assert "async function undoSkillRun(span, button)" in lazy
+    assert "async function undoSkillRun(span, button, onDone)" in lazy
     assert "activityUndoPlanText(plan, byId, \"this run\")" in lazy
     assert "dry_run: false" in lazy

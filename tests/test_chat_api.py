@@ -4,7 +4,7 @@ dad-joke "done when" test, suggestions, and follow-up conversation memory."""
 
 from __future__ import annotations
 
-from memorymap.ai import librarian
+from tessellate.ai import librarian
 
 
 def _save(client, content, **extra):
@@ -104,7 +104,7 @@ def test_capture_works_with_zero_ai(client):
 
 
 def _starters():
-    from memorymap.api.routes_chat import STARTER_SUGGESTIONS
+    from tessellate.api.routes_chat import STARTER_SUGGESTIONS
 
     return STARTER_SUGGESTIONS
 
@@ -117,7 +117,7 @@ def test_the_first_starter_is_one_ask_answers_without_a_model():
     """UX-07: "What have I saved so far?" was the first suggested question, and
     with no model it answered that no note shared enough with it to quote. A
     recency question is answered from the newest notes, by rule."""
-    from memorymap.search.search_manager import is_recency_ask
+    from tessellate.search.search_manager import is_recency_ask
 
     assert is_recency_ask(_starters()[0]), _starters()[0]
 
@@ -146,8 +146,8 @@ def test_a_summary_starter_names_the_category_as_a_place(client):
 
 def _asked(session, question):
     """One question in the Ask box's history, the row `/chat/recent` reads."""
-    from memorymap.api.routes_chat import ASK_SURFACE
-    from memorymap.core.database import AuditLog
+    from tessellate.api.routes_chat import ASK_SURFACE
+    from tessellate.core.database import AuditLog
 
     session.add(AuditLog(action="queried", entity_type=ASK_SURFACE, detail=question))
     session.commit()
@@ -295,11 +295,11 @@ def test_chat_endpoint_threads_history_to_model(ai_client, fake_ollama):
 
 
 def test_a_starter_names_a_category_as_it_reads_in_a_sentence():
-    # The seeded notebook's "About MemoryMap" gave "What have I saved about
+    # The seeded notebook's "About Tessellate" gave "What have I saved about
     # about memorymap?": the category's own "About" doubled and a name lower-cased.
-    from memorymap.api.routes_chat import _about
+    from tessellate.api.routes_chat import _about
 
-    assert _about("About MemoryMap") == "MemoryMap"
+    assert _about("About Tessellate") == "Tessellate"
     assert _about("Travel plans") == "travel plans"
     assert _about("Jokes") == "jokes"
     assert _about("About") == "about"

@@ -43,14 +43,14 @@ def _tail(statement: str) -> str:
 
 def main() -> None:
     data = tempfile.mkdtemp(prefix="plat1005-qp-")
-    os.environ["MEMORYMAP_DATA_DIR"] = data
+    os.environ["TESSELLATE_DATA_DIR"] = data
     from fastapi.testclient import TestClient
     from sqlalchemy import event
 
     from fakes import FakeEmbeddingService, FakeOllama
-    from memorymap.api.app import create_app
-    from memorymap.core import deps
-    from memorymap.core.database import (
+    from tessellate.api.app import create_app
+    from tessellate.core import deps
+    from tessellate.core.database import (
         AuditLog,
         Category,
         Conversation,

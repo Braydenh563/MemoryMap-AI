@@ -9,7 +9,7 @@ round of every turn and nothing downstream trims it for the persona's sake.
 
 from __future__ import annotations
 
-from memorymap.ai import agent, librarian
+from tessellate.ai import agent, librarian
 
 
 def _save(client, content):

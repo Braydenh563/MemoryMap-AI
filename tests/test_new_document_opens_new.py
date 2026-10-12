@@ -144,7 +144,7 @@ def test_new_board_and_new_mind_map_wait_for_the_boards_code(kind, button):
 
 
 def test_a_door_into_a_library_sub_tab_waits_for_the_library():
-    """Graph's Concept maps button (wiring.js, always loaded) switched to the
+    """Graph's Mind maps button (wiring.js, always loaded) switched to the
     Library and pressed its Boards sub-tab at once; the sub-tab's handler is
     library.js's, fetched on the Library's first visit, so the press landed
     on nothing and the button arrived at the Library's All view (measured:

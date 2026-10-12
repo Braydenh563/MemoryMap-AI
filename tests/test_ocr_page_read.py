@@ -17,7 +17,7 @@ import io
 
 import pytest
 
-from memorymap.core import pdfpages
+from tessellate.core import pdfpages
 
 ONE_PAGE_PDF = (
     b"%PDF-1.4\n"

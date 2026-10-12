@@ -21,8 +21,9 @@ import io
 import pytest
 from fastapi import HTTPException
 
-from memorymap.api import routes_files
-from memorymap.core import ocr
+from tessellate.api import routes_files
+from tessellate.api import routes_files as files_service
+from tessellate.core import ocr
 
 PNG = (
     b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x00"
@@ -133,7 +134,7 @@ def test_a_page_read_records_the_engine_that_read_it(client, both_ready, tmp_pat
     monkeypatch.setattr(routes_files.pdfpages, "render_page", lambda path, index: PNG)
     stored: list[tuple] = []
     monkeypatch.setattr(
-        routes_files, "_remember_page_read", lambda key, result, reader: stored.append((reader, result.model))
+        files_service, "_remember_page_read", lambda key, result, reader: stored.append((reader, result.model))
     )
     pdf = tmp_path / "scan.pdf"
     pdf.write_bytes(b"%PDF-1.4")

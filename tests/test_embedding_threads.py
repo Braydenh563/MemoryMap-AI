@@ -20,8 +20,8 @@ import types
 
 import numpy as np
 
-from memorymap.ai import embeddings as emb
-from memorymap.core import deps
+from tessellate.ai import embeddings as emb
+from tessellate.core import deps
 
 
 class _Recorder:
@@ -59,7 +59,7 @@ def _service(app_state, model, monkeypatch):  # noqa: ANN001
 def test_the_encode_runs_on_the_limited_pool_in_its_own_thread(app_state, monkeypatch):
     torch = _Recorder()
     monkeypatch.setitem(sys.modules, "torch", torch.module)
-    monkeypatch.delenv("MEMORYMAP_EMBED_THREADS", raising=False)
+    monkeypatch.delenv("TESSELLATE_EMBED_THREADS", raising=False)
     model = _Model(torch)
     service = _service(app_state, model, monkeypatch)
 
@@ -91,14 +91,14 @@ def test_the_limit_is_set_once_per_thread_not_on_every_note(app_state, monkeypat
 def test_the_environment_can_raise_it(app_state, monkeypatch):
     torch = _Recorder()
     monkeypatch.setitem(sys.modules, "torch", torch.module)
-    monkeypatch.setenv("MEMORYMAP_EMBED_THREADS", "3")
+    monkeypatch.setenv("TESSELLATE_EMBED_THREADS", "3")
     model = _Model(torch)
     service = _service(app_state, model, monkeypatch)
 
     service.embed_text("a note")
 
     assert model.seen[0][0] == 3
-    monkeypatch.setenv("MEMORYMAP_EMBED_THREADS", "not a number")
+    monkeypatch.setenv("TESSELLATE_EMBED_THREADS", "not a number")
     assert emb.embed_threads() == emb.EMBED_THREADS
 
 

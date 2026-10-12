@@ -99,5 +99,8 @@ function undoStoreClear() {
 
 //: A board's two stacks, trimmed to the last hundred steps each.
 function undoStoreBoardValue(undo, redo) {
-  return { undo: undo.slice(-UNDO_STORE_MAX), redo: redo.slice(-UNDO_STORE_MAX), at: Date.now() };
+  //: A "call" step holds two functions (whiteboard.js `wbPushCall`), which
+  //: IndexedDB cannot store and which mean nothing after a reload.
+  const keep = (steps) => steps.filter((step) => step.action !== "call").slice(-UNDO_STORE_MAX);
+  return { undo: keep(undo), redo: keep(redo), at: Date.now() };
 }

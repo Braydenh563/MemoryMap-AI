@@ -31,7 +31,7 @@ def test_no_caller_reads_the_gallery_as_one_response() -> None:
 
 
 def test_the_default_page_is_a_page(client) -> None:
-    from memorymap.api import routes_files
+    from tessellate.api import routes_files
 
     assert routes_files.GALLERY_PAGE_SIZE == 200
     response = client.get("/files/gallery")

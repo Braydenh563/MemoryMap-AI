@@ -12,8 +12,8 @@ category the notebook has, named as where the notes are ("notes in Health",
 
 from __future__ import annotations
 
-from memorymap.entry import manager
-from memorymap.search import search_manager
+from tessellate.entry import manager
+from tessellate.search import search_manager
 
 
 def _note(session, content, category):
@@ -49,3 +49,22 @@ def test_a_word_that_is_only_a_word_does_not_scope(session, fake_embeddings):
     _seed(session)
     found, _mode = search_manager.retrieve(session, "how does the physio appointment work", fake_embeddings)
     assert any("physio" in e.content for e in found)
+
+
+def test_widening_a_scoped_question_stays_in_the_category(session, fake_embeddings):
+    """The route widens retrieval by keyword and by tag ("notes in Health" is
+    read as the topic "notes in Health", which matched a note in Ideas that
+    only says "notes"); a question scoped to a category keeps its answer there
+    (tests-e2e/specs/ask-search.spec.js, Ask's own suggestion)."""
+    from tessellate.api import routes_chat
+
+    health = _seed(session)
+    stray = _note(session, "Notes about notes: keep each note small", "Ideas")
+    question = "Summarise my notes in Health."
+    found = search_manager.retrieve_detailed(session, question, fake_embeddings, limit=5)
+    assert found.category == "Health"
+    widened = routes_chat._widened(session, question, found.entries, scope=found.category)
+    assert stray.id not in {e.id for e in widened}
+    assert {e.id for e in health} <= {e.id for e in widened}
+    # No scope, no change: an unscoped topic still widens.
+    assert stray.id in {e.id for e in routes_chat._widened(session, "notes about notes", [])}

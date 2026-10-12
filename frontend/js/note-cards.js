@@ -135,17 +135,10 @@ function mapPreviewMeasurer() {
   }
   return mapPreviewMeasureCtx;
 }
-//: Take or discard the tags filing suggested (INBOX 440); the list redraws
-//: from the server's answer, so the card and every other view agree.
-async function answerSuggestedTags(entry, body) {
-  try {
-    await apiJson(`/entries/${entry.id}/suggested-tags`, { method: "POST", body: JSON.stringify(body) });
-    await refreshEntries([entry.id]);
-    const tag = (body.take || body.discard || [])[0];
-    toast(body.take ? `Tagged #${tag}.` : `Won't suggest #${tag} for this note again.`);
-  } catch (error) {
-    toast(error.message || "Couldn't change the tags.", true);
-  }
+//: Take, discard or restore a suggested tag: tag-suggest.js's
+//: `answerSuggestedTags` (lazy: the boot gzip ratchet), fetched on the press.
+function answerTags(entry, body) {
+  ensureModule("tagSuggest").then(() => answerSuggestedTags(entry, body));
 }
 
 function mapPreviewTextWidth(text, fontSize) {
@@ -557,7 +550,9 @@ function mapPreview(board, { size = "card" } = {}) {
       w: onPaper(nx, raw.w, blockW * MAP_PREVIEW_MIN_BLOCK, pad, vw - pad),
       h: onPaper(ny, raw.h, blockH * MAP_PREVIEW_MIN_BLOCK, pad, vh - pad),
     };
-    if (item.kind !== "sketch") drawn.push({ item, x: nx, y: ny, w: size.w, h: size.h });
+    //: Sketched shapes too: a caption is tested against them as obstacles
+    //: (the dashboard's board drew "Store rev…" and "Next" across them).
+    drawn.push({ item, x: nx, y: ny, w: size.w, h: size.h });
     if (item.kind === "sketch") {
       // The shape it was drawn with, at the size and place it was drawn, in
       // its own ink: see `mapPreviewSketch`. The stroke data itself is still
@@ -659,7 +654,7 @@ function mapPreview(board, { size = "card" } = {}) {
   if (labels) {
     const kept = [];
     const ordered = drawn
-      .filter((row) => row.item.label && row.item.kind !== "image")
+      .filter((row) => row.item.label && row.item.kind !== "image" && row.item.kind !== "sketch")
       .sort((a, b) => b.w * b.h - a.w * a.h);
     for (const row of ordered) {
       const { item } = row;
@@ -927,7 +922,7 @@ function mapChip(board, { onOpen = null, count = true, interactive = true } = {}
     chip.addEventListener("click", (event) => {
       event.stopPropagation();
       if (onOpen) onOpen(board);
-      else if (typeof openWhiteboardBoard === "function") openWhiteboardBoard(board?.id ?? null);
+      else openWhiteboardBoard(board?.id ?? null);
     });
   }
   return chip;
@@ -1315,9 +1310,11 @@ function fitNoteMetas(metas) {
     //: Still too long (a phone, with its ⋯ on the line): the facts after
     //: the tags keep their icon and lose their words, the words on the
     //: title, from the end; the low-score warning goes last.
-    const isReview = (text) => text.parentElement.classList.contains("review");
+    //: Ask's match reason folds last too (INBOX 728): an icon-only "70%
+    //: similar" beside a worded one read as two different facts.
+    const isLast = (text) => text.parentElement.matches(".review, .result-reason-chip");
     const words = [...line.meta.querySelectorAll(":scope > .chip:not(.category, .filing-sure, [data-tag]) > .ph-text")]
-      .reverse().sort((x, y) => isReview(x) - isReview(y));
+      .reverse().sort((x, y) => isLast(x) - isLast(y));
     for (const text of words) {
       if (over <= 0) break;
       over -= right(text) - before(text);
@@ -1329,6 +1326,8 @@ function fitNoteMetas(metas) {
     for (const el of icons) {
       el.classList.add("is-icon");
       el.title ||= el.textContent;
+      //: Its words are hidden now, so the title alone named it.
+      if (el.getAttribute("role") === "button") el.setAttribute("aria-label", el.title);
     }
     more.hidden = !fold.length;
     more.firstChild.textContent = `+${fold.length}`;
@@ -1342,6 +1341,7 @@ async function publishDraft(entry) {
   try {
     await apiJson(`/entries/${entry.id}`, { method: "PUT", body: JSON.stringify({ is_draft: false }) });
     entry.is_draft = false;
+    pushEntryPutUndo(entry.id, "Published a draft", { is_draft: true }, { is_draft: false });
     await refreshEntries([entry.id]);
     toast("Published.");
   } catch (error) {
@@ -1358,7 +1358,7 @@ function noteMetaMore(entry) {
     const items = [...more.parentElement.querySelectorAll(":scope > [data-tag][hidden]")].map((el) => {
       const tag = el.dataset.tag;
       return el.classList.contains("suggested-tag")
-        ? { label: `ph:plus ${tag}`, title: `Suggested: add #${tag}`, group: "Suggested", run: () => answerSuggestedTags(entry, { take: [tag] }) }
+        ? { label: `ph:plus ${tag}`, title: `Suggested: add #${tag}`, group: "Suggested", run: () => answerTags(entry, { take: [tag] }) }
         : { label: `ph:hash ${tag}`, title: `Show every note tagged #${tag}`, group: "Tags", run: () => filterNotesByTag(tag) };
     });
     openMenuAtPoint(items, "More tags", at.left, at.bottom);
@@ -1368,9 +1368,58 @@ function noteMetaMore(entry) {
   return more;
 }
 
+//: Brief 89: which add-tags chip a card draws. "add" is the empty note's
+//: "Add tags" (the edit form, cursor in the tags field), "more" the quiet
+//: "+ Tag" for a note with one or two tags, or with none but suggestions
+//: showing; null from three tags up, on a board or draft, and on a read-only
+//: row (a fact only, drawn by the empty-state branch).
+const TAG_ADD_BELOW = 3;
+function tagAddChipKind(entry, options) {
+  if (!options.actions || entry.is_board || entry.is_draft) return null;
+  const tags = (entry.tags || []).length;
+  if (tags >= TAG_ADD_BELOW) return null;
+  return !tags && !(entry.suggested_tags || []).length ? "add" : "more";
+}
+
+//: **A meeting card shows what the meeting settled, not its raw headings**
+//: (libr-1011 row 1238: `## Agenda` and `## Notes` printed as text). The four
+//: sections of `entry/meetings.py` read for one line each: the first agenda
+//: item, the decisions, and the action items still open. Null for anything
+//: that is not a meeting, so every other card is unchanged.
+const MEETING_GLANCE_SECTIONS = {
+  agenda: "agenda", notes: "notes", discussion: "notes", transcript: "notes",
+  decisions: "decisions", decided: "decisions",
+  "action items": "actions", actions: "actions", "action points": "actions", "to do": "actions", todo: "actions", "next steps": "actions",
+};
+
+function meetingGlance(entry) {
+  const types = (entry?.properties?.type || []).map((value) => String(value).toLowerCase());
+  if (!types.includes("meeting")) return null;
+  const sections = { agenda: [], decisions: [], actions: [] };
+  let current = "";
+  for (const line of stripFrontmatter(entry.content || "").split("\n")) {
+    const heading = /^#{1,6}[ \t]+(.+?)[ \t]*#*[ \t]*$/.exec(line);
+    if (heading) {
+      current = MEETING_GLANCE_SECTIONS[heading[1].toLowerCase()] || "";
+      continue;
+    }
+    if (current && sections[current] && line.trim()) sections[current].push(line);
+  }
+  const plain = (line) => line.replace(/^[ \t]*(?:[-*+]|\d{1,3}[.)])[ \t]+(?:\[[ xX]\][ \t]*)?/, "").trim();
+  const rows = [];
+  if (sections.agenda.length) rows.push({ label: "Agenda", text: plain(sections.agenda[0]) + (sections.agenda.length > 1 ? ` (+${sections.agenda.length - 1})` : "") });
+  if (sections.decisions.length) rows.push({ label: "Decisions", text: `${sections.decisions.length}: ${plain(sections.decisions[0])}` });
+  const open = sections.actions.filter((line) => /^[ \t]*(?:[-*+]|\d{1,3}[.)])[ \t]+\[ \]/.test(line));
+  const done = sections.actions.filter((line) => /\[[xX]\]/.test(line)).length;
+  if (open.length) rows.push({ label: "Open actions", text: `${open.length}: ${plain(open[0])}` });
+  else if (done) rows.push({ label: "Actions", text: `all ${done} done` });
+  return rows.length ? rows : [{ label: "", text: "Nothing written yet." }];
+}
+
 function entryItem(entry, options = {}) {
   const li = document.createElement("li");
   li.dataset.id = entry.id;
+  if (rowEnterIds && rowEnterIds.size && !rowEnterIds.has(String(entry.id))) li.classList.add("row-enter");
   if (entry.id === linkSource) li.classList.add("link-source");
   // The phone's swipe underlays read their words from the row (`initRowSwipe`,
   // 10-responsive.css): what a swipe right and a swipe left will do to it.
@@ -1509,7 +1558,17 @@ function entryItem(entry, options = {}) {
       const dt = document.createElement("dt");
       dt.textContent = key;
       const dd = document.createElement("dd");
-      dd.textContent = (values || []).join(", ").replace(/\[\[([^[\]]{1,120})\]\]/g, "$1") || "–";
+      //: Each value finds its notes (`prop:key=value` in the filter box).
+      for (const value of (values || []).filter(Boolean)) {
+        const shown = String(value).replace(/^\[\[|\]\]$/g, "");
+        const find = chip(shown, "refs", (event) => {
+          event.stopPropagation();
+          filterNotesBy(propQuery(key, shown));
+        });
+        find.title = `Find the notes whose ${key} is ${shown}`;
+        dd.append(find, " ");
+      }
+      if (!dd.firstChild) dd.textContent = "–";
       table.append(dt, dd);
     }
     li.appendChild(table);
@@ -1530,9 +1589,10 @@ function entryItem(entry, options = {}) {
     .split("\n")
     .filter((line) => line.trim() && !/^\s*!?\[[^\]]*\]\([^)]*\)\s*$/.test(line))
     .join("\n");
-  const isLong =
+  const glance = meetingGlance(entry);
+  const isLong = !glance && (
     textOnly.length > LONG_NOTE_CHARS ||
-    textOnly.split("\n").length > LONG_NOTE_LINES;
+    textOnly.split("\n").length > LONG_NOTE_LINES);
   if (isLong && !expandedNotes.has(entry.id)) content.classList.add("entry-clamped");
   // Mark the matched words while filtering, so it's obvious WHY a note is in
   // the list. Built with createElement/textContent rather than innerHTML, 
@@ -1550,9 +1610,11 @@ function entryItem(entry, options = {}) {
   content.addEventListener("remove-inline-image", async (e) => {
     e.stopPropagation();
     if (!(await confirmDialog("Remove this image from the note?"))) return;
+    const contentBefore = entry.content;
     entry.content = entry.content.replace(e.detail.originalText, "").replace(/\n{3,}/g, "\n\n").trim();
     try {
       await apiJson(`/entries/${entry.id}`, { method: "PUT", body: JSON.stringify({ content: entry.content }) });
+      pushEntryPutUndo(entry.id, "Removed an image from a note", { content: contentBefore }, { content: entry.content });
       await refreshEntries([entry.id]);
       flashEntry(entry.id);
       toast("Image removed.");
@@ -1560,7 +1622,42 @@ function entryItem(entry, options = {}) {
       toast(err.message || "Failed to remove image", true);
     }
   });
-  li.appendChild(content);
+  if (glance) {
+    //: The glance and the body are both in the card; the card's class says
+    //: which shows (note-cards CSS), so a search, the caret in rows view and
+    //: "Show the whole note" all land on the body.
+    const box = document.createElement("div");
+    box.className = "meeting-glance";
+    for (const row of glance) {
+      const line = document.createElement("p");
+      line.className = "meeting-glance-row";
+      if (row.label) {
+        const label = document.createElement("span");
+        label.className = "meeting-glance-label";
+        label.textContent = row.label;
+        line.append(label, " ");
+      }
+      line.append(row.text);
+      box.appendChild(line);
+    }
+    li.classList.add("meeting-card");
+    li.classList.toggle("meeting-open", expandedNotes.has(entry.id) || searchHighlightTerms().length > 0);
+    li.append(box, content);
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "entry-more";
+    const sayMore = () => (li.classList.contains("meeting-open") ? "Show the glance" : "Show the whole note");
+    more.textContent = sayMore();
+    more.addEventListener("click", () => {
+      const open = li.classList.toggle("meeting-open");
+      if (open) expandedNotes.add(entry.id);
+      else expandedNotes.delete(entry.id);
+      more.textContent = sayMore();
+    });
+    li.appendChild(more);
+  } else {
+    li.appendChild(content);
+  }
   if (isLong) {
     const toggle = document.createElement("button");
     toggle.type = "button";
@@ -1664,6 +1761,10 @@ function entryItem(entry, options = {}) {
         )
       );
     }
+  } else if (entry.board_kind) {
+    //: A board or a mind map says so where a note says its category (the
+    //: owner: "a whitebaord showed as a note"); it has none of its own.
+    meta.appendChild(chip(entry.board_kind === "map" ? "ph:tree-structure Mind map" : "ph:pencil-circle Board", "category"));
   } else {
     //: `category` names the chip for the meta line's own styles (08-
     //: consistency.css, "one line of facts"): before it had a class, the
@@ -1759,10 +1860,13 @@ function entryItem(entry, options = {}) {
     const take = document.createElement("span");
     take.className = "suggested-tag-take";
     setLabel(take, `ph:plus ${tag}`);
-    take.title = `Suggested: add #${tag}`;
+    //: Each suggestion says what in the note backs it (WORLD_CLASS 23,
+    //: decision 5): "It mentions “exam”."
+    const reason = entry.suggested_tag_reasons?.[tag];
+    take.title = reason ? `Suggested: add #${tag}. ${reason}` : `Suggested: add #${tag}`;
     take.addEventListener("click", (event) => {
       event.stopPropagation();
-      answerSuggestedTags(entry, { take: [tag] });
+      answerTags(entry, { take: [tag] });
     });
     makeUnlinkAccessible(take);
     group.appendChild(take);
@@ -1772,7 +1876,7 @@ function entryItem(entry, options = {}) {
     discard.title = `Not #${tag}: stop suggesting it for this note`;
     discard.addEventListener("click", (event) => {
       event.stopPropagation();
-      answerSuggestedTags(entry, { discard: [tag] });
+      answerTags(entry, { discard: [tag] });
     });
     makeUnlinkAccessible(discard);
     group.appendChild(discard);
@@ -1780,8 +1884,22 @@ function entryItem(entry, options = {}) {
   }
   //: **A note with no tags says so, where the tags would be** (INBOX 162),
   //: and the chip is the fix: the edit form, cursor in the tags field.
-  if (!entry.tags.length && !suggestions.length && !entry.is_board && !entry.is_draft
-      && (options.actions || options.facts)) {
+  //: **Fewer than three tags: a quiet "+ Tag" after them** (brief 89, the
+  //: owner: "should add tags show for notes with 0-2/3 tags on them??"). It
+  //: opens a small popover with up to three suggested tags, the field, and a
+  //: menu that turns suggestions off for this note (tag-suggest.js).
+  if (tagAddChipKind(entry, options) === "more") {
+    const more = chip("ph:plus Tag", "untagged tag-add", (event) => {
+      event.stopPropagation();
+      ensureModule("tagSuggest").then(() => openNoteTagPopover(entry, more));
+    });
+    more.title = "Add a tag to this note, or pick a suggested one";
+    more.setAttribute("aria-haspopup", "dialog");
+    more.setAttribute("aria-expanded", "false");
+    meta.appendChild(more);
+  }
+  if (tagAddChipKind(entry, options) === "add"
+      || (!options.actions && options.facts && !entry.tags.length && !entry.is_board && !entry.is_draft)) {
     //: On a read-only row it is a fact only (INBOX 297).
     const untagged = options.actions
       ? chip("ph:tag Add tags", "untagged", (event) => {
@@ -1812,6 +1930,8 @@ function entryItem(entry, options = {}) {
   //: patches the chip in afterwards for cards rendered before they had.
   const refs = referenceCountChip(entry, options);
   if (refs) meta.appendChild(refs);
+  const topicMark = options.actions || options.facts ? noteTopicChip(entry) : null;
+  if (topicMark) meta.appendChild(topicMark);
   //: **And what it made you promise to do** (INBOX 309). Same cache, same
   //: patch-in, same line: a reminder that came out of this note is a fact
   //: about the note in exactly the way "on 1 board" is.
@@ -1873,7 +1993,8 @@ function entryItem(entry, options = {}) {
       unlink.addEventListener("click", async (event) => {
         event.stopPropagation(); // the chip itself opens the document
         await api(`/documents/${doc.id}/notes/${entry.id}`, { method: "DELETE" });
-        await loadEntries();
+        pushRoutePairUndo(`Detached from “${doc.title}”`, [`/documents/${doc.id}/notes`, "POST", { entry_id: entry.id }], [`/documents/${doc.id}/notes/${entry.id}`, "DELETE"], () => refreshEntries([entry.id]));
+        await refreshEntries([entry.id]);
         toast(`Detached from “${doc.title}”.`);
       });
       makeUnlinkAccessible(unlink);
@@ -1978,14 +2099,14 @@ function entryItem(entry, options = {}) {
   const edited = entry.edited_at && entry.edited_at !== stamp ? entry.edited_at : null;
   const byEdit = edited && noteSort === "edited";
   date.textContent = byEdit ? `edited ${relativeTime(edited)}` : relativeTime(stamp);
-  date.title = `Written ${new Date(stamp).toLocaleString()}` + // exact on hover
-    (edited ? `, edited ${new Date(edited).toLocaleString()}` : "");
+  date.title = `Written ${whenText(stamp)}` + // exact on hover
+    (edited ? `, edited ${whenText(edited)}` : "");
   //: **The time ends the details line, on every card** (INBOX 446: the
   //: corner faded it whenever the card was pointed at; INBOX 455 (1): a line
   //: that wrapped put it on a line of its own). The line never wraps now
   //: (`fitNoteMetas`), so this is the line's last fact at its right edge.
   //: The suffix its own span: a phone drops it before the category (UX-13).
-  if (edited && !byEdit) date.append(Object.assign(document.createElement("span"), { className: "entry-edited", textContent: " · edited" }));
+  if (edited && !byEdit) date.append(Object.assign(document.createElement("span"), { className: "entry-edited", textContent: "\u00a0· edited" }));
   meta.appendChild(date);
   meta.appendChild(metaEnd);
 
@@ -2170,7 +2291,7 @@ function entryItem(entry, options = {}) {
       linkChip.appendChild(linkPreview);
       const reasonNote = link.reason
         ? link.reason_confidence != null
-          ? `${link.reason} (${Math.round(link.reason_confidence * 100)}% confidence, deduced)`
+          ? `${link.reason} (deduced, ${deducedStrength(link.reason_confidence)})`
           : link.reason
         : null;
       const wayRound = outgoing ? "This note links to" : "Links to this note";
@@ -2193,21 +2314,24 @@ function entryItem(entry, options = {}) {
       //: circles with the labels reading as captions between them. They are
       //: the `kebabMenu` recipe now (DESIGN.md, standing order 11), which also
       //: gives the label the width the buttons took.
-      const editReason = async () => {
-        const next = await promptDialog("Why are these notes connected?", link.reason || "");
-        if (!next) return;
+      const putReason = async (reason) => {
         await api(`/entries/${entry.id}/links/${link.link_id}/reason`, {
           method: "PUT",
-          body: JSON.stringify({ reason: next }),
+          body: JSON.stringify({ reason }),
         });
         await refreshEntries([entry.id, link.entry_id]);
       };
+      const editReason = async () => {
+        const next = await promptDialog("Why are these notes connected?", link.reason || "");
+        if (!next) return;
+        const was = link.reason || null;
+        await putReason(next);
+        pushUndo("Edited why two notes are connected", () => putReason(was), () => putReason(next));
+      };
       const clearReason = async () => {
-        await api(`/entries/${entry.id}/links/${link.link_id}/reason`, {
-          method: "PUT",
-          body: JSON.stringify({ reason: null }),
-        });
-        await refreshEntries([entry.id, link.entry_id]);
+        const was = link.reason || null;
+        await putReason(null);
+        pushUndo("Cleared why two notes are connected", () => putReason(was), () => putReason(null));
       };
       const unlink = async () => {
         const otherId = link.entry_id;
@@ -2330,38 +2454,18 @@ function noteReviewActions(entry) {
 //: A document is a node of its own (`document:<id>`, routes_graph.py) that the
 //: map draws only while its Documents switch is on, so asking for one turns
 //: that switch on first, the way the map's own Show switches would.
-async function showNoteInGraph(id, { document: isDocument = false } = {}) {
+//: The graph's own half is `graphShowNote` (graph.js, 2026-10-10: the boot
+//: script budget); the tab switch loads it first.
+async function showNoteInGraph(id, options = {}) {
   await switchTab("graph");
-  if (isDocument) {
-    const box = $("graph-documents");
-    if (box && !box.checked) {
-      box.checked = true;
-      box.dispatchEvent(new Event("change", { bubbles: true }));
-    }
-  }
-  const nodeId = isDocument ? `document:${id}` : id;
-  const deadline = Date.now() + 4000;
-  let node = null;
-  while (Date.now() < deadline) {
-    node = graphNodeById(nodeId);
-    if (node && Number.isFinite(node.x)) break;
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-  if (!node || !Number.isFinite(node.x)) {
-    toast(`That ${isDocument ? "document" : "note"} is not on the graph right now: a filter or the view may be hiding it.`, "info");
-    return;
-  }
-  focusGraphNode(node);
-  if (typeof graphSvg !== "undefined" && graphSvg && typeof graphZoom !== "undefined" && graphZoom) {
-    graphSvg.transition().duration(400).call(graphZoom.translateTo, node.x, node.y);
-  }
+  return graphShowNote(id, options);
 }
 
 //: Start a chat about one note. Named by its title in the words a person
 //: would use, so the agent's own search tools find it, rather than pasting the
 //: whole note into the box.
 function askAtlasAboutNote(entry) {
-  const name = (entry.title || stripFrontmatter(entry.content).trim().split("\n")[0] || "this note").trim();
+  const name = (entry.title || noteNamePlain(entry.content) || "this note").trim();
   askAtlasAboutThing("note", name);
 }
 
@@ -2403,4 +2507,32 @@ function entryListSetStop(items, stop) {
     li.tabIndex = li === stop ? 0 : -1;
     entryCardControls(li, li === stop);
   }
+}
+
+// The `.unlink` "×" spans (detach/remove/dismiss) predate chip()'s own
+// keyboard support and never got it retrofitted, mouse-only, same gap
+// chip() already closed once this session for the "Go to note" chip.
+// Dispatches a real click rather than duplicating each call site's own
+// handler, so this stays a one-line addition wherever a `.unlink` span
+// already has its click listener attached.
+function makeUnlinkAccessible(span) {
+  span.setAttribute("role", "button");
+  //: A title alone never shows on touch; callers set it first.
+  if (span.title) span.setAttribute("aria-label", span.title);
+  span.setAttribute("tabindex", "0");
+  span.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      span.click();
+    }
+  });
+}
+
+//: A deduced link reason's confidence as a word, not a percentage (ledger
+//: 943): a percentage claimed a precision the guess does not have. Used
+//: by the card's link chips and the graph's line tooltip and peek.
+function deducedStrength(confidence) {
+  if (confidence >= 0.75) return "a strong guess";
+  if (confidence >= 0.5) return "a fair guess";
+  return "a loose guess";
 }

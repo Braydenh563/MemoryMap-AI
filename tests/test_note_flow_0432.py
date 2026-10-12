@@ -17,7 +17,7 @@ import re
 import time
 from pathlib import Path
 
-from memorymap.api import routes_entries
+from tessellate.api import routes_entries
 
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend"
@@ -170,7 +170,7 @@ def test_a_to_z_sorts_by_the_name_a_card_shows():
     notes = _read("notes-list.js")
     assert "noteSortName(a).localeCompare(noteSortName(b), undefined, { numeric: true" in _function(notes, "sortEntries")
     wiring = _read("settings-wiring.js")
-    assert 'localStorage.setItem("notes-sort", noteSort)' in wiring
+    assert 'prefs.set("notes-sort", noteSort)' in wiring
 
 
 def test_the_sidebar_lights_one_row_lists_every_category_and_takes_the_keyboard():
@@ -342,3 +342,34 @@ def test_a_filter_still_being_typed_narrows_nothing():
         assert not (q["tags"] or q["categories"] or q["titles"] or q["flags"] or q["words"]), partial
     assert result["tag:trip in:home"]["tags"] == ["trip"]
     assert result["tag:trip in:home"]["categories"] == ["home"]
+
+
+def test_saving_before_the_preferences_arrive_still_saves():
+    # Scan 2026-10-11: with `prefsCache` still null (the preferences request
+    # refused or slow at boot) Save threw "Cannot read properties of null
+    # (reading 'background_filing')" and nothing was saved, with no message.
+    save = (FRONTEND / "js" / "capture-ask.js").read_text(encoding="utf-8")
+    assert "prefsCache?.background_filing ?? true" in save
+    assert "prefsCache.background_filing" not in save
+
+
+def test_every_note_the_page_creates_is_filed_in_the_background():
+    # Scan 2026-10-11: a note created without `defer_filing` is filed before
+    # the request returns, so it waits for the model. Against a model that
+    # answers in 4 s, a mind map's Tab (a new topic) took 4.7 s and a draft
+    # save 4.8 s, against 0.6 s deferred; against one that never answers the
+    # request held a database connection until the 180 s wait ended. Capture
+    # and the selection popup already deferred; the rest did not. A create
+    # that names its category or parent has nothing to wait for either.
+    missing = []
+    for path in sorted((FRONTEND / "js").glob("*.js")):
+        text = path.read_text(encoding="utf-8")
+        for match in re.finditer(r'apiJson\(\s*"/entries"\s*,\s*\{', text):
+            call = text[match.start() : match.start() + 700]
+            call = call[: call.find("});")] if "});" in call else call[:500]
+            if "POST" not in call:
+                continue
+            if any(word in call for word in ("defer_filing", "category", "parent_id", "payload")):
+                continue
+            missing.append(f"{path.name}:{text[: match.start()].count(chr(10)) + 1}")
+    assert not missing, f"POST /entries without defer_filing: {missing}"

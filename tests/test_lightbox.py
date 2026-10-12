@@ -28,7 +28,7 @@ from pathlib import Path
 from tests._app_js import app_js_text
 
 JS = app_js_text()
-CSS = Path("frontend/css/02-chat-graph.css").read_text(encoding="utf-8")
+CSS = Path("frontend/css/lightbox-lazy.css").read_text(encoding="utf-8") + Path("frontend/css/02-chat-graph.css").read_text(encoding="utf-8")
 LIGHTBOX = JS.split("function openLightbox(")[1].split("\n// ")[0]
 
 
@@ -112,7 +112,7 @@ def test_the_panel_says_which_picture_this_is():
 
 def test_the_upload_list_carries_the_date_the_panel_shows():
     """The one fact of that kind the browser cannot work out for itself."""
-    routes = Path("src/memorymap/api/routes_files.py").read_text(encoding="utf-8")
+    routes = Path("src/tessellate/api/routes_files.py").read_text(encoding="utf-8")
     assert "created_at: str = \"\"" in routes
     assert "created_at=u.created_at.isoformat()" in routes
     library = Path("frontend/js/library.js").read_text(encoding="utf-8")

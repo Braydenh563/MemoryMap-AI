@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import json
 
-from memorymap.ai import fence, librarian
+from tessellate.ai import fence, librarian
 
 
 def _events(client, question, **body):
@@ -100,7 +100,7 @@ def test_the_chat_tab_is_completely_unaffected(ai_client, fake_ollama):
 
 def test_a_real_question_still_searches(ai_client, fake_ollama, session):
     """The flag must not turn the box off, only the chatting half."""
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     manager.create_entry(session, "The beans need netting next week")
     session.commit()

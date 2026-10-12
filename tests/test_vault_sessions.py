@@ -20,8 +20,8 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from memorymap.api import routes_auth
-from memorymap.core import deps, vault
+from tessellate.api import routes_auth
+from tessellate.core import deps, vault
 
 PASSWORD = "the owner's password"
 SECRET = "the spare key is under the mat"
@@ -43,6 +43,18 @@ def _clean():
     routes_auth._media_tickets.clear()
     routes_auth._clear_unlock_failures()
     vault.close()
+
+
+@pytest.fixture(autouse=True)
+def _devices_already_allowed(client):
+    """These tests are about sessions and the vault, so the phone here is one
+    this computer already allowed; holding a new device is test_lan_trust.py's."""
+    from tessellate.core import deps
+    from tessellate.core import lantrust
+
+    lantrust.set_flag(deps.get_config().data_dir, "ask_new_devices", False)
+    yield
+    lantrust.reset_for_tests()
 
 
 def _local(app) -> TestClient:

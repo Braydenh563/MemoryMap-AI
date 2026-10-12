@@ -20,8 +20,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
-from memorymap.ai.ollama_client import OllamaClient, OllamaError
-from memorymap.ai.openai_client import OpenAICompatClient
+from tessellate.ai.ollama_client import OllamaClient, OllamaError
+from tessellate.ai.openai_client import OpenAICompatClient
 
 TAGS = {"models": [{"name": "elsewhere:1b"}]}
 

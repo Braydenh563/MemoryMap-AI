@@ -10,7 +10,7 @@ window from Windows unless the spawn asks for `CREATE_NO_WINDOW`.
 The defect is invisible to every other check in this suite: it needs a
 packaged build, on Windows, being watched. So this reads the source
 instead and fails when a `subprocess.Popen` or `subprocess.run` in `src/`
-names no `creationflags` at all. `memorymap.core.subproc.NO_WINDOW` is the
+names no `creationflags` at all. `tessellate.core.subproc.NO_WINDOW` is the
 answer for nearly all of them; the handful that want something else (the
 update installer wants `DETACHED_PROCESS`, the console-mode relaunch wants
 `CREATE_NEW_CONSOLE`) pass that instead and satisfy this the same way.
@@ -61,7 +61,7 @@ def test_every_spawn_says_which_console_it_wants():
     assert not missing, (
         "a child process spawned with no creationflags: on the packaged "
         "Windows app this flashes a console window over whatever the person "
-        "is doing. Pass creationflags=NO_WINDOW from memorymap.core.subproc, "
+        "is doing. Pass creationflags=NO_WINDOW from tessellate.core.subproc, "
         "or the flag this one actually wants:\n" + "\n".join(missing)
     )
 
@@ -71,7 +71,7 @@ def test_the_flag_is_inert_off_windows():
     of it being a constant rather than a branch repeated at each call site."""
     import sys
 
-    from memorymap.core.subproc import CREATE_NO_WINDOW, NO_WINDOW
+    from tessellate.core.subproc import CREATE_NO_WINDOW, NO_WINDOW
 
     assert CREATE_NO_WINDOW == 0x08000000
     if sys.platform == "win32":

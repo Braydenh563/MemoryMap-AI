@@ -25,7 +25,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
 SITE = DOCS / "index.html"
-REPO = "https://github.com/Braydenh563/MemoryMap-AI"
+REPO = "https://github.com/Braydenh563/Tessellate"
 
 #: Files that live at the repo root and are mirrored into /docs. The site no
 #: longer reads them, but the copies are still public under the Pages origin,

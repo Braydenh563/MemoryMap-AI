@@ -818,7 +818,7 @@ function boardEmbedFill(box, ref, final) {
     //: The note card underneath is itself clickable (it expands), so a press
     //: meant for the board must not also open the note.
     event.stopPropagation();
-    if (typeof openWhiteboardBoard === "function") openWhiteboardBoard(board.id);
+    openWhiteboardBoard(board.id);
   });
   box.appendChild(open);
   return board;

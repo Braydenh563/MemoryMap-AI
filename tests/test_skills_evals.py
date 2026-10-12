@@ -11,8 +11,8 @@ Phase D's acceptance line is exactly that claim:
     without its contract met.
 
 **How this stays out of everybody's way.** `scratchpad/llama-dev.sh serve`
-prints two environment variables, MEMORYMAP_EVALS_URL and
-MEMORYMAP_EVALS_MODEL. They are read here at import, while the module is being
+prints two environment variables, TESSELLATE_EVALS_URL and
+TESSELLATE_EVALS_MODEL. They are read here at import, while the module is being
 collected, and without them every eval in it is skipped, so CI, the ordinary
 suite and `scripts/gate.sh --full` never need a model, a binary or a network.
 Nothing here imports the script or shells out to it: the seam is those two
@@ -20,7 +20,7 @@ strings and nothing else, and the last test in this file is what keeps it that
 way. To run these:
 
     bash scratchpad/llama-dev.sh serve 8092      # prints the two exports
-    export MEMORYMAP_EVALS_URL=... MEMORYMAP_EVALS_MODEL=...
+    export TESSELLATE_EVALS_URL=... TESSELLATE_EVALS_MODEL=...
     .venv/bin/python -m pytest -m evals tests/
 
 **A set variable with nothing behind it is a failure, not a skip.** Setting
@@ -51,8 +51,8 @@ ROOT = Path(__file__).resolve().parents[1]
 #: Set by `scratchpad/llama-dev.sh serve`, and by nothing else. Read once, at
 #: import, so the decision is made while the module is being collected and no
 #: test ever touches the network to find out whether it can run.
-EVALS_URL = os.environ.get("MEMORYMAP_EVALS_URL", "").strip()
-EVALS_MODEL = os.environ.get("MEMORYMAP_EVALS_MODEL", "").strip()
+EVALS_URL = os.environ.get("TESSELLATE_EVALS_URL", "").strip()
+EVALS_MODEL = os.environ.get("TESSELLATE_EVALS_MODEL", "").strip()
 
 #: Applied per test rather than to the module.
 #:
@@ -68,7 +68,7 @@ needs_a_model = pytest.mark.skipif(
     not (EVALS_URL and EVALS_MODEL),
     reason=(
         "no real model: run 'bash scratchpad/llama-dev.sh serve' and export "
-        "MEMORYMAP_EVALS_URL and MEMORYMAP_EVALS_MODEL to run these"
+        "TESSELLATE_EVALS_URL and TESSELLATE_EVALS_MODEL to run these"
     ),
 )
 #: The five-step built-in the acceptance line is written about. Its steps
@@ -89,13 +89,13 @@ def real_model(app_state, fake_embeddings):
     what Phase D is about, and pulling a second model in would make every
     failure here ambiguous between the two.
     """
-    from memorymap.ai.openai_client import OpenAICompatClient
-    from memorymap.core import deps
+    from tessellate.ai.openai_client import OpenAICompatClient
+    from tessellate.core import deps
 
     client = OpenAICompatClient(base_url=EVALS_URL)
     if not client.is_running():
         pytest.fail(
-            f"MEMORYMAP_EVALS_URL is {EVALS_URL} and nothing is answering "
+            f"TESSELLATE_EVALS_URL is {EVALS_URL} and nothing is answering "
             "there. Start one with: bash scratchpad/llama-dev.sh serve"
         )
     deps.override_ai(ollama=client)
@@ -111,9 +111,9 @@ def notebook(real_model):
     """A TestClient over a notebook of untagged notes, wired to that model."""
     from fastapi.testclient import TestClient
 
-    from memorymap.api.app import create_app
-    from memorymap.core import deps
-    from memorymap.entry import manager
+    from tessellate.api.app import create_app
+    from tessellate.core import deps
+    from tessellate.entry import manager
 
     with deps.get_db().session() as session:
         for index in range(NOTES):
@@ -176,8 +176,8 @@ def test_no_step_is_ticked_without_its_contract(notebook):
     stop, and it is the failure a fake transport cannot produce, because a
     fake always says what it was scripted to say.
     """
-    from memorymap.ai import skills, tools
-    from memorymap.core import deps
+    from tessellate.ai import skills, tools
+    from tessellate.core import deps
 
     events = _run(notebook)
     outcomes = _final_state(events)
@@ -216,8 +216,8 @@ def test_a_notes_changed_step_ticks_only_when_the_notebook_changed(notebook):
     have tagged all three notes" is the report's own symptom, and the only
     honest judge of it is the notebook: if the step says done, tags exist.
     """
-    from memorymap.core import deps
-    from memorymap.core.database import Entry
+    from tessellate.core import deps
+    from tessellate.core.database import Entry
 
     events = _run(notebook)
     outcomes = _final_state(events)
@@ -327,6 +327,66 @@ def test_one_reworded_step_runs_alone_and_the_run_pauses(notebook):
         assert outcomes[3].get("reason"), "and it must say which contract failed"
 
 
+# --- Phase E: a success rate per skill, on the fixtures --------------------
+#
+# AGENT_SKILLS_REFORM decision 1. Every case in `tests/fixtures/skills/` runs
+# on the eval model under small model mode and is scored pass, partial or fail
+# with the step that failed (`tests/_skill_fixtures.py`). A skill marked
+# `small_class` must pass all three (the plan's gate); the rest are reported,
+# not asserted, because whether a 1.5B model *succeeds* at a nine-step job is
+# a number for the table, not a guarantee. `TESSELLATE_EVALS_SKILLS` (comma
+# separated names) narrows the set; `TESSELLATE_EVALS_RATES` names a file the
+# table is written to, in `ai/data/skill_rates.json`'s shape, to copy in.
+
+from tests import _skill_fixtures as fx  # noqa: E402
+
+WANTED = {name.strip() for name in os.environ.get("TESSELLATE_EVALS_SKILLS", "").split(",") if name.strip()}
+RATES_OUT = os.environ.get("TESSELLATE_EVALS_RATES", "").strip()
+SKILL_FIXTURES = fx.load_all()
+FIXTURE_CASES = [
+    (name, case)
+    for name, data in sorted(SKILL_FIXTURES.items())
+    for case in data["cases"]
+    if not WANTED or name in WANTED
+]
+
+
+def _record(name: str, report: dict) -> None:
+    """Add one case to the rates file, recomputing that skill's row."""
+    path = Path(RATES_OUT)
+    data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+    data.setdefault("threshold", fx.SMALL_CLASS_BAR)
+    small = data.setdefault("classes", {}).setdefault("small", {"model": EVALS_MODEL, "skills": {}})
+    reports = data.setdefault("reports", {}).setdefault(name, [])
+    reports[:] = [r for r in reports if r["case"] != report["case"]] + [report]
+    small["skills"][name] = fx.rates(reports)
+    path.write_text(json.dumps(data, indent=1) + "\n", encoding="utf-8")
+
+
+@pytest.mark.evals
+@needs_a_model
+@pytest.mark.parametrize("name, case", FIXTURE_CASES, ids=[f"{n}:{c['id']}" for n, c in FIXTURE_CASES])
+def test_a_skill_fixture_on_the_eval_model(real_model, name, case):
+    from fastapi.testclient import TestClient
+
+    from tessellate.api.app import create_app
+    from tessellate.core import deps
+
+    deps.get_config().set_preference("small_model_mode", "on")
+    report = fx.run_case(TestClient(create_app()), name, case)
+    if RATES_OUT:
+        _record(name, report)
+    print(f"{name}:{case['id']} {report['outcome']} {report['checks']} "
+          f"step {report['failed_step']} {report['reason']!r} {report['seconds']}s "
+          f"first step {report['first_step_seconds']}s")
+    if SKILL_FIXTURES[name]["small_class"]:
+        assert report["outcome"] == "pass", (
+            f"{name} is marked for the small class and {case['id']} came back "
+            f"{report['outcome']} on {EVALS_MODEL}: {report['checks']}, first "
+            f"unfinished step {report['failed_step']} ({report['reason']})"
+        )
+
+
 # --- the seam itself, which does not need a model ---------------------------
 
 
@@ -342,7 +402,7 @@ def test_the_evals_seam_is_the_only_thing_that_reaches_the_runner():
     script = ROOT / "scratchpad" / "llama-dev.sh"
     assert script.exists(), "scratchpad/llama-dev.sh is what sets these variables"
     body = script.read_text(encoding="utf-8")
-    for name in ("MEMORYMAP_EVALS_URL", "MEMORYMAP_EVALS_MODEL"):
+    for name in ("TESSELLATE_EVALS_URL", "TESSELLATE_EVALS_MODEL"):
         assert name in body, f"{name} is read here and has to be printed there"
         assert name in Path(__file__).read_text(encoding="utf-8")
 

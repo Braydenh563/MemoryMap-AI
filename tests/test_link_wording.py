@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from memorymap.entry import link_wording as lw
+from tessellate.entry import link_wording as lw
 
 
 def _note(i, text, tags=(), category="Travel", day=1, entities=()):

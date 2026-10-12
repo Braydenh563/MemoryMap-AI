@@ -30,7 +30,7 @@ WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", 
 @pytest.fixture()
 def system_prompt(client):
     """The assembled system prompt, reached the way the app reaches it."""
-    from memorymap.ai import agent
+    from tessellate.ai import agent
 
     return agent.build_agent_messages("what is due?", [])[0]["content"]
 
@@ -54,7 +54,7 @@ def test_the_slip_in_his_transcript_is_the_app_s_arithmetic_now(system_prompt, s
     longer teaches it and the reminder lands on the right night."""
     from zoneinfo import ZoneInfo
 
-    from memorymap.ai import when
+    from tessellate.ai import when
 
     assert "still today's date" not in system_prompt
     assert "compute" not in system_prompt.split("set_reminder", 1)[1][:120]

@@ -24,8 +24,8 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from memorymap.api import routes_auth
-from memorymap.core import deps, vault
+from tessellate.api import routes_auth
+from tessellate.core import deps, vault
 
 PASSWORD = "the owner's password"
 

@@ -48,7 +48,8 @@ def test_a_companion_shown_again_starts_fresh() -> None:
         assert part in gone, part
     # The click's poke is a closure now (INBOX 443: a double-click is not
     # two pokes), one level deeper.
-    assert "if (!buddy.isConnected) return;\n          buddy.classList.remove(\"nmb-grumpy\");" in AV
+    #: Brief 34: a rub meanwhile has made up already, so the pout is skipped then too.
+    assert "if (!buddy.isConnected || (nmb.rubbedAt || 0) > now) return;\n          buddy.classList.remove(\"nmb-grumpy\");" in AV
     assert "nmb.visit = null;" in gone
 
 

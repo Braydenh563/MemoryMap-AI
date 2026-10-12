@@ -12,9 +12,9 @@ triggering it end to end.
 
 from __future__ import annotations
 
-from memorymap.ai import captioning, vision_ocr
-from memorymap.core import deps, media_process, ocr
-from memorymap.core.database import MediaUpload
+from tessellate.ai import captioning, vision_ocr
+from tessellate.core import deps, media_process, ocr
+from tessellate.core.database import MediaUpload
 
 
 def _upload(session, filename="a.png") -> MediaUpload:
@@ -68,7 +68,7 @@ def test_a_pdf_gets_the_vision_reader_and_nothing_else(session, tmp_path, monkey
 def test_process_referenced_uploads_finds_media_by_filename_in_text(
     session, tmp_path, monkeypatch
 ):
-    from memorymap.core import media_process as mp
+    from tessellate.core import media_process as mp
 
     calls = []
     monkeypatch.setattr(
@@ -87,7 +87,7 @@ def test_process_referenced_uploads_finds_media_by_filename_in_text(
 def test_process_referenced_uploads_does_nothing_for_unreferenced_text(
     session, tmp_path, monkeypatch
 ):
-    from memorymap.core import media_process as mp
+    from tessellate.core import media_process as mp
 
     calls = []
     monkeypatch.setattr(
@@ -99,7 +99,7 @@ def test_process_referenced_uploads_does_nothing_for_unreferenced_text(
 
 
 def test_process_committed_upload_ids_finds_media_by_id(session, tmp_path, monkeypatch):
-    from memorymap.core import media_process as mp
+    from tessellate.core import media_process as mp
 
     calls = []
     monkeypatch.setattr(
@@ -113,7 +113,7 @@ def test_process_committed_upload_ids_finds_media_by_id(session, tmp_path, monke
 def test_process_committed_upload_ids_does_nothing_for_an_empty_list(
     session, tmp_path, monkeypatch
 ):
-    from memorymap.core import media_process as mp
+    from tessellate.core import media_process as mp
 
     calls = []
     monkeypatch.setattr(
@@ -127,7 +127,7 @@ def test_process_committed_upload_ids_does_nothing_for_an_empty_list(
 
 
 def test_saving_a_note_processes_its_referenced_upload(ai_client, monkeypatch):
-    import memorymap.core.media_process as mp
+    import tessellate.core.media_process as mp
 
     calls = []
     monkeypatch.setattr(
@@ -141,7 +141,7 @@ def test_saving_a_note_processes_its_referenced_upload(ai_client, monkeypatch):
 
 
 def test_saving_a_document_processes_its_referenced_upload(ai_client, monkeypatch):
-    import memorymap.core.media_process as mp
+    import tessellate.core.media_process as mp
 
     calls = []
     monkeypatch.setattr(
@@ -157,7 +157,7 @@ def test_saving_a_document_processes_its_referenced_upload(ai_client, monkeypatc
 
 
 def test_updating_a_document_with_new_content_processes_its_upload(ai_client, monkeypatch):
-    import memorymap.core.media_process as mp
+    import tessellate.core.media_process as mp
 
     calls = []
     monkeypatch.setattr(
@@ -176,7 +176,7 @@ def test_updating_a_document_with_new_content_processes_its_upload(ai_client, mo
 
 
 def test_saving_a_chat_turn_processes_its_attached_image(ai_client, monkeypatch):
-    import memorymap.core.media_process as mp
+    import tessellate.core.media_process as mp
 
     calls = []
     monkeypatch.setattr(
@@ -195,7 +195,7 @@ def test_saving_a_chat_turn_processes_its_attached_image(ai_client, monkeypatch)
 
 
 def test_creating_a_whiteboard_image_object_processes_its_upload(ai_client, monkeypatch):
-    import memorymap.core.media_process as mp
+    import tessellate.core.media_process as mp
 
     calls = []
     monkeypatch.setattr(

@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import agent, tools
+from tessellate.ai import agent, tools
 
 
 # --- "now do it" ---------------------------------------------------------------

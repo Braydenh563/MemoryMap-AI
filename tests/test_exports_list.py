@@ -14,7 +14,7 @@ import base64
 import os
 from pathlib import Path
 
-from memorymap.api.routes_files import EXPORTS_DIRNAME, EXPORTS_LIST_LIMIT
+from tessellate.api.routes_files import EXPORTS_DIRNAME, EXPORTS_LIST_LIMIT
 
 
 def _save(client, filename: str, data: bytes):

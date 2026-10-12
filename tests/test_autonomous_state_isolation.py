@@ -17,7 +17,7 @@ Either one failing alone means the isolation is gone.
 
 from __future__ import annotations
 
-from memorymap.ai import autonomous
+from tessellate.ai import autonomous
 
 
 def test_dirty_the_state_one():
@@ -42,7 +42,7 @@ def test_reset_state_clears_the_flag_the_hold_and_the_frozen_hold():
 
 def test_a_new_app_starts_without_the_last_apps_hold(app_state):
     autonomous.request_stop(snooze_seconds=3600)
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     create_app()
     assert not autonomous.cancelled()

@@ -9,8 +9,8 @@ import zipfile
 
 import pytest
 
-from memorymap.core.database import Entry
-from memorymap.entry import app_import, manager
+from tessellate.core.database import Entry
+from tessellate.entry import app_import, manager
 
 
 def _zip(members: dict[str, str]) -> bytes:
@@ -181,3 +181,32 @@ def test_the_linear_import_regexes_still_read_real_files():
     )
     assert "[x] done" in enml and "[ ] open" in enml and enml.count("[attachment]") == 2
     assert "xml" not in enml and "DOCTYPE" not in enml
+
+
+def _many(count: int) -> bytes:
+    return _zip({f"Vault/Note {i}.md": f"---\ntags: [t{i % 3}]\n---\nHarbour tide {i}, call Ana tomorrow.\n" for i in range(count)})
+
+
+def test_a_big_import_commits_in_batches_and_reads_each_note_for_dates_once(client, session, monkeypatch):
+    """One commit and two date reads per note was the cost of a 5,000-note
+    import (45.9 s, data-1011): now a commit per hundred notes and one read."""
+    from sqlalchemy.orm import Session
+
+    reads: list[int] = []
+    commits: list[int] = []
+    real_dates = manager.record_dates
+    real_commit = Session.commit
+    monkeypatch.setattr(manager, "record_dates", lambda s, e: (reads.append(e.id), real_dates(s, e))[1])
+    monkeypatch.setattr(Session, "commit", lambda self: (commits.append(1), real_commit(self))[1])
+    body = _post(client, "obsidian", "vault.zip", _many(250)).json()
+    assert body["imported"] == 250
+    assert len(reads) == 250, f"{len(reads)} date reads for 250 notes"
+    assert len(commits) < 40, f"{len(commits)} commits for 250 notes"
+    assert session.query(Entry).filter(Entry.source_path.like("obsidian:%")).count() == 250
+
+
+def test_create_entry_without_a_commit_still_gives_the_note_its_id(session):
+    entry = manager.create_entry(session, "held until the caller commits", commit=False, dates=False)
+    assert entry.id is not None
+    session.rollback()
+    assert session.get(Entry, entry.id) is None  # nothing was committed

@@ -33,15 +33,10 @@ async function renderExtras() {
   //: Skeleton rows until the catalogue answers (INBOX 596, the owner: "some
   //: skeleton loaders are missing"): only into an empty list, so the poll
   //: that redraws it while a package installs never covers its rows.
-  const embedList = $("embed-models-list");
   showSkeletons(list, 3, "li");
-  showSkeletons(embedList, 2, "li");
   const body = await apiJson("/extras", { silent: true }).catch(() => null);
   clearSkeletons(list);
-  if (!body) {
-    clearSkeletons(embedList);
-    return;
-  }
+  if (!body) return;
   packagesUi.body = body;
   const bulk = body.bulk || { items: [], running: false };
   if (bulk.running) packagesUi.bulkSeen = true;
@@ -70,7 +65,6 @@ async function renderExtras() {
   if (body.running && settingsModalOpen() && currentSettingsSection === "extras") {
     packagesUi.poll = setTimeout(renderExtras, 1500);
   }
-  renderEmbedModels();
 
   // The model-size choice only means anything once faster-whisper is
   // actually there to load one.
@@ -81,6 +75,9 @@ async function renderExtras() {
     if (voiceExtra?.installed) {
       if (!prefsCache) prefsCache = await apiJson("/preferences").catch(() => null);
       $("voice-model-select").value = prefsCache?.voice_model || "base";
+      $("voice-skip-silence").checked = prefsCache?.voice_skip_silence ?? true;
+      $("voice-language-select").value = prefsCache?.voice_language || "";
+      $("voice-vocabulary").value = prefsCache?.voice_vocabulary || "";
     }
   }
 }
@@ -145,7 +142,7 @@ function packagesRenderBundles(body) {
         const install = smallButton(
           "ph:download-simple Install",
           `Install the ${missing.length === 1 ? "missing package" : `${missing.length} missing packages`} of ${bundle.label}`,
-          () => packagesBulk("install", missing)
+          () => packagesBulk("install", missing, bundle.id)
         );
         install.dataset.packagesFocus = `bundle-install-${bundle.id}`;
         actions.appendChild(install);
@@ -178,7 +175,7 @@ function packagesRenderBundles(body) {
               run: () =>
                 body.running || !reinstallable.length
                   ? toast(body.running ? busy : "Nothing here is installed yet.", "info")
-                  : packagesBulk("reinstall", reinstallable),
+                  : packagesBulk("reinstall", reinstallable, bundle.id),
             },
             {
               label: "ph:trash Remove all",
@@ -188,7 +185,7 @@ function packagesRenderBundles(body) {
               run: () =>
                 body.running || !removable.length
                   ? toast(body.running ? busy : "Nothing here is installed yet.", "info")
-                  : packagesBulk("uninstall", removable),
+                  : packagesBulk("uninstall", removable, bundle.id),
             },
           ],
           `More for the ${bundle.label} bundle`, { vertical: true })
@@ -208,8 +205,16 @@ function packagesRenderBundles(body) {
       //: the owner: "it just stayed as the 2/3 packages I had installed until
       //: it just suddenly updated, there was no progress indicator"): a bar
       //: over the packages, then one line each, waiting, installing, done.
+      //: **Under the bundle pressed, and nowhere else** (the owner, 2026-10-10:
+      //: "I pressed install on the documents package and the progress bars
+      //: appeared for the vision package"). Read scanned PDFs is in both
+      //: bundles, so Vision drew a bar and a "waiting" row for Documents'
+      //: install. A bundle's own Install, Reinstall or Remove all owns the
+      //: whole action; one started from the selection bar shows each
+      //: package under the first bundle that holds it.
       const bulk = body.bulk || {};
-      const mine = (bulk.items || []).filter((item) => bundle.extras.includes(item.id));
+      const shownIn = (id) => packagesUi.bulkBundle || (body.bundles || []).find((each) => each.extras.includes(id))?.id;
+      const mine = (bulk.items || []).filter((item) => bundle.extras.includes(item.id) && shownIn(item.id) === bundle.id);
       if (mine.length && (bulk.running || packagesUi.bulkSeen)) {
         if (bulk.running) {
           const bar = document.createElement("progress");
@@ -387,7 +392,7 @@ async function packagesInstallOne(extra) {
           `${extra.source} and checked against its pinned checksum. ` +
           "After that it works offline, with no restart."
       : `Install ${extra.label}?\n\n${extra.size}. It is downloaded from ` +
-          "PyPI to this machine, and MemoryMap needs a restart afterwards " +
+          "PyPI to this machine, and Tessellate needs a restart afterwards " +
           "before the feature works."
   );
   if (!ok) return;
@@ -417,8 +422,10 @@ async function packagesRemoveOne(extra) {
 async function packagesPost(path, body) {
   const options = { method: "POST" };
   if (body) options.body = JSON.stringify(body);
-  const result = await apiJson(path, options).catch((e) => ({ started: false, message: e.message }));
-  toast(result.message, !result.started);
+  const result = await apiJson(path, options).catch((e) => ({ started: false, failed: true, message: e.message }));
+  //: A refusal the server words ("Another install is already running.",
+  //: "... is already installed.") is a condition, not a fault: a notice, not red.
+  toast(result.message, result.failed ? true : result.started ? false : "info");
   renderExtras();
   return result;
 }
@@ -428,12 +435,12 @@ async function packagesPost(path, body) {
 //: One confirm for the lot, naming each package and what it costs, then one
 //: request: the server walks them in this order as one background job, each
 //: with its own outcome, and one failing never stops the rest.
-async function packagesBulk(action, extras) {
+async function packagesBulk(action, extras, bundleId = null) {
   if (!extras.length) return;
   const count = extras.length === 1 ? "1 package" : `${extras.length} packages`;
   const names = extras.map((extra) => (action === "install" ? `${extra.label}, ${extra.size}` : extra.label)).join("\n");
   const restart = extras.some((extra) => extra.kind === "pip")
-    ? " A package from PyPI needs a restart of MemoryMap before its feature works."
+    ? " A package from PyPI needs a restart of Tessellate before its feature works."
     : "";
   const message = {
     install: `Install ${count}?\n\n${names}\n\nEach is downloaded to this machine, one after another; one that fails does not stop the rest.${restart}`,
@@ -443,6 +450,8 @@ async function packagesBulk(action, extras) {
   const ok = await confirmDialog(message, { confirmLabel: { install: "Install", reinstall: "Reinstall", uninstall: "Remove" }[action] });
   if (!ok) return;
   packagesUi.bulkSeen = true;
+  //: Whose bar it is: the bundle pressed, or none for the selection bar's.
+  packagesUi.bulkBundle = bundleId;
   const result = await packagesPost("/extras/bulk", { action, ids: extras.map((extra) => extra.id) });
   if (result.started) {
     packagesUi.selected.clear();
@@ -488,151 +497,7 @@ $("extras-bulk-done").addEventListener("click", () => {
 });
 
 // Moved from status.js (boot gzip): Settings, Packages is its only caller.
-// --- embedding models, on the same screen as the packages ------------------------
-//
-// Reuses `.extras-row` deliberately. These are two lists of "things downloaded
-// to this machine, with a way to undo it", and giving the second one its own
-// row style would make them look like different kinds of thing when the whole
-// argument for putting them together is that they are not.
-let embedPollTimer = null;
-
-async function renderEmbedModels() {
-  const list = $("embed-models-list");
-  if (!list) return;
-  showSkeletons(list, 2, "li");
-  const body = await apiJson("/embedding-models", { silent: true }).catch(() => null);
-  clearSkeletons(list);
-  if (!body) return;
-
-  list.replaceChildren();
-  for (const model of body.models) {
-    const li = document.createElement("li");
-    li.className = "extras-row";
-
-    const head = document.createElement("div");
-    head.className = "entry-meta";
-    //: **The name and this row's status are one column; the buttons are the
-    //: other.** The same shape the packages list above already uses, and for
-    //: the reason recorded there (INBOX 107c): `.extras-row .entry-meta` is
-    //: `flex-wrap: nowrap` so the buttons never drop below the title, which
-    //: means whatever cannot shrink pushes the row off its own edge instead.
-    //:
-    //: This list was built the other way, with "✓ 1015 KB on disk" inside
-    //: `.entry-actions`, which is `flex: 0 0 auto`. Measured at 820px: the
-    //: chip 164px plus Re-download 122px plus Remove 91px made a 390px block
-    //: that would not shrink, against 458px of row holding an 80px name, so
-    //: Settings, Extras scrolled sideways (496 against 492). The status is
-    //: not an action; moving it into `.entry-title`, which is the shrinking
-    //: column and wraps inside itself, leaves the buttons 219px and lets the
-    //: name and the chip take the rest.
-    const title = document.createElement("div");
-    title.className = "entry-title";
-    const name = document.createElement("strong");
-    name.textContent = model.label + (model.default ? " · default" : "");
-    title.appendChild(name);
-    head.appendChild(title);
-
-    const actions = document.createElement("span");
-    actions.className = "entry-actions";
-    if (model.downloading) {
-      const busy = document.createElement("span");
-      busy.className = "muted";
-      setLabel(busy, "ph:spin Downloading…");
-      title.appendChild(busy);
-    } else if (model.installed) {
-      const done = document.createElement("span");
-      done.className = "chip item-label is-ok";
-      setLabel(done, `ph:check ${model.on_disk} on disk`);
-      title.appendChild(done);
-      // The same argument the packages' Reinstall makes: "the directory is
-      // there" is not "the model is sound". A download interrupted halfway
-      // leaves a snapshot that loads and produces nonsense, and fetching over
-      // the top of it resumes the same broken files, so this removes first.
-      if (body.can_download) {
-        actions.appendChild(
-          smallButton("ph:arrow-clockwise Re-download", `Fetch ${model.label} again from scratch`, async () => {
-            if (!(await confirmDialog(
-              `Download ${model.label} again?\n\nThe copy on this machine is ` +
-                "deleted first, so this is the fix for one that arrived broken."
-            ))) return;
-            const result = await apiJson(
-              `/embedding-models/${model.id}/download?reinstall=true`,
-              { method: "POST" }
-            ).catch((e) => ({ started: false, message: e.message }));
-            toast(result.message, !result.started);
-            renderEmbedModels();
-          })
-        );
-      }
-      actions.appendChild(
-        smallButton("ph:trash Remove", `Delete ${model.label} from this machine`, async () => {
-          if (!(await confirmDialog(
-            `Remove ${model.label}?\n\nIt frees ${model.on_disk}. Nothing is ` +
-              "lost that a download cannot bring back, but if this is the " +
-              "model in use, searching falls back to keywords until it returns."
-          ))) return;
-          const result = await apiJson(`/embedding-models/${model.id}`, {
-            method: "DELETE",
-          }).catch((e) => ({ removed: false, message: e.message }));
-          toast(result.message, !result.removed);
-          renderEmbedModels();
-        })
-      );
-    } else {
-      const get = smallButton("ph:download-simple Download", `Fetch ${model.label}`, async () => {
-        if (!(await confirmDialog(
-          `Download ${model.label}?\n\n${model.size}, fetched from HuggingFace ` +
-            "to this machine. It is the one thing on this screen that needs " +
-            "the internet."
-        ))) return;
-        const result = await apiJson(`/embedding-models/${model.id}/download`, {
-          method: "POST",
-        }).catch((e) => ({ started: false, message: e.message }));
-        toast(result.message, !result.started);
-        renderEmbedModels();
-      });
-      // Without huggingface_hub there is nothing to download *with*, so the
-      // button says so rather than failing on an ImportError nobody can read.
-      //: Not offered in one press (INBOX 700): its licence or its loading
-      //: rules; the reason is the tooltip and Settings, Models links its terms.
-      if (!model.one_press) {
-        get.disabled = true;
-        get.title = model.why_not;
-      } else if (!body.can_download) {
-        get.disabled = true;
-        get.title =
-          "Needs the huggingface_hub library, it arrives with “Search by " +
-          "meaning” in the list above.";
-      }
-      actions.appendChild(get);
-    }
-    head.appendChild(actions);
-    li.appendChild(head);
-
-    const about = document.createElement("p");
-    about.className = "muted extras-enables";
-    about.textContent = model.about;
-    li.appendChild(about);
-
-    const meta = document.createElement("p");
-    meta.className = "muted extras-meta";
-    meta.textContent = `${model.repo} · ${model.size}`;
-    li.appendChild(meta);
-    list.appendChild(li);
-  }
-
-  // Where they are, in as many words. "Somewhere in your home directory" is
-  // the answer people are given everywhere else and it is the reason this
-  // screen had to exist.
-  $("embed-models-cache").textContent = `Kept in ${body.cache}`;
-  $("embed-models-status").textContent = body.running
-    ? body.step
-    : body.outcome
-      ? body.step
-      : "";
-
-  clearTimeout(embedPollTimer);
-  if (body.running && settingsModalOpen() && currentSettingsSection === "extras") {
-    embedPollTimer = setTimeout(renderEmbedModels, 1500);
-  }
-}
+// Embedding models are in Settings, Search and index (embed-choices.js). This
+// screen keeps a pointer to them, so "what has this app put on my disk" still
+// leads there.
+$("packages-embed-link")?.addEventListener("click", () => openSettingsModal("searchindex"));

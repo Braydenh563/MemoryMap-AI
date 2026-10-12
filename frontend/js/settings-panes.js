@@ -369,7 +369,7 @@ function initComposerResize() {
   //: automatic size and a drag is remembered only until the box is emptied
   //: (see autoGrow). The key is still cleared here for profiles that have
   //: one from before.
-  try { localStorage.removeItem(COMPOSER_HEIGHT_KEY); } catch { /* storage may be unavailable */ }
+  try { prefs.remove(COMPOSER_HEIGHT_KEY); } catch { /* storage may be unavailable */ }
 
   //: **Double-tap the grabber to put it back.** Asked for directly: "allow
   //: double tapping the bottom expansion corner of the chat text box to reset
@@ -392,7 +392,7 @@ function initComposerResize() {
     event.preventDefault();
     delete box.dataset.maxPx;
     try {
-      localStorage.removeItem(COMPOSER_HEIGHT_KEY);
+      prefs.remove(COMPOSER_HEIGHT_KEY);
     } catch {
       /* private mode: there was nothing stored to remove */
     }
@@ -417,7 +417,7 @@ function initComposerResize() {
     const automatic = Number(box.dataset.autoHeight || 0);
     if (!height || Math.abs(height - automatic) <= 2) return;
     box.dataset.maxPx = String(height);
-    try { localStorage.setItem(COMPOSER_HEIGHT_KEY, String(height)); } catch { /* private mode */ }
+    try { prefs.set(COMPOSER_HEIGHT_KEY, String(height)); } catch { /* private mode */ }
     requestAnimationFrame(() => autoGrow(box));
   };
   box.addEventListener("pointerdown", (event) => {
@@ -519,6 +519,7 @@ async function renderAccount() {
   ];
   if (typeof info.vault_open === "boolean") vaultOpen = info.vault_open;
   $("account-password-on-open").checked = info.password_on_open !== false;
+  renderPinSettings(info.pin);
   renderLanAccess().catch(() => {});
   for (const [label, value] of rows) {
     //: A label column and a value column (`.account-facts`), not "Label: value"
@@ -534,6 +535,28 @@ async function renderAccount() {
   }
 }
 
+//: "PIN for this computer" (owner, 2026-10-12): the fields show only where a
+//: PIN can be set, which is this computer with an OS protected store; the
+//: line under the heading says why when it cannot.
+function renderPinSettings(pin) {
+  const state = $("account-pin-state");
+  if (!state || !pin) return;
+  const usable = pin.available && pin.here;
+  $("account-pin-fields").classList.toggle("hidden", !usable);
+  $("account-pin-set").classList.toggle("hidden", !usable);
+  $("account-pin-set").textContent = pin.set ? "Change PIN" : "Set up a PIN for this computer";
+  $("account-pin-forget").classList.toggle("hidden", !(pin.set && pin.here));
+  if (!pin.here) {
+    state.textContent = "A PIN can be set up only on the computer this notebook runs on.";
+  } else if (!pin.available) {
+    state.textContent = "This computer has no protected store for a PIN, so the password is the only way in here.";
+  } else {
+    state.textContent = pin.set
+      ? "A PIN is set: the lock screen takes it or your password, on this computer only."
+      : "Unlock on this computer with a few digits instead of your password.";
+  }
+}
+
 // --- Account & security: other devices (LAN mode) -----------------------------
 //
 // "Allow other devices on this network" (WORLD_CLASS_PLAN section 12, Brief
@@ -541,49 +564,6 @@ async function renderAccount() {
 // do and when: `restart_required` from the server is the whole of that
 // answer. On asks for the password, like turning sign-in off, and for the
 // same reason: an unlocked screen is not proof of knowing it.
-
-function renderLanState(state) {
-  const box = $("account-allow-lan");
-  const line = $("account-lan-state");
-  if (!box || !line) return;
-  box.checked = !!state.allow_lan;
-  const addresses = (state.addresses || []).filter(Boolean);
-  let icon = "ph:info";
-  let words = "";
-  if (state.restart_required) {
-    icon = "ph:arrow-clockwise";
-    words = state.allow_lan
-      ? "Restart the app to let other devices in."
-      : "Restart the app to close it to other devices.";
-    if (state.allow_lan && addresses.length) {
-      words += ` Then open ${addresses.join(" or ")} on the other device.`;
-    }
-  } else if (state.other_devices) {
-    icon = "ph:wifi-high";
-    words = addresses.length
-      ? `Open ${addresses.join(" or ")} on the other device.`
-      : "Other devices can open the app at this computer's network address.";
-  }
-  line.classList.toggle("hidden", !words);
-  if (words) setLabel(line, `${icon} ${words}`);
-  //: The certificate the network is served with (core/lancert.py), shown
-  //: while the switch is on so a phone's one-time warning can be checked.
-  const cert = $("account-lan-cert");
-  if (cert) {
-    const shown = Boolean(state.allow_lan && state.certificate);
-    cert.classList.toggle("hidden", !shown);
-    $("account-lan-fingerprint").textContent = shown ? state.certificate.fingerprint : "";
-  }
-}
-
-async function renderLanAccess() {
-  if (!$("account-allow-lan")) return;
-  try {
-    renderLanState(await apiJson("/auth/lan-access", { silent: true }));
-  } catch {
-    $("account-lan-state").classList.add("hidden");
-  }
-}
 
 // --- Privacy: where your data went (GET /privacy/receipt) ---------------------
 //
@@ -594,7 +574,6 @@ async function renderLanAccess() {
 // since the ledger on disk began. Nothing here can change a setting: the
 // switches listed at the bottom are facts, each set where it lives.
 
-let privacyReceipt = null;
 let privacyRange = "launch";
 
 for (const button of document.querySelectorAll("#privacy-range [data-range]")) {
@@ -640,11 +619,12 @@ async function changePassword() {
     // Changing the password invalidates every token, including this tab's.
     // The server hands back a fresh one so the change doesn't log you out of
     // the screen you just used to make it. Key must match authToken().
-    localStorage.setItem("token", result.token);
+    prefs.set("token", result.token);
     $("account-current").value = "";
     $("account-new").value = "";
     $("account-confirm").value = "";
     status.textContent = result.warning || "Password changed.";
+    if (result.pin_cleared) status.textContent += " Your PIN was removed; set it up again if you want one.";
     toast(
       result.other_sessions_ended
         ? `Password changed. ${result.other_sessions_ended} other session(s) were signed out.`
@@ -667,6 +647,53 @@ let prefsCache = null;
 // with the pre-save value and left the checkbox showing it permanently,
 // not just for the moment the save was in flight.
 let prefsSaveInFlight = null;
+
+//: Moved here from app.js (Brief 89, app.js's gzip ratchet): it is a
+//: preferences write, beside the reader it awaits; `startApp` calls it after
+//: every boot script has loaded.
+// The browser is the only thing that knows where the user actually is. The
+// server may be running in UTC, a container, a NAS, a machine whose clock was
+// never set: and every relative time the AI computes ("in 10 minutes",
+// "tomorrow at 9") is resolved against that. So the zone is reported once at
+// startup, and again whenever it changes (travel, or a DST shift).
+//
+// Only the IANA NAME is sent, never coordinates: "Australia/Brisbane" is what
+// makes the arithmetic right, and it is far less identifying than a location.
+async function reportTimezone() {
+  let zone = "";
+  try {
+    zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+  } catch {
+    return; // an environment without Intl still works, just on server time
+  }
+  //: Awaited, not read straight off `prefsCache` (A2): every `startApp` step
+  //: runs in parallel, so this one used to reach the comparison before the
+  //: boot GET had answered, find `prefsCache` still null, and PUT the same
+  //: zone the server already had on every single cold start. With the shared
+  //: reader the comparison has something to compare.
+  await loadPreferences().catch(() => null);
+  //: The locale's first day of the week, as a Python weekday (Intl says 1 for
+  //: Monday to 7 for Sunday). `weekInfo` is missing in older engines, and
+  //: then the server's Monday stands. Reported with the zone, only on change.
+  let weekDay = null;
+  try {
+    const info = new Intl.Locale(navigator.language).weekInfo;
+    if (info && Number.isInteger(info.firstDay)) weekDay = (info.firstDay - 1) % 7;
+  } catch {
+    weekDay = null;
+  }
+  const body = {};
+  if (zone && !(prefsCache && prefsCache.timezone === zone)) body.timezone = zone;
+  if (weekDay !== null && !(prefsCache && prefsCache.week_start_locale === weekDay)) {
+    body.week_start_locale = weekDay;
+  }
+  if (!Object.keys(body).length) return;
+  prefsCache = await apiJson("/preferences", {
+    method: "PUT",
+    body: JSON.stringify(body),
+    silent: true,
+  }).catch(() => prefsCache);
+}
 
 //: **One GET /preferences per boot** (WORLD_CLASS_PLAN A2). The whole of
 //: `startApp` runs its steps in parallel, and three of them wanted the
@@ -725,6 +752,8 @@ async function renderPrefs() {
   $("pref-search-z-margin").value = prefsCache.search_relative_z_margin;
   $("pref-style").value = prefsCache.communication_style;
   $("pref-voice").value = prefsCache.composer_voice;
+  $("pref-week-start").value = prefsCache.week_start || "auto";
+  $("pref-insight").value = prefsCache.insight_level || "one";
   $("pref-profile").value = prefsCache.user_profile;
   $("pref-profile-enabled").checked = prefsCache.profile_enabled;
   paintUserMarks();
@@ -736,6 +765,7 @@ async function renderPrefs() {
     prefsCache.notifications_muted_except_reminders
   );
   $("pref-smart-punctuation").checked = prefsCache.smart_punctuation === true;
+  $("pref-autocorrect").checked = prefsCache.autocorrect !== false;
   $("prefs-status").textContent = "";
   //: The fields now hold what the server holds, so nothing is unsaved: this
   //: also covers the reopen, since `showSettingsSection` re-renders.
@@ -768,6 +798,7 @@ async function renderPrefs() {
 function renderAutonomousSettings() {
   $("pref-autonomous-tasks").checked = Boolean(prefsCache.autonomous_tasks_enabled);
   $("pref-ai-first-filing").checked = prefsCache.ai_first_filing ?? true;
+  $("pref-auto-file-sensitive").checked = Boolean(prefsCache.auto_file_sensitive);
   $("pref-filing-style").value = prefsCache.filing_style || "topic";
   $("pref-background-filing").checked = prefsCache.background_filing ?? true;
   $("pref-warm-search-model").checked = prefsCache.warm_search_model_at_launch ?? true;
@@ -853,7 +884,6 @@ async function checkForSourceUpdateNotice() {
   showSourceUpdatedDialog(result);
 }
 
-
 //: Which checkbox in Settings mirrors which one elsewhere in the app. Two
 //: controls for one preference is a reasonable convenience and a reliable way
 //: to get them out of step; this is the list that keeps them honest.
@@ -919,6 +949,7 @@ async function savePrefs(options = {}) {
       notifications_muted_except_reminders:
         $("pref-notif-mute-except-reminders").checked,
       smart_punctuation: $("pref-smart-punctuation").checked,
+      autocorrect: $("pref-autocorrect").checked,
     };
     // INBOX 73: "'Mute notifications except reminders' toggle disables
     // itself when the settings close." Reproduced two ways with Playwright
@@ -1024,7 +1055,7 @@ const PREFS_FIELD_IDS = [
   "pref-display-name", "pref-bin-days", "pref-chat-retention",
   "pref-search-min-sim", "pref-search-z-margin", "pref-style",
   "pref-profile", "pref-profile-enabled", "pref-notif-mute-except-reminders",
-  "pref-smart-punctuation",
+  "pref-smart-punctuation", "pref-autocorrect",
 ];
 
 function wirePrefsDirtyMarks() {
@@ -1067,16 +1098,15 @@ async function downloadExport(kind) {
   const response = await api(`/export/${kind}`);
   // Markdown and the full backup arrive as zips; the rest are single files.
   const name =
-    kind === "markdown" ? "memorymap-markdown.zip" :
-    kind === "backup" ? "memorymap-backup.zip" :
-    `memorymap-export.${kind}`;
+    kind === "markdown" ? "tessellate-markdown.zip" :
+    kind === "backup" ? "tessellate-backup.zip" :
+    `tessellate-export.${kind}`;
   await saveFile(name, await response.blob());
 }
 
 // --- Wave F: backups UI -------------------------------------------------------------
 
 // --- Wave F: command palette (Ctrl/Cmd-K) -------------------------------------------
-
 
 // Static commands; note search results are appended live as you type.
 //: Interface zoom, in one place so the slider, the +/- buttons, the keyboard
@@ -1096,7 +1126,7 @@ function currentZoom() {
 
 function setZoom(percent) {
   const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, Math.round(percent / ZOOM_STEP) * ZOOM_STEP));
-  localStorage.setItem("zoom", String(next));
+  prefs.set("zoom", String(next));
   const slider = $("zoom-slider");
   if (slider) slider.value = next;
   const readout = $("zoom-value");
@@ -1307,7 +1337,7 @@ function paletteCommands() {
     //: that is open. The reveal opens one first (the newest), and with no
     //: board at all rings the button that makes one.
     { label: "ph:map-trifold Board overview", reveal: "board-overview", about: "The whole board at once, to jump to any part of it." },
-    { label: "ph:magnifying-glass Find a card on this board", reveal: "board-find", about: "Search the cards on the open board by their text." },
+    { label: "ph:magnifying-glass Find on this board", reveal: "board-find", about: "Search the open board's cards, text and labels; Ctrl+H replaces." },
     //: Capture is a sub-tab of Notes, and focusing its box while another
     //: sub-tab was showing did nothing (the dashboard's own New note says so).
     { label: "ph:pencil-simple New note", reveal: "notes-capture", chord: "newNote" },
@@ -1340,6 +1370,9 @@ function paletteCommands() {
       reveal: "meeting",
       chord: "recordMeeting",
     },
+    { label: "ph:microphone-stage Voice note", reveal: "voice-note" },
+    { label: "ph:microphone Dictate a note", reveal: "notes-dictation" },
+    { label: "ph:waveform Recordings", reveal: "recordings" },
     {
       // The same ask about the page reader, in the same words: "I want an
       // easier and more accessible way to access the ocr workspace as a proper
@@ -1349,7 +1382,9 @@ function paletteCommands() {
       // you were last reading, else your newest readable file; the decision and
       // what was deliberately not built is in UI_MODERNISATION_PLAN.md, "how
       // the page reader is reached".
-      label: "ph:sparkle Read a document or image with AI",
+      //: "OCR" in the words (the owner, 2026-10-10: searching "ocr" in the
+      //: palette, Find anything and Quick access's list found nothing).
+      label: "ph:scan OCR workspace: read a document or image",
       reveal: "page-reader",
     },
     {
@@ -1362,10 +1397,9 @@ function paletteCommands() {
       about: "A blank board for cards, drawings, images and links.",
     },
     {
-      //: A map is a board with a name people recognise (`createConceptMap`,
-      //: whiteboard.js), and it was reachable only from the Library's own
-      //: create picker. The same argument as the board row above it.
-      label: "ph:tree-structure New concept map",
+      //: The Library's New, Mind map, from anywhere: Untitled map N, its
+      //: root in edit (MINDMAP_PLAN 15, rows 1 and 2).
+      label: "ph:tree-structure New mind map",
       reveal: "map-create",
     },
     {
@@ -1436,6 +1470,8 @@ function paletteCommands() {
     { label: "ph:trash Open the bin", reveal: "library-bin", keywords: "bin trash deleted binned restore recover", about: "Everything you threw away, in the Library, ready to restore." },
     { label: "ph:question Questions your notes ask", reveal: "notes-questions", keywords: "questions open questions", about: "The open questions found in your notes." },
     { label: "ph:chat-text Ask your notes", reveal: "notes-ask", keywords: "ask question answer search my notes", about: "An answer quoted from your own notes, with or without a model." },
+    //: The Guide had no row: "guide" found the tour (CHAT_PLAN 9 row 3).
+    { label: "ph:question Ask the Guide", reveal: "atlas-help", keywords: "guide help how do i how does where is question", about: "Ask how anything in the app works; it answers from the app's own help." },
     //: The tour's third door (the e2e flow pass): the Dashboard's first-run
     //: tile and Settings, Help were the only two (tests/test_palette_synonyms.py).
     { label: "ph:compass Take the guided tour", keywords: "tour walkthrough guide how to start show me around", about: "A short walk round the app, pointing at the real controls.", act: () => openTour("basics") },
@@ -1459,6 +1495,18 @@ function paletteCommands() {
     { label: "ph:shield-check Settings → Account & security", reveal: "settings:account", about: "The password, the lock and when it asks for it." },
     { label: "ph:globe-hemisphere-west Settings → Privacy", reveal: "settings:privacy", about: "The two things that can go online, both off by default." },
     { label: "ph:list-checks Settings → Background tasks", reveal: "settings:tasks", about: "What the app is working on while you write." },
+    { label: "ph:heartbeat Health", reveal: "settings:about", keywords: "integrity check last backup last error data folder size status storage disk space files", about: "How the notebook is: last backup, last error, what is running, size, integrity." },
+    { label: "ph:chart-bar Statistics", keywords: "stats numbers counts usage week review growth", about: "Your notebook, reminders and usage, counted, with this week against last.", act: () => openStatistics() },
+    //: The small tools (Brief 89, UI_MODERNISATION utilities rows 2 to 4):
+    //: "timer 10 minutes" and "insert template ..." also build their own rows
+    //: from the words (`utilityPaletteRows`, app-palette.js).
+    { label: "ph:timer Start a timer", keywords: "timer countdown pomodoro minutes alarm", about: "25 minutes on the status bar, or type “timer 10 minutes”. Press it to stop.", act: () => ensureModule("utilities").then(() => startUtilityTimer(25)) },
+    { label: "ph:timer Start a stopwatch", keywords: "stopwatch count up how long time it", about: "Counts up on the status bar. Press it to stop.", act: () => ensureModule("utilities").then(() => startStopwatch()) },
+    { label: "ph:closed-captioning Live captions", quick: "captions", keywords: "live captions subtitles transcribe speech microphone listen real time stop", about: "Write what the microphone hears as you go, on this computer. Run it again to stop and save a note.", act: () => toggleLiveCaptions() },
+    { label: "ph:text-aa Count words", keywords: "word count characters letters reading time selection length", about: "Words, characters and reading time of the selected text, or of the editor.", act: () => ensureModule("utilities").then(() => countSelection(paletteCaught)) },
+    { label: "ph:translate Translate this", keywords: "translate translation spanish language offline selection passage", about: "The selected passage into Spanish, offline (a package).", act: () => { const caught = { ...paletteCaught }; ensureModule("translate").then(() => translateCaught(caught)); } },
+    { label: "ph:activity Activity", keywords: "running jobs stop background model unload memory agent runs", about: "Every job running now, with Stop, and the agent's runs.", act: () => openActivity("running") },
+    { label: "ph:stop-circle Stop the model", keywords: "unload free memory model stop generating", about: "Stop any answer and unload the model from memory.", act: () => ensureModule("activity").then(() => window.stopActivityModel()) },
     { label: "ph:package Settings → Packages", reveal: "settings:extras", about: "Optional parts: speech, reading pages, better search." },
     { label: "ph:tree-evergreen Settings → Logs", reveal: "settings:logs", about: "What happened, for when something did not work." },
     { label: "ph:question Settings → Help", reveal: "settings:help", about: "How the app works, a section at a time." },
@@ -1470,13 +1518,19 @@ function paletteCommands() {
     //: the row says which it will do, since this list is built per query.
     { label: nameMarkBuddyShowing() ? "ph:eye-slash Hide companion" : "ph:person-simple Show companion", chord: "toggleCompanion", act: () => nameMarkBuddyToggle() },
     { label: "ph:keyboard Keyboard shortcuts", reveal: "shortcuts", chord: "help" },
+    //: INBOX 896: the status bar's wifi icon, by name, from anywhere.
+    { label: "ph:wifi-high Other devices", keywords: "lan network wifi phone open close trusted networks address", about: "Whether a phone on this network can open the app, with the switch and the trusted networks.", chord: "lanPanel", act: () => openLanPanel() },
     { label: "ph:arrow-left Go back", about: "To the page or view you were on before.", chord: "navigateBack", act: () => stepTabHistory(-1) },
     { label: "ph:arrow-right Go forward", about: "Forward again, after going back.", chord: "navigateForward", act: () => stepTabHistory(1) },
     { label: "ph:arrows-clockwise Reload the app", about: "Clears cached files first, so the newest version loads.", chord: "forceReload", act: () => forceReloadApp() },
-    { label: "ph:lock Lock MemoryMap", about: "Close the notebook until the password is typed again.", act: lockNow },
+    { label: "ph:lock Lock Tessellate", about: "Close the notebook until the password is typed again.", act: lockNow },
+    //: The top bar's other controls, so each is in the palette too (ledger 1410).
+    { label: "ph:gear Open Settings", chord: "settings", act: () => openSettingsModal() },
+    { label: "ph:bell Open notifications", keywords: "bell", act: () => openNotifications() },
+    { label: "ph:squares-four Switch space", act: () => $("space-switcher-btn")?.click() },
+    { label: "ph:power Quit Tessellate", act: () => quitApp() },
   ].map(catalogueRun);
 }
-
 
 //: **A row's keycap: the way to run it without the palette.** A chord the
 //: row declares by its registry name (`chord`, read from the live

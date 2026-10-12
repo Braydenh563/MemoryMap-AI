@@ -16,7 +16,7 @@ import json
 
 import pytest
 
-from memorymap.ai import extractor, janitor, passive_capture, reminder_parser
+from tessellate.ai import extractor, janitor, passive_capture, reminder_parser
 
 DEEP_OBJECT = "Sure! " + '{"a":' * 50000 + "1" + "}" * 50000
 DEEP_ARRAY = "Sure! " + "[" * 50000 + "]" * 50000

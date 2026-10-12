@@ -302,96 +302,18 @@ the same thing.
    sidebar's Outline tab rather than in a right panel, with the measurement
    that decided it.
 2. **Version history UI**: built (revisions, diff, Restore, the "AI edits"
-   filter). Re-run 2026-10-04, `dochistory.js` all pass; see HISTORY.md
+   filter). Re-run 2026-10-04, `dochistory.js` (removed 2026-10-12, recoverable from git history) all pass; see HISTORY.md
    ("Moved from the plans, 2026-10-04 (the documents phone pass)").
 3. **AI edit with a diff preview, per hunk; Check with AI as findings**:
    built (the per-hunk diff; INBOX 410's in-place findings). Re-run
-   2026-10-04, `docaidiff.js` all pass; same HISTORY entry.
+   2026-10-04, `docaidiff.js` (removed 2026-10-12, recoverable from git history) all pass; same HISTORY entry.
 4. **Focus and typewriter modes, reading typography, a print stylesheet**:
    built. The record is in HISTORY.md ("Moved from the plans, 2026-09-20",
    DOCUMENTS_PLAN.md Phase 5 item 4).
 
-### Phase 6: responsive by device (partly built; UI Phase 9 did the bands)
+### Phase 6: responsive by device: done
 
-**Measured first, 2026-09-13, `scratchpad/ui-sweeps/docnarrow.js` at 1440x900,
-1024x768, 800x1000 and 390x820**, because most of this phase turned out to be
-already built by UI Phase 9's sheet band and the rest could not be judged
-without knowing which:
-
-| | measured | state |
-| --- | --- | --- |
-| ≥ 1100 | sidebar 260px, editor 794px, measure at its 78ch cap | as the plan asks |
-| 820–1100 | sidebar 192px, editor 741px (the cap is ~700px, so the measure is already full) | **the icons rail would buy the measure nothing**; the selection toolbar is Phase 8's, not this phase's |
-| 600–820 | one column (`0px 764.8px`), the sidebar parked at `translateX(rail - 100%)` with a 52px rail, nothing past the window's right edge, first line at y=316 | built, by Phase 9 |
-| < 600 | one column, sheet parked, rail 60px, editor 270px, first line at y=318, 0 targets under 44px, 0 console errors | targets built 2026-09-13; the bottom formatting bar built 2026-09-13 (item 1 below) |
-
-The phase's own acceptance line, `errors.js` at 390/820/1024: **0 errors and 0
-layout findings at all three**, 2026-09-13, with the band-4 targets in place.
-
-**Decision, made here: what "touch targets 44px" means.** DESIGN.md's global
-floor is `--target-min`, 28px, chosen to clear WCAG 2.2 AA's 24px with room for
-a border, and that is not remade. This phase's 44px is the *layout's* targets in
-the phone band: measured at 390, eighteen controls were under it, and fifteen of
-them are rows inside open dock menus whose target is their whole 225 to 271px
-width. Raising those fifteen makes the dock's own menu 660px tall in an 820px
-window, which is a worse phone. So the band raises the two the layout hands a
-finger, the sheet's rail toggle (36 to 44, through `--sidebar-toggle-size`, so
-the rail and the content's left padding follow it) and the Edit/Read segment (28
-to 44), and leaves the menus alone. `10-responsive.css`'s band 4 block carries
-the reasoning; `docnarrow.js` asserts it.
-
-**What is left, in order:**
-
-1. **The phone formatting bar** (< 600): **built 2026-09-13**, see HISTORY.md
-   "Moved from the plans, 2026-09-13".
-2. **The outline as a sheet from the bottom** (< 600): **decided against,
-   2026-09-13, and the decision is not remade.** Measured at 390x820 before
-   deciding (`scratchpad/ui-sweeps/outline390.js` numbers, run once rather than
-   kept: the probe is two clicks and an assertion the sweeps above already
-   cover): the outline is two taps away and both targets are the size this band
-   asks for. The rail's toggle is a 44x44 button at x=7, y=71, the tap opens the
-   sidebar sheet whole (left 0, width 320 of a 390px window), and the Outline
-   tab in it lists all eighteen headings from y=189 with no scrolling. A second
-   sheet would be a third way to the same list, built from a recipe that says a
-   sheet is a modal dialog: it would cover the document exactly as the first one
-   does, and the only thing it would save is the tab tap. What would earn itself
-   instead, if the reach is ever reported, is the sidebar sheet *opening on the
-   Outline tab* while a document is open, which is one line in the opener and no
-   new surface. Left unbuilt on purpose.
-3. **"The first line of text is on screen with the keyboard open"**: measured
-   as far as a sandbox can, 2026-09-20, `scratchpad/ui-sweeps/dockeyboard.js`,
-   16 of 16, **and it found a bug in the default state of the formatting
-   strip.**
-
-   **What cannot be measured, and stays not verified**: headless Chromium
-   raises no on-screen keyboard and nothing here can make it, so
-   `visualViewport` never shrinks on its own and `env(keyboard-inset-height)`
-   is always 0. No run here says what a real phone does.
-
-   **What is measured**: everything between the number the platform would
-   report and the pixels. The probe stubs `visualViewport.height` at a
-   middling phone keyboard (336px) and fires the app's own listener, so
-   `initKeyboardInset`, `--keyboard-inset` and every rule that reads it are
-   the real ones. At 390x820 with a document open in Live: the token is 0px
-   with no keyboard and 336px with one, and back to 0px when it closes; the
-   thumb bar's bottom padding goes 4px to 336px and back; the chat composer's
-   8px to 344px; the first line of text sits at 343 to 379 against a visible
-   viewport of 484px, and the thumb bar's top is at 435, so the phase's own
-   line holds with 56px to spare.
-
-   **The bug**: `.doc-toolbar.is-collapsed` (05-sidebars-themes.css) sets
-   `padding-block` at (0,2,0) and beat the `.doc-toolbar` rule in 07 that
-   carries the inset at (0,1,0). Specificity beats file order, so the
-   formatting strip rose with the keyboard while expanded and sat under it
-   while collapsed, which is its default since D1. Measured at 820 with the
-   strip shown: expanded 6.4px to 342.4px, collapsed 4px to 4px. Fixed by
-   naming the sum once as `--dock-bottom-inset` (00-tokens-shell.css) and
-   giving each of the three rules its own base term; after, collapsed is 4px
-   to 340px, expanded unchanged, and collapsing still buys back the same
-   2.4px it did before.
-4. **820–1100's icons rail** is a deliberate no-op until something asks for the
-   width: the measure is at its cap there already. Left as a row here rather
-   than built, so the next session does not build it twice.
+Every item built or decided (the bands, the phone formatting bar, the keyboard inset fix, the outline sheet decided against, the 820 to 1100 rail a recorded no-op). Moved to HISTORY.md, "Moved from the plans, 2026-10-11 (DOCUMENTS Phase 6 and Phase 8, docs-1011)".
 
 ### Phase 8: one editor everywhere (1 session, the owner's ask, 2026-09-09)
 
@@ -432,38 +354,7 @@ in monospace) and the document (`#doc-content`: the engine after Phase 2).
 - The chat composer is not a note editor: it gets `[[` and `/` only, and
   keeps its own recipe (send on Enter).
 
-**8a, capture and the inline note edit**: **built 2026-09-13**, see
-HISTORY.md "Moved from the plans, 2026-09-13".
-
-**8b, the graph's popups and Write with the AI**: **built 2026-09-13**, same
-entry.
-
-**8c, the rest** (¼ session): whiteboard note cards edit in a `size:
-inline` surface in place of the canvas text field; reminders' magic box
-stays plain (it is a sentence, not a note, and that half is done by being
-decided); the skill editor's steps box gets the `/` menu only. Gate: touch.js
-and mindmap.js unchanged.
-
-**The skill editor's steps box: built, 2026-09-20.** `"skill-steps": "skill"`
-in `editor.js`'s `EDITOR_SURFACES`, and the menu it opens is the box's own
-vocabulary rather than the note commands, for the reason `chatCommands` gives
-and more sharply here: this box's label says "one step per line, in order",
-`skills.normalise` reads those lines as instructions, and a callout or a table
-inserted into one is not a step. `skillCommands` offers the two things the
-form beside it declares and nobody can type correctly from memory, the
-`{{placeholders}}` from "Ask me for" and the exact spelling of the tools this
-skill has ticked, both read off the form so neither can go stale, plus one row
-that explains itself when the form is still empty. The box stays a plain
-textarea with no engine and no Live view, which is in
-`tests/test_note_surface.py`'s `NOT_NOTE_TEXT` with that reason. Measured,
-`scratchpad/ui-sweeps/skillsteps.js`, 12 of 12: typing "/" opens a 304x165
-menu with the groups "Answers you will be asked for" and "Tools this skill may
-use", `tag: Which tag should I file?` yields `{{tag}}` and not the question,
-0 note commands leak in, and running one writes the placeholder at the caret.
-
-*The board's note card*: built 2026-09-23 (askcite), the commit keymap and
-the gesture guard moved onto the surface first; see HISTORY.md ("From OPEN.md,
-2026-09-23 (askcite agent): Phase 8c, the board's note card").
+All of 8a, 8b and 8c is built (capture, the inline edit, the graph's popups, Write with the AI, the skill steps box, the board's note card). Moved to HISTORY.md, "Moved from the plans, 2026-10-11 (DOCUMENTS Phase 6 and Phase 8, docs-1011)".
 
 ### Phase 7: export and interchange: **built 2026-09-13**
 
@@ -473,6 +364,11 @@ with its images, the Word export behind an optional extra, and import of
 plans, 2026-09-13". The python-docx row is closed too: `core/extras.py` has
 "Export to Word (python-docx)" and the 501 points at it in Settings (checked
 2026-10-04).
+   Superseded 2026-10-10 (the owner, INBOX 765): Word files are read and
+   written in the browser with Mammoth (read `.docx` to HTML) and docx (write
+   `.docx` from the editor's model), both vendored under `frontend/vendor`
+   with their notices in THIRD_PARTY.md. The python-docx extra, its route
+   and `docexport.to_docx` are retired (Brief 42, docs42b, 2026-10-10).
 
 ## 6. Competitor matrix (what the plan takes from whom)
 
@@ -504,7 +400,7 @@ plans, 2026-09-13". The python-docx row is closed too: `core/extras.py` has
 blocks,connections}.js`, served as-is, `test_frontend_load_order.py`
 enforces order), `frontend/js/editor.js` (the adapter), `frontend/vendor/
 codemirror/`, `index.html` (`.doc-dock`), `05-sidebars-themes.css`,
-`07-whiteboard-misc.css`, `src/memorymap/api/routes_documents.py`
+`07-whiteboard-misc.css`, `src/tessellate/api/routes_documents.py`
 (properties, comments, block ids), `core/docview.py` (export), tests
 under `tests/test_documents_*.py`, `scratchpad/ui-sweeps/editor.js`.
 
@@ -748,7 +644,7 @@ is the half that makes the other half true.
 assumed: code fences, inline code, addresses, markdown link destinations,
 reference definitions, html tags, `[[note links]]` and frontmatter are
 masked out of every prose rule, not only the spelling one; acronyms
-(`HTTP`), internal capitals (`MemoryMap`, `docSurface`) and letter runs
+(`HTTP`), internal capitals (`Tessellate`, `docSurface`) and letter runs
 touching a digit, a slash, an `@` or a dotted name (`utf-8`, `app.js`) are
 never checked. Measured on 8,000 characters of this project's own README:
 six findings, five distinct words, every one of them a product name or a
@@ -857,7 +753,7 @@ re-derived: **the file is rendered in the browser, from the pane that is
 already rendered, with a stylesheet of its own and its images as `data:` URIs.**
 
 **Why not on the server.** There is no markdown-to-HTML renderer in
-`src/memorymap/` (checked again before this was written) and this plan forbids
+`src/tessellate/` (checked again before this was written) and this plan forbids
 adding a dependency for one. Writing a second renderer in Python would mean two
 renderers that have to agree about tables, callouts, columns, embeds, block ids
 and comments-as-footnotes, and the one on the server would be the one nobody
@@ -867,7 +763,7 @@ whiteboard's PNG export takes for the same reason: the drawing exists, export
 what is drawn.
 
 **What "self-contained" is taken to mean**, because the word is doing all the
-work: the file opens on a machine with no network, no MemoryMap and no account.
+work: the file opens on a machine with no network, no Tessellate and no account.
 That is one assertion and everything below follows from it.
 
 - **The stylesheet is written out, not borrowed.** The app's eleven sheets are
@@ -904,7 +800,7 @@ That is one assertion and everything below follows from it.
 
 **What holds the line**: `tests/test_document_export_html.py` runs the document
 shell in node and fails on a host name, a `<link>`, an `@import`, a `url()` or a
-`<script>` anywhere in it, and `scratchpad/ui-sweeps/docexporthtml.js` exports a
+`<script>` anywhere in it, and `scratchpad/ui-sweeps/docexporthtml.js` (removed 2026-10-12, recoverable from git history) exports a
 real document, opens the saved file in a second browser context with every
 network request refused, and measures what renders: 0 network attempts, 1
 decoded inline image, the table, the disabled task boxes and the reading
@@ -1246,6 +1142,32 @@ open; the decisions stay.
    shorter labels (the strip's words are its only labels). Measured by
    `scratchpad/ui-sweeps/perf2-1005-docside.js`: fits, nothing under the
    toggle, at 1024, 1440 and 390, light and dark.
+10. **With no model, the documents' assistants stay visible and disabled
+   with the reason, never hidden** (the owner, 2026-10-11: "should the
+   assistant features in the regular and code document editor be disabled
+   when the ai isnt available??"; taken under standing order 3). The inline
+   Ask bar's field is read-only and its Ask is the gate's offer (why, what
+   works now, Set up a model); the document assistant's field and Suggest
+   are gated the same way; each surface carries one "Needs a model" notice
+   with the Settings link. What needs no model stays live: Quick fix,
+   Format, Run tests, Find usages, the spelling and grammar fixes. The code
+   Assistant's question box stays live because the tools answer what they
+   can (CHAT_PLAN decision 75: format, tests, usages, the quick fix, the
+   symbols); anything else is offered to needle or says it needs a model.
+   A code document is spoken to in code's words ("Explain, simplify, add
+   types", "the N lines you selected"); prose wording stays in prose. A
+   model connecting gives everything back live (`mm-model-gate`).
+11. **Two emoji tables, on purpose** (OPEN 1084): `:smile:` shortcodes are
+   GitHub's names so a document round-trips; the picker searches Unicode
+   names. One table would break one of the two.
+12. **The Python completion table is read from CPython's `inspect`**, not
+   Pyodide's (OPEN 1070): the same standard library, no browser in the
+   generator; a regeneration on another version is a reviewed diff.
+13. **Markdown's inline marks are one table, not one module** (OPEN 1130,
+   1132): `MD_INLINE_MARKS` (notes-list.js) is what the toolbars and the "/"
+   menu write; `INLINE_MD` stays a hand-written regex, because the renderer
+   addresses its capture groups by number, and a test reads every mark back
+   through it.
 
 ## 18. The slash menus as one system: built 2026-09-21
 
@@ -1258,6 +1180,185 @@ window and above the bar, 56 rows at 45px, 8 on screen. 18a (one row shape)
 is built, HISTORY.md. **Not verified:** the chat context's commands press
 controls in the chat dock, so a change there has to be measured against that
 dock rather than assumed.
+
+## 23. The code editor as an IDE: run, preview, test and debug (INBOX 748)
+
+Placed 2026-10-10. Section 21 and Brief 42 give the editor VS Code's
+everyday feel. The owner's ask goes past that: "a full debugger", "run and
+preview and test more than just python", "the python one needs a lot of
+improvements and extensions". What exists: `.js` runs in a worker and `.html`
+renders in a frame inside `/documents/run-sandbox` (`api/run_sandbox.py`);
+`.py` runs in the sandbox's Python twin once the Pyodide extra is installed
+(`core/extras.py`); output is a panel of rows under the editor, ten seconds
+and five hundred rows (`documents-code.js`, "Run, and its output"). No
+breakpoints, no stepping, no tests, no REPL, no TypeScript, SQL, CSS or SVG.
+
+**What VS Code has that matters here, and what cannot be had offline in a
+browser.** VS Code's debugger is a Debug Adapter Protocol client; the work is
+in the adapters, which are native processes. The app's rule (ROADMAP policy
+1: plain JS or WASM, offline, lazy, licence beside it) rules those out, and
+rules in two real debuggers: Python through `bdb` inside Pyodide, and
+JavaScript through an interpreter that steps. Both give the four views a
+debugger is (breakpoints, call stack, variables, watch) and the five actions
+(continue, step over, into, out, stop). Compiled languages (C, Rust, Go,
+Java, C#) do not run here and the panel says so in one line, as TypeScript's
+row does today.
+
+### Decisions made (do not re-decide)
+
+- D1. **One run protocol for every language**: `{kind, source, path, stdin,
+  tests}` in and `{row, level, line, col}` rows out, over `postMessage` to
+  the sandbox; a language is a module in `frontend/js/run/` that implements
+  `run`, optional `preview`, optional `test`, optional `debug`. The panel,
+  the Stop state and the limits are shared, never per language.
+- D2. **The Python debugger is `bdb` in the Pyodide worker**, not a
+  re-implementation: a `Bdb` subclass posts each stop (frame, line, locals,
+  globals, the stack) and blocks on `Atomics.wait` over a `SharedArrayBuffer`
+  until the main thread posts the next action. The sandbox pages therefore
+  carry `Cross-Origin-Opener-Policy: same-origin` and
+  `Cross-Origin-Embedder-Policy: require-corp`; `test_run_sandbox.py` checks
+  the headers. Breakpoints are `set_break`, conditions are evaluated there,
+  exceptions stop at the raise with the traceback, and the watch list is
+  evaluated in the stopped frame. Where `SharedArrayBuffer` is unavailable
+  (a webview without the headers), Run still works and Debug says why.
+- D3. **The JavaScript debugger is JS-Interpreter** (Neil Fraser, Apache-2.0,
+  ES5, about 150 KB minified, pure JS, no network), vendored under
+  `frontend/vendor/js-interpreter` with its licence and a `test_vendor_manifest`
+  row; ES2015 and later is first lowered by `sucrase` (MIT; measured before
+  vendoring, expected about 500 KB gzipped under 200 KB) where it can be,
+  and the panel names the construct it cannot step. Plain Run keeps the
+  worker's native engine; Debug uses the interpreter. Scripts that use the
+  DOM debug against a stub `document` and say so.
+- D4. **TypeScript runs**: `sucrase` strips the types (no checking) and the
+  row that said "does not compile" becomes "runs without type checking". The
+  same pass handles JSX for p5 and plain scripts.
+- D5. **SQL runs against SQLite in the browser**: `sql.js` (MIT, SQLite
+  compiled to WASM, about 1.3 MB, lazy, measured first) under
+  `frontend/vendor/sqljs`; a `.sql` document's Run shows each statement's
+  result as a table in the output panel, with an in-memory database per run
+  and a "load this CSV document as a table" action. Never the app's own
+  database.
+- D6. **Previews are a kind of run**: `.css` previews against a sample
+  document, `.svg` and `.md` render in the sandbox frame, `.html` as today,
+  the p5 kind (INBOX 735) runs in the frame with `p5.min.js`; every preview
+  refreshes on save and on a 400 ms idle when "Preview live" is on.
+- D7. **Tests are a kind of run**: Python runs `unittest` discovery over the
+  document (and `pytest` where the extra carries Pyodide's own pytest
+  wheel, measured and decided in Brief 69); JavaScript gets a 150-line
+  `describe`, `it`, `expect` harness of the app's own in the worker. The
+  Tests panel lists each test with its state, time and failure diff, and a
+  failing assertion is a diagnostic on its line in the editor.
+- D8. **Two consoles**: a Python REPL (Pyodide, the document's namespace
+  after a run) and a JavaScript REPL (the worker's global after a run), as
+  one panel tab beside Output, Problems, Tests and Debug. The panels are one
+  `.dock` recipe from DESIGN.md with a drag handle, remembered height and a
+  keyboard toggle each (Ctrl+J, Ctrl+Shift+M, Ctrl+Shift+Y, Ctrl+Shift+D).
+- D9. **The Python improvements are deterministic and local**: `ruff-wasm`
+  for lint and format (Brief 42 decides vendoring on its size), stdlib
+  completion from a generated table (`scripts/gen_python_completions.py`
+  over the vendored Pyodide's `inspect` at install time, not shipped),
+  signature help from the same table, `print` and `input` through the
+  panel (stdin is a field), matplotlib and numpy only if the extra ships
+  them (measured in Brief 69; not by default), and "Run selection" and
+  "Run cell" over `# %%` markers.
+
+### Phases
+
+| Phase | Brief | Deliverable | Measured by |
+| --- | --- | --- | --- |
+| I1 run, preview, test | 69 | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 69, I1"); what is left is in `agent-remaining/ide1-1010.md` | `scratchpad/ui-sweeps/code-run.js`, 46/46 at 1440 and 47/47 at 390 |
+| I2 the debugger | 70 | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 70, I2"); what is left is in `archive/agent-remaining/debug70-1010.md` | `scratchpad/ui-sweeps/code-debug.js`, 32/32 at 1440 and 31/31 at 390 (js, ts, py: breakpoint, three steps, a watch, the exception stop) |
+| I3 the IDE shell | 71 | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 71, I3"); what is left is in `archive/agent-remaining/shell71-1010.md` | `code-keys.js` 34/34 keys exercised, palette 61 commands (40/40 and 67 with Brief 70's debugger rows); `ide-shell.js` 19/19 (four heights kept across a reload); `ide-split.js` 10/10 |
+
+Help moves with each phase (standing order 13): the `data-help-for`
+popovers on Run, Debug and the panels, the Guide topic `code-run`, and
+`test_manual_parity.py`. Pyodide's `bdb` under `Atomics.wait` inside this
+sandbox's policy was measured working in Chromium (Brief 70); measured too,
+the frame is isolated only when the app's own page carries the two headers,
+so every response does. Not verified: whether the app's desktop webview
+honours them (where it does not, Debug on Python says so and Run works).
+
+## 24. Deepened 2026-10-10: the documents editor (Brief 72a, decision 71)
+
+Measured with `scratchpad/ui-sweeps/deepen72a.js` on a fresh data dir, no
+model configured, Chromium, three runs on a shared four-core machine (ranges
+are across runs): a 3,724-word Markdown document of 40 sections.
+
+**What renders today**
+
+| Measure | 1440 | 390 (touch) |
+| --- | --- | --- |
+| Controls in `#tab-documents` (a list of three or four documents included) | 46 to 50 | 28 to 35 |
+| Clicks from the dashboard | 3 (Library, Documents, the row); the palette 1 ("Go to Documents", "New document") | the same through the phone shell |
+| Time to the editor | click to painted editor 1,743 ms cold (the lazy bundle); a reopen 155 to 252 ms | 2,823 to 3,013 ms cold |
+| Undo | text: Ctrl+Z and Ctrl+Shift+Z round trip (CodeMirror history). Document acts: 2 of 11 undo (delete, AI edit); none for rename, archive, unlink a note, remove or attach a bookmark, restore a version, apply a writing finding, add to the dictionary, create (static read of each handler in `documents.js` for `pushUndo`) | the same |
+| Overflow | 0 controls past the viewport, 0 clipped, no page scroll; 8 overlaps, each list row's Actions button over its row button | 11 to 20 overlaps: the closed dock menu list (`.doc-dock-menu-list`, 13 items) lays out over the breadcrumbs; whether it paints is not verified |
+| No model | 2 AI controls, both disabled with no reason beside them; the editor palette has 33 commands | the same |
+
+**The professional bar.** Google Docs and Word: every act is one undo step,
+a named version restores as one step and undoes, a 4,000-word document opens
+in under a second, the phone has the same commands. Notion for blocks and
+links, Typora for the live view (section 17).
+
+**The rows, by impact**
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | fix | Built 2026-10-10 (HISTORY "DOCUMENTS 24 and 25, Brief 76"): rename, archive, version restore, a writing fix, dictionary add, link attach and remove, note detach and create each one undo step; Ctrl+Z on an open document walks the newer history | `docacts76.js` undo 10/10, redo 10/10 (2/11 before) | 1, 3 |
+| 2 | fix | Built 2026-10-10 (HISTORY "DOCUMENTS 24 and 25, Brief 76"): the closed dock menu list has no box; opened, it sits in the window | `deepen72a.js` 390 overlaps 20 to 0 (code 9 to 0), past the edge 12 to 0 | 7, 8 |
+| 3 | fix | Built 2026-10-10 (HISTORY "DOCUMENTS 24 and 25, Brief 76"): AI edit and Extract notes are `aria-disabled` with no model and a press opens why and Set up a model (`data-model-offer`) | no-model probe: 2 dead controls to 0 | 12, 4, 6 |
+| 4 | redesign | Built 2026-10-10 (HISTORY "DOCUMENTS 24 and 25, Brief 76"): named versions, a Named filter, Changes side by side, restore as one undo step without a confirm | `dochistory76.js`: restore then Ctrl+Z byte-equal at 1440 and 390 | 1, 3 |
+| 5 | optimisation | Cold open 1,743 ms at 1440 and 3,013 ms at 390: fetch the documents bundle on idle after unlock and paint the first screen before the outline and checks | click to painted editor under 800 ms at both widths (25g budget, Brief 53) | 13 |
+| 6 | fix | A save that fails says why and retries itself; a draft survives a reload and a crash | `test_never_lose.py` documents rows green; keystroke to saved under 1 s | 3, 4 |
+| 7 | redesign | The list row: the Actions button beside the title, not over it (8 overlaps at 1440). **Not built, Brief 76: it remakes INBOX 722** (the owner, 2026-10-06: the ⋮ overlays the row and never reserves a column; held by `test_a_rail_rows_title_takes_the_full_width_and_its_menu_overlays_it`); the title already fades under the ⋮ while it shows. Recommendation: keep the overlay and count a row's own ⋮ as no overlap in `deepen72a.js` | overlap 8 to 0; the title's right edge left of the button | 7, 11 |
+| 8 | expansion | Comments, highlights on pages, link cards with a viewer, the long-form choice at first run (Brief 42 items) | Brief 42's numbers | 6, 13 |
+| 9 | expansion | Built 2026-10-10 (HISTORY "DOCUMENTS 24 and 25, Brief 76"): Replace in every document (palette), plain or regex, case, through `POST /documents/contents`, one undo step | `docreplace76.js`: 50 documents, 1 step, one Ctrl+Z restores 50 of 50 | 1, 2 |
+| 10 | expansion | Labelled and linked sections with a local graph (the owner's idea; after 8) | Brief 42's last row | 6 |
+| 11 | optimisation | Every control in `#tab-documents` has a `data-help-for` popover and a palette command. Measured by Brief 76: 78 controls with ids, 0 with a popover of their own, 71 editor commands. Open: a popover per control is not DESIGN.md's recipe (one line per section, the rest behind one '?'); recommendation: one '?' per documents section (sidebar, dock and its menu, find bar, AI panel) naming every control in it, a palette command per control, and a ratchet test listing the gaps | `test_manual_parity.py`; 0 missing | 6 |
+
+**Briefs.** 42 (rows 8, 10), 48 (Word round trip), 51 (row 6), 53 (row 5),
+76 (rows 1 to 4, 7, 9, 11, with section 25's code rows).
+
+## 25. Deepened 2026-10-10: the code editor (Brief 72a, decision 71)
+
+Section 23's decisions D1 to D9 stand and are not re-decided; these rows are
+what the editor needs beside them. Measured with `deepen72a.js` as in
+section 24, on a 241-line Python document and a one-line `.js` one.
+
+**What renders today**
+
+| Measure | 1440 | 390 (touch) |
+| --- | --- | --- |
+| Controls in `#tab-documents` | 45 to 49 | 35 |
+| Clicks from the dashboard | 3, as section 24; the editor palette 45 commands once a code document is open | the same |
+| Time to the editor (from another open document) | 275 to 675 ms | 2,123 to 2,823 ms |
+| Gutters and keys | line numbers, fold gutter and lint gutter present; no minimap; Ctrl+D adds the next match (2 ranges); Ctrl+H opens the replace panel | the same |
+| Run | `.js`: one Run button ("Run this file in a sandbox"); `.py` without the Pyodide extra: no Run button and no line saying why | the same |
+| Undo | text edits round trip; the document acts as section 24 (2 of 11) | the same |
+| Overflow | 0 past the viewport, 0 clipped; the list row overlaps of section 24 | 12 controls past the left edge (`doc-file-type`, "Editor and layout", `doc-connections`, `doc-history`, `doc-copy-link`: the dock menu list at x = -32) and 13 overlaps |
+| No model | 2 AI controls, both disabled; Emmet, completion, folding, find, format on demand are local | the same |
+
+**The professional bar.** VS Code: the selected line's number bold with the
+line bordered, indent guides, multi-cursor, regex find and replace, go to
+symbol, folding, a problems panel, run and debug from one key, a palette that
+lists every command with its shortcut.
+
+**The rows, by impact**
+
+| # | Kind | Row | Measure | Rules |
+| --- | --- | --- | --- | --- |
+| 1 | fix | Built 2026-10-10 (HISTORY "DOCUMENTS 24 and 25, Brief 76"), with section 24 row 2 | 390 code document: past the edge 12 to 0, overlaps 9 to 0 | 7, 8 |
+| 2 | fix | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 69, I1"): Run disabled with "Install Python in Settings, Packages" beside it | 1 Run control on every runnable type; 0 types with no line | 12, 4, 6 |
+| 3 | redesign | Built (Brief 42; measured 2026-10-10, HISTORY "DOCUMENTS 24 and 25, Brief 76"): the selected line's number bold, the line bordered, indent guides | `font-weight` 700 on `.cm-activeLineGutter`; markers 0, 1, 2, 3 on a three-deep file | 11 |
+| 4 | expansion | Brief 42's packages, each sized gzipped before it lands: lint (`ruff-wasm`, a JS linter), a formatter, a diff against the last save. The formatter (js-beautify, lazy, 25,022 bytes gzipped, 0 at boot) and the diff (Compare with a saved version) are built 2026-10-10 (HISTORY "DOCUMENTS Brief 42 remainder"); the linters stay open | a diagnostic on its line in the sweep; sizes in the commit | 12 |
+| 5 | expansion | Run, preview, test, debug, consoles: D1 to D9 (Briefs 69 to 71) | section 23's gates | 5, 12 |
+| 6 | fix | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 42 remainder" and "DOCUMENTS Brief 71, I3"): 64 commands, 0 without a key or "none"; the keybindings sheet (Ctrl+K Ctrl+S) draws the same table, 34 keys each pressed by `code-keys.js` | 45 commands, 0 without a shortcut or a "none" | 6, 10 |
+| 7 | optimisation | Built 2026-10-10 (HISTORY "DOCUMENTS 24 and 25, Brief 76"): `docCodeScan` was 1 to 4 ms; two no-op reconfigures skipped, the findings repainted once, the panels a frame after the text | `deepen72a.js` code open 1440 538 to 240 ms, 390 963 to 649 ms (from the 3,724-word document; load 6 to 7) | 13 |
+| 8 | expansion | A minimap, off by default, one toggle in View (Brief 42's bar) | toggle present; its width remembered | 11 |
+| 9 | fix | Built 2026-10-10 (HISTORY "DOCUMENTS Brief 69, I1"): a run past 2 s lists in `/activity` and stops from it | the run lists in `/activity` and stops from it | 5 |
+
+**Briefs.** 42 (rows 3, 4, 8), 69 to 71 (row 5), 73 (row 9), 76 (rows 1, 2,
+6, 7, with section 24).
 
 ## Built, the sidebar redesign (INBOX 115), 2026-09-12
 
@@ -1342,3 +1443,67 @@ Moved to HISTORY.md ("Moved from the plans, 2026-10-03 (the documents pass)", DO
   language (documents-code.js), its language shown and changeable on the
   block, Escape or the arrow keys out of it back into the prose. Stored as the
   same fenced Markdown, so Source, export and print are unchanged.
+
+## Placed from the owner's list, 2026-10-10
+
+Entries are the owner's words, then the recommendation. Bugs come first.
+
+### Bugs
+
+- "I cant two finger trackpad zoom in or out on documents or images on the ocr workspace?"
+  Recommendation: pinch zoom (ctrl+wheel from a trackpad) on the PDF and OCR viewer and on images; test with a synthetic wheel event at the viewer. No brief carries it; Brief 42 is the nearest document brief.
+- "The note capture subtab formatting toolbar wont open :("
+  Recommendation: reproduce from the Notes Capture subtab, then fix the toolbar's open state and measure it. No brief carries it; Brief 42 is the nearest.
+- "Gemini might have removed the spell checker??" (the owner's words in the Gemini thread: "you removed spellchecker.py")
+  Recommendation: keep src/tessellate/vendor spellchecker.py and make Brief 35 (unused vendoring gone) leave it in, with a test that it loads; writing checks are Brief 42 (DOCUMENTS_PLAN section 21).
+- "I saved a website as a bookmark but the icon didnt change"
+  Recommendation: a saved bookmark takes the site's icon at save time and refreshes it on the next fetch; the link card in Brief 42 shows it. No brief carries the bug itself; Brief 42 (link cards) is the nearest.
+
+### Design requests
+
+- "on vs code selected lines have their line number bolded, the line subtly bordered and there are also indentation lines on vs code as well"
+  Recommendation: match VS Code's selected-line gutter, line border and indent guides in the code editor, measured against the VS Code screenshot set. Also carried by Brief 42 (the code editor to VS Code standard).
+- "also I want a better and more cardlike rendering of links or special liks like bookmarks and maybe even the ability to choose special icons or colours for bookmarked websites."
+  Recommendation: build link cards for bookmarks and embedded links with an icon and colour choice, and a viewer for them. Also carried by Brief 42 (embedded link cards with a viewer).
+- "The document editor and whiteboard and mindmap still have many design issues, functionality bugs, poor usability, lack features, and need improvement."
+  Recommendation: audit the document editor against VS Code and wordcraft in DOCUMENTS_PLAN section 21, and take the whiteboard and map rows from Briefs 36. Also carried by Brief 42.
+- "And we should massively improve, expand, refine and better integrate long form note taking."
+  Recommendation: the long-form path (document editor) gets the same comments, link cards, highlights and slash menu as the rest of the app; the first-run style choice is Brief 42. Also carried by Brief 42 (the long-form preference at first run).
+
+### Ideas
+
+- "Idea: on long form notes and documents, you can define topics, or use special characters, commands etc to label and link sections of documents on the ui, highlight or smth. You can visually connect ideas across the current document and link them, with reasons, you can have a local graph of linked ideas available for the current document and can even embed and render the graph in the document which"
+  Recommendation: a Phase row in DOCUMENTS_PLAN for labelled and linked sections with reasons and an embedded local graph, built only after highlights (Brief 42) and the graph's local pane (GRAPH_PLAN Phase 4). Also carried by Brief 42 (the labelled and linked sections idea).
+
+### Vendored capabilities to use, 2026-10-10 (Brief 75)
+
+The owner: "make sure all the vendored repositories are made full use of. I want maximum utility." Ranked by the utility to the surface; `scratchpad/vendor_use.py` prints the counts ("available N, called M") and `tests/test_vendor_utilisation.py` ratchets them, so a row that lands raises its floor in the same commit. Each is a lead from a lower-bound count: grep the call site before building (CLAUDE.md section 1).
+
+- **VC4, CodeMirror's merge view against a chosen version** (M, rank 4). `@codemirror/merge` is not in `codemirror/package.json`; the version diff is hand-built (`docDiffLcs` to `docDiffHunks`, `documents.js` lines 11260 to 11400). With autosave a diff against "the last save" is moments old, so the use is the chosen version: accept or reject one hunk in the editor. Measure: the bytes `codemirror.min.js` grows by (795,151 now), and rejecting one hunk restores exactly that hunk's lines (a node test on a three-hunk fixture).
+- **VC5, FlashText link offers and tag offers** (M, rank 5). FlashText is used by `ai/taxonomy.py` alone (2 of 19 members: `add_keyword`, `extract_keywords`); `extract_keywords(span_info=True)` returns offsets and `max_cost` forgives a typo. Offering a `[[link]]` where text names an existing note title, and an existing tag where text names one, needs no model. Measured today with the vendored module: 5,000 titles load in 27.5 ms and a 7,634-character text is scanned in 1.6 ms (97 hits). Measure: the same numbers through the real title list, under 50 ms per pause, and a title inside a code fence or an existing link is not offered.
+- **VC6, Harper's own dictionary and the other three dialects** (S, rank 6). The worker uses 3 of 29 `Linter` members; `import_words` and `export_words` take a personal dictionary (names and jargon from the notebook) and `ignore_lints` keeps a dismissed finding dismissed; `Dialect` offers 5 and `docSpellingVariant` passes two (US, UK), leaving Australian, Canadian and Indian. Measure: findings on a fixture of 10 proper nouns drop to 0 with the dictionary loaded; the spelling setting lists five dialects and each flags its own variant of "colour" or "center".
+- **VC7, the `diff` and `dockerFile` modes already in the bundle** (S, rank 7). `legacy modes` 15 of 18 called; `diff`, `dockerFile` and the `sql` factory are bundled and no file type offers them (`core/filetypes.py` lists 26 types, none a diff or a Dockerfile). Zero bytes. Measure: two rows in `FILE_TYPES`, and a `.patch` and a `Dockerfile` highlight in the editor (token classes counted in a Playwright run).
+- **VC13, the lint panel and fold-all in the palette** (S, rank 13). `lint` is 5 of 12 (gutter and next/previous only; `openLintPanel` and `lintKeymap` unused), `language` has `foldAll`, `unfoldAll` and `toggleFold` unused. A list of every problem in a source file is one panel. Measure: the panel lists the same count as the gutter markers on a file with 5 seeded errors; fold-all folds every top-level block of a 200-line fixture.
+- **VC17, Emmet's stylesheet syntaxes** (L, rank 17, lowest). Emmet is fully used (6 of 6 functions) but 4 of its 10 syntaxes are passed (html, css, xml, jsx); scss, sass, stylus, pug, haml and slim need a file type to apply to, and the matching highlight mode (`@codemirror/lang-sass`) is not vendored. Measure: only after a file type exists; an abbreviation `p10` in a `.scss` document expands to `padding: 10px;`.
+
+## Placed from Brief 60, 2026-10-10 (the measured census)
+
+- `documents.js` holds 14 `requestAnimationFrame` sites, 7 scroll listeners, 3 `ResizeObserver` and 4 `MutationObserver` (WORLD_CLASS 26.5, `scripts/handlers.py --list`): the second-largest wake-source count after `whiteboard.js`. No frame measurement of the editor yet; `frames.js` has no documents surface.
+
+## Placed from INBOX, 2026-10-10 (code as documents)
+
+- INBOX 788, the owner: "can you add code templates as document templates as well??", "maybe even add a code modules library like with the whiteboard and mindmap??" and "a way to better interact with the ai as a coding asistant like in vs code??" Owner: an Opus brief after the running ones: code templates in New document, a code snippets library on the whiteboard and mind map library pattern, and an assistant panel beside the code editor (explain, fix, write tests, apply as a diff with undo; Needle or the deterministic tools with no model).
+
+## Placed from INBOX, 2026-10-11 (Files, Recordings and Links; libraryup)
+
+- INBOX 827, the owner 2026-10-11, verbatim (screenshots: a file's "Text extracted from this file" box; the empty Recordings tab; a link's details): "it is also a little hard to read and view the extracted text on the file rows in the files subtab and I think that dropdown area is a little poorly designed. can there also be a better empty state and design for the recordings subtab?? also these link details are poorly designed as well and I want to be able to customise link highlights drag links together to form folders, change the icons on them, and more, the whole links/bookmarks tab needs an upgrade"
+
+Decisions made (the Links half extends WORLD_CLASS D9 and Brief 42; do not re-decide):
+- L1. Extracted text: the disclosure is a quiet row (DESIGN "Row actions"), not a bordered button; open, the text sits in a reading column (body size, 1.6 line height, page breaks marked "Page 2"), up to 50vh with a fade, Copy and Open reading as quiet buttons on the disclosure row, and a find box when the text passes one screen.
+- L2. Recordings empty state from DESIGN's empty-state recipe: an icon, one line, Record and Import audio, and a second line saying a meeting's recording and its transcript land here.
+- L3. A link's details: the card shows icon, title, site and a two-line excerpt; the full extract is behind "Show page text" in the L1 reader, never a wall of raw lines; the URL is a quiet copyable chip.
+- L4. Folders: drag a link onto another to make a folder (named "Folder", renamed in place), drag into and out of folders, and New folder in the bar; folders nest one level.
+- L5. Each link and folder takes an icon (the site's own, an app icon or an emoji) and a highlight colour from the palette tokens, from its kebab menu and from the details card.
+- L6. More from the read of Raindrop, Pocket and browser bookmark managers, ranked by how often a person meets it: sort and view (list, cards), tags, a read-later state, duplicate finding, import and export of browser bookmarks HTML. Built in that order after L1 to L5.
+
+Rows (owner: libraryup, Opus, after canvasdepth3): R1 to R6 build L1 to L6, each a commit with a test, measured at 1440 and 390, help moving with it (standing order 13).

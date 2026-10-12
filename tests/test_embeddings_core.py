@@ -12,8 +12,8 @@ import json
 
 import numpy as np
 
-from memorymap.ai import embeddings
-from memorymap.core.database import Entry
+from tessellate.ai import embeddings
+from tessellate.core.database import Entry
 
 
 def _note(session, content="a note", tags=None, private=False):
@@ -58,8 +58,8 @@ def test_orphaned_vectors_are_actually_removed(app_state, session):
     AttributeError, so the cleanup reported as running and never ran."""
     from sqlalchemy import text
 
-    from memorymap.core import deps
-    from memorymap.core.database import EmbeddingRecord
+    from tessellate.core import deps
+    from tessellate.core.database import EmbeddingRecord
 
     entry = _note(session, "a real note")
     gone = _note(session, "about to be purged")

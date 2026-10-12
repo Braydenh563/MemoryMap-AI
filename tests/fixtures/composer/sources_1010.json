@@ -1,0 +1,653 @@
+{
+ "today": "2026-10-06",
+ "rows": [
+  {
+   "id": "source-01",
+   "question": "what about the shed roof",
+   "sources": [
+    {
+     "id": 9000,
+     "content": "# Errands 0\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9100,
+     "content": "# Notes 0\n\nThe shed roof is made of cedar shingles.",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "note",
+    "id": 9100,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-02",
+   "question": "what about the launch date",
+   "sources": [
+    {
+     "id": 9001,
+     "content": "# Errands 1\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9101,
+     "content": "Sources 1\n\nThe launch date moved to the 14th of November.",
+     "kind": "board",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "board",
+    "id": 9101,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-03",
+   "question": "what about the wifi password",
+   "sources": [
+    {
+     "id": 9002,
+     "content": "# Errands 2\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9102,
+     "content": "Sources 2\n\nThe wifi password is on the router label.",
+     "kind": "map",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "map",
+    "id": 9102,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-04",
+   "question": "what about the pottery kiln",
+   "sources": [
+    {
+     "id": 9003,
+     "content": "# Errands 3\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9103,
+     "content": "Sources 3\n\nThe pottery kiln fires at 1240 degrees.",
+     "kind": "document",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "document",
+    "id": 9103,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-05",
+   "question": "what about the bike lock",
+   "sources": [
+    {
+     "id": 9004,
+     "content": "# Errands 4\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9104,
+     "content": "# Photos 4\n\n- photo4.jpg: shows the bike lock code is 4471",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "note",
+    "id": 9104,
+    "said": "picture"
+   }
+  },
+  {
+   "id": "source-06",
+   "question": "what about the guest list",
+   "sources": [
+    {
+     "id": 9005,
+     "content": "# Errands 5\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9105,
+     "content": "# Notes 5\n\nThe guest list has 28 names on it.",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "note",
+    "id": 9105,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-07",
+   "question": "what about the shed roof",
+   "sources": [
+    {
+     "id": 9006,
+     "content": "# Errands 6\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9106,
+     "content": "Sources 6\n\nThe shed roof is made of cedar shingles.",
+     "kind": "board",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "board",
+    "id": 9106,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-08",
+   "question": "what about the launch date",
+   "sources": [
+    {
+     "id": 9007,
+     "content": "# Errands 7\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9107,
+     "content": "Sources 7\n\nThe launch date moved to the 14th of November.",
+     "kind": "map",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "map",
+    "id": 9107,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-09",
+   "question": "what about the wifi password",
+   "sources": [
+    {
+     "id": 9008,
+     "content": "# Errands 8\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9108,
+     "content": "Sources 8\n\nThe wifi password is on the router label.",
+     "kind": "document",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "document",
+    "id": 9108,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-10",
+   "question": "what about the pottery kiln",
+   "sources": [
+    {
+     "id": 9009,
+     "content": "# Errands 9\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9109,
+     "content": "# Photos 9\n\n- photo9.jpg: shows the pottery kiln fires at 1240 degrees",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "note",
+    "id": 9109,
+    "said": "picture"
+   }
+  },
+  {
+   "id": "source-11",
+   "question": "what about the bike lock",
+   "sources": [
+    {
+     "id": 9010,
+     "content": "# Errands 10\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9110,
+     "content": "# Notes 10\n\nThe bike lock code is 4471.",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "note",
+    "id": 9110,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-12",
+   "question": "what about the guest list",
+   "sources": [
+    {
+     "id": 9011,
+     "content": "# Errands 11\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9111,
+     "content": "Sources 11\n\nThe guest list has 28 names on it.",
+     "kind": "board",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "board",
+    "id": 9111,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-13",
+   "question": "what about the shed roof",
+   "sources": [
+    {
+     "id": 9012,
+     "content": "# Errands 12\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9112,
+     "content": "Sources 12\n\nThe shed roof is made of cedar shingles.",
+     "kind": "map",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "map",
+    "id": 9112,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-14",
+   "question": "what about the launch date",
+   "sources": [
+    {
+     "id": 9013,
+     "content": "# Errands 13\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9113,
+     "content": "Sources 13\n\nThe launch date moved to the 14th of November.",
+     "kind": "document",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "document",
+    "id": 9113,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-15",
+   "question": "what about the wifi password",
+   "sources": [
+    {
+     "id": 9014,
+     "content": "# Errands 14\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9114,
+     "content": "# Photos 14\n\n- photo14.jpg: shows the wifi password is on the router label",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "note",
+    "id": 9114,
+    "said": "picture"
+   }
+  },
+  {
+   "id": "source-16",
+   "question": "what about the pottery kiln",
+   "sources": [
+    {
+     "id": 9015,
+     "content": "# Errands 15\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9115,
+     "content": "# Notes 15\n\nThe pottery kiln fires at 1240 degrees.",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "note",
+    "id": 9115,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-17",
+   "question": "what about the bike lock",
+   "sources": [
+    {
+     "id": 9016,
+     "content": "# Errands 16\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9116,
+     "content": "Sources 16\n\nThe bike lock code is 4471.",
+     "kind": "board",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "board",
+    "id": 9116,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-18",
+   "question": "what about the guest list",
+   "sources": [
+    {
+     "id": 9017,
+     "content": "# Errands 17\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9117,
+     "content": "Sources 17\n\nThe guest list has 28 names on it.",
+     "kind": "map",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "map",
+    "id": 9117,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-19",
+   "question": "what about the shed roof",
+   "sources": [
+    {
+     "id": 9018,
+     "content": "# Errands 18\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9118,
+     "content": "Sources 18\n\nThe shed roof is made of cedar shingles.",
+     "kind": "document",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "document",
+    "id": 9118,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-20",
+   "question": "what about the launch date",
+   "sources": [
+    {
+     "id": 9019,
+     "content": "# Errands 19\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9119,
+     "content": "# Photos 19\n\n- photo19.jpg: shows the launch date moved to the 14th of November",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "note",
+    "id": 9119,
+    "said": "picture"
+   }
+  },
+  {
+   "id": "source-21",
+   "question": "what about the wifi password",
+   "sources": [
+    {
+     "id": 9020,
+     "content": "# Errands 20\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9120,
+     "content": "# Notes 20\n\nThe wifi password is on the router label.",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "note",
+    "id": 9120,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-22",
+   "question": "what about the pottery kiln",
+   "sources": [
+    {
+     "id": 9021,
+     "content": "# Errands 21\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9121,
+     "content": "Sources 21\n\nThe pottery kiln fires at 1240 degrees.",
+     "kind": "board",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "board",
+    "id": 9121,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-23",
+   "question": "what about the bike lock",
+   "sources": [
+    {
+     "id": 9022,
+     "content": "# Errands 22\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9122,
+     "content": "Sources 22\n\nThe bike lock code is 4471.",
+     "kind": "map",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "map",
+    "id": 9122,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-24",
+   "question": "what about the guest list",
+   "sources": [
+    {
+     "id": 9023,
+     "content": "# Errands 23\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9123,
+     "content": "Sources 23\n\nThe guest list has 28 names on it.",
+     "kind": "document",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "document",
+    "id": 9123,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-25",
+   "question": "what about the shed roof",
+   "sources": [
+    {
+     "id": 9024,
+     "content": "# Errands 24\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9124,
+     "content": "# Photos 24\n\n- photo24.jpg: shows the shed roof is made of cedar shingles",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "note",
+    "id": 9124,
+    "said": "picture"
+   }
+  },
+  {
+   "id": "source-26",
+   "question": "what about the launch date",
+   "sources": [
+    {
+     "id": 9025,
+     "content": "# Errands 25\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9125,
+     "content": "# Notes 25\n\nThe launch date moved to the 14th of November.",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "note",
+    "id": 9125,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-27",
+   "question": "what about the wifi password",
+   "sources": [
+    {
+     "id": 9026,
+     "content": "# Errands 26\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9126,
+     "content": "Sources 26\n\nThe wifi password is on the router label.",
+     "kind": "board",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "board",
+    "id": 9126,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-28",
+   "question": "what about the pottery kiln",
+   "sources": [
+    {
+     "id": 9027,
+     "content": "# Errands 27\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9127,
+     "content": "Sources 27\n\nThe pottery kiln fires at 1240 degrees.",
+     "kind": "map",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "map",
+    "id": 9127,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-29",
+   "question": "what about the bike lock",
+   "sources": [
+    {
+     "id": 9028,
+     "content": "# Errands 28\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9128,
+     "content": "Sources 28\n\nThe bike lock code is 4471.",
+     "kind": "document",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "document",
+    "id": 9128,
+    "said": "quoted"
+   }
+  },
+  {
+   "id": "source-30",
+   "question": "what about the guest list",
+   "sources": [
+    {
+     "id": 9029,
+     "content": "# Errands 29\n\nPick up the parcel and post the letter.",
+     "created_at": "2026-10-01"
+    },
+    {
+     "id": 9129,
+     "content": "# Photos 29\n\n- photo29.jpg: shows the guest list has 28 names on it",
+     "created_at": "2026-10-02"
+    }
+   ],
+   "expect": {
+    "kind": "note",
+    "id": 9129,
+    "said": "picture"
+   }
+  }
+ ]
+}

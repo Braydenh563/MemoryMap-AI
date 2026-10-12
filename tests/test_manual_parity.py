@@ -15,9 +15,14 @@ panel (notes-list.js, `routes_categories.py`).
 
 from __future__ import annotations
 
+import json
+import shutil
+import subprocess
 from pathlib import Path
 
-from memorymap.ai.tools import WRITE_TOOLS
+import pytest
+
+from tessellate.ai.tools import WRITE_TOOLS
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
 
@@ -37,7 +42,7 @@ MANUAL = {
     "delete_note": ("note-cards.js", "async function binNoteWithUndo(entry)", "a note's menu, Move to bin"),
     "restore_note": ("note-cards.js", '/restore`, { method: "POST"', "the recycle bin, Restore"),
     "set_reminder": ("shell-reminders.js", 'async function addReminder(text, dueValue', "Reminders, New reminder"),
-    "complete_reminder": ("shell-reminders.js", "body: JSON.stringify({ done: checkbox.checked }),", "Reminders, the tick box"),
+    "complete_reminder": ("shell-reminders.js", "before, { done: checkbox.checked });", "Reminders, the tick box"),
     "rename_tag": ("tag-manager.js", '"/tags/rename",', "Manage tags, Rename"),
     "delete_tag": ("tag-manager.js", '"/tags/delete", { names }', "Manage tags, Remove from all notes"),
     "save_skill": ("skills.js", "async function saveSkillList(skills) {", "Settings, Skills, Save"),
@@ -48,6 +53,7 @@ MANUAL = {
     "add_whiteboard_link": ("whiteboard.js", 'apiJson("/whiteboard/objects", { method: "POST"', "a board, draw a link between cards"),
     "generate_diagram": ("whiteboard.js", 'apiJson("/whiteboard/boards/generate", {', "Library, Boards & maps, Map from notes"),
     "create_mindmap": ("whiteboard.js", 'const board = await apiJson("/whiteboard/boards", {', "Library, Boards & maps, New, Mind map"),
+    "map_from_note": ("menus.js", "apiJson(`/whiteboard/maps/from-note/${entry.id}`", "a note's ⋮ menu, Make a mind map"),
     "add_map_node": ("whiteboard-map.js", "const created = await apiJson(`/whiteboard/boards/${boardId}/nodes`, {", "a mind map, Add child"),
     "link_map_nodes": ("whiteboard.js", 'apiJson("/whiteboard/objects", { method: "POST"', "a mind map, draw a cross-link"),
     "move_board_item": ("whiteboard-format.js", "async function wbFmtGeometry(axis, value)", "a board, drag an item, or the Format panel's X and Y"),
@@ -60,6 +66,7 @@ MANUAL = {
     "rename_category": ("categories-panel.js", "async function renameCategory(meta, currentName)", "a category's menu, Rename"),
     "merge_categories": ("categories-panel.js", "async function mergeCategoryFromPanel(meta)", "a category's menu, Merge into"),
     "delete_category": ("categories-panel.js", "async function deleteCategoryFromPanel(meta)", "a category's menu, Delete"),
+    "move_notes": ("skills.js", "async function batchMove(category) {", "Select notes, move them to a category or another space"),
 }
 
 
@@ -109,3 +116,100 @@ def test_the_categories_panel_is_a_managed_list_with_the_reference_head():
     assert "function wireManageCategoryKeys(list, state, redraw)" in notes
     assert "function drawManageCategoryFooter(footer, state, redraw)" in notes
     assert 'filter.placeholder = "Filter categories";' in notes
+
+
+#: The person's small tools (UI_MODERNISATION utilities row 5, Brief 89):
+#: utility -> (file, a line that proves it, where a person finds it, its
+#: Guide topic). Each has a way in, a line of help where it is offered, and
+#: a Guide topic that says how to use it.
+UTILITIES = {
+    "statistics": ("statistics.js", 'helpBody.id = "stats-help";', "the heatmap's Statistics, the palette's Statistics", "statistics"),
+    "timer": ("utility-tools.js", "function startUtilityTimer(minutes = 25)", "the palette's Start a timer, or timer 10 minutes", "timer"),
+    "stopwatch": ("utility-tools.js", "function startStopwatch()", "the palette's Start a stopwatch", "timer"),
+    "stop the clock": ("utility-tools.js", '$("status-timer").addEventListener("click", stopUtilityClock);', "the status bar's timer chip", "timer"),
+    "count words": ("utility-tools.js", "function countSelection(caught)", "the palette's Count words", "count-words"),
+    "live captions": ("captions.js", "async function startLiveCaptions(opts = {})", "the palette's Live captions", "live-captions"),
+    "translate this": ("translate.js", "async function translateCaught(caught)", "the palette's Translate this", "translate-offline"),
+    "check this computer": ("settings-controls.js", "async function runMaintenanceDoctor()", "Settings, About, Maintenance, Check this computer", "maintenance"),
+    "reinstall on next start": ("settings-controls.js", "async function setMaintenanceReinstall(enabled)", "Settings, About, Maintenance, Reinstall on next start", "maintenance"),
+    "launcher logs": ("settings-controls.js", 'apiJson("/system/open-logs-folder"', "Settings, About, Maintenance, Open the launcher logs", "maintenance"),
+    "desktop shortcut": ("settings-controls.js", 'apiJson("/system/desktop-shortcut"', "Settings, About, Maintenance, Make a desktop shortcut", "maintenance"),
+    "uninstall steps": ("settings-controls.js", "function openUninstallSteps()", "Settings, About, Maintenance, Uninstall", "maintenance"),
+    "insert template": ("app-palette.js", "label: `ph:note-blank Insert template: ${template.name}`,", "the palette's insert template", "insert-template"),
+}
+
+
+def test_every_utility_has_its_way_in_and_a_guide_topic():
+    from tessellate.ai import help_chat
+
+    topics = {topic["id"] for topic in help_chat.HELP_TOPICS}
+    gone = [
+        f"{name}: {where}"
+        for name, (file, proof, where, topic) in UTILITIES.items()
+        if proof not in (FRONTEND / "js" / file).read_text(encoding="utf-8") or topic not in topics
+    ]
+    assert not gone, "Small tools that lost their way in or their Guide topic:\n  " + "\n  ".join(gone)
+    #: Each palette row carries its one line of help (`about`), the palette's
+    #: in-place help; the Statistics page and Settings, Templates also have a
+    #: '?' popover (`data-help-for`).
+    panes = (FRONTEND / "js" / "settings-panes.js").read_text(encoding="utf-8")
+    for label in ("Statistics", "Start a timer", "Start a stopwatch", "Count words", "Live captions"):
+        row = next((line for line in panes.splitlines() if 'label: "ph:' in line and f' {label}"' in line), "")
+        assert "about:" in row, f"the palette's {label} row has no line of help"
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    assert 'data-help-for="templates-help"' in html and "insert template" in html.split('id="templates-help"', 1)[1][:1200]
+
+
+#: **The manual finds every control named here** (WORLD_CLASS_PLAN 25c, its
+#: gate in 25.4). The manual (manual.js) is the Guide's topics as one page with
+#: a search; every manual path above and every small tool's way in must be
+#: found by that search, run as manual.js runs it (`manualWords`,
+#: `manualMatches`) over what `GET /help/topics` serves. Six were not when
+#: this was written (New category, Merge into, the timer chip, and three board
+#: controls): their topics now name them.
+_PROBE = """
+const fs = require("fs"), vm = require("vm");
+const ctx = {}; vm.createContext(ctx);
+vm.runInContext(fs.readFileSync(process.argv[2], "utf8"), ctx);
+const topics = JSON.parse(fs.readFileSync(process.argv[3], "utf8")).groups.flatMap((g) => g.topics);
+const out = {};
+for (const q of JSON.parse(fs.readFileSync(process.argv[4], "utf8"))) {
+  out[q] = topics.filter((t) => ctx.manualMatches(t, ctx.manualWords(q))).map((t) => t.id);
+}
+console.log(JSON.stringify(out));
+"""
+
+
+def test_the_manual_search_finds_every_named_control(tmp_path):
+    from tessellate.ai import help_chat
+
+    node = shutil.which("node")
+    if not node:  # pragma: no cover - node is in the sandbox and in CI
+        pytest.skip("node is not available")
+    names = sorted({where for (_, _, where) in MANUAL.values()} | {row[2] for row in UTILITIES.values()})
+    (tmp_path / "probe.js").write_text(_PROBE, encoding="utf-8")
+    (tmp_path / "listing.json").write_text(json.dumps(help_chat.help_listing()), encoding="utf-8")
+    (tmp_path / "names.json").write_text(json.dumps(names), encoding="utf-8")
+    run = subprocess.run(
+        [node, str(tmp_path / "probe.js"), str(FRONTEND / "js" / "manual.js"), str(tmp_path / "listing.json"), str(tmp_path / "names.json")],
+        capture_output=True, text=True, timeout=60, check=False,
+    )
+    assert run.returncode == 0, run.stderr
+    found = json.loads(run.stdout)
+    missing = [name for name in names if not found.get(name)]
+    assert not missing, "The manual's search finds nothing for: " + "; ".join(missing)
+
+
+def test_the_manual_is_the_guides_topics_with_a_door_from_help_and_the_guide():
+    manual = (FRONTEND / "js" / "manual.js").read_text(encoding="utf-8")
+    #: One source: the Guide's own table, never a copy.
+    assert 'apiJson("/help/topics")' in manual
+    assert "window.print()" in manual and 'search.placeholder = "Search the manual";' in manual
+    html = (FRONTEND / "index.html").read_text(encoding="utf-8")
+    assert 'id="help-open-manual"' in html
+    find = (FRONTEND / "js" / "settings-find.js").read_text(encoding="utf-8")
+    assert '$("help-open-manual")?.addEventListener("click", () => lazyScript("/js/manual.js")' in find
+    guide = (FRONTEND / "js" / "help-chat.js").read_text(encoding="utf-8")
+    assert '"ph:book-open-text Open the manual"' in guide
+    css = (FRONTEND / "css" / "manual-lazy.css").read_text(encoding="utf-8")
+    assert "@media print" in css and "body.manual-print > :not(.manual-overlay)" in css

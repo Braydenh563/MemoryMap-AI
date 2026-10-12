@@ -16,10 +16,10 @@ import numpy as np
 import pytest
 from sqlalchemy import event
 
-from memorymap.ai.embeddings import EmbeddingService
-from memorymap.api import routes_entries
-from memorymap.core import deps
-from memorymap.core.database import Entry
+from tessellate.ai.embeddings import EmbeddingService
+from tessellate.api import routes_entries
+from tessellate.core import deps
+from tessellate.core.database import Entry
 
 _WORDS = ("garden", "tomato", "budget", "gym", "flight", "bread", "meeting", "hike")
 
@@ -43,6 +43,11 @@ class _CountingEmbeddings(EmbeddingService):
 
     def is_ready(self) -> bool:
         return True
+
+    def loads_cold(self) -> bool:
+        #: Its "model" is loaded from the start: a cold one sends the search
+        #: to words and queues a "warm up" encode (6cf293e43), not a filing's cost.
+        return False
 
     def _embed_uncached(self, text):  # noqa: ANN001
         self.encodes.append(text)

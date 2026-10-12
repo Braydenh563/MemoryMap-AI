@@ -1,0 +1,137 @@
+{
+ "about": "Task requests typed as people type them, the owner's typos included (ledger next: tasks and routing, 30 gold). Each must reach its act through `commands.read_typed`; each control must not reach a writing act.",
+ "now": "2026-10-11T10:00:00",
+ "tasks": [
+  [
+   "remind me to call mum tmrw",
+   "reminder"
+  ],
+  [
+   "remnd me to pay rent on friday",
+   "reminder"
+  ],
+  [
+   "set a remindr for the dentist at 9am monday",
+   "reminder"
+  ],
+  [
+   "pls remind me 2 buy milk tonight",
+   "reminder"
+  ],
+  [
+   "can u remind me to email sam in 2 hours",
+   "reminder"
+  ],
+  [
+   "dont let me forget to water the plants tomorrow",
+   "reminder"
+  ],
+  [
+   "make a note that the wifi password is 4471",
+   "new_note"
+  ],
+  [
+   "note: bins go out wednesday",
+   "new_note"
+  ],
+  [
+   "jot down buy oat milk",
+   "new_note"
+  ],
+  [
+   "write down that sam owes me $20",
+   "new_note"
+  ],
+  [
+   "save this: harbor launch moved to the 21st",
+   "new_note"
+  ],
+  [
+   "creat a note abt the gym plan",
+   "new_note"
+  ],
+  [
+   "tag the dentist note health",
+   "tag"
+  ],
+  [
+   "add the tag work to my standup note",
+   "tag"
+  ],
+  [
+   "pin the dentist note",
+   "pin"
+  ],
+  [
+   "pin my sourdough note plz",
+   "pin"
+  ],
+  [
+   "unpin the dentist note",
+   "unpin"
+  ],
+  [
+   "delete the gym note",
+   "delete"
+  ],
+  [
+   "delte my old wifi note",
+   "delete"
+  ],
+  [
+   "get rid of the note about golf",
+   "delete"
+  ],
+  [
+   "move the dentist note to health",
+   "move"
+  ],
+  [
+   "put the sourdough note in cooking",
+   "move"
+  ],
+  [
+   "file the golf note under sport",
+   "move"
+  ],
+  [
+   "link the dentist note to the health note",
+   "link"
+  ],
+  [
+   "rename the gym note to leg day",
+   "rename"
+  ],
+  [
+   "add buy eggs to my shopping note",
+   "append"
+  ],
+  [
+   "summarise my work notes",
+   "summarise"
+  ],
+  [
+   "sumarize my notes from this week",
+   "summarise"
+  ],
+  [
+   "take me to settings",
+   "navigate"
+  ],
+  [
+   "open the graph",
+   "navigate"
+  ]
+ ],
+ "not_acts": [
+  "remind me what sam said about golf",
+  "what did i note about the dentist",
+  "how do i delete a note",
+  "where did i file the golf note",
+  "get rid of stress, any tips?",
+  "is the dentist note pinned?",
+  "note: is the boiler code 4471?",
+  "what does tag mean",
+  "dont forget"
+ ]
+}

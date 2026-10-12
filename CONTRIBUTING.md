@@ -1,11 +1,11 @@
-# Contributing to MemoryMap AI
+# Contributing to Tessellate
 
 Thanks for your interest. This is a small, focused project with one guiding
 principle, so a little context goes a long way.
 
 ## The one rule that shapes everything
 
-**MemoryMap AI is 100% offline and local-first.** Every feature must work on the
+**Tessellate is 100% offline and local-first.** Every feature must work on the
 user's own machine with no cloud dependency. Two features may reach the
 internet, web search and the update check, and both are opt-in: web search is
 off by default, the update check waits for your answer to a question the first
@@ -35,7 +35,7 @@ pip install -r requirements.txt
 pip install -e .            # editable install, do not forget the dot
 ```
 
-Run the app with `python -m memorymap` and open <http://localhost:8000>, or use
+Run the app with `python -m tessellate` and open <http://localhost:8000>, or use
 `./start.sh` (`start.bat` on Windows), which does all of the above.
 
 `requirements.txt` includes `sentence-transformers`, which brings PyTorch (about
@@ -49,7 +49,7 @@ Everything runs offline, with no Ollama and no models:
 ```bash
 bash scripts/gate.sh --changed   # lint set, node --check, ruff, and the tests that name your files
 ruff check .                     # lint (what CI runs)
-pytest -n auto                   # the whole suite: 8,200+ tests, under nine minutes on four cores
+pytest -n auto                   # the whole suite: 9,200+ tests, under nine minutes on four cores
 ```
 
 The full suite takes about 25 minutes serially, so run the gate while you work

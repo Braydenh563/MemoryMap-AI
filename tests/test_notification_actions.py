@@ -22,7 +22,8 @@ from tests._css_paths import css_text
 
 ROOT = Path(__file__).resolve().parents[1]
 JS = ROOT / "frontend" / "js"
-STATUS = (JS / "status.js").read_text(encoding="utf-8")
+#: The bell's panel is notifications.js (lazy) since Brief 101a; its store stays in status.js.
+STATUS = (JS / "status.js").read_text(encoding="utf-8") + "\n" + (JS / "notifications.js").read_text(encoding="utf-8")
 APP = app_js_text()
 CSS = css_text()
 
@@ -52,13 +53,30 @@ def test_every_toast_builder_uses_one_message_and_one_action_shape():
     assert "toastActionButton(" in _body(STATUS, "function toastAction(")
 
 
-def test_the_toast_row_spaces_its_parts_with_a_gap_not_margins():
+def test_the_toast_is_two_rows_the_message_and_close_then_the_actions():
+    """INBOX 847: "notification buttons are still in line with the x close
+    button". Measured in Chromium at 1440 and 390 for an Undo, an error with
+    two actions, a progress result and a long wrapped notice: no action's box
+    shares the close button's row, and the action's word starts on the
+    message's left edge (0px apart)."""
     rule = re.search(r"/\* One toast recipe.*?\*/\s*\.toast\s*\{([^}]*)\}", CSS, re.S)
     assert rule, "the toast recipe block"
-    assert "gap: var(--space-3)" in rule.group(1)
-    assert "align-items: flex-start" in rule.group(1), "a wrapped message keeps its actions on its first line"
+    assert "display: grid" in rule.group(1)
+    assert "gap: var(--space-1) var(--space-3)" in rule.group(1), "spaced by gaps, not margins"
     msg = re.search(r"\.toast > \.toast-msg\s*\{([^}]*)\}", CSS)
-    assert msg and "padding-block" in msg.group(1), "the first line is centred on the controls"
+    assert msg and "padding-block" in msg.group(1), "the first line is centred on the close button"
+    assert "grid-row: 1" in msg.group(1)
+    actions = re.search(r"\.toast > \.toast-actions\s*\{([^}]*)\}", CSS)
+    assert actions and "grid-row: 2" in actions.group(1) and "grid-column: 1 / -1" in actions.group(1)
+    close = re.search(r"\.toast\.toast > \.toast-close\s*\{([^}]*)\}", CSS)
+    assert close and "grid-row: 1" in close.group(1) and "grid-column: 2" in close.group(1)
+
+
+def test_every_toast_builder_puts_its_buttons_in_one_actions_row():
+    for head in ("function toast(", "function toastAction(", "function toastProgress(", "function showServerDownBanner("):
+        assert "toastActions(" in _body(STATUS, head), head
+    notice = (JS / "semantic-notice.js").read_text(encoding="utf-8")
+    assert "toastActions(decline)" in notice
 
 
 # --- every toast action is kept in the bell ----------------------------------
@@ -84,8 +102,8 @@ def test_an_undo_is_kept_only_while_it_is_valid():
     assert "undoStack" in keep, "an Undo on the app's stack is valid while it is still on it"
     assert "NOTICE_UNDO_MS" in keep, "an Undo off the stack has a time limit"
     row = _body(STATUS, "function notificationActionButton(")
-    assert '"Expired"' in row and '"Done"' in row
-    assert "disabled = true" in row
+    assert '"Undo expired"' in row and '"Done"' in row
+    assert "disabled = true" not in row, "a spent action is words, never a disabled button (INBOX 811)"
 
 
 def test_an_opener_resolves_its_target_by_id_when_pressed():
@@ -135,15 +153,35 @@ def test_openers_carry_a_target_that_survives_a_reload():
 def test_a_row_shows_its_action_as_a_button():
     body = _body(STATUS, "async function openNotifications(")
     assert "notificationActionButton(item)" in body
-    assert "notif-dot" in body, "the unread dot is an element in its own column"
-    assert "notif-side" in body, "time and the row's controls share one column"
+    assert "notif-dot" in body, "the unread dot is an element, in the icon's gutter"
+    assert "foot.append(time)" in body and "row.append(actions)" in body, (
+        "the time leads the meta line; the controls are the row's right-edge column (INBOX 874)"
+    )
+    assert "foot.append(time, actions)" not in body, "the controls went back to the bottom of the row (INBOX 874)"
+    assert '"ghost small quiet notif-cta"' in _body(STATUS, "function notificationActionButton("), (
+        "the row's action is quiet text, not a bordered block (INBOX 811)"
+    )
 
 
 def test_the_row_is_one_grid_with_no_overlaid_controls():
     rule = re.search(r"/\* One notification row.*?\*/\s*\.notif-row\s*\{([^}]*)\}", CSS, re.S)
     assert rule, "the row recipe block"
-    assert "grid-template-columns: var(--notif-dot) var(--notif-line) minmax(0, 1fr) auto" in rule.group(1)
+    assert "grid-template-columns: var(--notif-line) minmax(0, 1fr)" in rule.group(1)
     tail = CSS[rule.start():]
     assert not re.search(r"\.notif-row-actions\s*\{[^}]*position:\s*absolute", tail), (
         "the controls float over the title again (INBOX 585)"
     )
+    assert not re.search(r"\.notif-row:(hover|focus-within) \.notif-time\s*\{[^}]*opacity:\s*0", tail), (
+        "the time gives its place up to the controls again (INBOX 811)"
+    )
+
+
+def test_the_controls_are_the_rows_centred_right_column_and_always_drawn():
+    """INBOX 874, the owner: "should the x and tick buttons on notifications be
+    at the bototom of the notification?? I thought they were in the middle or
+    top right??" A third grid column, centred on the row, drawn at rest."""
+    assert re.search(r"\.notif-row \{[^}]*grid-template-columns: var\(--notif-line\) minmax\(0, 1fr\) auto;", CSS, re.S)
+    rule = re.search(r"\n\.notif-row-actions \{([^}]*)\}", CSS)
+    assert rule and "grid-column: 3" in rule.group(1) and "align-self: center" in rule.group(1)
+    assert not re.search(r"\.notif-row-actions\s*\{[^}]*opacity:\s*0", CSS), "the controls are hidden until hover again (a gap that appears)"
+    assert not re.search(r"\.notif-dismiss\s*\{[^}]*opacity:\s*0", CSS)

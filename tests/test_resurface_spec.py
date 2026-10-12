@@ -17,8 +17,8 @@ BUILT = "WORLD_CLASS 15 I4: resurfacing, built 2026-09-12"
 def test_an_old_unlinked_unopened_note_outranks_a_linked_recent_one(session):
     from datetime import datetime, timedelta
 
-    from memorymap.ai import resurface
-    from memorymap.entry import manager
+    from tessellate.ai import resurface
+    from tessellate.entry import manager
 
     old = manager.create_entry(session, "interview prep notes from the spring", tags=[])
     old.created_at = datetime.now() - timedelta(days=120)
@@ -34,8 +34,8 @@ def test_an_old_unlinked_unopened_note_outranks_a_linked_recent_one(session):
 
 
 def test_the_context_vector_reorders_the_top_three(session, fake_embeddings):
-    from memorymap.ai import resurface
-    from memorymap.entry import manager
+    from tessellate.ai import resurface
+    from tessellate.entry import manager
 
     # `b` shares a tag with `a` and `c` shares nothing. Before 2026-10-03 this
     # asserted an unrelated `b` came back with no vectors at all; that was the
@@ -127,13 +127,13 @@ def test_a_first_read_computes_its_own_scores(client):
 
 def test_a_second_read_does_not_recompute(client):
     """The scan is the expensive half and must not be on every request."""
-    from memorymap.ai import resurface
+    from tessellate.ai import resurface
 
     for index in range(12):
         client.post("/entries", json={"content": f"Note {index}\n\nSomething written down."})
     client.get("/resurface")
 
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     with deps.get_db().session() as session:
         assert resurface.ensure_fresh(session) is False
@@ -189,9 +189,9 @@ def test_never_again_outlives_six_hundred_later_corrections(app_state):
     said about came back. The corrections table only ever grows, so this was a
     matter of time rather than of scale.
     """
-    from memorymap.ai import learning, resurface
-    from memorymap.core import deps
-    from memorymap.core.database import Entry
+    from tessellate.ai import learning, resurface
+    from tessellate.core import deps
+    from tessellate.core.database import Entry
 
     db = deps.get_db()
     with db.session() as session:
@@ -234,9 +234,9 @@ def test_the_context_ranking_survives_real_embedding_rows(session, fake_embeddin
     """
     import struct
 
-    from memorymap.ai import resurface
-    from memorymap.core.database import EmbeddingRecord
-    from memorymap.entry import manager
+    from tessellate.ai import resurface
+    from tessellate.core.database import EmbeddingRecord
+    from tessellate.entry import manager
 
     anchor = manager.create_entry(session, "sourdough starter feeding schedule", tags=[])
     near = manager.create_entry(session, "sourdough loaf crumb and hydration", tags=[])

@@ -11,9 +11,9 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from memorymap.api import routes_files
-from memorymap.core import deps
-from memorymap.core.database import Attachment, MediaUpload
+from tessellate.api import routes_files
+from tessellate.core import deps
+from tessellate.core.database import Attachment, MediaUpload
 
 
 def _files(client):
@@ -91,7 +91,7 @@ def test_a_private_notes_file_is_not_read_out(client):
     att_id, _upload_id = _files(client)
     session = deps.get_db().session()
     try:
-        from memorymap.core.database import Entry
+        from tessellate.core.database import Entry
 
         att = session.get(Attachment, att_id)
         session.get(Entry, att.entry_id).is_private = True

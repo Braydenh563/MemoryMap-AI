@@ -24,7 +24,7 @@ import pytest
 from fastapi.routing import APIRoute
 from fastapi.testclient import TestClient
 
-from memorymap.api import routes_auth
+from tessellate.api import routes_auth
 
 #: Paths that must stay reachable without a token, each for a stated reason.
 #: A path is matched exactly; a prefix entry ends in `/`.
@@ -49,6 +49,10 @@ OPEN = {
     # tests/test_forgot_password.py holds all three.
     "/auth/recover",
     "/auth/reset",
+    # The LAN authority's public certificate (INBOX 866): iOS installs a
+    # profile only from a plain navigation, which carries no token, and every
+    # TLS handshake on the LAN port already sends it. Never a key.
+    "/auth/lan-certificate.pem",
     # Liveness, deliberately: the launcher polls it before the vault exists.
     "/health",
     # Which notebook this server serves, as a hash of its data dir, so a
@@ -69,6 +73,10 @@ OPEN = {
     "/favicon.svg",
     "/manifest.webmanifest",
     "/sw.js",
+    # What the service worker shows when the server cannot be reached
+    # (frontend/sw.js, tests/test_pwa_shell.py): static markup, and the
+    # one page a stopped notebook's owner must always be able to see.
+    "/offline.html",
     # The Run button's sandbox page (INBOX 404): static markup with no data in
     # it, served under its own `sandbox allow-scripts; connect-src 'none'`
     # policy, and framed by an iframe, which cannot send the token header
@@ -80,6 +88,19 @@ OPEN = {
     # 404 until it is installed (tests/test_run_sandbox.py).
     "/documents/run-sandbox/python",
     "/documents/pyodide/{name}",
+    #: The offline translator's engine and model (routes_translate.files_router):
+    #: a Worker's fetch carries no token, and the files are public, nothing of
+    #: the notebook's (Brief 83).
+    "/translate/files/{name}",
+    #: A reminder notification's Done and Snooze, pressed by the service worker
+    #: after the tab is gone. It holds no session on purpose (a session token
+    #: in the notification store opened the whole notebook); it carries a token
+    #: the server minted for that one reminder and those two actions, signed
+    #: and good for 24 hours, checked before the reminder is looked at
+    #: (core/reminder_token.py; tests/test_reminder_scoped_token.py holds that
+    #: a forged, expired or other reminder's token is refused and that the
+    #: token opens no other route).
+    "/reminders/{reminder_id}/notification-act",
 }
 
 #: Prefixes, for the same reason, where the path carries a file name.
@@ -136,7 +157,7 @@ def _routes(app):
 @pytest.fixture()
 def locked_client(app_state):
     """A notebook with a password set and nobody unlocked."""
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     client = TestClient(create_app())
     made = client.post("/auth/setup", json={"password": "correct horse battery"})
@@ -186,7 +207,7 @@ def test_sign_in_off_opens_no_route_by_itself(locked_client, address):
     `/auth/auto-session`; it never makes the gate itself wave a tokenless
     caller through, from loopback or from anywhere else. A gate that did
     would open every route to any page that can reach the port."""
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     deps.get_config().set_preference("ask_password_on_open", False)
     caller = TestClient(

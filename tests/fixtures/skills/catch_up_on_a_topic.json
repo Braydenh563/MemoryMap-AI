@@ -1,0 +1,83 @@
+{
+ "skill": "Catch up on a topic",
+ "small_class": true,
+ "cases": [
+  {
+   "id": "lisbon",
+   "notebook": [
+    {
+     "content": "Lisbon flights booked for May",
+     "category": "Travel",
+     "tags": []
+    },
+    {
+     "content": "Lisbon hotel: still deciding between Alfama and Baixa",
+     "category": "Travel",
+     "tags": []
+    },
+    {
+     "content": "Standup moved to 9:30",
+     "category": "Work",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "alfama"
+    ]
+   },
+   "inputs": {
+    "topic": "Lisbon"
+   }
+  },
+  {
+   "id": "garden",
+   "notebook": [
+    {
+     "content": "Tomatoes need staking this week",
+     "category": "Garden",
+     "tags": []
+    },
+    {
+     "content": "The courgettes have mildew, try milk spray",
+     "category": "Garden",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "mildew"
+    ]
+   },
+   "inputs": {
+    "topic": "garden"
+   }
+  },
+  {
+   "id": "offsite",
+   "notebook": [
+    {
+     "content": "Offsite in June, budget 3k",
+     "category": "Work",
+     "tags": []
+    },
+    {
+     "content": "Offsite venue: undecided between the barn and the hotel",
+     "category": "Work",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "barn"
+    ]
+   },
+   "inputs": {
+    "topic": "offsite"
+   }
+  }
+ ]
+}

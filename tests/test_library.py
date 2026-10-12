@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 
-from memorymap.core.database import Attachment, Conversation, Document, Entry
+from tessellate.core.database import Attachment, Conversation, Document, Entry
 
 # `client` and `session` come from tests/conftest.py: one throwaway data
 # directory per test and singletons rebuilt between them. Declaring a second
@@ -125,9 +125,9 @@ def test_every_logged_kind_of_thing_has_a_word():
     import re
     from pathlib import Path
 
-    from memorymap.api.routes_library import _ENTITY_WORDS
+    from tessellate.api.routes_library import _ENTITY_WORDS
 
-    src = Path(__file__).resolve().parent.parent / "src" / "memorymap"
+    src = Path(__file__).resolve().parent.parent / "src" / "tessellate"
     written = set()
     for path in src.rglob("*.py"):
         text = path.read_text(encoding="utf-8")
@@ -406,7 +406,7 @@ def test_tags_are_capped_like_every_other_kind_here(client, session, monkeypatch
     than seeding 200+ notes, which is both slow and not what this test is
     about: the slicing logic, not the real-world threshold.
     """
-    from memorymap.api import routes_library
+    from tessellate.api import routes_library
 
     monkeypatch.setattr(routes_library, "PER_KIND_LIMIT", 3)
     for i in range(5):
@@ -421,7 +421,7 @@ def test_tags_are_capped_like_every_other_kind_here(client, session, monkeypatch
 def test_tags_keep_the_most_used_ones_when_capped(client, session, monkeypatch):
     """The cap has to keep the *right* three, not an arbitrary three, 
     `all_tags()` is already most-used-first, so the slice should be too."""
-    from memorymap.api import routes_library
+    from tessellate.api import routes_library
 
     monkeypatch.setattr(routes_library, "PER_KIND_LIMIT", 2)
     # "popular" on 3 notes, "rare-a"/"rare-b" on 1 each: popular must survive
@@ -460,7 +460,7 @@ def test_counts_are_totals_and_a_search_reaches_past_the_page(client, session):
     ciphertext is never matched."""
     from datetime import datetime, timedelta
 
-    from memorymap.api.routes_library import PER_KIND_LIMIT
+    from tessellate.api.routes_library import PER_KIND_LIMIT
 
     start = datetime(2020, 1, 1)
     for i in range(PER_KIND_LIMIT + 5):

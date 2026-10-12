@@ -40,12 +40,9 @@ function noteOutbox() {
 //: one case the outbox cannot help, and the caller then keeps the words on
 //: screen instead of clearing them.
 function writeNoteOutbox(list) {
-  try {
-    if (list.length) localStorage.setItem(NOTE_OUTBOX_KEY, JSON.stringify(list));
-    else localStorage.removeItem(NOTE_OUTBOX_KEY);
-  } catch {
-    return false;
-  }
+  if (list.length) {
+    if (!prefs.set(NOTE_OUTBOX_KEY, JSON.stringify(list))) return false;
+  } else prefs.remove(NOTE_OUTBOX_KEY);
   renderNoteOutbox();
   renderPendingNoteRows();
   return true;
@@ -104,6 +101,7 @@ function flushNoteOutbox() {
         const saved = await apiJson("/entries", { method: "POST", body: JSON.stringify(payload), silent: true });
         writeNoteOutbox(noteOutbox().filter((held) => held.client_key !== item.client_key));
         sent += 1;
+        pushEntryCreateUndo(saved, "Saved a note kept on this device");
         if (saved.filing_state === "pending") watchFiling(saved, { quiet: true });
       } catch (error) {
         if (noteServerGone(error) || error.isLockout || !error.status || error.status >= 500 || error.status === 429) break;
@@ -227,6 +225,10 @@ function openQuickNote() {
     );
     dialog.showModal();
   }
+  //: The chips under the box (quickadd.js): a #tag is saved as a tag; a day
+  //: or time is an offer of a reminder on the note, off until pressed,
+  //: unless the words begin as a reminder does.
+  quickAddAttach(box, "note", { offKinds: ["date", "time", "datetime", "duration", "recurrence"] });
   box.focus();
   box.setSelectionRange(box.value.length, box.value.length);
 }
@@ -234,8 +236,8 @@ function openQuickNote() {
 function keepQuickNoteDraft() {
   try {
     const text = quickNoteBox().value;
-    if (text.trim()) localStorage.setItem(QUICK_NOTE_DRAFT_KEY, text);
-    else localStorage.removeItem(QUICK_NOTE_DRAFT_KEY);
+    if (text.trim()) prefs.set(QUICK_NOTE_DRAFT_KEY, text);
+    else prefs.remove(QUICK_NOTE_DRAFT_KEY);
   } catch {
     // Storage blocked: the words are still in the box while it is open.
   }
@@ -243,6 +245,7 @@ function keepQuickNoteDraft() {
 
 function clearQuickNote() {
   quickNoteBox().value = "";
+  quickAddClear(quickNoteBox());
   keepQuickNoteDraft();
 }
 
@@ -260,16 +263,20 @@ async function saveQuickNote() {
   button.disabled = true;
   quickNoteStatus("Saving…");
   try {
-    const result = await createNoteSafely({ content, tags: [] });
+    const slots = await quickAddSlots(quickNoteBox());
+    const result = await createNoteSafely({ content, tags: slots?.tags || [] });
     clearQuickNote();
     $("quick-note").close();
     if (result.queued) {
-      toast("Saved on this device. It goes into your notebook as soon as the server answers.");
+      //: The reminder chip needs the saved note's id, which a held note does
+      //: not have yet: said, not dropped without a word.
+      toast(`Saved on this device. It goes into your notebook as soon as the server answers.${slots?.due ? " Its reminder was not set: add it once the note is in." : ""}`);
       return;
     }
     const saved = result.saved;
+    const reminded = slots?.due ? await quickNoteReminder(saved.id, slots) : "";
     toastAction(
-      saved.filing_state === "pending" ? "Saved. Filing it now." : `Filed under “${saved.category}”.`,
+      (saved.filing_state === "pending" ? "Saved. Filing it now." : `Filed under “${saved.category}”.`) + reminded,
       "Go to it",
       () => flashEntry(saved.id),
       { go: { open: "entry", id: saved.id } },
@@ -296,6 +303,23 @@ async function saveQuickNote() {
   } finally {
     quickNoteSaving = false;
     button.disabled = false;
+  }
+}
+
+//: The reminder the note's chips said, on the note itself: answers the words
+//: the toast adds, empty when the server refused it (the note is kept).
+async function quickNoteReminder(entryId, slots) {
+  try {
+    const text = (slots.title.split("\n")[0] || "Quick note").slice(0, 100);
+    const reminder = await apiJson("/reminders", {
+      method: "POST",
+      body: JSON.stringify({ text, due_at: slots.due.toISOString(), entry_id: entryId, priority: "normal", recurring: slots.recurring || "none" }),
+    });
+    loadReminders();
+    reminderMadeUndo(reminder);
+    return ` Reminder set: ${relativeWhen(reminder.due_at)}.`;
+  } catch (error) {
+    return ` The reminder was not set: ${error.message}`;
   }
 }
 
@@ -327,12 +351,13 @@ async function clipPastedLink(url) {
   const progress = toastProgress("Reading the page…");
   try {
     const note = await apiJson("/links/clip", { method: "POST", body: JSON.stringify({ url }) });
+    pushEntryCreateUndo(note, "Clipped a page as a note");
     progress.done(`Saved “${note.source_title || url}” as a note, filing it now.`, {
       actionLabel: "Open",
       onAction: () => flashEntry(note.id),
       go: { open: "entry", id: note.id },
     });
-    loadEntries().catch(() => {});
+    refreshEntries([note.id]).catch(() => {});
     if (note.filing_state === "pending") watchFiling(note, { quiet: true });
   } catch (error) {
     progress.done(error.message || "Couldn't read that page.", { isError: true });
@@ -429,10 +454,11 @@ async function pasteClipboardAsNote() {
 async function saveChatAnswerAsNote(question, answer) {
   try {
     const content = question ? `${question}\n\n${answer}` : answer;
-    await apiJson("/entries", {
+    const made = await apiJson("/entries", {
       method: "POST",
-      body: JSON.stringify({ content, tags: ["chat"], is_draft: true }),
+      body: JSON.stringify({ content, tags: ["chat"], is_draft: true, defer_filing: true }),
     });
+    pushEntryCreateUndo(made, "Saved a chat answer as a note");
     toast("Saved as a draft note.");
     // Unconditional, not gated on the Notes tab being the one currently
     // open. Reported: a note saved from Chat "didn't show up in the
@@ -470,6 +496,7 @@ async function reminderFromChatAnswer(answer) {
     });
     askNotificationPermission();
     loadReminders();
+    reminderMadeUndo(reminder);
     toastAction("Reminder set for tomorrow, 9am.", "Edit", () => {
       editingReminderId = reminder.id;
       return flashReminder(reminder.id);
@@ -477,4 +504,19 @@ async function reminderFromChatAnswer(answer) {
   } catch (error) {
     toast(error.message || "Couldn't set a reminder.", true);
   }
+}
+
+//: A note saved in a stand-alone window (capture.html, clip.html) lands on this
+//: window's Undo stack and Redo list (INBOX 898); the reply tells that window
+//: it need not offer an Undo of its own (standalone-undo.js).
+try {
+  const standaloneNotes = new BroadcastChannel("memorymap-undo");
+  standaloneNotes.onmessage = (event) => {
+    if (event.data?.type !== "note-made" || event.data.id == null) return;
+    pushEntryCreateUndo({ id: event.data.id }, event.data.label || "Saved a note");
+    refreshEntries([event.data.id]).catch(() => {});
+    standaloneNotes.postMessage({ type: "note-made-ack", id: event.data.id });
+  };
+} catch {
+  // No BroadcastChannel: the stand-alone window offers its own Undo.
 }

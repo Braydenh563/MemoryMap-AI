@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from memorymap.core.database import Entry, utcnow
+from tessellate.core.database import Entry, utcnow
 
 
 def _save(client, content, **extra):
@@ -100,7 +100,7 @@ def test_bands_can_be_threads_a_root_and_its_continuations(client):
     # The lone note isn't a thread, so it doesn't get its own lane, it
     # folds into the shared band the same way a long tail of small
     # category/tag bands already does.
-    from memorymap.api.routes_timeline import THREAD_BAND
+    from tessellate.api.routes_timeline import THREAD_BAND
 
     assert bands[THREAD_BAND] == 1
 
@@ -117,14 +117,14 @@ def test_a_thread_whose_root_is_outside_the_window_still_bands(client, session):
     body = client.get("/timeline?group=thread&days=30").json()
     assert [n["id"] for n in body["rows"]] == [child["id"]]
     bands = {b["name"]: b["count"] for b in body["bands"]}
-    from memorymap.api.routes_timeline import THREAD_BAND
+    from tessellate.api.routes_timeline import THREAD_BAND
 
     assert bands[THREAD_BAND] == 1
 
 
 def test_a_long_tail_of_bands_collapses_into_one(client):
     """A chart with forty lanes is not a chart."""
-    from memorymap.api.routes_timeline import MAX_BANDS, OTHER_BAND
+    from tessellate.api.routes_timeline import MAX_BANDS, OTHER_BAND
 
     for index in range(MAX_BANDS + 4):
         _save(client, f"note {index}", category=f"Cat{index}")
@@ -143,7 +143,7 @@ def test_grouping_can_be_turned_off(client):
 
 def test_private_notes_stay_out_of_the_view(client, session):
     """Its text is encrypted at rest; a preview in a chart would undo that."""
-    from memorymap.core import vault
+    from tessellate.core import vault
 
     vault.close()
     vault.create(session, "test-passphrase")
@@ -181,7 +181,7 @@ def test_a_truncated_preview_says_so(client):
     """A bare `[:120]` slice cuts a long note off mid-word with nothing on
     screen to say there's more: reported as the grid view's cards missing
     an ellipsis. A short note is untouched; a long one ends in one."""
-    from memorymap.api.routes_timeline import PREVIEW_CHARS
+    from tessellate.api.routes_timeline import PREVIEW_CHARS
 
     short = _save(client, "a short note well under the preview limit")
     long_note = _save(client, "x" * (PREVIEW_CHARS + 50))

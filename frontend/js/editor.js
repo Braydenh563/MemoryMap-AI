@@ -105,6 +105,10 @@ function editorSurfaceKind(box) {
 function editorSurfaceFor(box) {
   if (!box) return null;
   if (box.kind === "textarea" || box.kind === "codemirror") return box;
+  //: A board's text box or map topic while it is being typed in carries its
+  //: own surface (whiteboard.js `wbEditableSurface`): it is a contenteditable,
+  //: which no adapter in documents.js speaks.
+  if (box.wbEditorSurface) return box.wbEditorSurface;
   if (typeof asSurface !== "function") {
     editorEnsureSurfaceModule(box);
     return null;
@@ -276,13 +280,6 @@ const CALLOUT_KINDS = {
   toggle: { icon: "ph:caret-circle-right", label: "Toggle", about: "Folded away until clicked, no colour" },
 };
 
-//: What an empty callout body says until something is written in it.
-function calloutHint(kind) {
-  const own = { todo: "Write the task", toggle: "Write what folds away", success: "Write what worked", failure: "Write what failed" };
-  const meta = CALLOUT_KINDS[kind];
-  return own[kind] || `Write the ${meta ? meta.label.toLowerCase() : "note"}`;
-}
-
 //: The canonical kind for a name as written (`Warning`, `caution`, `tldr`),
 //: or null for a name that is not one.
 function calloutKindOf(raw) {
@@ -346,6 +343,13 @@ function editorFuzzyRank(rows, query) {
   scored.sort((a, b) => a.score - b.score || a.index - b.index);
   return scored.map((s) => s.row);
 }
+//: What an empty callout body says until something is written in it.
+function calloutHint(kind) {
+  const own = { todo: "Write the task", toggle: "Write what folds away", success: "Write what worked", failure: "Write what failed" };
+  const meta = CALLOUT_KINDS[kind];
+  return own[kind] || `Write the ${meta ? meta.label.toLowerCase() : "note"}`;
+}
+
 // EDITOR-BLOCKS-END
 
 // ---------------------------------------------------------------------------
@@ -467,8 +471,11 @@ function editorApplyAction(textarea, action) {
       .split("\n")
       .map((line) => (line.startsWith(action.line) ? line : action.line + line))
       .join("\n");
+    //: An empty line has nothing to select: the caret goes after the
+    //: marker, so "/todo" then typing writes the item (measured on a board
+    //: text box, 2026-10-10: the selected "- [ ] " was typed over).
     editorSplice(textarea, lineStart, Math.max(lineEnd, end), prefixed, {
-      from: 0,
+      from: target.trim() ? 0 : prefixed.length,
       to: prefixed.length,
     });
     return;
@@ -568,7 +575,12 @@ async function editorInsertBoardObject(textarea) {
 //: never drift from what the buttons do. The slash token is removed by
 //: `editorRunItem` before `run` is called, so the question is left clean.
 function chatCommands() {
-  const press = (id) => () => document.getElementById(id)?.click();
+  //: Run `fn` once the press that chose the row is over (see `pick`).
+  const afterPress = (fn) => () => {
+    if (!editorMenuState.pressing) return fn();
+    document.addEventListener("mouseup", () => setTimeout(fn), { once: true, capture: true });
+  };
+  const press = (id) => afterPress(() => document.getElementById(id)?.click());
   //: **On the next frame, not in this one** (the owner, 2026-09-21: pressing
   //: "A document" in the slash menu showed the picker "for a split second but
   //: then disappears"). Both halves run inside the handler for the click that
@@ -576,7 +588,17 @@ function chatCommands() {
   //: close-on-click-outside listener, and then that very click carried on
   //: bubbling to the document and closed it again. Anything that opens a
   //: surface from inside a click has to let the click finish first.
-  const pick = (source) => () => {
+  //:
+  //: **And after the button comes up, when a pointer chose it** (the owner,
+  //: 2026-10-10: "I tried to press a note on the slash menu in the chat tab
+  //: and the panel flickered then nothing happened"). The row runs on
+  //: `mousedown`; a press held longer than a frame (measured: 250 ms) let the
+  //: picker open before the `mouseup`, and that press's own `click`, on the
+  //: page once the menu had gone, was the picker's click-away. A fast click
+  //: passed, which is why the frame alone looked like the fix. The Skills
+  //: and Web rows open popovers with the same click-away, so `press` waits
+  //: too.
+  const pick = (source) => afterPress(() => {
     if (typeof openNotePicker !== "function") return;
     requestAnimationFrame(() => {
       openNotePicker();
@@ -588,7 +610,7 @@ function chatCommands() {
           ?.click();
       });
     });
-  };
+  });
   const mode = (name) => () =>
     document.querySelector(`#chat-mode-seg button[data-chat-mode="${name}"]`)?.click();
   return [
@@ -721,7 +743,7 @@ function editorRememberBlock(id) {
   if (!id) return;
   try {
     const ids = [id, ...editorRecentIds().filter((other) => other !== id)].slice(0, EDITOR_RECENT_KEPT);
-    localStorage.setItem(EDITOR_RECENT_KEY, JSON.stringify(ids));
+    prefs.set(EDITOR_RECENT_KEY, JSON.stringify(ids));
   } catch {
     // Storage blocked: the menu simply has no Recent group.
   }
@@ -835,6 +857,11 @@ function editorBlockRows(context) {
     add({ id: "image-caption", group: "Media", icon: "ph:image-square", label: "Image with caption", about: "Centred, with a line under it", keys: "![Caption|center](url)", keywords: ["image", "caption", "figure", "photo", "centre", "center"], run: (t) => editorBlock(t, "![A caption|center](", "https://", ")") });
   }
   add({ id: "codeblock", group: "Media", icon: "ph:code", label: "Code block", about: "Pick a language next; highlighted and copyable", keys: "```", keywords: ["code", "fence", "snippet", "program", "language", "syntax"], sample: "```js\nconst answer = 42;\n```", run: (t) => { editorBlock(t, "```", "", ""); editorBackOverTrail(t); editorOpenMenu(t, "```"); } });
+  if (inDocument) {
+    //: A starter the document's Live view draws at once (OPEN 1119): an empty
+    //: ```mermaid fence drew nothing until its syntax was looked up.
+    add({ id: "flowchart", group: "Media", icon: "ph:flow-arrow", label: "Flowchart", about: "Boxes and arrows, drawn from the text", keys: "```mermaid", keywords: ["flowchart", "diagram", "mermaid", "chart", "boxes", "arrows", "process"], sample: "flowchart TD\n  A[Start] --> B[Next]", run: (t) => editorBlock(t, "```mermaid\nflowchart TD\n  A[Start] --> B[Next]\n```", "", "") });
+  }
   add({ id: "math", group: "Media", icon: "ph:function", label: "Maths block", about: "A formula on its own line, typeset", keys: "$$ ... $$", keywords: ["math", "maths", "formula", "equation", "latex", "tex", "block"], sample: "$$ e^{i\\pi} + 1 = 0 $$", run: (t) => editorBlock(t, "$$ ", "x^2 + y^2 = z^2", " $$") });
   add({ id: "math-inline", group: "Media", icon: "ph:math-operations", label: "Inline maths", about: "A formula inside a sentence", keys: "$ ... $", keywords: ["math", "inline", "formula", "latex", "tex"], run: act("math") });
 
@@ -877,9 +904,17 @@ function editorBackOverTrail(textarea) {
   textarea.setSelectionRange(at, at);
 }
 
+//: **A context that is the note's rows, cut** (the boards' text boxes, map
+//: topics and comments, 2026-10-10): context to the row ids it keeps, filled
+//: by the lazy file that owns those surfaces (whiteboard.js
+//: `WB_EDITOR_CONTEXT_ROWS`), so the lists cost the boot nothing.
+const EDITOR_CONTEXT_ROWS = {};
+
 function editorCommands(context) {
   if (context === "chat") return chatCommands();
   if (context === "skill") return skillCommands();
+  const keep = EDITOR_CONTEXT_ROWS[context];
+  if (keep) return editorBlockRows("note").filter((row) => keep.includes(row.id));
   const commands = editorBlockRows(context);
 
   // --- AI actions ---
@@ -1111,7 +1146,9 @@ function editorLinkMatches(needle) {
       id: `note-${entry.id}`,
       group: "Notes",
       icon: "ph:note",
-      label: noteLabel(entry, 60),
+      //: The note's opening line only: its whole text flattened read as the
+      //: title then the picture's alt text then the title again (INBOX 784).
+      label: noteNamePlain(entry.content, 60) || "(empty note)",
       hint: "note",
       //: The note itself, for the preview: its first lines are what "is
       //: this the one I mean" is answered by (`editorRenderPreview`).
@@ -1293,7 +1330,14 @@ function editorRenderMenu() {
     // caret position the insertion depends on is already gone.
     row.addEventListener("mousedown", (event) => {
       event.preventDefault();
-      editorRunItem(position);
+      //: Said to `run` for the press's length: a row that opens a surface
+      //: waits for the button to come up (`chatCommands`'s `pick`).
+      editorMenuState.pressing = true;
+      try {
+        editorRunItem(position);
+      } finally {
+        editorMenuState.pressing = false;
+      }
     });
     //: The pointer chooses what the preview shows, without redrawing the
     //: list under it. `mousemove`, not `mouseenter`: a menu that opens under
@@ -1313,7 +1357,7 @@ function editorRenderMenu() {
 }
 
 //: **The preview**, for "/" rows and for a note a "[[" row would link to
-//: (its first lines, `richPickerLines`), and only with room for it (44rem, the
+//: (an excerpt and its first picture, `richPickerNote`), and only with room for it (44rem, the
 //: width the template dialog's preview also needs before it shows). What it
 //: renders is the row's `sample`, through `renderMarkdown`, the renderer the
 //: page itself uses, so the preview is the block and not a picture of it.
@@ -1331,10 +1375,16 @@ function editorRenderPreview(item) {
   if (!show) return;
   if (pane.dataset.for === item.id) return;
   pane.dataset.for = item.id || "";
-  let sample = item.entry ? richPickerLines(item.entry.content) : null;
-  if (!sample && item.sample) {
+  let sample = null;
+  if (item.sample) {
     sample = document.createElement("div");
     renderMarkdown(sample, item.sample);
+    //: A narrow pane: the bar's Copy is an icon like its ⋯, so the caption
+    //: keeps one line and the two buttons sit side by side.
+    for (const copy of sample.querySelectorAll(".code-copy")) {
+      copy.classList.add("icon-only");
+      copy.querySelector(".ph-text")?.remove();
+    }
   }
   richPickerPreview(pane, {
     icon: editorMenuIcon(item),
@@ -1344,6 +1394,7 @@ function editorRenderPreview(item) {
     sample,
     keys: item.keys,
   });
+  if (item.entry) richPickerNote(pane, item);
 }
 
 //: Move the highlight without redrawing the list: the row's classes, the
@@ -1774,7 +1825,11 @@ function selectionBarElement() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "ghost small icon-button";
-    if (action.inlineAi) button.dataset.inlineAi = "1";
+    if (action.inlineAi) {
+      button.dataset.inlineAi = "1";
+      button.dataset.needsModel = "Rewriting with Atlas needs a model";
+      button.dataset.modelOffer = "Ask Atlas about this selection, beside it, answers from your notes without one.";
+    }
     if (action.md) button.dataset.md = action.md;
     button.title = action.title;
     button.setAttribute("aria-label", action.title);
@@ -1792,6 +1847,12 @@ function selectionBarElement() {
         return;
       }
       if (action.inlineAi) {
+        //: With no model this is the gate's offer (`data-model-offer`): the
+        //: press says why, rather than opening a bar that cannot answer.
+        if (button.getAttribute("aria-disabled") === "true") {
+          openModelOffer(button);
+          return;
+        }
         //: The selection is read from the textarea *before* the bar takes
         //: focus, which `inlineAiOpen` does on its first two lines, the same
         //: reason this whole handler is on `mousedown`.
@@ -1874,7 +1935,25 @@ function selectionBarShow(textarea) {
   //: the next line of the note instead, which is text you can scroll to and
   //: not a control you might press by mistake.
   if (y < Math.max(margin, boxTop)) y = top + (lineHeight || 20) + 6;
-  const x = Math.max(margin, Math.min(left, window.innerWidth - size.width - margin));
+  let x = Math.max(margin, Math.min(left, window.innerWidth - size.width - margin));
+  //: **A board's text is placed against the selection itself** (INBOX 817,
+  //: the owner: the bar "stays where it opened" when the map pans, and can
+  //: sit across the topic). The caret line above is right for a page that
+  //: scrolls, where a line is a line; on a board the box moves under the bar
+  //: with every pan and zoom frame (`wbZoomFrameWork` calls `selectionBarSync`
+  //: once a frame), and a multi-line selection's first line is not its edge.
+  //: Above the selection with an 8px gap, below it when there is no room
+  //: above, so the bar never lies on the text being formatted.
+  const onBoard = textarea.id === "wb-topic-edit" || textarea.id === "wb-text-edit";
+  const live = onBoard && textarea.el?.isContentEditable ? window.getSelection() : null;
+  const range = live?.rangeCount ? live.getRangeAt(0).getBoundingClientRect() : null;
+  if (range && (range.width || range.height)) {
+    const gap = 8;
+    y = range.top - size.height - gap;
+    if (y < margin) y = range.bottom + gap;
+    if (y + size.height > window.innerHeight - margin) y = Math.max(margin, range.top - size.height - gap);
+    x = Math.max(margin, Math.min(range.left, window.innerWidth - size.width - margin));
+  }
   bar.style.top = `${Math.round(y)}px`;
   bar.style.left = `${Math.round(x)}px`;
 }
@@ -2104,9 +2183,10 @@ async function offerToCreateWikiTarget(name) {
       // the name would leave the very link that made it still unresolved.
       const entry = await apiJson("/entries", {
         method: "POST",
-        body: JSON.stringify({ content: `${wanted}\n\n` }),
+        body: JSON.stringify({ content: `${wanted}\n\n`, defer_filing: true }),
       });
       await refreshEntries([entry.id]);
+      pushEntryCreateUndo(entry, `Created the note “${wanted}”`);
       toast(`Created “${wanted}”.`);
       if (entry?.id) flashEntry(entry.id);
       return;
@@ -2120,6 +2200,7 @@ async function offerToCreateWikiTarget(name) {
     // something else happens to refetch documents.
     if (doc) {
       editorDocumentCache = [...(editorDocumentCache || []), doc];
+      offerCreateUndo(doc);
       toast(`Created “${wanted}”.`);
       openDocument(doc.id);
     }
@@ -2180,14 +2261,6 @@ const CODE_KEYWORDS = {
 //: precedence: comments and strings first, so a `#` inside a string or the
 //: word `if` inside a comment is not re-coloured as something else.
 const codeScanners = new Map();
-
-//: Which family a filename is in. Extension only: content sniffing guesses
-//: wrong on short files and there is nothing to gain: a file this app can
-//: view arrived with a suffix it recognised (`docview.CODE_SUFFIXES`).
-function codeFamilyFor(filename) {
-  const suffix = /\.([a-z0-9]+)$/i.exec(String(filename || ""));
-  return CODE_LANGUAGES[(suffix?.[1] || "").toLowerCase()] || "generic";
-}
 
 // ---------------------------------------------------------------------------
 // Inline AI: the AI at the caret, not in a panel
@@ -2355,15 +2428,53 @@ function inlineAiDescribeScope() {
   const scope = $("inline-ai-scope");
   const input = $("inline-ai-input");
   if (!scope || !input) return;
+  //: A code document is spoken to in code's words (the owner, 2026-10-11):
+  //: lines, not words, and code asks, not "fix the grammar".
+  const code = inlineAiIsCode();
   if (selected.trim()) {
-    const words = selected.trim().split(/\s+/).length;
-    scope.textContent = `Rewrites the ${words === 1 ? "word" : `${words} words`} you selected. Enter to ask, Esc to cancel.`;
-    input.placeholder = "Tighten this / fix the grammar / make it formal…";
+    const count = code ? selected.replace(/\n$/, "").split("\n").length : selected.trim().split(/\s+/).length;
+    const unit = code ? (count === 1 ? "line" : `${count} lines`) : (count === 1 ? "word" : `${count} words`);
+    scope.textContent = `Rewrites the ${unit} you selected. Enter to ask, Esc to cancel.`;
+    input.placeholder = code ? "Explain, simplify, add types…" : "Tighten this / fix the grammar / make it formal…";
   } else {
-    scope.textContent = "Writes at the cursor. Enter to ask, Esc to cancel.";
-    input.placeholder = "Write an intro paragraph / a table of the options…";
+    scope.textContent = code ? "Writes code at the cursor. Enter to ask, Esc to cancel." : "Writes at the cursor. Enter to ask, Esc to cancel.";
+    input.placeholder = code ? "A function that… / a test for…" : "Write an intro paragraph / a table of the options…";
   }
+  inlineAiSyncModel();
 }
+
+function inlineAiIsCode() {
+  return inlineAiState.textarea?.id === "doc-content" && typeof docFileType === "function" && !docFileType().previewable;
+}
+
+//: **With no model the bar stays, disabled, with the reason** (DOCUMENTS_PLAN
+//: decision, 2026-10-11: never hidden). The field is read-only and says so,
+//: and Ask is the gate's offer: a press says why and what works now, with
+//: Set up a model. A model connecting gives both back (`mm-model-gate`).
+function inlineAiSyncModel() {
+  const input = $("inline-ai-input");
+  const run = $("inline-ai-run");
+  if (!input || !run) return;
+  const off = aiIsOff();
+  run.dataset.needsModel = "Rewriting with Atlas needs a model";
+  run.dataset.modelOffer = inlineAiIsCode()
+    ? "Quick fix (Alt+Enter), Format (Shift+Alt+F) and Find usages work without one."
+    : "The spelling and grammar fixes, find and the outline work without one.";
+  input.readOnly = off;
+  input.setAttribute("aria-disabled", String(off));
+  if (off) {
+    input.placeholder = "Needs a model: connect one in Settings";
+    input.title = `${run.dataset.needsModel}. ${AI_OFFLINE_HINT}.`;
+  } else {
+    input.removeAttribute("title");
+  }
+  if (off) run.setAttribute("aria-disabled", "true");
+  else run.removeAttribute("aria-disabled");
+}
+
+document.addEventListener("mm-model-gate", () => {
+  if (inlineAiState.textarea && inlineAiState.phase === "asking") inlineAiDescribeScope();
+});
 
 //: True when this surface can reach `POST /documents/{id}/ai-edit`, a
 //: document textarea *and* a document actually open. Checked by both doors
@@ -2445,6 +2556,7 @@ async function inlineAiSubmit() {
   if (inlineAiState.phase === "working") return;
   const { textarea, start, end, before } = inlineAiState;
   if (!textarea) return;
+  if (aiIsOff()) return openModelOffer($("inline-ai-run"));
   const instruction = $("inline-ai-input").value.trim();
   const selection = before.slice(start, end);
   //: "Write" needs an instruction: there is nothing else to go on. "Edit"

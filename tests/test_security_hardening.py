@@ -11,8 +11,8 @@ import logging
 
 import pytest
 
-from memorymap.core import logbuffer
-from memorymap.search import websearch
+from tessellate.core import logbuffer
+from tessellate.search import websearch
 
 
 # --- log injection ---------------------------------------------------------
@@ -42,9 +42,9 @@ def test_a_very_long_value_is_capped():
 
 def test_the_chat_route_sanitises_the_question_it_logs(ai_client, caplog):
     """The question is the user's own text and it reaches the terminal."""
-    with caplog.at_level(logging.INFO, logger="memorymap.chat"):
+    with caplog.at_level(logging.INFO, logger="tessellate.chat"):
         ai_client.post("/chat", json={"question": "one\ntwo\nthree"})
-    logged = [r for r in caplog.records if r.name == "memorymap.chat"]
+    logged = [r for r in caplog.records if r.name == "tessellate.chat"]
     assert logged, "the chat route should log the search it ran"
     assert "\n" not in logged[-1].getMessage()
 
@@ -54,7 +54,7 @@ def test_the_chat_route_sanitises_the_question_it_logs(ai_client, caplog):
 
 def test_a_tool_explains_the_failures_it_anticipates(session, app_state):
     """ToolError text is written for a reader, so it is passed straight on."""
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     result = tools.execute_tool(session, "get_note", {"note_id": 999999})
     assert "No note with id 999999" in result["error"]
@@ -63,9 +63,9 @@ def test_a_tool_explains_the_failures_it_anticipates(session, app_state):
 def test_an_unexpected_exception_does_not_leak_its_text(session, app_state, caplog):
     """A bare ValueError from inside a handler is an internal detail, the
     caller gets the shape of the problem, the log gets the rest."""
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
-    with caplog.at_level(logging.WARNING, logger="memorymap.tools"):
+    with caplog.at_level(logging.WARNING, logger="tessellate.tools"):
         result = tools.execute_tool(session, "get_note", {"note_id": "not-a-number"})
 
     assert "invalid literal" not in result["error"]
@@ -73,7 +73,7 @@ def test_an_unexpected_exception_does_not_leak_its_text(session, app_state, capl
     # INBOX 527: refused before the handler, naming the parameter and its type.
     assert "note_id (integer)" in result["error"]
     # …and it is not simply discarded.
-    assert any(r.name == "memorymap.tools" for r in caplog.records)
+    assert any(r.name == "tessellate.tools" for r in caplog.records)
 
 
 def test_the_confirm_endpoint_reports_a_tool_failure_without_a_traceback(client):
@@ -149,11 +149,11 @@ def test_the_embedding_modules_do_not_import_each_other_in_a_circle():
                 found.update(alias.name for alias in node.names)
         return found
 
-    model_manager_imports = module_level_imports("src/memorymap/ai/model_manager.py")
-    assert "memorymap.ai.embeddings" not in model_manager_imports
+    model_manager_imports = module_level_imports("src/tessellate/ai/model_manager.py")
+    assert "tessellate.ai.embeddings" not in model_manager_imports
 
-    embeddings_imports = module_level_imports("src/memorymap/ai/embeddings.py")
-    assert not any(name.startswith("memorymap.core.deps") for name in embeddings_imports)
+    embeddings_imports = module_level_imports("src/tessellate/ai/embeddings.py")
+    assert not any(name.startswith("tessellate.core.deps") for name in embeddings_imports)
 
 
 # --- security scanner findings (§41) -----------------------------------------
@@ -170,7 +170,7 @@ def test_removing_a_model_never_returns_the_filesystem_path(app_state, monkeypat
     """
     import shutil
 
-    from memorymap.core import embedmodels
+    from tessellate.core import embedmodels
 
     model = next(iter(embedmodels.EMBED_MODELS_BY_ID.values()))
     path = embedmodels._model_dir(model)

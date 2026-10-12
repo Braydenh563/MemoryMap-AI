@@ -8,7 +8,7 @@ them as "too vague".
 
 from __future__ import annotations
 
-from memorymap.ai import librarian
+from tessellate.ai import librarian
 
 
 def _prompt(notes):
@@ -36,9 +36,9 @@ def test_a_caption_cannot_draw_a_fence():
 
 
 def test_the_route_sends_them(session):
-    from memorymap.api import routes_chat
-    from memorymap.core.database import Attachment
-    from memorymap.entry import manager
+    from tessellate.api import routes_chat
+    from tessellate.core.database import Attachment
+    from tessellate.entry import manager
 
     entry = manager.create_entry(session, "whoaaahhh", category_name=manager.UNCATEGORISED)
     entry.tags = '["sketches"]'
@@ -56,7 +56,7 @@ def test_the_route_sends_them(session):
 def test_grounding_reads_a_notes_files_too(session):
     """INBOX 604: a sentence drawn from a picture's caption is grounded in the
     note that holds the picture."""
-    from memorymap.api import routes_chat
+    from tessellate.api import routes_chat
 
     rows = routes_chat._grounding_candidates(  # noqa: SLF001
         session, [{"id": 7, "content": "whoaaahhh", "files": ["sketch.png (a blue oval face)"]}], []

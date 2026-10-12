@@ -44,7 +44,7 @@ def test_documents_past_the_page_size_are_still_reachable(client):
     rest. The list is paged again (INBOX 117), so this guard stays and asks
     the question the old cap failed: is everything still reachable? It is,
     through `offset`, and `X-Total-Count` is how a caller knows to ask."""
-    from memorymap.api import routes_documents
+    from tessellate.api import routes_documents
 
     size = routes_documents.DOCUMENTS_PAGE_SIZE
     for i in range(size + 5):
@@ -322,7 +322,7 @@ def test_ai_edit_log_stores_a_selection_excerpt_not_the_full_selection(client):
 
 
 def test_ai_edit_log_prunes_beyond_the_cap(client):
-    from memorymap.api import routes_documents
+    from tessellate.api import routes_documents
 
     created = client.post("/documents", json={"title": "Essay", "content": "x"}).json()
     total = routes_documents.MAX_AI_EDIT_LOG_PER_DOCUMENT + 5
@@ -580,7 +580,7 @@ def test_documents_page_and_report_the_real_total(client):
 def test_documents_default_page_is_bounded_but_the_common_case_is_unchanged(client):
     """Any notebook under the default page size sees exactly what it saw
     before, and the header reports the true total either way."""
-    from memorymap.api import routes_documents
+    from tessellate.api import routes_documents
 
     for i in range(3):
         client.post("/documents", json={"title": f"Doc {i}"})
@@ -604,7 +604,7 @@ def test_documents_search_total_counts_the_matches_not_the_table(client):
 
 
 def test_documents_limit_is_validated(client):
-    from memorymap.api import routes_documents
+    from tessellate.api import routes_documents
 
     assert client.get("/documents", params={"limit": 0}).status_code == 422
     assert client.get("/documents", params={"offset": -1}).status_code == 422
@@ -629,7 +629,7 @@ def test_a_document_with_a_note_attached_can_still_be_deleted(client, session):
     """
     from sqlalchemy import func, select
 
-    from memorymap.core.database import DocumentBookmark, DocumentLink
+    from tessellate.core.database import DocumentBookmark, DocumentLink
 
     note = client.post("/entries", json={"content": "a note to attach"}).json()
     document = client.post("/documents", json={"title": "Doc", "content": "body"}).json()

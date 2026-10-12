@@ -18,6 +18,8 @@ function offerJumpToNewNote(saved, status) {
   jump.title = "Open this note in your list";
   jump.addEventListener("click", () => flashEntry(saved.id));
   status.append(" ", jump);
+  //: A notebook's first note: the first steps' third, asking, offered here (25c).
+  if (allEntries.length === 1) status.append(" ", smallButton("ph:chat-circle Ask about it", "Ask your notebook; the answer comes from your notes", openAskFromDashboard));
 }
 
 // A deferred note's filing runs after its POST returns, so the composer has
@@ -149,8 +151,11 @@ function settleCaptureStatus(status, from = filedByText({ filing_state: "pending
     //: **One tap to file it** (INBOX 434): the categories its words lean
     //: to, then the ones used last, beside Choose category. A guess shown
     //: as a choice costs a glance; a guess filed is a note lost.
-    for (const name of (status.suggestions || []).slice(0, 3)) {
-      const pick = smallButton(`ph:folder ${name}`, `File it under ${name}`, async () => {
+    //: Each choice carries its why in its tooltip (WORLD_CLASS 23,
+    //: decision 3), and a new category the topic list proposes comes last,
+    //: made only when pressed (decision 2).
+    const offer = (label, name, title) => {
+      const pick = smallButton(label, title, async () => {
         const moved = await moveNotesToCategory([status.id], name);
         if (!moved) return;
         for (const other of line.querySelectorAll(".capture-suggest")) other.remove();
@@ -159,6 +164,13 @@ function settleCaptureStatus(status, from = filedByText({ filing_state: "pending
       });
       pick.classList.add("capture-suggest");
       line.appendChild(pick);
+    };
+    for (const name of (status.suggestions || []).slice(0, 3)) {
+      const why = status.suggestion_reasons?.[name];
+      offer(`ph:folder ${name}`, name, why ? `File it under ${name}. ${why}` : `File it under ${name}`);
+    }
+    if (status.proposal?.name) {
+      offer(`ph:folder-plus New: ${status.proposal.name}`, status.proposal.name, `Make the category ${status.proposal.name} and file it there. ${status.proposal.why}`);
     }
   }
   return line.offsetParent !== null;
@@ -175,6 +187,11 @@ function filingOutcomeText(status) {
   if (status.filing_state === "standin") {
     return `Filed under “${status.category}” for now: ${aiNameNow()} is still reading it.`;
   }
+  //: Health, money, family, the law and identity wait for the person
+  //: (WORLD_CLASS 23, decision 6; Settings can let them file).
+  if (status.filed_by === "none" && status.held_sensitive?.category) {
+    return `Saved in “${status.category}”: it reads as ${status.held_sensitive.topic}, so it waits for you to choose.`;
+  }
   if (status.filed_by === "none") {
     return aiIsOff()
       ? `Saved in “${status.category}”: no AI model is running to file it.`
@@ -183,7 +200,11 @@ function filingOutcomeText(status) {
   if (status.filed_by === "user") return `Filed by you under “${status.category}”.`;
   //: Filed with no model, from the notes already filed (INBOX 434): said as
   //: what it is, so it is never mistaken for the AI's judgement.
-  if (status.filed_by === "words") return `Filed under “${status.category}”: it reads like your other notes there.`;
+  //: With its why (WORLD_CLASS 23, decision 3): the words shared, the notes
+  //: it joins.
+  if (status.filed_by === "words") {
+    return status.why ? `Filed under “${status.category}”. ${status.why}` : `Filed under “${status.category}”: it reads like your other notes there.`;
+  }
   //: **A low number is said as doubt, not as a verdict.** The number is the
   //: app's calibrated estimate (a small model's own figure is never shown as
   //: it said it), so under the review line the line asks for a look and the
@@ -261,10 +282,6 @@ async function loadCaptureDocuments() {
   renderCaptureDocuments(documents);
 }
 
-// The picker's value for "one that doesn't exist yet". A string, so it can
-// never collide with a document id.
-const NEW_DOCUMENT = "new";
-
 // Ask for a title and start an empty document. Shared by the capture box and
 // the note card's "Add to a document", so both offer the same thing.
 async function createDocumentNamed(suggestion = "") {
@@ -275,6 +292,7 @@ async function createDocumentNamed(suggestion = "") {
       method: "POST",
       body: JSON.stringify({ title, content: `# ${title}\n\n` }),
     });
+    offerCreateUndo(doc);
     return doc; // the documents tab refetches on switch, so nothing to sync
   } catch (error) {
     toast(error.message, true);
@@ -331,25 +349,29 @@ function renderCaptureDocumentAdder() {
   const items = [];
   for (const doc of captureDocumentList) {
     if (captureDocuments.has(doc.id)) continue;
-    items.push(
-      makeMenuItem(`ph:file-text ${doc.title}`, `Attach this note to “${doc.title}”`, () => {
+    //: A menu past five rows is grouped (DESIGN.md, kebabMenu): the documents,
+    //: then the one way to make another.
+    items.push({
+      ...makeMenuItem(`ph:file-text ${doc.title}`, `Attach this note to “${doc.title}”`, () => {
         captureDocuments.add(doc.id);
         renderCaptureDocuments();
       }),
-    );
+      group: "Documents",
+    });
   }
   // Asked for: "the add to document should have the option for a new document
   // as well". Wanting to file a note under something that does not exist yet
   // is the normal case at the start of a project, and leaving to make the
   // document loses the note you were in the middle of writing.
-  items.push(
-    makeMenuItem("ph:plus New document…", "Start a document and attach this note to it", async () => {
+  items.push({
+    ...makeMenuItem("ph:plus New document…", "Start a document and attach this note to it", async () => {
       const doc = await createDocumentNamed($("entry-content").value.trim().slice(0, 60));
       if (!doc) return;
       captureDocuments.add(doc.id);
       await loadCaptureDocuments(); // so the new one is in the list to remove
     }),
-  );
+    group: "New",
+  });
   const adder = labelledMenu("ph:file-plus Add to document", items, "Add this note to a document", "ghost");
   slot.replaceChildren(adder);
 }
@@ -438,7 +460,7 @@ function resetCaptureForm(contentBox, titleBox) {
   renderEntryAttachmentChips();
   autoGrow(contentBox); // the box shrinks back with its content
   // It's saved for real now: the words, the title and the tags.
-  for (const key of ["captureDraft", "captureDraftTitle", "captureDraftTags"]) localStorage.removeItem(key);
+  for (const key of ["captureDraft", "captureDraftTitle", "captureDraftTags"]) prefs.remove(key);
   $("entry-count").textContent = "0 words";
   $("entry-tags").value = "";
   $("entry-category").value = "";
@@ -455,11 +477,9 @@ function resetCaptureForm(contentBox, titleBox) {
 
 // **Tag suggestions while composing, not just after saving.** Reported
 // directly: "the ai and application doesnt suggest tags either before
-// creating a new note or after", "after" already existed
-// (renderReevaluateResult, above), buried in a saved note's own kebab menu;
-// "before" had nothing at all. `/entries/suggest-tags` needs only the
-// draft's own text, so this can run on the Capture box itself, debounced the
-// same way autosave-to-localStorage already is elsewhere in this file.
+// creating a new note or after". `/entries/suggest-tags` needs only the
+// draft's text and title (INBOX 781: the same engine as the note card's and
+// Tag and file with Atlas), so it runs on the Capture box, debounced.
 let captureTagSuggestTimer = null;
 let captureTagSuggestSeq = 0; // invalidated on every keystroke, a slow reply
 // to an earlier, shorter draft must never overwrite what a newer one asked for.
@@ -472,17 +492,40 @@ function clearCaptureTagSuggestions() {
   row.classList.add("hidden");
 }
 
-function renderCaptureTagSuggestions(tags) {
+//: **The filing, offered beside the tags** (INBOX 1330, "a live, inline
+//: organization suggestion while typing"): the category the notebook's own words
+//: point to, with its reason, only while Filing is left on Atlas's choice and the
+//: category is one the Filing field lists. Pressing it sets the field; nothing is
+//: saved by it.
+function captureCategoryChip(category) {
+  const select = $("entry-category");
+  if (!category?.category || !select || select.value !== "") return null;
+  const option = [...select.options].find((o) => o.value === category.category);
+  if (!option) return null;
+  const pick = chip(`ph:folder-simple File under ${category.category}`, "tag", () => {
+    select.value = option.value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+    pick.remove();
+    const row = $("entry-tag-suggestions");
+    if (!row.querySelector(".chip")) row.classList.add("hidden");
+  });
+  pick.title = category.reason || `File this note under ${category.category}`;
+  return pick;
+}
+
+function renderCaptureTagSuggestions(tags, reasons, category = null) {
   const row = $("entry-tag-suggestions");
   row.replaceChildren();
-  if (!tags.length) {
+  const filing = captureCategoryChip(category);
+  if (!tags.length && !filing) {
     row.classList.add("hidden");
     return;
   }
   const label = document.createElement("span");
   label.className = "muted";
-  label.textContent = "Suggested tags:";
+  label.textContent = "Suggested:";
   row.appendChild(label);
+  if (filing) row.appendChild(filing);
   for (const tag of tags) {
     const tagChip = chip(`ph:plus ${tag}`, "tag", () => {
       const box = $("entry-tags");
@@ -492,7 +535,7 @@ function renderCaptureTagSuggestions(tags) {
       tagChip.remove();
       if (!row.querySelector(".chip")) row.classList.add("hidden");
     });
-    tagChip.title = `Add the "${tag}" tag`;
+    tagChip.title = reasons?.[tag] || `Add the "${tag}" tag`;
     row.appendChild(tagChip);
   }
   row.classList.remove("hidden");
@@ -510,18 +553,13 @@ function scheduleCaptureTagSuggestions() {
   captureTagSuggestTimer = setTimeout(async () => {
     const seq = ++captureTagSuggestSeq;
     const tags = $("entry-tags").value.split(",").map((t) => t.trim()).filter(Boolean);
-    let suggested;
-    try {
-      const result = await apiJson("/entries/suggest-tags", {
-        method: "POST",
-        body: JSON.stringify({ content, tags }),
-      });
-      suggested = result.suggested_tags || [];
-    } catch {
-      suggested = [];
-    }
+    const draft = JSON.stringify({ content, tags, title: $("entry-title")?.value || "" });
+    const [result, category] = await Promise.all([
+      apiJson("/entries/suggest-tags", { method: "POST", body: draft }).catch(() => ({})),
+      apiJson("/entries/suggest-category", { method: "POST", body: draft, silent: true }).catch(() => null),
+    ]);
     if (seq !== captureTagSuggestSeq) return; // superseded by a later keystroke
-    renderCaptureTagSuggestions(suggested);
+    renderCaptureTagSuggestions(result.suggested_tags || [], result.suggested_tag_reasons, category);
   }, 1200);
 }
 
@@ -589,7 +627,7 @@ async function saveEntry() {
   // continuing in the backend with a popup notification so I dont have to
   // wait twiddling my thumbs". Choosing a category yourself skips it
   // either way: there is nothing to wait for.
-  const deferFiling = !category && (prefsCache.background_filing ?? true);
+  const deferFiling = !category && (prefsCache?.background_filing ?? true);
 
   button.disabled = true;
   status.classList.remove("error");
@@ -719,6 +757,7 @@ async function saveEntryAsDraft() {
         document_ids: [...captureDocuments],
         is_draft: true,
         inline_tags: true,
+        defer_filing: true,
       }),
     });
     clearStagedImages();
@@ -730,6 +769,7 @@ async function saveEntryAsDraft() {
     // keeps that function from having to know which of its two callers has
     // already taken the list, see its own comment.
     uploadStagedFiles(saved.id);
+    pushEntryCreateUndo(saved, "Saved a draft note");
     await refreshEntries([saved.id]);
   } catch (error) {
     if (await heldOffline(error, { content, tags, document_ids: [...captureDocuments], is_draft: true }, contentBox, titleBox)) return;
@@ -829,6 +869,19 @@ function scrollEditingEntryIntoView(id) {
   if (rect.top < 0) window.scrollBy(0, rect.top - 8);
 }
 
+//: "Summarise this" on any tab (CHAT_PLAN B10): the note being edited;
+//: else the category the Notes tab is filtered to, while it shows; else the
+//: last note opened. The category goes too, as the fallback for a note the
+//: server cannot read (binned or private since).
+function askOpenContext() {
+  const out = {};
+  const notesShowing = !$("tab-notes")?.classList.contains("hidden");
+  const note = editingId || (notesShowing && activeCategory ? null : lastOpenedEntryId);
+  if (note) out.open_note_id = note;
+  if (activeCategory) out.open_category = activeCategory;
+  return out;
+}
+
 function flashEntry(id) {
   lastOpenedEntryId = id;
   switchTab("notes");
@@ -891,13 +944,22 @@ function flashEntry(id) {
     //: Every way to a note comes here (search, a link, the palette, the
     //: Library, the timeline, the graph, chat): the companion reads along
     //: with a long one, or covers its eyes for a private one (avatars.js).
-    if (typeof nameMarkBuddyNoteOpened === "function") nameMarkBuddyNoteOpened(id);
+    nameMarkBuddyNoteOpened(id);
   });
 }
 
 // ROADMAP.md Tier 2 §13: changeRow's View button only ever reached notes and
 // documents: reminders and categories had no navigation target at all, on
 // top of having no backend id/name resolver. Same shape as flashEntry above.
+//: **A source opens its note at the quoted line** (CHAT_PLAN 8 row 7): the
+//: card in the list, flashed as before, with the cited span marked. `from`
+//: is the passage, or the clicked card whose answer's marks know it; the
+//: marking is in reveal-targets.js, out of the boot (the reveal bundle).
+function openNoteAtPassage(id, from) {
+  flashEntry(id);
+  ensureModule("reveal").then(() => markNotePassage(id, from));
+}
+
 async function flashReminder(id) {
   switchTab("reminders");
   // The change that brought us here (setting or completing a reminder) may
@@ -905,7 +967,7 @@ async function flashReminder(id) {
   // completing one is exactly the case where it would just have vanished.
   reminderFilter = "all";
   for (const b of document.querySelectorAll("#reminder-filter button")) {
-    b.classList.toggle("active", b.dataset.filter === "all");
+    setActiveChoice(b, b.dataset.filter === "all");
   }
   await loadReminders();
   requestAnimationFrame(() => {
@@ -948,18 +1010,33 @@ function flashCategory(name) {
 //: happened to be behind the same flag. So a second option, meaning "this
 //: row is read-only, draw the facts anyway", rather than turning the actions
 //: on and getting an edit button in a search result.
+//: In the facts line, before the date (INBOX 510; the date ends the line).
+function placeResultBadge(row, badge) {
+  const meta = row.querySelector(":scope > .entry-meta") || row;
+  meta.insertBefore(badge, meta.querySelector(":scope > .entry-date"));
+}
+
 function clickableResult(entry) {
   const li = entryItem(entry, { facts: true });
   li.classList.add("clickable-result");
-  li.title = "Open this note in the Notes tab";
-  li.addEventListener("click", () => flashEntry(entry.id));
+  //: **The date in the card's corner** (INBOX 745 (a), the owner: "note dates
+  //: arent in the corner like i asked"): measured in Ask's records, 107 px
+  //: from the right, after the reason chip. It ends the facts line at the
+  //: right edge, as in the Notes list; inline, as boot CSS is at its cap.
+  const date = li.querySelector(":scope > .entry-meta > .entry-date");
+  if (date) date.style.marginInlineStart = "auto";
+  //: A board or a mind map opens as itself (INBOX 744: "clicking it takes me
+  //: to the notes page"), through the Library's own opener.
+  const open = entry.board_kind ? () => openWhiteboardBoard(entry.id) : () => flashEntry(entry.id);
+  li.title = entry.board_kind ? "Open it" : "Open this note in the Notes tab";
+  li.addEventListener("click", open);
   //: Reachable and openable from the keyboard too (found by the density
   //: pass: a result opened on a click only, like the dashboard rows did).
   li.tabIndex = 0;
   li.addEventListener("keydown", (event) => {
     if (event.target !== li || (event.key !== "Enter" && event.key !== " ")) return;
     event.preventDefault();
-    flashEntry(entry.id);
+    open();
   });
   return li;
 }
@@ -1109,10 +1186,11 @@ function addInlineCitations(answerEl, sentences, rawResults, orderedSources = nu
   //: sentence about two notes gets both digits side by side, in number order.
   const bySentence = new Map();
   for (const g of sentences) {
-    const key = citationKey(g.sentence);
+    //: `anchor`: the words the mark follows ("On 17 July[1] you bought").
+    const key = citationKey(g.anchor || g.sentence);
     //: A dozen letters is about three words; below that a "sentence" is a
     //: fragment that could match anywhere, and the backend never grounds one.
-    if (key.length < 12) continue;
+    if (key.length < 12 && !g.anchor) continue;
     if (!bySentence.has(key)) bySentence.set(key, []);
     if (!bySentence.get(key).some((row) => row.note_id === g.note_id)) bySentence.get(key).push(g);
   }
@@ -1136,6 +1214,15 @@ function addInlineCitations(answerEl, sentences, rawResults, orderedSources = nu
     for (const g of rows) parent.insertBefore(citationMarker(g, byId, numberFor), before);
   }
   collapseCitationRuns(targets);
+  //: A composed answer's "[**Dentist**]" opens its note (ask-compose.js,
+  //: lazy: the boot scripts are at their gzip cap).
+  //: …and its quoted sentences take the quote style (`markSaidSentences`).
+  if (sentences.some((g) => g.title || g.said)) {
+    ensureModule("askCompose").then(() => {
+      linkCitedTitles(targets, sentences, byId, numberFor);
+      markSaidSentences(targets, sentences);
+    });
+  }
 }
 
 //: **One mark per run, at its end** (the owner, 2026-09-24: "the amount of
@@ -1179,6 +1266,8 @@ function citationMarker(g, byId, numberFor) {
   //: it points at agree (INBOX 299), and `showCitedPassage` already reads
   //: exactly this attribute off a source card.
   marker.dataset.noteId = String(g.note_id);
+  //: Where in the note, so a source card opens at the quoted line (CHAT_PLAN 8 row 7).
+  if (Number.isInteger(g.start) && Number.isInteger(g.end)) Object.assign(marker.dataset, { start: g.start, end: g.end });
   const link = document.createElement("button");
   link.type = "button";
   link.className = "answer-citation-link";
@@ -1199,9 +1288,13 @@ function citationMarker(g, byId, numberFor) {
   //: is the only way to see a source, every check cost a trip. Hover or focus
   //: shows the peek for as long as the pointer or the focus stays; a press
   //: keeps it open, and on touch a press is the only way to open it.
+  //: A line made of several sentences of this note (B31) marks them all.
+  const own = (g.parts || []).filter((part) => part.note_id === g.note_id);
+  const start = own.length ? Math.min(...own.map((part) => part.start)) : g.start;
+  const end = own.length ? Math.max(...own.map((part) => part.end)) : g.end;
   const describe = () => ({
-    noteId: g.note_id, number: numberFor.get(g.note_id), entry, label: g.label, start: g.start, end: g.end,
-    signals: g.signals, verdict: g.verdict, terms: g.terms,
+    noteId: g.note_id, number: numberFor.get(g.note_id), entry, label: g.label, start, end,
+    signals: g.signals, verdict: g.verdict, terms: g.terms, line: g.sentence, parts: g.parts,
   });
   link.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -1376,7 +1469,7 @@ function openCitationPeek(link, source, { pinned }) {
   panel.setAttribute("aria-label", `Source ${source.number}`);
   const go = () => {
     closeCitationPeek();
-    flashEntry(source.noteId);
+    openNoteAtPassage(source.noteId, citationPeekText(source.entry?.content, source.start, source.end).passage);
   };
   //: The whole preview is the way in (INBOX 80: "clicking the preview panel
   //: itself goes there"), as one button: one tab stop and one target, not a
@@ -1420,6 +1513,10 @@ function openCitationPeek(link, source, { pinned }) {
   meta.textContent = facts.join(" · ");
   foot.append(meta, smallButton("ph:arrow-square-out Open note", "Open this note in Notes", go));
   panel.append(preview, foot);
+  ensureModule("askCompose").then(() => {
+    const verdictRow = citationVerdictRow(source, content);
+    if (verdictRow && foot.parentNode === panel) panel.insertBefore(verdictRow, foot);
+  }).catch(() => {});
   panel.addEventListener("mouseenter", () => clearTimeout(citationPeekState.closeTimer));
   panel.addEventListener("mouseleave", () => scheduleCitationPeekClose());
   panel.addEventListener("focusout", (event) => {
@@ -1637,14 +1734,13 @@ function renderAnswerSupport(answerEl, support) {
   line.className = "notice notice-warn answer-support";
   line.setAttribute("role", "note");
   const { supported = 0, sentences = 0 } = support;
-  //: No model wrote an answer composed from the notes (INBOX 724, the owner:
-  //: "this message needs to be altered as a model wasnt used"): what is not
-  //: quoted is the app's own joining words and how it read the pictures.
+  //: No model wrote an answer composed from the notes (INBOX 724): the
+  //: server marks it low only when most of it is the app's reading of
+  //: pictures (INBOX 787), and this says so in one plain line.
   setLabel(
     line,
     support.by_model === false
-      ? `ph:info Only ${supported} of ${sentences} sentences here ${supported === 1 ? "is" : "are"} quoted ` +
-          "word for word from your notes. The rest is this app's joining words or how it read your pictures; no model wrote any of it."
+      ? "ph:info Most of this is how the app read your pictures; no model wrote any of it."
       : `ph:warning Only ${supported} of ${sentences} sentences here ` +
           `${supported === 1 ? "comes" : "come"} from your notes. ` +
           "The rest is the model's own writing, treat it as a draft."
@@ -1733,6 +1829,21 @@ function renderAnswerGrounding(
   support = null, pictureAlts = null
 ) {
   if (!target) return;
+  if (support?.digest) {
+    //: A digest (CHAT_PLAN decision 70, INBOX 812): one mark a line, the
+    //: records numbered to match, and no chips or count under the answer,
+    //: because the column on the right already is the sources.
+    addInlineCitations(answerEl, sentences, rawResults, orderedSources);
+    numberMatchingRecords(target, citationNumbers(sentences, orderedSources));
+    target.replaceChildren();
+    target.classList.add("hidden");
+    ensureModule("askCompose").then(() => {
+      digestShape(answerEl, support.shape, support.figure);
+      digestMore(answerEl, support.more);
+      digestOffer(answerEl, support.offer);
+    }).catch(() => {});
+    return;
+  }
   renderAnswerSupport(answerEl, support);
   // The markers go in the answer itself; the chip row below is their key.
   // Both are built from the same `sentences` and the same numbering
@@ -1801,8 +1912,34 @@ function renderAnswerGrounding(
   const foot = document.createElement("div");
   foot.className = "ev-foot";
   foot.appendChild(evidenceToggle(target, sentences, rawResults, answerEl, support, numberFor));
+  //: Settings, What the notebook learned, Evidence checks (WORLD_CLASS I6,
+  //: OPEN 1073): off, the answer has no evidence view to open.
+  foot.classList.toggle("hidden", evidenceChecksKnown === false);
+  evidenceChecksOn().then((on) => foot.classList.toggle("hidden", !on));
   target.appendChild(foot);
   target.classList.remove("hidden");
+}
+
+//: The Evidence checks switch, read once and again after Settings writes it
+//: (`evidenceSwitchReset`). Unknown counts as on: the view is the default.
+let evidenceSwitchLoad = null;
+let evidenceChecksKnown = null;
+
+function evidenceChecksOn() {
+  if (!evidenceSwitchLoad) {
+    evidenceSwitchLoad = apiJson("/learned/switches")
+      .then((switches) => (evidenceChecksKnown = switches?.evidence_checks !== false))
+      .catch(() => {
+        evidenceSwitchLoad = null;
+        return true;
+      });
+  }
+  return evidenceSwitchLoad;
+}
+
+function evidenceSwitchReset() {
+  evidenceSwitchLoad = null;
+  evidenceChecksKnown = null;
 }
 
 //: Show the evidence (I6, row 6): each sentence beside its passages, the
@@ -1891,7 +2028,7 @@ function renderEvidenceView(view, sentences, support, rawResults, answerEl, numb
       const facts = [entry?.category, entry?.created_at ? relativeTime(entry.created_at) : ""].filter(Boolean);
       if (facts.length) card.append(evidenceSpan("library-file-meta answer-evidence-meta", facts.join(" · ")));
       card.setAttribute("aria-label", `Open source ${number}: ${title}`);
-      card.addEventListener("click", () => flashEntry(g.note_id));
+      card.addEventListener("click", () => openNoteAtPassage(g.note_id, passage));
       sources.append(card);
     }
     item.append(evidenceSpan("answer-evidence-sentence", plainText(row.sentence), "p"), sources);
@@ -2070,6 +2207,8 @@ function clearAskAnswerFoot() {
   $("ai-answer")?.parentElement?.querySelector(":scope > .answer-support")?.remove();
   $("ask-answer-related")?.replaceChildren();
   $("ask-answer-sources")?.replaceChildren();
+  $("ask-why")?.replaceChildren();
+  $("ask-why")?.classList.add("hidden");
   const strip = $("ask-followups");
   if (strip) {
     strip.replaceChildren();
@@ -2136,8 +2275,6 @@ function askNotesOnTheRight() {
   return new Set([...rows].map((row) => row.dataset.id));
 }
 
-
-
 //: **A follow-up is a question that keeps the answer above it** (decision 8:
 //: "'Ask again' chips become follow-ups that carry the previous answer as
 //: context"). The chips themselves are `/chat/followups`, the same second
@@ -2148,42 +2285,10 @@ function askNotesOnTheRight() {
 //:
 //: Silent on every failure, including the AI not running: an answer that
 //: arrived is not made worse by having nothing to offer after it.
-async function renderAskFollowups(question, answer, given = null) {
-  const strip = $("ask-followups");
-  if (!strip) return;
-  strip.replaceChildren();
-  strip.classList.add("hidden");
-  if (!question || !answer) return;
-  //: `given`: a composed answer's own next questions, already in hand.
-  let picks = given || [];
-  if (!given) {
-    try {
-      picks = await apiJson("/chat/followups", {
-        method: "POST",
-        silent: true,
-        body: JSON.stringify({ question, answer }),
-      });
-    } catch {
-      return;
-    }
-  }
-  if (!Array.isArray(picks) || !picks.length) return;
-  const label = document.createElement("span");
-  label.className = "muted answer-grounding-label";
-  label.textContent = "Ask next:";
-  strip.appendChild(label);
-  for (const pick of picks) {
-    strip.appendChild(
-      chip(pick, "Ask this next, keeping the answer above as context", () => {
-        askTrailPending = [...askTrail, conversation.length - 1];
-        $("question").value = pick;
-        askQuestion(pick);
-      })
-    );
-  }
-  strip.classList.remove("hidden");
-  $("ask-answer-foot")?.classList.remove("hidden");
-}
+//: **The answer, kept** (CHAT_PLAN B12): a note, a document, or a mind map
+//: of the notes it cites, from the ⋯ beside Copy; each goes on the undo
+//: stack. Built on first use in ask-compose.js (lazy).
+let askKept = null;
 
 // The Ask box's "that isn't a question about your notes" card (§35A).
 //
@@ -2238,7 +2343,9 @@ function renderChatMeta(meta) {
   //: A composed answer (INBOX 688) says so on the chip, and its card takes
   //: the quote style the composer's lead is drawn in (`.answer-composed`).
   $("ai-answer").classList.toggle("answer-composed", !!meta.composed);
-  if (meta.composed) setAnsweredBy("Your notes, no AI", "Composed from your notes, no AI: every sentence is quoted from a note");
+  //: "Atlas" heads the answer; the chip says where it came from (CHAT_PLAN
+  //: decision 36): "From your notes" with no model, the model's name with one.
+  if (meta.composed) setAnsweredBy("From your notes", "Atlas answered from your notes, with no model: every sentence comes from a note");
   else if (meta.answered_by) setAnsweredBy(meta.answered_by, `Answered by ${meta.answered_by}`);
   else if (meta.ollama_running === false) {
     setAnsweredBy("chat model offline", "The chat model is not running, so nothing answered this");
@@ -2288,15 +2395,22 @@ function renderChatMeta(meta) {
   // point of pulling them in is that the person can see the connection.
   const connected = new Set(meta.connected_ids || []);
   const matchInfo = meta.match_info || {};
+  //: **A percentage on every card or on none** (INBOX 728, the owner: "how
+  //: come only some of the ask tab matching records notes green arrows have %
+  //: number similarity and others dont show a number??"). A row that came by
+  //: recency or a date has no score; beside it a number on its neighbours
+  //: read as a missing one. Then the chips keep their words and the number
+  //: moves to the title.
+  const scored = everyRowScored(meta.raw_results, matchInfo, connected);
   for (const entry of meta.raw_results) {
     const row = clickableResult(entry);
-    const badge = matchReasonBadge(matchInfo[entry.id]);
+    const badge = matchReasonBadge(matchInfo[entry.id], scored);
     if (badge) {
       if (connected.has(entry.id)) row.classList.add("result-connected");
       if (matchInfo[entry.id]?.type === "connected_2hop") row.classList.add("result-connected-2hop");
       //: In the facts line, after the date, as one more quiet fact (INBOX
       //: 510): on a row of its own it was a filled pill louder than the note.
-      (row.querySelector(":scope > .entry-meta") || row).appendChild(badge);
+      placeResultBadge(row, badge);
     }
     rawList.appendChild(row);
   }
@@ -2353,12 +2467,17 @@ const MATCH_REASON_LABEL = {
   }),
 };
 
-function matchReasonBadge(info) {
+//: Whether every row has its number (or is a linked row, which says Linked).
+function everyRowScored(rows, info, connected) {
+  return rows.every((e) => connected.has(e.id) || typeof info[e.id]?.score === "number");
+}
+
+function matchReasonBadge(info, scored = true) {
   if (!info || !MATCH_REASON_LABEL[info.type]) return null;
   const { text, title } = MATCH_REASON_LABEL[info.type](info);
   const badge = document.createElement("span");
   badge.className = `chip result-reason-chip result-reason-${info.type}`;
-  setLabel(badge, text);
+  setLabel(badge, scored ? text : text.replace(/\d+% similar/, "Similar"));
   badge.title = title;
   return badge;
 }
@@ -2397,6 +2516,12 @@ function streamChat(options) {
       return options.onStatus?.(event);
     },
     onMeta: (meta) => {
+      //: No model connected: nothing is being woken (INBOX 801), so the line
+      //: says the engine is answering and no "Waking the model…" is armed.
+      if (meta?.ollama_running === false) {
+        phase("engine");
+        return options.onMeta?.(meta);
+      }
       phase(meta?.raw_results?.length ? "reading" : "reaching");
       timer = setTimeout(() => phase("loading"), MODEL_LOAD_HINT_MS);
       return options.onMeta?.(meta);
@@ -2462,13 +2587,20 @@ async function streamChatEvents({
   onCompressReview,
   onHint,
   onStats,
+  onChart,
   onGrounding,
   onGroundingLive,
   onAnswerFinal,
   onRelated,
   onUnsupported,
+  onWebSources,
+  onWhy,
+  onOffer,
+  attempt,
 }) {
   const body = { question, history: history || [] };
+  //: "Try again" (CHAT_PLAN decision 34): an answer from the notes reworded.
+  if (attempt) body.attempt = attempt;
   if (persona) body.persona = persona;
   // Per-turn, not a setting: one quick answer shouldn't change the default
   // for every answer after it.
@@ -2483,6 +2615,9 @@ async function streamChatEvents({
   if (attachedNotesOnly) body.attached_notes_only = true;
   //: Row 7: the notes holding open questions only (`_apply_scope`).
   if (scope) body.scope = scope;
+  //: What is open (CHAT_PLAN B10), read by the server only for a question
+  //: about "this" ("Summarise this"), never to change any other answer.
+  Object.assign(body, askOpenContext());
   //: Row 23: the notebook as it stood at the end of that day (`as_of`).
   if (asOf) body.as_of = asOf;
   // A reply to the agent's own question ("yes", "ok") reads as small talk to
@@ -2621,13 +2756,24 @@ async function streamChatEvents({
       else if (event.type === "thinking") onThinking(event.delta);
       else if (event.type === "answer") onAnswer(event.delta);
       else if (event.type === "tool" && onTool) onTool(event);
-      else if (event.type === "confirm" && onConfirm) onConfirm(event);
+      //: An act with no model (CHAT_PLAN decision 38) is drawn by the same
+      //: confirm hook (`renderToolConfirm` hands it to `renderActCard`).
+      else if ((event.type === "confirm" || event.type === "act") && onConfirm) onConfirm(event);
+      else if (event.type === "navigate") actNavigate(event.surface);
+      else if (event.type === "web_sources" && onWebSources) onWebSources(event);
+      //: How the answer was made, as a job's lines (B30), just before `done`.
+      else if (event.type === "why" && onWhy) onWhy(event);
+      //: A counted answer's one acting offer ("Open Statistics ..."), decision 70.
+      else if (event.type === "offer" && onOffer) onOffer(event);
       else if (event.type === "ask" && onAsk) onAsk(event);
       else if (event.type === "run_skill" && onRunSkill) onRunSkill(event);
       else if (event.type === "run_plan" && onRunPlan) onRunPlan(event);
       else if (event.type === "compress_review" && onCompressReview) onCompressReview(event);
       else if (event.type === "hint" && onHint) onHint(event);
       else if (event.type === "stats" && onStats) onStats(event);
+      //: A bar of counts the realiser drew from a no-model answer (CHAT_PLAN
+      //: decision 59, step 2), drawn with the Ask box's chart recipe.
+      else if (event.type === "chart" && onChart) onChart(event);
       // ROADMAP.md item 36: which retrieved note backs which sentence of a
       // direct-Q&A answer. Only ever sent for that path (routes_chat.py).
       else if (event.type === "grounding" && onGrounding) onGrounding(event);
@@ -2655,6 +2801,11 @@ async function streamChatEvents({
         throw new Error(event.message || "The answer stopped early.");
       }
 
+      //: A board tool that wrote: the open board reads it as one Undo step
+      //: (whiteboard-history.js, `wbTakeChangeFromElsewhere`; Brief 77).
+      if (event.type === "tool" && event.ok !== false && /whiteboard|board_item|map_node|mindmap|diagram/.test(String(event.name || ""))) {
+        document.dispatchEvent(new CustomEvent("mm:board-changed", { detail: { source: "Atlas" } }));
+      }
       if (event.type === "tool" && event.ok === false) {
         recordBrowserLog("WARN", [
           `[Agent tool error] ${event.label || event.name || "?"}: ${event.error || "unknown error"}`,
@@ -2866,7 +3017,8 @@ async function askQuestion(preset) {
   // A new answer is coming, hide the suggestion/recent chips and the
   // per-answer action buttons until it lands.
   $("suggested-questions").classList.add("hidden");
-  hide("retry-btn", "copy-btn", "speak-btn");
+  hide("retry-btn", "copy-btn", "speak-btn", "ask-answer-more");
+  askKept = null;
   setAsking(true);
   status.classList.remove("error");
   // Reset the output areas for the new answer.
@@ -2892,6 +3044,19 @@ async function askQuestion(preset) {
   //: No words of its own: `streamChat` drives the phase line from the events
   //: (INBOX 649), "Reaching Atlas…" until the server says it is searching.
   const progress = askStatusBusy(null);
+  //: **The wait is on screen** (INBOX 727, the owner: "there's no searching
+  //: animation or indicator for when I enter a search in the ask tab and
+  //: nothing has shown yet"). The phase line was drawn inside a results grid
+  //: still hidden until the first event (measured: 0x0 for the whole wait),
+  //: so the grid opens now, the records column saying it is searching until
+  //: `onMeta` replaces the row.
+  const searching = document.createElement("li");
+  searching.className = "muted";
+  setLabel(searching, "ph:spin Searching your notes…");
+  $("raw-results").replaceChildren(searching);
+  document.querySelector(".chat-half:last-child")?.classList.remove("hidden");
+  $("chat-results").classList.remove("hidden");
+  $("ask-idle")?.classList.add("hidden");
   $("ai-answer-grounding").replaceChildren();
   $("ai-answer-grounding").classList.add("hidden");
   //: The whole foot goes with it, not only the grounding chips: a sources
@@ -2913,6 +3078,9 @@ async function askQuestion(preset) {
   let stopped = false;
   let groundingRawResults = []; // set by onMeta, read by onGrounding
   let groundedSupport = null; // how much of the answer the notes backed
+  let groundedInsights = []; // the lines it volunteered (decision 73)
+  let answerWhy = []; // how it was made (B30)
+  let answerOffer = null; // a counted answer's offer (decision 70)
   let composedNext = []; // a composed answer's own next questions (INBOX 725)
   //: Kept beyond the callback that receives them, because the answer element
   //: is rebuilt after the stream ends and the markers have to be put back.
@@ -3044,7 +3212,14 @@ async function askQuestion(preset) {
         //: reason: the answer is still streaming when this arrives, so a
         //: notice placed now would sit above prose that is still growing.
         groundedSupport = event.support || null;
+        groundedInsights = Array.isArray(event.insights) ? event.insights : [];
         composedNext = Array.isArray(event.next) ? event.next : [];
+      },
+      onOffer: (event) => {
+        answerOffer = event.offer || null;
+      },
+      onWhy: (event) => {
+        answerWhy = Array.isArray(event.lines) ? event.lines : [];
       },
     });
 
@@ -3079,6 +3254,14 @@ async function askQuestion(preset) {
     if (!hinted) {
       conversation.push({ question, answer: answerRaw });
       show("retry-btn", "copy-btn", "speak-btn", "new-chat-btn");
+      //: What the ⋯ keeps (B12): the answer as written, and the notes it cites.
+      askKept = {
+        question,
+        text: answerRaw,
+        noteIds: [...new Set(groundedSentences.map((row) => row.note_id).filter((id) => Number.isInteger(id)))],
+      };
+      ensureModule("askCompose").then(() => askAnswerMenu()).catch(() => {});
+      show("ask-answer-more");
       //: **The answer object, rendered** (CHAT_PLAN Phase 3). Built after the
       //: stream rather than updated event by event, because two of its fields
       //: (the sentences and the sources they came from) are only complete when
@@ -3111,11 +3294,15 @@ async function askQuestion(preset) {
       }
       placeAnswerFigures(answerBox, answerMeta, question);
       renderAskAnswerFoot(answer, answerMeta);
+      ensureModule("askCompose").then(() => renderAskInsights(groundedInsights)).catch(() => {});
+      ensureModule("askCompose").then(() => renderAskWhy(answerWhy)).catch(() => {});
+      if (answerOffer) ensureModule("askCompose").then(() => digestOffer(answerBox, answerOffer)).catch(() => {});
       //: Not awaited: it is a second model call, and the answer is already on
       //: screen. The same contract `offerFollowups` has in the Chat tab. An
       //: answer composed from the notes brings its own (INBOX 725), built
       //: from what it found and did not say, and asks no model for them.
-      renderAskFollowups(question, answerRaw, answerMeta?.composed ? composedNext : null);
+      const followups = () => renderAskFollowups(question, answerRaw, answerMeta?.composed ? composedNext : null);
+      ensureModule("askCompose").then(followups).catch(() => {});
     }
     askStatusText("");
     // Asking changes both quick-access lists, and, for a real (non-hint)
@@ -3189,9 +3376,6 @@ async function loadSuggestions() {
 // this is read, search, pin, delete and "reopen" only. ---------------------
 
 let askHistoryOpen = false;
-let askHistoryOffset = 0;
-let askHistoryTotal = 0;
-const ASK_HISTORY_PAGE = 20;
 
 async function loadAskHistoryBadge() {
   const badge = $("ask-history-badge");
@@ -3212,7 +3396,12 @@ async function loadAskHistoryBadge() {
 //: focus.
 for (const type of ["focusin", "input", "click"]) {
   document.addEventListener(type, (event) => {
-    if (event.target.matches?.("#entry-tags, .note-edit-tags > input")) openTagSuggest(event.target);
+    const box = event.target;
+    if (box.matches?.("#entry-tags, .note-edit-tags > input")) openTagSuggest(box);
+    //: Every search box carries `data-search-scope`: the first focus loads its
+    //: suggestions (search-suggest.js, lazy), and typing or a press after Escape
+    //: opens them again. Not a `LAZY_ENTRY_POINTS` stand-in: app.js is at its cap.
+    else if (box.matches?.("input[data-search-scope]")) ensureModule("searchSuggest").then(() => openSearchSuggest(box));
   });
 }
 
@@ -3220,11 +3409,6 @@ for (const type of ["focusin", "input", "click"]) {
 //: questions-view.js, lazy (INBOX 688 moved it to make room for the Ask box's
 //: answer switch). The Ask scope it sets stays here: `askQuestion` reads it.
 let askScope = null;
-
-function setAskScope(scope) {
-  askScope = scope || null;
-  $("ask-scope")?.classList.toggle("hidden", !askScope);
-}
 
 //: Time travel on Ask (WORLD_CLASS_PLAN I5, row 23): the day the next answer
 //: reads the notebook as of, or null. Only while the line is showing, so
@@ -3262,7 +3446,6 @@ const BUILTIN_TEMPLATES = [
   { name: "Meeting", content: "---\ntype: Meeting\n---\n## Agenda\n\n1. {{cursor}}\n\n## Notes\n\n## Decisions\n\n- \n\n## Action items\n\n- [ ] \n" },
 ];
 
-
 async function loadTemplates() {
   // Built-ins + the user's own (kept in preferences). Shared with the two
   // other boot readers (A2): at boot this joins the one request in flight, and
@@ -3271,6 +3454,9 @@ async function loadTemplates() {
   await loadPreferences().catch(() => prefsCache);
   // Saved filters live in the same payload, so draw them while it's fresh.
   renderSavedSearches();
+  //: Saved searches are the search box's sidebar rows (search.js, lazy),
+  //: fetched now only when there are some to draw.
+  if (prefsCache?.saved_finds?.length) ensureModule("search");
   //: The Capture box's picker reads `templateCatalogue()` when it opens
   //: (`openNoteTemplateDialog`), so there is nothing to pre-build here: a
   //: template saved in Settings is in the next opening without a redraw.

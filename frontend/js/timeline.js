@@ -155,6 +155,8 @@ function timelineRow(entry) {
     //: has quietly moved someone's notes: "mentioned" means the row sits on a
     //: date the note *talks about*, and `phrase` is the words that did it.
     placedBy: entry.placed_by,
+    //: The other days the note names (the row sits on the first): the calendar draws an "also on" chip there.
+    alsoOn: entry.also_on || [],
     phrase: entry.phrase || "",
     tags: Array.isArray(entry.tags) ? entry.tags : [],
     category: entry.category || "",
@@ -263,7 +265,9 @@ function timelineBucketLabel(key, scale) {
 //: to agree, and three copies of a list of four is how they stop agreeing.
 const TIMELINE_KINDS = [
   { key: "note", label: "Notes", glyph: "ph-note" },
-  { key: "board", label: "Boards", glyph: "ph-tree-structure" },
+  //: A map is a board too (its row says "Map" and opens it as one), so the
+  //: kind names both rather than leaving a map under "Boards" alone.
+  { key: "board", label: "Boards and maps", glyph: "ph-tree-structure" },
   { key: "document", label: "Documents", glyph: "ph-file-text" },
   { key: "reminder", label: "Reminders", glyph: "ph-bell" },
 ];
@@ -415,7 +419,7 @@ async function toggleTimelineKind(key) {
   const next = chosen.includes(key) ? chosen.filter((k) => k !== key) : [...chosen, key];
   if (!next.length) return;
   try {
-    localStorage.setItem(TIMELINE_KINDS_STORE, JSON.stringify(next));
+    prefs.set(TIMELINE_KINDS_STORE, JSON.stringify(next));
   } catch {
     /* a browser refusing storage still gets the filter for this visit */
   }
@@ -498,11 +502,20 @@ function timelineResolvedScale() {
 //: 300 is `PAGE_SIZE` in `routes_timeline.py`; the two are not enforced to
 //: agree because neither has to, the endpoint is the one with the ceiling.
 const TIMELINE_PAGE = 300;
+//: The first page is smaller, so the click is answered sooner (TIMELINE_PLAN
+//: 10 row 8): a hundred rows fill any window, and the rest of the usual 300
+//: follow a frame after they paint, so search and the table hold the same
+//: rows a moment later as they did before.
+const TIMELINE_FIRST = 100;
+//: Which render a page belongs to: a page asked for before the range
+//: changed is dropped, not appended to the new range's rows. `pagingFor`:
+//: the render a page is being fetched for (0: none); a page in flight for a
+//: superseded range must not stop the new range asking for its own.
+const timelineRenders = { n: 0, pagingFor: 0 };
 // Counts per day for the whole range (not just the loaded pages), which is
 // what the scrubber draws.
 let timelineDensity = {};
 let timelineNextCursor = null;
-let timelinePaging = false;
 let timelineRows = [];
 // By id, so a row that continues another can name it without a scan per row:
 // `find` per row is the shape that turns 1,500 rows into a million comparisons
@@ -546,7 +559,8 @@ function timelineQuery() {
 }
 
 async function renderTimeline() {
-  const url = `${timelineQuery()}&limit=${TIMELINE_PAGE}`;
+  timelineRenders.n += 1;
+  const url = `${timelineQuery()}&limit=${TIMELINE_FIRST}`;
   //: Which of these entries are maps, awaited alongside the timeline rather
   //: than before it, because neither needs the other's answer.
   const feed = $("timeline-feed");
@@ -579,8 +593,90 @@ async function renderTimeline() {
   fillTimelineBandOptions();
   renderTimelineKinds();
   paintTimeline();
-  drawTimelineScrubber();
-  renderTimelineDayStrip();
+  //: The rows are the answer to the click (TIMELINE_PLAN 10 row 8): they
+  //: paint first, and the scrubber, the day strip and the recall row a
+  //: frame later. Drawn in the same task they held the first frame back
+  //: (a 51 ms task after the paint, measured from the dashboard).
+  requestAnimationFrame(() =>
+    setTimeout(() => {
+      drawTimelineScrubber();
+      renderTimelineDayStrip();
+      renderTimelineRecall();
+      timelineLoadMore(TIMELINE_PAGE - TIMELINE_FIRST);
+    }, 0)
+  );
+}
+
+//: **On this day and the years** (TIMELINE_PLAN 10 row 7). Two small reads
+//: after the rows, never before them: today's date in earlier months and
+//: years (the Time range's own `on=` rule, the dashboard widget's), and the
+//: whole notebook's density summed by year. Asked once a day; a press runs
+//: the range the dock already has, so the feed is the one list either way.
+const timelineRecall = { day: "", memories: [], years: {} };
+async function renderTimelineRecall() {
+  const now = new Date();
+  const md = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (timelineRecall.day !== md) {
+    const [on, all] = await Promise.all([
+      apiJson(`/timeline?days=0&on=${md}&tz=${-now.getTimezoneOffset()}&group=none&kind=note&limit=20`, { silent: true }).catch(() => null),
+      apiJson("/timeline?days=0&group=none&limit=1", { silent: true }).catch(() => null),
+    ]);
+    if (!on || !all) return;
+    timelineRecall.day = md;
+    timelineRecall.memories = on.rows.map(timelineRow);
+    timelineRecall.years = {};
+    for (const [day, count] of Object.entries(all.density || {})) timelineRecall.years[day.slice(0, 4)] = (timelineRecall.years[day.slice(0, 4)] || 0) + count;
+  }
+  const row = $("timeline-recall");
+  const range = (value, start, end) => () => {
+    $("timeline-days").value = value;
+    if (start) {
+      $("timeline-start-date").value = start;
+      $("timeline-end-date").value = end;
+    }
+    $("timeline-days").dispatchEvent(new Event("change", { bubbles: true }));
+  };
+  const button = (label, title, run) => {
+    const one = document.createElement("button");
+    one.type = "button";
+    one.className = "library-chip";
+    setLabel(one, label);
+    one.title = title;
+    one.addEventListener("click", run);
+    return one;
+  };
+  const chips = [];
+  const seen = new Set();
+  for (const memory of timelineRecall.memories) {
+    const years = now.getFullYear() - memory.when.getFullYear();
+    const ago = years > 0 ? `${years} year${years === 1 ? "" : "s"} ago` : `${now.getMonth() - memory.when.getMonth() + 12 * years} months ago`;
+    if (seen.has(ago) || seen.size >= 3) continue;
+    seen.add(ago);
+    chips.push(button(`ph:clock-counter-clockwise On this day, ${ago}: ${clipText(memory.title, 30)}`, "Show what you wrote on this date in earlier months and years", range("onthisday")));
+  }
+  syncTimelineYears(range);
+  row.replaceChildren(...chips);
+  row.classList.toggle("hidden", !chips.length);
+}
+
+//: **The years, in the strip's head** (INBOX 842: "that year button in the
+//: timeline takes up a whole row on its own"). One select beside the month
+//: picker, "2026 (42)" per year; it was a chip per year on a row under the
+//: strip. "Any year" is the select's resting value and, chosen while a year is
+//: on, goes back to Everything. Hidden with no dated notes.
+function syncTimelineYears(range) {
+  const select = $("timeline-year");
+  if (!select) return;
+  const years = Object.entries(timelineRecall.years).sort();
+  const active = $("timeline-days").value === "custom" ? $("timeline-start-date").value.slice(0, 4) : "";
+  select.replaceChildren(
+    new Option("Any year", ""),
+    ...years.map(([year, count]) => new Option(`${year} (${count})`, year)),
+  );
+  select.value = years.some(([year]) => year === active) ? active : "";
+  select.classList.toggle("hidden", !years.length);
+  select.closest(".select-shell")?.classList.toggle("hidden", !years.length);
+  select.onchange = () => (select.value ? range("custom", `${select.value}-01-01`, `${select.value}-12-31`)() : range("0")());
 }
 
 //: **A page at a time, as the reader reaches the end of the last one**
@@ -590,16 +686,17 @@ async function renderTimeline() {
 //: (`created_at|id`, base64url), so a note saved while someone is reading
 //: cannot shift the page under them.
 //:
-//: One request at a time, and the flag is cleared in a `finally`: a rejected
+//: One request at a time per range, and the flag is cleared in a `finally`: a rejected
 //: fetch that left it set would stop the feed paging for the rest of the
 //: session, and the only symptom would be a timeline that ends early.
-async function timelineLoadMore() {
-  if (!timelineNextCursor || timelinePaging) return;
-  timelinePaging = true;
+async function timelineLoadMore(limit = TIMELINE_PAGE) {
+  if (!timelineNextCursor || timelineRenders.pagingFor === timelineRenders.n) return;
+  const render = timelineRenders.n;
+  timelineRenders.pagingFor = render;
   try {
-    const url = `${timelineQuery()}&limit=${TIMELINE_PAGE}&cursor=${encodeURIComponent(timelineNextCursor)}`;
+    const url = `${timelineQuery()}&limit=${limit}&cursor=${encodeURIComponent(timelineNextCursor)}`;
     const body = await apiJson(url).catch(() => null);
-    if (!body) return;
+    if (!body || render !== timelineRenders.n) return;
     timelineNextCursor = body.next_cursor || null;
     const fresh = body.rows.map(timelineRow);
     for (const row of fresh) {
@@ -616,7 +713,7 @@ async function timelineLoadMore() {
     else appendTimelineRows(fresh);
     drawTimelineScrubber();
   } finally {
-    timelinePaging = false;
+    if (timelineRenders.pagingFor === render) timelineRenders.pagingFor = 0;
   }
 }
 
@@ -763,9 +860,9 @@ function syncTimelineFilterChip() {
 // rather than dim: a dimmed row still takes its space, still answers Ctrl+F
 // and still has to be read past, which is why the old view's search was
 // reported as doing nothing useful.
-function timelineVisibleRows() {
+function timelineVisibleRows(from = timelineRows) {
   const query = ($("timeline-search").value || "").trim().toLowerCase();
-  let rows = timelineRows;
+  let rows = from;
   if (timelineFilter) {
     rows = rows.filter((row) => timelineRowGroups(row).includes(timelineFilter));
   }
@@ -789,13 +886,19 @@ function paintTimeline() {
   if (!$("timeline-feed")) return;
   timelineForgetRows();
   const rows = timelineVisibleRows();
-  const table = timelineViewMode() === "table";
-  const nothingLoaded = timelineRows.length === 0;
+  const mode = timelineViewMode();
+  const table = mode === "table";
+  const calendar = mode === "calendar";
+  //: The calendar reads its own period and says its own emptiness: a month
+  //: with nothing in it is still a month to look at and drop a reminder on.
+  const nothingLoaded = timelineRows.length === 0 && !calendar;
   $("timeline-empty").classList.toggle("hidden", !nothingLoaded);
-  $("timeline-no-match").classList.toggle("hidden", nothingLoaded || rows.length > 0);
-  $("timeline-scroll").classList.toggle("hidden", rows.length === 0);
-  $("timeline-feed").classList.toggle("hidden", table);
+  $("timeline-no-match").classList.toggle("hidden", calendar || nothingLoaded || rows.length > 0);
+  $("timeline-scroll").classList.toggle("hidden", !calendar && rows.length === 0);
+  $("tab-timeline").classList.toggle("is-calendar", calendar);
+  $("timeline-feed").classList.toggle("hidden", table || calendar);
   $("timeline-table").classList.toggle("hidden", !table);
+  $("timeline-calendar").classList.toggle("hidden", !calendar);
   // Selecting rows is the table's affordance: the feed has no tick boxes, and
   // offering the mode where it cannot be used is a control that does nothing.
   $("timeline-select-btn").classList.toggle("hidden", !table);
@@ -804,10 +907,16 @@ function paintTimeline() {
   //: breakpoint switches the mode, and the hidden feed kept its rows beside
   //: the table's: every `.timeline-row` query (the keyboard walk, the tab
   //: order, the sweeps) then counted both, measured as 113 rows read as 226.
-  if (table) {
+  if (calendar) {
+    $("timeline-table-body").replaceChildren();
+    $("timeline-feed").replaceChildren();
+    timelineCalendarCall("paintTimelineCalendar");
+  } else if (table) {
+    $("timeline-calendar").replaceChildren();
     $("timeline-feed").replaceChildren();
     paintTimelineTable(rows);
   } else {
+    $("timeline-calendar").replaceChildren();
     $("timeline-table-body").replaceChildren();
     paintTimelineFeed(rows);
   }
@@ -1093,7 +1202,7 @@ async function renderTimelineDayStrip() {
   //: today, else the last; the arrow keys walk them (`timelineDayKeys`).
   const inView = (key) => key && key >= first && key <= end;
   const held = host.contains(document.activeElement) ? document.activeElement.dataset.key : null;
-  const stop = [timelineStripFocus, held, today].find(inView) || end;
+  const stop = [timelineMonth.focus, held, today].find(inView) || end;
   host.replaceChildren();
   for (let offset = 1 - TIMELINE_STRIP_DAYS; offset <= 0; offset += 1) {
     const key = timelineDayShift(end, offset);
@@ -1125,9 +1234,9 @@ async function renderTimelineDayStrip() {
   }
   //: A day picked in the month popover lands here with the focus on it, so a
   //: keyboard user who chose a day is on that day and Enter opens its page.
-  if (timelineStripFocus || held) {
+  if (timelineMonth.focus || held) {
     host.querySelector(`[data-key="${stop}"]`)?.focus({ preventScroll: true });
-    timelineStripFocus = null;
+    timelineMonth.focus = null;
   }
 }
 
@@ -1149,7 +1258,7 @@ function timelineDayKeys(event) {
   const key = timelineDayShift(current.dataset.key, moves[event.key]);
   if (key > timelineBucketKey(new Date(), "day")) return;
   timelineStripEnd = timelineDayShift(timelineStripEnd, moves[event.key]);
-  timelineStripFocus = key;
+  timelineMonth.focus = key;
   renderTimelineDayStrip();
 }
 
@@ -1164,8 +1273,7 @@ function timelineDayKeys(event) {
 //: today). The grid is a group of buttons with one Tab stop (roving), and the
 //: arrow keys walk it: left and right a day, up and down a week, Home and End
 //: the week's ends, Page Up and Page Down a month.
-let timelineMonthShown = null;
-let timelineStripFocus = null;
+const timelineMonth = { shown: null, focus: null };
 
 function timelineMonthStart(key) {
   return `${key.slice(0, 7)}-01`;
@@ -1183,7 +1291,7 @@ function timelineJumpToDay(key) {
   //: days around it show, unless that would pass today.
   const ahead = timelineDayShift(key, 3);
   timelineStripEnd = ahead > today ? today : ahead;
-  timelineStripFocus = key;
+  timelineMonth.focus = key;
   closeHelpPopovers();
   renderTimelineDayStrip();
 }
@@ -1192,7 +1300,7 @@ function timelineJumpToDay(key) {
 //: size); the dots arrive after, from the same endpoints the strip reads.
 function renderTimelineMonthPop(month, focusKey) {
   const today = timelineBucketKey(new Date(), "day");
-  timelineMonthShown = month;
+  timelineMonth.shown = month;
   const first = new Date(`${month}T00:00:00`);
   const dayCount = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
   const title = first.toLocaleDateString(undefined, { month: "long", year: "numeric" });
@@ -1232,7 +1340,7 @@ function renderTimelineMonthPop(month, focusKey) {
   }
   const lastKey = timelineDayShift(month, dayCount - 1);
   timelineDayPages(month, lastKey > today ? today : lastKey).then((hasPage) => {
-    if (!hasPage || timelineMonthShown !== month) return;
+    if (!hasPage || timelineMonth.shown !== month) return;
     for (const button of grid.querySelectorAll(".timeline-monthday")) {
       const has = hasPage(button.dataset.key);
       button.classList.toggle("is-written", has);
@@ -1294,8 +1402,8 @@ function timelineMonthKeys(event) {
     true
   );
   pop.addEventListener("keydown", timelineMonthKeys);
-  $("timeline-month-prev").addEventListener("click", () => renderTimelineMonthPop(timelineMonthShift(timelineMonthShown, -1), null));
-  $("timeline-month-next").addEventListener("click", () => renderTimelineMonthPop(timelineMonthShift(timelineMonthShown, 1), null));
+  $("timeline-month-prev").addEventListener("click", () => renderTimelineMonthPop(timelineMonthShift(timelineMonth.shown, -1), null));
+  $("timeline-month-next").addEventListener("click", () => renderTimelineMonthPop(timelineMonthShift(timelineMonth.shown, 1), null));
   const walk = (delta) => {
     timelineStripEnd = timelineDayShift(timelineStripEnd, delta * TIMELINE_STRIP_DAYS);
     renderTimelineDayStrip();
@@ -2018,7 +2126,7 @@ $("timeline-scrubber").addEventListener("pointermove", (event) => {
 //: `timelineVisibleRows()`.
 function timelineViewMode() {
   const stored = prefs.get("timeline-view", null);
-  if (stored === "table" || stored === "feed") return stored;
+  if (stored === "table" || stored === "feed" || stored === "calendar") return stored;
   //: **A phone opens the timeline as the table** (UI_MODERNISATION_PLAN
   //: Phase 11 item 8): the feed's two-column ribbon is a desktop's shape,
   //: and the table is one row per event at any width. A choice made on
@@ -2297,12 +2405,19 @@ $("timeline-table-head").addEventListener("click", (event) => {
   paintTimeline();
 });
 
+//: **The calendar is a lazy file** (TIMELINE_PLAN section 9): the boot
+//: scripts are at their budget, so its code arrives the first time it is
+//: chosen, and every call into it goes through here.
+function timelineCalendarCall(name, ...args) {
+  return lazyScript("/js/timeline-calendar.js").then((ok) => ok && window[name](...args));
+}
+
 $("timeline-view-seg").addEventListener("click", (event) => {
   const button = event.target.closest("[data-timeline-view]");
   if (!button) return;
   const mode = button.dataset.timelineView;
   if (mode === timelineViewMode()) return;
-  localStorage.setItem("timeline-view", mode);
+  prefs.set("timeline-view", mode);
   syncTimelineViewSeg();
   // A repaint, not a reload: `timelineRows` is already in memory and both
   // views render from it.
@@ -2324,7 +2439,7 @@ function syncTimelineViewSeg() {
 //: any other choice, so a notebook that grows past the day threshold re-cuts
 //: its own headers without anyone touching the control.
 $("timeline-scale").addEventListener("change", (event) => {
-  localStorage.setItem("timeline-scale", event.target.value);
+  prefs.set("timeline-scale", event.target.value);
   paintTimeline();
 });
 
@@ -2345,7 +2460,7 @@ const TIMELINE_GROUP_KEY = "timeline-group";
   if (stored && [...select.options].some((o) => o.value === stored)) select.value = stored;
 })();
 $("timeline-group").addEventListener("change", (event) => {
-  try { localStorage.setItem(TIMELINE_GROUP_KEY, event.target.value); } catch { /* a private window */ }
+  try { prefs.set(TIMELINE_GROUP_KEY, event.target.value); } catch { /* a private window */ }
   timelineFilter = null;
   fillTimelineBandOptions();
   paintTimeline();
@@ -2409,6 +2524,7 @@ $("timeline-end-date")?.addEventListener("change", () => {
 //: first section is today's: a notebook with nothing written today should land
 //: on the newest day it has, not claim that day is today.
 $("timeline-jump-today")?.addEventListener("click", () => {
+  if (timelineViewMode() === "calendar") return void timelineCalendarCall("timelineCalendarToday");
   //: Home for the strip too, when it was walked back to an earlier week.
   if (timelineStripEnd) {
     timelineStripEnd = null;

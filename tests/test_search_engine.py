@@ -12,7 +12,7 @@ from datetime import date, datetime
 import pytest
 from sqlalchemy import text as sa_text
 
-from memorymap.search.query import understand
+from tessellate.search.query import understand
 
 
 def test_an_ordinary_question_has_no_operators():
@@ -89,13 +89,13 @@ def test_a_ragged_query_is_never_an_error(q):
 
 
 def _counts(session):
-    from memorymap.search import index
+    from tessellate.search import index
 
     return index.counts(session)
 
 
 def test_every_kind_has_a_source_and_an_unknown_one_is_loud():
-    from memorymap.search import index
+    from tessellate.search import index
 
     for kind in index.KINDS:
         assert index.sources_for_kind(kind), f"no index source for kind {kind!r}"
@@ -106,14 +106,14 @@ def test_every_kind_has_a_source_and_an_unknown_one_is_loud():
 
 
 def test_slots_are_unique_because_they_are_baked_into_rowids():
-    from memorymap.search import index
+    from tessellate.search import index
 
     slots = [source.slot for source in index.sources()]
     assert len(set(slots)) == len(slots)
 
 
 def test_a_note_is_indexed_when_it_is_written(session):
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     manager.create_entry(session, "sourdough starter needs feeding", tags=["bread"])
     session.commit()
@@ -121,7 +121,7 @@ def test_a_note_is_indexed_when_it_is_written(session):
 
 
 def test_a_board_is_indexed_as_a_board_not_a_note(session):
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     session.add(Entry(content="my map", is_board=True))
     session.commit()
@@ -130,7 +130,7 @@ def test_a_board_is_indexed_as_a_board_not_a_note(session):
 
 
 def test_a_private_note_is_never_indexed(session):
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     session.add(Entry(content="ciphertext here", is_private=True))
     session.commit()
@@ -140,8 +140,8 @@ def test_a_private_note_is_never_indexed(session):
 def test_an_edit_keeps_the_index_in_step(session):
     """The write the event log does not see (a document edit records no
     event), which is why the index hangs off the flush instead."""
-    from memorymap.core.database import Document
-    from memorymap.search import index
+    from tessellate.core.database import Document
+    from tessellate.search import index
 
     doc = Document(title="Roadmap", content="quarterly planning")
     session.add(doc)
@@ -156,7 +156,7 @@ def test_an_edit_keeps_the_index_in_step(session):
 
 
 def test_deleting_takes_the_row_out(session):
-    from memorymap.core.database import Bookmark
+    from tessellate.core.database import Bookmark
 
     mark = Bookmark(url="https://example.com", title="example")
     session.add(mark)
@@ -180,7 +180,7 @@ def test_a_purged_note_leaves_no_row_behind(session):
     """Emptying the bin is a bulk DELETE, which the flush hook never sees: the
     note's row stayed, flagged `deleted`, for ever (`is:deleted` still found
     a note that no longer existed anywhere else)."""
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     entry = manager.create_entry(session, "the old boiler manual", tags=[])
     session.commit()
@@ -194,7 +194,7 @@ def test_a_purged_note_leaves_no_row_behind(session):
 def test_deleting_a_space_takes_its_rows_out_of_the_index(client, session):
     """The space delete is all bulk statements, so every note, document and
     reminder in it stayed searchable from All spaces after the space was gone."""
-    from memorymap.core.database import Document, Entry, Reminder
+    from tessellate.core.database import Document, Entry, Reminder
 
     space_id = client.post("/spaces", json={"name": "Doomed"}).json()["id"]
     entry = Entry(content="lighthouse keeper rota", workspace_id=space_id)
@@ -227,7 +227,7 @@ def test_a_bulk_delete_of_an_indexed_model_forgets_its_rows():
     bulk = re.compile(
         rf"delete\((?:{indexed})\)|query\((?:{indexed})\)[^\n]*\.delete\("
     )
-    src = Path(__file__).resolve().parents[1] / "src" / "memorymap"
+    src = Path(__file__).resolve().parents[1] / "src" / "tessellate"
     offenders = []
     for path in src.rglob("*.py"):
         text = path.read_text(encoding="utf-8")
@@ -237,14 +237,14 @@ def test_a_bulk_delete_of_an_indexed_model_forgets_its_rows():
 
 
 def test_forget_is_a_no_op_for_nothing(session):
-    from memorymap.core.database import Entry
-    from memorymap.search import index
+    from tessellate.core.database import Entry
+    from tessellate.search import index
 
     index.forget(session, Entry, [])  # must not raise or issue a bad IN ()
 
 
 def test_every_kind_lands_in_one_index(session):
-    from memorymap.core.database import (
+    from tessellate.core.database import (
         Attachment,
         Bookmark,
         Document,
@@ -273,8 +273,8 @@ def test_every_kind_lands_in_one_index(session):
 
 
 def test_rebuild_matches_what_the_writes_indexed(session):
-    from memorymap.core.database import Document, Entry
-    from memorymap.search import index
+    from tessellate.core.database import Document, Entry
+    from tessellate.search import index
 
     session.add(Entry(content="one"))
     session.add(Document(title="two", content="two"))
@@ -289,7 +289,7 @@ def test_rebuild_matches_what_the_writes_indexed(session):
 
 
 def _note(session, content, **kwargs):
-    from memorymap.entry import manager
+    from tessellate.entry import manager
 
     entry = manager.create_entry(session, content, tags=kwargs.pop("tags", []))
     for key, value in kwargs.items():
@@ -301,8 +301,8 @@ def _note(session, content, **kwargs):
 def test_a_hit_from_every_kind_comes_back_from_one_query(session):
     from datetime import datetime
 
-    from memorymap.core.database import Bookmark, Document, Entry, Reminder
-    from memorymap.search import engine
+    from tessellate.core.database import Bookmark, Document, Entry, Reminder
+    from tessellate.search import engine
 
     _note(session, "allotment planting plan")
     session.add(Entry(content="allotment board", is_board=True))
@@ -317,8 +317,8 @@ def test_a_hit_from_every_kind_comes_back_from_one_query(session):
 
 
 def test_a_filter_narrows_the_kinds(session):
-    from memorymap.core.database import Document
-    from memorymap.search import engine
+    from tessellate.core.database import Document
+    from tessellate.search import engine
 
     _note(session, "beans in the ground")
     session.add(Document(title="Beans", content="beans everywhere"))
@@ -329,7 +329,7 @@ def test_a_filter_narrows_the_kinds(session):
 
 
 def test_an_excluded_word_drops_the_hit(session):
-    from memorymap.search import engine
+    from tessellate.search import engine
 
     _note(session, "beans and rice")
     _note(session, "beans and bread")
@@ -339,7 +339,7 @@ def test_an_excluded_word_drops_the_hit(session):
 
 
 def test_a_tag_filter_uses_the_indexed_tags(session):
-    from memorymap.search import engine
+    from tessellate.search import engine
 
     _note(session, "planting notes", tags=["garden"])
     _note(session, "planting notes for work", tags=["work"])
@@ -348,14 +348,14 @@ def test_a_tag_filter_uses_the_indexed_tags(session):
 
 
 def _hit_ids(session, q):
-    from memorymap.search import engine
+    from tessellate.search import engine
 
     return {(hit.kind, hit.ref_id) for hit in engine.search(session, q, ctx=None, hybrid=False)}
 
 
 def test_has_image_finds_a_picture_in_the_text_or_attached(session):
     """`has:image` parsed and matched nothing: only `file` had a source."""
-    from memorymap.core.database import Attachment
+    from tessellate.core.database import Attachment
 
     inline = _note(session, "harbour walk ![the pier](/media/pier.jpg)")
     attached = _note(session, "harbour walk, photo attached")
@@ -370,7 +370,7 @@ def test_has_image_finds_a_picture_in_the_text_or_attached(session):
 
 
 def test_has_link_finds_a_note_connected_to_another(session):
-    from memorymap.core.database import EntryLink
+    from tessellate.core.database import EntryLink
 
     a = _note(session, "tidal times for the bay")
     b = _note(session, "tidal times for the estuary")
@@ -383,7 +383,7 @@ def test_has_link_finds_a_note_connected_to_another(session):
 
 
 def test_has_reminder_finds_a_note_with_one_and_the_reminders_themselves(session):
-    from memorymap.core.database import Reminder
+    from tessellate.core.database import Reminder
 
     with_one = _note(session, "renew the passport")
     without = _note(session, "passport photos, done")
@@ -402,8 +402,8 @@ def test_an_unknown_has_word_still_matches_nothing_rather_than_everything(sessio
 
 def test_the_open_note_lifts_what_is_linked_to_it(session):
     """The graph signal, which is the one no amount of text similarity has."""
-    from memorymap.core.database import EntryLink
-    from memorymap.search import engine
+    from tessellate.core.database import EntryLink
+    from tessellate.search import engine
 
     open_note = _note(session, "the plan for the season")
     linked = _note(session, "seedlings hardening off")
@@ -418,8 +418,8 @@ def test_the_open_note_lifts_what_is_linked_to_it(session):
 
 
 def test_every_hit_says_which_signal_carried_it(session):
-    from memorymap.core.database import Document
-    from memorymap.search import engine
+    from tessellate.core.database import Document
+    from tessellate.search import engine
 
     _note(session, "risotto with peas", tags=["recipe"])
     hits = engine.search(session, "risotto", ctx=None)
@@ -438,7 +438,7 @@ def test_every_hit_says_which_signal_carried_it(session):
 def test_a_cold_matrix_means_no_similarity_not_a_scan(session, monkeypatch):
     """`related()` returning nothing beats `related()` reading every vector:
     startup warms the matrix, so cold is the first seconds of a process."""
-    from memorymap.search import engine
+    from tessellate.search import engine
 
     monkeypatch.setattr(engine, "_matrix", None)
     calls = []
@@ -448,7 +448,7 @@ def test_a_cold_matrix_means_no_similarity_not_a_scan(session, monkeypatch):
 
 
 def test_the_matrix_takes_a_new_vector_without_reloading(session, fake_embeddings):
-    from memorymap.search import engine
+    from tessellate.search import engine
 
     entry = _note(session, "a note about bread")
     assert engine.warm_vectors(session) >= 0
@@ -472,7 +472,7 @@ def test_the_search_endpoint_is_behind_the_lock():
     registered with `locked`, and this one reads every kind at once."""
     from pathlib import Path
 
-    source = Path("src/memorymap/api/app.py").read_text(encoding="utf-8")
+    source = Path("src/tessellate/api/app.py").read_text(encoding="utf-8")
     assert "app.include_router(routes_search.router, dependencies=locked)" in source
 
 
@@ -482,22 +482,22 @@ def test_making_a_note_private_takes_its_vector_out_of_the_matrix(
     """A vector derived from the text is exactly what the encryption is for.
     The bulk `delete()` in `set_private` never reaches the in-memory array,
     so the array is told directly."""
-    from memorymap.entry import manager
-    from memorymap.search import engine
+    from tessellate.entry import manager
+    from tessellate.search import engine
 
     entry = _note(session, "the private thing about bread")
     fake_embeddings.store_for_entry(session, entry)
     engine.warm_vectors(session)
     assert entry.id in engine.vectors_by_id(session)
 
-    monkeypatch.setattr("memorymap.core.vault.key", lambda: b"k" * 32)
+    monkeypatch.setattr("tessellate.core.vault.key", lambda: b"k" * 32)
     assert manager.set_private(session, entry, True)
     session.commit()
     assert entry.id not in engine.vectors_by_id(session)
 
 
 def test_forget_vector_is_reachable_on_its_own(session, fake_embeddings):
-    from memorymap.search import engine
+    from tessellate.search import engine
 
     entry = _note(session, "a note to forget")
     fake_embeddings.store_for_entry(session, entry)
@@ -510,7 +510,7 @@ def test_forget_vector_is_reachable_on_its_own(session, fake_embeddings):
 def _toy_matrix(count: int, width: int = 4):
     import numpy as np
 
-    from memorymap.search import engine
+    from tessellate.search import engine
 
     rng = np.random.default_rng(7)
     rows = rng.normal(size=(count, width)).astype("float32")
@@ -524,7 +524,7 @@ def test_a_forgotten_row_is_never_an_answer(monkeypatch):
     vectors all pointing away from the query, `top_k` handed back id -1."""
     import numpy as np
 
-    from memorymap.search import engine
+    from tessellate.search import engine
 
     matrix = engine._Matrix(
         key="toy", ids=[5, 6], rows=np.array([[1.0, 0.0], [0.0, 1.0]], dtype="float32"),
@@ -542,7 +542,7 @@ def test_dead_rows_are_compacted_once_they_are_a_quarter(monkeypatch):
     its whole history in memory and in every scan."""
     import numpy as np
 
-    from memorymap.search import engine
+    from tessellate.search import engine
 
     matrix = _toy_matrix(40)
     kept_vector = matrix.rows[39].copy()
@@ -558,7 +558,7 @@ def test_dead_rows_are_compacted_once_they_are_a_quarter(monkeypatch):
 
 
 def test_a_few_dead_rows_are_left_until_they_add_up(monkeypatch):
-    from memorymap.search import engine
+    from tessellate.search import engine
 
     matrix = _toy_matrix(40)
     monkeypatch.setattr(engine, "_matrix", matrix)
@@ -570,8 +570,8 @@ def test_a_few_dead_rows_are_left_until_they_add_up(monkeypatch):
 def test_a_query_of_filters_alone_still_answers(session):
     """`kind:document` is a question. An empty page for it would be the app
     refusing the one thing §5.1 promises works with no model running."""
-    from memorymap.core.database import Document
-    from memorymap.search import engine
+    from tessellate.core.database import Document
+    from tessellate.search import engine
 
     _note(session, "a note")
     session.add(Document(title="First", content="one"))
@@ -587,7 +587,7 @@ def test_a_query_of_filters_alone_still_answers(session):
 def test_a_quoted_phrase_binds_over_the_whole_query(session):
     """FTS5 binds AND tighter than OR, so an unbracketed `a OR b AND "p"`
     makes the phrase optional for half the results."""
-    from memorymap.search import engine
+    from tessellate.search import engine
 
     _note(session, "the quick brown fox jumped")
     _note(session, "quick, but no fox at all")
@@ -596,7 +596,7 @@ def test_a_quoted_phrase_binds_over_the_whole_query(session):
 
 
 def test_an_exclusion_binds_over_the_whole_query(session):
-    from memorymap.search import engine
+    from tessellate.search import engine
 
     _note(session, "beans with rice")
     _note(session, "peas with bread")
@@ -608,7 +608,7 @@ def test_an_exclusion_binds_over_the_whole_query(session):
 def test_a_query_that_asks_for_nothing_answers_nothing(session):
     """An empty box, or a query that is only an exclusion, names nothing to
     find. Listing the notebook for it is noise with a scrollbar."""
-    from memorymap.search import engine
+    from tessellate.search import engine
 
     _note(session, "beans with rice")
     _note(session, "peas with bread")
@@ -618,8 +618,8 @@ def test_a_query_that_asks_for_nothing_answers_nothing(session):
 
 
 def test_an_exclusion_narrows_a_filter_only_query(session):
-    from memorymap.core.database import Document
-    from memorymap.search import engine
+    from tessellate.core.database import Document
+    from tessellate.search import engine
 
     session.add(Document(title="Kept", content="peas"))
     session.add(Document(title="Dropped", content="rice"))
@@ -665,7 +665,7 @@ def test_the_finders_empty_state_reads_the_index_not_the_chips():
     indexed yet" told every empty search the notebook was empty (UX-04)."""
     from pathlib import Path
 
-    source = Path("frontend/js/spaces-find.js").read_text(encoding="utf-8")
+    source = Path("frontend/js/search.js").read_text(encoding="utf-8")
     empty = source[source.index("const indexed = "):]
     empty = empty[: empty.index(";")]
     assert "finderIndexTotals" in empty and "finderCounts" not in empty

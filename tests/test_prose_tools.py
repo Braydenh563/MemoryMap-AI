@@ -18,7 +18,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.core import security
+from tessellate.core import security
 
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND = ROOT / "frontend"
@@ -67,7 +67,7 @@ def test_the_binary_is_served_as_wasm_and_gzipped_once(client) -> None:
     (audit 2026-10-05, FE-03); the bytes are the file's own."""
     import gzip
 
-    from memorymap.api.app import FRONTEND_DIR
+    from tessellate.api.app import FRONTEND_DIR
 
     with client.stream(
         "GET", "/vendor/harper/harper_wasm_slim_bg.wasm", headers={"Accept-Encoding": "gzip"}
@@ -387,9 +387,8 @@ def test_accessibility_is_its_own_group_in_the_panel() -> None:
 
 # --- .docx round trip ----------------------------------------------------------
 #
-# The importer is tested on a Word file written here by hand, so it runs in CI
-# where python-docx (an optional extra) is absent; the round trip through the
-# exporter runs wherever the extra is installed.
+# The importer is tested on a Word file written here by hand. The exporter is
+# in the browser now (documents-word.js); the python-docx one is retired.
 
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
@@ -425,7 +424,7 @@ def _r(text: str, props: str = "", deleted: bool = False) -> str:
 
 
 def test_a_word_file_with_tables_links_lists_and_revisions_reads_as_markdown(tmp_path) -> None:
-    from memorymap.core import docview
+    from tessellate.core import docview
 
     numbering = (
         '<w:abstractNum w:abstractNumId="0"><w:lvl w:ilvl="0"><w:numFmt w:val="decimal"/></w:lvl></w:abstractNum>'
@@ -482,52 +481,6 @@ def test_a_word_file_with_tables_links_lists_and_revisions_reads_as_markdown(tmp
     assert not docview.docx_has_revisions(_word_file(tmp_path / "plain.docx", _p(_r("x"))))
 
 
-ROUND_TRIP = """# Heading one
-
-Plain **bold** and *italic* and ~~gone~~ and `code` and [a link](https://example.com).
-
-- one
-  - nested
-- [x] done task
-1. first
-1. second
-
-> a quote
-
-| Name | Score |
-| --- | --- |
-| Ann | **9** |
-
-```
-**not bold**
-```
-
-Suggested {++new words++} and {--old words--} here.
-"""
-
-
-@pytest.mark.skipif(
-    not __import__("memorymap.core.docexport", fromlist=["x"]).docx_available(),
-    reason="python-docx is an optional extra; the suite must not need it",
-)
-def test_a_document_survives_the_trip_through_word(tmp_path) -> None:
-    """Headings, lists (nested, numbered, tasks), quotes, tables, code, bold,
-    italic, strike, links and suggestion mode's marks, out and back."""
-    from memorymap.core import docexport, docview
-
-    path = tmp_path / "trip.docx"
-    path.write_bytes(docexport.to_docx("Trip", ROUND_TRIP))
-    back = docview.docx_to_markdown(path)
-    assert back == "# Trip\n\n" + ROUND_TRIP, back
-    #: Word's own revisions, not characters: the reviewer sees them in Word.
-    import zipfile
-
-    xml = zipfile.ZipFile(path).read("word/document.xml").decode("utf-8")
-    assert "<w:ins " in xml and "<w:delText" in xml and "{++" not in xml
-    unsafe = docexport.to_docx("T", "[x](javascript:alert(1))")
-    assert b"javascript" not in zipfile.ZipFile(__import__("io").BytesIO(unsafe)).read("word/_rels/document.xml.rels")
-
-
 def test_a_grammar_lint_on_a_wiki_link_is_dropped(tmp_path) -> None:
     """Harper reads markdown and skips code, but `[[Another doc]]` is this
     app's syntax, not markdown: "a [[Another doc]] chip" came back as a
@@ -576,3 +529,16 @@ def test_a_grammar_lint_on_a_wiki_link_is_dropped(tmp_path) -> None:
     findings = json.loads(found.stdout)
     assert not [f for f in findings if "[[" in f["text"] or "]]" in f["text"]], findings
     assert any(f["text"] == "The the" for f in findings), findings
+
+
+def test_a_worker_that_does_not_start_says_which_file_and_why():
+    """INBOX 804: the owner's Windows log said only "the grammar worker did not
+    start", the bare event a module worker fires when a file it loads is
+    refused. The page then fetches each file the worker loads and names the
+    one that failed and how; the list is the worker's own imports, in order."""
+    prose = (FRONTEND / "js" / "documents-prose.js").read_text(encoding="utf-8")
+    worker = (FRONTEND / "js" / "harper-worker.js").read_text(encoding="utf-8")
+    imports = ["/vendor/harper/" + name for name in re.findall(r'from "\.\./vendor/harper/([\w.-]+\.js)"', worker)]
+    listed = re.search(r"const DOC_GRAMMAR_FILES = \[\s*DOC_GRAMMAR_WORKER_URL,\s*((?:\"[^\"]+\",\s*)+)\]", prose)
+    assert listed and re.findall(r'"([^"]+)"', listed.group(1)) == imports
+    assert "docGrammarWhy().then((why) => docGrammarFail(" in prose

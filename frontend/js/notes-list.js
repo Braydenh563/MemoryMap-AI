@@ -24,6 +24,14 @@ function foldNoteToolbarForFirstPaint() {
     collapsed = false; // private mode: the expanded shape is the safe default, as the bundle's
   }
   bar.classList.toggle("is-collapsed", collapsed);
+  //: **The folded strip opens when pressed** (the owner, 2026-10-10: "The
+  //: note capture subtab formatting toolbar wont open"). Until the note box
+  //: is first focused its tools are not mounted, and "Formatting" is a
+  //: label with nothing behind it; a press focuses the box, which mounts
+  //: the editor and the tools with it.
+  bar.addEventListener("click", (event) => {
+    if (!bar.querySelector(".doc-toolbar-tools") && !event.target.closest("button")) startNewNote();
+  });
 }
 foldNoteToolbarForFirstPaint();
 
@@ -88,7 +96,6 @@ async function openNoteEditor(id, { focusTags = false } = {}) {
   return true;
 }
 
-
 // Category <select> shared by capture (guided mode) and the edit form.
 function fillCategoryOptions(select, selected) {
   select.replaceChildren();
@@ -148,7 +155,8 @@ async function resolveCategoryChoice(select) {
 // Anything else is a plain word: all of them must appear, in any order.
 
 //: KG7: the structural terms, `-` included, quoted or [[bracketed]] values whole.
-const LIVE_QUERY_RE = /(^|\s)(-?(?:type|prop|links|rel|entity):(?:\[\[[^\]]{1,120}\]\]|"[^"]{1,200}"|\S+))/gi;
+//: And `prop:key="a value"` whole (query.py's `_TOKEN`).
+const LIVE_QUERY_RE = /(^|\s)(-?(?:type|prop|links|rel|entity):(?:\[\[[^\]]{1,120}\]\]|"[^"]{1,200}"|[^\s"=<>!]{1,60}[=<>!]{1,2}"[^"]{1,200}"|\S+))/gi;
 let liveQuery = { q: "", ids: null, pending: "" };
 
 //: The ids the server gives for these terms, or null while it is asked.
@@ -227,6 +235,9 @@ function entryNeedsReview(entry) {
 //: of the same four lines.
 function showNotesFilter(query) {
   switchTab("notes");
+  //: Your notes, whichever sub-tab was last open (the owner, 2026-10-10: "I
+  //: pressed show them, but it just navigated me to the Ask subtab").
+  showNotesSection("browse");
   const search = $("note-search");
   search.value = query;
   search.dispatchEvent(new Event("input"));
@@ -434,6 +445,20 @@ function matchesSearch(entry) {
   return query.words.every((word) => haystack.includes(word));
 }
 
+// The inline marks the writing side inserts (MD_ACTIONS' toolbars in
+// documents.js, which editor.js's "/" menu reuses) and INLINE_MD below reads
+// back. One table, so a mark cannot be written that the renderer does not
+// draw: the Red/Grey highlight bug lived in the gap between the two.
+// tests/test_docs_1011.py runs each mark through INLINE_MD. `$` math is
+// drawn by documents.js's docMathTree; `%%` comments are never rendered.
+const MD_INLINE_MARKS = {
+  bold: "**",
+  italic: "*",
+  strike: "~~",
+  code: "`",
+  highlight: "==",
+};
+
 // Inline markdown in note text, deliberately only the inline kind: block
 // markdown (headings, tables, lists) makes a list of notes very tall, and
 // what people type in a note is bold, a little italic, the odd `code`.
@@ -481,6 +506,10 @@ function isRenderableUrl(url) {
   //: preview draws it from the Blob, and never saved, because the save path
   //: rewrites every one of them to a real url first.
   if (typeof url === "string" && url.startsWith(STAGED_URL_PREFIX)) return true;
+  //: An address of this app ("#/notes", "#/notes/12": what the tool answers
+  //: link to, `ai/tool_say.py`), only when the router opens it (the owner,
+  //: 2026-10-12: "[Open your notes](#/notes)" showed as raw text).
+  if (/^#\//.test(url) && appAddressHash(url)) return true;
   return /^https?:\/\//i.test(url) || (url.startsWith("/") && !url.startsWith("//"));
 }
 
@@ -528,7 +557,7 @@ const FILE_KIND_LABELS = {
   js: "Code", ts: "Code", jsx: "Code", tsx: "Code", py: "Code", java: "Code",
   c: "Code", h: "Code", cpp: "Code", hpp: "Code", cs: "Code", go: "Code",
   rs: "Code", rb: "Code", php: "Code", sh: "Code", sql: "SQL",
-  swift: "Code", kt: "Code",
+  swift: "Code", kt: "Code", vb: "Code", vbs: "Code", diff: "Code", patch: "Code",
   zip: "Archive", mp3: "Audio", wav: "Audio", m4a: "Audio",
   mp4: "Video", mov: "Video", webm: "Video",
 };
@@ -1516,6 +1545,14 @@ function renderNoteText(element, text, terms) {
       box.type = "checkbox";
       box.disabled = true;
       box.checked = task[1].toLowerCase() === "x";
+      //: axe `label` (critical, 20 boxes): the box sat beside its words with
+      //: no name of its own. The state comes first so a screen reader says it
+      //: before the sentence, and the words are the task with its markdown
+      //: marks taken off, as the card draws them.
+      box.setAttribute("aria-label", `${box.checked ? "Done" : "To do"}: ${task[2].replace(/[*_`~]|\[\[|\]\]/g, "").trim()}`);
+      //: A disabled control says why (vibecheck, "muted disabled"): the card is
+      //: a preview, and a note's tasks are ticked on its own page.
+      box.title = "Open the note to tick this off";
       item.appendChild(box);
       renderNoteInline(item, task[2], terms);
       element.appendChild(item);
@@ -2072,7 +2109,7 @@ function toggleExpandAllRows() {
 
 function setNotesViewMode(mode) {
   notesViewMode = mode === "cards" ? "cards" : "rows";
-  localStorage.setItem("notesViewMode", notesViewMode);
+  prefs.set("notesViewMode", notesViewMode);
   applyNotesViewMode();
 }
 
@@ -2163,7 +2200,19 @@ function noteCountExcludingDrafts() {
 //: query, so the filter is visible and editable; the tag chips on the
 //: dashboard use the same path.
 function filterNotesByTag(tag) {
-  const value = /\s/.test(tag) ? `tag:"${tag}"` : `tag:${tag}`;
+  filterNotesBy(/\s/.test(tag) ? `tag:"${tag}"` : `tag:${tag}`);
+}
+
+//: A property's value as a filter (the owner, 2026-10-10: "is it possible to
+//: add and customise the metadata a little more??"): `prop:key=value`, the
+//: value quoted when it has a space (query.py's `_TOKEN`), a [[note]] by name.
+function propQuery(key, value) {
+  const v = String(value).replace(/^\[\[|\]\]$/g, "").replace(/"/g, "");
+  return `prop:${key}=${/[\s=<>!]/.test(v) ? `"${v}"` : v}`;
+}
+
+//: The Notes list filtered by one query, as the box would be typed.
+function filterNotesBy(value) {
   $("note-search").value = value;
   noteSearch = value;
   $("save-search")?.classList.remove("hidden");
@@ -2198,6 +2247,10 @@ function libraryVisibleRows() {
   return matched;
 }
 
+//: Ids on screen before this render, or null outside the second after one.
+let rowEnterIds = null;
+let rowEnterTimer = 0;
+
 function renderEntries() {
   closeNotePageIfGone();
   notesRailSync();
@@ -2208,6 +2261,13 @@ function renderEntries() {
   const list = $("entry-list");
   const empty = $("empty-message");
   const noMatch = $("no-match-message");
+  //: **A row that arrives after the first render fades in** (ledger 1538). The
+  //: list redraws whole, so what was on screen is remembered by id and a card
+  //: whose id was not there is marked (`entryItem` reads `rowEnterIds`). The
+  //: first render, and a render after the list was empty, mark nothing.
+  rowEnterIds = new Set([...list.querySelectorAll(":scope > li[data-id]")].map((li) => li.dataset.id));
+  clearTimeout(rowEnterTimer);
+  rowEnterTimer = setTimeout(() => { rowEnterIds = null; }, 1000);
   list.replaceChildren();
   // Re-applied on every render, not just on a click: `replaceChildren`
   // above leaves the class alone, but a later render that rebuilt the <ul>
@@ -2696,8 +2756,6 @@ function wireSidebarRowKeys(li) {
 //: batch bar), or by dragging a note's category label onto a category in
 //: the sidebar.
 
-let manageCategoriesRedraw = null;
-
 function categoryMenuItems(meta, { inPanel = false } = {}) {
   const items = [
     { label: "ph:pencil-simple Rename…", title: `Rename ${meta.name}`, run: () => renameCategory(meta, meta.name) },
@@ -2821,6 +2879,7 @@ async function _loadEntries() {
   entriesComplete = false;
   referenceCountsCache.clear();
   reminderCountsCache.clear();
+  noteTopicsCache.clear();
   showEntrySkeletons();
 
   const isSemantic = $("semantic-search-toggle")?.checked;
@@ -2945,6 +3004,10 @@ function entryListOrder(a, b) {
 
 async function refreshEntries(ids) {
   const wanted = [...new Set((ids || []).map(Number).filter((id) => Number.isInteger(id) && id > 0))];
+  //: The sidebar's Most used follows a write at once (OPEN: "keeps a binned
+  //: note for up to 30 s"): the write emptied the read cache, so this is one
+  //: fresh GET, not the 30 s copy.
+  if (typeof loadMostUsed === "function") loadMostUsed().catch(() => {});
   const semantic = $("semantic-search-toggle")?.checked && noteSearch;
   if (!wanted.length || wanted.length > REFRESH_ENTRIES_MAX || !entriesComplete || semantic) {
     return loadEntries();
@@ -2984,6 +3047,48 @@ async function refreshEntries(ids) {
   loadCategories();
   fillCategoryOptions($("entry-category"), null);
 }
+
+//: **A change made on another device shows here** (INBOX 881, the owner
+//: 2026-10-11: "what if I make a change on my phone?? does it live
+//: update??"). Every `NOTE_CHANGES_MS` while the page is visible, and at once
+//: when it comes back (the phone's browser brought forward), the list asks
+//: `GET /entries/changes` which notes moved since its last answer and
+//: patches those in with `refreshEntries`. The note being edited is left
+//: alone: its Save sends `base_hash`, so a newer text from elsewhere still
+//: gets the Keep mine / Take theirs prompt rather than being overwritten
+//: under the person's cursor. `seen` drops an id already refreshed at the
+//: same `updated_at` (the server's stamp overlaps by two seconds).
+const NOTE_CHANGES_MS = 15_000;
+const noteChanges = { since: "", seen: new Map(), timer: 0, busy: false };
+async function followNoteChanges() {
+  clearTimeout(noteChanges.timer);
+  if (document.hidden) return;
+  noteChanges.timer = setTimeout(followNoteChanges, noteChanges.since ? NOTE_CHANGES_MS : 2000);
+  //: The first stamp is taken as soon as there is a session, before the list
+  //: has finished loading, so a change made while it loads is not missed.
+  if (noteChanges.busy || !authToken() || (noteChanges.since && !entriesComplete)) return;
+  noteChanges.busy = true;
+  try {
+    const body = await apiJson(`/entries/changes?since=${encodeURIComponent(noteChanges.since)}`, { silent: true });
+    const first = !noteChanges.since;
+    noteChanges.since = body.since;
+    if (first) return;
+    //: More than one answer holds: an empty patch is `refreshEntries`'s full read.
+    if (body.more) return void refreshEntries([]);
+    const ids = body.ids.filter((id) => id !== editingId && noteChanges.seen.get(id) !== body.stamps[id]);
+    if (noteChanges.seen.size > 500) noteChanges.seen.clear();
+    for (const id of body.ids) noteChanges.seen.set(id, body.stamps[id]);
+    if (!ids.length) return;
+    await refreshEntries(ids);
+    if (typeof refreshNotePage === "function") refreshNotePage(ids);
+  } catch {
+    /* offline or locked: the next tick asks again */
+  } finally {
+    noteChanges.busy = false;
+  }
+}
+document.addEventListener("visibilitychange", followNoteChanges);
+followNoteChanges();
 
 //: **What the note list needs to draw a `[[map]]` as a map chip**, fetched
 //: once and only for a notebook that has one.
@@ -3041,11 +3146,11 @@ function referenceCountChip(entry, options = {}) {
   if (!counts || !counts.total) return null;
   const refChip = chip(`ph:graph ${referenceCountText(counts)}`, "refs", (event) => {
     event.stopPropagation();
-    openConnections(
+    lazyScript("/js/connections.js").then(() => openConnections(
       "entries",
       entry.id,
-      entry.title || clipText(notePreviewText(entry.content).split("\n")[0], 80)
-    );
+      entry.title || noteNamePlain(entry.content, 80)
+    ));
   });
   refChip.title = "Everything this note is joined to. Open Connections";
   return refChip;
@@ -3087,7 +3192,36 @@ function reminderCountChip(entry, options = {}) {
   return alarm;
 }
 
-//: **The two count strips a card carries, as data.**
+//: **A note's topic, on its card** (the owner, 2026-10-10: "Should topics
+//: from the graph be more integrated app wide??"). A topic is found by the
+//: graph (`/graph/topics/of`, renames applied); the chip says which one this
+//: note is in and opens the graph on it. Quiet like the counts: a fact about
+//: the note, not a warning. A rename clears the cache (`gcSaveTopicName`).
+const noteTopicsCache = new Map();
+const _noteTopicsInFlight = new Set();
+
+//: A topic the graph named after a tag repeats the tag chip already on the
+//: card, so it is left off there; case, a leading # and separators do not count.
+function topicRepeatsTag(name, tags) {
+  const key = (text) => String(text || "").toLowerCase().replace(/^#/, "").replace(/[\s_-]+/g, " ").trim();
+  const topic = key(name);
+  return Boolean(topic) && (tags || []).some((tag) => key(tag) === topic);
+}
+
+function noteTopicChip(entry) {
+  const topic = noteTopicsCache.get(entry.id);
+  if (!topic || entry.is_board || entry.is_draft) return null;
+  if (topicRepeatsTag(topic.name, entry.tags)) return null;
+  const mark = chip(`ph:circles-three ${topic.name}`, "refs topic", async (event) => {
+    event.stopPropagation();
+    await switchTab("graph");
+    showTopicInGraph(entry.id);
+  });
+  mark.title = `In the topic ${topic.name}, ${topic.size} notes. Open it on the graph`;
+  return mark;
+}
+
+//: **The count strips a card carries, as data.**
 //:
 //: They are the same mechanism twice over: read the ids on screen, ask once
 //: for all of them, patch the chip onto the cards that are still there. The
@@ -3115,6 +3249,33 @@ const CARD_COUNT_SOURCES = [
     empty: 0,
     chip: (entry) => reminderCountChip(entry, { actions: true }),
   },
+  {
+    cache: noteTopicsCache,
+    inFlight: _noteTopicsInFlight,
+    path: (ids) => `/graph/topics/of?ids=${ids}`,
+    key: "topics",
+    marker: ".chip.topic",
+    empty: null,
+    chip: noteTopicChip,
+  },
+  //: **A note's own open questions** (INBOX 745 (c): "there is no way to view
+  //: the questions asked by notes ... from the notes themselves"): a count
+  //: that opens Notes, Questions kept to this note.
+  {
+    cache: new Map(),
+    inFlight: new Set(),
+    path: (ids) => `/questions/counts?ids=${ids}`,
+    marker: ".chip.questions",
+    empty: 0,
+    chip(entry) {
+      const count = this.cache.get(entry.id);
+      return count ? chip(`ph:question ${count} open question${count === 1 ? "" : "s"}`, "questions", (event) => {
+        event.stopPropagation();
+        showNotesSection("questions");
+        ensureModule("questionsView").then(() => questionsForNote(entry.id));
+      }) : null;
+    },
+  },
 ];
 
 function ensureCardCounts(list, generation) {
@@ -3134,7 +3295,7 @@ function ensureOneCardCount(list, generation, source) {
   apiJson(source.path(wanted.join(",")), { silent: true })
     .then((answer) => {
       if (generation !== _entriesLoadGeneration) return;
-      const counts = (answer && answer.counts) || {};
+      const counts = (answer && answer[source.key || "counts"]) || {};
       for (const id of wanted) {
         const given = counts[String(id)];
         source.cache.set(id, given === undefined || given === null ? source.empty : given);
@@ -3332,6 +3493,8 @@ async function renderNotesRail() {
   if (body.dataset.key === key) return;
   const seq = ++notesRailSeq;
   body.setAttribute("aria-busy", "true");
+  //: The rows are drawn by connections.js (the sheet's own bundle).
+  await lazyScript("/js/connections.js");
   let answer = notesRailCache.get(key);
   if (!answer) {
     const [links, near, back] = await Promise.all([
@@ -3392,23 +3555,23 @@ function notesRailNearGroup(items) {
   const section = document.createElement("div");
   section.className = "connection-group notes-rail-near";
   const head = document.createElement("p");
-  head.className = "muted connection-heading";
-  setLabel(head, `ph:hourglass-medium Forgotten, and close to this (${items.length})`);
+  head.className = "connection-heading";
+  setLabel(head, "ph:hourglass-medium Forgotten, and close to this");
+  const count = document.createElement("span");
+  count.className = "connection-count";
+  count.textContent = String(items.length);
+  head.appendChild(count);
   section.appendChild(head);
   const holder = document.createElement("div");
   holder.className = "connection-rows";
   for (const item of items) {
-    const row = smallButton(`ph:note ${item.title}`, item.reason ? `Open this note\nWhy: ${item.reason}` : "Open this note", () =>
-      flashEntry(item.id)
+    //: The route's own sentence is the row's subline, in the same list recipe
+    //: as every other connection row (`connectionRowEl`, menus.js).
+    const row = connectionRowEl(
+      "ph:note", item.title, item.reason ? `Open this note\nWhy: ${item.reason}` : "Open this note", item.reason || "",
+      () => flashEntry(item.id)
     );
-    row.classList.add("connection-row");
     holder.appendChild(row);
-    if (item.reason) {
-      const why = document.createElement("span");
-      why.className = "muted notes-rail-why";
-      why.textContent = item.reason;
-      holder.appendChild(why);
-    }
   }
   section.appendChild(holder);
   return section;
@@ -3422,9 +3585,17 @@ function notesRailFocusSubject() {
   if (li) li.focus({ preventScroll: true });
 }
 
+//: The Connections sheet's "Open in the sidebar" (INBOX 784): the column
+//: shown for that note, from wherever the sheet was opened.
+function dockConnectionsInRail(id) {
+  if ((prefs.get("activeTab", null) || "dashboard") !== "notes") switchTab("notes");
+  notesRailId = id;
+  setNotesRailHidden(false);
+}
+
 function setNotesRailHidden(hidden) {
   try {
-    localStorage.setItem(NOTES_RAIL_KEY, hidden ? "off" : "on");
+    prefs.set(NOTES_RAIL_KEY, hidden ? "off" : "on");
   } catch {
     /* private mode: the choice lasts this visit */
   }
@@ -3507,6 +3678,7 @@ function offerWikiRename(entryId, saved) {
   toastAction(`${who} to [[${offer.old}]].`, `Rename to [[${offer.new}]]`, async () => {
     try {
       const done = await apiJson(`/entries/${entryId}/wiki-rename`, { method: "POST", body: JSON.stringify({ old: offer.old }) });
+      pushWikiRenameUndo(entryId, offer.old, done);
       toast(`Updated ${done.rewritten} note${done.rewritten === 1 ? "" : "s"}.`);
       await loadEntries().catch(() => {});
     } catch (error) {

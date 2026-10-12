@@ -49,7 +49,7 @@ def test_the_card_offers_both_paths_and_the_command():
         'id="lock-recovery-key"',
         'id="lock-recovery-new"',
         'id="lock-recovery-confirm"',
-        "python -m memorymap --reset-password",
+        "python -m tessellate --reset-password",
         'id="lock-reset-copy"',
         "type RESET to confirm",
         'id="lock-reset-submit" type="button" class="danger lock-forgot-action" disabled',
@@ -71,7 +71,7 @@ def test_the_code_is_lazy():
 def test_setup_offers_a_key_and_the_reset_goes_to_setup():
     assert 'if (mode === "setup") offerRecoveryKey(password);' in _function(app_js_text(), "submitLockForm")
     reset = _function(RECOVERY_JS, "submitPasswordReset")
-    assert 'localStorage.removeItem("token")' in reset and "showLockScreen(true)" in reset
+    assert 'prefs.remove("token")' in reset and "showLockScreen(true)" in reset
     assert '"/auth/reset"' in reset
     recover = _function(RECOVERY_JS, "submitRecovery")
     assert '"/auth/recover"' in recover and "ownsAuthErrors: true" in recover
@@ -87,10 +87,10 @@ def test_the_key_leaves_the_page_when_the_dialog_closes():
 def test_the_key_is_put_nowhere_else():
     """Not stored, not logged, not in an attribute the Guide reads (help-chat.js
     reads `title`, `aria-label` and `.help-body`, inside a tab only)."""
-    from memorymap.api.asset_strip import strip_js
+    from tessellate.api.asset_strip import strip_js
 
     code = strip_js(RECOVERY_JS)
-    for forbidden in ("localStorage.setItem(\"recovery", "sessionStorage", "console.", "setAttribute(\"title\"", ".title =", "aria-label"):
+    for forbidden in ("localStorage.setItem(\"recovery", "prefs.set(\"recovery", "sessionStorage", "console.", "setAttribute(\"title\"", ".title =", "aria-label"):
         assert forbidden not in code, forbidden
     dialog = INDEX[INDEX.index('<dialog id="recovery-key-dialog"') : INDEX.index("</dialog>", INDEX.index('<dialog id="recovery-key-dialog"'))]
     value = re.search(r'<p class="recovery-key-value" id="recovery-key-value"[^>]*></p>', dialog)
@@ -116,10 +116,21 @@ def test_settings_names_the_button_for_what_it_does():
 def test_the_key_file_never_goes_through_save_file():
     """INBOX 671: `saveFile` writes into the data dir's exports in the desktop
     window; the key goes to a native Save dialog there, a download elsewhere."""
-    from memorymap.api.asset_strip import strip_js
+    from tessellate.api.asset_strip import strip_js
 
     assert "saveFile(" not in strip_js(RECOVERY_JS)
     saver = _function(RECOVERY_JS, "saveRecoveryKeyFile")
     assert "await desktopShell()" in saver
     assert '"/auth/recovery-key/save"' in saver
     assert "downloadBlob(" in saver
+
+
+def test_a_wrong_password_on_the_lock_form_says_so_under_the_field():
+    # The server answers 401 "That password is wrong."; apiJson turns an
+    # unclaimed 401 into Error("Locked") for the expired-session case, which is
+    # what the lock form showed under the field until the call owned it
+    # (measured in a browser, scratchpad/ui-sweeps/verify1011.js, 2026-10-11).
+    form = _function(app_js_text(), "lockRequest")
+    call = form[form.index('apiJson(`/auth/${mode'):]
+    call = call[: call.index("});")]
+    assert "ownsAuthErrors: true" in call and "silent: true" in call

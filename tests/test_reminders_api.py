@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from memorymap.core.database import utcnow
+from tessellate.core.database import utcnow
 
 
 def _save(client, content, **extra):
@@ -49,8 +49,8 @@ def test_reminder_preview_does_not_leak_private_note_ciphertext(client):
     ciphertext string is enough to prove the preview goes through it rather
     than the raw column, a real encrypt/decrypt round-trip is covered
     elsewhere (crypto/vault tests)."""
-    from memorymap.core import crypto, deps
-    from memorymap.core.database import Entry
+    from tessellate.core import crypto, deps
+    from tessellate.core.database import Entry
 
     session = deps.get_db().session()
     entry = Entry(content=crypto.PREFIX + "not-real-ciphertext", is_private=True)
@@ -249,12 +249,12 @@ def test_reminders_past_the_page_size_are_still_reachable(client):
     """The page size is a bound on one response, never on how many
     reminders can exist: `X-Total-Count` says how many there are and
     `offset` fetches the rest."""
-    from memorymap.api import routes_reminders
+    from tessellate.api import routes_reminders
 
     size = routes_reminders.REMINDERS_PAGE_SIZE
     due = utcnow() + timedelta(days=1)
-    from memorymap.core import deps
-    from memorymap.core.database import Reminder
+    from tessellate.core import deps
+    from tessellate.core.database import Reminder
 
     # Seeded through the model rather than the endpoint: 200-odd POSTs is a
     # slow way to say "more rows than one page", and this test is about the
@@ -277,7 +277,7 @@ def test_reminders_past_the_page_size_are_still_reachable(client):
 
 
 def test_reminders_limit_is_validated(client):
-    from memorymap.api import routes_reminders
+    from tessellate.api import routes_reminders
 
     assert client.get("/reminders", params={"limit": 0}).status_code == 422
     assert client.get("/reminders", params={"offset": -1}).status_code == 422
@@ -317,7 +317,7 @@ def test_reminders_can_be_listed_for_one_note(client):
 def test_reminder_counts_for_a_page_of_notes(client):
     """One batched count per page of cards, never a request per card: the
     same shape (and the same ceiling) as `/entries/reference-counts`."""
-    from memorymap.api import routes_reminders
+    from tessellate.api import routes_reminders
 
     kitchen = _save(client, "the kitchen plan")
     garden = _save(client, "the garden plan")

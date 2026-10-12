@@ -226,8 +226,8 @@ def test_rotate_vault_key_interrupted_leaves_notes_readable_with_the_old_key(
     """Simulates a failure partway through re-encryption (a corrupt row, a
     crash mid-loop) and proves nothing was committed: the vault row and every
     note's ciphertext are untouched, and the OLD password still opens them."""
-    from memorymap.api import routes_auth
-    from memorymap.core import crypto
+    from tessellate.api import routes_auth
+    from tessellate.core import crypto
 
     headers = _setup(client)
     entry = client.post(
@@ -268,7 +268,7 @@ def test_unlock_throttles_a_run_of_wrong_passwords(client, monkeypatch):
     binds localhost, but people put it behind tunnels to reach it from a
     phone, a server log showed a public address arriving through a proxy , 
     and a four-character floor is PIN territory without a throttle."""
-    from memorymap.api import routes_auth
+    from tessellate.api import routes_auth
 
     monkeypatch.setattr(routes_auth, "_failed_unlocks", [])
     _setup(client)
@@ -283,7 +283,7 @@ def test_unlock_throttles_a_run_of_wrong_passwords(client, monkeypatch):
 
 
 def test_unlock_forgives_once_the_wait_has_passed(client, monkeypatch):
-    from memorymap.api import routes_auth
+    from tessellate.api import routes_auth
 
     monkeypatch.setattr(routes_auth, "_failed_unlocks", [])
     _setup(client)
@@ -305,11 +305,11 @@ def test_full_auth_flow(client):
     # Fresh app: setup required, API open (nothing to protect yet).
     # `auto_session` is False: sign-in is on by default (INBOX 426 aa).
     # `reset_here` is False: the test client is not a loopback address (INBOX 663).
-    assert client.get("/auth/status").json() == {"setup_required": True, "auto_session": False, "reset_here": False}
+    assert client.get("/auth/status").json() == {"setup_required": True, "auto_session": False, "reset_here": False, "pin_here": False}
     assert client.post("/entries", json={"content": "pre-password note"}).status_code == 201
 
     token = client.post("/auth/setup", json={"password": "hunter22"}).json()["token"]
-    assert client.get("/auth/status").json() == {"setup_required": False, "auto_session": False, "reset_here": False}
+    assert client.get("/auth/status").json() == {"setup_required": False, "auto_session": False, "reset_here": False, "pin_here": False}
 
     # Once a password exists the data routes lock without a token…
     assert client.get("/entries").status_code == 401

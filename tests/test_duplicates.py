@@ -6,7 +6,7 @@ these tests are about it not doing that.
 
 from __future__ import annotations
 
-from memorymap.entry import duplicates
+from tessellate.entry import duplicates
 
 
 def _make(client, content, tags=None):
@@ -50,7 +50,7 @@ def test_three_similar_notes_form_one_group(client):
 
 def test_private_notes_are_never_reported(client, session):
     """Reporting one would reveal it exists and roughly what it says."""
-    from memorymap.core import vault
+    from tessellate.core import vault
 
     vault.close()
     vault.create(session, "test-passphrase")
@@ -159,7 +159,7 @@ def test_merging_needs_at_least_two_notes(client):
 
 
 def test_private_notes_cannot_be_merged(client, session):
-    from memorymap.core import vault
+    from tessellate.core import vault
 
     vault.close()
     vault.create(session, "test-passphrase")

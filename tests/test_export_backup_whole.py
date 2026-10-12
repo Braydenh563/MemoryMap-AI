@@ -13,7 +13,7 @@ import io
 import sqlite3
 import zipfile
 
-from memorymap.core import deps
+from tessellate.core import deps
 
 
 def test_the_backup_has_every_note_and_every_attachment(client, tmp_path):
@@ -29,7 +29,7 @@ def test_the_backup_has_every_note_and_every_attachment(client, tmp_path):
     names = set(archive.namelist())
     assert "uploads/scan.pdf" in names
     restored = tmp_path / "restored.db"
-    restored.write_bytes(archive.read("memorymap.db"))
+    restored.write_bytes(archive.read("tessellate.db"))
     with sqlite3.connect(restored) as connection:
         in_zip = connection.execute("SELECT count(*) FROM entries").fetchone()[0]
         assert connection.execute("PRAGMA integrity_check").fetchone()[0] == "ok"

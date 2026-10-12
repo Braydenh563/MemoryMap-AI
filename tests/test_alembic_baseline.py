@@ -11,7 +11,7 @@ only coverage this mechanism gets.
 import logging
 import sqlite3
 
-from memorymap.core.database import Base, DatabaseManager, _ensure_alembic_baseline
+from tessellate.core.database import Base, DatabaseManager, _ensure_alembic_baseline
 
 
 def _alembic_version(db_path):

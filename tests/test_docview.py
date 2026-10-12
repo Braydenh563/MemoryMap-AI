@@ -25,7 +25,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.core import docview, pdfpages
+from tessellate.core import docview, pdfpages
 
 
 def _write(tmp_path, name, text):
@@ -107,7 +107,7 @@ def test_a_converted_document_reports_the_install_hint_when_markitdown_is_absent
 ):
     """Not an error: an answer. The package is installable from inside the
     app (Settings → Optional extras), so the hint is the useful thing to say."""
-    from memorymap.entry import importer
+    from tessellate.entry import importer
 
     monkeypatch.setattr(importer, "markitdown_available", lambda: False)
     path = tmp_path / "report.docx"
@@ -115,10 +115,27 @@ def test_a_converted_document_reports_the_install_hint_when_markitdown_is_absent
     viewed = docview.extract(path)
     assert viewed.text == ""
     assert "Import documents" in viewed.message and "Settings, Packages" in viewed.message
+    #: The package that would read it, so the viewer can offer Install
+    #: itself (the owner, 2026-10-10: "it should have given me a link to nav
+    #: to install or an install button directly").
+    assert viewed.extra == "documents"
+
+
+def test_a_pdf_with_no_text_and_no_page_reader_names_its_package(tmp_path, monkeypatch):
+    from tessellate.core import pdfpages
+    from tessellate.entry import importer
+
+    monkeypatch.setattr(importer, "markitdown_available", lambda: True)
+    monkeypatch.setattr(importer, "convert_to_markdown", lambda p: "")
+    monkeypatch.setattr(pdfpages, "available", lambda: False)
+    path = tmp_path / "scan.pdf"
+    path.write_bytes(b"%PDF-1.4 nothing readable")
+    viewed = docview.extract(path)
+    assert viewed.text == "" and viewed.extra == "pdfpages"
 
 
 def test_a_converted_document_comes_back_as_markdown(tmp_path, monkeypatch):
-    from memorymap.entry import importer
+    from tessellate.entry import importer
 
     monkeypatch.setattr(importer, "markitdown_available", lambda: True)
     monkeypatch.setattr(
@@ -133,7 +150,7 @@ def test_a_converted_document_comes_back_as_markdown(tmp_path, monkeypatch):
 
 
 def test_a_file_markitdown_cannot_parse_is_a_message_not_a_500(tmp_path, monkeypatch):
-    from memorymap.entry import importer
+    from tessellate.entry import importer
 
     def boom(_path):
         raise RuntimeError("not a real docx")
@@ -150,8 +167,8 @@ def test_a_file_markitdown_cannot_parse_is_a_message_not_a_500(tmp_path, monkeyp
 def test_a_scanned_pdf_falls_through_to_the_vision_reader(tmp_path, monkeypatch):
     """The seam for the scanned-page case. Nothing here touches Tesseract, 
     by direct instruction, scanned pages are the vision model's job."""
-    from memorymap.core import pdfpages
-    from memorymap.entry import importer
+    from tessellate.core import pdfpages
+    from tessellate.entry import importer
 
     monkeypatch.setattr(importer, "markitdown_available", lambda: True)
     # What markitdown gives back for a scan: a line of metadata, not nothing,
@@ -174,8 +191,8 @@ def test_a_scanned_pdf_falls_through_to_the_vision_reader(tmp_path, monkeypatch)
 def test_a_scanned_pdf_with_no_vision_reader_says_what_is_missing(tmp_path, monkeypatch):
     """The honest state: the hook exists, and the piece that goes in it, 
     something to turn PDF pages into images, does not ship with this app."""
-    from memorymap.core import pdfpages
-    from memorymap.entry import importer
+    from tessellate.core import pdfpages
+    from tessellate.entry import importer
 
     monkeypatch.setattr(importer, "markitdown_available", lambda: True)
     monkeypatch.setattr(importer, "convert_to_markdown", lambda p: "scan.pdf")
@@ -194,8 +211,8 @@ def test_a_pdf_pdfium_cannot_open_says_so_not_probably_a_scan(tmp_path, monkeypa
     format error)") looks identical to a scan up to this point, markitdown
     also returns nothing useful for it, but sending someone to install a
     vision model does not help a file that cannot be decoded at all."""
-    from memorymap.core import pdfpages
-    from memorymap.entry import importer
+    from tessellate.core import pdfpages
+    from tessellate.entry import importer
 
     monkeypatch.setattr(importer, "markitdown_available", lambda: True)
     monkeypatch.setattr(importer, "convert_to_markdown", lambda p: "")
@@ -216,8 +233,8 @@ def test_a_pdf_pdfium_cannot_open_says_so_not_probably_a_scan(tmp_path, monkeypa
 
 
 def test_a_vision_reader_that_throws_does_not_break_the_view(tmp_path, monkeypatch):
-    from memorymap.core import pdfpages
-    from memorymap.entry import importer
+    from tessellate.core import pdfpages
+    from tessellate.entry import importer
 
     def boom(_path):
         raise RuntimeError("model died")
@@ -307,7 +324,7 @@ def test_attached_pdf_info_422s_for_a_non_pdf(client):
 
 
 def test_attached_pdf_info_without_the_extra_says_so(client, monkeypatch):
-    from memorymap.core import pdfpages
+    from tessellate.core import pdfpages
 
     monkeypatch.setattr(pdfpages, "available", lambda: False)
     attachment_id = _attach(client, "notes.pdf", _ONE_PAGE_PDF)
@@ -337,7 +354,7 @@ def test_a_short_word_document_is_not_mistaken_for_a_scan(tmp_path, monkeypatch)
     Caught by the test above it on the first version of this module, where the
     floor applied to every converted type: a real document whose text was 36
     characters came back as "probably a scan"."""
-    from memorymap.entry import importer
+    from tessellate.entry import importer
 
     monkeypatch.setattr(importer, "markitdown_available", lambda: True)
     monkeypatch.setattr(importer, "convert_to_markdown", lambda p: "Short.")

@@ -29,7 +29,7 @@ import re
 from pathlib import Path
 from tests._app_js import app_js_text
 
-TOOLS_DIR = Path(__file__).resolve().parents[1] / "src" / "memorymap" / "ai" / "tools"
+TOOLS_DIR = Path(__file__).resolve().parents[1] / "src" / "tessellate" / "ai" / "tools"
 
 
 def _change_row_source() -> str:

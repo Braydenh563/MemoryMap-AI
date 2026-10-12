@@ -19,7 +19,7 @@ timing: which nothing else here would notice.
 
 from __future__ import annotations
 
-from memorymap.ai import skill_runner
+from tessellate.ai import skill_runner
 from tests._app_js import app_js_text
 
 
@@ -85,8 +85,8 @@ def test_the_broken_form_is_what_it_looks_like():
 def test_a_skill_run_streams_its_events(ai_client, fake_ollama, app_state):
     """End to end: the run still produces the same events in the same order, 
     laziness must not change what the user sees, only when they see it."""
-    from memorymap.ai import skills
-    from memorymap.core import deps
+    from tessellate.ai import skills
+    from tessellate.core import deps
 
     config = deps.get_config()
     config.set_preference(

@@ -1,6 +1,6 @@
 """LAN mode: "Allow other devices on this network" (WORLD_CLASS_PLAN §12, Brief 15).
 
-Brief 15's done-when, run against the real launcher (`python -m memorymap`)
+Brief 15's done-when, run against the real launcher (`python -m tessellate`)
 bound to 0.0.0.0 in a subprocess and reached over this machine's own
 network address, so the server sees a client that is not loopback exactly
 as it would see a phone: media URLs carry no session token and a `?token=`
@@ -30,8 +30,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from memorymap.api import routes_auth
-from memorymap.core import netbind, vault
+from tessellate.api import routes_auth
+from tessellate.core import lantrust, netbind, vault
 
 ROOT = Path(__file__).resolve().parent.parent
 PASSWORD = "the owner's password"
@@ -228,7 +228,7 @@ def _through_host_check(server: tuple, host: str | None) -> tuple[int | None, bo
     (the status the middleware answered with, or None; whether the app ran)."""
     import asyncio
 
-    from memorymap.core import security
+    from tessellate.core import security
 
     ran = []
 
@@ -260,7 +260,7 @@ def test_the_guard_keys_on_the_address_the_request_arrived_at(monkeypatch):
     said, and one that came in on loopback never does. Off loopback a
     request with no Host at all is refused too: HTTP/1.1 requires one, so
     nothing legitimate on the network omits it."""
-    from memorymap.core import security
+    from tessellate.core import security
 
     monkeypatch.setattr(security, "_notebook_has_password", lambda: True)
     netbind.set_current(netbind.LOOPBACK)
@@ -306,7 +306,7 @@ def _free_port() -> int:
 
 def _start(tmp_path: Path, preferences: dict) -> tuple[subprocess.Popen, int, Path]:
     """The real launcher. The HTTPS port other devices use is `port + 1000`,
-    pinned through `MEMORYMAP_LAN_PORT` (see `_lan_port`)."""
+    pinned through `TESSELLATE_LAN_PORT` (see `_lan_port`)."""
     data = tmp_path / "data"
     data.mkdir(parents=True, exist_ok=True)
     (data / "preferences.json").write_text(json.dumps(preferences))
@@ -315,12 +315,12 @@ def _start(tmp_path: Path, preferences: dict) -> tuple[subprocess.Popen, int, Pa
     env = {
         **os.environ,
         "PYTHONPATH": str(ROOT / "src"),
-        "MEMORYMAP_DATA_DIR": str(data),
-        "MEMORYMAP_PORT": str(port),
-        "MEMORYMAP_LAN_PORT": str(_lan_port(port)),
+        "TESSELLATE_DATA_DIR": str(data),
+        "TESSELLATE_PORT": str(port),
+        "TESSELLATE_LAN_PORT": str(_lan_port(port)),
     }
     proc = subprocess.Popen(  # noqa: S603  # our own launcher, fixed argv
-        [sys.executable, "-m", "memorymap"],
+        [sys.executable, "-m", "tessellate"],
         cwd=str(tmp_path),
         env=env,
         stdout=log.open("w"),
@@ -418,20 +418,41 @@ def test_lan_mode_end_to_end(tmp_path, network_address):
         lan = _Http(network_address, _lan_port(port), cafile=cert)
         here = _Http("127.0.0.1", port)
 
+        # INBOX 867: the switch was never turned on in this network (it was
+        # written to the file), so the LAN port is not even bound until this
+        # computer says "Allow on this network", with the password.
+        with pytest.raises(OSError):
+            _Http(network_address, _lan_port(port)).call("GET", "/health")
+        status, body, _ = here.call("POST", "/auth/unlock", {"password": PASSWORD})
+        owner = {"X-Auth-Token": body["token"]}
+        status, state, _ = here.call("GET", "/auth/lan-access", headers=owner)
+        if state["held"] == "unknown_network":
+            pytest.skip("this machine's network cannot be told apart (no router hardware address)")
+        assert state["held"] == "new_network" and state["other_devices"] is False
+        assert here.call("POST", "/auth/lan-networks/allow", {"current_password": "a guess"}, owner)[0] == 401
+        status, state, _ = here.call("POST", "/auth/lan-networks/allow", {"current_password": PASSWORD}, owner)
+        assert status == 200 and state["held"] is None and len(state["networks"]) == 1
+        deadline = time.time() + 10
+        while time.time() < deadline:
+            try:
+                _Http(network_address, _lan_port(port)).call("GET", "/health")
+                break
+            except OSError:
+                time.sleep(0.2)
+
         # The network gets HTTPS only (the owner, 2026-10-05; SEC-08): the
         # plain http port answers on this computer alone, and the HTTPS one
-        # refuses a plain request.
+        # answers a plain request only with a redirect to itself over https
+        # (INBOX 866: a phone given the address without https:// got nothing).
         with pytest.raises(OSError):
             _Http(network_address, port).call("GET", "/health")
-        with pytest.raises((OSError, http.client.HTTPException)):
-            _Http(network_address, _lan_port(port)).call("GET", "/health")
+        status, data, headers = _Http(network_address, _lan_port(port)).call("GET", "/health")
+        assert status == 301 and data is None
+        assert dict(headers)["Location"] == f"https://{network_address}:{_lan_port(port)}/health"
 
         # It listens on the network address, and says so on the receipt.
         status, body, _ = lan.call("GET", "/auth/status")
         assert status == 200 and body["setup_required"] is False
-        status, body, _ = here.call("POST", "/auth/unlock", {"password": PASSWORD})
-        assert status == 200
-        owner = {"X-Auth-Token": body["token"]}
         status, receipt, _ = here.call("GET", "/privacy/receipt", headers=owner)
         assert receipt["listening"]["other_devices"] is True
         assert f"https://{network_address}:{_lan_port(port)}" in receipt["listening"]["addresses"]
@@ -450,9 +471,28 @@ def test_lan_mode_end_to_end(tmp_path, network_address):
         assert here.call("POST", "/auth/auto-session")[0] == 200
         assert lan.call("GET", "/entries")[0] == 401
 
+        # INBOX 867: a new device waits until this computer allows it. The
+        # phone's sign-in is held open; the computer's window hears of it at
+        # once (/auth/lan-watch) and Allow lets the same sign-in through.
+        import threading
+
+        result = {}
+        asking = threading.Thread(
+            target=lambda: result.update(r=lan.call("POST", "/auth/unlock", {"password": PASSWORD}))
+        )
+        asking.start()
+        status, watch, _ = here.call("GET", "/auth/lan-watch?since=-1", headers=owner)
+        deadline = time.time() + 10
+        while not watch["pending"] and time.time() < deadline:
+            status, watch, _ = here.call("GET", f"/auth/lan-watch?since={watch['version']}", headers=owner)
+        assert watch["pending"] and watch["pending"][0]["address"] == network_address
+        assert lan.call("GET", "/auth/lan-watch", headers={"X-Auth-Token": owner["X-Auth-Token"]})[0] == 403
+        assert here.call("POST", f"/auth/lan-devices/{watch['pending'][0]['id']}/allow", {}, owner)[0] == 200
+        asking.join(30)
+
         # The media cookie, not the session token, opens pictures; over
         # HTTPS it is Secure, as well as HttpOnly and SameSite=Strict.
-        status, body, headers = lan.call("POST", "/auth/unlock", {"password": PASSWORD})
+        status, body, headers = result["r"]
         assert status == 200
         phone = body["token"]
         cookies = [value for name, value in headers if name.lower() == "set-cookie"]
@@ -462,21 +502,31 @@ def test_lan_mode_end_to_end(tmp_path, network_address):
         assert lan.call("GET", f"/media/nothing.png?token={phone}")[0] == 401
         assert lan.call("GET", "/media/nothing.png", headers={"Cookie": ticket})[0] == 404
 
-        # The import is confined to home and the data folder from anywhere.
+        # Importing a folder of this computer's files is this computer's own
+        # act (this_computer_only): a phone is refused outright, and from here
+        # the import is still confined to home and the data folder.
         status, _, _ = lan.call(
             "POST", "/import/directory", {"path": "/etc"}, {"X-Auth-Token": phone}
         )
-        assert status == 400
+        assert status == 403
+        assert here.call("POST", "/import/directory", {"path": "/etc"}, owner)[0] == 400
+        # The phone is not the desktop app, whatever this computer is.
+        assert lan.call("GET", "/health")[1]["this_computer"] is False
+        assert "max-age" in dict(lan.call("GET", "/health")[2]).get("strict-transport-security", "")
 
         # The web reader refuses this machine and the local network, and the
-        # receipt shows nothing was connected to.
+        # receipt shows nothing was connected to: what it counts on the local
+        # network is the phone coming in (INBOX 894), never a reach out.
         for url in (f"http://127.0.0.1:{port}/", "http://10.0.0.1/"):
             status, body, _ = lan.call(
                 "GET", f"/websearch/read?url={url}", headers={"X-Auth-Token": phone}
             )
             assert status == 502, (url, status, body)
         status, receipt, _ = lan.call("GET", "/privacy/receipt", headers={"X-Auth-Token": phone})
-        assert receipt["totals"]["local_network"] == 0
+        outgoing = [d for d in receipt["destinations"] if d["scope"] == "local_network" and d["kind"] != "incoming"]
+        assert outgoing == []
+        incoming = sum(d["count"] for d in receipt["destinations"] if d["kind"] == "incoming")
+        assert receipt["totals"]["local_network"] == incoming > 0
         assert not [d for d in receipt["destinations"] if d["host"] == "10.0.0.1"]
 
         # DNS rebinding: a name that is not this computer is refused.
@@ -516,8 +566,18 @@ def test_lan_mode_answers_on_ipv6_and_ipv4_from_one_server(tmp_path):
         assert _Http("127.0.0.1", port).call("POST", "/auth/setup", {"password": PASSWORD})[0] == 200
     finally:
         _stop(proc)
+    #: The port opens only on a network the person allowed (core/lantrust.py):
+    #: this test is about the sockets, so every network is allowed here.
+    (tmp_path / "data" / lantrust.FILE_NAME).write_text(json.dumps({"any_network": True, "ask_new_devices": False}))
     proc, port, log = _start(tmp_path, {netbind.LAN_PREF: True})
     try:
+        deadline = time.time() + 20
+        while time.time() < deadline:
+            try:
+                socket.create_connection(("::1", _lan_port(port)), timeout=0.5).close()
+                break
+            except OSError:
+                time.sleep(0.3)
         # The dual-stack socket is the HTTPS one (loopback http is 127.0.0.1).
         cert = tmp_path / "data" / "lan-tls" / "cert.pem"
         here_v6 = _Http("::1", _lan_port(port), cafile=cert)
@@ -559,9 +619,9 @@ def test_no_password_means_loopback_whatever_the_switch_says(app_state):
 
 
 def test_reset_password_turns_lan_mode_off(app_state, monkeypatch, capsys):
-    from memorymap import __main__ as launcher
-    from memorymap.core import deps
-    from memorymap.core.database import User
+    from tessellate import __main__ as launcher
+    from tessellate.core import deps
+    from tessellate.core.database import User
 
     with deps.get_db().session() as session:
         session.add(User(username="owner", password_hash="x"))
@@ -595,3 +655,16 @@ def test_without_a_password_the_network_gets_nothing(client):
     assert lan.get("/auth/status").status_code == 200
     assert lan.get("/entries?limit=5").status_code == 401
 
+
+
+def test_a_second_notebook_on_this_computer_takes_the_next_lan_port(monkeypatch):
+    """The owner, 2026-10-11: "what if multiple people are running memory map
+    and want to connect over the same lan connection??" Two accounts on one
+    computer: the second used to go local-only when 8443 was held."""
+    from tessellate.core import netbind
+
+    monkeypatch.delenv("TESSELLATE_LAN_PORT", raising=False)
+    assert netbind.lan_port_candidates(8443)[:3] == [8443, 8444, 8445]
+    assert len(netbind.lan_port_candidates(8443)) == netbind.LAN_PORT_TRIES
+    monkeypatch.setenv("TESSELLATE_LAN_PORT", "9000")
+    assert netbind.lan_port_candidates(9000) == [9000]

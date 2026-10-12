@@ -42,10 +42,10 @@ ROOT = Path(__file__).resolve().parents[1]
 #: future module-scope `import numpy` anywhere in this list fails the build
 #: immediately rather than silently widening what "heavy" means here.
 LAZY_NUMPY_MODULES = [
-    "memorymap.ai.embeddings",
-    "memorymap.ai.janitor",
-    "memorymap.search.engine",
-    "memorymap.search.search_manager",
+    "tessellate.ai.embeddings",
+    "tessellate.ai.janitor",
+    "tessellate.search.engine",
+    "tessellate.search.search_manager",
 ]
 
 _CHECK_IMPORT_SRC = """
@@ -84,14 +84,14 @@ class TestNumpyStaysOutUntilSomethingNeedsIt:
 
     def test_the_app_module_imports_clean_of_numpy_too(self):
         """`api/app.py` is what every route in the four modules above hangs
-        off of, and what `python -m memorymap`/`uvicorn` actually import
+        off of, and what `python -m tessellate`/`uvicorn` actually import
         first: the case that matters is this one, not the leaf modules in
         isolation, which could each pass on their own while still being
         pulled in eagerly by a router file that imports one of them at its
         own module scope."""
-        loaded = _run_check("memorymap.api.app")
+        loaded = _run_check("tessellate.api.app")
         assert loaded == "False", (
-            "importing memorymap.api.app pulled numpy into sys.modules "
+            "importing tessellate.api.app pulled numpy into sys.modules "
             "before any request or background job ran; find the new "
             "module-scope import (in app.py itself or a routes_*.py it "
             "imports) that reintroduced this"
@@ -107,7 +107,7 @@ class TestNumpyStillLoadsOnFirstRealUse:
 
     def test_cosine_similarity_still_works(self):
         script = (
-            "from memorymap.ai.embeddings import cosine_similarity\n"
+            "from tessellate.ai.embeddings import cosine_similarity\n"
             "print(round(cosine_similarity([1.0, 0.0], [1.0, 0.0]), 4))\n"
             "import sys; assert 'numpy' in sys.modules\n"
         )
@@ -127,7 +127,7 @@ class TestNumpyStillLoadsOnFirstRealUse:
     def test_similar_pairs_still_works(self):
         script = (
             "import numpy as np\n"
-            "from memorymap.ai.embeddings import similar_pairs\n"
+            "from tessellate.ai.embeddings import similar_pairs\n"
             "vectors = {1: np.array([1.0, 0.0]), 2: np.array([1.0, 0.0])}\n"
             "print(similar_pairs(vectors, 0.5))\n"
         )

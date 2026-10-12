@@ -18,7 +18,7 @@ import sys
 
 import pytest
 
-from memorymap.core import egress
+from tessellate.core import egress
 
 
 @pytest.fixture(autouse=True)
@@ -108,9 +108,9 @@ def test_the_module_that_asked_is_named():
         "<updates>",
         "exec",
     )
-    exec(code, {"__name__": "memorymap.api.routes_update"})  # noqa: S102
+    exec(code, {"__name__": "tessellate.api.routes_update"})  # noqa: S102
     (row,) = egress.destinations()
-    assert row["via"] == "memorymap.api.routes_update"
+    assert row["via"] == "tessellate.api.routes_update"
     assert row["feature"] == "Update check"
 
 
@@ -218,3 +218,22 @@ def test_the_receipt_reads_the_ledger_from_before_this_launch(client, app_state)
     assert body["verdict"] == "stayed_on_this_computer"  # this launch
     assert body["ledger"]["totals"]["internet"] == 1  # since the ledger began
     assert body["ledger"]["verdict"] == "internet"
+
+
+def test_the_top_bar_verdict_is_the_receipt_s_verdict(client):
+    """Row 1641: the Local chip reads `/privacy/verdict`, the same answer as
+    the receipt's, and it moves when something leaves."""
+    response = client.get("/privacy/verdict")
+    assert response.status_code == 200, response.text
+    assert response.json()["verdict"] == "stayed_on_this_computer"
+    sys.audit("socket.connect", None, ("93.184.216.34", 443))
+    after = client.get("/privacy/verdict")
+    assert after.json()["verdict"] == "internet"
+    assert _receipt(client)["verdict"] == "internet"
+
+
+def test_the_top_bar_verdict_is_behind_the_lock(client):
+    setup = client.post("/auth/setup", json={"password": "hunter22"})
+    assert setup.status_code == 200
+    locked = client.get("/privacy/verdict")
+    assert locked.status_code == 401

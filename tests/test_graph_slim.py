@@ -18,8 +18,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from memorymap.core import deps
-from memorymap.core.database import Entry
+from tessellate.core import deps
+from tessellate.core.database import Entry
 
 ROOT = Path(__file__).resolve().parents[1]
 

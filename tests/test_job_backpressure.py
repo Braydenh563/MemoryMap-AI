@@ -18,7 +18,7 @@ import json
 import threading
 import time
 
-from memorymap.core import jobs
+from tessellate.core import jobs
 
 
 def _wait_for(predicate, timeout: float = 5.0) -> None:

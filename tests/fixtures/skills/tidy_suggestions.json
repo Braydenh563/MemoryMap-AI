@@ -1,0 +1,86 @@
+{
+ "skill": "Tidy suggestions",
+ "small_class": true,
+ "cases": [
+  {
+   "id": "recipe-tags",
+   "notebook": [
+    {
+     "content": "Lentil soup",
+     "category": "Cooking",
+     "tags": [
+      "recipe"
+     ]
+    },
+    {
+     "content": "Banana bread",
+     "category": "Cooking",
+     "tags": [
+      "recipes"
+     ]
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "recipe"
+    ]
+   }
+  },
+  {
+   "id": "tiny-category",
+   "notebook": [
+    {
+     "content": "Renew the car insurance",
+     "category": "Car",
+     "tags": []
+    },
+    {
+     "content": "Quarterly report draft",
+     "category": "Work",
+     "tags": [
+      "work"
+     ]
+    },
+    {
+     "content": "Standup moved to 9:30",
+     "category": "Work",
+     "tags": [
+      "work"
+     ]
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "car"
+    ]
+   }
+  },
+  {
+   "id": "todo-tags",
+   "notebook": [
+    {
+     "content": "Finish the slides",
+     "category": "Work",
+     "tags": [
+      "todo"
+     ]
+    },
+    {
+     "content": "Email the venue",
+     "category": "Work",
+     "tags": [
+      "to-do"
+     ]
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "todo"
+    ]
+   }
+  }
+ ]
+}

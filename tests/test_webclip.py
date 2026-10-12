@@ -28,7 +28,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.core import security, webclip
+from tessellate.core import security, webclip
 
 FIXTURES = Path(__file__).parent / "fixtures" / "clip"
 

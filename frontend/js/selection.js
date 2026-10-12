@@ -56,7 +56,7 @@ async function saveSelectionAsNote(text, { draft = false, source = null } = {}) 
       async () => {
         await apiJson("/entries", {
           method: "POST",
-          body: JSON.stringify({ content, is_draft: draft, ...sourceFields }),
+          body: JSON.stringify({ content, is_draft: draft, defer_filing: true, ...sourceFields }),
         });
         await loadEntries();
       }
@@ -329,7 +329,7 @@ function noteFieldPickButton(input, after) {
   const button = smallButton("ph:magnifying-glass", "Choose a note", async () => {
     const entry = await pickEntryDialog("Choose a note");
     if (!entry) return;
-    input.value = noteSortName(entry).split("\n")[0].slice(0, 80);
+    input.value = noteNamePlain(entry.title || entry.content).slice(0, 80);
     input.dispatchEvent(new Event("change", { bubbles: true }));
     if (after) after(entry);
   });
@@ -461,149 +461,6 @@ function pickerRememberedSource(available) {
   }
 }
 
-//: Fetched once per dialog and per source, not per keystroke. The shown
-//: source first; the others after it, one at a time, so each tab carries its
-//: count (what matches the words typed, or everything) and opens at once. A
-//: slow fetch that lands after the tab changed paints nothing.
-function pickLibraryItemDialog(message, { sources = null } = {}) {
-  const available = LIBRARY_PICK_SOURCES.filter((source) =>
-    sources ? sources.includes(source.kind) : !source.optIn
-  );
-  return new Promise((resolve) => {
-    let active = (available.length > 1 && pickerRememberedSource(available)) || available[0];
-    const shell = pickerDialog({ title: message, placeholder: active.placeholder, searchLabel: message });
-    const box = pickerListbox(shell, active.label);
-    const seg = document.createElement("div");
-    seg.className = "seg";
-    seg.setAttribute("role", "tablist");
-    seg.setAttribute("aria-label", "What to point at");
-
-    //: Notes are never cached: `allEntries` is kept current by every save.
-    //: Drafts, deleted, private notes and boards are left out (a board is
-    //: usually the very thing this picker was opened from).
-    const cache = {};
-    let token = 0;
-    const notes = () =>
-      (typeof allEntries !== "undefined" ? allEntries : []).filter(
-        (entry) => !entry.is_draft && !entry.is_deleted && !entry.is_board && !entry.is_private
-      );
-    const rowsFor = async (kind) => {
-      if (kind === "note") return notes();
-      if (cache[kind]) return cache[kind];
-      const source = available.find((s) => s.kind === kind);
-      //: The gallery is paged (tests/test_gallery_paging.py); the rest answer once.
-      const read = source.path === "/files/gallery"
-        ? apiPagedList(source.path, 200, { silent: true })
-        : apiJson(source.path, { silent: true });
-      const rows = await read.catch(() => []);
-      const list = Array.isArray(rows) ? rows : rows.documents || [];
-      cache[kind] = source.keep ? list.filter(source.keep) : list;
-      return cache[kind];
-    };
-    const matching = (kind, rows, term) =>
-      rows
-        .map((row) => ({ row, label: libraryPickLabel(kind, row) }))
-        .filter(({ label }) => !term || label.toLowerCase().includes(term.toLowerCase()));
-
-    //: Each tab's count, for the sources already read; blank until then, so a
-    //: number is never a guess.
-    const counts = () => {
-      const term = shell.search.value.trim();
-      for (const tab of seg.children) {
-        const kind = tab.dataset.pickKind;
-        const rows = kind === "note" ? notes() : cache[kind];
-        tab.querySelector(".seg-count").textContent = rows ? String(matching(kind, rows, term).length) : "";
-      }
-    };
-
-    const paint = async () => {
-      const mine = (token += 1);
-      const source = active;
-      const term = shell.search.value.trim();
-      if (source.kind !== "note" && !cache[source.kind]) box.loading(`Loading your ${source.label.toLowerCase()}…`);
-      const rows = await rowsFor(source.kind);
-      counts();
-      if (mine !== token || active !== source) return;
-      const items = matching(source.kind, rows, term)
-        .slice(0, 40)
-        //: The row itself travels with the choice, so a caller that needs a
-        //: fact the row carries (whether a board is a map) has it without a
-        //: second fetch. Its label is the short one a toast can carry.
-        .map(({ row, label }) => ({
-          icon: typeof source.icon === "function" ? source.icon(row) : source.icon,
-          label,
-          about: libraryPickAbout(source.kind, row),
-          value: { kind: source.kind, id: row.id, label: clipText(label, 70), row },
-        }));
-      const empty = typeof source.icon === "function" ? source.empty : source.icon;
-      box.fill(items, term, pickerEmpty(source.label.toLowerCase(), term, empty, source.hint));
-    };
-
-    //: The tabs: one Tab stop, the arrows (and Home and End) walk them, the
-    //: Attach picker's keys; a tab the person chose is remembered.
-    const choose = (source, focus) => {
-      active = source;
-      for (const tab of seg.children) {
-        const on = tab.dataset.pickKind === source.kind;
-        tab.classList.toggle("active", on);
-        tab.setAttribute("aria-selected", String(on));
-        tab.tabIndex = on ? 0 : -1;
-        if (on && focus) tab.focus();
-      }
-      shell.search.placeholder = source.placeholder;
-      shell.list.setAttribute("aria-label", source.label);
-      paint();
-    };
-    const pick = (source, focus) => {
-      choose(source, focus);
-      try {
-        localStorage.setItem(PICK_SOURCE_KEY, source.kind);
-      } catch {
-        // A blocked store only means the next open starts on the first tab.
-      }
-    };
-    for (const source of available) {
-      const tab = document.createElement("button");
-      tab.type = "button";
-      tab.setAttribute("role", "tab");
-      tab.setAttribute("aria-controls", shell.list.id);
-      tab.dataset.pickKind = source.kind;
-      const name = document.createElement("span");
-      name.textContent = source.label;
-      const count = document.createElement("span");
-      count.className = "seg-count";
-      tab.append(name, count);
-      tab.addEventListener("click", () => {
-        pick(source);
-        shell.search.focus();
-      });
-      seg.appendChild(tab);
-    }
-    seg.addEventListener("keydown", (event) => {
-      const at = available.indexOf(active);
-      const last = available.length - 1;
-      const to = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: last }[event.key];
-      if (to === undefined) return;
-      event.preventDefault();
-      pick(available[(to + available.length) % available.length], true);
-    });
-    shell.search.addEventListener("input", paint);
-    choose(active);
-    shell.open(resolve, { seg: available.length > 1 ? seg : null });
-    //: The other sources' counts, read after the dialog is up and one at a
-    //: time, so the first paint never waits on them.
-    if (available.length > 1) {
-      (async () => {
-        for (const source of available) {
-          if (source.kind === "note" || cache[source.kind]) continue;
-          await rowsFor(source.kind);
-          if (!shell.card.isConnected) return;
-          counts();
-        }
-      })();
-    }
-  });
-}
 
 //: Pick something already uploaded rather than uploading it again ("attach
 //: images that are already in the image library... to new notes in the
@@ -692,6 +549,7 @@ async function remindFromSelection(text) {
       // can see rather than the server's UTC: same as magicAddReminder.
       body: JSON.stringify({ text, tz_offset_minutes: -new Date().getTimezoneOffset() }),
     });
+    reminderMadeUndo(reminder);
     toast(`Reminder set: ${relativeWhen(reminder.due_at)}.`);
     askNotificationPermission();
     // Same fix as saveChatAnswerAsNote()/saveSelectionAsNote(): unconditional,
@@ -1083,6 +941,54 @@ function initSelectionPopup() {
   });
   window.addEventListener("scroll", hideSelectionPopup, true);
   window.addEventListener("resize", hideSelectionPopup);
+  document.addEventListener("contextmenu", selectionRestoreOnContextMenu);
+}
+
+//: **A selection popup that has gone can be brought back: right-click the
+//: selection** (the owner, 2026-10-11). Escape, a scroll and a click outside
+//: all dismiss the bubble, and until now the only way back was to select again.
+//: One helper for every selection bubble (the editor's format bar in
+//: editor.js, the kebab above): it answers only while the right-click lands on
+//: a non-empty selection inside a surface that owns a bubble, and otherwise
+//: leaves the browser's menu alone. A menu another handler already opened
+//: (`defaultPrevented`: a flagged word, a link, a row) wins. Touch is left to
+//: the system's own selection menu. DESIGN.md recipe "Selection bubble",
+//: `tests/test_ui_recipes.py` keeps the surfaces to this one listener.
+function selectionPointInRange(x, y) {
+  const selection = window.getSelection();
+  if (!selection || !selection.rangeCount || selection.isCollapsed) return null;
+  const rects = [...selection.getRangeAt(0).getClientRects()];
+  if (!rects.length) return null;
+  const slack = 4;
+  return rects.some((r) => x >= r.left - slack && x <= r.right + slack && y >= r.top - slack && y <= r.bottom + slack);
+}
+
+function selectionRestoreOnContextMenu(event) {
+  if (event.defaultPrevented || event.pointerType === "touch") return false;
+  const x = event.clientX;
+  const y = event.clientY;
+  const host = document.activeElement;
+  const inHost = Boolean(host && (host.contains(event.target) || host.closest?.(".cm-editor")?.contains(event.target)));
+  //: A textarea's selection has no geometry, so being inside the field is the
+  //: test; a rendered or CodeMirror selection must be under the pointer.
+  const hit = host?.tagName === "TEXTAREA" || host?.tagName === "INPUT" ? inHost : inHost && selectionPointInRange(x, y);
+  let shown = false;
+  if (inHost && hit) {
+    const surface = typeof editorSurfaceFor === "function" ? editorSurfaceFor(host) : null;
+    if (surface && isEditorSurface(surface) && surface.selectionStart !== surface.selectionEnd && inlineAiState.phase === "idle") {
+      selectionBarShow(surface);
+      shown = true;
+    }
+  }
+  const field = fieldSelection();
+  const domHit = !field && selectionPointInRange(x, y) && !event.target.closest?.(".selection-popup, #selection-bar");
+  if ((field && inHost) || domHit) {
+    selectionPointerPoint = { x, y };
+    syncSelectionPopup();
+    shown = shown || Boolean(selectionPopupText);
+  }
+  if (shown) event.preventDefault();
+  return shown;
 }
 
 // Open the selection menu from the keyboard, for a Shift+Arrow selection:

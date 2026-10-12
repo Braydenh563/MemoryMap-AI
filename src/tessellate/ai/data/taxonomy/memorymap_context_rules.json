@@ -1,0 +1,547 @@
+{
+  "version": "5.0.0-consolidated",
+  "execution_implemented": false,
+  "rules": [
+    {
+      "rule_id": "sense_seed_001",
+      "language": "en",
+      "term": "bank",
+      "candidate_topic": "Finance",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "account",
+        "deposit",
+        "withdrawal",
+        "loan"
+      ],
+      "competing_cues_any": [
+        "river bank",
+        "stream",
+        "erosion"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_002",
+      "language": "en",
+      "term": "bank",
+      "candidate_topic": "Geography",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "river",
+        "stream",
+        "erosion",
+        "riverbank"
+      ],
+      "competing_cues_any": [
+        "bank account",
+        "loan"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_003",
+      "language": "en",
+      "term": "python",
+      "candidate_topic": "Software",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "source code",
+        "pip",
+        "pytest",
+        "script"
+      ],
+      "competing_cues_any": [
+        "snake",
+        "reptile",
+        "enclosure"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_004",
+      "language": "en",
+      "term": "python",
+      "candidate_topic": "Biology",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "snake",
+        "reptile",
+        "habitat",
+        "species"
+      ],
+      "competing_cues_any": [
+        "pip",
+        "pytest"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_005",
+      "language": "en",
+      "term": "school",
+      "candidate_topic": "Education",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "teacher",
+        "student",
+        "classroom",
+        "homework"
+      ],
+      "competing_cues_any": [
+        "school of fish",
+        "shoal"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_006",
+      "language": "en",
+      "term": "school",
+      "candidate_topic": "Biology",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "school of fish",
+        "shoal",
+        "reef"
+      ],
+      "competing_cues_any": [
+        "teacher",
+        "homework"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_007",
+      "language": "en",
+      "term": "mouse",
+      "candidate_topic": "Tech",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "cursor",
+        "usb",
+        "computer",
+        "click"
+      ],
+      "competing_cues_any": [
+        "rodent",
+        "cage"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_008",
+      "language": "en",
+      "term": "mouse",
+      "candidate_topic": "Pets",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "rodent",
+        "cage",
+        "pet mouse"
+      ],
+      "competing_cues_any": [
+        "usb",
+        "cursor"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_009",
+      "language": "en",
+      "term": "java",
+      "candidate_topic": "Software",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "jvm",
+        "jdk",
+        "compiler",
+        "programming"
+      ],
+      "competing_cues_any": [
+        "coffee",
+        "espresso"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_010",
+      "language": "en",
+      "term": "java",
+      "candidate_topic": "Coffee & Tea",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "coffee",
+        "beans",
+        "espresso"
+      ],
+      "competing_cues_any": [
+        "jvm",
+        "jdk"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_011",
+      "language": "en",
+      "term": "class",
+      "candidate_topic": "Software",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "inheritance",
+        "constructor",
+        "class definition"
+      ],
+      "competing_cues_any": [
+        "teacher",
+        "homework"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_012",
+      "language": "en",
+      "term": "class",
+      "candidate_topic": "Education",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "lesson",
+        "teacher",
+        "homework"
+      ],
+      "competing_cues_any": [
+        "constructor",
+        "inheritance"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_013",
+      "language": "en",
+      "term": "union",
+      "candidate_topic": "Mathematics",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "set union",
+        "intersection",
+        "set theory"
+      ],
+      "competing_cues_any": [
+        "union representative",
+        "wages"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_014",
+      "language": "en",
+      "term": "union",
+      "candidate_topic": "Unions & Worker Organisations",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "union representative",
+        "wages",
+        "worker",
+        "collective agreement"
+      ],
+      "competing_cues_any": [
+        "set union"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_015",
+      "language": "en",
+      "term": "terminal",
+      "candidate_topic": "Operating Systems",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "bash",
+        "shell",
+        "command line"
+      ],
+      "competing_cues_any": [
+        "airport",
+        "flight"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_016",
+      "language": "en",
+      "term": "terminal",
+      "candidate_topic": "Transport",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "airport",
+        "flight",
+        "ferry"
+      ],
+      "competing_cues_any": [
+        "shell",
+        "bash"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_017",
+      "language": "en",
+      "term": "terminal",
+      "candidate_topic": "Health",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "terminal illness",
+        "palliative care"
+      ],
+      "competing_cues_any": [
+        "bash",
+        "airport"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_018",
+      "language": "en",
+      "term": "rust",
+      "candidate_topic": "Software",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "rustc",
+        "cargo build",
+        "source code",
+        "compiler"
+      ],
+      "competing_cues_any": [
+        "rust removal",
+        "corrosion"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_019",
+      "language": "en",
+      "term": "rust",
+      "candidate_topic": "DIY & Home Repair",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "rust removal",
+        "corrosion",
+        "metal surface"
+      ],
+      "competing_cues_any": [
+        "rustc",
+        "cargo build"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_020",
+      "language": "en",
+      "term": "depression",
+      "candidate_topic": "Mental Health",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "mental health",
+        "psychologist",
+        "mood"
+      ],
+      "competing_cues_any": [
+        "topographic depression",
+        "landform"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_021",
+      "language": "en",
+      "term": "depression",
+      "candidate_topic": "Geography",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "topographic depression",
+        "landform",
+        "basin"
+      ],
+      "competing_cues_any": [
+        "psychologist"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_022",
+      "language": "en",
+      "term": "visa",
+      "candidate_topic": "Travel Entry & Border Requirements",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "passport",
+        "border",
+        "consulate"
+      ],
+      "competing_cues_any": [
+        "credit card"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_023",
+      "language": "en",
+      "term": "visa",
+      "candidate_topic": "Banking & Payments",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "visa card",
+        "credit card",
+        "payment"
+      ],
+      "competing_cues_any": [
+        "passport",
+        "consulate"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_024",
+      "language": "en",
+      "term": "train",
+      "candidate_topic": "Transport",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "railway",
+        "train station",
+        "platform"
+      ],
+      "competing_cues_any": [
+        "training dataset"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_025",
+      "language": "en",
+      "term": "train",
+      "candidate_topic": "AI",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "train model",
+        "training dataset",
+        "neural network"
+      ],
+      "competing_cues_any": [
+        "rail ticket"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_026",
+      "language": "en",
+      "term": "designer",
+      "candidate_topic": "Design",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "design portfolio",
+        "design brief",
+        "visual design"
+      ],
+      "competing_cues_any": [
+        "drug designer"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_027",
+      "language": "en",
+      "term": "book",
+      "candidate_topic": "Literature",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "reading",
+        "author",
+        "chapter"
+      ],
+      "competing_cues_any": [
+        "book appointment",
+        "reserve"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_028",
+      "language": "en",
+      "term": "book",
+      "candidate_topic": "Appointments & Reservations",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "book appointment",
+        "reserve",
+        "reservation"
+      ],
+      "competing_cues_any": [
+        "book chapter"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_029",
+      "language": "en",
+      "term": "shift",
+      "candidate_topic": "Shift Work & Rosters",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "roster",
+        "night shift",
+        "work shift"
+      ],
+      "competing_cues_any": [
+        "bit shift"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    },
+    {
+      "rule_id": "sense_seed_030",
+      "language": "en",
+      "term": "shift",
+      "candidate_topic": "Software",
+      "scope": "same_sentence_or_clause",
+      "positive_cues_any": [
+        "bit shift",
+        "shift operator",
+        "bitwise"
+      ],
+      "competing_cues_any": [
+        "night shift"
+      ],
+      "on_conflict": "abstain_or_retain_alternatives",
+      "status": "declarative_only_not_executed"
+    }
+  ]
+}

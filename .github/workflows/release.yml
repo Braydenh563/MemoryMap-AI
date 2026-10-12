@@ -63,14 +63,14 @@ jobs:
             VERSION="${GITHUB_REF_NAME#v}"
           fi
           # The tag must say what the code says: the app reports
-          # src/memorymap/__init__.py's __version__ (About, /health, the
+          # src/tessellate/__init__.py's __version__ (About, /health, the
           # updater's comparison), and installer.iss stamps the installer
           # with it. A tag that disagrees stops the release here, before
           # anything is built or published, rather than shipping v0.4.0
           # that calls itself 0.3.32 and offers itself as an update forever.
-          CODE=$(sed -nE 's/^__version__ = "([^"]+)"/\1/p' src/memorymap/__init__.py)
+          CODE=$(sed -nE 's/^__version__ = "([^"]+)"/\1/p' src/tessellate/__init__.py)
           if [ "$VERSION" != "$CODE" ]; then
-            echo "::error::release version $VERSION does not match __version__ $CODE in src/memorymap/__init__.py"
+            echo "::error::release version $VERSION does not match __version__ $CODE in src/tessellate/__init__.py"
             exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -141,7 +141,7 @@ jobs:
 
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Install build dependencies
         # The base app's own deps, minus sentence-transformers/torch:
@@ -162,7 +162,7 @@ jobs:
       - name: Build the frozen app (PyInstaller)
         shell: bash
         run: |
-          pyinstaller packaging/windows/memorymap.spec --distpath dist --workpath build --noconfirm
+          pyinstaller packaging/windows/tessellate.spec --distpath dist --workpath build --noconfirm
 
       # The frozen app has no console (`console=False` in the spec), and the
       # 0.2.x build died at launch because uvicorn's log formatter asked
@@ -172,17 +172,17 @@ jobs:
       - name: Smoke test the frozen app
         shell: bash
         env:
-          MEMORYMAP_DATA_DIR: ${{ runner.temp }}/mm-smoke
-          MEMORYMAP_PORT: "8765"
+          TESSELLATE_DATA_DIR: ${{ runner.temp }}/mm-smoke
+          TESSELLATE_PORT: "8765"
         # The same smoke package-check.yml runs (packaging/frozen_smoke.py):
         # every asset, the lazy bundles included, and the API on a fresh
         # data dir. A release that cannot serve one of them does not happen.
         run: |
-          "dist/MemoryMap AI/MemoryMap AI.exe" &
+          "dist/Tessellate/Tessellate.exe" &
           pid=$!
           failed=0
           python packaging/frozen_smoke.py --base http://127.0.0.1:8765 \
-            --data-dir "$MEMORYMAP_DATA_DIR" --log "$MEMORYMAP_DATA_DIR/logs/desktop-stdio.log" || failed=1
+            --data-dir "$TESSELLATE_DATA_DIR" --log "$TESSELLATE_DATA_DIR/logs/desktop-stdio.log" || failed=1
           kill $pid || true
           exit $failed
 
@@ -192,10 +192,10 @@ jobs:
       - name: Build the .exe installer (Inno Setup)
         shell: pwsh
         env:
-          MEMORYMAP_VERSION: ${{ needs.resolve-version.outputs.version }}
+          TESSELLATE_VERSION: ${{ needs.resolve-version.outputs.version }}
         run: |
-          $version = (Select-String -Path src\memorymap\__init__.py -Pattern '^__version__ = "([^"]+)"').Matches[0].Groups[1].Value
-          if (-not $version) { throw "no __version__ line in src\memorymap\__init__.py" }
+          $version = (Select-String -Path src\tessellate\__init__.py -Pattern '^__version__ = "([^"]+)"').Matches[0].Groups[1].Value
+          if (-not $version) { throw "no __version__ line in src\tessellate\__init__.py" }
           & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DMyAppVersion=$version" packaging\windows\installer.iss
           if ($LASTEXITCODE -ne 0) { throw "ISCC exited $LASTEXITCODE" }
 
@@ -223,12 +223,12 @@ jobs:
         if: false
         shell: pwsh
         env:
-          MEMORYMAP_VERSION: ${{ needs.resolve-version.outputs.version }}
+          TESSELLATE_VERSION: ${{ needs.resolve-version.outputs.version }}
         run: |
           wix build packaging\windows\installer.wxs -arch x64 `
-            -d Version=$env:MEMORYMAP_VERSION `
-            -d DistDir="dist\MemoryMap AI" `
-            -o "dist\installer\MemoryMap-AI-$env:MEMORYMAP_VERSION-windows-x86_64.msi"
+            -d Version=$env:TESSELLATE_VERSION `
+            -d DistDir="dist\Tessellate" `
+            -o "dist\installer\Tessellate-$env:TESSELLATE_VERSION-windows-x86_64.msi"
 
       - name: Upload installers to the release
         uses: softprops/action-gh-release@v3
@@ -238,7 +238,7 @@ jobs:
           # match fails this action outright, and the .exe alone is a
           # complete, working release either way.
           files: |
-            dist/installer/MemoryMap-AI-Setup-*.exe
+            dist/installer/Tessellate-Setup-*.exe
 
   build-linux-package:
     name: Build Linux package
@@ -253,7 +253,7 @@ jobs:
 
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       # pywebview's Linux backend needs GTK/WebKit as system packages —
       # pip alone can't provide them.
@@ -267,7 +267,7 @@ jobs:
         # Same trimmed set as the Windows job (no sentence-transformers/
         # torch — see that job's own comment) and no pystray/Pillow: this
         # build ships without a system tray, see packaging/linux/
-        # memorymap.spec's own comment for why.
+        # tessellate.spec's own comment for why.
         run: |
           python -m pip install --upgrade pip
           pip install fastapi "uvicorn[standard]" SQLAlchemy alembic python-dotenv \
@@ -277,7 +277,7 @@ jobs:
 
       - name: Build the frozen app (PyInstaller)
         run: |
-          pyinstaller packaging/linux/memorymap.spec --distpath dist --workpath build --noconfirm
+          pyinstaller packaging/linux/tessellate.spec --distpath dist --workpath build --noconfirm
 
       # The frozen app has no console (`console=False` in the spec), and the
       # 0.2.x build died at launch because uvicorn's log formatter asked
@@ -287,10 +287,10 @@ jobs:
       - name: Smoke test the frozen app
         shell: bash
         env:
-          MEMORYMAP_DATA_DIR: ${{ runner.temp }}/mm-smoke
-          MEMORYMAP_PORT: "8765"
+          TESSELLATE_DATA_DIR: ${{ runner.temp }}/mm-smoke
+          TESSELLATE_PORT: "8765"
         run: |
-          "dist/MemoryMap AI/MemoryMap AI" &
+          "dist/Tessellate/Tessellate" &
           pid=$!
           for i in $(seq 1 60); do
             if curl -sf -o /dev/null http://127.0.0.1:8765/; then
@@ -301,7 +301,7 @@ jobs:
             sleep 1
           done
           echo "the frozen app did not answer within 60 s"
-          cat "$MEMORYMAP_DATA_DIR/logs/desktop-stdio.log" 2>/dev/null || true
+          cat "$TESSELLATE_DATA_DIR/logs/desktop-stdio.log" 2>/dev/null || true
           kill $pid || true
           exit 1
 
@@ -322,13 +322,13 @@ jobs:
         # here by mistake.
         run: |
           cd dist
-          tar -czf "../MemoryMap-AI-${VERSION}-linux-x86_64.tar.gz" "MemoryMap AI"
-          zip -qr "../MemoryMap-AI-${VERSION}-linux-x86_64.zip" "MemoryMap AI"
+          tar -czf "../Tessellate-${VERSION}-linux-x86_64.tar.gz" "Tessellate"
+          zip -qr "../Tessellate-${VERSION}-linux-x86_64.zip" "Tessellate"
 
       - name: Upload package to the release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.resolve-version.outputs.tag }}
           files: |
-            MemoryMap-AI-*-linux-x86_64.tar.gz
-            MemoryMap-AI-*-linux-x86_64.zip
+            Tessellate-*-linux-x86_64.tar.gz
+            Tessellate-*-linux-x86_64.zip

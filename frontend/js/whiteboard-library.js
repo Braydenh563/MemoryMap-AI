@@ -52,7 +52,7 @@ function wbSideState() {
 
 function wbSaveSideState(state) {
   try {
-    localStorage.setItem(WB_SIDE_KEY, JSON.stringify(state));
+    prefs.set(WB_SIDE_KEY, JSON.stringify(state));
   } catch {
     // Private mode: the panel opens closed next time.
   }
@@ -153,7 +153,7 @@ function wbSyncSidebarKind() {
 function wbRenderSideMap() {
   const host = document.getElementById("wb-side-map-facts");
   if (!host || !wbIsMap()) return;
-  host.replaceChildren(wbMapStatsList(wbMapStats(wbMapIndex())));
+  host.replaceChildren(wbMapStatsList(wbMapStats(wbMapIndex()), { tiles: true }));
 }
 
 // --- loading -------------------------------------------------------------------
@@ -183,6 +183,24 @@ async function wbLoadLibrary({ force = false } = {}) {
       wbLibSets.set(s.key, await res.json());
     } catch {
       // A set that does not load is left out; the rest still show.
+    }
+  }));
+  wbRenderLibrary();
+}
+
+//: The converted draw.io sets (`shape_sets`, 196 shapes, 0.37 MB) are not
+//: fetched with the panel: a set comes when its group is opened, and all of
+//: them when a search is typed, so a search finds a router or a gateway
+//: without the person knowing which set holds it.
+async function wbLoadShapeSets(keys = null) {
+  const want = (wbLibState.lib?.shape_sets || []).filter((s) => !wbLibSets.has(s.key) && (!keys || keys.includes(s.key)));
+  if (!want.length) return;
+  await Promise.all(want.map(async (s) => {
+    try {
+      const res = await api(`/board-library/${s.path}${lazyAssetStamp()}`, { silent: true });
+      wbLibSets.set(s.key, { ...(await res.json()), name: s.name });
+    } catch {
+      // A set that does not load stays a closed group; the rest still show.
     }
   }));
   wbRenderLibrary();
@@ -249,7 +267,7 @@ async function wbPlaceSticker(choice, at = null) {
     await wbLoadIcons();
     const entry = wbLibIconEntry(choice.value);
     if (!entry) {
-      toast("That icon is not in the library's set.", true);
+      toast("That icon is not in the library's set.", "info");
       return null;
     }
     await wbLibPlace(entry, point);
@@ -264,8 +282,8 @@ async function wbPlaceSticker(choice, at = null) {
 
 //: The board's Insert, Emoji and icons…: the picker stays open, so several
 //: can be placed or dragged; a pick lands in the middle of the view.
-function wbOpenStickerPicker() {
-  const anchor = document.querySelector('[aria-controls="wb-insert-menu"]');
+function wbOpenStickerPicker(from = null) {
+  const anchor = from?.isConnected ? from : document.querySelector('[aria-controls="wb-insert-menu"]');
   pickIconOrEmoji({
     anchor,
     title: "Emoji and icons to place",
@@ -325,7 +343,11 @@ function wbLibThumb(entry) {
   //: A branch and a drawing are drawn by whiteboard-templates.js, so a tile,
   //: the New board dialog and a new map's offer draw one picture (INBOX 715).
   if (entry.kind === "branch" || payload.branch) return wbThumbSvg(wbMapThumbSpec(entry));
-  return wbThumbSvg(wbBoardThumbSpec(entry.kind === "template" ? payload.element || {} : payload));
+  //: A tile of something that is placed draws it as placed: in the pen's ink
+  //: (a template's picture is a whole board at a glance and stays as it was).
+  return entry.kind === "template"
+    ? wbThumbSvg(wbBoardThumbSpec(payload.element || {}))
+    : wbThumbSvg(wbBoardThumbSpec(payload, { placed: true, ink: wbLibInk() }));
 }
 
 function wbLibTile(entry) {
@@ -347,7 +369,7 @@ function wbLibTile(entry) {
   tile.append(name);
   if (entry.favourite) {
     const star = document.createElement("i");
-    star.className = "ph-fill ph-star wb-lib-star";
+    star.className = "ph ph-star star-fill wb-lib-star";
     star.setAttribute("aria-hidden", "true");
     tile.append(star);
   }
@@ -358,7 +380,7 @@ function wbLibTile(entry) {
   return tile;
 }
 
-function wbLibGroup(host, key, title, entries, { open = true, extra = null } = {}) {
+function wbLibGroup(host, key, title, entries, { open = true, extra = null, count: shown = null } = {}) {
   if (!entries.length && !extra) return;
   const details = document.createElement("details");
   details.className = "wb-lib-group";
@@ -373,7 +395,7 @@ function wbLibGroup(host, key, title, entries, { open = true, extra = null } = {
   words.textContent = title;
   const count = document.createElement("span");
   count.className = "muted wb-lib-count";
-  count.textContent = String(entries.length || "");
+  count.textContent = String(entries.length || shown || "");
   summary.append(caret, words, count);
   details.append(summary);
   const grid = document.createElement("div");
@@ -386,6 +408,7 @@ function wbLibGroup(host, key, title, entries, { open = true, extra = null } = {
   details.addEventListener("toggle", () => {
     wbLibFolds.set(key, details.open);
     if (key === "set:icons" && details.open && !wbLibState.libIcons) wbLoadIcons().then(() => wbRenderLibrary());
+    if (key.startsWith("set:drawio-") && details.open && !wbLibSets.has(key.slice(4))) wbLoadShapeSets([key.slice(4)]);
   });
   host.append(details);
 }
@@ -420,6 +443,7 @@ function wbRenderLibrary() {
     }
     wbLibGroup(list, "search", found.length ? `Results for "${query}"` : "Nothing matches", found);
     if (!map && !wbLibState.libIcons) wbLoadIcons().then(() => wbRenderLibrary());
+    if (!map) wbLoadShapeSets();
   } else {
     const byRef = new Map(all.map((e) => [e.ref, e]));
     const favourites = all.filter((e) => e.favourite);
@@ -431,7 +455,8 @@ function wbRenderLibrary() {
     //: map the one built-in set that applies there, its templates, which are
     //: branches; an empty set draws nothing.
     const order = (wbLibState.lib.sets || []).map((x) => x.key);
-    const sets = [...wbLibSets].sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
+    const shapeSets = wbLibState.lib.shape_sets || [];
+    const sets = [...wbLibSets].filter(([key]) => order.includes(key)).sort((a, b) => order.indexOf(a[0]) - order.indexOf(b[0]));
     for (const [key, set] of sets) {
       wbLibGroup(list, `set:${key}`, set.name, all.filter((e) => e.group === `set:${key}`), { open: ["templates", "maps", "general", "flowchart"].includes(key) });
     }
@@ -454,6 +479,16 @@ function wbRenderLibrary() {
         more.textContent = "1,530 icons, drawn as shapes. Search finds one by name.";
       }
       wbLibGroup(list, "set:icons", "Icons", iconEntries, { open: false, extra: more });
+      for (const s of shapeSets) {
+        const loaded = wbLibSets.has(s.key);
+        let note = null;
+        if (!loaded) {
+          note = document.createElement("p");
+          note.className = "muted wb-lib-note";
+          note.textContent = wbLibFolds.get(`set:${s.key}`) ? "Loading…" : `${s.count} shapes from draw.io, each with its own connection points.`;
+        }
+        wbLibGroup(list, `set:${s.key}`, s.name, all.filter((e) => e.group === `set:${s.key}`), { open: false, extra: note, count: s.count });
+      }
     }
     for (const lib of wbLibState.lib.libraries || []) {
       const mine = all.filter((e) => e.group === `lib:${lib.id}`);
@@ -696,6 +731,23 @@ async function wbLibPlace(entry, at = null, { connect = false, onto = null, grab
   wbLibState.lib = null; // Recent moved.
 }
 
+//: A whole library made, imported or deleted, as one step (INBOX 898): the
+//: server keeps what a delete took (core/undo_bin.py) and answers with a token.
+//: `created` is the direction of the act; `withItems` takes an import's items
+//: with it, which a plain delete would have moved to Yours.
+function wbLibPairStep(label, libraryId, token, { created = false, withItems = false } = {}) {
+  let held = token;
+  const del = async () => {
+    held = (await apiJson(`/board-library/libraries/${libraryId}${withItems ? "?with_items=true" : ""}`, { method: "DELETE" })).undo_token;
+    await wbLoadLibrary({ force: true });
+  };
+  const restore = async () => {
+    libraryId = (await apiJson("/board-library/libraries/restore", { method: "POST", body: JSON.stringify({ token: held }) })).id;
+    await wbLoadLibrary({ force: true });
+  };
+  return created ? wbPushCall(label, del, restore) : wbPushCall(label, restore, del);
+}
+
 async function wbLibNewBoardFrom(entry) {
   const name = await promptDialog("Name the new board", entry.name, { confirmLabel: "Create" });
   if (!name || !name.trim()) return;
@@ -705,6 +757,7 @@ async function wbLibNewBoardFrom(entry) {
       body: JSON.stringify({ ...wbLibRefBody(entry.ref), name: name.trim(), ink: wbLibInk() }),
     });
     await openWhiteboardBoard(board.id);
+    wbBoardMadeStep(board);
     toast(`Started "${board.title}" from ${entry.name}.`);
   } catch (err) {
     toast(err.message || "Couldn't start a board from that.", true);
@@ -809,11 +862,17 @@ function wbLibOpenMenu(tile, x = null, y = null) {
 
 async function wbLibToggleFavourite(entry) {
   try {
-    if (entry.ref.startsWith("item:")) {
-      await apiJson(`/board-library/${entry.ref.slice(5)}`, { method: "PUT", body: JSON.stringify({ favourite: !entry.favourite }) });
-    } else {
-      await apiJson("/board-library/marks", { method: "POST", body: JSON.stringify({ key: entry.ref.slice(8), favourite: !entry.favourite }) });
-    }
+    //: Item or built-in mark: the same request with the flag as it was.
+    const send = (favourite) => async () => {
+      if (entry.ref.startsWith("item:")) {
+        await apiJson(`/board-library/${entry.ref.slice(5)}`, { method: "PUT", body: JSON.stringify({ favourite }) });
+      } else {
+        await apiJson("/board-library/marks", { method: "POST", body: JSON.stringify({ key: entry.ref.slice(8), favourite }) });
+      }
+      await wbLoadLibrary({ force: true });
+    };
+    await send(!entry.favourite)();
+    wbPushCall(entry.favourite ? "Removed a library item from favourites" : "Made a library item a favourite", send(Boolean(entry.favourite)), send(!entry.favourite));
     wbAnnounce(entry.favourite ? `${entry.name} removed from favourites.` : `${entry.name} added to favourites.`);
     await wbLoadLibrary({ force: true });
   } catch (err) {
@@ -824,46 +883,75 @@ async function wbLibToggleFavourite(entry) {
 async function wbLibRename(entry) {
   const name = await promptDialog("Rename this library item", entry.name, { confirmLabel: "Rename" });
   if (!name || !name.trim() || name.trim() === entry.name) return;
-  await apiJson(`/board-library/${entry.ref.slice(5)}`, { method: "PUT", body: JSON.stringify({ name: name.trim() }) });
-  await wbLoadLibrary({ force: true });
+  const put = (body) => async () => {
+    await apiJson(`/board-library/${entry.ref.slice(5)}`, { method: "PUT", body: JSON.stringify(body) });
+    await wbLoadLibrary({ force: true });
+  };
+  await put({ name: name.trim() })();
+  wbPushCall("Renamed a library item", put({ name: entry.name }), put({ name: name.trim() }));
 }
 
 async function wbLibTags(entry) {
   const tags = await promptDialog("Tags, separated by commas", (entry.tags || []).join(", "), { confirmLabel: "Save" });
   if (tags === null || tags === undefined) return;
-  await apiJson(`/board-library/${entry.ref.slice(5)}`, {
-    method: "PUT",
-    body: JSON.stringify({ tags: String(tags).split(",").map((t) => t.trim()).filter(Boolean) }),
-  });
-  await wbLoadLibrary({ force: true });
+  const nextTags = String(tags).split(",").map((t) => t.trim()).filter(Boolean);
+  const put = (list) => async () => {
+    await apiJson(`/board-library/${entry.ref.slice(5)}`, { method: "PUT", body: JSON.stringify({ tags: list }) });
+    await wbLoadLibrary({ force: true });
+  };
+  await put(nextTags)();
+  wbPushCall("Changed a library item's tags", put(entry.tags || []), put(nextTags));
 }
 
 async function wbLibDuplicate(entry) {
-  await apiJson(`/board-library/${entry.ref.slice(5)}/duplicate`, { method: "POST" });
+  const copy = await apiJson(`/board-library/${entry.ref.slice(5)}/duplicate`, { method: "POST" });
+  if (copy?.id != null) {
+    const bin = (verb) => async () => {
+      if (verb === "bin") await apiJson(`/board-library/${copy.id}`, { method: "DELETE" });
+      else await apiJson(`/board-library/${copy.id}/restore`, { method: "POST" });
+      await wbLoadLibrary({ force: true });
+    };
+    wbPushCall("Duplicated a library item", bin("bin"), bin("restore"));
+  }
   await wbLoadLibrary({ force: true });
   wbAnnounce(`${entry.name} duplicated.`);
 }
 
 async function wbLibMove(entry, libraryId) {
-  await apiJson(`/board-library/${entry.ref.slice(5)}`, { method: "PUT", body: JSON.stringify({ library_id: libraryId }) });
-  await wbLoadLibrary({ force: true });
+  const put = (id) => async () => {
+    await apiJson(`/board-library/${entry.ref.slice(5)}`, { method: "PUT", body: JSON.stringify({ library_id: id }) });
+    await wbLoadLibrary({ force: true });
+  };
+  await put(libraryId)();
+  wbPushCall("Moved a library item", put(entry.item?.library_id ?? null), put(libraryId));
 }
 
 async function wbLibDelete(entry) {
   const id = entry.ref.slice(5);
   await apiJson(`/board-library/${id}`, { method: "DELETE" });
   await wbLoadLibrary({ force: true });
-  toastAction(`Deleted ${entry.name} from the library.`, "Undo", async () => {
-    await apiJson(`/board-library/${id}/restore`, { method: "POST" });
+  const bring = (verb) => async () => {
+    if (verb === "restore") await apiJson(`/board-library/${id}/restore`, { method: "POST" });
+    else await apiJson(`/board-library/${id}`, { method: "DELETE" });
     await wbLoadLibrary({ force: true });
+  };
+  const step = wbPushCall(`Deleted “${entry.name}” from the library`, bring("restore"), bring("bin"));
+  toastAction(`Deleted ${entry.name} from the library.`, "Undo", async () => {
+    wbDropUndoEntry(step);
+    await bring("restore")();
   });
 }
 
 async function wbLibReplace(entry) {
   const payload = wbLibSelectionPayload();
   if (!payload) return;
-  await apiJson(`/board-library/${entry.ref.slice(5)}`, { method: "PUT", body: JSON.stringify({ payload }) });
-  await wbLoadLibrary({ force: true });
+  const was = entry.payload || entry.item?.payload || null;
+  const put = (body) => async () => {
+    await apiJson(`/board-library/${entry.ref.slice(5)}`, { method: "PUT", body: JSON.stringify({ payload: body }) });
+    await wbLoadLibrary({ force: true });
+  };
+  await put(payload)();
+  if (was) wbPushCall(`Replaced “${entry.name}” in the library`, put(was), put(payload));
   toast(`${entry.name} now holds the selection. Copies already on boards keep their look.`);
 }
 
@@ -939,6 +1027,14 @@ function wbLibSelectionPayload({ quiet = false } = {}) {
 async function wbLibCreate(kind, name, payload, tags = []) {
   try {
     const made = await apiJson("/board-library", { method: "POST", body: JSON.stringify({ kind, name, payload, tags }) });
+    if (made?.id != null) {
+      const bin = (verb) => async () => {
+        if (verb === "bin") await apiJson(`/board-library/${made.id}`, { method: "DELETE" });
+        else await apiJson(`/board-library/${made.id}/restore`, { method: "POST" });
+        await wbLoadLibrary({ force: true });
+      };
+      wbPushCall(`Saved “${made.name}” to the library`, bin("bin"), bin("restore"));
+    }
     wbLibState.lib = null;
     toastAction(`Saved "${made.name}" to your library.`, "Show", () => wbOpenSidebar("library"));
     if (!document.getElementById("wb-sidebar-panel")?.classList.contains("hidden")) await wbLoadLibrary({ force: true });
@@ -957,7 +1053,7 @@ async function wbSaveSelectionToLibrary() {
   const payload = wbLibSelectionPayload();
   if (!payload) return;
   const one = payload.items.length === 1 ? payload.items[0] : null;
-  const guess = one?.data?.label || one?.data?.content?.split("\n")[0]?.slice(0, 40) || `${payload.items.length} items`;
+  const guess = one?.data?.label || noteNamePlain(one?.data?.content, 40) || `${payload.items.length} items`;
   const name = await promptDialog("Save to the library as", guess, { confirmLabel: "Save" });
   if (!name || !name.trim()) return;
   return wbLibCreate("element", name.trim(), payload);
@@ -1137,10 +1233,11 @@ async function wbLibImportFile(file) {
   try {
     body = JSON.parse(await file.text());
   } catch {
-    return toast("That file is not a MemoryMap library.", "info");
+    return toast("That file is not a Tessellate library.", "info");
   }
   try {
     const out = await apiJson("/board-library/import", { method: "POST", body: JSON.stringify(body) });
+    wbLibPairStep(`Imported the library “${out.library.name}”`, out.library.id, null, { created: true, withItems: true });
     await wbLoadLibrary({ force: true });
     const extra = [out.skipped ? `${out.skipped} skipped` : "", out.dropped_media ? `${out.dropped_media} picture${out.dropped_media === 1 ? "" : "s"} not in this notebook left out` : ""].filter(Boolean).join(", ");
     toast(`Imported ${out.items} into "${out.library.name}"${extra ? ` (${extra})` : ""}.`);
@@ -1152,7 +1249,8 @@ async function wbLibImportFile(file) {
 async function wbLibNewLibrary() {
   const name = await promptDialog("Name the new library", "My library", { confirmLabel: "Create" });
   if (!name || !name.trim()) return;
-  await apiJson("/board-library/libraries", { method: "POST", body: JSON.stringify({ name: name.trim() }) });
+  const made = await apiJson("/board-library/libraries", { method: "POST", body: JSON.stringify({ name: name.trim() }) });
+  wbLibPairStep(`Made the library “${made.name}”`, made.id, null, { created: true });
   await wbLoadLibrary({ force: true });
 }
 
@@ -1169,7 +1267,8 @@ function wbLibPanelMenu() {
     items.push({
       label: `ph:trash Delete the ${lib.name} library`, title: "What it holds moves to Yours", group: "delete",
       run: async () => {
-        await apiJson(`/board-library/libraries/${lib.id}`, { method: "DELETE" });
+        const gone = await apiJson(`/board-library/libraries/${lib.id}`, { method: "DELETE" });
+        wbLibPairStep(`Deleted the library “${lib.name}”`, lib.id, gone.undo_token);
         await wbLoadLibrary({ force: true });
       },
     });
@@ -1387,6 +1486,22 @@ onDomReady(() => {
     const moved = await wbMapTidy({ quiet: true });
     toast(moved ? `Tidied ${moved} node${moved === 1 ? "" : "s"}.` : "Everything is already where this layout puts it.");
   });
+  //: The tiles are drawn in the pen's ink (`wbLibThumb`), so a new ink draws
+  //: them again, once the picker has settled, where the list was scrolled to.
+  let inkTimer = 0;
+  for (const type of ["input", "change"]) {
+    document.getElementById("wb-rail-ink")?.addEventListener(type, () => {
+      clearTimeout(inkTimer);
+      inkTimer = setTimeout(() => {
+        const panel = document.getElementById("wb-sidebar-panel");
+        if (!wbLibState.lib || !panel || panel.classList.contains("hidden") || wbSideState().tab !== "library") return;
+        const list = document.getElementById("wb-lib-list");
+        const was = list?.scrollTop || 0;
+        wbRenderLibrary();
+        if (list) list.scrollTop = was;
+      }, 150);
+    });
+  }
   const importInput = document.getElementById("wb-lib-import");
   importInput?.addEventListener("change", () => {
     const file = importInput.files?.[0];
@@ -1416,9 +1531,19 @@ function wbLayerName(kind, item) {
   return own || wbItemSpokenName(kind, item);
 }
 
+//: The frames whose rows are folded shut in the Layers tab (kept for the
+//: session, not saved: it is a view of the list, not of the board).
+const wbLayerFoldedFrames = new Set();
+
+function wbLayerEntryByKey(key) {
+  const [kind, id] = String(key).split(":");
+  const item = wbFindItem(kind, Number(id));
+  return item ? { kind, item } : null;
+}
+
 function wbLayerRows() {
   const rows = [];
-  const layer = (title, entries) => {
+  const layer = (title, entries, held = null) => {
     entries.sort((a, b) => (b.item.z || 0) - (a.item.z || 0) || b.item.id - a.item.id);
     const groups = new Map();
     const top = [];
@@ -1442,7 +1567,13 @@ function wbLayerRows() {
         for (const m of t.members) rows.push({ ...m, level: 3, name: wbLayerName(m.kind, m.item) });
       } else {
         const m = t.group ? t.members[0] : t;
-        rows.push({ ...m, level: 2, name: wbLayerName(m.kind, m.item) });
+        const inside = held?.get(m.item.id) || [];
+        rows.push({ ...m, level: 2, name: wbLayerName(m.kind, m.item), holds: inside.length });
+        if (inside.length && !wbLayerFoldedFrames.has(m.item.id)) {
+          const members = inside.map((key) => wbLayerEntryByKey(key)).filter(Boolean)
+            .sort((a, b) => (b.item.z || 0) - (a.item.z || 0) || b.item.id - a.item.id);
+          for (const h of members) rows.push({ ...h, level: 3, name: wbLayerName(h.kind, h.item), held: true });
+        }
       }
     }
   };
@@ -1452,9 +1583,22 @@ function wbLayerRows() {
   ];
   const frames = (wbState.objects || []).filter((o) => o.kind === "frame").map((item) => ({ kind: "object", item }));
   const drawings = (wbState.sketches || []).filter((s) => wbSketchIsDrawable(s)).map((item) => ({ kind: "sketch", item }));
-  layer("Cards, text and pictures", cards);
-  if (frames.length) layer("Frames", frames);
-  layer("Drawings, shapes and lines", drawings);
+  //: **What a frame holds is nested under it** (INBOX 824, the owner asking
+  //: whether the tint on a row meant "in the frame"): an item lying wholly
+  //: inside a frame (`wbFrameContents`, the same rule a drag of the frame
+  //: uses) is listed once, under the first frame that holds it, indented and
+  //: collapsible, and not again in its kind's own list.
+  const held = new Map();
+  const claimed = new Set();
+  for (const frame of frames) {
+    const keys = wbFrameContents(frame.item, { withLocked: true }).filter((k) => !claimed.has(k));
+    for (const k of keys) claimed.add(k);
+    held.set(frame.item.id, keys);
+  }
+  const unclaimed = (list) => list.filter((e) => !claimed.has(wbMultiKey(e.kind, e.item.id)));
+  layer("Cards, text and pictures", unclaimed(cards));
+  if (frames.length) layer("Frames", frames, held);
+  layer("Drawings, shapes and lines", unclaimed(drawings));
   return rows;
 }
 
@@ -1471,9 +1615,229 @@ function wbLayerButton(className, icon, title) {
   return button;
 }
 
+// --- Named layers (canvasdepth, INBOX 797; WHITEBOARD_PLAN section 6) ------
+//
+// draw.io's layers: a named set of items that hides, shows and locks
+// together. The board keeps the list (`layers` in its settings), an item
+// names its layer in `data.layer`, and `wbItemHidden` and `wbIsLocked` read
+// the layer's flags, so every place that skips a hidden or locked item
+// skips these too. Above the paint-order tree, one row per layer: the eye,
+// the lock, the name with its count, and a menu.
+
+function wbNamedLayerOf(kind, item) {
+  if (kind === "sketch") return wbSketchData(item)?.layer || null;
+  return kind === "object" ? item.data?.layer || null : null;
+}
+
+//: **The layer wins** over an item's own eye or lock. An item on a hidden or
+//: locked named layer is hidden or locked whatever its own flag says
+//: (`wbItemHidden`, `wbIsLocked`), so its eye changed nothing visible. Rather
+//: than a second per-item override to explain, the row says whose state it is
+//: and the toggle points at the layer. Returns that layer or null.
+function wbLayerOwning(kind, item, flag) {
+  const id = wbNamedLayerOf(kind, item);
+  return (id && (wbState.layers || []).find((l) => l.id === id && l[flag])) || null;
+}
+
+function wbLayerSaysOwner(text) {
+  toast(text);
+  wbAnnounce(text);
+}
+
+async function wbSaveNamedLayers(layers, { undo = true, said = "" } = {}) {
+  const id = window.currentBoardId;
+  if (!id) {
+    toast("The default board has no layers. Make a board of your own to use them.", "info");
+    return false;
+  }
+  const before = (wbState.layers || []).map((x) => ({ ...x }));
+  try {
+    const out = await apiJson(`/whiteboard/boards/${id}`, { method: "PUT", body: JSON.stringify({ layers }) });
+    if (String(window.currentBoardId ?? "") !== String(id)) return false;
+    wbState.layers = out.layers || [];
+  } catch (err) {
+    toast(err.message || voiceLine("failed", { what: "change the layers" }), true);
+    return false;
+  }
+  if (undo) wbPushUndo({ action: "layers", before });
+  wbScheduleRender();
+  wbRenderLayers();
+  if (said) wbAnnounce(said);
+  return true;
+}
+
+//: Puts the selection on a layer (null: off every layer), one undo step.
+async function wbMoveSelectionToLayer(layerId) {
+  const entries = wbSelectionEntries().map((e) => [e.kind, e.item]);
+  if (wbSelectedItem) {
+    const item = wbFindItem(wbSelectedItem.kind, wbSelectedItem.id);
+    if (item && !entries.some(([k, i]) => k === wbSelectedItem.kind && i === item)) entries.push([wbSelectedItem.kind, item]);
+  }
+  const movable = entries.filter(([kind]) => kind !== "node");
+  if (!movable.length) {
+    toast(entries.length ? "Cards stay off layers; select shapes, text or drawings." : "Select something to put on the layer first.", "info");
+    return 0;
+  }
+  const undo = [];
+  for (const [kind, item] of movable) {
+    if (wbNamedLayerOf(kind, item) === layerId) continue;
+    undo.push({ action: "move", kind, id: item.id, before: WB_KIND_INFO[kind].payload(item) });
+    if (kind === "object") {
+      const data = { ...item.data };
+      if (layerId) data.layer = layerId;
+      else delete data.layer;
+      item.data = data;
+      await wbSaveObject(item);
+    } else {
+      await wbSaveSketchProps(item, { layer: layerId || undefined });
+    }
+  }
+  wbPushMoveBatch(undo);
+  wbScheduleRender();
+  wbRenderLayers();
+  const name = (wbState.layers || []).find((x) => x.id === layerId)?.name;
+  wbAnnounce(`${undo.length} item${undo.length === 1 ? "" : "s"} ${name ? `moved to ${name}` : "taken off their layer"}.`);
+  return undo.length;
+}
+
+async function wbNewNamedLayer() {
+  const layers = wbState.layers || [];
+  const name = await promptDialog("Name the new layer", `Layer ${layers.length + 1}`, { confirmLabel: "Add layer" });
+  if (!name || !name.trim()) return;
+  const layer = { id: `l${Date.now().toString(36)}`, name: name.trim().slice(0, 60), hidden: false, locked: false };
+  if (await wbSaveNamedLayers([...layers, layer], { said: `Layer ${layer.name} added.` }) && (wbMultiSelection.size || wbSelectedItem)) {
+    await wbMoveSelectionToLayer(layer.id);
+  }
+}
+
+//: **The current layer** (draw.io's; canvasdepth2): new things land on it,
+//: set by the server on every create (`_on_current_layer`). An item brought
+//: back by Undo says `layer: ""` when it had none, so it comes back where it
+//: was rather than onto whichever layer is current now.
+function wbKeepOwnLayer(kind, payload) {
+  if (kind === "object" && payload?.data && !payload.data.layer) return { ...payload, data: { ...payload.data, layer: "" } };
+  if (kind === "sketch" && typeof payload?.data === "string") {
+    try {
+      const data = JSON.parse(payload.data);
+      if (data && typeof data === "object" && !data.layer) return { ...payload, data: JSON.stringify({ ...data, layer: "" }) };
+    } catch {
+      return payload;
+    }
+  }
+  return payload;
+}
+
+//: Make a layer the current one, or none (`null`), one Undo step.
+function wbSetCurrentLayer(id) {
+  const name = (wbState.layers || []).find((x) => x.id === id)?.name;
+  return wbSaveNamedLayers((wbState.layers || []).map((x) => ({ ...x, current: x.id === id })),
+    { said: name ? `New things go on ${name}.` : "New things go on no layer." });
+}
+
+function wbNamedLayerSet(id, patch, said) {
+  return wbSaveNamedLayers((wbState.layers || []).map((x) => (x.id === id ? { ...x, ...patch } : x)), { said });
+}
+
+function wbNamedLayerItems(id) {
+  const out = [];
+  for (const kind of ["object", "sketch"]) {
+    for (const item of wbState[WB_LIST_BY_KIND[kind]] || []) if (wbNamedLayerOf(kind, item) === id) out.push([kind, item]);
+  }
+  return out;
+}
+
+function wbNamedLayerMenu(layer) {
+  return kebabMenu([
+    { label: "ph:arrow-square-in Move the selection here", run: () => wbMoveSelectionToLayer(layer.id) },
+    layer.current
+      ? { label: "ph:pencil-slash Stop drawing on it", title: "New things go on no layer", run: () => wbSetCurrentLayer(null) }
+      : { label: "ph:pencil-simple-line Draw on this layer", title: "New things go on it: its name is pressed", run: () => wbSetCurrentLayer(layer.id) },
+    { label: "ph:selection-all Select what is on it", run: () => {
+      clearWbSelection();
+      for (const [kind, item] of wbNamedLayerItems(layer.id)) wbMultiSelection.add(wbMultiKey(kind, item.id));
+      wbApplySelectionHighlight();
+      wbUpdateSelectionBar();
+    } },
+    { label: "ph:pencil-simple Rename", run: async () => {
+      const name = await promptDialog("Rename the layer", layer.name, { confirmLabel: "Rename" });
+      if (name && name.trim()) wbNamedLayerSet(layer.id, { name: name.trim().slice(0, 60) }, "Layer renamed.");
+    } },
+    { label: "ph:trash Delete the layer", title: "Its items stay on the board, on no layer", group: "delete", run: async () => {
+      const items = wbNamedLayerItems(layer.id);
+      if (items.length) {
+        clearWbSelection();
+        for (const [kind, item] of items) wbMultiSelection.add(wbMultiKey(kind, item.id));
+        await wbMoveSelectionToLayer(null);
+        clearWbSelection();
+      }
+      wbSaveNamedLayers((wbState.layers || []).filter((x) => x.id !== layer.id), { said: `Layer ${layer.name} deleted; its items stay.` });
+    } },
+  ], `More for the layer ${layer.name}`);
+}
+
+function wbRenderNamedLayers(tree) {
+  let box = document.getElementById("wb-named-layers");
+  if (!box) {
+    box = document.createElement("div");
+    box.id = "wb-named-layers";
+    box.className = "wb-named-layers";
+    tree.before(box);
+  }
+  box.replaceChildren();
+  box.hidden = wbIsMap();
+  if (box.hidden) return;
+  const head = document.createElement("div");
+  head.className = "wb-named-layers-head";
+  const title = document.createElement("span");
+  title.className = "wb-layer-head";
+  title.textContent = "Layers";
+  const add = smallButton("ph:plus", "New layer, with the selection on it", () => wbNewNamedLayer());
+  add.classList.add("wb-named-layer-add");
+  head.append(title, add);
+  box.append(head);
+  const list = document.createElement("ul");
+  list.className = "wb-named-layer-list";
+  list.setAttribute("aria-label", "Named layers");
+  for (const layer of wbState.layers || []) {
+    const li = document.createElement("li");
+    li.className = "wb-named-layer";
+    li.dataset.layer = layer.id;
+    li.classList.toggle("is-hidden", layer.hidden);
+    li.classList.toggle("is-locked", layer.locked);
+    const eye = smallButton(layer.hidden ? "ph:eye-slash" : "ph:eye", `${layer.hidden ? "Show" : "Hide"} the layer ${layer.name}`,
+      () => wbNamedLayerSet(layer.id, { hidden: !layer.hidden }, `${layer.name} ${layer.hidden ? "shown" : "hidden"}.`));
+    eye.setAttribute("aria-pressed", String(layer.hidden));
+    const lock = smallButton(layer.locked ? "ph:lock-simple" : "ph:lock-simple-open", `${layer.locked ? "Unlock" : "Lock"} the layer ${layer.name}`,
+      () => wbNamedLayerSet(layer.id, { locked: !layer.locked }, `${layer.name} ${layer.locked ? "unlocked" : "locked"}.`));
+    lock.setAttribute("aria-pressed", String(layer.locked));
+    //: The name is the layer's "draw here" switch, draw.io's current layer.
+    const name = document.createElement("button");
+    name.type = "button";
+    name.className = "wb-layer-name wb-named-layer-current";
+    name.textContent = layer.name;
+    name.setAttribute("aria-pressed", String(Boolean(layer.current)));
+    name.title = layer.current ? `New things go on ${layer.name}; press to draw on no layer` : `Draw on ${layer.name}: new things go on it`;
+    name.addEventListener("click", () => wbSetCurrentLayer(layer.current ? null : layer.id));
+    if (layer.current) li.setAttribute("aria-current", "true");
+    const count = document.createElement("span");
+    count.className = "muted wb-lib-count";
+    count.textContent = String(wbNamedLayerItems(layer.id).length);
+    li.append(eye, lock, name, count, wbNamedLayerMenu(layer));
+    list.append(li);
+  }
+  if (!(wbState.layers || []).length) {
+    const none = document.createElement("li");
+    none.className = "muted wb-lib-note";
+    none.textContent = "None yet. Select things and press + to put them on a layer you can hide or lock; press a layer's name to draw on it.";
+    list.append(none);
+  }
+  box.append(list);
+}
+
 function wbRenderLayers() {
   const tree = document.getElementById("wb-layers-tree");
   if (!tree || tree.closest("[hidden]")) return;
+  wbRenderNamedLayers(tree);
   const map = wbIsMap();
   const activeKey = tree.querySelector("[tabindex='0']")?.dataset.key;
   tree.replaceChildren();
@@ -1487,6 +1851,7 @@ function wbRenderLayers() {
   }
   const selected = new Set(wbMultiSelection);
   if (wbSelectedItem) selected.add(wbMultiKey(wbSelectedItem.kind, wbSelectedItem.id));
+  wbLayersSelectedHead(selected.size);
   for (const row of wbLayerRows()) {
     const li = document.createElement("li");
     if (row.head) {
@@ -1525,17 +1890,47 @@ function wbRenderLayers() {
     li.draggable = true;
     li.setAttribute("aria-selected", selected.has(key) ? "true" : "false");
     icon.className = `ph ${wbLayerIcon(row.kind, row.item)} wb-layer-icon`;
-    const eye = wbLayerButton("wb-layer-eye", hidden ? "ph-eye-slash" : "ph-eye", hidden ? "Show it (H)" : "Hide it (H)");
-    const lock = wbLayerButton("wb-layer-lock", locked ? "ph-lock-simple" : "ph-lock-simple-open", locked ? "Unlock it (L)" : "Lock it (L)");
+    const hideLayer = wbLayerOwning(row.kind, row.item, "hidden");
+    const lockLayer = wbLayerOwning(row.kind, row.item, "locked");
+    const eye = wbLayerButton("wb-layer-eye", hidden ? "ph-eye-slash" : "ph-eye",
+      hideLayer ? `Hidden by its layer, ${hideLayer.name}. Show the layer to see it.` : hidden ? "Show it (H)" : "Hide it (H)");
+    const lock = wbLayerButton("wb-layer-lock", locked ? "ph-lock-simple" : "ph-lock-simple-open",
+      lockLayer ? `Locked by its layer, ${lockLayer.name}. Unlock the layer to edit it.` : locked ? "Unlock it (L)" : "Lock it (L)");
+    eye.classList.toggle("is-by-layer", Boolean(hideLayer));
+    lock.classList.toggle("is-by-layer", Boolean(lockLayer));
     li.classList.toggle("is-hidden", hidden);
     li.classList.toggle("is-locked", locked);
-    li.append(icon, name, eye, lock);
-    li.setAttribute("aria-label", `${row.name}${hidden ? ", hidden" : ""}${locked ? ", locked" : ""}`);
+    if (row.holds) {
+      //: A frame that holds items folds them (INBOX 824).
+      const folded = wbLayerFoldedFrames.has(row.item.id);
+      li.setAttribute("aria-expanded", folded ? "false" : "true");
+      li.classList.add("has-held");
+      const fold = wbLayerButton("wb-layer-fold", folded ? "ph-caret-right" : "ph-caret-down",
+        `${folded ? "Show" : "Hide"} the ${row.holds} item${row.holds === 1 ? "" : "s"} in this frame`);
+      fold.removeAttribute("aria-hidden");
+      fold.setAttribute("aria-label", fold.title);
+      name.textContent = `${row.name} \u00b7 ${row.holds}`;
+      li.append(fold, icon, name, eye, lock);
+    } else {
+      li.append(icon, name, eye, lock);
+    }
+    li.classList.toggle("is-held", Boolean(row.held));
+    li.setAttribute("aria-label", `${row.name}${row.holds ? `, holds ${row.holds}` : ""}${hidden ? ", hidden" : ""}${locked ? ", locked" : ""}`);
     tree.append(li);
   }
   const items = [...tree.querySelectorAll("[role='treeitem']")];
   const keep = items.find((r) => r.dataset.key === activeKey) || items.find((r) => r.getAttribute("aria-selected") === "true") || items[0];
   if (keep) keep.tabIndex = 0;
+}
+
+//: **The head says what the tint means** (INBOX 824: the owner asked whether
+//: a tinted row meant "in the frame"). A tinted row is selected on the board;
+//: the count is that, and Clear is the way out of it.
+function wbLayersSelectedHead(count) {
+  const label = document.getElementById("wb-layers-selected-count");
+  if (label) label.textContent = count ? `${count} selected on the board` : "Nothing selected";
+  const clear = document.getElementById("wb-layers-clear");
+  if (clear) clear.disabled = !count;
 }
 
 function wbLayerIcon(kind, item) {
@@ -1598,6 +1993,8 @@ async function wbLayerToggleHidden(li) {
   const entry = wbLayerEntry(li);
   if (!entry) return;
   const [kind, item] = entry;
+  const hideLayer = wbLayerOwning(kind, item, "hidden");
+  if (hideLayer) return wbLayerSaysOwner(`${wbLayerName(kind, item)} is hidden by its layer, ${hideLayer.name}. Show the layer to see it.`);
   const on = !wbItemHidden(kind, item);
   if (on && wbSelectedItem?.kind === kind && wbSelectedItem.id === item.id) clearWbSelection();
   await wbSetHidden([[kind, item]], on);
@@ -1611,6 +2008,8 @@ async function wbLayerToggleLock(li) {
   const entry = wbLayerEntry(li);
   if (!entry) return;
   const [kind, item] = entry;
+  const lockLayer = wbLayerOwning(kind, item, "locked");
+  if (lockLayer) return wbLayerSaysOwner(`${wbLayerName(kind, item)} is locked by its layer, ${lockLayer.name}. Unlock the layer to edit it.`);
   const on = !wbIsLocked(kind, item);
   if (on && wbSelectedItem?.kind === kind && wbSelectedItem.id === item.id) clearWbSelection();
   await wbSetLocked([[kind, item]], on);
@@ -1695,9 +2094,33 @@ onDomReady(() => {
     const li = e.target.closest("[role='treeitem']");
     if (li && !e.target.closest("button")) wbLayerRename(li);
   });
+  const foldFrame = (li, fold) => {
+    const id = Number(li?.dataset.id);
+    if (!id || !li.classList.contains("has-held")) return false;
+    const folded = wbLayerFoldedFrames.has(id);
+    if (fold === folded) return true;
+    if (fold) wbLayerFoldedFrames.add(id);
+    else wbLayerFoldedFrames.delete(id);
+    wbRenderLayers();
+    wbLayerFocus(li.dataset.key);
+    return true;
+  };
+  tree.addEventListener("click", (e) => {
+    const fold = e.target.closest(".wb-layer-fold");
+    if (!fold) return;
+    e.stopPropagation();
+    const li = fold.closest("[role='treeitem']");
+    foldFrame(li, !wbLayerFoldedFrames.has(Number(li.dataset.id)));
+  }, true);
+  document.getElementById("wb-layers-clear")?.addEventListener("click", () => {
+    clearWbSelection();
+    wbRenderLayers();
+  });
   tree.addEventListener("keydown", (e) => {
     const li = e.target.closest("[role='treeitem']");
     if (!li) return;
+    if (e.key === "ArrowLeft" && foldFrame(li, true)) return e.preventDefault();
+    if (e.key === "ArrowRight" && foldFrame(li, false)) return e.preventDefault();
     const rows = [...tree.querySelectorAll("[role='treeitem']")];
     const at = rows.indexOf(li);
     const go = (i) => {
@@ -1800,7 +2223,7 @@ function wbRenderPages() {
     name.className = "wb-layer-name";
     name.textContent = wbFrameTitle(frame);
     const present = wbLayerButton("wb-page-present", "ph-presentation", "Present from this page (P)");
-    li.append(number, name, present);
+    li.append(number, name, present, wbPageMenu(frame));
     li.setAttribute("aria-label", `Page ${i + 1}: ${wbFrameTitle(frame)}`);
     list.append(li);
   });
@@ -1848,6 +2271,45 @@ async function wbPageMove(id, to) {
   wbAnnounce(`${wbFrameTitle(moved)} is page ${to + 1} of ${frames.length}.`);
 }
 
+//: **A page row is renamed in the row** (INBOX 822, the owner: "I cant rename
+//: frames in the pages sidebar"): the same one-line editor as the frame's own
+//: title on the canvas (`wbEditFrameTitle`: Enter keeps, Escape cancels, one
+//: Undo step), on the row's name. The canvas title and the row repaint once
+//: it commits.
+function wbPageRename(id) {
+  const frame = (wbState.objects || []).find((o) => o.id === id);
+  const row = document.querySelector(`#wb-pages-list [data-id="${id}"]`);
+  const nameEl = row?.querySelector(".wb-layer-name");
+  if (!frame || !nameEl || nameEl.isContentEditable) return;
+  row.draggable = false;
+  wbEditFrameTitle(nameEl, frame);
+  nameEl.addEventListener("blur", () => {
+    setTimeout(() => {
+      wbScheduleRender();
+      wbRenderPages();
+      wbPageFocus(id);
+    }, 0);
+  }, { once: true });
+}
+
+//: The row's actions: the kebab recipe, so what a frame's menu on the canvas
+//: offers is also on the page that stands for it.
+function wbPageMenu(frame) {
+  const id = frame.id;
+  const menu = kebabMenu([
+    { label: "ph:pencil-simple Rename", title: "Rename this page (F2)", run: () => wbPageRename(id) },
+    { label: "ph:arrows-in Fit to contents", title: "Snug the frame to what is inside it", run: () => wbFrameFit((wbState.objects || []).find((o) => o.id === id), "nesw") },
+    { label: "ph:presentation Present from here", title: "Start the presentation on this page (P)", run: () => wbPagePresent(id) },
+    { label: "ph:trash Delete the frame", title: "What it holds stays on the board", group: "delete", run: () => {
+      wbPageGo(id);
+      deleteWbSelection();
+      setTimeout(() => wbRenderPages(), 400);
+    } },
+  ], "Actions for this page");
+  menu.classList.add("wb-page-menu");
+  return menu;
+}
+
 function wbPagePresent(id) {
   const at = wbFramesInOrder().findIndex((f) => f.id === id);
   wbStartPresenting();
@@ -1862,7 +2324,16 @@ onDomReady(() => {
     const li = rowOf(e);
     if (!li) return;
     if (e.target.closest(".wb-page-present")) return wbPagePresent(Number(li.dataset.id));
+    if (e.target.closest(".wb-page-menu, .menu-wrap") || e.target.isContentEditable) return;
+    //: The second press of a double-click renames. The first one went to the
+    //: page and redrew the list, so the browser never sees the same element
+    //: twice and sends no `dblclick`: `detail` is what counts the presses.
+    if (e.detail === 2) return wbPageRename(Number(li.dataset.id));
     wbPageGo(Number(li.dataset.id));
+  });
+  list.addEventListener("dblclick", (e) => {
+    const li = rowOf(e);
+    if (li && !e.target.closest("button, .menu-wrap") && !e.target.isContentEditable) wbPageRename(Number(li.dataset.id));
   });
   list.addEventListener("keydown", (e) => {
     const li = rowOf(e);
@@ -1882,6 +2353,7 @@ onDomReady(() => {
     else if (e.key === "End") go(rows.length - 1);
     else if (e.key === "Enter" || e.key === " ") wbPageGo(id);
     else if (plain && e.key.toLowerCase() === "p") wbPagePresent(id);
+    else if (e.key === "F2") wbPageRename(id);
     else return;
     e.preventDefault();
   });
@@ -1946,6 +2418,8 @@ function wbSideRefreshSoon() {
     const list = { layers: "wb-layers-tree", pages: "wb-pages-list" }[tab];
     const host = list && document.getElementById(list);
     if (!host || host.closest("[hidden]")) return;
+    //: A row being renamed is not redrawn under the hand typing in it.
+    if (host.querySelector("[contenteditable]")) return;
     const focused = host.contains(document.activeElement) ? document.activeElement : null;
     const key = focused?.dataset.key || focused?.dataset.id;
     if (tab === "layers") wbRenderLayers();

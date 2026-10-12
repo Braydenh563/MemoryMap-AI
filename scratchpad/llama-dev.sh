@@ -17,7 +17,7 @@
 # for whoever runs it, and for nobody else:
 #
 #   * Nothing in tests/ imports this file or shells out to it. The seam is two
-#     environment variables, MEMORYMAP_EVALS_URL and MEMORYMAP_EVALS_MODEL,
+#     environment variables, TESSELLATE_EVALS_URL and TESSELLATE_EVALS_MODEL,
 #     which `serve` and `env` print and the evals read at collection time. A
 #     shell that never ran this script collects zero evals, and the suite
 #     stays green and honest.
@@ -87,7 +87,7 @@ find_model() {
   return 1
 }
 
-# The missing-binary sentence, written the way src/memorymap/ai/offline.py
+# The missing-binary sentence, written the way src/tessellate/ai/offline.py
 # writes its own: say what is true, then name the way out, and never claim
 # more certainty than a path lookup earns.
 no_server_message() {
@@ -196,8 +196,8 @@ cmd_env() {
   # printing the one sentence a developer needs here.
   model="$(served_model || true)"
   [ -n "$model" ] || die "nothing is answering on http://127.0.0.1:$PORT/v1. Start it with: scratchpad/llama-dev.sh serve $PORT"
-  say "export MEMORYMAP_EVALS_URL=http://127.0.0.1:$PORT/v1"
-  say "export MEMORYMAP_EVALS_MODEL=$model"
+  say "export TESSELLATE_EVALS_URL=http://127.0.0.1:$PORT/v1"
+  say "export TESSELLATE_EVALS_MODEL=$model"
 }
 
 cmd_serve() {

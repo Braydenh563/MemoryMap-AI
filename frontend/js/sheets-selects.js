@@ -105,7 +105,7 @@ function applySidebarWidth(aside, width, { remember = true } = {}) {
   // with no way to notice it had happened. Widening the window restores it.
   // `remember: false` is for the re-fit on resize, which is the app
   // reacting rather than the user choosing.
-  if (remember) localStorage.setItem(`sidebarWidth:${aside.id}`, String(clamped));
+  if (remember) prefs.set(`sidebarWidth:${aside.id}`, String(clamped));
   aside.style.setProperty("--saved-width", `${clamped}px`);
 
   if (layoutIsStacked()) {
@@ -294,18 +294,24 @@ const SIDEBAR_RAIL_NAMES = {
 
 //: A resize grip says its value (WCAG 4.1.2: a focusable separator requires
 //: `aria-valuenow`). Read by an observer, so every way of resizing reports it.
-function trackSeparatorValue(handle, panel, min, max) {
+function trackSeparatorValue(handle, panel, min, max, axis = "width") {
   handle.setAttribute("aria-valuemin", String(min));
   handle.setAttribute("aria-valuemax", String(max));
-  const write = (width) => {
-    const now = Math.round(width);
+  //: A horizontal separator (the code editor's output panel) reports its height.
+  const tall = axis === "height";
+  const size = () => (tall ? panel.getBoundingClientRect().height : panel.getBoundingClientRect().width);
+  const write = (px) => {
+    const now = Math.round(px);
     if (!now) return; // hidden or folded away: keep the last real value
     handle.setAttribute("aria-valuenow", String(Math.min(Math.max(now, min), max)));
-    handle.setAttribute("aria-valuetext", `${now} pixels wide`);
+    handle.setAttribute("aria-valuetext", `${now} pixels ${tall ? "tall" : "wide"}`);
   };
-  write(panel.getBoundingClientRect().width || min);
+  write(size() || min);
   if (typeof ResizeObserver === "function") {
-    new ResizeObserver((entries) => write(entries[entries.length - 1].borderBoxSize?.[0]?.inlineSize ?? panel.getBoundingClientRect().width)).observe(panel);
+    new ResizeObserver((entries) => {
+      const box = entries[entries.length - 1].borderBoxSize?.[0];
+      write((tall ? box?.blockSize : box?.inlineSize) ?? size());
+    }).observe(panel);
   }
 }
 
@@ -358,7 +364,7 @@ function makeSidebarResizable(aside) {
     aside.parentElement.classList.toggle("layout-sidebar-collapsed", folded);
     //: Remembered, like its width (INBOX 432: a reload unfolded it).
     try {
-      localStorage.setItem(`sidebarCollapsed:${aside.id}`, folded ? "1" : "0");
+      prefs.set(`sidebarCollapsed:${aside.id}`, folded ? "1" : "0");
     } catch {
       /* storage blocked: this session only */
     }
@@ -500,7 +506,7 @@ function webPanelMaxWidth(panel) {
 function applyWebPanelWidth(panel, width) {
   const clamped = Math.min(Math.max(Math.round(width), WEB_PANEL_MIN), webPanelMaxWidth(panel));
   try {
-    localStorage.setItem("webPanelWidth", String(clamped));
+    prefs.set("webPanelWidth", String(clamped));
   } catch {
     /* blocked storage: the width holds for this session */
   }
@@ -516,7 +522,7 @@ function applyWebPanelWidth(panel, width) {
 }
 
 function resetWebPanelWidth(panel) {
-  localStorage.removeItem("webPanelWidth");
+  prefs.remove("webPanelWidth");
   panel.style.removeProperty("flex");
   panel.style.removeProperty("width");
 }
@@ -634,12 +640,24 @@ function labelledMenu(label, items, ariaLabel, openerClass = "ghost small") {
     else closeActionMenus();
   });
 
+  //: `group` is honoured here as `kebabMenu` honours it (a hairline where the
+  //: name changes): a worded menu past five rows was drawn ungrouped
+  //: (menus.js sweep, "Add this note to a document": 7 rows, no groups).
+  let lastGroup = null;
   for (const item of items) {
+    if (lastGroup !== null && item.group && item.group !== lastGroup) {
+      const rule = document.createElement("div");
+      rule.className = "menu-sep";
+      rule.setAttribute("role", "separator");
+      menu.appendChild(rule);
+    }
+    if (item.group) lastGroup = item.group;
     const button = document.createElement("button");
     button.className = "menu-item";
     button.setAttribute("role", "menuitem");
     setLabel(button, item.label);
     if (item.title) button.title = item.title;
+    menuRowFits(button, item.title || "");
     button.addEventListener("click", async (event) => {
       event.stopPropagation();
       closeActionMenus();
@@ -765,6 +783,19 @@ function enhanceSelect(select) {
   const syncValue = () => {
     const chosen = select.options[select.selectedIndex];
     valueText.textContent = chosen ? chosen.textContent.trim() : "";
+    //: **The name contains what is written on the button** (WCAG 2.5.3, Label
+    //: in Name; axe `label-content-name-mismatch`, 22 findings in 2026-10-10's
+    //: sweep, every sort and model picker). "Sort notes" was the whole name
+    //: while the face read "Newest first", so a person saying the words they
+    //: can see ("click newest first") reached nothing. Now "Sort notes: Newest
+    //: first". An icon-only opener shows no text, so keeps the plain label.
+    if (!opener.classList.contains("select-opener-icon")) {
+      const shown = valueText.textContent;
+      opener.setAttribute(
+        "aria-label",
+        shown && !label.toLowerCase().includes(shown.toLowerCase()) ? `${label}: ${shown}` : label
+      );
+    }
     opener.disabled = select.disabled;
     for (const row of menu.querySelectorAll("[role='option']")) {
       const on = row.dataset.value === select.value;
@@ -974,6 +1005,80 @@ function enhanceAllSelects(root) {
   }
 }
 
+//: **A date or a time, picked** (UI_MODERNISATION_PLAN Phase 12 decision 5;
+//: the owner: "the reminder dropdowns for setting datetimes and stuff, they
+//: need a custom style"). The native field keeps the value, so every caller
+//: that reads or writes `.value` is unchanged (a write repaints the face, a
+//: `.focus()` lands on the face); what is seen and tabbed to is the select
+//: recipe's opener, and what opens is the help popover shell holding the
+//: Timeline month pop's grid (DESIGN.md, "A date picked from a month") or the
+//: times of the day in the person's clock. A phrase typed in its field ("next
+//: friday", "3pm") is read by `ai/when` on the reminders route. The fields in
+//: the page at boot are enhanced; one built later stays native. The panel is a
+//: lazy piece (date-field.js, the boot scripts are at their gzip cap): the
+//: first press loads it, wires it and presses again.
+function dateFieldFace(value, isTime) {
+  if (isTime) {
+    const [h, m] = value.split(":").map(Number);
+    return new Date(2000, 0, 1, h, m).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+  const day = new Date(`${value}T00:00:00`);
+  const year = day.getFullYear() === new Date().getFullYear() ? undefined : "numeric";
+  return day.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year });
+}
+
+function enhanceDateField(input) {
+  if (!input || input.dataset.dateField || !/^(date|time)$/.test(input.type)) return;
+  input.dataset.dateField = "1";
+  const isTime = input.type === "time";
+  const label = input.getAttribute("aria-label") || (isTime ? "Time" : "Date");
+  const shell = document.createElement("span");
+  shell.className = "select-shell date-field";
+  const opener = document.createElement("button");
+  opener.type = "button";
+  opener.className = "select-opener";
+  opener.setAttribute("aria-haspopup", "dialog");
+  opener.setAttribute("aria-expanded", "false");
+  const icon = document.createElement("i");
+  icon.className = `ph ${isTime ? "ph-clock" : "ph-calendar-blank"} select-icon`;
+  icon.setAttribute("aria-hidden", "true");
+  const face = document.createElement("span");
+  face.className = "select-value";
+  opener.append(icon, face);
+  const panel = document.createElement("div");
+  panel.className = "timeline-monthpop hidden";
+  panel.setAttribute("role", "dialog");
+  panel.setAttribute("aria-label", label);
+  input.parentNode.insertBefore(shell, input);
+  shell.append(input, opener, panel);
+  input.classList.add("select-native-hidden");
+  input.tabIndex = -1;
+  input.setAttribute("aria-hidden", "true");
+  const paint = () => {
+    const value = input.value;
+    face.textContent = value ? dateFieldFace(value, isTime) : label;
+    opener.setAttribute("aria-label", `${label}: ${value ? face.textContent : "not set"}`);
+  };
+  const native = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+  Object.defineProperty(input, "value", {
+    configurable: true,
+    get() { return native.get.call(this); },
+    set(value) { native.set.call(this, value); paint(); },
+  });
+  input.focus = (options) => opener.focus(options);
+  paint();
+  const first = async (event) => {
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    opener.removeEventListener("click", first, true);
+    if (await ensureModule("dateField")) {
+      dateFieldWire(input, opener, panel, label, isTime);
+      opener.click();
+    }
+  };
+  opener.addEventListener("click", first, true);
+}
+
 // **Focus a `<select>`. Never call `.focus()` on one directly.**
 // `enhanceSelect` hides the native control (`tabIndex = -1`, `aria-hidden`)
 // behind a `.select-opener`, so `select.focus()` focuses nothing and keys go
@@ -999,6 +1104,7 @@ function focusSelect(select) {
 // than asking every render path to remember to call this.
 function watchForSelects() {
   enhanceAllSelects(document);
+  for (const field of document.querySelectorAll('input:is([type="date"], [type="time"])')) enhanceDateField(field);
   annotateSliders(document);
   new MutationObserver((records) => {
     for (const record of records) {
@@ -1081,6 +1187,126 @@ function openKebabSheet(menu, opener, label) {
 //: passes the `vertical` option; the default stays the horizontal one, and
 //: nothing else draws an overflow glyph (DESIGN.md's recipe index, pinned by
 //: `tests/test_icon_conventions.py`).
+//: **Row actions** (DESIGN.md, INBOX 810): an action repeated on every row of
+//: a list is a quiet text button (no edge, no face at rest; the ghost tint,
+//: the ring and a 24px floor under the pointer or the keyboard), a
+//: destructive one waits in the muted ink until it is aimed at, and three or
+//: more fold into the row's ⋯ behind the first. `actions` are kebabMenu items
+//: (`label`, `title`, `run`, `danger`), so a row moves between the two shapes
+//: without its caller changing.
+function rowActions(actions, ariaLabel) {
+  actions = actions.filter(Boolean); // an action left out on this device is null
+  const wrap = document.createElement("span");
+  wrap.className = "entry-actions row-actions";
+  const button = (action) => {
+    const b = smallButton(action.label, action.title, () => action.run());
+    b.classList.add("quiet");
+    if (action.danger) b.classList.add("danger");
+    return b;
+  };
+  if (actions.length < 3) wrap.append(...actions.map(button));
+  else wrap.append(button(actions[0]), kebabMenu(actions.slice(1), ariaLabel));
+  return wrap;
+}
+
+//: **Type to filter a long list** (row 1643, WORLD_CLASS_PLAN 22.2: "every
+//: list with more than 20 rows can be filtered by typing"; DESIGN.md's
+//: recipe row). One `.search-field.list-filter` before `list`, shown only
+//: while the list holds more than `threshold` rows, hiding the rows whose
+//: words do not hold what is typed and saying so in one muted row when none
+//: do. Escape in the field clears it before it closes anything. The list's
+//: owner calls `refresh()` after each redraw, so a filter typed survives a
+//: re-render; rows are `rows` (a selector run on the list), by default its
+//: direct `li` children. `inside` puts the field at the head of the list
+//: itself, for a popup that is its own list (the space menu).
+function listFilter(list, { label, threshold = 12, rows = ":scope > li", inside = false } = {}) {
+  if (!list) return null;
+  if (list._listFilter) return list._listFilter;
+  const field = document.createElement("div");
+  field.className = "search-field list-filter hidden";
+  const glyph = document.createElement("i");
+  glyph.className = "ph ph-magnifying-glass search-field-icon";
+  glyph.setAttribute("aria-hidden", "true");
+  const input = document.createElement("input");
+  input.type = "search";
+  input.className = "search-field-input";
+  input.placeholder = label;
+  input.setAttribute("aria-label", label);
+  input.autocomplete = "off";
+  if (list.id) input.setAttribute("aria-controls", list.id);
+  field.append(glyph, input);
+  if (!inside) list.before(field);
+  const empty = document.createElement(list.tagName === "UL" || list.tagName === "OL" ? "li" : "div");
+  empty.className = "muted list-filter-empty hidden";
+  const refresh = () => {
+    if (inside && field.parentElement !== list) list.prepend(field);
+    const all = [...list.querySelectorAll(rows)].filter((row) => row !== empty);
+    field.classList.toggle("hidden", all.length <= threshold && !input.value);
+    const needle = input.value.trim().toLowerCase();
+    let shown = 0;
+    for (const row of all) {
+      const match = !needle || row.textContent.toLowerCase().includes(needle);
+      // The `hidden` attribute, because a list's own row rule (`display:
+      // flex`) outranks a class; `[hidden]` is the one rule that wins. A row
+      // some other code had hidden keeps that state when the filter clears.
+      if (!match && !row.classList.contains("list-filter-miss")) {
+        row.classList.add("list-filter-miss");
+        if (row.hidden) row.dataset.listFilterWasHidden = "1";
+        row.hidden = true;
+      } else if (match && row.classList.contains("list-filter-miss")) {
+        row.classList.remove("list-filter-miss");
+        row.hidden = row.dataset.listFilterWasHidden === "1";
+        delete row.dataset.listFilterWasHidden;
+      }
+      if (match) shown += 1;
+    }
+    empty.textContent = `Nothing here matches "${input.value.trim()}".`;
+    empty.classList.toggle("hidden", !needle || shown > 0);
+    if (empty.parentElement !== list) list.append(empty);
+    else if (empty.nextElementSibling) list.append(empty);
+  };
+  input.addEventListener("input", refresh);
+  input.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && input.value) {
+      event.preventDefault();
+      event.stopPropagation();
+      input.value = "";
+      refresh();
+    }
+  });
+  list._listFilter = { field, input, refresh };
+  refresh();
+  return list._listFilter;
+}
+
+//: **A menu row's words end inside its padding** (the owner 2026-10-11, in
+//: the mono font: "there's some overflowing text in some places on
+//: different fonts like mono"; the dashboard ⋯'s "Continue: Here are some
+//: refined, non-corny..." ran into the menu's right padding). The words are
+//: always a `.ph-text` span, which 08-consistency.css lets shrink and end in
+//: an ellipsis, and a row whose words are cut carries them whole in its
+//: title, with the row's own hint after them.
+function menuRowFits(row, hint) {
+  if (!row.querySelector(".ph-text") && row.childElementCount === 0 && row.textContent) {
+    const words = document.createElement("span");
+    words.className = "ph-text";
+    words.textContent = row.textContent;
+    row.replaceChildren(words);
+  }
+  const check = () => {
+    const words = row.querySelector(".ph-text");
+    if (!words) return;
+    const cut = words.scrollWidth > words.clientWidth + 1;
+    const said = words.textContent;
+    //: A label the caller already shortened ends in "…": no full stop after it.
+    const join = /[.?!…:]$/.test(said) ? " " : ". ";
+    row.title = cut ? (hint ? `${said}${join}${hint}` : said) : hint;
+    if (!row.title) row.removeAttribute("title");
+  };
+  row.addEventListener("pointerenter", check);
+  row.addEventListener("focus", check);
+}
+
 function kebabMenu(items, ariaLabel, { vertical = false } = {}) {
   const wrap = document.createElement("span");
   wrap.className = "menu-wrap";
@@ -1163,6 +1389,7 @@ function kebabMenu(items, ariaLabel, { vertical = false } = {}) {
     button.setAttribute("role", "menuitem");
     setLabel(button, item.label);
     if (item.title) button.title = item.title;
+    menuRowFits(button, item.title || "");
     // Muted, not `disabled`, a native disabled button also blocks its own
     // title tooltip on some platforms, which is the one piece of information
     // this state actually needs to deliver (why the button can't do its
@@ -1353,6 +1580,9 @@ document.addEventListener(
       details.querySelector(".doc-dock-menu-list")?.classList.remove("is-placed");
       return;
     }
+    //: One toolbar menu open at a time: a `<details>` never closes its
+    //: neighbours, so two lists stood over each other (owner, 2026-10-12).
+    for (const other of TOOLBAR_MENUS) if (other !== details && other.open) other.open = false;
     clampToolbarMenu(details);
   },
   true
@@ -1577,7 +1807,7 @@ async function loadConversationList() {
     setLabel(name, `${conversation.pinned ? "ph:push-pin " : ""}${conversation.title}`);
     const meta = document.createElement("span");
     meta.className = "conv-meta muted";
-    const bits = [relativeTime(conversation.updated_at)];
+    const bits = [relativeTime(conversation.last_at)];
     if (conversation.turns) {
       bits.push(`${conversation.turns} ${conversation.turns === 1 ? "turn" : "turns"}`);
     }
@@ -1606,6 +1836,7 @@ async function loadConversationList() {
             method: "PUT",
             body: JSON.stringify({ pinned: !conversation.pinned }),
           });
+          chatWriteRecord("chatPinUndo", conversation.id, !conversation.pinned);
           loadConversationList();
         }
       )
@@ -1618,6 +1849,8 @@ async function loadConversationList() {
           method: "PUT",
           body: JSON.stringify({ title: next.trim() }),
         });
+        chatWriteRecord("chatTitleUndo", conversation.id, conversation.title, next.trim());
+        if (chatConv.id === conversation.id) $("chat-title").textContent = next.trim();
         loadConversationList();
       })
     );
@@ -1634,6 +1867,7 @@ async function loadConversationList() {
           return null;
         });
         if (!named) return;
+        if (named.title !== conversation.title) chatWriteRecord("chatTitleUndo", conversation.id, conversation.title, named.title);
         if (chatConv.id === conversation.id) $("chat-title").textContent = named.title;
         toast(named.ai_named ? `Named “${named.title}”.` : "Kept the first question as the title.");
         //: The AI naming a conversation is activity, not something the user
@@ -1654,6 +1888,7 @@ async function loadConversationList() {
       // again from the Library's Shelved filter.
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not deleted", async () => {
         await apiJson(`/conversations/${conversation.id}/archive`, { method: "PUT" });
+        chatWriteRecord("chatArchiveUndo", conversation.id, conversation.title);
         if (chatConv.id === conversation.id) newChatConversation();
         toast("Archived.");
         loadConversationList();
@@ -1716,6 +1951,8 @@ function editChatAnswer(handles, turnIndex, current) {
       return;
     }
     if (chatConv.id) {
+      const priorAnswer = chatConv.turns[turnIndex]?.answer;
+      const chatId = chatConv.id;
       try {
         await apiJson(`/conversations/${chatConv.id}/turns/${turnIndex}/answer`, {
           method: "PUT",
@@ -1724,6 +1961,16 @@ function editChatAnswer(handles, turnIndex, current) {
       } catch (error) {
         toast(error.message, true);
         return; // leave the editor open rather than losing the edit
+      }
+      if (priorAnswer != null) {
+        pushRequestUndo(
+          "Edited an answer",
+          `/conversations/${chatId}/turns/${turnIndex}/answer`,
+          "PUT",
+          { content: priorAnswer },
+          { content: next },
+          () => (chatConv?.id === chatId ? openConversation(chatId) : null)
+        );
       }
     }
     if (chatConv.turns[turnIndex]) chatConv.turns[turnIndex].answer = next;
@@ -1971,6 +2218,7 @@ async function openConversation(id) {
     renderChatEmptyState();
   }
   if (lastQuestionText) lastChatQuestion = lastQuestionText;
+  lazyScript("/js/chat-time.js").then(() => stampChatTimes(full.messages));
   loadConversationList();
   //: Where it was left, not always its end (Placed 2026-09-09 item 99 (b)).
   if (isStreamingConversation(full.id)) chatScrollToEnd();
@@ -2005,13 +2253,13 @@ async function loadChatSuggestions() {
   const label = document.createElement("span");
   label.className = "muted";
   //: UX-07: with no model a chip goes to Notes, Ask, and says so.
-  label.textContent = typeof aiIsOff === "function" && aiIsOff() ? "Try in Notes, Ask:" : "Try asking:";
+  label.textContent = aiIsOff() ? "Try in Notes, Ask:" : "Try asking:";
   box.appendChild(label);
   for (const question of picks) {
     //: No model: the chips go to Notes, Ask, like the dashboard's Ask tile
     //: (INBOX 472: they answered "no saved notes" over two notes).
     const chipEl = chip(question, "", async () => {
-      if (typeof aiIsOff === "function" && aiIsOff()) {
+      if (aiIsOff()) {
         await switchTab("notes");
         showNotesSection("ask");
         $("question").value = question;
@@ -2161,14 +2409,6 @@ function builtinPersonas() {
 
 let personaEditing = null; // name currently in inline-edit mode
 
-async function savePersonaList(personas) {
-  await apiJson("/preferences", {
-    method: "PUT",
-    body: JSON.stringify({ personas }),
-  });
-  await renderPersonas();
-  personaOptions();
-}
 
 //: The names the pickers offer, from what is already in memory.
 function personaNamesNow() {
@@ -2176,211 +2416,6 @@ function personaNamesNow() {
   return [...new Set([...Object.keys(builtinPersonas()), ...custom])];
 }
 
-async function renderPersonas() {
-  //: The greeting picker is filled before the wait, not after it (the owner:
-  //: "the dashboard greeting persona selection box is broken and there is no
-  //: avatar next to it ... it sometimes works and sometimes doesnt"). It was
-  //: filled at the end of this function, after `GET /preferences` and after
-  //: the whole persona list was built, so on a busy server, or if anything in
-  //: the list threw, the section showed an empty select and an empty face.
-  renderDashboardPersonaSelect(personaNamesNow());
-  const list = $("persona-list");
-  showSkeletons(list, 3, "li");
-  prefsCache = await apiJson("/preferences").catch(() => prefsCache);
-  clearSkeletons(list);
-  const custom = (prefsCache && prefsCache.personas) || [];
-  const overrides = new Map(custom.map((p) => [p.name, p]));
-  list.replaceChildren();
-
-  const rows = [
-    ...Object.keys(builtinPersonas()).map((name) => ({
-      name,
-      builtin: true,
-      overridden: overrides.has(name),
-      prompt: overrides.has(name) ? overrides.get(name).prompt : builtinPersonas()[name],
-      //: Pre-filled from the built-in's own list, the same way `prompt`
-      //: above is: editing and saving turns that pre-fill into a real
-      //: override, exactly as editing the pre-filled prompt already does.
-      thinkingWords: overrides.has(name)
-        ? overrides.get(name).thinking_words || []
-        : builtinThinkingWords()[name] || DEFAULT_THINKING_WORDS,
-    })),
-    ...custom
-      .filter((p) => !(p.name in builtinPersonas()))
-      .map((p) => ({ ...p, builtin: false, overridden: false, thinkingWords: p.thinking_words || [] })),
-  ];
-
-  renderDashboardPersonaSelect(rows.map((p) => p.name));
-
-  for (const persona of rows) {
-    const li = document.createElement("li");
-
-    if (personaEditing === persona.name) {
-      // Inline editor: prompt, thinking words, save/cancel.
-      const textarea = document.createElement("textarea");
-      textarea.rows = 3;
-      textarea.value = persona.prompt;
-
-      //: **Thinking words: one per line, the plain-text shape the backend
-      //: itself stores them in** (`PersonaItem.thinking_words`), rather than
-      //: comma-separated, since a phrase can itself contain a comma
-      //: ("Reading, then re-reading" is a fine thinking word). Left empty
-      //: means "use the default list, or this built-in's own", named in
-      //: the hint below rather than guessed at from a blank box.
-      const wordsLabel = document.createElement("label");
-      wordsLabel.className = "persona-words-label";
-      wordsLabel.textContent = "Thinking words (one per line, 8 to 40)";
-      const wordsHint = document.createElement("p");
-      wordsHint.className = "muted persona-words-hint";
-      wordsHint.textContent =
-        "Shown beside the thinking dots while this persona answers. Leave empty to use the default list.";
-      const wordsBox = document.createElement("textarea");
-      wordsBox.className = "persona-words-box";
-      wordsBox.rows = 6;
-      wordsBox.value = (persona.thinkingWords || []).join("\n");
-      const wordsStatus = document.createElement("p");
-      wordsStatus.className = "muted persona-words-status";
-
-      const suggestBtn = smallButton(
-        "Suggest with AI",
-        "Ask the local model for about sixteen, in this persona's voice",
-        async () => {
-          suggestBtn.disabled = true;
-          setLabel(wordsStatus, "ph:spin Asking the model…");
-          try {
-            const promptNow = textarea.value.trim() || persona.prompt;
-            const reply = await apiJson("/personas/suggest-thinking-words", {
-              method: "POST",
-              body: JSON.stringify({ name: persona.name, prompt: promptNow }),
-            });
-            if (reply.thinking_words && reply.thinking_words.length) {
-              wordsBox.value = reply.thinking_words.join("\n");
-              wordsStatus.textContent = `${reply.thinking_words.length} suggested. Edit any of them, then Save.`;
-            } else {
-              wordsStatus.textContent = "The model didn't suggest any this time. Try again, or write your own.";
-            }
-          } catch (error) {
-            wordsStatus.textContent = error.message || "Couldn't reach the model.";
-          } finally {
-            suggestBtn.disabled = false;
-          }
-        }
-      );
-
-      const row = document.createElement("div");
-      row.className = "row";
-      row.appendChild(
-        smallButton(
-          "Save",
-          "",
-          async () => {
-            const prompt = textarea.value.trim();
-            if (!prompt) return;
-            const thinkingWords = wordsBox.value
-              .split("\n")
-              .map((w) => w.trim())
-              .filter(Boolean);
-            //: The backend's own rule (`PersonaItem._bounded_thinking_words`),
-            //: checked here too so a mistake reads as one clear sentence
-            //: beside the box instead of a raw 422 from a save that has
-            //: already closed the editor.
-            if (thinkingWords.length && (thinkingWords.length < 8 || thinkingWords.length > 40)) {
-              wordsStatus.textContent = `${thinkingWords.length} words: use 8 to 40, or leave it empty for the default list.`;
-              return;
-            }
-            const tooLong = thinkingWords.find((w) => w.length > 40);
-            if (tooLong) {
-              wordsStatus.textContent = `"${tooLong}" is longer than 40 characters.`;
-              return;
-            }
-            //: Built from its code point, not typed literally: this file is
-            //: itself swept for the character by `tests/test_no_em_dashes.py`.
-            const emDash = String.fromCharCode(8212);
-            const badWord = thinkingWords.find((w) => w.includes("!") || w.includes(emDash));
-            if (badWord) {
-              wordsStatus.textContent = `"${badWord}": no exclamation marks or em dashes.`;
-              return;
-            }
-            const updated = custom.filter((p) => p.name !== persona.name);
-            updated.push({ name: persona.name, prompt, thinking_words: thinkingWords });
-            try {
-              await savePersonaList(updated);
-              personaEditing = null;
-            } catch (error) {
-              //: **Neither field is touched, and the editor stays open.**
-              //: `renderPersonas()` (what `savePersonaList` calls on success)
-              //: rebuilds this whole `<li>` from scratch, so calling it here
-              //: too, on a failure, would throw away `textarea`/`wordsBox`
-              //: and everything just typed into them along with the error
-              //: it was meant to explain: a validation mistake would both
-              //: fail to save and lose the edit. `personaEditing` was never
-              //: cleared (only after `savePersonaList` succeeds, above), so
-              //: nothing else that might re-render meanwhile mistakes this
-              //: for a closed editor either.
-              wordsStatus.textContent = error.message || "Couldn't save.";
-            }
-          },
-          false
-        )
-      );
-      row.appendChild(
-        smallButton("Cancel", "", () => {
-          personaEditing = null;
-          renderPersonas();
-        })
-      );
-      li.append(chip(persona.name), textarea, wordsLabel, wordsBox, wordsHint, suggestBtn, wordsStatus, row);
-      list.appendChild(li);
-      setTimeout(() => textarea.focus(), 0);
-      continue;
-    }
-
-    const row = document.createElement("div");
-    row.className = "entry-meta persona-row";
-    //: Each persona its own mark, so a list of them is told apart at a
-    //: glance; the app's own emblem for its own voice.
-    const mark = document.createElement("span");
-    mark.className = "persona-mark";
-    //: 36px in the Settings list (the owner: "enlarge the avatar icons on
-    //: personas in settings a bit"): a row there has the room, and a face
-    //: at 20px was a coloured dot with a smile.
-    fillPersonaMark(mark, persona.name, 36);
-    row.append(mark, chip(persona.name, "item-title"));
-    if (persona.builtin) {
-      row.appendChild(chip(persona.overridden ? "Edited" : "Built-in", "item-label"));
-    }
-    const note = document.createElement("span");
-    note.className = "muted persona-preview";
-    note.textContent = persona.prompt;
-    row.appendChild(note);
-
-    const actions = document.createElement("span");
-    actions.className = "entry-actions";
-    actions.appendChild(
-      smallButton("Edit", "Edit this persona's prompt", () => {
-        personaEditing = persona.name;
-        renderPersonas();
-      })
-    );
-    if (persona.builtin && persona.overridden) {
-      actions.appendChild(
-        smallButton("Reset", "Restore the default prompt", async () => {
-          await savePersonaList(custom.filter((p) => p.name !== persona.name));
-        })
-      );
-    }
-    if (!persona.builtin) {
-      actions.appendChild(
-        smallButton("Delete", "Remove this persona", async () => {
-          if (!(await confirmDialog(`Delete the “${persona.name}” persona?`))) return;
-          await savePersonaList(custom.filter((p) => p.name !== persona.name));
-        })
-      );
-    }
-    li.append(row, actions);
-    list.appendChild(li);
-  }
-}
 
 // A second, independent picker (asked for directly): the dashboard greeting
 // otherwise always spoke in whichever persona Chat had active, with no way

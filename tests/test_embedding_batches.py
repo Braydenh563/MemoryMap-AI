@@ -15,8 +15,8 @@ from __future__ import annotations
 import numpy as np
 from sqlalchemy import select
 
-from memorymap.ai import embeddings
-from memorymap.core.database import EmbeddingRecord
+from tessellate.ai import embeddings
+from tessellate.core.database import EmbeddingRecord
 from tests.fakes import FakeEmbeddingService
 
 
@@ -56,7 +56,7 @@ def _drop_vectors(session):
 
 
 def test_backfill_embeds_a_notebook_in_batches(client, session, fake_embeddings):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     for i in range(7):
         client.post("/entries", json={"content": f"note number {i}"})
@@ -75,7 +75,7 @@ def test_backfill_embeds_a_notebook_in_batches(client, session, fake_embeddings)
 
 
 def test_a_batch_never_exceeds_the_ceiling(client, session, fake_embeddings, monkeypatch):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     monkeypatch.setattr(embeddings, "EMBED_BATCH", 3)
     for i in range(7):
@@ -89,7 +89,7 @@ def test_a_batch_never_exceeds_the_ceiling(client, session, fake_embeddings, mon
 
 
 def test_batched_vectors_equal_one_at_a_time(client, session, fake_embeddings):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     for text in ("a recipe for soup", "meeting about the budget", "a poem about rain"):
         client.post("/entries", json={"content": text})
@@ -107,7 +107,7 @@ def test_batched_vectors_equal_one_at_a_time(client, session, fake_embeddings):
 def test_one_note_the_backend_cannot_embed_does_not_sink_its_batch(
     client, session, fake_embeddings
 ):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     for text in ("alpha note", "beta note", "gamma note"):
         client.post("/entries", json={"content": text})
@@ -129,7 +129,7 @@ def test_one_note_the_backend_cannot_embed_does_not_sink_its_batch(
 
 
 def test_private_notes_are_still_never_embedded(client, session, fake_embeddings):
-    from memorymap.core import deps, vault
+    from tessellate.core import deps, vault
 
     vault.close()
     vault.create(session, "test-passphrase")

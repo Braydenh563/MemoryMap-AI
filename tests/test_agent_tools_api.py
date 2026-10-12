@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import json
 
-from memorymap.ai import tools
-from memorymap.core.database import Reminder
+from tessellate.ai import tools
+from tessellate.core.database import Reminder
 
 
 def _save(client, content, **extra):
@@ -331,7 +331,7 @@ def test_tools_enabled_preference_roundtrip(client):
 
 
 def test_extract_text_tool_calls_from_wrapper():
-    from memorymap.ai.ollama_client import extract_text_tool_calls
+    from tessellate.ai.ollama_client import extract_text_tool_calls
 
     content = (
         'Sure! <tool_call>{"name": "create_note", "arguments": '
@@ -343,7 +343,7 @@ def test_extract_text_tool_calls_from_wrapper():
 
 
 def test_extract_text_tool_calls_ignores_unknown_tool():
-    from memorymap.ai.ollama_client import extract_text_tool_calls
+    from tessellate.ai.ollama_client import extract_text_tool_calls
 
     calls, _ = extract_text_tool_calls('{"name": "not_a_tool"}', {"create_note"})
     assert calls == []
@@ -356,7 +356,7 @@ def test_extract_text_tool_calls_bare_json_with_nested_arguments():
     # cannot cross a brace at all, so any nested `{` in `arguments` broke the
     # match outright and the whole call was silently dropped. Reported live
     # as "the ai didn't actually call any tools".
-    from memorymap.ai.ollama_client import extract_text_tool_calls
+    from tessellate.ai.ollama_client import extract_text_tool_calls
 
     content = (
         'On it: {"name": "create_note", "arguments": '
@@ -372,7 +372,7 @@ def test_extract_text_tool_calls_bare_json_with_nested_arguments():
 def test_extract_text_tool_calls_multiple_in_one_wrapper():
     # Two calls inside one <tool_call>...</tool_call> pair: both should
     # come back, not just whichever the parser happened to find first.
-    from memorymap.ai.ollama_client import extract_text_tool_calls
+    from tessellate.ai.ollama_client import extract_text_tool_calls
 
     content = (
         '<tool_call>{"name": "create_note", "arguments": {"content": "a"}}'
@@ -431,7 +431,7 @@ def test_tool_catalog_lists_tools(client):
 
 
 def test_disabled_tool_is_hidden_and_refused(ai_client):
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     # Disable create_note via the preference.
     ai_client.put("/preferences", json={"disabled_tools": ["create_note"]})
@@ -439,7 +439,7 @@ def test_disabled_tool_is_hidden_and_refused(ai_client):
     assert "create_note" not in offered
 
     # And the execute endpoint refuses it too.
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     session = deps.get_db().session()
     try:
@@ -460,7 +460,7 @@ def test_every_tool_can_be_switched_off_at_once(client):
     (58 when this was found by `scratchpad/ui-sweeps/deepflows.js`, which
     switched them all off): the 51st switch answered 422 "Check the disabled
     tools" and the page left its switch off over a server that disagreed."""
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     names = [t["function"]["name"] for t in tools.ollama_tools()]
     every = sorted(set(names) | {"web_search", "read_url"})
@@ -470,11 +470,11 @@ def test_every_tool_can_be_switched_off_at_once(client):
 
 
 def test_the_disabled_tools_cap_leaves_room_to_grow():
-    from memorymap.api.routes_settings import PreferencesBody
+    from tessellate.api.routes_settings import PreferencesBody
 
     field = PreferencesBody.model_fields["disabled_tools"]
     cap = next(m.max_length for m in field.metadata if getattr(m, "max_length", None))
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     assert cap >= 2 * len(tools.ollama_tools())
 
@@ -525,8 +525,8 @@ def test_listing_reminders_hands_the_model_a_page_not_the_table(session):
     """
     from datetime import datetime, timedelta, timezone
 
-    from memorymap.ai import tools
-    from memorymap.core.database import Reminder
+    from tessellate.ai import tools
+    from tessellate.core.database import Reminder
 
     now = datetime.now(timezone.utc)
     for i in range(60):

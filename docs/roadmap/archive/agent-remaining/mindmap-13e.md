@@ -13,7 +13,7 @@
 - 13e's remainder: a branch palette (one server list, `/tree` hands it to the
   canvas, the thumbnail and its cache key read the same name), a map font
   (canvas and image export), and decision 9's pin per themed select.
-  `mappalette.js` 13/13 in light, dark and 390; `maptheme.js` 24/24.
+  `mappalette.js` (removed 2026-10-12, recoverable from git history) 13/13 in light, dark and 390; `maptheme.js` 24/24.
 - INBOX 24: the New menu's rows carry a visible one-line hint
   (`boardsnew.js`, 0 findings at 2000/1440/820/390, light and dark).
 - Placed, verified already built: All draws a map as a map

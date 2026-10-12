@@ -29,9 +29,9 @@ from __future__ import annotations
 
 import json
 
-from memorymap.ai import tools
-from memorymap.core.database import Entry, EntryLink, link_strength
-from memorymap.entry import paths
+from tessellate.ai import tools
+from tessellate.core.database import Entry, EntryLink, link_strength
+from tessellate.entry import paths
 
 
 def _note(session, content, tags=None, parent_id=None, private=False):
@@ -474,12 +474,12 @@ def test_the_graph_never_labels_a_note_with_its_ciphertext(client, session, monk
     read the column directly, so a private note appeared on the map labelled
     with a base64 blob. `readable_content` names the graph in its own docstring
     as a place that must not break on one."""
-    from memorymap.core import crypto
-    from memorymap.entry import manager
+    from tessellate.core import crypto
+    from tessellate.entry import manager
 
     note = _note(session, "the plain words of a private note")
     key = b"k" * 32
-    monkeypatch.setattr("memorymap.core.vault.key", lambda: key)
+    monkeypatch.setattr("tessellate.core.vault.key", lambda: key)
     assert manager.set_private(session, note, True)
     session.commit()
     assert crypto.is_encrypted(note.content)

@@ -22,7 +22,7 @@ import json
 
 import pytest
 
-from memorymap.ai import tools
+from tessellate.ai import tools
 
 
 def _events(client, question, **body):
@@ -205,8 +205,11 @@ def test_a_malformed_question_is_recoverable_not_fatal(ai_client, fake_ollama):
     events = _events(ai_client, "have a look", use_tools=True)
     kinds = [e["type"] for e in events]
     assert "ask" not in kinds
-    failed = [e for e in events if e["type"] == "tool" and not e.get("ok")]
-    assert failed, "the model should be told why its question was rejected"
+    #: INBOX 808: a one-option ask is stopped before it reaches the person,
+    #: so no "Couldn't ask user" step; the model is told why, and goes on.
+    told = [m for m in fake_ollama.tool_rounds[-1] if m.get("role") == "tool" and m.get("tool_name") == "ask_user"]
+    assert told and "only one option" in told[-1]["content"], "the model should be told why its question was rejected"
+    assert not any(e["type"] == "tool" and not e.get("ok") for e in events)
     assert any(e["type"] == "answer" for e in events), "the turn should continue"
 
 

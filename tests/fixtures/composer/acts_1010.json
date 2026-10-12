@@ -1,0 +1,215 @@
+{
+ "now": "2026-10-06T10:00:00",
+ "acts": [
+  {
+   "phrase": "remind me to call the plumber on Friday",
+   "verb": "remind",
+   "object": "call the plumber",
+   "confirm": false
+  },
+  {
+   "phrase": "remind me to renew the passport tomorrow",
+   "verb": "remind",
+   "object": "renew the passport",
+   "confirm": false
+  },
+  {
+   "phrase": "set a reminder to water the plants tonight",
+   "verb": "remind",
+   "object": "water the plants",
+   "confirm": false
+  },
+  {
+   "phrase": "remind me in 2 hours to check the oven",
+   "verb": "remind",
+   "object": "check the oven",
+   "confirm": false
+  },
+  {
+   "phrase": "please remind me to email Priya next Monday",
+   "verb": "remind",
+   "object": "email Priya",
+   "confirm": false
+  },
+  {
+   "phrase": "delete the boiler note",
+   "verb": "delete",
+   "object": "boiler",
+   "confirm": true
+  },
+  {
+   "phrase": "remind me about the dentist tomorrow",
+   "verb": "remind",
+   "object": "the dentist",
+   "confirm": false
+  },
+  {
+   "phrase": "move the sourdough note to Cooking",
+   "verb": "file",
+   "object": "sourdough",
+   "confirm": true
+  },
+  {
+   "phrase": "tag the knife note with kitchen",
+   "verb": "tag",
+   "object": "knife",
+   "confirm": true
+  },
+  {
+   "phrase": "bin the old pricing note",
+   "verb": "delete",
+   "object": "old pricing",
+   "confirm": true
+  },
+  {
+   "phrase": "trash my wifi password note",
+   "verb": "delete",
+   "object": "wifi password",
+   "confirm": true
+  },
+  {
+   "phrase": "pin the dentist note",
+   "verb": "pin",
+   "object": "dentist",
+   "confirm": false
+  },
+  {
+   "phrase": "unpin the dentist note",
+   "verb": "unpin",
+   "object": "dentist",
+   "confirm": false
+  },
+  {
+   "phrase": "tag my notes about Lisbon with travel",
+   "verb": "tag",
+   "object": "Lisbon",
+   "confirm": true
+  },
+  {
+   "phrase": "tag these notes trip",
+   "verb": "tag",
+   "object": "these notes",
+   "confirm": true
+  },
+  {
+   "phrase": "remove the tag urgent from this note",
+   "verb": "untag",
+   "object": "these notes",
+   "confirm": true
+  },
+  {
+   "phrase": "move my notes about the plumber to Home",
+   "verb": "file",
+   "object": "plumber",
+   "confirm": true
+  },
+  {
+   "phrase": "file the note about taxes under Finance",
+   "verb": "file",
+   "object": "taxes",
+   "confirm": true
+  },
+  {
+   "phrase": "put this note in Projects",
+   "verb": "file",
+   "object": "these notes",
+   "confirm": true
+  },
+  {
+   "phrase": "link the gym note to the running note",
+   "verb": "link",
+   "object": "gym",
+   "confirm": true
+  },
+  {
+   "phrase": "unlink the gym note from the running note",
+   "verb": "unlink",
+   "object": "gym",
+   "confirm": true
+  },
+  {
+   "phrase": "rename the gym note to Strength plan",
+   "verb": "rename",
+   "object": "gym",
+   "confirm": true
+  },
+  {
+   "phrase": "add buy chalk to the gym note",
+   "verb": "add",
+   "object": "Buy chalk",
+   "confirm": true
+  },
+  {
+   "phrase": "note: buy milk and eggs",
+   "verb": "create",
+   "object": "Buy milk and eggs",
+   "confirm": false
+  },
+  {
+   "phrase": "make a note that the boiler code is 4471",
+   "verb": "create",
+   "object": "The boiler code is 4471",
+   "confirm": false
+  },
+  {
+   "phrase": "jot down call the bank about the card",
+   "verb": "create",
+   "object": "Call the bank about the card",
+   "confirm": false
+  },
+  {
+   "phrase": "start a meeting about the budget",
+   "verb": "create",
+   "object": "Budget",
+   "confirm": false
+  },
+  {
+   "phrase": "find my note about the passport",
+   "verb": "find",
+   "object": "passport",
+   "confirm": false
+  },
+  {
+   "phrase": "search for tax receipts",
+   "verb": "find",
+   "object": "tax receipts",
+   "confirm": false
+  },
+  {
+   "phrase": "open the note about the boiler",
+   "verb": "open",
+   "object": "boiler",
+   "confirm": false
+  },
+  {
+   "phrase": "open settings",
+   "verb": "open",
+   "object": "settings",
+   "confirm": false
+  },
+  {
+   "phrase": "go to the graph",
+   "verb": "open",
+   "object": "graph",
+   "confirm": false
+  },
+  {
+   "phrase": "summarise my gym notes",
+   "verb": "summarise",
+   "object": "gym",
+   "confirm": false
+  }
+ ],
+ "lookalikes": [
+  "how do I delete a note?",
+  "did I pin the dentist note?",
+  "can I rename a tag?",
+  "should I link these notes",
+  "what did I tag as travel?",
+  "when is my reminder for the plumber?",
+  "where did I file the tax note?",
+  "archive the gym note",
+  "delete the tag urgent",
+  "remind me what I wrote about Friday"
+ ]
+}

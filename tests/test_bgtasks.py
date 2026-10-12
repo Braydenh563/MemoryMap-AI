@@ -22,8 +22,8 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.ai import autonomous
-from memorymap.core import bgtasks, embedmodels, extras
+from tessellate.ai import autonomous
+from tessellate.core import bgtasks, embedmodels, extras
 
 
 def _source_of(module) -> str:
@@ -60,7 +60,7 @@ def test_every_cancellable_kind_has_a_canceller():
 def test_the_kinds_match_the_ones_tasks_reports():
     """A canceller keyed on a name `/tasks` never emits is a button nobody can
     press; a job kind with no canceller is the bug this replaced."""
-    from memorymap.api import routes_tasks
+    from tessellate.api import routes_tasks
 
     source = _source_of(routes_tasks)
     for kind in bgtasks.CANCELLERS:
@@ -197,7 +197,7 @@ def test_stop_all_is_wired_into_the_apps_shutdown():
     """The report was "make sure that if the app is quit, all ai tasks and bg
     tasks stop as well", and the cause was that there was no shutdown handler
     at all: `/shutdown`'s docstring described one that did not exist."""
-    from memorymap.api import app as app_module
+    from tessellate.api import app as app_module
 
     source = _source_of(app_module)
     assert "lifespan=lifespan" in source
@@ -225,7 +225,7 @@ def test_the_cancel_endpoint_answers_rather_than_erroring(ai_client):
 
 
 def test_the_task_list_marks_the_kinds_that_can_be_quit(ai_client):
-    from memorymap.api import routes_tasks
+    from tessellate.api import routes_tasks
 
     # The filing rows are stopped by `/tasks/cancel` itself, not a canceller:
     # `bgtasks.stop_all` runs every canceller at shutdown, and quitting must
@@ -238,7 +238,7 @@ def test_the_task_list_marks_the_kinds_that_can_be_quit(ai_client):
 
 def test_the_warmup_says_why_it_has_no_quit_button():
     """A missing button with no explanation reads as a missing feature."""
-    from memorymap.api import routes_tasks
+    from tessellate.api import routes_tasks
 
     source = _source_of(routes_tasks)
     assert "can't be " in source and "stopped part-way" in source
@@ -261,7 +261,7 @@ def test_a_hold_does_not_burn_down_while_the_feature_is_off():
     so it expired during time the feature was switched off and could not have
     run anyway: quit a pass, switch it off for a day, switch it back on, and
     a pass started within seconds of the toggle."""
-    from memorymap.ai import autonomous
+    from tessellate.ai import autonomous
 
     autonomous.clear_snooze()
     autonomous.request_stop(snooze_seconds=3600)

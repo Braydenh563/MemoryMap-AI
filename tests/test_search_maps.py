@@ -18,7 +18,7 @@ from sqlalchemy import text as sa_text
 
 
 def _map(session, title: str, *, kind: str = "map"):
-    from memorymap.core.database import Entry
+    from tessellate.core.database import Entry
 
     entry = Entry(
         content=f"# {title}",
@@ -31,7 +31,7 @@ def _map(session, title: str, *, kind: str = "map"):
 
 
 def _topic(session, board_id: int, content: str, kind: str = "topic"):
-    from memorymap.core.database import WhiteboardObject
+    from tessellate.core.database import WhiteboardObject
 
     obj = WhiteboardObject(board_id=board_id, kind=kind, data=json.dumps({"content": content}))
     session.add(obj)
@@ -45,7 +45,7 @@ def _kinds(session) -> dict[int, str]:
 
 
 def test_a_map_is_indexed_as_a_map_and_a_board_as_a_board(session):
-    from memorymap.search import index
+    from tessellate.search import index
 
     board = _map(session, "Kitchen plan", kind="board")
     mind = _map(session, "Bubble tea")
@@ -58,7 +58,7 @@ def test_a_map_is_indexed_as_a_map_and_a_board_as_a_board(session):
 
 
 def test_the_words_on_a_map_find_the_map(session):
-    from memorymap.search import engine
+    from tessellate.search import engine
 
     mind = _map(session, "Bubble tea")
     _topic(session, mind.id, "Tapioca pearls")
@@ -69,7 +69,7 @@ def test_the_words_on_a_map_find_the_map(session):
 
 
 def test_a_board_text_box_finds_its_board(session):
-    from memorymap.search import engine
+    from tessellate.search import engine
 
     board = _map(session, "Garden", kind="board")
     _topic(session, board.id, "Compost bins by the shed", kind="text")
@@ -79,7 +79,7 @@ def test_a_board_text_box_finds_its_board(session):
 
 
 def test_editing_and_deleting_a_topic_keeps_the_map_row_in_step(session):
-    from memorymap.search import engine
+    from tessellate.search import engine
 
     mind = _map(session, "Bubble tea")
     node = _topic(session, mind.id, "Tapioca pearls")
@@ -109,7 +109,7 @@ def test_turning_a_board_into_a_map_moves_its_row(session):
 def test_an_index_from_before_maps_had_a_kind_is_put_right(session):
     """A notebook indexed before this change holds its maps under the boards
     slot. The startup reconcile moves them without a full rebuild."""
-    from memorymap.search import index
+    from tessellate.search import index
 
     mind = _map(session, "Bubble tea")
     _topic(session, mind.id, "Tapioca pearls")

@@ -21,7 +21,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.core import extras, ocr
+from tessellate.core import extras, ocr
 
 #: Two lines of a paragraph, a gap, and a tall heading-sized line, in pixels on
 #: a 200x100 page. Four corners each, clockwise from top-left, as RapidOCR
@@ -200,7 +200,7 @@ def test_it_is_an_optional_extra_and_never_a_dependency():
         if path.exists():
             live = [line for line in path.read_text(encoding="utf-8").lower().splitlines() if not line.lstrip().startswith("#")]
             assert not any("rapidocr" in line for line in live), name
-    source = (root / "src" / "memorymap" / "core" / "ocr.py").read_text(encoding="utf-8")
+    source = (root / "src" / "tessellate" / "core" / "ocr.py").read_text(encoding="utf-8")
     assert "\nimport rapidocr" not in source and "\nfrom rapidocr" not in source
 
 

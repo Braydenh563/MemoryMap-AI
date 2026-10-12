@@ -13,7 +13,7 @@ seam between the two.
 
 from __future__ import annotations
 
-from memorymap.entry import manager
+from tessellate.entry import manager
 
 
 def _make(client, content, tags=None):
@@ -106,8 +106,8 @@ def test_a_private_notes_history_is_encrypted_at_rest(client, session):
     """A revision must never be the one place a private note sits in the clear."""
     from sqlalchemy import select
 
-    from memorymap.core import crypto, vault
-    from memorymap.core.database import EntryRevision
+    from tessellate.core import crypto, vault
+    from tessellate.core.database import EntryRevision
 
     vault.close()
     vault.create(session, "test-passphrase")
@@ -154,7 +154,7 @@ def test_a_long_history_pages_and_says_so(client):
     took the first page and dropped the cursor, so a note with more changes
     than one page showed its newest fifty and looked complete.
     """
-    from memorymap.api.routes_entries import HISTORY_PAGE
+    from tessellate.api.routes_entries import HISTORY_PAGE
 
     entry = _make(client, "edit 0")
     for i in range(1, HISTORY_PAGE + 10):
@@ -186,7 +186,7 @@ def test_every_row_of_a_long_history_shows_its_own_version(client):
     would show a row somebody else's text, which looks like the history
     being wrong about what was written rather than like a bug in a loop.
     """
-    from memorymap.api.routes_entries import HISTORY_PAGE
+    from tessellate.api.routes_entries import HISTORY_PAGE
 
     edits = HISTORY_PAGE + 9
     entry = _make(client, "edit 0")
@@ -217,8 +217,8 @@ def test_making_a_note_private_encrypts_the_history_it_already_had(client, sessi
 
     from sqlalchemy import select
 
-    from memorymap.core import crypto, vault
-    from memorymap.core.database import AuditLog, EntryRevision
+    from tessellate.core import crypto, vault
+    from tessellate.core.database import AuditLog, EntryRevision
 
     vault.close()
     vault.create(session, "test-passphrase")
@@ -248,8 +248,8 @@ def test_restoring_an_older_version_fits_the_note_as_it_is_now(client, session):
     """A snapshot written while the note was private is ciphertext. Restoring
     it after the note went public must not leave ciphertext in a note anyone
     reads, and a plain version restored into a private note must be encrypted."""
-    from memorymap.core import crypto, vault
-    from memorymap.core.database import Entry
+    from tessellate.core import crypto, vault
+    from tessellate.core.database import Entry
 
     vault.close()
     vault.create(session, "test-passphrase")

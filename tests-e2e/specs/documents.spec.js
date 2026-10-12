@@ -13,25 +13,32 @@ test("Library, Create, New document makes a new document, not the last one opene
   const errors = watchErrors(page);
   await openApp(page);
   const before = await documentList(page);
-  const seeded = await api(page, `/documents/${before[0].id}`);
+  // The oldest is the fixture's own: the three workers share one notebook, and
+  // the newest can be another spec's document, written to while this one runs.
+  const seeded = await api(page, `/documents/${before[before.length - 1].id}`);
 
   await openTab(page, "library");
   await page.click("#library-new-doc");
   await page.locator(".rich-picker-row", { hasText: "New document" }).click();
   await expect(page.locator("#tab-documents")).toBeVisible();
   const title = `Packing plan ${Date.now() % 100000}`;
-  // The title box is focused and selected for a new document.
+  // The title box is focused and selected for a new document, which names
+  // itself "Untitled document N" (INBOX 739).
   await expect(page.locator("#doc-title")).toBeFocused();
-  await expect(page.locator("#doc-title")).toHaveValue("Untitled");
+  await expect(page.locator("#doc-title")).toHaveValue(/^Untitled document \d+$/);
   await page.keyboard.insertText(title);
   await page.locator('#tab-documents .cm-content[aria-label="Document text"]').click();
   await page.keyboard.insertText("Passports, chargers, the rail pass.");
   await expect(page.locator("#doc-saved")).toHaveText("Saved", { timeout: 15_000 });
 
   const after = await documentList(page);
-  expect(after.length, "New document made no document").toBe(before.length + 1);
-  const made = after.find((d) => d.title === title);
-  expect(made, "the new title went to another document").toBeTruthy();
+  // Counted by title and id, not as before.length + 1: another worker's spec
+  // makes documents in the same notebook while this one runs.
+  const known = new Set(before.map((d) => d.id));
+  const named = after.filter((d) => d.title === title);
+  expect(named.length, "the new title went to another document").toBe(1);
+  const made = named[0];
+  expect(known.has(made.id), "New document made no document").toBe(false);
   const untouched = await api(page, `/documents/${seeded.id}`);
   expect(untouched.title).toBe(seeded.title);
   expect(untouched.content).toBe(seeded.content);
@@ -56,7 +63,10 @@ test("a link to an older document opens that document, not the newest", async ({
 
 test("a document downloads as Markdown with its text", async ({ page }) => {
   await openApp(page);
-  const doc = (await documentList(page))[0];
+  // The newest document with a line worth checking (an empty one left by an
+  // earlier test has none).
+  const docs = await documentList(page);
+  const doc = docs.find((d) => (d.content || "").split("\n").some((l) => l.trim().length > 20)) || docs[0];
   await openApp(page, `/#/docs/${doc.id}`);
   await expect(page.locator("#doc-title")).toHaveValue(doc.title);
   await page.click("#doc-dock-menu > summary");
@@ -74,7 +84,11 @@ test("a document downloads as Markdown with its text", async ({ page }) => {
 
 test("a Markdown file imported from the Library becomes a document", async ({ page }) => {
   await openApp(page);
-  const before = (await documentList(page)).length;
+  //: The documents that existed, by id, not their count: other specs in the
+  //: same notebook make documents at the same time (budgets.spec.js's 50,000
+  //: word one), so "one more than before" was true only when none landed
+  //: in between.
+  const before = new Set((await documentList(page)).map((d) => d.id));
   await openTab(page, "library");
   await page.click('#library-subtabs button[data-target="library-view-docs"]');
   const marker = `Imported ${Date.now() % 100000}`;
@@ -83,12 +97,15 @@ test("a Markdown file imported from the Library becomes a document", async ({ pa
     mimeType: "text/markdown",
     buffer: Buffer.from(`# Garden plan\n\n${marker}: raised beds along the south fence.\n`),
   });
-  await expect.poll(async () => (await documentList(page)).length).toBe(before + 1);
-  const docs = await documentList(page);
-  const made = docs.find((d) => /Garden plan|garden-plan/.test(d.title));
-  expect(made).toBeTruthy();
-  const full = await api(page, `/documents/${made.id}`);
-  expect(full.content).toContain(marker);
+  await expect
+    .poll(async () => {
+      const fresh = (await documentList(page)).filter((d) => !before.has(d.id) && /Garden plan|garden-plan/.test(d.title));
+      for (const d of fresh) {
+        if ((await api(page, `/documents/${d.id}`)).content.includes(marker)) return true;
+      }
+      return false;
+    })
+    .toBe(true);
 });
 
 // INBOX 648: no unrecoverable loss. A document saves itself 1.2 s after the

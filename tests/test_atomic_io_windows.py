@@ -9,7 +9,7 @@ def test_a_rename_windows_refuses_for_a_moment_is_tried_again(tmp_path, monkeypa
     """An antivirus scan or a second launch reading `instance.lock` holds the
     file for milliseconds, and Windows refuses a rename over an open file
     (WinError 5/32): the write is tried again rather than failing."""
-    from memorymap.core import atomic_io
+    from tessellate.core import atomic_io
 
     real = os.replace
     refusals = {"left": 2}
@@ -32,7 +32,7 @@ def test_a_rename_windows_refuses_for_a_moment_is_tried_again(tmp_path, monkeypa
 
 
 def test_elsewhere_a_refused_rename_is_the_answer(tmp_path, monkeypatch):
-    from memorymap.core import atomic_io
+    from tessellate.core import atomic_io
 
     def refused(src, dst):
         raise PermissionError(13, "read-only")

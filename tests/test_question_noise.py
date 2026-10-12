@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import composer, intent, question_noise
+from tessellate.ai import composer, intent, question_noise
 from tests import _composer_eval as ev
 
 
@@ -204,9 +204,78 @@ def test_an_unsure_reading_offers_did_you_mean_and_pressing_it_asks_again():
 
 def test_nothing_found_asks_a_short_clarifying_question():
     result = composer.compose("What is the capital of Peru?", [{"id": 1, "content": "# Boiler\n\nDue in March.", "created_at": "2026-09-01"}])
-    assert result["text"].endswith("?") and result["text"] == composer.PHRASES["nothing"]
+    #: Engine probe P1: the words no note found holds are named before the question back.
+    assert result["text"].endswith(tuple(composer.phrase_options("nothing_ask"))) and "“Peru”" in result["text"]
 
 
 def test_noise_nobody_tuned_against_changes_the_kind_rarely(noise_rows):
     derived = [r for r in noise_rows if r["set"] == "derived"]
     assert sum(r["right"] for r in derived) / len(derived) >= 0.98
+
+
+def test_no_table_key_is_written_twice() -> None:
+    """The 2026-10-10 triage, decision 9: a key given twice in the source is
+    either dead (the same value) or a silent override (another one); fifteen
+    were found, all of the first kind."""
+    import ast
+    from pathlib import Path
+
+    for name in ("question_noise.py", "composer_tables.py"):
+        tree = ast.parse((Path("src/tessellate/ai") / name).read_text(encoding="utf-8"))
+        seen: dict[tuple[str, object], int] = {}
+        twice = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign) and isinstance(node.value, ast.Dict) and isinstance(node.targets[0], ast.Name):
+                table, literal = node.targets[0].id, node.value
+            elif (
+                isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute) and node.func.attr == "update"
+                and isinstance(node.func.value, ast.Name) and node.args and isinstance(node.args[0], ast.Dict)
+            ):
+                table, literal = node.func.value.id, node.args[0]
+            else:
+                continue
+            for key in literal.keys:
+                if isinstance(key, ast.Constant):
+                    if (table, key.value) in seen:
+                        twice.append(f"{name}:{key.lineno} {table}[{key.value!r}] (first at {seen[(table, key.value)]})")
+                    seen.setdefault((table, key.value), key.lineno)
+        assert not twice, twice
+
+
+def test_the_composer_imports_without_the_database_layer() -> None:
+    """Decision 9: `import tessellate.ai.composer` under 0.5 s. Measured cold:
+    0.75 to 0.94 s before the triage, 0.08 to 0.15 s after, because
+    `grounding` no longer pulls in the embeddings and the search manager
+    (and with them SQLAlchemy and the database models) at import."""
+    import subprocess
+    import sys
+
+    code = (
+        "import sys, time; t = time.perf_counter(); import tessellate.ai.composer; "
+        "print(time.perf_counter() - t, 'sqlalchemy' in sys.modules)"
+    )
+    runs = []
+    #: The faster of two runs: a busy CI machine can stall one process for
+    #: longer than the whole import takes, and that is not the import's cost.
+    for _ in range(2):
+        out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True, env={"PYTHONPATH": "src"})
+        took, loaded = out.stdout.split()
+        assert loaded == "False"
+        runs.append(float(took))
+    assert min(runs) < 0.5, runs
+
+
+def test_a_long_run_of_stray_keys_is_stripped_in_linear_time():
+    """CodeQL flagged the old end-anchored pattern as polynomial on a run of
+    backslashes or slashes; the tail is now a scan from the end."""
+    import time
+
+    from tessellate.ai.question_noise import strip_strays
+
+    began = time.perf_counter()
+    assert strip_strays("x" + "\\" * 50000 + "y").endswith("y")
+    assert strip_strays("why" + "/" * 50000 + "z").endswith("z")
+    assert time.perf_counter() - began < 0.5
+    assert strip_strays("gaming mouse?\\") == "gaming mouse?"
+    assert strip_strays("why?/") == "why?"
+    assert strip_strays("a :\\") == "a :\\"

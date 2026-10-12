@@ -12,7 +12,7 @@ import re
 from datetime import date, timedelta
 from pathlib import Path
 
-from memorymap.core import deps, usage
+from tessellate.core import deps, usage
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -54,7 +54,7 @@ def test_the_ledger_is_never_sent_anywhere():
     """The page posts only to this app's own `/usage`; nothing else names it."""
     js = "\n".join(p.read_text(encoding="utf-8") for p in (ROOT / "frontend" / "js").glob("*.js"))
     assert re.findall(r"(?:fetch|api)\(\"(/usage[^\"]*)\"", js) == ["/usage"]
-    assert "usage.json" not in (ROOT / "src" / "memorymap" / "core" / "privacy_http.py").read_text(encoding="utf-8")
+    assert "usage.json" not in (ROOT / "src" / "tessellate" / "core" / "privacy_http.py").read_text(encoding="utf-8")
 
 
 def test_simple_mode_hides_three_tabs_and_keeps_four():
@@ -72,7 +72,7 @@ def test_simple_mode_hides_three_tabs_and_keeps_four():
 def test_capture_from_anywhere_opens_the_running_app(monkeypatch):
     """`memorymap --capture` opens capture.html on the running copy, and says
     so plainly when nothing is running."""
-    import memorymap.__main__ as entry
+    import tessellate.__main__ as entry
 
     class Lock:
         port = 8123
@@ -87,12 +87,12 @@ def test_capture_from_anywhere_opens_the_running_app(monkeypatch):
 
 
 def test_the_capture_page_saves_one_line_and_names_its_command(client):
-    from memorymap import __version__
+    from tessellate import __version__
 
     html = (ROOT / "frontend" / "capture.html").read_text(encoding="utf-8")
     assert set(re.findall(r'\?v=([^"]+)"', html)) == {__version__}
     assert "<script>" not in html and '<script src="/js/capture.js?v=' in html
     js = (ROOT / "frontend" / "js" / "capture.js").read_text(encoding="utf-8")
-    assert 'fetch("/entries"' in js and '"X-Auth-Token"' in js
+    assert 'call("/entries", "POST"' in js and '"X-Auth-Token"' in js
     command = client.get("/capture/command").json()["command"]
     assert command.endswith("--capture")

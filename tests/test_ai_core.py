@@ -10,16 +10,16 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from memorymap.ai import filing_certainty, janitor, librarian
-from memorymap.ai.embeddings import (
+from tessellate.ai import filing_certainty, janitor, librarian
+from tessellate.ai.embeddings import (
     bytes_to_vector,
     cosine_similarity,
     vector_to_bytes,
 )
-from memorymap.core import deps
-from memorymap.core.database import EmbeddingRecord
-from memorymap.entry import manager
-from memorymap.search import search_manager
+from tessellate.core import deps
+from tessellate.core.database import EmbeddingRecord
+from tessellate.entry import manager
+from tessellate.search import search_manager
 from tests.fakes import FakeEmbeddingService, FakeOllama, GarbageOllama
 
 
@@ -379,7 +379,7 @@ def test_retrieve_finds_a_subject_match_outside_a_misremembered_range(session):
     in-window hit."""
     from datetime import timedelta
 
-    from memorymap.core.database import utcnow
+    from tessellate.core.database import utcnow
 
     joke = manager.create_entry(
         session,

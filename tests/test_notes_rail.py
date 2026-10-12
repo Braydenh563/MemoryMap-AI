@@ -70,7 +70,7 @@ def test_the_presence_rule_is_one_number_in_script_and_stylesheet():
 def test_the_rail_reads_the_two_routes_and_remembers_being_dismissed():
     assert "/connections`" in LIST_JS and "/resurface/near/" in LIST_JS
     assert 'NOTES_RAIL_KEY = "notes-rail"' in LIST_JS
-    assert "localStorage.setItem(NOTES_RAIL_KEY" in LIST_JS
+    assert "prefs.set(NOTES_RAIL_KEY" in LIST_JS
 
 
 def test_the_sheet_and_the_rail_draw_rows_with_one_builder():

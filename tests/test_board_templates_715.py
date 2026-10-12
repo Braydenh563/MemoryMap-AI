@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.api.routes_whiteboard import BOARD_LAYOUTS
+from tessellate.api.routes_whiteboard import BOARD_LAYOUTS, MAP_BRANCH_PALETTE
 
 ROOT = Path(__file__).resolve().parents[1]
 LIB = ROOT / "frontend" / "board-library"
@@ -150,8 +150,29 @@ def test_no_two_map_pictures_are_the_same():
     paths = lambda k: [p["a"]["d"] for p in by_key[k]["parts"] if p["tag"] == "path"]  # noqa: E731
     assert "M 3 20 L 49 20" in paths("causes")
     assert sum(d.startswith("M 32 20 L") for d in paths("brainstorm")) == 4
-    xs = [p["a"]["x"] for p in by_key["pros-cons"]["parts"] if p["cls"] == "wb-thumb-node"]
+    xs = [p["a"]["x"] for p in by_key["pros-cons"]["parts"] if "wb-thumb-node" in p["cls"].split()]
     assert min(xs) < 32 < max(xs)
+
+
+@pytest.mark.skipif(not shutil.which("node"), reason="needs node")
+def test_a_map_pictures_branches_wear_their_own_colours():
+    """The library's map tiles were one grey. Each branch's line, box and leaves
+    take the classic palette's colour by creation order (`wb-thumb-bN`); the
+    root and the labels stay neutral; the colours live in library-lazy.css."""
+    source = (JS / "whiteboard-templates.js").read_text(encoding="utf-8")
+    maps = _set("maps")
+    out = json.loads(_node(source, ["wbThumbRound", "wbMapThumbSpec"], f"{json.dumps(maps)}.map((m) => wbMapThumbSpec(m))"))
+    for entry, spec in zip(maps, out):
+        tones = {c for p in spec["parts"] for c in p["cls"].split() if re.fullmatch(r"wb-thumb-b\d", c)}
+        branches = len(entry.get("payload", {}).get("nodes", []))
+        if branches > 1 or len(tones) > 1:
+            assert len(tones) >= 2, (entry["key"], tones)
+        for p in spec["parts"]:
+            if "wb-thumb-root" in p["cls"] or "wb-thumb-label" in p["cls"]:
+                assert "wb-thumb-b" not in p["cls"], (entry["key"], p["cls"])
+    css = (JS.parent / "css" / "library-lazy.css").read_text(encoding="utf-8")
+    for i, hexcode in enumerate(MAP_BRANCH_PALETTE):
+        assert re.search(rf"\.wb-thumb-b{i} \{{\s*--thumb-b: {hexcode};", css), i
 
 
 @pytest.mark.skipif(not shutil.which("node"), reason="needs node")

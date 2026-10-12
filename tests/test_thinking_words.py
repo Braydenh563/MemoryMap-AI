@@ -15,7 +15,7 @@ utility model for about sixteen in a given persona's voice.
 
 from __future__ import annotations
 
-from memorymap.ai import librarian
+from tessellate.ai import librarian
 
 
 def test_a_personas_thinking_words_round_trip(client):
@@ -32,7 +32,7 @@ def test_a_personas_thinking_words_round_trip(client):
 
 
 def test_an_empty_list_is_accepted_and_means_use_the_default():
-    from memorymap.api.routes_settings import PersonaItem
+    from tessellate.api.routes_settings import PersonaItem
 
     item = PersonaItem(name="Analyst", prompt="Be precise.", thinking_words=[])
     assert item.thinking_words == []

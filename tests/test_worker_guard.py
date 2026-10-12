@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.core import deps
+from tessellate.core import deps
 
 
 @pytest.fixture()
@@ -71,7 +71,7 @@ def test_the_check_actually_runs_when_the_app_is_built(app_state, monkeypatch):
     It must also run BEFORE any singleton is built, since those are the things
     a second worker would duplicate.
     """
-    from memorymap.api import app as app_module
+    from tessellate.api import app as app_module
 
     monkeypatch.setattr("sys.argv", ["uvicorn", "--workers", "2"])
     monkeypatch.delenv("WEB_CONCURRENCY", raising=False)

@@ -286,7 +286,7 @@ work starts.
   the waist): the curved hem line and flat stream tops before, a ramp
   after, both looks; poses and three sway frames at 5x.
 - [x] Idle, walk (masculine glide with a trailing wisp), float and wave per
-  look. `atlasgait.js` (animation names on the char box, body, lower and
+  look. `atlasdepth2.js atlasgait` (animation names on the char box, body, lower and
   arm, and the rise per walk cycle): walking was the companion's hop per
   step; now a glide, his low and slow (`atl-glide-heavy`, 1.5px, 1.25s)
   with his streams trailing away from the way he goes (`atl-lower-trail`
@@ -299,7 +299,7 @@ work starts.
   companion (a stand-in `#nm-buddy`, as for the bed).
 - [x] Masculine prop hand offset (bell, lantern about 6 units off). The
   props were drawn about one grip for every look; each look now names its
-  own (`propHand`). `atlasprop.js`, gap from the prop's top to the hand's
+  own (`propHand`). `atlasdepth2.js atlasprop`, gap from the prop's top to the hand's
   outline: masculine bell 2.1 to 1.6, lantern 3.9 to 0.4; feminine (found on
   the way) bell 18.4 to 0.7, lantern 17.9 to 0.6.
 - [x] Category tools added to `WRITE_TOOLS`, with a test. They were in
@@ -313,7 +313,7 @@ work starts.
   now the note's plain words clamped to two lines with an ellipsis and the
   whole text as the row's title.
 - [x] Arm variants 1 and 2 per mood checked; feminine arms legible small.
-  `atlasarms.js` over every mood and variant, `atlasmoodgrid.js` for the
+  `atlasarms.js` over every mood and variant, `atlasdepth2.js atlasmoodgrid` for the
   sheet. Fixed: the head scratch (confused) left the hand out at shoulder
   height over the rings (72%), now beside the head in both looks; shy's
   swung-out variant clasps; her arms carry a fine rim line, legible at
@@ -321,11 +321,11 @@ work starts.
   and surprise cross the rings' band, and her held-out seed-sowing arm.
 - [x] A sleepy Atlas startled by any click or held Ctrl (three reports): the
   input listener only records input now; a poke wakes it over 2.4s and it
-  stays up 45s; dozing eases over 3s. `atlaswake.js`: 11 of 50 frames
+  stays up 45s; dozing eases over 3s. `atlasdepth2.js atlaswake`: 11 of 50 frames
   surprised before, 0 after. The `.atl-easing` CSS is the companion agent's.
 - [x] A poke's mood snapped back after 1.8s (the companion agent's report):
   it now holds 3.8s and eases back over 1.2s with `.atl-easing`
-  (`atlaswake.js`: shy 0 to 3500ms, easing 3750 to 4750ms, calm after).
+  (`atlasdepth2.js atlaswake`: shy 0 to 3500ms, easing 3750 to 4750ms, calm after).
 
 ## Companion (avatars.js)
 

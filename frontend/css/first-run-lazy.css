@@ -1,0 +1,41 @@
+/* first-run-lazy.css: the dashboard's first steps (first-run.js, WORLD_CLASS_PLAN
+   25c), fetched with them. The card is the empty notebook's own
+   (`.dash-getting-started`, 05-sidebars-themes.css); this adds the space
+   under it, a done step, and the row of further doors. */
+
+.dash-first-steps:not(:empty) {
+  margin-bottom: var(--space-4);
+}
+/* A done step stays readable and pressable (it still goes somewhere), but
+   steps back so the next one is the one that stands out. */
+.start-step.is-done {
+  background: transparent;
+  border-color: var(--divider);
+}
+.start-step.is-done .start-step-icon {
+  color: var(--ok);
+}
+.first-steps-more {
+  justify-content: center;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+/* Step one is a name field in the tile: the tile, not a button. */
+.start-step-form {
+  cursor: default;
+  /* A hover ground is a shape: the tile's own corner (INBOX 856). */
+  border-radius: var(--radius-md);
+}
+.start-step-form:hover,
+.start-step-form:is(:focus-visible, :has(:focus-visible)) {
+  background: var(--surface-2);
+}
+.start-step-form input {
+  display: block;
+  width: 100%;
+  margin-top: var(--space-1);
+}
+.start-step-form > span:last-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}

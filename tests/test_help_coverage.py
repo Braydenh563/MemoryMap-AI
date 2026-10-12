@@ -20,12 +20,15 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import help_chat
-from memorymap.ai.help_topics_more import HELP_GROUPS, TOPIC_META
+from tessellate.ai import help_chat
+from tessellate.ai.help_topics_more import HELP_GROUPS, TOPIC_META
 
 #: (feature, words every one of which some entry's body must contain, a
 #: question in the words a person would use).
 FEATURES: list[tuple[str, tuple[str, ...], str]] = [
+    # Help itself (WORLD_CLASS_PLAN 25c)
+    ("manual", ("Open the manual", "printer button"), "is there a manual I can print"),
+    ("first-steps", ("Try a sample notebook", "Remove the sample notes"), "how do I get rid of the sample notes"),
     # Writing notes
     ("quick-note", ("Alt+N", "Quick note"), "keyboard shortcut for quick note"),
     ("offline-outbox", ("kept on this device", "Try now"), "what happens if I save a note while the server is down"),
@@ -87,7 +90,7 @@ FEATURES: list[tuple[str, tuple[str, ...], str]] = [
     ("model-fit", ("too big",), "which model fits my computer"),
     ("model-bench", ("Test my models", "Use this one"), "which model is best on my notes"),
     ("margin-reader", ("Margin reader", "Not this"), "show related notes in the margin while I write"),
-    ("web-clipper-bookmark", ("Clip to MemoryMap", "bookmarks bar"), "clip a web page from my browser"),
+    ("web-clipper-bookmark", ("Clip to Tessellate", "bookmarks bar"), "clip a web page from my browser"),
     ("import-apps", ("From Notion", "From Evernote", "already here"), "import my notes from evernote"),
     ("simple-mode", ("Simple mode", "command palette"), "hide the tabs I do not need"),
     ("usage-ledger", ("What you use", "never sent anywhere"), "does the app track what I use"),

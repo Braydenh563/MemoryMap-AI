@@ -1,4 +1,4 @@
-// MemoryMap AI: the graph, drawn to a Canvas 2D surface.
+// Tessellate: the graph, drawn to a Canvas 2D surface.
 //
 // GRAPH_PLAN.md §4 ("Renderer: Canvas 2D first") and §5 Phase 1. This is the
 // other half of `graph-worker.js`: the worker decides where the notes are,
@@ -309,7 +309,30 @@ function gcReadTokens(s = gcTab) {
     ink: get("--ink", "#1b1f2a"),
     card: get("--card", "#ffffff"),
     font: get("--font-sans", "system-ui, sans-serif"),
+    //: The hover's two durations are the stylesheet's motion tokens (Brief
+    //: 100, DESIGN.md "Motion"), so the canvas eases with the rest of the
+    //: app and is instant where the app's interface animations are off.
+    fadeMs: gcMs(get("--ui-slow", "0.2s")),
+    hoverMs: gcMs(get("--ui-slow", "0.2s")),
   };
+}
+
+//: A CSS time ("0.16s", "120ms") in milliseconds.
+function gcMs(value) {
+  const n = parseFloat(value);
+  if (!Number.isFinite(n)) return 0;
+  return /ms\s*$/.test(value) ? n : n * 1000;
+}
+
+//: **Less motion, by every switch that means it** (Brief 100): the system's
+//: setting, and the app's own Reduce motion and Performance mode
+//: (`data-motion`, settings.js). The canvas read only the first, so the app's
+//: switch left the map easing while the rest of the page stood still.
+function gcStill() {
+  return Boolean(
+    window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ||
+      document.documentElement?.dataset?.motion === "reduced"
+  );
 }
 
 //: The edge recipes, transcribed from `.graph-edge*` in
@@ -791,14 +814,59 @@ function gcArrows(s = gcTab) {
 //: set in `renderGraphCanvas`), its bow is its midpoint, so every caller
 //: (paint, hover, hit test, the label pass's line grid) draws and finds it
 //: straight. The worker's `clearCurve` makes the same exception.
-function gcBowPoint(a, b) {
-  if (a._straight || (a._cluster != null && a._cluster !== b._cluster)) return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+//: `out` and `side` are the draw loop's (Brief 100: no allocation per edge per
+//: frame on a 2,000-note map): a scratch point written in place, and the side
+//: the edge keeps for its render. Every other caller gets a fresh point.
+function gcBowPoint(a, b, out = null, side = null) {
+  const point = out || { x: 0, y: 0 };
+  if (a._straight || (a._cluster != null && a._cluster !== b._cluster)) {
+    point.x = (a.x + b.x) / 2;
+    point.y = (a.y + b.y) / 2;
+    return point;
+  }
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const len = Math.hypot(dx, dy) || 1;
-  const side = String(a.id) < String(b.id) ? 1 : -1;
-  const bow = Math.min(len * 0.14, 48) * side;
-  return { x: (a.x + b.x) / 2 - (dy / len) * bow, y: (a.y + b.y) / 2 + (dx / len) * bow };
+  const bow = Math.min(len * 0.14, 48) * (side || (String(a.id) < String(b.id) ? 1 : -1));
+  point.x = (a.x + b.x) / 2 - (dy / len) * bow;
+  point.y = (a.y + b.y) / 2 + (dx / len) * bow;
+  return point;
+}
+
+//: An edge's look for one render (Brief 100): its recipe, its tint, its
+//: confidence and its quiet cross-cluster variant depend on the render's
+//: colours and similarity range, not on the frame, so they are worked out
+//: once per render (`s.epoch`) rather than spread into new objects for every
+//: edge on every frame of a hover fade. `_keys` holds each bucket key as it
+//: is first needed, so a frame builds no strings either.
+const gcBowScratch = { x: 0, y: 0 };
+function gcEdgeLook(edge, a, b, simLo, simHi, epoch) {
+  edge._styleEpoch = epoch;
+  edge._keys = [];
+  edge._side = String(a.id) < String(b.id) ? 1 : -1;
+  const similar = edge.kind === "similar" && typeof edge.score === "number";
+  edge._similar = similar;
+  let style = similar ? GC_SIMILAR_BANDS[gcSimilarityBand(edge.score, simLo, simHi)] : gcEdgeStyle(edge);
+  //: Same colour at both ends: the line wears it (see GC_EDGE_TINTED).
+  const tint =
+    !similar && edge.link_type !== "contradicts" && GC_EDGE_TINTED[edge.kind] && a.colour && a.colour === b.colour
+      ? a.colour
+      : null;
+  if (tint) style = { ...style, alpha: Math.max(style.alpha, GC_EDGE_TINTED[edge.kind]) };
+  //: How sure, as thickness and strength (INBOX 693, the legend's second
+  //: channel): a reason the app deduced (`reason_confidence`, 0 to 1)
+  //: draws its link from 0.6x to 1.2x, so a guess reads lighter than a
+  //: reason in someone's words, which keeps its full line.
+  if (edge.kind === "link" && typeof edge.reason_confidence === "number") {
+    const sure = 0.6 + 0.6 * Math.max(0, Math.min(1, edge.reason_confidence));
+    style = { ...style, width: style.width * sure, alpha: Math.min(1, style.alpha * sure) };
+  }
+  edge._tint = tint;
+  edge._style = style;
+  edge._cross = a._cluster != null && a._cluster !== b._cluster && edge.link_type !== "contradicts";
+  edge._quietStyle = edge._cross
+    ? { ...style, width: style.width * GC_CROSS_WIDTH, alpha: style.alpha * GC_CROSS_ALPHA }
+    : style;
 }
 
 function gcEdgeStyle(edge) {
@@ -817,6 +885,15 @@ function gcEdgeStyle(edge) {
 function gcResize(s = gcTab) {
   if (!s.canvas) return false;
   const box = document.getElementById(s.boxId);
+  //: **A box with no size is folded, not small** (the owner, 2026-10-10: "I
+  //: collapsed and opened the local map and the stuff disappeared??"). The
+  //: local map's body collapses to nothing; this read that as the 800x540
+  //: fallback, the observer framed the map for a box that size (k 0.48 to
+  //: 1.16, the middle at 294,189 of a 226x176 canvas) and nothing put it back
+  //: on the way open, so every note was off the canvas. A drawn map keeps
+  //: the size it last had while its box is folded or hidden; the fallback is
+  //: for a box never measured.
+  if (box && s.dims.w && (!box.clientWidth || !box.clientHeight)) return false;
   const width = (box && box.clientWidth) || 800;
   const height = (box && box.clientHeight) || 540;
   const dpr = window.devicePixelRatio || 1;
@@ -854,9 +931,12 @@ function gcEnsureCanvas(s = gcTab) {
   // opening, the legend collapsing, fullscreen. A ResizeObserver is the only
   // thing that sees all of them (§5 Phase 1 asks for one by name).
   if (!s.observer && typeof ResizeObserver !== "undefined") {
-    s.observer = new ResizeObserver(() => {
+    s.observer = new ResizeObserver((entries) => {
       const before = { ...s.dims };
-      if (!gcResize(s)) return;
+      if (!gcResize(s)) {
+        if (entries.some((entry) => entry.target.id !== s.boxId && !entry.target.matches(GC_FIT_MENUS))) gcRefitForPanels(s);
+        return;
+      }
       //: **The map stays framed when its card changes size** (INBOX 613, the
       //: owner: "the graph doesn properly fit to the area and showing or not
       //: showing panels"). A camera nobody has moved is framed again; one the
@@ -870,6 +950,7 @@ function gcEnsureCanvas(s = gcTab) {
     });
     const box = document.getElementById(s.boxId);
     if (box) s.observer.observe(box);
+    if (s.size === "full") for (const el of document.querySelectorAll(GC_FIT_OVERLAYS.join(","))) s.observer.observe(el);
   }
   gcWireInteraction(s);
   return s.canvas;
@@ -924,6 +1005,40 @@ function gcHexToRgb(colour) {
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
 
+//: **The node itself** (Brief 100 (c), the owner: "improve the visual look
+//: of nodes (keep the glow the same). just change the nodes themnselves").
+//: Still flat in spirit (a gradient body read as "fake or too realistic", a
+//: highlight dot as "a bowling ball"): the category colour with the faintest
+//: shade across it, 8% lighter at the upper left to 8% deeper at the far
+//: edge, which gives the disc a surface without a light source, and a crisp
+//: one-pixel rim a quarter deeper in its own colour, so a dot on a dot or on
+//: a line keeps its edge. A colour that is not a hex code keeps the flat
+//: disc. The glow, drawn before this, is untouched.
+function gcMixRgb(rgb, toward, share) {
+  return `rgb(${rgb.map((v) => Math.round(v + (toward - v) * share)).join(", ")})`;
+}
+function gcPaintCore(c, half, r, colour) {
+  const rgb = gcHexToRgb(colour);
+  c.beginPath();
+  c.arc(half, half, r, 0, Math.PI * 2);
+  if (!rgb || r < 3) {
+    c.fillStyle = colour;
+    c.fill();
+    return;
+  }
+  const shade = c.createRadialGradient(half - r * 0.35, half - r * 0.35, 0, half, half, r);
+  shade.addColorStop(0, gcMixRgb(rgb, 255, 0.08));
+  shade.addColorStop(0.6, colour);
+  shade.addColorStop(1, gcMixRgb(rgb, 0, 0.08));
+  c.fillStyle = shade;
+  c.fill();
+  c.beginPath();
+  c.arc(half, half, r - 0.5, 0, Math.PI * 2);
+  c.lineWidth = 1;
+  c.strokeStyle = gcMixRgb(rgb, 0, 0.25);
+  c.stroke();
+}
+
 function gcNodeSprite(colour, radiusPx, hub) {
   const r = Math.max(2, Math.round(radiusPx));
   const key = `${colour}|${r}|${hub ? 1 : 0}|${gcTokens.card}`;
@@ -931,7 +1046,8 @@ function gcNodeSprite(colour, radiusPx, hub) {
   if (sprite) return sprite;
   if (gcSpriteCache.size > 600) gcSpriteCache.clear();
   //: Flat, like every other mark in the app (DESIGN.md: one fill, one edge,
-  //: no rendered light): the category colour as a disc, a ring in the
+  //: no rendered light): the category colour as a disc (shaded a breath by
+  //: `gcPaintCore`, Brief 100 (c)), a ring in the
   //: card's own colour so a node reads clear of the links it sits on, and
   //: for a hub only, a soft bloom of its colour behind it. A gradient body
   //: was tried and read as "fake or too realistic"; a highlight dot as "a
@@ -964,10 +1080,7 @@ function gcNodeSprite(colour, radiusPx, hub) {
   c.beginPath();
   c.arc(half, half, r + ring, 0, Math.PI * 2);
   c.fill();
-  c.fillStyle = colour;
-  c.beginPath();
-  c.arc(half, half, r, 0, Math.PI * 2);
-  c.fill();
+  gcPaintCore(c, half, r, colour);
   sprite = { canvas, half };
   gcSpriteCache.set(key, sprite);
   return sprite;
@@ -1024,7 +1137,11 @@ function gcDrawNebulae(ctx, s, inView) {
 function gcDrawTopicHulls(ctx, s, k) {
   //: The plates, in world units, for the label pass to keep names off (KG6).
   s.topicPlates = [];
-  if (s.size !== "full" || graphColourMode() !== "topic" || !graphStructure?.topics) return;
+  //: The force layout only (the owner, round 2, of a tree and an arc: topic
+  //: hulls "squashed into a thin column", plates stacked on the line): a
+  //: computed layout puts a topic's notes where their filing says, so its
+  //: outline is a sliver across the others. The colours still say it.
+  if (s.size !== "full" || s.tree || graphColourMode() !== "topic" || !graphStructure?.topics) return;
   const byTopic = new Map();
   const topicOf = graphStructure.topic_of || {};
   for (const node of s.nodes) {
@@ -1063,7 +1180,7 @@ function gcDrawTopicHulls(ctx, s, k) {
     ctx.fillStyle = gcTokens.card;
     ctx.globalAlpha = 0.88;
     ctx.fillRect(x - w / 2 - 5 / k, top[1] - 27 / k, w + 10 / k, 17 / k);
-    s.topicPlates.push({ left: x - w / 2 - 5 / k, right: x + w / 2 + 5 / k, top: top[1] - 27 / k, bottom: top[1] - 10 / k });
+    s.topicPlates.push({ left: x - w / 2 - 5 / k, right: x + w / 2 + 5 / k, top: top[1] - 27 / k, bottom: top[1] - 10 / k, topic });
     //: The name in ink (a light topic colour is under 3:1 on the plate); the
     //: plate's edge carries the colour.
     ctx.globalAlpha = 1;
@@ -1093,20 +1210,21 @@ function gcLinkKindHidden(edge) {
   return edge.kind === "link" && graphHiddenLinkKinds.has(edge.link_type || "untyped");
 }
 
-function gcFilterChip(label, count, pressed, title, onClick) {
-  const chip = document.createElement("button");
-  chip.type = "button";
-  chip.className = `library-chip${pressed ? " active" : ""}`;
-  chip.setAttribute("aria-pressed", String(pressed));
-  chip.title = title;
-  const name = document.createElement("span");
-  name.textContent = label;
+//: A counted filter is a chip, not a button (INBOX 803: "No kind 31" drawn
+//: as a row of filled, bordered buttons, every kind being on by default).
+//: The tag chip's ground with its count after the words; a link kind turned
+//: off keeps its place struck through (the Read as row's toggle, quickadd),
+//: and a lit property takes the chosen row's accent edge.
+function gcFilterChip(label, count, pressed, title, onClick, { offWhenUnpressed = false } = {}) {
+  const el = chip(label, "tag graph-filter-chip", onClick);
+  el.setAttribute("aria-pressed", String(pressed));
+  el.classList.toggle(offWhenUnpressed ? "is-off" : "is-lit", offWhenUnpressed ? !pressed : pressed);
+  el.title = title;
   const n = document.createElement("span");
   n.className = "library-chip-count";
   n.textContent = String(count);
-  chip.append(name, n);
-  chip.addEventListener("click", onClick);
-  return chip;
+  el.append(n);
+  return el;
 }
 
 function gcRenderFilterChips(data) {
@@ -1127,12 +1245,12 @@ function gcRenderFilterChips(data) {
       if (graphHiddenLinkKinds.has(key)) graphHiddenLinkKinds.delete(key);
       else graphHiddenLinkKinds.add(key);
       try {
-        localStorage.setItem("graph-hidden-link-kinds", JSON.stringify([...graphHiddenLinkKinds]));
+        prefs.set("graph-hidden-link-kinds", JSON.stringify([...graphHiddenLinkKinds]));
       } catch {
         /* storage blocked: the choice holds for this visit */
       }
       renderGraph();
-    });
+    }, { offWhenUnpressed: true });
   }));
   if (!byKind.size) kinds.textContent = "No links on the map.";
   const onMap = new Set(data.nodes.map((n) => n.id));
@@ -1182,21 +1300,27 @@ function gcShowTopic(topic, colour) {
   dot.style.setProperty("--topic-colour", colour);
   const name = document.createElement("strong");
   name.textContent = topic.name;
+  //: The count is a muted line under the name, not a third item beside it: it
+  //: wrapped to two lines as soon as the rename field took the name's room.
   const size = document.createElement("span");
-  size.className = "muted";
+  size.className = "muted graph-topic-count";
   size.textContent = `${topic.size} notes`;
   //: INBOX 547: a topic's name is found, and can be replaced by one of your
   //: own; an empty name brings the found one back.
-  const rename = smallButton("ph:pencil-simple", "Rename the topic", () => gcRenameTopic(topic, colour));
+  const tools = document.createElement("div");
+  tools.className = "graph-topic-tools";
+  const rename = smallButton("ph:pencil-simple", "Rename the topic", () => gcRenameTopicInline(topic, name, tools));
   rename.classList.add("icon-only");
-  head.append(dot, name, size, rename);
+  tools.append(rename);
   if (topic.named) {
-    const back = smallButton("ph:arrow-counter-clockwise", `Use the found name, ${topic.found_name}`, () => gcRenameTopic(topic, colour, true));
+    const back = smallButton("ph:arrow-counter-clockwise", `Use the found name, ${topic.found_name}`, () => gcSaveTopicName(topic, ""));
     back.classList.add("icon-only");
-    head.append(back);
+    tools.append(back);
   }
-  head.append(smallButton("ph:x", "Close the topic", gcHideTopic));
-  head.lastChild.classList.add("icon-only");
+  const close = smallButton("ph:x", "Close the topic", gcHideTopic);
+  close.classList.add("icon-only");
+  tools.append(close);
+  head.append(dot, name, tools, size);
   const terms = document.createElement("p");
   terms.className = "muted graph-topic-terms";
   terms.textContent = topic.terms.length ? `Shared: ${topic.terms.map((t) => `${t.term} (${t.notes})`).join(", ")}` : "Nothing its notes share stands out.";
@@ -1232,33 +1356,418 @@ function gcShowTopic(topic, colour) {
     if (row.source === "model") gcTopicSummaries.set(key, row);
     say(row);
   });
-  actions.appendChild(ask);
+  //: A topic becomes a category only when asked (ledger 945, GRAPH_PLAN
+  //: "Topics and categories": neither writes the other on its own). One
+  //: move with one Undo, the batch bar's own (`moveNotesToCategory`).
+  const file = smallButton("ph:folder-simple-plus File as a category", "File these notes under one category, named for the topic", async () => {
+    const wanted = (await promptDialog(`File these ${topic.size} notes under the category:`, topic.name.replace(/^#/, ""), { confirmLabel: "File" })).trim();
+    if (wanted) await moveNotesToCategory(topic.ids, wanted);
+  });
+  actions.append(ask, file);
   const known = gcTopicSummaries.get(key);
   if (known) say(known);
   box.replaceChildren(head, terms, summary, actions);
   box.classList.remove("hidden");
 }
 
-//: `promptDialog` answers "" for Cancel, so an empty name is never sent from
-//: it; the card's own reset button sends one.
-async function gcRenameTopic(topic, colour, reset = false) {
+//: A topic's name, saved (INBOX 547's route): an empty name brings the found
+//: one back. Every place that shows the name is brought up to date here: the
+//: legend, the open card, the plate on the next frame, and the note cards'
+//: chips (`noteTopicsCache`, notes-list.js) the next time they draw.
+async function gcSaveTopicName(topic, wanted) {
   const found = topic.found_name || topic.name;
-  const wanted = reset ? "" : await promptDialog(`Rename "${topic.name}"`, topic.name, { confirmLabel: "Rename" });
-  if (!reset && !wanted) return;
+  const was = topic.named ? topic.name : "";
   const row = await apiJson("/graph/topics/name", { method: "PUT", body: JSON.stringify({ ids: topic.ids, name: wanted }) }).catch(() => null);
-  if (!row) return;
+  if (!row) return false;
+  pushRequestUndo(`Renamed the topic “${found}”`, "/graph/topics/name", "PUT", { ids: topic.ids, name: was }, { ids: topic.ids, name: wanted }, async () => {
+    if (typeof noteTopicsCache !== "undefined") noteTopicsCache.clear();
+    await renderGraph();
+  });
   topic.found_name = found;
   topic.named = Boolean(row.name);
   topic.name = row.name || found;
   const item = document.querySelector(`#graph-legend [data-topic="${topic.id}"]`);
   if (item?.lastChild) item.lastChild.textContent = `${topic.name} (${topic.size})`;
-  gcShowTopic(topic, colour);
+  if (typeof noteTopicsCache !== "undefined") noteTopicsCache.clear();
+  if (!document.getElementById("graph-topic")?.classList.contains("hidden")) gcShowTopic(topic, gcTopicColour(topic));
   gcRequestDraw();
+  return true;
+}
+
+//: **Renamed where it is written** (the owner, 2026-10-10: "I cant rename a
+//: topic??", "I still cant edit topics in the graph or anywhere else"). The
+//: only way in was a pencil on a card that only a legend entry under one
+//: colour rule opened. Now a field opens over the name itself: on the map's
+//: plate (double-click), on the topic's card and on a note's panel (their
+//: pencils). Enter or leaving the field saves, Escape keeps the old name, and
+//: an empty name brings the found one back. `anchor` is an element whose
+//: place the field takes; with none it sits over the topic's plate.
+function gcRenameTopicInline(topic, anchor = null, tools = null) {
+  const s = gcTab;
+  const box = s.canvas?.parentElement;
+  document.querySelector(".graph-topic-rename")?.remove();
+  const field = document.createElement("input");
+  field.type = "text";
+  field.maxLength = 80;
+  field.className = "graph-topic-rename";
+  field.value = topic.name;
+  field.setAttribute("aria-label", `Rename the topic ${topic.name}`);
+  field.title = "Enter to save, Escape to keep the name; empty brings the found name back";
+  if (anchor) {
+    anchor.classList.add("hidden");
+    anchor.after(field);
+  } else {
+    const plate = (s.topicPlates || []).find((p) => p.topic === topic.id);
+    if (!plate || !box) return;
+    const t = s.transform || d3.zoomIdentity;
+    field.classList.add("is-floating");
+    const width = Math.max(140, (plate.right - plate.left) * t.k + 24);
+    //: **The plate's own size** (OPEN row 795): the field stood 42px tall
+    //: over a 17px plate. It takes the plate's height, a few pixels over for
+    //: its border, centred on it, in the plate's own 12px type.
+    const plateH = (plate.bottom - plate.top) * t.k;
+    const height = Math.round(plateH + 6);
+    field.style.width = `${width}px`;
+    field.style.height = `${height}px`;
+    field.style.left = `${t.applyX((plate.left + plate.right) / 2) - width / 2}px`;
+    field.style.top = `${t.applyY(plate.top) - (height - plateH) / 2}px`;
+    box.appendChild(field);
+  }
+  let done = false;
+  let edit = null;
+  const finish = async (save) => {
+    if (done) return;
+    done = true;
+    const wanted = field.value.trim();
+    field.remove();
+    edit?.remove();
+    tools?.classList.remove("hidden");
+    anchor?.classList.remove("hidden");
+    if (save && wanted !== topic.name) await gcSaveTopicName(topic, wanted);
+  };
+  //: On the card the name edits in place with Save and Cancel where the
+  //: pencil and X were. Their mousedown is kept off the field so its blur
+  //: (which saves) does not fire before the press that means Cancel.
+  if (tools) {
+    edit = document.createElement("div");
+    edit.className = "graph-topic-tools";
+    const save = smallButton("ph:check", "Save the name", () => finish(true));
+    const cancel = smallButton("ph:x", "Keep the old name", () => finish(false));
+    for (const b of [save, cancel]) {
+      b.classList.add("icon-only");
+      b.addEventListener("mousedown", (event) => event.preventDefault());
+    }
+    edit.append(save, cancel);
+    tools.classList.add("hidden");
+    tools.after(edit);
+  }
+  field.addEventListener("keydown", (event) => {
+    event.stopPropagation();
+    if (event.key === "Enter") finish(true);
+    else if (event.key === "Escape") finish(false);
+  });
+  field.addEventListener("blur", () => finish(true));
+  field.focus();
+  field.select();
+}
+
+//: The topic whose name plate is under a world point (plates are drawn under
+//: the Topic colour rule, `gcDrawTopicHulls`), or null.
+function gcPlateAtWorld(x, y, s = gcTab) {
+  if (s.size !== "full" || !s.topicPlates?.length || !graphStructure?.topics) return null;
+  const slop = 3 / ((s.transform && s.transform.k) || 1);
+  const plate = s.topicPlates.find((p) => x >= p.left - slop && x <= p.right + slop && y >= p.top - slop && y <= p.bottom + slop);
+  return plate ? graphStructure.topics.find((topic) => topic.id === plate.topic) || null : null;
+}
+
+function gcPlateTitle(topic, s = gcTab) {
+  if (!topic) return "";
+  return s.layoutKind === "force"
+    ? `${topic.name}: drag to move the topic, double-click to rename, click for its card`
+    : `${topic.name}: double-click to rename, click for its card`;
+}
+
+//: A topic's drawn notes: what a drag by its name carries.
+function gcTopicMembers(topic, s = gcTab) {
+  const ids = new Set(topic.ids.map(String));
+  return s.nodes.filter((node) => ids.has(String(node.id)) && Number.isFinite(node.x) && gcVisibleAtTime(node, s));
+}
+
+//: The note a topic is held by: its most linked one (`core_id`), or the
+//: first drawn member when that one is filtered out.
+function gcTopicCore(topic, s = gcTab) {
+  const members = gcTopicMembers(topic, s);
+  return members.find((node) => String(node.id) === String(topic.core_id)) || members[0] || null;
+}
+
+//: A topic opened: its notes lit and its card shown, as its legend entry does.
+function gcOpenTopic(topic) {
+  graphHighlightIds = new Set(topic.ids);
+  applyGraphHighlight();
+  gcShowTopic(topic, gcTopicColour(topic));
+}
+
+//: A topic's colour as the map draws it (`s.topicColour`, set per render).
+function gcTopicColour(topic, s = gcTab) {
+  return s.topicColour ? s.topicColour(String(topic.id)) : gcTokens.muted;
 }
 
 const GC_HOVER_GROW = 3;         // half the gap from a core to its own halo
 const GC_HOVER_HALO_GROW = 1.5;  // and the halo keeps clear by the same half
 const GC_HOVER_MS = 190;
+
+//: **A fit is balanced on what was drawn** (the owner, 2026-10-10, two
+//: screenshots: "this is my graph's fitted view and it is a bit off",
+//: "thats more fitted"). `fitGraphToView` pads every dot by the same 34
+//: world units for a label that only some dots get, and only under them, so
+//: the fitted map sat high or low and off to a side: measured on 60 notes at
+//: 1440x900, margins left 318, right 351, top 96, bottom 80. After a fit
+//: lands, the next frame's dots, placed names and topic plates are measured
+//: on screen and the camera is set once so the drawing is centred with the
+//: fit's own margin on the axis that limits it. The names keep their screen
+//: size whatever the zoom, so the scale is solved with their overhang held
+//: fixed rather than scaled with the dots.
+//: `passes` more are allowed after this one: a new zoom places a different
+//: set of names, so a second look settles what the first changed.
+function gcBalanceFit(s, placed, passes = 0) {
+  //: Not gated on `userZoomed`: the Fit button is pressed after a pan, and
+  //: a gesture after the fit clears `fitCheck` instead (the zoom handler).
+  //: Nor while the warm-up plays (`gcFrameIntro`): the drawn notes are on
+  //: their way to the frame, not in it.
+  if (s.size !== "full" || !s.nodes.length || !s.svg || !s.zoom || s.intro) return;
+  const t = s.transform;
+  const W = s.dims.w;
+  const H = s.dims.h;
+  let dMinX = Infinity, dMaxX = -Infinity, dMinY = Infinity, dMaxY = -Infinity;
+  for (const node of s.nodes) {
+    if (!Number.isFinite(node.x) || !gcVisibleAtTime(node, s)) continue;
+    const r = node.r || 6;
+    dMinX = Math.min(dMinX, node.x - r);
+    dMaxX = Math.max(dMaxX, node.x + r);
+    dMinY = Math.min(dMinY, node.y - r);
+    dMaxY = Math.max(dMaxY, node.y + r);
+  }
+  if (!Number.isFinite(dMinX)) return;
+  let cMinX = dMinX, cMaxX = dMaxX, cMinY = dMinY, cMaxY = dMaxY;
+  for (const box of [...(placed || []), ...(s.topicPlates || [])]) {
+    cMinX = Math.min(cMinX, box.left);
+    cMaxX = Math.max(cMaxX, box.right);
+    cMinY = Math.min(cMinY, box.top);
+    cMaxY = Math.max(cMaxY, box.bottom);
+  }
+  //: Overhang past the dots, in screen pixels: constant under a zoom.
+  const over = {
+    left: (dMinX - cMinX) * t.k,
+    right: (cMaxX - dMaxX) * t.k,
+    top: (dMinY - cMinY) * t.k,
+    bottom: (cMaxY - dMaxY) * t.k,
+  };
+  const box = { minX: dMinX, maxX: dMaxX, minY: dMinY, maxY: dMaxY };
+  const { k, x, y } = graphFitFrame(box, W, H, gcFitInsets(s), over);
+  if (!graphMinimapFinite(x, y, k)) return;
+  //: Within a pixel and a percent is already balanced: no motion for nothing.
+  if (Math.abs(k / t.k - 1) < 0.01 && Math.abs(x - t.x) < 1.5 && Math.abs(y - t.y) < 1.5) return;
+  const framed = d3.zoomIdentity.translate(x, y).scale(k);
+  const still = gcStill();
+  const again = () => {
+    if (passes <= 0) return;
+    s.fitCheck = passes;
+    gcRequestDraw(s);
+  };
+  if (still || s.canvas?.style.opacity === "0") {
+    s.svg.interrupt().call(s.zoom.transform, framed);
+    again();
+  } else s.svg.transition().duration(graphGlideMs(220)).call(s.zoom.transform, framed).on("end", again);
+}
+
+//: The overlays a fit keeps the notes out from under, as the depth each one
+//: takes from an edge of the map, in screen pixels (`graphFitFrame`): the
+//: dock along the top, the legend along the bottom, and whichever panel is
+//: open over the map (the owner, INBOX 792: fitting "should be based on what
+//: panels are currently showing and the screen resolution/size"). Each is
+//: counted against the edge it costs the least of the map's width or height
+//: to clear. A closed panel has no box and costs nothing.
+//: **Not the minimap or the zoom strip** (INBOX 802, "why's the graph so
+//: positioned to the right and not in the middle??"): a 178px corner box
+//: reserved a 190px column down the whole left side, so a fitted map sat
+//: 132px right of centre (margins 418 and 286 on a 1406px canvas). They are
+//: small corner furniture, not panels; a map centred on the canvas clears
+//: them except at its very corners, as in every other graph view.
+const GC_FIT_OVERLAYS = [
+  "#graph-card > .graph-overlay > .dock",
+  "#graph-card .graph-legend-row",
+  "#graph-options",
+  "#graph-help-panel",
+  "#graph-selection-dock",
+  "#graph-trace",
+  "#graph-trace-result",
+  "#graph-topic",
+];
+//: **A menu is not a panel** (the owner, 2026-10-11: "opening and closing
+//: the graph settings button dropdown and the menu button move the graph a
+//: bit"). The gear's options and the dock (whose ⋯ menu opens inside it)
+//: still keep a Fit clear of themselves, but opening or closing one does not
+//: refit the map: a menu over the map moves nothing on it (graphmenustill.js).
+const GC_FIT_MENUS = "#graph-options, #graph-help-panel, #graph-card > .graph-overlay > .dock";
+const GC_FIT_GAP = 4;
+function gcFitInsets(s = gcTab) {
+  const insets = { top: 0, right: 0, bottom: 0, left: 0 };
+  if (s.size !== "full" || !s.canvas || !s.dims.w || !s.dims.h) return insets;
+  const c = s.canvas.getBoundingClientRect();
+  if (!c.width || !c.height) return insets;
+  for (const selector of GC_FIT_OVERLAYS) {
+    const el = document.querySelector(selector);
+    //: No client rects is not displayed; `offsetParent` would also skip a
+    //: fixed sheet, which is the phone's panel.
+    if (!el || el.hidden || !el.getClientRects().length) continue;
+    const b = el.getBoundingClientRect();
+    if (!b.width || !b.height || b.right <= c.left || b.left >= c.right || b.bottom <= c.top || b.top >= c.bottom) continue;
+    const depth = {
+      top: b.bottom - c.top,
+      bottom: c.bottom - b.top,
+      left: b.right - c.left,
+      right: c.right - b.left,
+    };
+    const cost = (side) => depth[side] / (side === "top" || side === "bottom" ? c.height : c.width);
+    const side = ["top", "bottom", "left", "right"].reduce((best, next) => (cost(next) < cost(best) ? next : best));
+    insets[side] = Math.max(insets[side], depth[side] + GC_FIT_GAP);
+  }
+  return insets;
+}
+
+//: **A panel opening or closing refits a map that was fitted** (INBOX 792).
+//: The overlays are watched by the canvas's own ResizeObserver (a panel
+//: shown or hidden is a box going to or from no size); a camera the person
+//: moved keeps where it is, and nothing refits before the first fit or
+//: while the warm-up plays (`gcFrameIntro`).
+function gcRefitForPanels(s) {
+  if (s.userZoomed || s.intro || !s.zoom || !s.svg || !s.nodes?.length) return;
+  if (s.tree) frameTree(s.svg, s.zoom, null, s.nodes, s.dims.w, s.dims.h, s.tree.radial, s.tree.arc);
+  else if (s.fittedOnce) fitGraphToView(s.svg, null, s.zoom, s.nodes, s.dims.w, s.dims.h);
+}
+
+//: **A computed layout moves in from the map that was there** (the owner,
+//: round 2: "I just change views or reset it and it just suddenly
+//: changes"). A tree, radial or arc has no simulation to carry the notes
+//: across, so each note seen before glides from where it stood to its new
+//: place, eased over `GC_LAYOUT_MS`, and a note new to the picture (a
+//: category's heading) fades in where it lands (`node._born`). Less motion
+//: keeps the cut.
+const GC_LAYOUT_MS = 700;
+function gcTweenFromPrior(s, nodes, prior, move = true) {
+  if (gcStill()) return;
+  const now = performance.now();
+  let moved = 0;
+  for (const node of nodes) {
+    const was = prior.get(node.id);
+    if (!was || !Number.isFinite(was.x) || !Number.isFinite(was.y)) {
+      node._born = now;
+      continue;
+    }
+    if (!move) continue;
+    node._fromX = was.x;
+    node._fromY = was.y;
+    node._toX = node.x;
+    node._toY = node.y;
+    node.x = was.x;
+    node.y = was.y;
+    moved += 1;
+  }
+  if (!moved) return;
+  s.glideFrom = now;
+  //: On the same token as `frameTree`'s camera, so frame and notes arrive
+  //: together; 1ms, not 0, is a cut (0 means "glide by tick").
+  s.glideMs = Math.max(1, graphGlideMs(GC_LAYOUT_MS));
+  s.gliding = true;
+  s.pathsStale = true;
+}
+
+//: How far a note new to the picture has faded in, 0 to 1 (`node._born`).
+const GC_BORN_MS = 320;
+function gcBornAlpha(node, now) {
+  if (node._born === undefined) return 1;
+  const share = (now - node._born) / GC_BORN_MS;
+  if (share >= 1) {
+    node._born = undefined;
+    return 1;
+  }
+  return Math.max(0, share);
+}
+
+//: **A note leaving the picture fades out where it stood** (a hidden
+//: category, a filter, a local view's neighbours, a deleted note): drawn as
+//: it was, its own sprite and its lines, fading over `GC_BORN_MS`, with no
+//: hit tests or labels. Measured before (Brief 100, `graph100.js`, hiding a
+//: category of 200 on the 2,000-note map): past 300 notes nothing faded at
+//: all, and below it the dot lost its rim and glow and its lines in the
+//: first frame, a flat disc being all that faded. Less motion cuts, as a note
+//: arriving does.
+const GC_LEAVING_MAX = 2500;
+function gcMarkLeaving(s, before, nodes) {
+  s.leaving = null;
+  if (!before?.length || gcStill()) return;
+  const now = performance.now();
+  const staying = new Set(nodes.map((n) => n.id));
+  const gone = before.filter((n) => !staying.has(n.id) && Number.isFinite(n.x) && Number.isFinite(n.y) && n.colour);
+  if (!gone.length || gone.length > GC_LEAVING_MAX) return;
+  const scale = (s.transform?.k || 1) * (s.dpr || 1);
+  const goneIds = new Set(gone.map((n) => n.id));
+  const lines = new Path2D();
+  let lineCount = 0;
+  for (const edge of s.edges || []) {
+    const a = edge.source;
+    const b = edge.target;
+    if (!a || !b || !(goneIds.has(a.id) || goneIds.has(b.id))) continue;
+    if (!Number.isFinite(a.x) || !Number.isFinite(b.x)) continue;
+    lines.moveTo(a.x, a.y);
+    lines.lineTo(b.x, b.y);
+    lineCount += 1;
+  }
+  s.leaving = {
+    at: now,
+    lines: lineCount ? lines : null,
+    ghosts: gone.map((n) => ({
+      x: n.x,
+      y: n.y,
+      r: n.r || 6,
+      colour: n.colour,
+      sprite: n._sprite || null,
+      half: n._sprite ? n._sprite.half / scale : 0,
+      alpha: n._dim ? GC_DIM_ALPHA : 1,
+    })),
+  };
+}
+//: Their lines, under every dot: stroked with the edge pass.
+function gcDrawLeavingLines(ctx, s, now) {
+  if (!s.leaving?.lines) return;
+  const share = (now - s.leaving.at) / GC_BORN_MS;
+  if (share >= 1) return;
+  ctx.globalAlpha = 0.35 * (1 - gcEaseOut(share));
+  ctx.strokeStyle = gcTokens.muted;
+  ctx.lineWidth = 1 / (s.transform?.k || 1);
+  ctx.stroke(s.leaving.lines);
+}
+function gcDrawLeaving(ctx, s, now) {
+  if (!s.leaving) return;
+  const share = (now - s.leaving.at) / GC_BORN_MS;
+  if (share >= 1) {
+    s.leaving = null;
+    return;
+  }
+  const fade = 1 - gcEaseOut(share);
+  for (const ghost of s.leaving.ghosts) {
+    ctx.globalAlpha = ghost.alpha * fade;
+    if (ghost.sprite) {
+      ctx.drawImage(ghost.sprite.canvas, ghost.x - ghost.half, ghost.y - ghost.half, ghost.half * 2, ghost.half * 2);
+      continue;
+    }
+    ctx.fillStyle = ghost.colour;
+    ctx.beginPath();
+    ctx.arc(ghost.x, ghost.y, ghost.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  s.bornPending = true;
+}
 
 //: `1 - (1 - t)^3`: fast away from the start, settling at the end. The same
 //: shape as the `cubic-bezier(0.2, 0.8, 0.3, 1)` the stylesheet uses for the
@@ -1296,8 +1805,9 @@ function gcHoverStep(s = gcTab) {
   //: travel: the node is simply already large. Removing the growth as well
   //: would leave them with no hover feedback on this renderer at all, since
   //: there is no CSS here to give them a colour change instead.
-  const still = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-  s.hoverEase = still ? 1 : gcEaseOut((performance.now() - s.hoverStart) / GC_HOVER_MS);
+  const still = gcStill();
+  const ms = gcTokens.hoverMs ?? GC_HOVER_MS;
+  s.hoverEase = still || !ms ? 1 : gcEaseOut((performance.now() - s.hoverStart) / ms);
   if (s.hoverEase >= 1) {
     s.hoverEase = 1;
     s.hoverFrom = null;
@@ -1346,9 +1856,10 @@ function gcFadeStep(s, still) {
   const now = performance.now();
   const last = s.fadeLast || 0;
   s.fadeLast = now;
-  if (still) return 1;
+  const ms = gcTokens.fadeMs ?? GC_FADE_MS;
+  if (still || !ms) return 1;
   const dt = now - last > 100 ? 16.7 : Math.min(now - last, 64);
-  return dt / GC_FADE_MS;
+  return dt / ms;
 }
 
 // --- the draw ------------------------------------------------------------------
@@ -1366,7 +1877,10 @@ const GC_GLIDE_MAX_MS = 120;
 //: render replaced, carry no target and are left alone.
 function gcGlideStep(s) {
   if (!s.gliding) return false;
-  const share = Math.min(1, (performance.now() - s.glideFrom) / (s.tickGap || GC_GLIDE_MIN_MS));
+  //: A change of layout is one long eased glide (`gcTweenFromPrior`); a
+  //: tick's is short and linear.
+  const raw = Math.min(1, (performance.now() - s.glideFrom) / (s.glideMs || s.tickGap || GC_GLIDE_MIN_MS));
+  const share = s.glideMs ? gcSmooth(raw) : raw;
   // Linear, not eased: glides follow one another tick after tick, and an
   // eased one would speed up and slow down inside every tick interval, which
   // is a pulse of its own.
@@ -1376,13 +1890,14 @@ function gcGlideStep(s) {
     node.y = node._fromY + (node._toY - node._fromY) * share;
   }
   s.quadtreeDirty = true;
-  if (share >= 1) gcGlideFinish(s);
-  return share < 1;
+  if (raw >= 1) gcGlideFinish(s);
+  return raw < 1;
 }
 
 function gcGlideFinish(s) {
   if (!s.gliding) return;
   s.gliding = false;
+  s.glideMs = 0;
   for (const node of s.nodes) {
     if (node._toX === undefined) continue;
     if (node !== s.dragNode) {
@@ -1459,7 +1974,7 @@ function gcHighlight(s = gcTab) {
   const onPath = chrome && graphTrace ? new Set(graphTrace.ids) : null;
   const ids = chrome ? graphHighlightIds : null;
   const searchOk = (n) =>
-    onPath ? onPath.has(n.id) : ids ? ids.has(n.id) : !query || n.preview.toLowerCase().includes(query);
+    onPath ? onPath.has(n.id) : ids ? ids.has(n.id) : graphQueryMatch(n.id, n.preview, query);
   const neighbours =
     s.hoveredId != null && s.adj ? s.adj.get(s.hoveredId) : null;
   const hoverOk = (id) => neighbours == null || id === s.hoveredId || neighbours.has(id);
@@ -1544,8 +2059,10 @@ function gcDraw(s = gcTab) {
   //: Advanced once, before anything is measured, so every radius in this frame
   //: agrees, and another frame is asked for only while it is still moving.
   const easing = gcHoverStep(s);
+  //: The glide's last frame lands the notes, so the paths are rebuilt on
+  //: it too (`pathsStale` stays true until a frame after the glide).
   const gliding = gcGlideStep(s);
-  const fadeStep = gcFadeStep(s, window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
+  const fadeStep = gcFadeStep(s, gcStill());
   let fading = false;
   const ctx = s.ctx;
   const t = s.transform || d3.zoomIdentity;
@@ -1598,14 +2115,13 @@ function gcDraw(s = gcTab) {
   //: pointed at, else the one the keyboard is on, else the one whose panel is
   //: open. Its lines are the ones not dimmed, so the numbers sit on the only
   //: lines still in full view.
+  const openId = s.size === "full" && typeof graphPopupId !== "undefined" ? graphPopupId : null;
   const scoreFor =
     s.hoveredId != null
       ? s.hoveredId
       : gcKeyboardId(s) != null
         ? gcKeyboardId(s)
-        : s.size === "full" && typeof graphPopupId !== "undefined"
-          ? graphPopupId
-          : null;
+        : openId;
   s.simScoreLabels = [];
   const arrows = !s.tree && gcArrows(s);
   //: A spark drifts along the pointed-at note's arrowed links, unless motion
@@ -1613,7 +2129,7 @@ function gcDraw(s = gcTab) {
   const drifting =
     arrows &&
     s.hoveredId != null &&
-    !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches &&
+    !gcStill() &&
     document.documentElement.dataset.motion !== "reduced";
   const drift = [];
   //: The glow and core only while few sparks are in view (the last frame's
@@ -1648,41 +2164,21 @@ function gcDraw(s = gcTab) {
     if (edge._lit !== (dim ? 0 : 1)) fading = true;
     //: Eleven steps of lit-ness, so a fade still strokes in buckets.
     const level = Math.round(gcSmooth(edge._lit) * 10);
-    const similar = edge.kind === "similar" && typeof edge.score === "number";
-    const band = similar ? gcSimilarityBand(edge.score, simLo, simHi) : -1;
-    let style = similar ? GC_SIMILAR_BANDS[band] : gcEdgeStyle(edge);
-    //: Same colour at both ends: the line wears it (see GC_EDGE_TINTED).
-    const tint =
-      !similar && edge.link_type !== "contradicts" && GC_EDGE_TINTED[edge.kind] && a.colour && a.colour === b.colour
-        ? a.colour
-        : null;
-    if (tint) style = { ...style, alpha: Math.max(style.alpha, GC_EDGE_TINTED[edge.kind]) };
-    //: How sure, as thickness and strength (INBOX 693, the legend's second
-    //: channel): a reason the app deduced (`reason_confidence`, 0 to 1)
-    //: draws its link from 0.6x to 1.2x, so a guess reads lighter than a
-    //: reason in someone's words, which keeps its full line.
-    if (edge.kind === "link" && typeof edge.reason_confidence === "number") {
-      const sure = 0.6 + 0.6 * Math.max(0, Math.min(1, edge.reason_confidence));
-      style = { ...style, width: style.width * sure, alpha: Math.min(1, style.alpha * sure) };
-    }
+    if (edge._styleEpoch !== s.epoch) gcEdgeLook(edge, a, b, simLo, simHi, s.epoch);
+    const similar = edge._similar;
     //: **A line between clusters is quiet until asked about** (INBOX 693,
     //: the owner: cross-cluster links "thin and muted (only highlighted on
     //: hover)"). The clusters are what the map says; the lines between them
     //: are the footnote. Thinner and fainter, unless the pointer is on one
     //: of its ends; a contradiction keeps its warning.
-    if (
-      a._cluster != null &&
-      a._cluster !== b._cluster &&
-      edge.link_type !== "contradicts" &&
-      !(hl.hovering && byHover)
-    ) {
-      style = { ...style, width: style.width * GC_CROSS_WIDTH, alpha: style.alpha * GC_CROSS_ALPHA };
-    }
-    const key =`${edge.kind}|${tint || style.colour}|${style.width}|${style.alpha}|${style.dash}|${level}`;
+    const quiet = edge._cross && !(hl.hovering && byHover);
+    const style = quiet ? edge._quietStyle : edge._style;
+    const slot = level * 2 + (quiet ? 1 : 0);
+    const key = edge._keys[slot] || (edge._keys[slot] = `${edge.kind}|${edge._tint || style.colour}|${style.width}|${style.alpha}|${style.dash}|${level}`);
     const into = similar ? simBuckets : buckets;
     let bucket = into.get(key);
     if (!bucket) {
-      bucket = { style, level, tint, path: new Path2D() };
+      bucket = { style, level, tint: edge._tint, path: new Path2D() };
       into.set(key, bucket);
     }
     if (similar && scoreFor != null && (a.id === scoreFor || b.id === scoreFor)) {
@@ -1694,18 +2190,20 @@ function gcDraw(s = gcTab) {
       // A tree's edges are curves between fixed points. `hierarchyPath` and
       // `arcPath` already return SVG path data, and Path2D speaks it, so the
       // curve maths is shared with the SVG renderer rather than rewritten.
-      if (!edge._path2d) {
+      //: Cached for a still tree; rebuilt every frame while its notes glide in
+      //: (`gcTweenFromPrior`), or the lines are left where the notes started.
+      if (!edge._path2d || s.pathsStale) {
         edge._path2d = new Path2D(s.tree.arc ? arcPath(edge) : hierarchyPath(edge, s.tree.radial));
       }
       bucket.path.addPath(edge._path2d);
       // No arrow on a link that runs both ways (INBOX 693, `two_way` from /graph).
     } else if (arrows && edge.kind === "link" && !edge.two_way) {
-      const bow = curvedLinks ? gcBowPoint(a, b) : null;
+      const bow = curvedLinks ? gcBowPoint(a, b, gcBowScratch, edge._side) : null;
       gcLinkSpark(bucket, a, bow, b, k, sparkRich);
       sparks += 1;
-      if (drifting && (a.id === s.hoveredId || b.id === s.hoveredId)) drift.push({ a, bow, b, bucket });
+      if (drifting && (a.id === s.hoveredId || b.id === s.hoveredId)) drift.push({ a, bow: bow && { x: bow.x, y: bow.y }, b, bucket });
     } else if (curvedLinks) {
-      const bow = gcBowPoint(a, b);
+      const bow = gcBowPoint(a, b, gcBowScratch, edge._side);
       bucket.path.moveTo(a.x, a.y);
       bucket.path.quadraticCurveTo(bow.x, bow.y, b.x, b.y);
     } else {
@@ -1732,6 +2230,7 @@ function gcDraw(s = gcTab) {
   for (const bucket of simBuckets.values()) strokeBucket(bucket);
   for (const bucket of buckets.values()) strokeBucket(bucket);
   ctx.setLineDash([]);
+  gcDrawLeavingLines(ctx, s, performance.now());
   s.sparksDrawn = sparks;
   if (drift.length) {
     gcDrawDrift(ctx, drift, k);
@@ -1790,7 +2289,9 @@ function gcDraw(s = gcTab) {
     halo.nodes.push(node);
     drawn.push(node);
     node._dim = dim;
-    const focused = node.id === s.hoveredId || node.id === gcKeyboardId(s);
+    //: The note whose popup is open keeps the focus ring (Brief 100 (c), a
+    //: ring on the selected node), so the map says which dot the card is for.
+    const focused = node.id === s.hoveredId || node.id === gcKeyboardId(s) || node.id === openId;
     //: The node the pointer just left keeps its ring while it shrinks back,
     //: fading with it, and the one it arrived on fades its ring in.
     const leaving = !focused && node.id === s.hoverFrom && heat > 0;
@@ -1886,9 +2387,13 @@ function gcDraw(s = gcTab) {
   //: rim to be seen keeps its sprite.
   const lodPaths = new Map();
   let lodNodes = 0;
+  const bornAt = performance.now();
+  s.bornPending = false;
   for (const halo of haloByColour.values()) {
     for (const node of halo.nodes) {
-      let alpha = gcLitAlpha(node._lit);
+      const born = gcBornAlpha(node, bornAt);
+      if (born < 1) s.bornPending = true;
+      let alpha = gcLitAlpha(node._lit) * born;
       if (node.type === "unresolved") alpha *= 0.4;
       const rWorld = node.r + node._grow;
       if (rWorld * pixelScale < GC_LOD_PX && !node._grow) {
@@ -1904,8 +2409,17 @@ function gcDraw(s = gcTab) {
         continue;
       }
       ctx.globalAlpha = alpha;
-      const hub = (s.adj.get(node.id) || { size: 0 }).size >= 3;
-      const sprite = gcNodeSprite(halo.colour, rWorld * pixelScale, hub);
+      //: The node keeps the sprite it drew last (Brief 100): the cache key
+      //: was a new string for every node on every frame of a hover fade.
+      const px = Math.max(2, Math.round(rWorld * pixelScale));
+      if (node._spritePx !== px || node._spriteEpoch !== s.epoch || node._spriteFor !== gcTokens) {
+        const hub = (s.adj.get(node.id)?.size || 0) >= 3;
+        node._sprite = gcNodeSprite(halo.colour, px, hub);
+        node._spritePx = px;
+        node._spriteEpoch = s.epoch;
+        node._spriteFor = gcTokens;
+      }
+      const sprite = node._sprite;
       const halfWorld = sprite.half / pixelScale;
       ctx.drawImage(sprite.canvas, node.x - halfWorld, node.y - halfWorld, halfWorld * 2, halfWorld * 2);
     }
@@ -1916,6 +2430,7 @@ function gcDraw(s = gcTab) {
     ctx.fill(batch.path);
   }
   s.lodNodes = lodNodes;
+  gcDrawLeaving(ctx, s, bornAt);
   //: The hovered node's halo, lit. A second fill over the one the batch
   //: already laid down, because pulling this node out of its colour batch to
   //: give it a different alpha would cost a fill per colour rather than a fill
@@ -2191,6 +2706,11 @@ function gcDraw(s = gcTab) {
     s.labelsDrawn = placed.length;
   }
   if (gcDrawLabels(ctx, s, placedLabels, fadeStep, k)) fading = true;
+  if (s.fitCheck > 0) {
+    const left = s.fitCheck - 1;
+    s.fitCheck = 0;
+    gcBalanceFit(s, placedLabels, left);
+  }
 
   // --- the pointed-at note's similarity scores -------------------------------
   //: Kumu's focus and Obsidian's hover both answer "what is this one joined
@@ -2265,7 +2785,8 @@ function gcDraw(s = gcTab) {
   //: One more frame while the hover is still growing or shrinking. Nothing
   //: is scheduled once `gcHoverStep` reports it has arrived, so an idle graph
   //: costs no frames at all.
-  if (easing || fading || gliding) gcRequestDraw(s);
+  s.pathsStale = gliding && Boolean(s.glideMs);
+  if (easing || fading || gliding || s.bornPending) gcRequestDraw(s);
 }
 
 //: The line under the pointer, drawn again over the rest, wider and in its
@@ -2729,7 +3250,8 @@ function gcWireInteraction(s = gcTab) {
       // Shift and drag on empty map is the lasso, not a pan.
       if (event.shiftKey) return false;
       const [x, y] = gcWorldPoint(event, s);
-      return !gcNodeAtWorld(x, y, s);
+      //: Nor a topic's name plate in the force layout: that is its handle.
+      return !gcNodeAtWorld(x, y, s) && !(s.layoutKind === "force" && gcPlateAtWorld(x, y, s));
     })
     .on("start", () => {
       s.panning = true;
@@ -2754,7 +3276,12 @@ function gcWireInteraction(s = gcTab) {
       // `sourceEvent` is set for a real gesture and null for a programmatic
       // transform, which is how "the user went to look at something" is told
       // apart from "the renderer framed the map".
-      if (event.sourceEvent) s.userZoomed = true;
+      //: A gesture also cancels a pending fit balance (`gcBalanceFit`): the
+      //: user has taken the camera, a late correction would yank it back.
+      if (event.sourceEvent) {
+        s.userZoomed = true;
+        s.fitCheck = 0;
+      }
       s.transform = event.transform;
       gcRequestDraw(s);
       gcRequestMinimapFrame(s);
@@ -2800,9 +3327,14 @@ function gcWireInteraction(s = gcTab) {
         if (s.layoutKind !== "force") return null;
         const [x, y] = gcWorldPoint(event, s);
         const node = gcNodeAtWorld(x, y, s);
-        if (!node) return null;
-        const [sx, sy] = (s.transform || d3.zoomIdentity).apply([node.x, node.y]);
-        return { node, x: sx, y: sy };
+        //: A topic's name plate is its handle (the owner, 2026-10-10: "I
+        //: want to be able to drag whole topics around on the graph"): the
+        //: drag takes the topic's most linked note and carries the rest.
+        const topic = node ? null : gcPlateAtWorld(x, y, s);
+        const held = node || (topic && gcTopicCore(topic, s));
+        if (!held) return null;
+        const [sx, sy] = (s.transform || d3.zoomIdentity).apply([held.x, held.y]);
+        return { node: held, topic, x: sx, y: sy };
       })
       //: **A press is not a drag until it has moved** (INBOX 587, the owner:
       //: "when I click nodes on the graph, it moves the graph slightly??").
@@ -2831,7 +3363,10 @@ function gcWireInteraction(s = gcTab) {
           event.subject.pressed = null;
           //: A click. `holdFired` is a long press that opened the node's menu
           //: (see `gcDragEnd`).
-          if (!s.holdFired) gcClickNode(event.sourceEvent, event.subject.node, s);
+          if (s.holdFired) {
+            // a hold opened the node's menu: nothing more
+          } else if (event.subject.topic) gcOpenTopic(event.subject.topic);
+          else gcClickNode(event.sourceEvent, event.subject.node, s);
           gcRequestDraw(s);
           return;
         }
@@ -2855,6 +3390,10 @@ function gcWireInteraction(s = gcTab) {
     //: gesture the reader began, and a Shift pressed or released mid-drag
     //: would otherwise change what the gesture meant halfway through.
     node._dragShift = Boolean(event.sourceEvent && event.sourceEvent.shiftKey);
+    //: A topic moved by its name stays where it is put, as a group: a
+    //: released group would drift back into the layout one note at a time.
+    s.dragTopic = event.subject.topic || null;
+    if (s.dragTopic) node._dragShift = true;
     const [wx, wy] = (s.transform || d3.zoomIdentity).invert([event.x, event.y]);
     node.fx = wx;
     node.fy = wy;
@@ -2866,9 +3405,14 @@ function gcWireInteraction(s = gcTab) {
     //: same rule as the note in hand: a plain drag places, Shift pins, and
     //: a note that was pinned stays pinned at its new place. A note outside
     //: the selection drags alone, as it always has.
-    s.dragGroup =
-      s.selected.has(node.id) && s.selected.size > 1
+    const carriedNodes = s.dragTopic
+      ? gcTopicMembers(s.dragTopic, s)
+      : s.selected.has(node.id) && s.selected.size > 1
         ? gcSelectedNodes(s)
+        : null;
+    s.dragGroup =
+      carriedNodes
+        ? carriedNodes
             .filter((other) => other !== node && !other.isGroup)
             .map((other) => ({
               node: other,
@@ -2929,7 +3473,7 @@ function gcWireInteraction(s = gcTab) {
     //: not "link these two", and guessing which of the carried notes was
     //: meant would be.
     s.dropTarget =
-      s.size === "full" && !s.dragGroup.length ? graphNodeUnder(node, { x: wx, y: wy }) : null;
+      s.size === "full" && !s.dragGroup.length && !s.dragTopic ? graphNodeUnder(node, { x: wx, y: wy }) : null;
     gcRequestDraw(s);
   }
 
@@ -2953,6 +3497,8 @@ function gcWireInteraction(s = gcTab) {
     //: pinned node is a reposition, not a request to release it.
     const keep = node._dragShift || node._wasPinned;
     gcPost({ type: "drag", phase: "end", id: node.id, keep }, s);
+    const pins = [];
+    const steps = [];
     for (const mate of s.dragGroup) {
       const mateKeeps = node._dragShift || mate.wasPinned;
       gcPost({ type: "drag", phase: "end", id: mate.node.id, keep: mateKeeps }, s);
@@ -2966,13 +3512,17 @@ function gcWireInteraction(s = gcTab) {
         //: hand, below.
         mate.node.graph_pin_x = mate.node.fx;
         mate.node.graph_pin_y = mate.node.fy;
-        apiJson(`/graph/pin/${mate.node.id}`, {
-          method: "PUT",
-          body: JSON.stringify({ x: mate.node.fx, y: mate.node.fy }),
-        }).catch(() => {});
+        pins.push({ id: mate.node.id, x: mate.node.fx, y: mate.node.fy });
+        steps.push({ id: mate.node.id, before: mate.wasPinned ? { x: mate.startX, y: mate.startY } : null, after: { x: mate.node.fx, y: mate.node.fy } });
       }
     }
+    //: One write for the carried notes (`PUT /graph/pins`): a topic of forty
+    //: was forty requests.
+    const savePins = () => apiJson("/graph/pins", { method: "PUT", body: JSON.stringify({ pins }) })
+      .catch(() => toast("The moved notes were not pinned where you left them.", true, { action: ["Try again", savePins] }));
     s.dragGroup = [];
+    const wasTopic = s.dragTopic;
+    s.dragTopic = null;
     gcPost({ type: "thaw" }, s);
     if (!keep) {
       node.fx = null;
@@ -2990,7 +3540,8 @@ function gcWireInteraction(s = gcTab) {
       //: and cleared by the next press on the canvas
       //: (`gcWireNodeMenu`), so it says "this gesture was a hold" and
       //: nothing about the one after it.
-      gcClickNode(event.sourceEvent, node, s);
+      if (wasTopic) gcOpenTopic(wasTopic);
+      else gcClickNode(event.sourceEvent, node, s);
     } else if (!node.isGroup && keep) {
       //: Only a real pin is written down. A placement that the simulation
       //: is free to relax has no position worth surviving a reload, and
@@ -2998,7 +3549,15 @@ function gcWireInteraction(s = gcTab) {
       //: then had to find and undo.
       node.graph_pin_x = node.fx;
       node.graph_pin_y = node.fy;
-      apiJson(`/graph/pin/${node.id}`, {
+      //: A topic carried by its core note is one write with its mates
+      //: (ledger 931: it was the group's PUT plus this one).
+      steps.push({
+        id: node.id,
+        before: node._wasPinned ? { x: node._dragStartX, y: node._dragStartY } : null,
+        after: { x: node.fx, y: node.fy },
+      });
+      if (pins.length) pins.push({ id: node.id, x: node.fx, y: node.fy });
+      else apiJson(`/graph/pin/${node.id}`, {
         method: "PUT",
         body: JSON.stringify({ x: node.graph_pin_x, y: node.graph_pin_y }),
       }).catch(() => {
@@ -3007,6 +3566,8 @@ function gcWireInteraction(s = gcTab) {
         // reload and nothing else.
       });
     }
+    if (steps.length) graphPinStep(steps.length === 1 ? "Moved a pinned note" : `Moved ${steps.length} pinned notes`, steps);
+    if (pins.length) savePins();
     gcRequestDraw(s);
   }
 
@@ -3018,6 +3579,14 @@ function gcWireInteraction(s = gcTab) {
     //: A line answers the pointer only where no note does, and only on the
     //: tab, whose click opens the peek (`openGraphLinkPeek`, graph.js).
     const edge = !node && s.size === "full" ? gcEdgeAtWorld(x, y, s) : null;
+    //: A topic's name plate says what it does (the owner could not find how
+    //: to rename one): the hand cursor, and the two gestures on its title.
+    const plate = !node && !edge && s.size === "full" ? gcPlateAtWorld(x, y, s) : null;
+    if (plate !== s.hoverPlate) {
+      s.hoverPlate = plate;
+      s.canvas.classList.toggle("graph-plate-hover", Boolean(plate) && s.layoutKind === "force");
+      if (!node && !edge) s.canvas.title = gcPlateTitle(plate, s);
+    }
     if (id !== s.hoveredId || edge !== s.hoverEdge) {
       if (id !== s.hoveredId) {
         gcSetHovered(s, id);
@@ -3028,16 +3597,17 @@ function gcWireInteraction(s = gcTab) {
       // The native tooltip the SVG renderer got from a `<title>` child. A
       // canvas has no children, so the canvas itself carries whichever one
       // applies.
-      s.canvas.title = node ? gcTooltip(node, s) : edge ? "Click to see this connection" : "";
+      s.canvas.title = node ? gcTooltip(node, s) : edge ? "Click to see this connection" : gcPlateTitle(plate, s);
       gcRequestDraw(s);
     }
   });
   s.canvas.addEventListener("pointerleave", () => {
-    if (s.hoveredId == null && !s.hoverEdge) return;
+    if (s.hoveredId == null && !s.hoverEdge && !s.hoverPlate) return;
     gcSetHovered(s, null);
     gcHoverChanged(null, s);
     s.hoverEdge = null;
-    s.canvas.classList.remove("graph-edge-hover");
+    s.hoverPlate = null;
+    s.canvas.classList.remove("graph-edge-hover", "graph-plate-hover");
     s.canvas.title = "";
     gcRequestDraw(s);
   });
@@ -3065,6 +3635,12 @@ function gcWireInteraction(s = gcTab) {
     //: tab's, and all three are placed against `#graph-box`. A pane that
     //: opened one would put it over a map on another tab.
     if (s.size !== "full") return;
+    //: In force a plate's click is the drag's (`gcOpenTopic` at its end).
+    const plate = s.layoutKind === "force" ? null : gcPlateAtWorld(x, y, s);
+    if (plate) {
+      gcOpenTopic(plate);
+      return;
+    }
     const edge = gcEdgeAtWorld(x, y, s);
     if (edge) {
       openGraphLinkPeek(edge, event, s.nodes);
@@ -3078,6 +3654,11 @@ function gcWireInteraction(s = gcTab) {
   s.canvas.addEventListener("dblclick", (event) => {
     const [x, y] = gcWorldPoint(event, s);
     const node = gcNodeAtWorld(x, y, s);
+    const plate = node || s.size !== "full" ? null : gcPlateAtWorld(x, y, s);
+    if (plate) {
+      gcRenameTopicInline(plate);
+      return;
+    }
     if (!node) {
       // Grow the map: double-click empty space to add a note right there.
       //: The tab only, same reason as the click above: the form is placed
@@ -3117,6 +3698,11 @@ function gcTogglePin(node, s = gcTab) {
   if (node.isGroup) return;
   node.graph_pin_x = wasPinned ? null : node.fx;
   node.graph_pin_y = wasPinned ? null : node.fy;
+  graphPinStep(wasPinned ? "Unpinned a note" : "Pinned a note", [{
+    id: node.id,
+    before: wasPinned ? { x: node.x, y: node.y } : null,
+    after: node.graph_pin_x == null ? null : { x: node.graph_pin_x, y: node.graph_pin_y },
+  }]);
   apiJson(`/graph/pin/${node.id}`, {
     method: "PUT",
     body: JSON.stringify({ x: node.graph_pin_x, y: node.graph_pin_y }),
@@ -3255,16 +3841,20 @@ function gcWireSelectionDock(s = gcTab) {
     const tag = (await promptDialog("Tag these notes", "", { confirmLabel: "Add tag" })).trim().replace(/^#/, "");
     if (!tag) return;
     let done = 0;
+    const changes = [];
     for (const node of nodes) {
       const tags = Array.from(new Set([...(node.tags || []), tag]));
+      const wasTags = [...(node.tags || [])];
       // PUT: the entries route has no PATCH, and EntryUpdate leaves every
       // field it is not given alone.
       const ok = await apiJson(`/entries/${node.id}`, { method: "PUT", body: JSON.stringify({ tags }) }).catch(() => null);
       if (ok) {
         node.tags = tags;
         done += 1;
+        changes.push({ id: node.id, before: { tags: wasTags }, after: { tags } });
       }
     }
+    if (changes.length) pushEntriesPutUndo(`Tagged ${changes.length} note${changes.length === 1 ? "" : "s"} #${tag}`, changes, () => renderGraph());
     toast(`Tagged ${done} note${done === 1 ? "" : "s"} #${tag}.`);
     renderGraph();
   });
@@ -3355,6 +3945,7 @@ function gcWireSelectionDock(s = gcTab) {
       toast("Could not create the map.");
       return;
     }
+    pushBinPairUndo(`Made the mind map “${name}”`, `/entries/${board.id}`, `/entries/${board.id}/restore`, true, () => (typeof refreshBoardList === "function" ? refreshBoardList() : null));
     //: **The way to it, on the notice and in the bell** (INBOX 607: "the
     //: notification included no link to it"). Open lays the map out against
     //: its topics' real sizes as it opens, the step an import takes too.
@@ -3572,6 +4163,7 @@ async function gcWriteUnresolved(node) {
       body: JSON.stringify({ content: `# ${node.preview}`, defer_filing: true }),
     });
     if (created.filing_state === "pending" && typeof watchFiling === "function") watchFiling(created);
+    pushEntryCreateUndo(created, `Wrote the note “${node.preview}”`);
     toastAction(`Wrote “${node.preview}”.`, "Open", () => flashEntry(created.id), { go: { open: "entry", id: created.id } });
     await renderGraph();
   } catch (error) {
@@ -3645,7 +4237,7 @@ function gcReshuffle(s = gcTab) {
     {
       type: "reshuffle",
       seed: s.layoutSeed,
-      animate: !window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches,
+      animate: !gcStill(),
     },
     s
   );
@@ -3658,6 +4250,8 @@ function gcReshuffle(s = gcTab) {
 //: so they hold still while `alpha: 1` places the notes that have no saved
 //: spot. `null` (every other caller) is the unchanged "alpha 1, nothing
 //: frozen" behaviour.
+//: The heat an update starts from: the worker's `DRAG_ALPHA`.
+const GC_UPDATE_ALPHA = 0.3;
 function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
   if (!s.worker) {
     // Version-stamped for the same reason index.html's script tags are
@@ -3715,6 +4309,7 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
           node._toY = positions[i * 2 + 1];
         }
         s.glideFrom = now;
+        s.glideMs = 0;
         s.gliding = true;
         // The positions moved, so the hit-test index is stale. Marked here
         // rather than at the end of every draw: a settled map redraws on
@@ -3738,10 +4333,20 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
         // deliberately gone to look at something is the reported bug
         // `graphAutoFitDone` exists for, and an early fit must not reintroduce
         // it by making the late fit unconditional.
-        if (!gcAutoFitDone(s) && s.nodes.length) {
+        //: The warm-up's playback (`frame`, below) is framed already: the
+        //: fits wait for the live layout, which starts where it ends.
+        if (!message.intro) s.intro = false;
+        if (!gcAutoFitDone(s) && s.nodes.length && !s.intro) {
           if (!s.fittedOnce) {
             s.fittedOnce = true;
-            fitGraphToView(s.svg, null, s.zoom, s.nodes, s.dims.w, s.dims.h);
+            //: Instant (INBOX 738): a glide from the default camera is the
+            //: zoomed-in first frames the hiding exists to keep off screen.
+            //: And framed on where this tick put the notes, not where the
+            //: glide has them: `x`/`y` are still the starting spiral until
+            //: the next paint, which is what the first fit used to frame
+            //: (k 2.5, the clamp, on 60 notes).
+            gcGlideFinish(s);
+            fitGraphToView(s.svg, null, s.zoom, s.nodes, s.dims.w, s.dims.h, true);
             gcReveal(s);
           } else if (message.alpha < 0.08) {
             gcSetAutoFitDone(s, true);
@@ -3761,6 +4366,8 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
           graphMinimapTick += 1;
           if (graphMinimapTick % 8 === 0) graphMinimapQueuePaint();
         }
+      } else if (message.type === "frame") {
+        gcFrameIntro(s, message.positions);
       } else if (message.type === "end") {
         //: At rest is where the last tick said: the glide is finished here,
         //: not by the next paint, so the fit below frames the final shape.
@@ -3768,6 +4375,7 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
         //: What just came to rest, so the next render of exactly these
         //: inputs can hold it instead of settling it again (`gcStartWorker`).
         s.settledSig = s.layoutSig;
+        gcSavePositions(s);
         if (s.size === "full") graphMinimapQueuePaint();
         if (!gcAutoFitDone(s) && s.nodes.length) {
           gcSetAutoFitDone(s, true);
@@ -3797,13 +4405,31 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
     };
   }
   s.fittedOnce = false;
+  s.intro = false;
   //: Hidden until the first fit (the owner, 2026-10-07: "the crazy starting
   //: zoom in on the graph before it fits"): the first frames drew at the
-  //: default camera. Shown at that fit, or after 1.5 s whatever happens.
-  if (!gcAutoFitDone(s) && s.canvas) {
+  //: default camera. Shown at that fit, or after 4 s whatever happens (a
+  //: worker that fails reveals at once, `onerror`). It was 1.5 s, which a
+  //: busy machine's first open (the worker script and d3 fetched, the
+  //: layout warmed) overran, revealing the default camera.
+  //: **Only a canvas that has shown nothing yet** (the owner, round 2:
+  //: "I just change views or reset it and it just suddenly changes or
+  //: disappears and reappears"). A new layout, a return to the tab, Refresh
+  //: or a saved view starts from the map on screen and moves from there.
+  const reframe = !gcAutoFitDone(s);
+  if (reframe && s.canvas && !s.shown) {
     s.canvas.style.opacity = "0";
-    setTimeout(() => gcReveal(s), 1500);
+    setTimeout(() => gcReveal(s), 4000);
   }
+  const hidden = s.canvas?.style.opacity === "0";
+  //: **A saved view's notes are held from the first step** (claim #238): the
+  //: `freeze` below arrived after `init`, and an init that warmed (a view
+  //: re-picks its layout, which clears the fit, so `reframe`) stepped every
+  //: note 450ms before the hold landed: 726px off the saved spots once a
+  //: note had been added since. Held in the init itself now, with no warm-up
+  //: and no intro for a restore.
+  const held = new Set(viewSeed?.freezeIds || []);
+  const restoring = Boolean(viewSeed?.restore);
   const init = {
     type: "init",
     epoch: s.epoch,
@@ -3816,6 +4442,7 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
       y: n.y,
       fx: n.fx == null ? null : n.fx,
       fy: n.fy == null ? null : n.fy,
+      held: held.has(n.id),
       r: n.r,
       group: n.category || "",
     })),
@@ -3841,6 +4468,14 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
     // at rest instead of relaxing it (see the decision on `viewSeed` above),
     // 1 is every other caller's unchanged behaviour.
     alpha: viewSeed ? viewSeed.alpha : 1,
+    //: Step the layout out of its starting spiral before the first post
+    //: (the worker's `WARM_MS`) whenever the map is framed again, so the
+    //: frame is set on where it ends.
+    warm: reframe && !restoring && !(viewSeed && viewSeed.alpha === 0),
+    //: And then play those steps back, framed on where they end (the
+    //: worker's `INTRO_HOLD`), unless the reader asked for less motion: they
+    //: get the settled map at once, as before.
+    intro: !gcStill() && !restoring,
   };
   //: **A layout that already settled is held, not settled again** (INBOX
   //: 424c/d). Every visit to the Graph tab refetched the map and restarted
@@ -3864,6 +4499,13 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
     world,
   ]);
   if (init.alpha && viewSeed?.holdIfSettled && s.settledSig === sig) init.alpha = 0;
+  //: **An update moves the map from where it is** (Brief 100 (a)): a filter,
+  //: a hidden category or a deleted note, every note still there already
+  //: placed and the forces unchanged, reheats as a drag does rather than
+  //: from full heat, which shuffled the whole map for one note's change.
+  const forces = JSON.stringify([init.params, init.seed, init.perf]);
+  if (init.alpha === 1 && viewSeed?.holdIfSettled && s.lastForces === forces) init.alpha = GC_UPDATE_ALPHA;
+  s.lastForces = forces;
   s.layoutSig = sig;
   s.settledSig = null;
   gcPost(init, s);
@@ -3874,6 +4516,65 @@ function gcStartWorker(nodes, edges, world, s = gcTab, viewSeed = null) {
     gcPost({ type: "freeze", ids: viewSeed.freezeIds }, s);
     s._viewRestorePending = true;
   }
+}
+
+//: **The camera is framed on where the warm-up ends, before it is played**
+//: (the worker's `intro`, INBOX 775): the notes then move into a frame that
+//: already holds them, rather than the frame chasing the notes (INBOX 738's
+//: zoomed-in start). Instant, and the map is shown here.
+//: **The map opens where it was left** (Brief 100 (a); INBOX 864, and the
+//: owner 2026-10-11: "there is still no smooth transition loading up the app
+//: nd viewing the graph, it kinda just appears"). Measured before
+//: (`load.js`, 200 notes, the app loading onto Graph): the canvas waited
+//: hidden, came in at 0.8 opacity in one frame, and the spiral then spread
+//: from 241 to 630 px wide in four frames. The settled positions are kept in
+//: this browser, for the layout and the forces they were settled under, and
+//: a page's first draw starts from them the way a saved view does
+//: (`graphApplyView`): every note they know holds, a note they do not is
+//: placed by the settle with the rest held, and the first fit frames the
+//: picture the reader last saw. A per-viewer convenience only: an empty,
+//: stale or blocked store gives the warm-up as before.
+const GC_POS_KEY = "graphPositions";
+const GC_POS_MAX = 5000;
+function gcPositionsSig(s) {
+  return JSON.stringify([s.layoutSeed || 0, gcWorkerParams(s)]);
+}
+function gcSavePositions(s) {
+  if (s.size !== "full" || s.tree || graphFocusModeId || !s.nodes.length || s.nodes.length > GC_POS_MAX) return;
+  const at = {};
+  for (const node of s.nodes) {
+    if (Number.isFinite(node.x) && Number.isFinite(node.y)) at[node.id] = [Math.round(node.x), Math.round(node.y)];
+  }
+  try {
+    prefs.set(GC_POS_KEY, JSON.stringify({ sig: gcPositionsSig(s), at }));
+  } catch (e) {
+    // A full or blocked store costs only the next open's head start.
+  }
+}
+function gcCachedPositions(s) {
+  if (s.size !== "full" || graphFocusModeId) return null;
+  try {
+    const kept = prefs.json(GC_POS_KEY, null);
+    if (!kept || kept.sig !== gcPositionsSig(s) || !kept.at) return null;
+    const out = {};
+    for (const [id, xy] of Object.entries(kept.at)) {
+      if (Array.isArray(xy) && Number.isFinite(xy[0]) && Number.isFinite(xy[1])) out[id] = { x: xy[0], y: xy[1] };
+    }
+    return out;
+  } catch (e) {
+    return null;
+  }
+}
+
+function gcFrameIntro(s, positions) {
+  if (gcAutoFitDone(s) || !s.nodes.length || positions.length < s.nodes.length * 2) return;
+  s.fittedOnce = true;
+  s.intro = true;
+  const target = s.nodes.map((node, i) => ({ x: positions[i * 2], y: positions[i * 2 + 1], r: node.r }));
+  //: Instant behind the fade of a first open; on a map already showing, the
+  //: camera eases to the new frame while the notes move.
+  fitGraphToView(s.svg, null, s.zoom, target, s.dims.w, s.dims.h, s.canvas?.style.opacity === "0");
+  gcReveal(s);
 }
 
 //: The world the simulation solves in, a square whose side grows with
@@ -3978,9 +4679,59 @@ function gcShowEveryNote(s = gcTab) {
 
 document.getElementById("graph-empty-show-all")?.addEventListener("click", () => gcShowEveryNote());
 
+//: **A note new to a placed map starts beside what it is linked to** (Brief
+//: 100 (a): "new ones grow in"). It started on the centre spiral, so a note
+//: added, or a category shown again, flew in from the middle of the map
+//: through everything between. Now it starts at the middle of its placed
+//: neighbours, else of its placed category, a few units off so two do not
+//: coincide, and fades in there (`node._born`); only a note with neither
+//: keeps the spiral.
+function gcSeedBesideNeighbours(s, nodes) {
+  if (!nodes.some((n) => Number.isFinite(n.x)) || nodes.every((n) => Number.isFinite(n.x))) return;
+  const byCategory = new Map();
+  for (const node of nodes) {
+    if (!Number.isFinite(node.x)) continue;
+    const sum = byCategory.get(node.category) || { x: 0, y: 0, n: 0 };
+    sum.x += node.x;
+    sum.y += node.y;
+    sum.n += 1;
+    byCategory.set(node.category, sum);
+  }
+  nodes.forEach((node, index) => {
+    if (Number.isFinite(node.x)) return;
+    let x = 0, y = 0, n = 0;
+    for (const id of s.adj.get(node.id) || []) {
+      const mate = s.byId.get(id);
+      if (!mate || !Number.isFinite(mate.x)) continue;
+      x += mate.x;
+      y += mate.y;
+      n += 1;
+    }
+    const home = n ? { x: x / n, y: y / n } : byCategory.get(node.category);
+    if (!home || (!n && !home.n)) return;
+    const cx = n ? home.x : home.x / home.n;
+    const cy = n ? home.y : home.y / home.n;
+    const angle = index * 2.399963;
+    node.x = cx + 12 * Math.cos(angle);
+    node.y = cy + 12 * Math.sin(angle);
+  });
+}
+
 async function renderGraphCanvas(s = gcTab) {
   if (!gcEnsureCanvas(s)) return;
   const sequence = ++s.renderSeq;
+  //: **Whether this render frames the map is decided now, before the first
+  //: await** (the owner, 2026-10-10: "I went onto the radial view and it put
+  //: me on a random corner", "same with the tree"). A layout switch clears
+  //: the fit flag and calls this; while `/graph` is fetched, the force layout
+  //: it is replacing is still cooling, and its first tick under alpha 0.08
+  //: read the cleared flag as its own settle fit, framed the old force
+  //: positions and set the flag again. The radial then arrived with the flag
+  //: set, skipped `frameTree`, and sat under the force camera: measured on 60
+  //: notes, the radial's centre 541px left and 247px up of the view's at the
+  //: force's k 0.79. Captured here, the old simulation can spend the flag
+  //: and this render still frames what it draws.
+  const reframe = !gcAutoFitDone(s);
   const wantSimilarity = document.getElementById("graph-similarity").checked;
   const wantEntities = document.getElementById("graph-entities")
     ? document.getElementById("graph-entities").checked
@@ -3993,6 +4744,7 @@ async function renderGraphCanvas(s = gcTab) {
     : false;
   graphSyncFocusChip();
   void wantEntities, wantDocuments, wantMaps;
+  if (!s.shown) gcArriving(s, true);
   const endpoint = graphEndpoint();
   //: A failed read is not an empty graph. Reported class of bug: the map
   //: drew "Nothing to map yet" over a notebook full of linked notes because
@@ -4000,6 +4752,7 @@ async function renderGraphCanvas(s = gcTab) {
   //: See `surfaceFailed` in navigation.js.
   const data = await apiJson(endpoint).then(graphFill).catch(() => null);
   if (!data) {
+    gcArriving(s, false);
     surfaceFailed(document.getElementById("graph-empty"), "map", renderGraph);
     //: And the overview goes with the map it summarises, exactly as it does
     //: when there is nothing to map.
@@ -4014,10 +4767,14 @@ async function renderGraphCanvas(s = gcTab) {
   s.timing = { dataAt: performance.now(), firstFrame: 0, lastFrame: 0, frames: 0 };
   // A fresh visit to the tab (`graphAutoFitDone` cleared by switchTab) is also
   // a fresh camera: forget that the last visit's viewer had zoomed somewhere.
-  if (!gcAutoFitDone(s)) s.userZoomed = false;
+  if (reframe) {
+    gcSetAutoFitDone(s, false);
+    s.userZoomed = false;
+  }
 
   gcReadTokens(s);
   gcShowEmpty(data.nodes.length === 0);
+  if (!data.nodes.length) gcArriving(s, false);
   //: The minimap goes with the map, here as in `renderGraphSvg`: an overview
   //: of nothing is a grey rectangle in a corner. Reported against this
   //: renderer, which is the default, so the SVG one's copy of this line alone
@@ -4128,7 +4885,9 @@ async function renderGraphCanvas(s = gcTab) {
   // inherits the result forward through `prior`, above, the same as any
   // other re-render already does. Only meaningful for force: a tree/radial/
   // arc layout is recomputed deterministically below and never reads this.
-  const viewPositions = graphPendingViewPositions;
+  const restoring = Boolean(graphPendingViewPositions) && s.layoutKind === "force";
+  const viewPositions =
+    graphPendingViewPositions || (s.layoutKind === "force" && !prior.size ? gcCachedPositions(s) : null);
   graphPendingViewPositions = null;
   // Decision made, 2026-09-21 (GRAPH_PLAN): a restored arrangement holds, it
   // does not re-settle. A note the view captured gets exactly its saved
@@ -4202,6 +4961,7 @@ async function renderGraphCanvas(s = gcTab) {
     const centreX = width / 2;
     const centreY = height / 2;
     const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+    gcSeedBesideNeighbours(s, nodes);
     nodes.forEach((node, index) => {
       if (Number.isFinite(node.x) && Number.isFinite(node.y)) return;
       const radius = 10 * Math.sqrt(0.5 + index);
@@ -4212,6 +4972,11 @@ async function renderGraphCanvas(s = gcTab) {
   }
   // Everything the worker could still be about is now gone: whatever it says
   // next is about the previous node array and is dropped on arrival.
+  //: From the map that was there (`gcTweenFromPrior`): a computed layout
+  //: glides across; on the force layout the worker carries the notes, and
+  //: only a note new to the picture is marked to fade in.
+  if (!s.tree && prior.size) gcTweenFromPrior(s, nodes, prior, false);
+  gcMarkLeaving(s, graphNodesRef, nodes);
   s.epoch += 1;
   s.nodes = nodes;
   s.edges = edges;
@@ -4227,14 +4992,24 @@ async function renderGraphCanvas(s = gcTab) {
     //: The positions a tree leaves behind are the tree's, not a force
     //: layout's, so nothing may be held from them afterwards.
     s.settledSig = null;
-    if (!gcAutoFitDone(s)) {
+    if (reframe || !gcAutoFitDone(s)) {
       gcSetAutoFitDone(s, true);
-      frameTree(s.svg, s.zoom, null, nodes, width, height, s.tree.radial, s.tree.arc);
+      //: From the default camera (the first frame of a page load) the
+      //: framing is instant, as the force layout's first fit is (INBOX 738):
+      //: a glide from k 1 to an arc's 0.31 is the zoomed-in start reported.
+      const untouched = !s.transform || (s.transform.k === 1 && s.transform.x === 0 && s.transform.y === 0);
+      frameTree(s.svg, s.zoom, null, nodes, width, height, s.tree.radial, s.tree.arc, untouched);
     }
+    //: After the frame, which is set on where the notes are going.
+    gcTweenFromPrior(s, nodes, prior);
   } else {
+    //: The stale simulation could still have spent the flag during the
+    //: awaits above (it is only cut off by the epoch bump, just now).
+    if (reframe) gcSetAutoFitDone(s, false);
     gcStartWorker(nodes, edges, gcWorldFor(nodes.length, width, height), s, {
       alpha: viewPositions && !unplacedByView ? 0 : 1,
       freezeIds: seededUnpinnedIds,
+      restore: restoring,
       //: Every note is where the last layout left it: see the hold in
       //: `gcStartWorker`. A saved view's own seeding is its own decision.
       holdIfSettled: !viewPositions && visibleNodes.every((n) => Number.isFinite(prior.get(n.id)?.x)),
@@ -4560,6 +5335,32 @@ function graphRenderStats(data, nodes, edges, colourMode, layoutKind) {
             : "";
   line.textContent = parts.join(" · ");
   line.title = shape;
+  graphSyncLayoutChip(layoutKind);
+}
+
+//: **The map says which layout it is in when it is not Force.** A saved Tree
+//: or Arc is static by design (no drag, no settling), which read as a broken
+//: graph to someone who had forgotten choosing it. The dock's chip names it
+//: and opens the Layout choice (the gear's panel, or the phone's sheet).
+function graphSyncLayoutChip(layoutKind) {
+  const chip = document.getElementById("graph-layout-chip");
+  if (!chip) return;
+  const named = layoutKind && layoutKind !== "force";
+  chip.classList.toggle("hidden", !named);
+  if (named) setLabel(chip, `ph:tree-structure ${layoutKind[0].toUpperCase()}${layoutKind.slice(1)} layout`);
+  if (chip._wired) return;
+  chip._wired = true;
+  chip.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (window.matchMedia(PHONE_TABS).matches) {
+      if (!graphSheetClose) openGraphControlsSheet(chip);
+    } else {
+      setGraphOptionsOpen(true);
+    }
+    //: A timeout, not a frame: the wake-source ratchet counts frame loops, and
+    //: this runs once after the panel or sheet is in place.
+    setTimeout(() => focusSelect(document.getElementById("graph-layout")), 0);
+  });
 }
 
 //: The time slider's bounds, recomputed every render. They used to be computed
@@ -4987,9 +5788,33 @@ async function gcRelinkPairs(pairs) {
   renderGraph();
 }
 
+//: The map arrives over two `--ui-slow` (Brief 100): over `--ui-fast` it was
+//: one frame on a busy machine, which read as the graph simply appearing.
+//: The token is 0 with interface animations off, so that case cuts.
+//: **A soft placeholder while the first map is on its way** (Brief 100, the
+//: owner: "it kinda just appears after the page loads"). Measured on a first
+//: open (scratchpad/g100 load.js FIRST=1): the tab's skeleton went and the
+//: card stood empty for 430 to 730ms while /graph, the worker and its
+//: warm-up ran, then the map arrived. The box breathes a faint glow from the
+//: render's start until the canvas reveals (`gcReveal`), an empty or failed
+//: read, or 6s, whichever is first; the glow fades as the map fades in
+//: (graph-lazy.css).
+function gcArriving(s, on) {
+  const box = document.getElementById(s.boxId);
+  if (!box) return;
+  box.classList.toggle("graph-arriving", on);
+  clearTimeout(s.arrivingTimer);
+  if (on) s.arrivingTimer = setTimeout(() => box.classList.remove("graph-arriving"), 6000);
+}
+
 function gcReveal(s) {
+  s.shown = true;
+  gcArriving(s, false);
   if (s.canvas && s.canvas.style.opacity === "0") {
-    s.canvas.style.transition = "opacity var(--ui-fast) var(--ease-out)";
+    //: Cut, not faded, for a reader who asked for less motion (Brief 100:
+    //: "reduced motion keeps everything instant"); the token alone follows
+    //: Interface animations, which play under the system hint.
+    s.canvas.style.transition = gcStill() ? "none" : "opacity calc(var(--ui-slow) * 2) var(--ease-out)";
     s.canvas.style.opacity = "";
   }
 }

@@ -1,7 +1,7 @@
 """The notebook's AI is called Atlas, once, at the head of each prompt.
 
 INBOX 225, decision taken: a name is a *theme*, not a persona. One constant
-(`memorymap.ai.AI_NAME`) and one clause at the head of each prompt that
+(`tessellate.ai.AI_NAME`) and one clause at the head of each prompt that
 speaks as the app: the chat and Ask librarian, the agent, and the in-app
 help chat. No backstory, no tone instructions, no other prompt growth.
 
@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from memorymap.ai import AI_NAME, agent, help_chat, librarian
+from tessellate.ai import AI_NAME, agent, help_chat, librarian
 from tests._app_js import app_js_text
 from tests._app_js import frontend_text
 

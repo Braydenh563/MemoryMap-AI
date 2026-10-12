@@ -58,7 +58,7 @@ def test_the_handler_posts_each_file_to_documents_import_with_both_headers():
 def test_the_help_surfaces_name_the_new_control():
     popover = re.search(r'id="library-docs-help"[^>]*>(.*?)</div>', INDEX, re.S)
     assert popover and "Import a file" in popover.group(1)
-    from memorymap.ai.help_topics_more import MORE_TOPICS
+    from tessellate.ai.help_topics_more import MORE_TOPICS
 
     topic = next(t for t in MORE_TOPICS if t["id"] == "import-export")
     assert "as a document" in topic["body"]

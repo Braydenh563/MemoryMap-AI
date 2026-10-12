@@ -1,0 +1,74 @@
+{
+ "skill": "Auto-tag my notes",
+ "small_class": true,
+ "cases": [
+  {
+   "id": "work-notes",
+   "notebook": [
+    {
+     "content": "Quarterly report draft is due Friday",
+     "category": "Work",
+     "tags": []
+    },
+    {
+     "content": "Standup moved to 9:30 from next week",
+     "category": "Work",
+     "tags": []
+    },
+    {
+     "content": "Performance review notes for Alex",
+     "category": "Work",
+     "tags": [
+      "review"
+     ]
+    }
+   ],
+   "expect": {
+    "untagged_max": 0
+   }
+  },
+  {
+   "id": "cooking",
+   "notebook": [
+    {
+     "content": "Lentil soup: onions, carrots, red lentils",
+     "category": "Cooking",
+     "tags": []
+    },
+    {
+     "content": "Banana bread with walnuts",
+     "category": "Cooking",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "untagged_max": 0
+   }
+  },
+  {
+   "id": "mixed",
+   "notebook": [
+    {
+     "content": "Book the boiler service",
+     "category": "Home",
+     "tags": []
+    },
+    {
+     "content": "Lisbon flights booked for May",
+     "category": "Travel",
+     "tags": []
+    },
+    {
+     "content": "Walked 8k steps today",
+     "category": "Health",
+     "tags": [
+      "walking"
+     ]
+    }
+   ],
+   "expect": {
+    "untagged_max": 0
+   }
+  }
+ ]
+}

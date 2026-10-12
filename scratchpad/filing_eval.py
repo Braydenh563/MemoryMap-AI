@@ -141,11 +141,11 @@ NOTES = {
 
 def main() -> None:
     data_dir = tempfile.mkdtemp(prefix="mm-fileval-")
-    os.environ["MEMORYMAP_DATA_DIR"] = data_dir
+    os.environ["TESSELLATE_DATA_DIR"] = data_dir
     sys.path.insert(0, "src")
-    from memorymap.ai import lexical_filing
-    from memorymap.core.database import DatabaseManager as Database
-    from memorymap.entry import manager
+    from tessellate.ai import lexical_filing
+    from tessellate.core.database import DatabaseManager as Database
+    from tessellate.entry import manager
 
     from pathlib import Path
 

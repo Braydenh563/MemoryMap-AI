@@ -134,6 +134,7 @@ STAGE_PAIRS = (
     ("ocr-workspace", "ocr-read-page", "ocr-to-note"),  # Read, then Save as note (INBOX 717)
     ("ocr-workspace", "ocr-to-note", "ocr-edit-save"),  # editing the reading
     ("meeting-overlay", "meeting-record", "meeting-save"),  # Record, then Save
+    ("meeting-overlay", "meeting-save", "meeting-done-open"),  # then Open what was saved
     ("settings-searchindex", "embedding-apply", "embedding-error-fix"),  # a broken model
 )
 

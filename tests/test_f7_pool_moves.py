@@ -9,8 +9,8 @@ in the activity panel twice: the re-index has its own row, the probe is noise.
 
 from __future__ import annotations
 
-from memorymap.ai import model_manager
-from memorymap.core import deps, jobs
+from tessellate.ai import model_manager
+from tessellate.core import deps, jobs
 
 
 def test_the_reindex_runs_on_the_batch_lane_and_finishes(app_state, monkeypatch):
@@ -37,7 +37,7 @@ def test_the_reindex_runs_on_the_batch_lane_and_finishes(app_state, monkeypatch)
 
 
 def test_the_capability_probe_is_a_pool_job(monkeypatch):
-    from memorymap.api import routes_models
+    from tessellate.api import routes_models
 
     seen = []
     monkeypatch.setattr(jobs, "enqueue", lambda kind, func, *a, **k: seen.append(kind) or 1)

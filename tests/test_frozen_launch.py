@@ -1,10 +1,10 @@
 """The packaged Windows app's launch, on the parts that run on Linux.
 
-Every packaging smoke in CI sets `MEMORYMAP_DATA_DIR`, and an installed app
-never has it set: the Start Menu shortcut runs `MemoryMap AI.exe --desktop`
+Every packaging smoke in CI sets `TESSELLATE_DATA_DIR`, and an installed app
+never has it set: the Start Menu shortcut runs `Tessellate.exe --desktop`
 and nothing else. So the questions here are the ones those smokes could not
 ask. Where does a frozen build with no variable write its log and its window
-profile, and what does the "Repair MemoryMap AI" shortcut clear? What
+profile, and what does the "Repair Tessellate" shortcut clear? What
 happens when port 8000 belongs to something else? Does Settings' Restart
 button relaunch an exe that has no `-m`? Does the page arrive with the right
 types on a machine whose registry says `.js` is text?
@@ -22,15 +22,15 @@ from pathlib import Path
 
 import pytest
 
-import memorymap.__main__ as entry
-from memorymap.core import config as config_module
+import tessellate.__main__ as entry
+from tessellate.core import config as config_module
 
 
 @pytest.fixture
 def installed(monkeypatch, tmp_path):
     """A frozen build started the way the Start Menu starts it: no data
     directory variable, and a working directory that is not the data dir."""
-    monkeypatch.delenv("MEMORYMAP_DATA_DIR", raising=False)
+    monkeypatch.delenv("TESSELLATE_DATA_DIR", raising=False)
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.setattr(sys, "platform", "linux")
     home = tmp_path / "xdg"
@@ -38,7 +38,7 @@ def installed(monkeypatch, tmp_path):
     cwd = tmp_path / "started-in"
     cwd.mkdir()
     monkeypatch.chdir(cwd)
-    return home / "MemoryMap AI", cwd
+    return home / "Tessellate", cwd  # the new install's data folder (config._default_data_dir)
 
 
 # --- the data directory, with no variable set ------------------------------
@@ -66,7 +66,7 @@ def test_repair_clears_the_profile_the_window_really_uses(installed):
     data_dir, cwd = installed
     profile = data_dir / "webview" / "EBWebView"
     profile.mkdir(parents=True)
-    notes = data_dir / "memorymap.db"
+    notes = data_dir / "tessellate.db"
     notes.write_text("notes")
     entry._repair_install()
     assert not (data_dir / "webview").exists()
@@ -77,8 +77,8 @@ def test_no_launcher_code_falls_back_to_a_bare_data_folder():
     """The three sites that read the variable with a `"data"` default are
     the bug; `resolved_data_dir` is the one answer."""
     source = Path(entry.__file__).read_text(encoding="utf-8")
-    assert 'os.getenv("MEMORYMAP_DATA_DIR", "data")' not in source
-    assert 'os.environ.get("MEMORYMAP_DATA_DIR") or "data"' not in source
+    assert 'os.getenv("TESSELLATE_DATA_DIR", "data")' not in source
+    assert 'os.environ.get("TESSELLATE_DATA_DIR") or "data"' not in source
 
 
 # --- the port ---------------------------------------------------------------
@@ -125,7 +125,7 @@ def test_a_free_port_is_free():
 
 
 def test_another_copy_of_this_app_is_recognised(listener):
-    port = listener({"status": "ok", "app": "MemoryMap AI"})
+    port = listener({"status": "ok", "app": "Tessellate"})
     assert entry._port_holder(port) == "memorymap"
 
 
@@ -137,7 +137,7 @@ def test_something_else_on_the_port_is_not_this_app(listener):
 def test_the_window_moves_off_a_port_another_program_holds(listener, monkeypatch):
     """Port 8000 is every dev server's default. The window used to wait for
     *anything* to answer on it, then open whatever that was, inside the
-    MemoryMap window."""
+    Tessellate window."""
     port = listener({"app": "not us"})
     monkeypatch.setattr(entry, "PORT", port)
     chosen = entry._desktop_port()
@@ -149,7 +149,7 @@ def test_the_window_keeps_its_port_when_it_is_free_or_ours(listener, monkeypatch
     free = _free_port()
     monkeypatch.setattr(entry, "PORT", free)
     assert entry._desktop_port() == free
-    ours = listener({"app": "MemoryMap AI"})
+    ours = listener({"app": "Tessellate"})
     monkeypatch.setattr(entry, "PORT", ours)
     assert entry._desktop_port() == ours
 
@@ -158,16 +158,16 @@ def test_the_window_keeps_its_port_when_it_is_free_or_ours(listener, monkeypatch
 
 
 class _Notebook(http.server.BaseHTTPRequestHandler):
-    """A MemoryMap that answers `/health` and `/instance` the way the real
+    """A Tessellate that answers `/health` and `/instance` the way the real
     routes do, for a data-dir id the test chooses."""
 
     data_dir_id = ""
 
     def do_GET(self):  # noqa: N802
         if self.path == "/instance":
-            body = {"app": "MemoryMap AI", "data_dir_id": self.data_dir_id}
+            body = {"app": "Tessellate", "data_dir_id": self.data_dir_id}
         else:
-            body = {"status": "ok", "app": "MemoryMap AI"}
+            body = {"status": "ok", "app": "Tessellate"}
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
@@ -195,12 +195,12 @@ def notebook_server():
 
 
 def test_instance_route_reports_the_data_dir_id(client, app_state):
-    from memorymap.core import instance_lock
+    from tessellate.core import instance_lock
 
     response = client.get("/instance")
     body = response.json()
     assert response.status_code == 200
-    assert body["app"] == "MemoryMap AI"
+    assert body["app"] == "Tessellate"
     assert body["data_dir_id"] == instance_lock.data_dir_id(app_state.data_dir)
     # The id is a hash: the folder's path (it carries the user name) is not in it.
     assert str(app_state.data_dir) not in json.dumps(body)
@@ -209,11 +209,11 @@ def test_instance_route_reports_the_data_dir_id(client, app_state):
 def test_a_copy_on_the_same_data_dir_is_ours_and_is_reused(
     notebook_server, monkeypatch, tmp_path
 ):
-    from memorymap.core import instance_lock
+    from tessellate.core import instance_lock
 
     notes = tmp_path / "notes"
     notes.mkdir()
-    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(notes))
+    monkeypatch.setenv("TESSELLATE_DATA_DIR", str(notes))
     port = notebook_server(instance_lock.data_dir_id(notes))
     monkeypatch.setattr(entry, "PORT", port)
     assert entry._port_holder(port) == "memorymap"
@@ -221,12 +221,12 @@ def test_a_copy_on_the_same_data_dir_is_ours_and_is_reused(
 
 
 def test_a_copy_on_a_different_data_dir_is_not_ours(notebook_server, monkeypatch, tmp_path):
-    from memorymap.core import instance_lock
+    from tessellate.core import instance_lock
 
     mine, theirs = tmp_path / "mine", tmp_path / "theirs"
     mine.mkdir()
     theirs.mkdir()
-    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(mine))
+    monkeypatch.setenv("TESSELLATE_DATA_DIR", str(mine))
     port = notebook_server(instance_lock.data_dir_id(theirs))
     monkeypatch.setattr(entry, "PORT", port)
     assert entry._port_holder(port) == "other"
@@ -238,13 +238,13 @@ def test_a_copy_on_a_different_data_dir_is_not_ours(notebook_server, monkeypatch
 def test_a_server_without_the_instance_route_keeps_the_old_benefit_of_the_doubt(
     listener, monkeypatch, tmp_path
 ):
-    monkeypatch.setenv("MEMORYMAP_DATA_DIR", str(tmp_path))
-    port = listener({"status": "ok", "app": "MemoryMap AI"})
+    monkeypatch.setenv("TESSELLATE_DATA_DIR", str(tmp_path))
+    port = listener({"status": "ok", "app": "Tessellate"})
     assert entry._port_holder(port) == "memorymap"
 
 
 def test_data_dir_ids_compare_resolved_paths_and_case_on_windows(monkeypatch, tmp_path):
-    from memorymap.core import instance_lock
+    from tessellate.core import instance_lock
 
     real = tmp_path / "Notes"
     real.mkdir()
@@ -263,8 +263,8 @@ def test_data_dir_ids_compare_resolved_paths_and_case_on_windows(monkeypatch, tm
 
 def test_restart_relaunches_the_exe_without_python_flags(monkeypatch):
     """Settings' Restart and the console-mode switch spawned
-    `[sys.executable, "-m", "memorymap", "--desktop"]`. On the packaged app
-    `sys.executable` is `MemoryMap AI.exe`, whose argparse exits on `-m`, so
+    `[sys.executable, "-m", "tessellate", "--desktop"]`. On the packaged app
+    `sys.executable` is `Tessellate.exe`, whose argparse exits on `-m`, so
     the app closed and nothing came back."""
     import subprocess
 
@@ -285,9 +285,9 @@ def test_restart_relaunches_the_exe_without_python_flags(monkeypatch):
 
 def test_settings_finds_the_running_entry_module(monkeypatch):
     """A packaged build runs `__main__.py` as `__main__`, and PyInstaller
-    does not bundle a second copy as `memorymap.__main__` (nothing imports
-    it by that name), so `import_module("memorymap.__main__")` raised."""
-    from memorymap.api import routes_settings
+    does not bundle a second copy as `tessellate.__main__` (nothing imports
+    it by that name), so `import_module("tessellate.__main__")` raised."""
+    from tessellate.api import routes_settings
 
     fake = type(sys)("__main__")
     fake.restart_in_console_mode = lambda hidden: False
@@ -302,7 +302,7 @@ def test_script_types_do_not_come_from_the_registry(monkeypatch):
     """Windows' `mimetypes` reads the registry over Python's own table. A
     machine that maps `.js` to `text/plain` got every script refused under
     `nosniff`: a blank window."""
-    from memorymap.api import app as app_module
+    from tessellate.api import app as app_module
 
     saved = {ext: mimetypes.guess_type("x" + ext)[0] for ext in app_module.STATIC_MIME_TYPES}
     try:
@@ -322,7 +322,7 @@ def test_the_updater_follows_githubs_new_release_download_host():
     release-assets.githubusercontent.com; the updater re-checks every
     redirect against its allowlist, so a host missing there is every update
     failing at "couldn't download"."""
-    from memorymap.api import routes_update
+    from tessellate.api import routes_update
 
     allowed = routes_update._download_url_is_allowed
     assert allowed("https://release-assets.githubusercontent.com/github-production-release-asset/1/x")
@@ -332,7 +332,7 @@ def test_the_updater_follows_githubs_new_release_download_host():
 
 
 def test_the_about_panel_reads_the_changelog_from_the_bundle():
-    from memorymap.api import app as app_module
+    from tessellate.api import app as app_module
 
     assert (app_module.BUNDLE_ROOT / "CHANGELOG.md").is_file()
     assert app_module.FRONTEND_DIR == app_module.BUNDLE_ROOT / "frontend"

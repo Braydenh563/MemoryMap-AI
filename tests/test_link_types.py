@@ -16,7 +16,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from memorymap.core.database import LINK_TYPES
+from tessellate.core.database import LINK_TYPES
 
 GRAPH = Path(__file__).resolve().parents[1] / "frontend" / "js" / "graph.js"
 

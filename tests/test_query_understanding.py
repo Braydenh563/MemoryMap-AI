@@ -25,8 +25,8 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from memorymap.core.database import Entry, EntryLink
-from memorymap.search import query, search_manager
+from tessellate.core.database import Entry, EntryLink
+from tessellate.search import query, search_manager
 
 TODAY = date(2026, 8, 2)
 
@@ -310,7 +310,7 @@ def test_the_subject_survives_a_time_phrase_in_the_middle(session, fake_embeddin
     - both then reached the keyword search as several required terms and the
     embedder as a sentence about saving rather than about jokes.
     """
-    from memorymap.search import query as query_understanding
+    from tessellate.search import query as query_understanding
 
     assert query_understanding.understand("jokes I have saved recently").subject == "jokes"
     assert query_understanding.understand("jokes from the last month").subject == "jokes"

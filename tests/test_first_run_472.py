@@ -66,9 +66,10 @@ def test_the_empty_dashboard_says_empty_once_and_in_sentences():
     """The hero said "Your notebook is empty, capture a thought to begin" and
     the card under it "Your notebook is empty, here's the whole idea": the
     same fact twice, each a comma splice."""
-    js = frontend_text("dashboard.js")
+    js = frontend_text("dashboard.js") + frontend_text("first-run.js")
     assert "Your notebook is empty," not in js
-    assert '"How MemoryMap works"' in js
+    #: The card under the hero is the first steps (first-run.js, 25c).
+    assert '"Start in three steps"' in js
 
 
 def test_every_library_empty_state_has_a_title_and_one_sentence():
@@ -106,3 +107,108 @@ def test_chat_suggestions_with_no_model_go_to_ask():
     body = js.split("async function loadChatSuggestions(")[1].split("\nfunction ")[0]
     assert "aiIsOff()" in body and 'showNotesSection("ask")' in body
     assert body.index("aiIsOff()") < body.index("sendChatMessage(question)")
+
+
+def test_first_run_surfaces_take_turns():
+    """The owner, 2026-10-10: "popups and notifications clash with each other,
+    the tour gets cancelled". Measured before on a fresh data dir: the
+    recovery-key offer drew over the welcome (478x172 px), and the update
+    question opened with the tour, which then judged its steps against the
+    question's overlay and kept one ("1 of 1"). After (scratchpad cu/firstq.js):
+    0 overlapping pairs in the first 10 s; welcome, the whole tour, the
+    recovery offer, the update question, one at a time. Every one of the
+    three goes through one queue, and the welcome's turn lasts through the
+    tour it starts."""
+    onboarding = frontend_text("onboarding.js")
+    assert "function firstRunTurn(show, slot)" in onboarding
+    assert 'document.addEventListener("tour-closed"' in onboarding
+    assert 'firstRunTurn(() => showRecoveryOffer(password), "recovery")' in frontend_text("account-recovery.js")
+    assert 'firstRunTurn(ask, "updates")' in frontend_text("update-dialogs.js")
+    tour = frontend_text("tour.js")
+    assert tour.count('document.dispatchEvent(new Event("tour-closed"))') == 2, (
+        "the tour says it closed both when it ends and when it had nothing to show"
+    )
+
+
+def test_a_first_run_surface_waits_for_settings_to_close():
+    """Scan 2026-10-11: the welcome's "Connect a model" opens Settings, and the
+    recovery-key offer then drew over it (measured on a fresh data dir). The
+    queue's "is something open" test names the Settings modal."""
+    body = frontend_text("onboarding.js").split("function firstRunSurfaceOpen()")[1].split("\n}\n")[0]
+    assert 'shown("settings-modal")' in body
+    # ...and the welcome's button opens Settings before it closes the welcome,
+    # because Settings loads lazily and the queue would otherwise see a clear
+    # screen in between.
+    offers = frontend_text("onboarding.js").split("Connect a model")[1][:700]
+    assert offers.index('openSettingsModal("models")') < offers.index("closeOnboarding()")
+
+
+def test_the_tour_card_is_hidden_until_placed():
+    """INBOX 745 (d): a blank tour card showed in the top left for a couple of
+    seconds while the first step's tab loaded."""
+    tour = frontend_text("tour.js")
+    assert 'getElementById("tour-card").style.visibility = "hidden"' in tour
+    assert 'if (el.id === "tour-card") el.style.visibility = "";' in tour
+
+
+def test_the_context_pill_opens_its_breakdown_not_compact():
+    """The owner, 2026-10-10: "when I click the token window button pill, i
+    expect to see a dropdown to see my token distribution stats, not it to be
+    a button to compact the conversation". Measured: the pill opens a 320 px
+    popover with the total, a bar and four parts; Compact is its one action
+    (compress clicks: 0 on opening, 1 on Compact)."""
+    wiring = frontend_text("wiring.js")
+    assert '$("chat-context")?.addEventListener("click", () => $("chat-compress")' not in wiring
+    ledger = frontend_text("usage-ledger.js")
+    assert 'wireHelpPopover($("chat-context"), $("chat-context-pop"))' in ledger
+    assert "function renderChatContextPop(" in ledger
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert 'aria-controls="chat-context-pop"' in html
+    assert 'id="chat-context-compact"' in html
+    #: "why is the token window limit for this model soooo low :(": the
+    #: popover says how the size is set and opens the setting.
+    assert 'id="chat-context-window"' in html
+    assert 'openSettingsModal("models", "model-context-window");' in ledger
+
+
+def test_the_no_chats_line_sits_under_its_heading():
+    """The owner: "should that no chats text be at the top not the bottom??"
+    Measured: the line at 142 px, 21 px under the heading (it was at the foot
+    of the sidebar, beside All in Library)."""
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert html.index('id="conv-empty"') < html.index('id="conversation-list"')
+
+
+def test_first_setup_says_it_needs_the_internet_once():
+    """Brief 40: a fresh clone on a train met pip errors with no warning."""
+    from tessellate.core import extras
+
+    js = frontend_text("onboarding.js")
+    assert "The first setup downloads the search model and the packages you chose" in js
+    assert "after that Tessellate works offline." in js
+    assert extras.download_mb(extras.EXTRAS_BY_ID["semantic"]) == 2000
+    assert extras.download_mb(extras.EXTRAS_BY_ID["documents"]) > 0
+    for doc in ("README.md", "docs/INSTALL.md"):
+        assert "A first install needs the internet once." in (ROOT / doc).read_text(encoding="utf-8")
+
+
+def test_first_run_surfaces_go_in_a_fixed_order():
+    """The owner, 2026-10-11, from the Windows app: "popup panels appearing at
+    the start on a new install are messy and clash/overlap a lot". The
+    desktop's console question never took a turn and opened on the welcome's
+    `looksReady`; the companion's offer drew over the tour's Settings step
+    (263x72 px); at 390 the last surface's toast sat on the next question's
+    card (337x47 px). Measured after (fr.js, a fresh data dir, `/health`
+    faked as the desktop, 1440 light and 390 dark): welcome, tour, recovery
+    key, console question, update question, one at a time; no overlap but the
+    tour's own Settings step."""
+    onboarding = frontend_text("onboarding.js")
+    assert 'const FIRST_RUN_ORDER = ["welcome", "recovery", "console", "updates"];' in onboarding
+    assert 'firstRunTurn(showOnboardingTurn, "welcome")' in onboarding
+    console_intro = onboarding.split("async function maybeShowConsoleViewIntro()")[1].split("\n}\n")[0]
+    assert "await firstRunTurn(() => confirmDialog(" in console_intro and '"console")' in console_intro
+    pump = onboarding.split("async function firstRunPump()")[1].split("\n}\n")[0]
+    assert "firstRunWelcomeDue()" in pump and "firstRunToastsGone(" in pump
+    assert "a.rank - b.rank" in pump
+    hint = frontend_text("avatars.js").split("function nameMarkBuddyHint(")[1].split("\n}\n")[0]
+    assert '"tour-card", "onboarding-overlay"' in hint

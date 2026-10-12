@@ -13,8 +13,8 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
-from memorymap.api import routes_auth
-from memorymap.core import vault
+from tessellate.api import routes_auth
+from tessellate.core import vault
 
 PASSWORD = "the owner's password"
 
@@ -294,7 +294,7 @@ def test_the_notebook_folder_is_private_to_its_owner(tmp_path):
     notebook is made 0700, which closes everything inside it."""
     import stat
 
-    from memorymap.core.config import ConfigManager
+    from tessellate.core.config import ConfigManager
 
     fresh = tmp_path / "new-notebook"
     ConfigManager(fresh)
@@ -335,7 +335,7 @@ def test_every_url_sink_the_audit_named_goes_through_safe_href():
         ("chat-agent.js", "card.href = safeHref(source.url)"),
         ("palette.js", "row.href = safeHref(source.url)"),
         ("markdown.js", "card.href = safeHref(url)"),
-        ("menus.js", "window.open(safeHref(mark.url)"),
+        ("connections.js", "window.open(safeHref(mark.url)"),  # moved with Connections (INBOX 784)
     ):
         assert needle in (root / name).read_text(encoding="utf-8"), name
 

@@ -1,0 +1,63 @@
+{
+ "skill": "Interview me about an idea",
+ "small_class": false,
+ "cases": [
+  {
+   "id": "podcast",
+   "notebook": [
+    {
+     "content": "Maybe start a podcast about gardening?",
+     "category": "Ideas",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "podcast"
+    ]
+   },
+   "inputs": {
+    "topic": "the podcast"
+   }
+  },
+  {
+   "id": "side-project",
+   "notebook": [
+    {
+     "content": "A recipe app that plans the week's shopping",
+     "category": "Ideas",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "recipe"
+    ]
+   },
+   "inputs": {
+    "topic": "the recipe app"
+   }
+  },
+  {
+   "id": "career",
+   "notebook": [
+    {
+     "content": "Thinking about moving into product management",
+     "category": "Career",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "product"
+    ]
+   },
+   "inputs": {
+    "topic": "moving into product"
+   }
+  }
+ ]
+}

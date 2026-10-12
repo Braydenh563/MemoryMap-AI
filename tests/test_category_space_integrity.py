@@ -128,8 +128,8 @@ def test_merge_across_spaces_is_refused(client):
 
 def test_record_filing_uses_the_notes_space(session):
     """The background filer has no request, so no space on the session."""
-    from memorymap.core.database import Category, Entry
-    from memorymap.entry import manager
+    from tessellate.core.database import Category, Entry
+    from tessellate.entry import manager
 
     manager.get_or_create_category(session, "Research", workspace_id="default")
     entry = Entry(content="a paper", category_id=manager.get_or_create_category(

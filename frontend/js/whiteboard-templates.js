@@ -54,11 +54,18 @@ function wbMapThumbSpec(entry) {
   const shape = ["radial", "two-sided", "fishbone", "fork", "phases", "tiers"].includes(entry?.shape) ? entry.shape : "tree";
   const lines = [];
   const boxes = [];
-  const line = (d) => lines.push({ tag: "path", cls: "wb-thumb-line", a: { d } });
+  //: **Each branch wears its own colour** (a map's branches are coloured by
+  //: the creation order, `MAP_BRANCH_PALETTE`; the tiles were all one grey).
+  //: `hue` is the branch being drawn, set at the top of each branch's turn;
+  //: the root, a spine and a label stay neutral. The colours are classes
+  //: (library-lazy.css), so a picture still follows the theme.
+  let hue = -1;
+  const tone = (cls) => (hue < 0 ? cls : `${cls} wb-thumb-b${hue % 10}`);
+  const line = (d) => lines.push({ tag: "path", cls: tone("wb-thumb-line"), a: { d } });
   const box = (cx, cy, w, h, cls = "wb-thumb-node") => boxes.push({
-    tag: "rect", cls, a: { x: R(cx - w / 2), y: R(cy - h / 2), width: R(w), height: R(h), rx: R(Math.min(2, h / 2)) },
+    tag: "rect", cls: cls === "wb-thumb-root" ? cls : tone(cls), a: { x: R(cx - w / 2), y: R(cy - h / 2), width: R(w), height: R(h), rx: R(Math.min(2, h / 2)) },
   });
-  const leaf = (cx, cy) => boxes.push({ tag: "circle", cls: "wb-thumb-leaf", a: { cx: R(cx), cy: R(cy), r: 1.5 } });
+  const leaf = (cx, cy) => boxes.push({ tag: "circle", cls: tone("wb-thumb-leaf"), a: { cx: R(cx), cy: R(cy), r: 1.5 } });
   //: A stroke inside a box where its words would be, so a tier reads as labelled.
   const label = (cx, cy, w) => boxes.push({ tag: "path", cls: "wb-thumb-label", a: { d: `M ${R(cx - w / 2)} ${R(cy)} L ${R(cx + w / 2)} ${R(cy)}` } });
   if (!branches.length) {
@@ -68,6 +75,7 @@ function wbMapThumbSpec(entry) {
   }
   if (shape === "radial") {
     branches.forEach((_, i) => {
+      hue = i;
       const t = -Math.PI / 2 + (i * 2 * Math.PI) / n;
       const bx = 32 + 20 * Math.cos(t), by = 20 + 12.5 * Math.sin(t);
       line(`M 32 20 L ${R(bx)} ${R(by)}`);
@@ -88,6 +96,7 @@ function wbMapThumbSpec(entry) {
       const gap = Math.min(13, 32 / Math.max(1, m));
       list.forEach((_, j) => {
         const i = offset + j;
+        hue = i;
         const by = 20 + (j - (m - 1) / 2) * gap, bx = 32 + dir * 17;
         line(`M ${32 + dir * 7} 20 C ${32 + dir * 12} 20 ${32 + dir * 11} ${R(by)} ${R(bx - dir * 4.5)} ${R(by)}`);
         for (let k = 0; k < kids[i]; k += 1) {
@@ -107,6 +116,7 @@ function wbMapThumbSpec(entry) {
     line("M 3 20 L 49 20");
     const pairs = Math.ceil(n / 2);
     branches.forEach((_, i) => {
+      hue = i;
       const x = 44 - Math.floor(i / 2) * (36 / pairs);
       const up = i % 2 === 0 ? -1 : 1;
       line(`M ${R(x)} 20 L ${R(x - 8)} ${20 + up * 12}`);
@@ -123,6 +133,7 @@ function wbMapThumbSpec(entry) {
     line("M 16 20 L 20 20");
     const gap = Math.min(10, 34 / n);
     branches.forEach((_, i) => {
+      hue = i;
       const by = 20 + (i - (n - 1) / 2) * gap;
       line(`M 20 20 C 25 20 24 ${R(by)} 27.5 ${R(by)}`);
       for (let k = 0; k < kids[i]; k += 1) {
@@ -139,10 +150,11 @@ function wbMapThumbSpec(entry) {
     const centres = branches.map((_, i) => 2 + i * (w + 1.5) + w / 2);
     line(`M 32 9.5 L 32 13 M ${R(centres[0])} 13 L ${R(centres[n - 1])} 13`);
     branches.forEach((_, i) => {
+      hue = i;
       const x = 2 + i * (w + 1.5), cx = centres[i];
       line(`M ${R(cx)} 13 L ${R(cx)} 17`);
       const notch = i ? 2.5 : 0;
-      boxes.push({ tag: "path", cls: "wb-thumb-node", a: { d: `M ${R(x)} 17 L ${R(x + w - 2.5)} 17 L ${R(x + w)} 21.5 L ${R(x + w - 2.5)} 26 L ${R(x)} 26 L ${R(x + notch)} 21.5 Z` } });
+      boxes.push({ tag: "path", cls: tone("wb-thumb-node"), a: { d: `M ${R(x)} 17 L ${R(x + w - 2.5)} 17 L ${R(x + w)} 21.5 L ${R(x + w - 2.5)} 26 L ${R(x)} 26 L ${R(x + notch)} 21.5 Z` } });
       for (let k = 0; k < kids[i]; k += 1) box(cx, 30 + k * 4, w * 0.6, 2.4, "wb-thumb-leafbox");
     });
     box(32, 6, 16, 7, "wb-thumb-root");
@@ -151,6 +163,7 @@ function wbMapThumbSpec(entry) {
     const centres = branches.map((_, i) => 32 + (i - (n - 1) / 2) * (w + 2));
     line(`M 32 9.5 L 32 12 M ${R(centres[0])} 12 L ${R(centres[n - 1])} 12`);
     branches.forEach((_, i) => {
+      hue = i;
       const cx = centres[i];
       line(`M ${R(cx)} 12 L ${R(cx)} 15.5`);
       if (kids[i]) line(`M ${R(cx)} 20.5 L ${R(cx)} ${R(26 + (kids[i] - 1) * 5)}`);
@@ -166,6 +179,7 @@ function wbMapThumbSpec(entry) {
     const ys = branches.map((_, i) => 20 + (i - (n - 1) / 2) * gap);
     line(`M 16 20 L 20 20 M 20 ${R(ys[0])} L 20 ${R(ys[n - 1])}`);
     branches.forEach((_, i) => {
+      hue = i;
       const by = ys[i];
       line(`M 20 ${R(by)} L 24.5 ${R(by)}`);
       for (let k = 0; k < kids[i]; k += 1) {
@@ -186,8 +200,21 @@ function wbMapThumbSpec(entry) {
 //: picture is one size (the owner's screenshots had three: the size was
 //: worked out per frame from the length of its name), the largest that
 //: still fits the narrowest frame's name.
-function wbBoardThumbSpec(element) {
+//: **`placed`: the tile draws what placing it makes** (INBOX 794, the owner:
+//: the previews "arent visually accurate to what is actually placed and are a
+//: bit misleading"). A placed shape takes the pen's ink wherever the library's
+//: payload says `ink` (colour and fill) and keeps its own weight, dash and
+//: fill opacity (`routes_board_library.py` `_place_element`), but the tile drew
+//: every ink as the page's text colour, lifted a faint fill to 18% and gave
+//: every line one hairline, so a cyan pen still showed grey shapes. With
+//: `placed` set the tile resolves the ink to `opts.ink`, and the fill opacity,
+//: width and dash are the payload's own (the width in the tile's board units,
+//: the dash the board's own ratios). The New board dialog's pictures are
+//: drawings of whole templates at a glance, so they keep the old legibility.
+function wbBoardThumbSpec(element, opts = {}) {
   const R = wbThumbRound;
+  const placed = opts.placed === true;
+  const pen = /^#[0-9a-f]{6}$/i.test(opts.ink || "") ? opts.ink : "currentColor";
   const box = element?.box || { w: 100, h: 100 };
   const span = Math.max(box.w, box.h);
   const pad = span * 0.04;
@@ -215,14 +242,21 @@ function wbBoardThumbSpec(element) {
       const data = typeof item.data === "string" ? (() => { try { return JSON.parse(item.data); } catch { return {}; } })() : item.data || {};
       if (!data.d) continue;
       const a = { d: data.d, "stroke-linejoin": "round" };
-      const ink = !data.color || data.color === "ink" ? "currentColor" : data.color;
-      const fill = data.fill === "ink" ? "currentColor" : data.fill;
+      const inkOf = (v) => (v === "ink" ? (placed ? pen : "currentColor") : v);
+      const ink = !data.color ? "currentColor" : inkOf(data.color);
+      const fill = inkOf(data.fill);
       a.fill = fill || "none";
-      if (fill && data.fillOpacity != null) a["fill-opacity"] = String(data.fill === "ink" && data.fillOpacity < 1 ? Math.max(0.18, data.fillOpacity) : data.fillOpacity);
+      if (fill && data.fillOpacity != null) {
+        a["fill-opacity"] = String(placed || !(data.fill === "ink" && data.fillOpacity < 1) ? data.fillOpacity : Math.max(0.18, data.fillOpacity));
+      }
       if (data.noStroke) a.stroke = "none";
       else {
+        const width = placed && data.width > 0 ? data.width : strokeW;
         a.stroke = ink;
-        a["stroke-width"] = R(strokeW);
+        a["stroke-width"] = R(width);
+        //: The board's own ratios (`wbDashArray`, whiteboard.js).
+        if (placed && data.dash === "dashed") a["stroke-dasharray"] = `${R(width * 3)} ${R(width * 2)}`;
+        else if (placed && data.dash === "dotted") a["stroke-dasharray"] = `${R(width)} ${R(width * 1.6)}`;
       }
       parts.push({ tag: "path", cls: "", a });
       continue;
@@ -326,6 +360,26 @@ function wbTemplatePicture(choice, kind) {
   return branch ? wbThumbSvg(wbMapThumbSpec(entry)) : wbLibThumb(entry);
 }
 
+//: **A new board needs no name** (INBOX 739, the owner: "auto naming of the
+//: whiteboards, mindmaps ... like "untitled #" so the user isnt forced to
+//: name a new object"). The next free number after every "Untitled board N"
+//: (or map) there is, counted from the boards themselves, so a deleted one's
+//: number is not reused while a higher one exists. Shown as the name field's
+//: placeholder, so what Create makes is what the field already says.
+async function wbUntitledNames() {
+  const rows = await apiJson("/whiteboard/boards", { silent: true }).catch(() => []);
+  const next = (base) => {
+    const pattern = new RegExp(`^${base} (\\d{1,6})$`, "i");
+    let top = 0;
+    for (const row of Array.isArray(rows) ? rows : []) {
+      const match = pattern.exec(String(row?.title || "").trim());
+      if (match) top = Math.max(top, Number(match[1]));
+    }
+    return `${base} ${top + 1}`;
+  };
+  return { board: next("Untitled board"), map: next("Untitled map") };
+}
+
 //: Resolves `{name, kind, ref}` (ref null for blank) or null when cancelled.
 async function wbOpenTemplateGallery(kind = "board") {
   const dialog = document.getElementById("wb-template-dialog");
@@ -334,7 +388,7 @@ async function wbOpenTemplateGallery(kind = "board") {
   const nameField = document.getElementById("wb-template-name");
   const tabs = document.getElementById("wb-template-kind");
   if (!dialog || !list || !preview || !nameField || !tabs) return null;
-  await wbLoadLibrary();
+  const [, untitled] = await Promise.all([wbLoadLibrary(), wbUntitledNames()]);
   let chosen = null;
   let choices = [];
   const choose = (choice, { focus = false } = {}) => {
@@ -404,7 +458,7 @@ async function wbOpenTemplateGallery(kind = "board") {
       tab.setAttribute("aria-selected", on ? "true" : "false");
       tab.tabIndex = on ? 0 : -1;
     }
-    nameField.placeholder = kind === "map" ? "Name the new map" : "Name the new board";
+    nameField.placeholder = untitled[kind === "map" ? "map" : "board"];
     choices = wbTemplateChoices(kind);
     list.append(row(choices[0]));
     for (const [key, words] of [...WB_TEMPLATE_PURPOSES, ["yours", "Yours"]]) {
@@ -421,12 +475,7 @@ async function wbOpenTemplateGallery(kind = "board") {
     settle = resolve;
   });
   const finish = (make) => {
-    const name = nameField.value.trim();
-    if (make && !name) {
-      nameField.focus();
-      toast(kind === "map" ? "Give the map a name first." : "Give the board a name first.");
-      return;
-    }
+    const name = nameField.value.trim() || untitled[kind === "map" ? "map" : "board"];
     dialog.close();
     settle(make ? { name, kind, ref: chosen?.ref || null } : null);
   };

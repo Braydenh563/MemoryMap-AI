@@ -1,8 +1,8 @@
 # Security policy
 
-## MemoryMap AI's security model, in short
+## Tessellate's security model, in short
 
-MemoryMap AI is a **local-first, single-user app that runs on your own
+Tessellate is a **local-first, single-user app that runs on your own
 machine.** By default it listens on `127.0.0.1` only, so nothing on your network
 can reach it, and it never sends your notes to the cloud. Your data lives in a
 folder on your disk (`data/` beside a source checkout, or your per-user app
@@ -51,7 +51,7 @@ When you report, please include:
 - the impact you think it has.
 
 You will get an acknowledgement, and we will work with you on a fix and a
-disclosure timeline. Thank you for helping keep MemoryMap AI safe.
+disclosure timeline. Thank you for helping keep Tessellate safe.
 
 ## Scope notes
 

@@ -4,7 +4,7 @@ Drives the real app over httpx's ASGI transport (no socket, no uvicorn), so
 what is measured is the stack and the handler: N requests to each path,
 best-of-three mean in milliseconds.
 
-    MEMORYMAP_DATA_DIR=/tmp/mm-me7 PYTHONPATH=src .venv/bin/python scratchpad/asgi_bench.py
+    TESSELLATE_DATA_DIR=/tmp/mm-me7 PYTHONPATH=src .venv/bin/python scratchpad/asgi_bench.py
 """
 
 import asyncio
@@ -15,7 +15,7 @@ import time
 import httpx
 
 sys.path.insert(0, "src")
-from memorymap.api.app import create_app  # noqa: E402
+from tessellate.api.app import create_app  # noqa: E402
 
 N = int(os.environ.get("N", "300"))
 PATHS = sys.argv[1:] or ["/health", "/chat/modes", "/entries?limit=20"]

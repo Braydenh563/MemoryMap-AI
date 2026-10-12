@@ -48,5 +48,5 @@ def test_chat_sends_and_redraws_the_link():
 
 def test_ask_keeps_the_chain_its_chips_started():
     ask = (JS / "capture-ask.js").read_text(encoding="utf-8")
-    assert "askTrailPending = [...askTrail, conversation.length - 1]" in ask
+    assert "askTrailPending = [...askTrail, conversation.length - 1]" in (JS / "ask-compose.js").read_text(encoding="utf-8")
     assert "renderAskTrail()" in ask

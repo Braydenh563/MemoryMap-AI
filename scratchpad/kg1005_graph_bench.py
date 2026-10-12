@@ -27,13 +27,13 @@ root.mkdir(parents=True, exist_ok=True)
 
 import os  # noqa: E402
 
-os.environ["MEMORYMAP_DATA_DIR"] = str(root)
-os.environ.setdefault("MEMORYMAP_NO_AUTO_INSTALL", "1")
+os.environ["TESSELLATE_DATA_DIR"] = str(root)
+os.environ.setdefault("TESSELLATE_NO_AUTO_INSTALL", "1")
 
 from sqlalchemy import func, insert, select  # noqa: E402
 
-from memorymap.api.app import create_app  # noqa: E402
-from memorymap.core.database import DatabaseManager, Entry, EntryLink  # noqa: E402
+from tessellate.api.app import create_app  # noqa: E402
+from tessellate.core.database import DatabaseManager, Entry, EntryLink  # noqa: E402
 
 PW = "testpassword123"
 

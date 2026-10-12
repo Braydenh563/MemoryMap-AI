@@ -1,0 +1,79 @@
+{
+ "skill": "Find where I disagreed with myself",
+ "small_class": false,
+ "cases": [
+  {
+   "id": "coffee",
+   "notebook": [
+    {
+     "content": "I've given up coffee for good, sleeping much better",
+     "category": "Health",
+     "tags": []
+    },
+    {
+     "content": "Coffee every morning is non-negotiable for me",
+     "category": "Health",
+     "tags": []
+    },
+    {
+     "content": "Walked 8k steps today",
+     "category": "Health",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "coffee"
+    ]
+   }
+  },
+  {
+   "id": "remote-work",
+   "notebook": [
+    {
+     "content": "Working from home makes me more focused",
+     "category": "Work",
+     "tags": []
+    },
+    {
+     "content": "I get far less done at home than in the office",
+     "category": "Work",
+     "tags": []
+    },
+    {
+     "content": "Team offsite is in June",
+     "category": "Work",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "home"
+    ]
+   }
+  },
+  {
+   "id": "running",
+   "notebook": [
+    {
+     "content": "Running is the only exercise I enjoy",
+     "category": "Health",
+     "tags": []
+    },
+    {
+     "content": "I hate running, swimming suits me much better",
+     "category": "Health",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "running"
+    ]
+   }
+  }
+ ]
+}

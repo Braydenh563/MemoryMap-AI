@@ -20,9 +20,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from memorymap.ai import notebook_stats
-from memorymap.core import deps
-from memorymap.core.database import Category, Entry, EntryLink
+from tessellate.ai import notebook_stats
+from tessellate.core import deps
+from tessellate.core.database import Category, Entry, EntryLink
 
 
 def _note(session, content, tags=(), category=None):
@@ -297,3 +297,41 @@ def test_a_pair_seen_once_is_not_a_pattern(session) -> None:
     answer = notebook_stats.answer("which tags appear together", session)
     assert answer is not None
     assert answer.facts == []
+
+
+def test_stats_gives_the_four_counts_in_one_line(client):
+    with _session() as session:
+        _note(session, "a", ["work", "urgent"])
+        _note(session, "b", ["work"])
+        session.commit()
+        result = notebook_stats.answer("show me my stats", session)
+        assert result is not None and result.kind == "overview"
+        #: Decision 70's gold Q3: count and span first, bold labels, one offer.
+        assert result.text.startswith("You have 2 notes, all from ")
+        assert "**Also:** 0 documents and 2 distinct tags." in result.text
+        assert result.text.endswith("Open Statistics for the full picture?")
+        assert result.offer == {"kind": "open", "label": "Open Statistics for the full picture?", "surface": "statistics"}
+
+
+def test_a_summary_of_the_notes_is_not_a_stats_question(client):
+    """"Summary" asks for the notes' content, which the composer answers."""
+    with _session() as session:
+        assert notebook_stats.answer("give me a summary of the trip", session) is None
+
+
+def test_a_count_over_a_window_counts_the_window(client):
+    """"How many notes did I write this week" was answered with the notebook's
+    total (the plain count ran first); the window is now read by
+    `ai/recognise.py` and counted (CHAT_PLAN F1)."""
+    from datetime import timedelta
+
+    from tessellate.core.database import utcnow
+
+    with _session() as session:
+        _note(session, "new one")
+        old = _note(session, "old one")
+        old.created_at = utcnow() - timedelta(days=400)
+        session.commit()
+        result = notebook_stats.answer("how many notes did I write today", session)
+        assert result.kind == "recent-count" and result.text == "You have written 1 note today."
+        assert notebook_stats.answer("how many notes do I have", session).text.startswith("You have 2 notes")

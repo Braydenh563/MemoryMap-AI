@@ -18,7 +18,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from memorymap.api.routes_settings import DASHBOARD_LAYOUT_MAX
+from tessellate.api.routes_settings import DASHBOARD_LAYOUT_MAX
 
 DASHBOARD_JS = Path(__file__).resolve().parents[1] / "frontend" / "js" / "dashboard.js"
 

@@ -60,8 +60,8 @@ KEYWORDS = frozenset(
 KNOWN_GLOBALS = frozenset(
     """
     Array ArrayBuffer AudioContext BigInt Blob Boolean BroadcastChannel CSS ClipboardItem
-    CSSStyleSheet CustomEvent DataView Date DOMMatrix DOMParser Error EvalError Event MouseEvent
-    EventSource File FileReader Float32Array Float64Array FormData Function
+    CSSStyleSheet CustomEvent DataView Date DecompressionStream DOMMatrix DOMParser Error EvalError Event MouseEvent
+    EventSource File FileReader Float32Array Float64Array Int16Array FormData Function
     InputEvent KeyboardEvent WheelEvent
     Headers Image Infinity Int32Array Intl IntersectionObserver JSON Map Math
     MediaRecorder MutationObserver NaN Notification Number Object Option Path2D
@@ -329,7 +329,7 @@ def test_every_function_the_browser_calls_exists():
 #: The files that share the page's one global scope. `graph-worker.js` runs
 #: in a `Worker`, which has a scope of its own, so a name it declares cannot
 #: collide with the page's.
-WORKER_FILES = frozenset({"graph-worker.js", "harper-worker.js", "sw.js"})
+WORKER_FILES = frozenset({"graph-worker.js", "harper-worker.js", "translate-worker.js", "sw.js"})
 
 #: A top-level declaration, which is what the global scope actually holds.
 #: Not the nested ones `DECLARATIONS` collects: a `const` inside a function

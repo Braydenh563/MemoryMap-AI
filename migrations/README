@@ -1,4 +1,4 @@
-Alembic migrations for MemoryMap AI.
+Alembic migrations for Tessellate.
 
 **Read `core/database.py`'s `_ensure_alembic_baseline` docstring first.**
 This exists alongside `DatabaseManager`'s own additive auto-migrator
@@ -19,7 +19,7 @@ migration exists.
 
 1. Change the model in `core/database.py` the normal way.
 2. `PYTHONPATH=src alembic revision --autogenerate -m "describe the change"`
-   — point `MEMORYMAP_DATA_DIR` at a *copy* of a database with the old
+   — point `TESSELLATE_DATA_DIR` at a *copy* of a database with the old
    schema first, so autogenerate has something to diff against; against an
    empty or already-current database it will generate nothing.
 3. **Read the generated migration.** Autogenerate does not reliably detect

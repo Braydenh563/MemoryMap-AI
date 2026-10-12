@@ -18,8 +18,8 @@ import json
 
 import pytest
 
-from memorymap.ai import composer, librarian
-from memorymap.entry import manager
+from tessellate.ai import composer, librarian
+from tessellate.entry import manager
 from tests import _composer_eval as ev
 from tests.test_composer_688 import NOTES
 

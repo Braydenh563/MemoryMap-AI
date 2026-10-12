@@ -5,51 +5,25 @@
 // app.js's globals, loaded in app.js's old order; nothing in an earlier file
 // calls into it while the page loads (scratchpad/appjs-map.js --check).
 
-// --- Wave O: the p5 brand emblem (unique each load, reused app-wide) ----------
+// --- The app's mark: three cells of a tessellation, the last one settling --
 
-// A tiny generative emblem next to the title: a ring of linked nodes (the
-// MemoryMap motif), coloured in the accent, seeded randomly each visit so
-// it's one-of-a-kind, with a slow rotation.
-// One identity per visit: every emblem in the app draws from the same seed, so
-// the logo in the top bar, on the lock screen and in the empty states is
-// recognisably the *same* mark rather than five unrelated doodles.
-const emblemSeed = Math.floor(Math.random() * 1e6);
-const emblemInstances = new Map(); // element -> p5 instance
-const emblemObservers = new Map(); // element -> IntersectionObserver
+const emblemInstances = new Map(); // holder -> { remove }
+const emblemObservers = new Map(); // holder -> IntersectionObserver
 
-//: **A mark nobody can see does not need to be drawn.** Six emblems are built
-//: at boot (`EMBLEM_SLOTS`) and five of them live inside a panel that is
-//: `display: none` almost all the time: the lock screen, the onboarding card,
-//: the chat and graph empty states, the About dialog. Each one is a p5
-//: instance with its own 24fps draw loop, and p5 keeps that loop running
-//: whether or not its canvas has a box: measured on an idle whiteboard, six
-//: canvases alive, one visible, and 5.0 `requestAnimationFrame` requests per
-//: displayed frame.
-//:
-//: This is the same shape as the hidden tab that kept two clocks ticking, and
-//: it is *not* a retreat from "whenever the generated p5.js node graph logo
-//: shows, make sure it is never static and always rotating": the loop is
-//: stopped only while the mark is not shown, and started again the moment it
-//: is. An `IntersectionObserver` is the right instrument because a
-//: `display: none` element never intersects anything, so "is this on screen"
-//: needs no polling and no per-panel wiring.
-//:
-//: Not a claim about the whiteboard's drag lag. That report is still
-//: unattributed (`agent-remaining/mindmap.md`); this is work the app was
-//: doing for nothing, found while profiling it.
-function watchEmblemVisibility(holder, canvas) {
+//: **A mark nobody can see does not move.** Most slots sit in panels that are
+//: `display: none` most of the time; an `IntersectionObserver` pauses a
+//: mark's animations while it is off screen, with no polling.
+function watchEmblemVisibility(holder, art) {
   if (typeof IntersectionObserver === "undefined") return;
   emblemObservers.get(holder)?.disconnect();
-  // Off screen, the turn is held rather than left to the compositor.
+  // Off screen, its motion is held rather than left to the compositor.
   const observer = new IntersectionObserver((entries) => {
-    for (const entry of entries) canvas.classList.toggle("is-paused", !entry.isIntersecting);
+    for (const entry of entries) art.classList.toggle("is-paused", !entry.isIntersecting);
   });
   observer.observe(holder);
   emblemObservers.set(holder, observer);
 }
 
-// The shared emblem sketch: a small ring of linked nodes, the MemoryMap motif
-//, in the current accent. Animated only where it's worth the frames.
 //: **p5 is fetched the first time an emblem is drawn, not at boot.** It is a
 //: 1,034 KB file (the largest asset the page loads, 18% of all boot JS) and
 //: every use of it here is decoration: the emblem, the dashboard's art, the
@@ -82,31 +56,124 @@ function ensureP5() {
   return p5Loading;
 }
 
-//: p5's seeded generator (its `randomSeed` and `random`, an LCG), so the
-//: emblem's canvas port lays out the nodes p5 did for a seed.
-function emblemRandom(seed) {
-  let state = seed >>> 0;
-  return () => {
-    state = (1664525 * state + 1013904223) % 4294967296;
-    return state / 4294967296;
-  };
-}
+//: **The mark's colours** (the owner's pick, "C1, Pearl, lifted"), favicon.svg's:
+//: the tile's three stops, the lifted cell's pearl and its shadow. The cells
+//: are `#emblem-template` in index.html, favicon.svg's points; the
+//: tile's sheen and stops are drawn here. tests/test_brand_mark.py holds
+//: every copy to the one geometry.
+const EMBLEM_COLOURS = { stops: ["#5b7cff", "#4f6df5", "#a927d8"], pearl: "#c9b8ff", shadow: "#1a1060" };
 
-//: A colour's HSL hue, the number p5's `hue()` gave (the same sum as
-//: bg-art.js's `bgColourHue`, which loads after this file). Reads #rgb and
-//: #rrggbb; anything else is the default indigo's hue.
-function emblemHue(colour) {
+//: A colour's [hue, saturation, lightness]; #rgb or #rrggbb, else indigo's.
+function emblemHsl(colour) {
   const c = String(colour || "").trim();
   const short = /^#([0-9a-f]{3})$/i.exec(c);
   const long = /^#([0-9a-f]{6})/i.exec(c);
-  if (!short && !long) return 230;
+  if (!short && !long) return emblemHsl("#4664f0");
   const hex = short ? short[1].replace(/./g, (d) => d + d) : long[1];
   const [r, g, b] = [0, 2, 4].map((at) => parseInt(hex.slice(at, at + 2), 16) / 255);
   const max = Math.max(r, g, b);
-  const d = max - Math.min(r, g, b);
-  if (!d) return 0;
+  const min = Math.min(r, g, b);
+  const d = max - min;
+  const l = (max + min) / 2;
+  if (!d) return [0, 0, l];
+  const s = d / (1 - Math.abs(2 * l - 1));
   const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
-  return (h * 60 + 360) % 360;
+  return [(h * 60 + 360) % 360, s, l];
+}
+
+//: **The mark wears the page's accent.** Within 12 degrees of indigo (both
+//: Quiet defaults, Classic's) it keeps favicon.svg's colours exactly; other
+//: accents turn every colour by the hue difference, and a grey accent
+//: (saturation under a half) greys them as far.
+function emblemPalette(accentHex) {
+  const [baseHue] = emblemHsl("#4664f0");
+  const [hue, sat] = emblemHsl(accentHex);
+  const turn = ((hue - baseHue + 540) % 360) - 180;
+  const grey = Math.min(1, sat / 0.5);
+  const own = EMBLEM_COLOURS;
+  if (Math.abs(turn) < 12 && grey === 1) return own;
+  const shift = (colour) => {
+    const [h, s, l] = emblemHsl(colour);
+    return `hsl(${((h + turn + 360) % 360).toFixed(1)}, ${(s * grey * 100).toFixed(1)}%, ${(l * 100).toFixed(1)}%)`;
+  };
+  return { stops: own.stops.map(shift), pearl: shift(own.pearl), shadow: shift(own.shadow) };
+}
+
+const emblemState = {
+  //: renderEmblemWhenShown's one IntersectionObserver, made on first need.
+  lazyObserver: null,
+  pearlIds: 0,
+  busy: false,
+};
+const emblemArrived = new WeakSet();
+
+//: **The mark as layers the compositor can move.** The tile is the box's
+//: background; each cell, and the shadow, is a tile-sized box holding its
+//: own 100x100 drawing, and every motion is a CSS animation of `transform`
+//: or `opacity` on one box (`.emblem-art`), so no frame repaints or runs
+//: script (`scratchpad/ui-sweeps/emblemcost.js`). `arrive` plays the
+//: landing, `still` draws the final frame, `head` (a reply head) skips the
+//: lift.
+function emblemArt(size, { arrive = false, still = false, head = false } = {}) {
+  //: The accent worn, which a look's palette sets too; `--accent` before
+  //: settings.js runs (test_emblem_boot.py).
+  const accentHex = typeof currentAccentHex === "function"
+    ? currentAccentHex()
+    : getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() ||
+      prefs.get("accent-custom", null) ||
+      "#4664f0";
+  const colours = emblemPalette(accentHex);
+  const art = $("emblem-template").content.firstElementChild.cloneNode(true);
+  const [shadow, top] = art.querySelectorAll(".emblem-shadow polygon, .emblem-lift polygon");
+  for (const name of ["fill", "stroke"]) shadow.setAttribute(name, colours.shadow);
+  //: The favicon's feDropShadow blur (2.5 of 100), on a still box: painted once.
+  shadow.closest("svg").style.filter = `blur(${(size / 40).toFixed(2)}px)`;
+  //: A gradient per mark: url(#id) finds the first in the page.
+  const pearl = `emblem-pearl-${++emblemState.pearlIds}`;
+  art.querySelector("linearGradient").id = pearl;
+  art.querySelector("stop:last-child").setAttribute("stop-color", colours.pearl);
+  for (const name of ["fill", "stroke"]) top.setAttribute(name, `url(#${pearl})`);
+  art.classList.toggle("is-arriving", arrive && !still);
+  art.classList.toggle("is-still", still);
+  art.classList.toggle("is-head", head);
+  art.classList.toggle("is-busy", !head && emblemState.busy);
+  art.style.width = art.style.height = `${size}px`;
+  //: favicon.svg's tile and its sheen: 135deg on a square runs corner to corner.
+  const [a, b, c] = colours.stops;
+  art.style.backgroundImage =
+    `linear-gradient(to bottom, rgb(255 255 255 / 22%), transparent 60%), ` +
+    `linear-gradient(135deg, ${a} 0%, ${b} 55%, ${c} 100%)`;
+  return art;
+}
+
+//: **While the AI works the cells lift in turn**: a chat turn in flight
+//: (`chatController`) or an agent run running (`agentRuns`, jobs included).
+//: Called where either changes.
+
+function syncEmblemBusy() {
+  const chatting = typeof chatController !== "undefined" && Boolean(chatController);
+  const running = typeof agentRuns !== "undefined" && agentRuns.some((run) => run.state === "running");
+  const busy = chatting || running;
+  if (busy === emblemState.busy) return;
+  emblemState.busy = busy;
+  for (const art of document.querySelectorAll(".emblem-art:not(.is-head)")) emblemSetBusy(art, busy);
+}
+
+//: **Off at the end of a round, never mid-lift**: each cell lifts in its own
+//: third of the 2.4s round, so all rest where cell a's round restarts. The
+//: timer stands in when nothing animates (motion off, paused).
+function emblemSetBusy(art, busy) {
+  const token = (art.emblemBusyToken = (art.emblemBusyToken || 0) + 1);
+  if (busy) {
+    art.classList.add("is-busy");
+    return;
+  }
+  if (!art.classList.contains("is-busy")) return;
+  const settle = () => {
+    if (art.emblemBusyToken === token && !emblemState.busy) art.classList.remove("is-busy");
+  };
+  art.querySelector(".emblem-cell-a")?.addEventListener("animationiteration", settle, { once: true });
+  setTimeout(settle, 2600);
 }
 
 // --- generated faces: moved to avatars.js (2026-09-24) ---
@@ -141,94 +208,27 @@ function renderEmblem(holder, size = 34, { animate = false } = {}) {
   if (!holder) return;
   releaseDetachedEmblems();
   releaseEmblem(holder);
-  //: The colour the page is actually wearing (`currentAccentHex`, settings.js),
-  //: not the accent picker's stored name: a look's palette sets the accent
-  //: too, and the emblem stayed the old indigo on the Quiet default.
-  //: Before settings.js runs, `--accent` is the same colour (test_emblem_boot.py).
-  const accentHex = typeof currentAccentHex === "function"
-    ? currentAccentHex()
-    : getComputedStyle(document.documentElement).getPropertyValue("--accent").trim() ||
-      prefs.get("accent-custom", null) ||
-      "#7c8cf8";
-  // The emblem spins unless the user has explicitly asked for a still UI in
-  // Settings → Appearance. We deliberately don't freeze it on the OS-level
-  // prefers-reduced-motion hint alone: this mark has always turned, the app
-  // ships its own motion switch, and that switch is the one to obey.
-  //: Guarded: settings.js may not have run yet (test_emblem_boot.py).
-  const still = (typeof appearancePref === "function"
-    ? appearancePref("motion")
-    : prefs.get("motion", null)) === "reduced";
-
-  //: **Canvas 2D, not p5** (audit 2026-10-05, FE-07). p5 (1 MB raw, 239 KB
-  //: gzipped) was fetched and parsed on every boot for this one still drawing
-  //: (the dashboard's art widget is now its only user). The same nodes from
-  //: the same seed (`emblemRandom` is p5's generator), the same HSL colours,
-  //: line widths and sizes, at the device's pixel density as p5 drew it.
-  //: **Drawn once, turned by CSS**, as before: `canvas.emblem-spin`
-  //: (03-dashboard-widgets.css), one turn in 43.6 seconds.
-  const canvas = document.createElement("canvas");
-  const density = window.devicePixelRatio || 1;
-  canvas.width = Math.round(size * density);
-  canvas.height = Math.round(size * density);
-  canvas.style.width = `${size}px`;
-  canvas.style.height = `${size}px`;
-  holder.appendChild(canvas);
-  const ctx = canvas.getContext("2d");
-  if (ctx) {
-    const random = emblemRandom(emblemSeed);
-    const between = (low, high) => random() * (high - low) + low;
-    const baseHue = emblemHue(accentHex);
-    const count = 4 + Math.floor(random() * 3); // 4-6 nodes
-    const nodes = Array.from({ length: count }, (_, i) => ({
-      angle: (i / count) * Math.PI * 2 + between(-0.3, 0.3),
-      hue: (baseHue + between(-40, 40) + 360) % 360,
-    }));
-    ctx.scale(density, density);
-    ctx.translate(size / 2, size / 2);
-    const r = size * 0.32;
-    const dot = Math.max(4, size * 0.18);
-    ctx.strokeStyle = `hsla(${baseHue}, 60%, 60%, 0.6)`;
-    ctx.lineWidth = Math.max(1, size / 34);
-    ctx.lineCap = "round";
-    //: One stroke a line, as p5's `line()` was: where two cross, their
-    //: translucent strokes add up.
-    for (let i = 0; i < nodes.length; i++) {
-      for (let j = i + 1; j < nodes.length; j++) {
-        ctx.beginPath();
-        ctx.moveTo(Math.cos(nodes[i].angle) * r, Math.sin(nodes[i].angle) * r);
-        ctx.lineTo(Math.cos(nodes[j].angle) * r, Math.sin(nodes[j].angle) * r);
-        ctx.stroke();
-      }
-    }
-    const disc = (x, y, diameter, fill) => {
-      ctx.fillStyle = fill;
-      ctx.beginPath();
-      ctx.arc(x, y, diameter / 2, 0, Math.PI * 2);
-      ctx.fill();
-    };
-    for (const n of nodes) disc(Math.cos(n.angle) * r, Math.sin(n.angle) * r, dot, `hsl(${n.hue}, 75%, 60%)`);
-    disc(0, 0, dot * 0.85, `hsl(${baseHue}, 70%, 62%)`); // a bright hub
+  //: **It settles in once per holder, when first shown**: a colour change
+  //: redraws every emblem and must not replay it.
+  const arrive = animate && !emblemArrived.has(holder);
+  const art = emblemArt(size, { arrive, still: !animate });
+  holder.appendChild(art);
+  if (arrive) {
+    emblemArrived.add(holder);
+    //: Off once landed: a CSS animation restarts on every reshow.
+    art.addEventListener("animationend", (event) => {
+      if (event.animationName === "emblem-arrive") art.classList.remove("is-arriving");
+    });
+    //: Reduced motion runs no animation, so `animationend` never comes.
+    setTimeout(() => art.classList.remove("is-arriving"), 4000);
   }
-  //: What `releaseEmblem` calls, as it called a p5 instance's.
-  const instance = { remove: () => canvas.remove() };
-  emblemInstances.set(holder, instance);
-  // Only the animated ones turn, and only those have a turn to pause.
-  if (animate && !still) {
-    canvas.classList.add("emblem-spin");
-    watchEmblemVisibility(holder, canvas);
-  }
+  emblemInstances.set(holder, { remove: () => art.remove() });
+  if (animate) watchEmblemVisibility(holder, art);
 }
 
-// Every emblem currently on the page, keyed by element id and size.
-// Every slot animates: direct instruction, after the onboarding and About
-// emblems were caught sitting still: "whenever the generated p5.js node
-// graph logo shows, make sure it is never static and always rotating."
-// `renderEmblem` already respects Settings → Appearance's motion switch
-// (and only that switch, not the OS-level prefers-reduced-motion hint, 
-// see its own comment), so `animate: true` here doesn't reintroduce motion
-// for anyone who asked this app to hold still; it only removes the extra,
-// per-slot "hold this one still anyway" that had nothing to do with that
-// preference.
+// Every emblem on the page, by element id and size. Every slot animates (the
+// owner: "make sure it is never static"); still is the person's own choice,
+// Reduce motion or Interface animations off, which hold the final frame.
 const EMBLEM_SLOTS = [
   // Not the top bar any more: that is the favicon now, so the app's icon in
   // the tab strip and the mark above it are the same thing. The generated
@@ -239,7 +239,7 @@ const EMBLEM_SLOTS = [
   ["onboarding-emblem", 64, true],
   ["chat-empty-emblem", 52, true],
   ["graph-empty-emblem", 52, true],
-  ["about-emblem", 44, true],
+  ["about-emblem", 96, true],
 ];
 
 function renderBrandLogo() {
@@ -251,32 +251,24 @@ function renderBrandLogo() {
   repaintAssistantAvatars(true);
 }
 
-//: **An emblem nobody can see is drawn when it can be** (the performance
-//: pass, 2026-09-27). `renderBrandLogo` runs at boot and on every colour
-//: change, and five of its six slots are on surfaces that are hidden then:
-//: the lock card after the unlock, the welcome, the chat's and the map's
-//: empty states, Settings' About. Each is a p5 instance (a canvas, a setup,
-//: a draw): measured with `scratchpad/ui-sweeps/bootprofile.js`, 61ms of
-//: the first second after the unlock went to emblems, in the same tasks that
-//: draw the notes list. A slot with no box now waits for its first
-//: intersection, and a colour change repaints the visible ones and marks the
-//: rest to repaint when they are shown, so none is drawn in an old colour.
+//: **An emblem nobody can see is drawn when it can be** (2026-09-27): a slot
+//: with no box waits for its first intersection, and a colour change marks
+//: the hidden ones to repaint when shown, so none shows an old colour.
 const emblemPending = new Map();
-let emblemLazyObserver = null;
 
 function renderEmblemWhenShown(holder, size, animate) {
   if (holder.getClientRects().length || typeof IntersectionObserver === "undefined") {
     emblemPending.delete(holder);
-    emblemLazyObserver?.unobserve(holder);
+    emblemState.lazyObserver?.unobserve(holder);
     renderEmblem(holder, size, { animate });
     return;
   }
-  if (!emblemLazyObserver) {
-    emblemLazyObserver = new IntersectionObserver((entries) => {
+  if (!emblemState.lazyObserver) {
+    emblemState.lazyObserver = new IntersectionObserver((entries) => {
       for (const entry of entries) {
         if (!entry.isIntersecting) continue;
         const want = emblemPending.get(entry.target);
-        emblemLazyObserver.unobserve(entry.target);
+        emblemState.lazyObserver.unobserve(entry.target);
         emblemPending.delete(entry.target);
         if (want && entry.target.isConnected) {
           const { size, animate } = want;
@@ -286,7 +278,7 @@ function renderEmblemWhenShown(holder, size, animate) {
     });
   }
   emblemPending.set(holder, { size, animate });
-  emblemLazyObserver.observe(holder);
+  emblemState.lazyObserver.observe(holder);
 }
 
 // --- wiring --------------------------------------------------------------------
@@ -310,8 +302,8 @@ $("notif-close").addEventListener("click", () => {
   $("notif-btn").setAttribute("aria-expanded", "false");
 });
 $("notif-clear").addEventListener("click", () => {
-  localStorage.removeItem(NOTIFICATIONS_KEY);
-  localStorage.setItem(NOTIFICATIONS_READ_KEY, String(Date.now()));
+  prefs.remove(NOTIFICATIONS_KEY);
+  prefs.set(NOTIFICATIONS_READ_KEY, String(Date.now()));
   openNotifications(); // redraw in place: the panel stays open, now empty
 });
 // Asked for directly: the mute toggle reachable from the panel it affects,
@@ -645,6 +637,11 @@ const PHONE_STATUS_ROWS = [
   { id: "status-redo", label: "ph:arrow-clockwise Redo" },
   { id: "status-task", label: "ph:gear Background tasks" },
   { id: "status-find", label: "ph:magnifying-glass Find" },
+  //: INBOX 896: the bar's button opens a sheet itself when it has no box.
+  { id: "status-lan", label: "ph:wifi-high Other devices" },
+  //: `live`: the row's words are the control's own as the menu opens (the
+  //: Local chip's verdict, row 1641).
+  { id: "privacy-chip", label: "ph:shield-check Privacy record", live: true },
 ];
 
 function initPhoneHeaderMore() {
@@ -667,8 +664,8 @@ function initPhoneHeaderMore() {
       { label: "ph:gear Settings", title: "Settings", run: () => openSettingsModal(), group: "app" },
       { label: "ph:lock Lock", title: "Lock the app", run: () => lockNow(), group: "app" },
       {
-        label: "ph:power Quit MemoryMap",
-        title: "Quit MemoryMap: stops the app and its server",
+        label: "ph:power Quit Tessellate",
+        title: "Quit Tessellate: stops the app and its server",
         run: () => quitApp(),
         danger: true,
         group: "app",
@@ -695,6 +692,7 @@ function initPhoneHeaderMore() {
           !source ||
           source.classList.contains("hidden") ||
           source.classList.contains("status-slot-off");
+        if (spec.live && source?.dataset.menuLabel) setLabel(row, source.dataset.menuLabel);
         const unavailable = Boolean(source?.disabled);
         row.classList.toggle("menu-item-unavailable", unavailable);
         if (unavailable) row.setAttribute("aria-disabled", "true");
@@ -949,7 +947,7 @@ function openNotePage(entry, returnFocus = null) {
   if (!entry || notePageOpenId === entry.id) return;
   expandedNotes.add(entry.id);
   notePageOpenId = entry.id;
-  const title = entry.title || clipText(notePreviewText(entry.content).split("\n")[0], 80) || "Note";
+  const title = entry.title || noteNamePlain(entry.content, 80) || "Note";
   notePageClose = openSheet({
     label: title,
     name: "note",
@@ -985,6 +983,20 @@ function openNotePage(entry, returnFocus = null) {
     close.setAttribute("aria-label", "Back");
     close.title = "Back (Escape)";
   }
+}
+
+//: A change from another device (`followNoteChanges`, notes-list.js) reaches
+//: an open note page too: its text is swapped for the fresh card's, in place,
+//: so the page keeps its scroll and its action bar.
+function refreshNotePage(ids) {
+  if (notePageOpenId === null || !ids.includes(notePageOpenId)) return;
+  const entry = allEntries.find((e) => e.id === notePageOpenId);
+  const old = document.querySelector('.sheet-overlay[data-sheet="note"] .note-page-list .entry-content');
+  if (!entry || !old) return;
+  const fresh = entryItem(entry, { actions: true }).querySelector(".entry-content");
+  if (!fresh) return;
+  fresh.classList.remove("entry-clamped");
+  old.replaceWith(fresh);
 }
 
 function closeNotePageIfGone() {
@@ -1091,6 +1103,23 @@ function initOcrPhonePage() {
 
 initOcrPhonePage();
 
+//: The dialogs a phone shows as bottom sheets (UI_MODERNISATION 13c, OPEN row
+//: 567): each fits two thirds of a 390 window (97 to 294 px measured), so a
+//: centred card only floated it away from the thumb. The recipe's two classes
+//: on the dialog it already is; the larger ones stay pages, confirm a dialog.
+const PHONE_SHEET_DIALOGS = ["extract-panel", "history-overlay", "connections-overlay", "binned-overlay",
+  "skill-run-overlay", "wb-help-overlay", "meeting-overlay", "features-overlay"];
+
+function phoneSheetDialogs(phone) {
+  for (const id of PHONE_SHEET_DIALOGS) {
+    const overlay = document.getElementById(id);
+    overlay?.classList.toggle("sheet-overlay", phone);
+    overlay?.querySelector(":scope > .modal-card")?.classList.toggle("sheet-card", phone);
+  }
+}
+
+phoneSheetDialogs(window.matchMedia(PHONE_TABS).matches);
+window.matchMedia(PHONE_TABS).addEventListener("change", (event) => phoneSheetDialogs(event.matches));
 
 // --- the chat composer on a phone: attachments and mode in one row -----------
 // UI_MODERNISATION_PLAN Phase 11 item 3, "the composer above the keyboard
@@ -1255,13 +1284,23 @@ initPhoneChatRow();
 //: is a class rather than a second recipe so everything else about a sheet,
 //: the scrim, the tier, the head with its X, Escape and the backdrop press,
 //: stays the one thing it already is.
-function openSheet({ label, sub = "", name, build, variant = "", returnFocus = document.activeElement, onClose = null, onGone = null }) {
+function openSheet({ label, sub = "", name, build, variant = "", modal = true, returnFocus = document.activeElement, onClose = null, onGone = null }) {
   const overlay = document.createElement("div");
   overlay.className = `modal-overlay sheet-overlay${variant ? ` sheet-${variant}` : ""}`;
   overlay.dataset.sheet = name || "";
   overlay.setAttribute("role", "dialog");
   overlay.setAttribute("aria-modal", "true");
   overlay.setAttribute("aria-label", label);
+  //: **Modeless above 600** (`modal: false`, the Guide; guideia): no scrim,
+  //: and presses pass through to the app, because the Guide's own answer is
+  //: "Open the Reminders tab" and a dimmed app cannot be read against it.
+  //: Escape still closes it, from inside it only. Below 600 the sheet is the
+  //: window, so it stays modal there.
+  const modeless = modal === false && window.matchMedia("(min-width: 600px)").matches;
+  if (modeless) {
+    overlay.classList.add("sheet-modeless");
+    overlay.removeAttribute("aria-modal");
+  }
   //: **Above whatever it was opened from.** A sheet is a `.modal-overlay`
   //: (1010), and a surface drawn higher than that opened its sheet behind
   //: itself: the lightbox (1020) on a phone, whose ⋯ "does nothing (no
@@ -1353,6 +1392,8 @@ function openSheet({ label, sub = "", name, build, variant = "", returnFocus = d
       return;
     }
     if (event.key !== "Escape") return;
+    //: A modeless sheet leaves an Escape pressed in the app to the app.
+    if (modeless && !card.contains(document.activeElement)) return;
     //: **One Escape, one sheet.** A sheet can open over a sheet (a ⋯ action
     //: sheet over the note page, INBOX 392), and every sheet's listener is
     //: on the document, so one Escape closed both. Only the topmost answers.
@@ -1390,14 +1431,35 @@ function openSheet({ label, sub = "", name, build, variant = "", returnFocus = d
   initHelpToggles(card);
   //: Focus starts in a field, else on the current row, else the first row: on
   //: the X, Enter closed a fresh chooser.
-  const field = card.querySelector("input:not([type=hidden]), select, textarea");
-  const first =
-    field ||
-    card.querySelector('.sheet-row[aria-current="true"]') ||
-    card.querySelector(".sheet-row") ||
-    card.querySelector("button, [href]") ||
-    card;
-  first.focus?.();
+  //: **Never a `select`, where there is no hover** (INBOX 885, the owner:
+  //: "clicking the graph settings button on my phone auto opens the graph
+  //: layout dropdown menu"). The map-controls sheet's first field is the
+  //: Layout select, and a script focus on a select under a finger opens the
+  //: picker (measured: `document.activeElement` was `#graph-layout` 100ms
+  //: after the tap). A tap that opened a sheet asked for the sheet, not for
+  //: its first choice (nor a slider or a tickbox, which a script focus helps
+  //: nobody with); the pointer and the keyboard keep the old landing.
+  const touchOnly = window.matchMedia("(hover: none), (pointer: coarse)").matches;
+  const field = touchOnly
+    ? [...card.querySelectorAll("input:not([type=hidden], [type=range], [type=checkbox], [type=radio]), textarea")].find(
+        (el) => el.offsetParent !== null
+      )
+    : card.querySelector("input:not([type=hidden]), select, textarea");
+  //: The first of these that actually takes focus: a field inside a closed
+  //: fold is `offsetParent`-visible to nobody and refuses the call, and
+  //: leaving the focus on the opener behind the sheet is the other failure.
+  if (!card.hasAttribute("tabindex")) card.tabIndex = -1;
+  for (const target of [
+    field,
+    card.querySelector('.sheet-row[aria-current="true"]'),
+    card.querySelector(".sheet-row"),
+    card.querySelector("button, [href]"),
+    card,
+  ]) {
+    if (!target) continue;
+    target.focus?.();
+    if (document.activeElement === target) break;
+  }
   return close;
 }
 
@@ -1478,7 +1540,7 @@ function openPhoneMoreSheet() {
       list.appendChild(sheetRow("ph ph-question tab-icon", "Guide", () => {
         close();
         //: settings.js owns the Guide sheet and loads beside this file.
-        if (typeof openHelpChat === "function") openHelpChat();
+        openHelpChat();
       }));
       //: The agent's runs, which the status bar holds above 600 and a phone
       //: does not show (INBOX 430): a row with the count, opening the panel.
@@ -1576,21 +1638,51 @@ function syncPhoneMoreButton(activeTabName) {
 // keyboard, so what is tested here is that the property is written, that it
 // is 0 with no keyboard, and that the two docks read it. The behaviour with
 // a real keyboard on a real phone is reasoned, not observed.
+// `scratchpad/ui-sweeps/kbinset.js` stubs the visual viewport (height and
+// offsetTop, three pan states) and measures the composer's bottom against the
+// visible bottom.
 function initKeyboardInset() {
   const viewport = window.visualViewport;
   if (!viewport) return;
+  const root = document.documentElement;
   const write = () => {
-    const covered = window.innerHeight - viewport.height - viewport.offsetTop;
+    // A pinch zoom shrinks the visual viewport exactly as a keyboard does
+    // (height is innerHeight over the scale), so a zoomed page is not a
+    // covered one: only a page at rest scale can have a keyboard on it.
+    const zoomed = (viewport.scale || 1) > 1.05;
+    const covered = zoomed ? 0 : window.innerHeight - viewport.height - viewport.offsetTop;
     // Clamped at zero: `offsetTop` is negative while a page is rubber-banding
     // on iOS, which would otherwise write a negative padding.
-    document.documentElement.style.setProperty(
-      "--keyboard-inset",
-      `${Math.max(0, Math.round(covered))}px`
-    );
+    const inset = Math.max(0, Math.round(covered));
+    root.style.setProperty("--keyboard-inset", `${inset}px`);
+    // The class is what a bulky strip keys off to step aside (the no-model
+    // notice above the composer, 10-responsive.css): a threshold, because a
+    // few pixels of covered strip is a toolbar settling, not a keyboard.
+    root.classList.toggle("keyboard-open", inset > 120);
   };
   viewport.addEventListener("resize", write);
   viewport.addEventListener("scroll", write);
   write();
+  // iOS animates the keyboard in over about a quarter of a second and does
+  // not always fire a resize at the end of it, so the covered strip written
+  // at the start can be stale for the whole time the person is typing (the
+  // owner: "opening up the phone keyboard actually covers the text box").
+  // Reading again as a field takes focus, and a few times while the
+  // animation settles, closes that; and when the field is left, the page is
+  // put back to the top, because iOS scrolls the document to show a focused
+  // field and leaves it scrolled.
+  const fieldSelector = "input, textarea, select, [contenteditable]";
+  const settle = () => [0, 120, 320, 700].forEach((delay) => setTimeout(write, delay));
+  document.addEventListener("focusin", (event) => {
+    if (event.target.closest?.(fieldSelector)) settle();
+  });
+  document.addEventListener("focusout", (event) => {
+    if (!event.target.closest?.(fieldSelector)) return;
+    settle();
+    setTimeout(() => {
+      if (!document.activeElement?.closest?.(fieldSelector) && window.scrollY) window.scrollTo(0, 0);
+    }, 350);
+  });
 }
 
 initKeyboardInset();
@@ -1838,8 +1930,31 @@ function foldSiblingsIntoMenu(dock, menu, fold) {
   }
 }
 
-function foldDockArrange(fold) {
+//: **Fold by count as well as by width** (UI_MODERNISATION 13.1 row 2, OPEN
+//: row 568): a dock folds past seven items. At 1440 six docks showed eight to
+//: ten (Notes 10, Graph 9, Library 9, Chat 8, Timeline 8, Boards 8) while the
+//: phone folded every one by width; one rule now, the same move.
+const DOCK_FOLD_PAST = 7;
+
+const dockShown = (el) => !el.hidden && !el.matches(".hidden, .dock-native-hidden, .visually-hidden, .dock-arrange-slot, .dock-action-slot")
+  && getComputedStyle(el).display !== "none";
+
+//: Every item the dock has, wherever a fold put it, so the decision does not
+//: change because it was taken. Without `arrange`, what is left in the row
+//: once sort and view have folded: the second fold's question.
+function dockItemCount(dock, arrange = true) {
+  let count = dock.querySelectorAll(".dock-menu-list > .dock-folded-action").length;
+  for (const zone of ["dock-identity", "dock-find", "dock-arrange", "dock-actions"]) {
+    if (zone === "dock-arrange" && !arrange) continue;
+    const el = dock.querySelector(`:scope > .${zone}`) || (zone === "dock-arrange" ? dock.querySelector(".dock-menu-list > .dock-arrange") : null);
+    if (el) count += [...el.children].filter(dockShown).length;
+  }
+  return count + (arrange ? dock.querySelectorAll(".dock-menu-list > [data-folded-from]").length : 0);
+}
+
+function foldDockArrange(narrow) {
   for (const dock of document.querySelectorAll(".dock[data-dock-name]")) {
+    const fold = narrow || dockItemCount(dock) > DOCK_FOLD_PAST;
     const menu = dock.querySelector(":scope > .dock-actions > .dock-more > .dock-menu-list");
     if (menu) {
       foldZoneIntoMenu(dock, menu, fold);
@@ -1882,10 +1997,13 @@ initDockFolding();
 //: bare icons in a list is a row of guesses.
 const DOCK_ACTIONS_FOLD_BELOW = "(max-width: 599.98px)";
 
-function foldDockActions(fold) {
+function foldDockActions(narrow) {
   for (const dock of document.querySelectorAll(".dock[data-dock-name]")) {
     const menu = dock.querySelector(":scope > .dock-actions > .dock-more > .dock-menu-list");
     if (!menu) continue;
+    //: Still past seven once sort and view have gone: the same second fold
+    //: at any width (OPEN row 568).
+    const fold = narrow || dockItemCount(dock, false) > DOCK_FOLD_PAST;
     if (fold) {
       const moving = [...dock.querySelectorAll(":scope > .dock-actions > [data-fold-narrow]")];
       let after = null;
@@ -1969,20 +2087,22 @@ async function quitApp() {
   // server is down, the button that would bring it back is on the page that
   // just stopped being served.
   if (!(await confirmDialog(
-    "Quit MemoryMap?\n\nThe app and its server will stop. Your notes are already saved.",
+    "Quit Tessellate?\n\nThe app and its server will stop. Your notes are already saved.",
     { confirmLabel: "Quit" }
   ))) {
     return;
   }
   try {
     await apiJson("/shutdown", { method: "POST" });
-  } catch {
+  } catch (error) {
     // The server may drop the connection as it goes. That is the request
-    // succeeding, not failing, so it is not worth an error toast.
+    // succeeding, not failing, so it is not worth an error toast. A refusal
+    // is not: another device is told why, and the app goes on running.
+    if (error?.status === 403) return toast(error.message, true);
   }
   document.body.innerHTML =
     '<div class="farewell">' +
-    "<h1>MemoryMap has stopped.</h1>" +
+    "<h1>Tessellate has stopped.</h1>" +
     "<p>Your notes are saved. You can close this tab.</p></div>";
 }
 $("quit-btn")?.addEventListener("click", quitApp);
@@ -2013,20 +2133,6 @@ async function clearAppCache() {
 async function forceReloadApp() {
   await clearAppCache();
   location.reload();
-}
-
-//: **Where an export lands, from a notification.** On the desktop the OS file
-//: manager opens on the folder; a browser tab has no file manager to hand
-//: this to, so it gets the Settings list below, where every export has a
-//: download link of its own.
-async function openExportsFromNotification() {
-  if (await desktopShell()) {
-    apiJson("/files/open-exports-folder", { method: "POST" }).catch((error) => {
-      toast(error.message || "Couldn't open the exports folder.", true);
-    });
-    return;
-  }
-  openSettingsModal("data", "exports-recent");
 }
 
 //: **The exports folder, as a list in Settings** (INBOX 159: "an area
@@ -2106,7 +2212,7 @@ async function renderAutonomousReview() {
   box.classList.toggle("hidden", changes.length === 0);
   if (!changes.length) return;
 
-  const when = pass.finished_at ? new Date(pass.finished_at).toLocaleString() : "";
+  const when = pass.finished_at ? whenText(pass.finished_at) : "";
   $("autonomous-review-title").textContent =
     `What the last run changed, ${changes.length} thing(s)` + (when ? `, ${when}` : "");
   list.replaceChildren(...changes.map((change) => changeRow(change)));

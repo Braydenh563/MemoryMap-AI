@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from memorymap.ai import drafter
+from tessellate.ai import drafter
 
 ROOT = Path(__file__).resolve().parents[1]
 DOC = "Its a good plan. The team have agreed to it's terms. We was going to start monday."

@@ -18,8 +18,8 @@ import inspect
 import json
 from datetime import timedelta
 
-from memorymap.core.database import AuditLog
-from memorymap.entry import manager
+from tessellate.core.database import AuditLog
+from tessellate.entry import manager
 
 WRITE_PREFIXES = (
     "create_", "update_", "soft_delete_", "restore_", "archive_", "unarchive_",
@@ -59,7 +59,7 @@ def test_every_manager_write_records_exactly_one_event(session):
 
 
 def test_a_notes_events_replay_to_its_current_state(session):
-    from memorymap.core import events
+    from tessellate.core import events
 
     entry = manager.create_entry(session, "first", tags=["a"])
     session.commit()
@@ -109,7 +109,7 @@ def test_a_tool_call_is_recorded_as_the_ai_doing_it(session):
     (`tools.execute_tool`), so a handler cannot forget it and file the AI's
     edit as something the user typed.
     """
-    from memorymap.ai import tools
+    from tessellate.ai import tools
 
     tools.execute_tool(session, "create_note", {"content": "the AI wrote this"})
     session.commit()
@@ -189,7 +189,7 @@ def test_the_feed_leaves_the_bookkeeping_out(client):
 
 def _age_all_events(session, days: int) -> None:
     """Backdate every event, so a compaction window can be reached in a test."""
-    from memorymap.core.database import utcnow
+    from tessellate.core.database import utcnow
 
     when = utcnow() - timedelta(days=days)
     for row in session.query(AuditLog).all():
@@ -198,7 +198,7 @@ def _age_all_events(session, days: int) -> None:
 
 
 def test_compaction_leaves_replay_on_the_current_state(session):
-    from memorymap.core import events
+    from tessellate.core import events
 
     entry = manager.create_entry(session, "version 0", tags=["a"])
     session.commit()
@@ -226,7 +226,7 @@ def test_compaction_leaves_replay_on_the_current_state(session):
 def test_compaction_keeps_the_newest_events_whole(session):
     """However old they are. A note edited twice years ago and not since
     would otherwise have no readable history at all."""
-    from memorymap.core import events
+    from tessellate.core import events
 
     entry = manager.create_entry(session, "version 0", tags=[])
     session.commit()
@@ -242,7 +242,7 @@ def test_compaction_keeps_the_newest_events_whole(session):
 
 
 def test_compaction_leaves_a_young_log_alone(session):
-    from memorymap.core import events
+    from tessellate.core import events
 
     entry = manager.create_entry(session, "written today", tags=[])
     session.commit()
@@ -261,7 +261,7 @@ def test_compaction_leaves_a_young_log_alone(session):
 def test_compaction_is_safe_to_run_twice(session):
     """It runs at startup, so a second pass over an already-compacted log has
     to be a no-op rather than something that compounds."""
-    from memorymap.core import events
+    from tessellate.core import events
 
     entry = manager.create_entry(session, "version 0", tags=[])
     session.commit()
@@ -284,7 +284,7 @@ def test_a_second_window_moves_the_snapshot_forward(session):
     """The case that actually recurs: more edits happen, they age, and the
     pass runs again. The boundary moves, the old snapshot is folded into the
     new one, and replay still lands on the current state."""
-    from memorymap.core import events
+    from tessellate.core import events
 
     entry = manager.create_entry(session, "version 0", tags=[])
     session.commit()
@@ -312,7 +312,7 @@ def test_a_second_window_moves_the_snapshot_forward(session):
 
 
 def test_a_compacted_version_says_so_rather_than_restoring_nothing(client, session):
-    from memorymap.core import events
+    from tessellate.core import events
 
     entry = manager.create_entry(session, "version 0", tags=[])
     session.commit()
@@ -345,7 +345,7 @@ def test_the_feed_calls_a_snapshot_a_snapshot(client, session):
     happened. It reports what it is instead, and the rows whose values the
     compactor took say that rather than reporting an empty edit.
     """
-    from memorymap.core import events
+    from tessellate.core import events
 
     entry = manager.create_entry(session, "version 0", tags=["a"])
     session.commit()
@@ -394,7 +394,7 @@ WHITEBOARD_WRITE_PREFIXES = (
 
 
 def _whiteboard_writes():
-    from memorymap.api import routes_whiteboard
+    from tessellate.api import routes_whiteboard
 
     return sorted(
         name
@@ -618,7 +618,7 @@ def test_every_whiteboard_write_records_exactly_one_event(client, session):
 
 def test_a_board_items_events_replay_to_their_current_state(client, session):
     """The same promise a note makes, for the things on a board."""
-    from memorymap.core import events
+    from tessellate.core import events
 
     made = _board_fixture(client)
     box = made["object"]["id"]
@@ -673,8 +673,8 @@ def _ai_board_writes() -> list[str]:
     exist: the day somebody adds a seventh board tool, this finds it, no
     driver is registered, and the failure says what to do.
     """
-    from memorymap.ai import tools
-    from memorymap.ai.tools import whiteboard as wb
+    from tessellate.ai import tools
+    from tessellate.ai.tools import whiteboard as wb
 
     return sorted(
         name
@@ -691,9 +691,9 @@ def test_every_ai_board_write_records_a_replayable_event(session):
     anything back. Each call below is checked for its events on the way
     past; the replay at the end is the point.
     """
-    from memorymap.ai import tools
-    from memorymap.core import events
-    from memorymap.core.database import WhiteboardNode, WhiteboardObject, WhiteboardSketch
+    from tessellate.ai import tools
+    from tessellate.core import events
+    from tessellate.core.database import WhiteboardNode, WhiteboardObject, WhiteboardSketch
 
     note = manager.create_entry(session, "a note to put on the board", tags=[])
     second = manager.create_entry(session, "a second note", tags=[])
@@ -757,6 +757,11 @@ def test_every_ai_board_write_records_a_replayable_event(session):
         },
     )
 
+    #: A map made from one note in one call: a board of its own.
+    outline = manager.create_entry(session, "# Garden\n\n- Tomatoes\n- Beans", tags=[])
+    session.commit()
+    made["from_note"] = run("map_from_note", {"note_id": outline.id})["board_id"]
+
     covered = {
         "create_mindmap",
         "add_map_node",
@@ -764,6 +769,7 @@ def test_every_ai_board_write_records_a_replayable_event(session):
         "add_whiteboard_card",
         "add_whiteboard_link",
         "generate_diagram",
+        "map_from_note",
     }
     assert set(_ai_board_writes()) == covered, (
         "a write tool in ai/tools/whiteboard.py is not driven by this test. "
@@ -794,6 +800,12 @@ def test_every_ai_board_write_records_a_replayable_event(session):
     # writing its rows cannot pass by replaying nothing.
     assert items == 9
 
+    assert events.replay(session, "board", made["from_note"])["type"] == "map"
+    topics = session.query(WhiteboardObject).filter(WhiteboardObject.board_id == made["from_note"]).all()
+    assert topics, "the map from the note has no topics"
+    for row in topics:
+        assert events.replay(session, "whiteboard_object", row.id) == events.object_state(row), row.id
+
 
 def test_a_generated_or_imported_map_replays_with_its_nodes_on_it(client, session):
     """Brief 7's open item 4, closed.
@@ -804,7 +816,7 @@ def test_a_generated_or_imported_map_replays_with_its_nodes_on_it(client, sessio
     hand-placed object replayed fine. The AI's own `generate_diagram` already
     recorded one event per item; these two predate that decision.
     """
-    from memorymap.core import events
+    from tessellate.core import events
 
     made = client.post(
         "/whiteboard/boards/import",
@@ -819,7 +831,7 @@ def test_a_generated_or_imported_map_replays_with_its_nodes_on_it(client, sessio
     assert board["object_count"] == 3
     session.commit()
 
-    from memorymap.core.database import WhiteboardObject
+    from tessellate.core.database import WhiteboardObject
 
     objects = (
         session.query(WhiteboardObject).filter_by(board_id=board["id"]).all()

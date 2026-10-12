@@ -111,12 +111,9 @@ let libraryKind = "all";
 //: matching", because the client filtered a list that never held it.
 let libraryTruncated = {};
 //: What the last draw showed, and when (see loadLibrary).
-let librarySignature = "";
-let libraryDrawnAt = 0;
+let librarySignature = "", libraryDrawnAt = 0;
 //: Which `renderLibrary` call is the newest (see its `updateDOM`).
-let libraryRenderGen = 0;
-let libraryBaseItems = [];
-let libraryServerQuery = "";
+let libraryRenderGen = 0, libraryBaseItems = [], libraryServerQuery = "";
 
 //: Same pattern as Notes' and the Library Documents sub-tab's own paging: 
 //: "all" (the default) leaves renderIncrementally's chunked scroll untouched;
@@ -406,8 +403,7 @@ function librarySorted(items) {
 // question finds. The hits are only read as a set of note ids here, so the
 // index holding a binned or archived note (flagged) changes nothing: the
 // filter below keeps only rows whose kind is still "note".
-let librarySemanticIds = null;
-let librarySemanticQuery = "";
+let librarySemanticIds = null, librarySemanticQuery = "";
 
 async function refreshLibrarySemantic() {
   const query = ($("library-search")?.value || "").trim();
@@ -448,8 +444,7 @@ async function refreshLibrarySemantic() {
 // so the count of columns at every width is what it was. One column in Rows,
 // and below 600, where the phone band has always drawn a single column.
 const LIBRARY_CARD_MIN_REM = 17;
-let libraryColumnsShown = 1;
-let libraryColumnsObserver = null;
+let libraryColumnsShown = 1, libraryColumnsObserver = null;
 
 function libraryColumnCount(grid) {
   if (libraryView() === "list" || window.innerWidth < 600) return 1;
@@ -539,9 +534,14 @@ function renderLibrary(options) {
     // With Semantic on, a note also matches if the meaning search returned it,
     // even when it shares no words with the query. Everything else is
     // unchanged: see `librarySemanticIds`.
-    items = librarySemanticIds
-      ? items.filter((i) => (i.kind === "note" && librarySemanticIds.has(i.id)) || wordMatch(i))
-      : items.filter(wordMatch);
+    const phrase = libraryPhrase.q === query && libraryPhrase.ids;
+    const rest = libraryPhrase.rest;
+    const restMatch = (i) => !rest || (i.title || "").toLowerCase().includes(rest) || (i.preview || "").toLowerCase().includes(rest);
+    items = phrase
+      ? items.filter((i) => i.kind === "note" && libraryPhrase.ids.has(i.id) && restMatch(i))
+      : librarySemanticIds
+        ? items.filter((i) => (i.kind === "note" && librarySemanticIds.has(i.id)) || wordMatch(i))
+        : items.filter(wordMatch);
   }
   items = librarySorted(items);
 
@@ -759,27 +759,30 @@ function libraryActions(item) {
         item.pinned ? "ph:push-pin-slash Unpin" : "ph:push-pin Pin",
         item.pinned ? "Let this chat sort by date again" : "Keep this chat at the top",
         async () => {
-          await apiJson(`/conversations/${item.id}/pin`, {
+          const pinned = await apiJson(`/conversations/${item.id}/pin`, {
             method: "PUT",
             body: JSON.stringify({ pinned: !item.pinned }),
           }).catch((e) => toast(e.message, true));
+          if (pinned) chatWriteRecord("chatPinUndo", item.id, !item.pinned);
           reload();
         }
       ),
       makeMenuItem("ph:pencil-simple Rename", "Rename this chat", async () => {
         const next = await promptDialog("Rename this chat:", item.title);
         if (!next) return;
-        await apiJson(`/conversations/${item.id}`, {
+        const renamed = await apiJson(`/conversations/${item.id}`, {
           method: "PUT",
           body: JSON.stringify({ title: next }),
         }).catch((e) => toast(e.message, true));
+        if (renamed) chatWriteRecord("chatTitleUndo", item.id, item.title, next);
         reload();
         loadConversationList();
       }),
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not deleted", async () => {
-        await apiJson(`/conversations/${item.id}/archive`, { method: "PUT" }).catch((e) =>
+        const archived = await apiJson(`/conversations/${item.id}/archive`, { method: "PUT" }).catch((e) =>
           toast(e.message, true)
         );
+        if (archived) chatWriteRecord("chatArchiveUndo", item.id, item.title);
         if (chatConv && chatConv.id === item.id) newChatConversation();
         toast("Archived.");
         reload();
@@ -803,10 +806,7 @@ function libraryActions(item) {
       makeMenuItem("ph:pencil-simple Rename", "Rename this document", async () => {
         const next = await promptDialog("Rename this document:", item.title);
         if (!next) return;
-        await apiJson(`/documents/${item.id}`, {
-          method: "PUT",
-          body: JSON.stringify({ title: next }),
-        }).catch((e) => toast(e.message, true));
+        await renameDocumentWithUndo(item, next).catch((e) => toast(e.message, true));
         reload();
       }),
       makeMenuItem("ph:download-simple Download .md", "Save a copy as a markdown file", () => {
@@ -826,10 +826,7 @@ function libraryActions(item) {
         remindAbout({ title: item.title, documentId: item.id })
       ),
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not deleted", async () => {
-        await apiJson(`/documents/${item.id}/archive`, { method: "PUT" }).catch((e) =>
-          toast(e.message, true)
-        );
-        toast("Archived.");
+        await archiveDocumentWithUndo(item).catch((e) => toast(e.message, true));
         reload();
       }),
       makeMenuItem("ph:trash Delete", "Delete this document", async () => {
@@ -850,7 +847,10 @@ function libraryActions(item) {
     const bin = binRoutes(item);
     return [
       makeMenuItem("ph:arrow-u-up-left Restore", `Put this ${bin.noun} back`, async () => {
-        await apiJson(bin.restore, { method: "POST" }).catch((e) => toast(e.message, true));
+        const back = await apiJson(bin.restore, { method: "POST" }).catch((e) => toast(e.message, true));
+        if (back && item.subtype !== "reading") {
+          pushBinPairUndo(`Restored “${item.title}” from the bin`, bin.restore.replace(/\/restore$/, ""), bin.restore, true, () => Promise.all([loadLibrary(), bin.reload()]));
+        }
         toast("Restored.");
         reload();
         bin.reload();
@@ -880,7 +880,11 @@ function libraryActions(item) {
         "ph:arrow-u-up-left Unarchive",
         `Bring this ${target.noun} back into your notebook`,
         async () => {
-          await apiJson(target.url, { method: target.method }).catch((e) => toast(e.message, true));
+          const done = await apiJson(target.url, { method: target.method }).catch((e) => toast(e.message, true));
+          if (done !== undefined) {
+            const archive = target.url.replace(/unarchive$/, "archive");
+            pushRoutePairUndo(`Unarchived a ${target.noun}`, [archive, target.method], [target.url, target.method], () => Promise.all([loadLibrary(), target.reload()]));
+          }
           toast("Unarchived.");
           reload();
           target.reload();
@@ -912,9 +916,12 @@ function libraryActions(item) {
         downloadFromApi(`/entries/${item.id}/export.md`, "note.md");
       }),
       makeMenuItem("ph:archive Archive", "Keep it, but out of the way, not the bin", async () => {
-        await apiJson(`/entries/${item.id}/archive`, { method: "POST" }).catch((e) =>
+        const archived = await apiJson(`/entries/${item.id}/archive`, { method: "POST" }).catch((e) =>
           toast(e.message, true)
         );
+        if (archived !== undefined) {
+          pushRoutePairUndo("Archived a note", [`/entries/${item.id}/unarchive`, "POST"], [`/entries/${item.id}/archive`, "POST"], () => Promise.all([loadLibrary(), refreshEntries([item.id])]));
+        }
         toast("Archived.");
         reload();
         loadEntries();
@@ -942,10 +949,10 @@ function libraryActions(item) {
           loadEntries();
         };
         const action = pushUndo("Moved a note to the bin", restoreIt, binIt);
-        toastAction("Moved to the bin.", "Undo", async () => {
+        toastAction(`Moved ${toastName(item.title, "the note")} to the bin.`, "Undo", async () => {
           settleUndoFromToast(action);
           await restoreIt();
-          toast("Note restored.");
+          toast(`Restored ${toastName(item.title, "the note")}.`);
         }, { also: GO_TO_BIN });
       }),
     ];
@@ -955,23 +962,14 @@ function libraryActions(item) {
       makeMenuItem("ph:pencil-simple Rename", "Rename this tag everywhere (merge if it exists)", async () => {
         const next = await promptDialog(`Rename tag “${item.title}” to:`, item.title);
         if (!next || next === item.title) return;
-        const result = await apiJson("/tags/rename", {
-          method: "POST",
-          body: JSON.stringify({ old: item.title, new: next }),
-        }).catch((e) => {
-          toast(e.message, true);
-          return null;
-        });
-        if (result) toast(`Renamed on ${result.changed} note${result.changed === 1 ? "" : "s"}.`);
+        if (!(await ensureModule("tagManager"))) return;
+        await runTagEdit(`Renamed “${item.title}” to “${next}”`, "/tags/rename", { old: item.title, new: next }, { [item.title]: next });
         reload();
         loadEntries();
       }),
       makeMenuItem("ph:trash Remove everywhere", "Take this tag off every note", async () => {
-        if (!(await confirmDialog(`Remove the tag “${item.title}” from every note?\n\nThe notes are untouched.`))) return;
-        await apiJson("/tags/delete", {
-          method: "POST",
-          body: JSON.stringify({ name: item.title }),
-        }).catch((e) => toast(e.message, true));
+        if (!(await ensureModule("tagManager"))) return;
+        await removeTagsEverywhere([item.title]);
         reload();
         loadEntries();
       }),
@@ -1006,8 +1004,9 @@ function libraryActions(item) {
       // (`library-bulk-delete` already has a `file` branch), but nothing
       // offered it from the one place someone looks first.
       makeMenuItem("ph:trash Delete", "Remove this file permanently", async () => {
-        if (!(await confirmDialog(`Delete "${item.title}"?\n\nThis cannot be undone.`))) return;
-        await apiJson(`/files/${item.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
+        if (!(await confirmDialog(`Delete "${item.title}"?\n\nIt moves out of the Library; Undo brings it back.`))) return;
+        const gone = await apiJson(`/files/${item.id}`, { method: "DELETE" }).catch((e) => toast(e.message, true));
+        if (gone) pushTokenUndo(`Deleted “${item.title}”`, [{ del: [`/files/${item.id}`, "DELETE"], restore: "/files/restore", token: gone.undo_token }], reload);
         toast("Deleted.");
         reload();
       }),
@@ -1016,8 +1015,8 @@ function libraryActions(item) {
   return [];
 }
 
-//: **The bin holds three kinds** (WORLD_CLASS_PLAN 5 item 10): notes (with
-//: boards and maps), documents and reminders, told apart by `subtype`
+//: **The bin holds five kinds** (WORLD_CLASS_PLAN 5 item 10): notes (with
+//: boards and maps), documents, reminders, OCR readings and recordings, told apart by `subtype`
 //: (`routes_library._archive`). Each has its own restore and purge route.
 function binRoutes(item) {
   if (item.subtype === "document") {
@@ -1025,6 +1024,15 @@ function binRoutes(item) {
   }
   if (item.subtype === "reminder") {
     return { noun: "reminder", restore: `/reminders/${item.id}/restore`, purge: `/reminders/${item.id}/purge`, reload: () => loadReminders() };
+  }
+  //: A deleted OCR reading (WORLD_CLASS_PLAN 28.4 row 2) goes back to the
+  //: page or the file it was read from.
+  //: A deleted recording (WORLD_CLASS_PLAN 28.5 row 6), its audio kept.
+  if (item.subtype === "recording") {
+    return { noun: "recording", restore: `/recordings/${item.id}/restore`, purge: `/recordings/${item.id}/purge`, reload: () => {} };
+  }
+  if (item.subtype === "reading") {
+    return { noun: "reading", restore: `/reading-bin/${item.id}/restore`, purge: `/reading-bin/${item.id}/purge`, reload: () => renderLibraryImagesGallery() };
   }
   return { noun: "note", restore: `/entries/${item.id}/restore`, purge: `/entries/${item.id}/purge`, reload: () => refreshEntries([item.id]) };
 }
@@ -1039,7 +1047,8 @@ async function linkNoteFromLibrary(item) {
     return;
   }
   try {
-    await apiJson(`/entries/${item.id}/links`, { method: "POST", body: JSON.stringify({ target_id: other.id }) });
+    const made = await apiJson(`/entries/${item.id}/links`, { method: "POST", body: JSON.stringify({ target_id: other.id }) });
+    pushLinkCreateUndo(item.id, other.id, made, { target_id: other.id });
   } catch (error) {
     toast(error.message, true);
     return;
@@ -1359,6 +1368,7 @@ function libraryCard(item) {
     const isChat = item.kind === "chat";
     const pin = document.createElement("span");
     setLabel(pin, isChat ? "ph:push-pin" : "ph:star");
+    if (!isChat) pin.firstElementChild?.classList.add("star-fill");
     pin.title = isChat ? "Pinned" : "Favourite";
     top.appendChild(pin);
   }
@@ -1424,7 +1434,7 @@ function libraryCard(item) {
   const when = document.createElement("span");
   when.className = "library-card-when";
   when.textContent = relativeTime(item.updated_at);
-  when.title = new Date(item.updated_at).toLocaleString();
+  when.title = whenText(item.updated_at);
   foot.append(detail, when);
   card.appendChild(foot);
 
@@ -1545,11 +1555,14 @@ function openLibraryItem(item) {
     // only reason that panel outlived the Library's Bin chip. A binned
     // document or reminder has nothing to read that its card does not show,
     // so opening one offers to bring it back (WORLD_CLASS_PLAN 5 item 10).
-    if (item.subtype === "document" || item.subtype === "reminder") {
+    if (item.subtype === "document" || item.subtype === "reminder" || item.subtype === "reading") {
       const bin = binRoutes(item);
       confirmDialog(`“${item.title}” is in the bin. Restore it?`, { confirmLabel: "Restore" }).then(async (yes) => {
         if (!yes) return;
-        await apiJson(bin.restore, { method: "POST" }).catch((e) => toast(e.message, true));
+        const back = await apiJson(bin.restore, { method: "POST" }).catch((e) => toast(e.message, true));
+        if (back && item.subtype !== "reading") {
+          pushBinPairUndo(`Restored “${item.title}” from the bin`, bin.restore.replace(/\/restore$/, ""), bin.restore, true, () => Promise.all([loadLibrary(), bin.reload()]));
+        }
         loadLibrary();
         bin.reload();
         if (item.subtype === "document") openDocumentFromNote(item.id);
@@ -1612,9 +1625,10 @@ $("binned-restore").addEventListener("click", async () => {
   if (!id) return;
   try {
     await apiJson(`/entries/${id}/restore`, { method: "POST" });
+    pushBinPairUndo("Restored a note from the bin", `/entries/${id}`, `/entries/${id}/restore`, true, () => Promise.all([refreshEntries([id]), loadLibrary()]));
     toast("Restored.");
   } catch (error) {
-    toast(`Couldn't restore that note: ${error.message}`, true);
+    toast(voiceLine("failed", { what: "restore that note", why: error.message }), true);
     return;
   }
   closeBinnedReader();
@@ -1632,7 +1646,7 @@ $("binned-purge").addEventListener("click", async () => {
     await apiJson(`/entries/${id}/purge`, { method: "DELETE" });
     toast("Deleted for good.");
   } catch (error) {
-    toast(`Couldn't delete that note: ${error.message}`, true);
+    toast(voiceLine("failed", { what: "delete that note", why: error.message }), true);
     return;
   }
   closeBinnedReader();
@@ -1717,8 +1731,28 @@ async function refreshLibraryServerSearch() {
   libraryServerQuery = query;
 }
 
+//: **A phrase in the search is a filter** (CHAT_PLAN section 2, the
+//: Library's row): "connected to Harbor", "untouched since June", "tagged
+//: work", "pinned" keep the notes they leave, read and resolved by the server
+//: (`GET /read/filter`, ai/filters.py), and the words left over still search.
+//: `ids` null: no filter was read, and the box is the plain search it was.
+const libraryPhrase = { q: "", ids: null, rest: "" };
+
+async function refreshLibraryPhrase() {
+  const query = ($("library-search")?.value || "").trim().toLowerCase();
+  if (query === libraryPhrase.q) return;
+  Object.assign(libraryPhrase, { q: query, ids: null, rest: "" });
+  if (!query) return;
+  try {
+    const got = await apiJson("/read/filter?q=" + encodeURIComponent(query) + `&tz_offset_minutes=${-new Date().getTimezoneOffset()}`, { silent: true });
+    if (libraryPhrase.q === query && got.ids) Object.assign(libraryPhrase, { ids: new Set(got.ids), rest: (got.rest || "").toLowerCase() });
+  } catch {
+    // No reading: the words search as before.
+  }
+}
+
 async function runLibrarySearch() {
-  await Promise.all([refreshLibrarySemantic(), refreshLibraryServerSearch()]);
+  await Promise.all([refreshLibrarySemantic(), refreshLibraryServerSearch(), refreshLibraryPhrase()]);
   libraryCurrentPage = 1; // a new search can move an item off whatever page it was on
   renderLibrary();
 }
@@ -1748,7 +1782,7 @@ const LIBRARY_SORT_KEY = "library-sort";
   if (stored && [...select.options].some((o) => o.value === stored)) select.value = stored;
 })();
 $("library-sort").addEventListener("change", (event) => {
-  try { localStorage.setItem(LIBRARY_SORT_KEY, event.target.value); } catch { /* a private window */ }
+  try { prefs.set(LIBRARY_SORT_KEY, event.target.value); } catch { /* a private window */ }
   libraryCurrentPage = 1;
   renderLibrary();
 });
@@ -1767,7 +1801,7 @@ $("library-show-binned").addEventListener("change", () => {
 });
 for (const button of document.querySelectorAll("#library-view button, #library-boards-view button")) {
   button.addEventListener("click", () => {
-    localStorage.setItem(LIBRARY_VIEW_KEY, button.dataset.libraryView);
+    prefs.set(LIBRARY_VIEW_KEY, button.dataset.libraryView);
     renderLibraryView();
     renderLibrary();
     //: The boards gallery lives in whiteboard.js and renders from its own
@@ -1803,7 +1837,7 @@ $("library-bin-empty").addEventListener("click", async () => {
 $("library-activity-export").addEventListener("click", async () => {
   try {
     const response = await api("/audit/export.csv");
-    await saveFile("memorymap-activity.csv", await response.blob());
+    await saveFile("tessellate-activity.csv", await response.blob());
   } catch (e) {
     toast(e.message, true);
   }
@@ -1833,13 +1867,23 @@ $("library-bulk-restore").addEventListener("click", async () => {
   // every item *attempted*: a per-item 404/500 was silently swallowed and
   // still counted as a success. Track real outcomes instead.
   let restored = 0;
+  const back = [];
   for (const item of chosen) {
     try {
       await apiJson(binRoutes(item).restore, { method: "POST" });
       restored++;
+      if (item.subtype !== "reading") back.push(item);
     } catch {
       // counted below
     }
+  }
+  if (back.length) {
+    pushRoutePairUndo(
+      `Restored ${back.length} item${back.length === 1 ? "" : "s"} from the bin`,
+      back.map((item) => [binRoutes(item).restore.replace(/\/restore$/, ""), "DELETE"]),
+      back.map((item) => [binRoutes(item).restore, "POST"]),
+      () => Promise.all([loadLibrary(), loadEntries(), loadReminders()])
+    );
   }
   if (restored) toast(`Restored ${restored} item${restored === 1 ? "" : "s"}.`);
   const failed = chosen.length - restored;
@@ -1866,6 +1910,9 @@ $("library-bulk-delete").addEventListener("click", async () => {
   // be swallowed by `.catch(() => {})` and still counted toward the
   // unconditional "Deleted N items." toast. Track what actually succeeded.
   let deleted = 0;
+  //: What each recoverable delete needs to come back (INBOX 898): a note or a
+  //: document its bin's restore, a chat the row its DELETE answered with.
+  const comeBack = [];
   for (const item of chosen) {
     const route =
       item.kind === "archived"
@@ -1881,11 +1928,34 @@ $("library-bulk-delete").addEventListener("click", async () => {
                 : null;
     if (!route) continue;
     try {
-      await apiJson(route[0], { method: route[1] });
+      const answer = await apiJson(route[0], { method: route[1] });
       deleted++;
+      if (item.kind === "note") comeBack.push({ route, back: [`/entries/${item.id}/restore`, "POST"] });
+      else if (item.kind === "document") comeBack.push({ route, back: [`/documents/${item.id}/restore`, "POST"] });
+      else if (item.kind === "chat" && answer?.restore) comeBack.push({ route, chat: answer.restore });
     } catch {
       // counted below
     }
+  }
+  if (comeBack.length) {
+    const live = comeBack.map((c) => ({ ...c }));
+    pushUndo(
+      `Deleted ${comeBack.length} item${comeBack.length === 1 ? "" : "s"} from the Library`,
+      async () => {
+        for (const c of live) {
+          if (c.chat) await apiJson("/conversations/restore", { method: "POST", body: JSON.stringify(c.chat) });
+          else await apiJson(c.back[0], { method: c.back[1] });
+        }
+        await Promise.all([loadLibrary(), loadEntries()]);
+      },
+      async () => {
+        for (const c of live) {
+          const answer = await apiJson(c.route[0], { method: c.route[1] });
+          if (c.chat && answer?.restore) c.chat = answer.restore;
+        }
+        await Promise.all([loadLibrary(), loadEntries()]);
+      }
+    );
   }
   if (deleted) toast(`Deleted ${deleted} item${deleted === 1 ? "" : "s"}.`);
   const failed = chosen.length - deleted;
@@ -1961,9 +2031,13 @@ const LIBRARY_CREATE_BY_KIND = {
   // export that into a visual diagram on the whiteboard", by construction:
   // the map *is* a whiteboard, so it exports through the export button that
   // is already there.
+  //: **One word, "mind map"** (MINDMAP_PLAN 15, row 2): this row made a
+  //: board of note cards under a second name for the same idea. The Library's
+  //: Mind maps filter keys its Create by `map`, so the key stays and makes
+  //: the mind map, the `mindmap` row's own run.
   map: {
-    label: "ph:graph New concept map",
-    run: () => createConceptMap(),
+    label: "ph:tree-structure New mind map",
+    run: () => LIBRARY_CREATE_BY_KIND.mindmap.run(),
   },
   //: **A board from the Library's own Create** (INBOX 266 part 1). The
   //: picker offered notes, documents, maps, chats and meetings, and a board,
@@ -2048,7 +2122,7 @@ const LIBRARY_CREATE_HINTS = {
 //: then the things that arrive from elsewhere. The picker's sentence used to
 //: say "Five kinds of thing", which went stale the day a sixth row was
 //: added; it names no count now, so it cannot drift from the rows under it.
-const LIBRARY_CREATE_ORDER = ["note", "document", "mindmap", "map", "board", "chat", "meeting", "file"];
+const LIBRARY_CREATE_ORDER = ["note", "document", "mindmap", "board", "chat", "meeting", "file"];
 
 //: The kinds that have a chord of their own, by its name in the shortcut
 //: registry: the keycap is read from the live table, so a rebinding shows.
@@ -2312,7 +2386,7 @@ function skillCard(skill, lastRun) {
     const outcome = (lastRun.detail || "").split(", ").slice(1).join(", ");
     const glyph = /^completed/.test(outcome) ? "check-circle" : /^stopped/.test(outcome) ? "warning" : "pause-circle";
     when.dataset.state = glyph === "check-circle" ? "ok" : glyph === "warning" ? "stopped" : "paused";
-    when.title = new Date(lastRun.created_at).toLocaleString();
+    when.title = whenText(lastRun.created_at);
     setLabel(when, `ph:${glyph} Ran ${relativeTime(lastRun.created_at)}${outcome ? `: ${outcome}` : ""}`);
   } else {
     setLabel(when, "ph:clock-countdown Never run");
@@ -2574,7 +2648,7 @@ onDomReady(() => {
     sort.value = skillSort();
     sort.addEventListener("change", () => {
       try {
-        localStorage.setItem(SKILL_SORT_KEY, sort.value);
+        prefs.set(SKILL_SORT_KEY, sort.value);
       } catch {
         // Kept for this visit only.
       }
@@ -2628,7 +2702,7 @@ async function renderSkillsDashboard() {
   const workersHint = document.createElement("p");
   workersHint.className = "muted text-sm";
   workersHint.textContent =
-    "Lets Atlas work through your notebook on its own, on a schedule you set in Settings. Everything it changes is listed there afterwards and can be undone one item at a time.";
+    "Atlas works through your notebook on a schedule set in Settings. Each change is listed there and undoes on its own.";
   const workerToggle = (id, key, label, on) => {
     const wrap = document.createElement("label");
     // The app's own pill toggle, not the `.switch`/`.slider` markup that used
@@ -2796,7 +2870,7 @@ async function renderSkillLogs() {
     action.textContent = (log.detail || "").split(", ")[0] || log.action;
     const when = document.createElement("span");
     when.className = "muted text-sm";
-    when.textContent = new Date(log.created_at).toLocaleString();
+    when.textContent = whenText(log.created_at);
     head.append(action, when);
 
     const detail = document.createElement("div");
@@ -3019,7 +3093,7 @@ onDomReady(() => {
   if (!select) return;
   select.value = libraryDocSort();
   select.addEventListener("change", () => {
-    localStorage.setItem(LIBRARY_DOC_SORT_KEY, select.value);
+    prefs.set(LIBRARY_DOC_SORT_KEY, select.value);
     //: Back to page one: staying on page four of a list that has just been
     //: reordered shows a slice of rows nobody asked to look at.
     libraryDocsCurrentPage = 1;
@@ -3039,17 +3113,27 @@ async function importLibraryDocuments(files) {
     const form = new FormData();
     form.append("file", file);
     try {
-      const document_ = await apiJson("/documents/import", {
-        method: "POST",
-        headers: authHeaders(),
-        body: form,
-      });
+      //: A Word file is read here by Mammoth (documents-word.js, Brief 42),
+      //: which keeps its headings, lists and tables; the server's extraction
+      //: keeps only the words. One with tracked changes goes to the server,
+      //: whose reader keeps them as suggestions (`docWordHasRevisions`).
+      const word = /\.docx$/i.test(file.name) && (await lazyScript("/js/documents-word.js")) && !(await docWordHasRevisions(file))
+        ? await docWordImport(file)
+        : null;
+      const document_ = word
+        ? await apiJson("/documents", { method: "POST", body: JSON.stringify({ title: word.title, content: word.content, file_type: "md" }) })
+        : await apiJson("/documents/import", {
+          method: "POST",
+          headers: authHeaders(),
+          body: form,
+        });
       made.push(document_);
     } catch (error) {
       toast(`Couldn't import “${file.name}”: ${error.message || "the file could not be read."}`, true);
     }
   }
   if (!made.length) return;
+  offerCreatedDocsUndo(made);
   await renderLibraryDocuments();
   // The list is already on screen and redrawn, so "Show them" would be a
   // button that does nothing; only a single import has somewhere to go.
@@ -3091,7 +3175,7 @@ async function renderLibraryDocuments() {
       DOCUMENTS_PAGE_SIZE
     );
   } catch (error) {
-    toast(error.message || "Could not load documents.", true);
+    toast(error.message || voiceLine("failed", { what: "load documents" }), true);
     return;
   } finally {
     clearSkeletons(list);
@@ -3250,7 +3334,7 @@ async function renderLibraryDocuments() {
           try {
             full = await apiJson(`/documents/${doc.id}`);
           } catch (error) {
-            toast(error.message || "Couldn't open that document.", true);
+            toast(error.message || voiceLine("failed", { what: "open that document" }), true);
             return;
           }
           openLightbox(
@@ -3277,10 +3361,7 @@ async function renderLibraryDocuments() {
         makeMenuItem("ph:pencil-simple Rename", "Rename this document", async () => {
           const next = await promptDialog("Rename this document:", doc.title || "");
           if (!next) return;
-          await apiJson(`/documents/${doc.id}`, {
-            method: "PUT",
-            body: JSON.stringify({ title: next }),
-          }).catch((e) => toast(e.message, true));
+          await renameDocumentWithUndo(doc, next).catch((e) => toast(e.message, true));
           renderLibraryDocuments();
         }),
         makeMenuItem("ph:download-simple Download .md", "Save a copy as a markdown file", () => {
@@ -3346,13 +3427,23 @@ $("library-docs-bulk-delete")?.addEventListener("click", async () => {
   );
   if (!ok) return;
   let deleted = 0;
+  const gone = [];
   for (const id of ids) {
     try {
       await apiJson(`/documents/${id}`, { method: "DELETE" });
       deleted++;
+      gone.push(id);
     } catch {
       // counted below, same as the "All" view's own bulk delete
     }
+  }
+  if (gone.length) {
+    pushRoutePairUndo(
+      `Deleted ${gone.length} document${gone.length === 1 ? "" : "s"}`,
+      gone.map((id) => [`/documents/${id}/restore`, "POST"]),
+      gone.map((id) => [`/documents/${id}`, "DELETE"]),
+      () => renderLibraryDocuments()
+    );
   }
   libraryDocsSelection.clear();
   if (deleted) toast(`Deleted ${deleted} document${deleted === 1 ? "" : "s"}.`);
@@ -3390,6 +3481,12 @@ let libraryImagesCache = [];
 //: and comparing those would make this test always fail, which is the bug
 //: again with extra steps.
 let libraryImagesSignature = "";
+//: INBOX 852: a render only paints if it is still the newest (a press that
+//: lands while an older fetch is out would otherwise let the older answer
+//: redraw the grid after the newer one), and a sub-tab switch repaints from
+//: the cache at once when there is one, so the previous kind's tiles are never
+//: on screen under the new heading while the fetch is out.
+let libraryImagesGen = 0, libraryImagesLoaded = false;
 function libraryImagesFingerprint(rows) {
   return JSON.stringify(
     (rows || []).map((row) => [
@@ -3505,7 +3602,7 @@ function applyLibraryMediaView() {
 
 function setLibraryMediaView(mode) {
   libraryMediaView = mode === "type" ? "type" : "preview";
-  localStorage.setItem(LIBRARY_MEDIA_VIEW_KEY, libraryMediaView);
+  prefs.set(LIBRARY_MEDIA_VIEW_KEY, libraryMediaView);
   applyLibraryMediaView();
 }
 
@@ -3742,6 +3839,9 @@ const ocrUi = {
   more: { canEdit: false, canAdd: false },
   dockFrame: 0,
   dockObserver: null,
+  //: The step the dock last fitted at, and for which width and content: an
+  //: open at the same size starts there (WORLD_CLASS_PLAN 28.4 row 9).
+  dockFit: { key: "", step: 0 },
   toolsMenuKey: "",
   lastRange: "",
   readMenuKey: "",
@@ -3749,13 +3849,10 @@ const ocrUi = {
   //: Which file `ocrWorkspacePages` was counted for (`ocrBuildPageRail`).
   pagesFor: "",
 };
-let ocrWorkspaceImages = [];
-let ocrWorkspaceCurrent = null;
-let ocrWorkspaceRegions = [];
+let ocrWorkspaceImages = [], ocrWorkspaceCurrent = null, ocrWorkspaceRegions = [];
 //: Which page of a multi-page document is on the stage, and how many there
 //: are. 0/1 for an image, which is a one-page document with no rail.
-let ocrWorkspacePage = 0;
-let ocrWorkspacePages = 1;
+let ocrWorkspacePage = 0, ocrWorkspacePages = 1;
 //: **Whether that count is a fact or a placeholder.** `ocrWorkspacePages`
 //: starts at 1 for a document of unknown length, which is indistinguishable
 //: from a document that really has one page, and the two want opposite
@@ -3955,13 +4052,9 @@ function ocrRenderOtherReadings(body) {
       if (!image) return;
       button.disabled = true;
       try {
-        const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
-        await apiJson(`${base}/ocr-clean-loops`, { method: "POST" });
-        renderLibraryImagesGallery();
-        toast("Cleaned up repeated lines.");
-        await ocrLoadPage(image, ocrWorkspacePage);
+        await ocrCleanLoops(image);
       } catch (error) {
-        toast(error.message || "Could not clean up that reading.", true);
+        toast(error.message || voiceLine("failed", { what: "clean up that reading" }), true);
       } finally {
         button.disabled = false;
       }
@@ -3976,15 +4069,15 @@ function ocrRenderOtherReadings(body) {
       const button = event.currentTarget;
       const image = ocrWorkspaceCurrent;
       if (!image) return;
-      if (!(await confirmDialog(`Delete this reading (${reading.label})? You can read it again any time.`))) return;
       button.disabled = true;
       try {
-        await analyseMediaRow(image, reading.source === "tesseract" ? "ocr" : "vision-ocr", { text: "" });
+        const again = () => ocrBinField(image, reading.source === "tesseract" ? "ocr" : "vision-ocr");
+        const binnedId = await again();
         renderLibraryImagesGallery();
-        toast("Reading deleted.");
+        ocrOfferBinUndo(image, `Delete a reading (${reading.label})`, "Reading moved to the bin.", binnedId, again);
         await ocrLoadPage(image, ocrWorkspacePage);
       } catch (error) {
-        toast(error.message || "Could not delete that reading.", true);
+        toast(error.message || voiceLine("failed", { what: "delete that reading" }), true);
       } finally {
         button.disabled = false;
       }
@@ -3999,6 +4092,78 @@ function ocrRenderOtherReadings(body) {
   box.classList.toggle("hidden", !others.length);
 }
 
+//: **Live Text in place** (WORLD_CLASS_PLAN 28.4 row 7; Apple's Live Text,
+//: the bar): each word an optical reader boxed (`extract_regions`' `words`)
+//: is laid over the picture where it sits, as transparent text, so a drag
+//: across the page selects the words themselves and Ctrl+C copies them in
+//: reading order. The layer takes no press of its own: a drag that starts
+//: off the words still reaches `#ocr-select` and outlines a region. Sizes are
+//: fractions of the page and the type is `cqh` of the layer, so a zoom moves
+//: nothing; each word is stretched to its box once, after it is drawn.
+function ocrPaintLiveText(regions) {
+  const layer = $("ocr-live-text");
+  if (!layer) return;
+  layer.replaceChildren();
+  for (const region of regions) {
+    for (const [index, word] of (region.words || []).entries()) {
+      const span = document.createElement("span");
+      span.className = "ocr-live-word";
+      span.textContent = word.text;
+      span.dataset.region = String(region.index);
+      span.dataset.word = String(index);
+      span.style.left = `${word.x * 100}%`;
+      span.style.top = `${word.y * 100}%`;
+      span.style.width = `${word.w * 100}%`;
+      span.style.height = `${word.h * 100}%`;
+      span.style.setProperty("--word-h", String(word.h));
+      layer.appendChild(span);
+    }
+  }
+  layer.classList.toggle("hidden", !layer.childElementCount);
+  requestAnimationFrame(ocrFitLiveText);
+}
+
+//: Each word stretched to its box: the ratio does not change with the zoom,
+//: so a word measured once keeps it; one drawn while hidden is measured on
+//: the next look (the page image's load).
+function ocrFitLiveText() {
+  const layer = $("ocr-live-text");
+  if (!layer) return;
+  const range = document.createRange();
+  for (const span of layer.querySelectorAll(".ocr-live-word:not([data-fitted])")) {
+    range.selectNodeContents(span);
+    const ink = range.getBoundingClientRect().width;
+    const room = span.getBoundingClientRect().width;
+    if (!room || !ink) continue;
+    span.style.setProperty("--word-sx", String(room / ink));
+    span.dataset.fitted = "1";
+  }
+}
+
+//: The selected words, in reading order, a line break between regions and
+//: lines: the copy a person expects, which the browser's own serialisation of
+//: absolutely placed spans does not give.
+function ocrLiveTextSelection() {
+  const selection = window.getSelection();
+  const layer = $("ocr-live-text");
+  if (!selection || selection.isCollapsed || !layer) return "";
+  const words = [...layer.children].filter((span) => selection.containsNode(span, true));
+  let out = "";
+  let last = null;
+  for (const span of words) {
+    if (last) {
+      const sameRegion = last.dataset.region === span.dataset.region;
+      const lastBox = last.getBoundingClientRect();
+      const box = span.getBoundingClientRect();
+      const sameLine = sameRegion && Math.abs(box.top - lastBox.top) < lastBox.height / 2;
+      out += sameLine ? " " : "\n";
+    }
+    out += span.textContent;
+    last = span;
+  }
+  return out;
+}
+
 function ocrRenderRegions(body) {
   ocrRenderOtherReadings(body);
   const boxes = $("ocr-boxes");
@@ -4008,6 +4173,7 @@ function ocrRenderRegions(body) {
   boxes.replaceChildren();
   list.replaceChildren();
   ocrWorkspaceRegions = body.regions || [];
+  ocrPaintLiveText(body.source === "tesseract" ? ocrWorkspaceRegions : []);
   //: **A control that cannot act must not sit there looking live**, the same
   //: rule the Stop-reading button and the box-overlay toggle already follow.
   //: Shown only once there is something on screen to remove.
@@ -4047,6 +4213,8 @@ function ocrRenderRegions(body) {
     readBtn.title = ocrWorkspaceRegions.length
       ? "Read again: replaces the reading shown here"
       : "Transcribe what you are looking at";
+    readBtn.removeAttribute("aria-disabled");
+    ocrSyncCanRead();
   }
   //: **Re-running is on demand, and the button says which it is** (INBOX 443
   //: (3)). "Read this image" over a reading that is already there is the same
@@ -4299,18 +4467,16 @@ function ocrRenderRegions(body) {
         event.stopPropagation();
         const image = ocrWorkspaceCurrent;
         if (!image) return;
-        if (!(await confirmDialog(`Delete the reading for page ${region.page + 1}? You can read it again any time.`))) {
-          return;
-        }
         remove.disabled = true;
         try {
-          const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
-          await apiJson(`${base}/page-reads/${region.page}`, { method: "DELETE" });
-          toast(`Reading of page ${region.page + 1} deleted.`);
+          const page = region.page;
+          const again = () => ocrBinPage(image, page);
+          const binnedId = await again();
+          ocrOfferBinUndo(image, `Delete the reading of page ${page + 1}`, `Reading of page ${page + 1} moved to the bin.`, binnedId, again);
           await ocrLoadPage(image, ocrWorkspacePage);
         } catch (error) {
           remove.disabled = false;
-          toast(error.message || "Could not delete that reading.", true);
+          toast(error.message || voiceLine("failed", { what: "delete that reading" }), true);
         }
       });
       head.appendChild(remove);
@@ -4458,16 +4624,18 @@ function ocrSelectImage() {
   return ocrSelectStage()?.querySelector("img") || null;
 }
 
-//: Keep the two overlays together. `#ocr-boxes` is moved into the current
+//: Keep the overlays together. `#ocr-boxes` is moved into the current
 //: page's stage in continuous mode (see `ocrLoadPage`); the select layer has
 //: to follow it or a drag would be measured against a stage that is not on
-//: screen: and `ocrTearDownScroll` has to bring both home again.
+//: screen: and `ocrTearDownScroll` has to bring them home again. Live Text
+//: goes too (OPEN 1068): it is the current page's words, and it stayed on the
+//: single-page stage, so the scroll layout had none.
 function ocrMoveOverlays(target) {
   if (!target) return;
-  const boxes = $("ocr-boxes");
-  const select = $("ocr-select");
-  if (select && select.parentElement !== target) target.appendChild(select);
-  if (boxes && boxes.parentElement !== target) target.appendChild(boxes);
+  for (const id of ["ocr-select", "ocr-boxes", "ocr-live-text"]) {
+    const layer = $(id);
+    if (layer && layer.parentElement !== target) target.appendChild(layer);
+  }
 }
 
 function ocrClearRegionSelection() {
@@ -4625,10 +4793,18 @@ function ocrShowRegionResult({ mode, page, rect, text, model, message }) {
   setLabel(remove, "ph:x");
   remove.title = "Dismiss this answer";
   remove.setAttribute("aria-label", remove.title);
-  remove.addEventListener("click", (event) => {
-    event.stopPropagation();
+  const take = () => {
     card.remove();
     holder.classList.toggle("hidden", !holder.childElementCount);
+  };
+  const put = () => {
+    holder.prepend(card);
+    holder.classList.remove("hidden");
+  };
+  remove.addEventListener("click", (event) => {
+    event.stopPropagation();
+    take();
+    offerUndo("Dismiss a region's answer", "Answer dismissed.", put, take);
   });
   head.appendChild(remove);
   const body = document.createElement("p");
@@ -4643,6 +4819,9 @@ function ocrShowRegionResult({ mode, page, rect, text, model, message }) {
   //: being waited on.
   holder.prepend(card);
   card.focus();
+  //: A region read stores nothing (`_read_region`): its answer is this card,
+  //: so its undo takes the card away and redo puts it back.
+  pushUndo(mode === "describe" ? "Describe a region" : "Read a region", take, put);
 }
 
 //: Read or describe whatever is outlined. Everything about *what* to run lives
@@ -4811,6 +4990,46 @@ function ocrDocumentReading(body, storedPages, storedMessage) {
   };
 }
 
+//: **The description shows as soon as the picture opens, not after the read**
+//: (INBOX 803, the owner: "if that image already has a description or
+//: caption, it doesnt show until the image's ocr is read"). An image carries
+//: its caption on the row it was opened with, so there is nothing to wait for;
+//: a document page's comes with its stored reading (`ocrFillPageCaptions`),
+//: which is asked for beside the slow read and not after it.
+function ocrPaintCaption(image) {
+  const captionEl = $("ocr-caption");
+  if (!captionEl) return;
+  //: A page's own description, not the file's: `image.caption` is one
+  //: sentence about a whole document, which describes none of its pages.
+  //: `ocrPageCaptions` is filled from the same `page-reads` response the
+  //: stored panels below are built from.
+  const isImage = !ocrIsPdf(image);
+  const cap = isImage
+    ? (image.caption || "").trim()
+    : (ocrPageCaptions.get(ocrWorkspacePage)?.caption || "").trim();
+  const who = isImage
+    ? ""
+    : shortModelName(ocrPageCaptions.get(ocrWorkspacePage)?.caption_model || "");
+  captionEl.textContent = cap
+    ? (who ? `Figures on this page (${who}): ${cap}` : `Description: ${cap}`)
+    : "";
+  captionEl.classList.toggle("hidden", !cap);
+}
+
+//: Each page's description out of a stored page-reads answer, keyed by page,
+//: so the caption line above names the page on screen while the panels below
+//: name their own.
+function ocrFillPageCaptions(stored) {
+  for (const entry of stored?.pages || []) {
+    if ((entry.caption || "").trim()) {
+      ocrPageCaptions.set(Number(entry.page) || 0, {
+        caption: entry.caption.trim(),
+        caption_model: entry.caption_model || "",
+      });
+    }
+  }
+}
+
 async function ocrLoadPage(image, page = 0, opts = {}) {
   //: Another page of the same file keeps its reading on screen until the new
   //: answer replaces it (INBOX 717, measured: turning a page of a stored
@@ -4824,6 +5043,18 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
   //: returns below (a text file, a failed request) never reach that point and
   //: would leave another document's figures described under this one's page.
   ocrPageCaptions.clear();
+  //: Before any request: an image's caption is already on the row, and a
+  //: different file's description must not stay up while this one loads.
+  ocrPaintCaption(image);
+  //: A document's descriptions arrive with its stored reading, a quick read
+  //: of the database, asked for here beside the slow regions request below
+  //: rather than behind it. A failure is left to the awaited call below.
+  const storedAsked = ocrIsPdf(image) && !ocrIsTextFile(image) ? ocrStoredPageReads(image) : null;
+  storedAsked?.then((early) => {
+    if (ocrWorkspaceCurrent !== image || ocrWorkspacePage !== Math.max(0, page)) return;
+    ocrFillPageCaptions(early);
+    ocrPaintCaption(image);
+  }, () => {});
   //: A rectangle is drawn on *a page*, so changing page has to take it with
   //: it: the fractions would otherwise be reinterpreted against a different
   //: picture and the offer would read a part of the wrong page.
@@ -4891,6 +5122,7 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     $("ocr-message").classList.remove("hidden");
   }
   $("ocr-boxes").replaceChildren();
+  ocrPaintLiveText([]);
   if (!sameFile) $("ocr-region-list").replaceChildren();
   //: **The read button is not a PDF button.** Asked for directly: *"make it not
   //: just reading text on the page but truly ... an all encompassing text and
@@ -4914,6 +5146,7 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     $("ocr-read-page")?.classList.add("hidden");
     $("ocr-describe")?.classList.add("hidden");
     $("ocr-boxes")?.replaceChildren();
+    ocrPaintLiveText([]);
     $("ocr-stage")?.classList.add("ocr-stage-text");
     try {
       const file = await ocrFetchFileText(image);
@@ -4976,7 +5209,7 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     //: after the regions call and preferred over it only when it has
     //: something: a Tesseract reading with real box positions is a better
     //: answer than stored text, and this must not overwrite it.
-    const stored = ocrIsPdf(image) ? await ocrStoredPageReads(image) : null;
+    const stored = ocrIsPdf(image) ? await (storedAsked || ocrStoredPageReads(image)) : null;
     //: Another file was opened while this page loaded (a PDF, then at once an
     //: image): painting this answer would put the PDF's reading and its Pages
     //: rail under the image.
@@ -4988,14 +5221,7 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     //: their own. (Cleared at the top of `ocrLoadPage`, not here: an image
     //: never reaches this branch and would otherwise keep showing the last
     //: document's page 3.)
-    for (const entry of stored?.pages || []) {
-      if ((entry.caption || "").trim()) {
-        ocrPageCaptions.set(Number(entry.page) || 0, {
-          caption: entry.caption.trim(),
-          caption_model: entry.caption_model || "",
-        });
-      }
-    }
+    ocrFillPageCaptions(stored);
     const storedPages = (stored?.pages || []).filter(
       //: A page that has only been *described* still belongs in this list, 
       //: it is something the app knows about that page, and leaving it out
@@ -5035,23 +5261,7 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
     }
     //: Describe is a row of the reading's ⋯ (INBOX 717): offered now it shows.
     ocrSyncMoreMenu();
-    const captionEl = $("ocr-caption");
-    if (captionEl) {
-      //: A page's own description, not the file's: `image.caption` is one
-      //: sentence about a whole document, which describes none of its pages.
-      //: `ocrPageCaptions` is filled from the same `page-reads` response the
-      //: stored panels below are built from.
-      const cap = isImage
-        ? (image.caption || "").trim()
-        : (ocrPageCaptions.get(ocrWorkspacePage)?.caption || "").trim();
-      const who = isImage
-        ? ""
-        : shortModelName(ocrPageCaptions.get(ocrWorkspacePage)?.caption_model || "");
-      captionEl.textContent = cap
-        ? (who ? `Figures on this page (${who}): ${cap}` : `Description: ${cap}`)
-        : "";
-      captionEl.classList.toggle("hidden", !cap);
-    }
+    ocrPaintCaption(image);
     if (ocrIsPdf(image)) ocrBuildPageRail(image, body.pages || 1);
     ocrSyncPager(image);
     //: The mode can only be honoured once the page count is known, a
@@ -5539,7 +5749,7 @@ function openOcrWorkspace(image, images, page = 0) {
   //: The tool row is measured once it has a size (INBOX 717), and again
   //: whenever the card does.
   ocrWatchDock();
-  requestAnimationFrame(() => ocrFitDock());
+  ocrScheduleFitDock();
   if (ocrIsPdf(image)) {
     ocrWorkspaceImages = [];
     ocrLoadPage(image, startPage);
@@ -5703,15 +5913,38 @@ function ocrApplyZoom() {
   }
 }
 
+//: The level on screen as a number: Fit is whatever Fit currently *is*, so a
+//: step or a pinch from Fit starts where the picture is rather than at 100%.
+function ocrShownZoom() {
+  if (ocrZoom !== null) return ocrZoom;
+  const [stage, img] = ocrVisibleStages()[0] || [];
+  const shown = stage ? stage.getBoundingClientRect().width : 0;
+  const paper = (img?.naturalWidth || 0) / ocrNaturalScale();
+  return paper ? Math.min(3, Math.max(0.25, shown / paper)) : 1;
+}
+
+//: **A pinch zooms about the fingers** (WORLD_CLASS_PLAN 28.4 row 3): the
+//: point of the page under (clientX, clientY) stays under it, the way a
+//: photo viewer pinches, where the buttons keep the middle (`ocrKeepCentre`).
+//: Continuous between the strip's first and last steps.
+function ocrZoomAbout(level, clientX, clientY) {
+  const pane = $("ocr-page-pane");
+  const next = Math.min(OCR_ZOOM_STEPS.at(-1), Math.max(OCR_ZOOM_STEPS[0], level));
+  if (!pane) return;
+  const box = pane.getBoundingClientRect();
+  const dx = clientX - box.left;
+  const dy = clientY - box.top;
+  const fx = (pane.scrollLeft + dx) / Math.max(1, pane.scrollWidth);
+  const fy = (pane.scrollTop + dy) / Math.max(1, pane.scrollHeight);
+  ocrZoom = next;
+  ocrApplyZoom();
+  pane.scrollLeft = fx * pane.scrollWidth - dx;
+  pane.scrollTop = fy * pane.scrollHeight - dy;
+  ocrSyncZoomButtons();
+}
+
 function ocrStepZoom(direction) {
-  //: Stepping from Fit starts at whatever Fit currently *is*, so the first
-  //: press changes the picture by one step rather than jumping to 100%.
-  if (ocrZoom === null) {
-    const [stage, img] = ocrVisibleStages()[0] || [];
-    const shown = stage ? stage.getBoundingClientRect().width : 0;
-    const paper = (img?.naturalWidth || 0) / ocrNaturalScale();
-    ocrZoom = paper ? Math.min(3, Math.max(0.25, shown / paper)) : 1;
-  }
+  ocrZoom = ocrShownZoom();
   const steps = OCR_ZOOM_STEPS;
   const next =
     direction > 0
@@ -5771,8 +6004,7 @@ const OCR_VIEW_KEY = "memorymap.ocr.view";
 let ocrViewMode = "page";
 //: Set while the code is doing the scrolling, so the observer that watches
 //: which page is on screen does not answer its own scroll by scrolling again.
-let ocrScrollSyncing = false;
-let ocrScrollObserver = null;
+let ocrScrollSyncing = false, ocrScrollObserver = null;
 
 function ocrStoredViewMode() {
   try {
@@ -5802,7 +6034,7 @@ function ocrSyncViewButtons(effective = ocrViewMode) {
 function ocrSetViewMode(mode, image, opts = {}) {
   ocrViewMode = mode === "scroll" ? "scroll" : "page";
   try {
-    localStorage.setItem(OCR_VIEW_KEY, ocrViewMode);
+    prefs.set(OCR_VIEW_KEY, ocrViewMode);
   } catch {
     //: See ocrStoredViewMode: not remembering is not a failure worth showing.
   }
@@ -5953,7 +6185,7 @@ function ocrSyncPager(image) {
   //: The layout pair comes and goes with the document, so the row is measured
   //: again, and the Read menu's page count follows the document.
   ocrSyncReadMenu(image);
-  ocrFitDock();
+  ocrScheduleFitDock();
 }
 
 function ocrStepPage(delta) {
@@ -6150,7 +6382,47 @@ function ocrSyncReaderButton() {
   }
   summary.title = `${state} Press to change the reader${reader === "tesseract" ? " or its language" : ""}.`;
   summary.setAttribute("aria-label", `Reader: ${word}. ${state}`);
-  ocrFitDock();
+  ocrSyncCanRead();
+  ocrScheduleFitDock();
+}
+
+//: **Nothing can read: the AI controls say so before they are pressed**
+//: (WORLD_CLASS_PLAN 28.4 row 5; DESIGN.md: a control that does not apply now
+//: is `aria-disabled` and its press says why, never a dead button). With no
+//: engine and no model, Read and the region's Read and Describe carry the
+//: reason in their title, and a press opens the reader menu, where the
+//: installs are.
+function ocrSyncCanRead() {
+  const any = ["tesseract", "rapidocr", "vision", "ocr"].some((reader) => ocrCan(reader));
+  const why = "Nothing can read yet: install RapidOCR or Tesseract from the reader menu, or start an AI model in Settings.";
+  const whyDescribe = "Describing needs an AI model: start one in Settings.";
+  const mark = (button, off, reason) => {
+    if (!button) return;
+    if (off) {
+      if (button.getAttribute("aria-disabled") !== "true") button.dataset.ocrTitle = button.title || "";
+      button.setAttribute("aria-disabled", "true");
+      button.title = reason;
+    } else if (button.getAttribute("aria-disabled") === "true") {
+      button.removeAttribute("aria-disabled");
+      button.title = button.dataset.ocrTitle || "";
+    }
+  };
+  mark($("ocr-read-page"), !any, why);
+  mark($("ocr-region-read"), !any, why);
+  mark($("ocr-region-describe"), !ocrCan("vision"), whyDescribe);
+}
+
+//: The press of a control `ocrSyncCanRead` turned off: its reason, and the
+//: reader menu opened on the installs. True when it was off.
+function ocrRefusedPress(button) {
+  if (button?.getAttribute("aria-disabled") !== "true") return false;
+  toast(button.title, "info");
+  const menu = $("ocr-reader-menu");
+  //: After this press has bubbled to the document: navigation.js closes every
+  //: `details.dock-menu` the press landed outside of, which shut this one the
+  //: instant it opened (ocrflow.js, 2026-10-11).
+  if (menu && button.id !== "ocr-region-describe") setTimeout(() => { menu.open = true; }, 0);
+  return true;
 }
 
 function ocrReader() {
@@ -6281,19 +6553,57 @@ function ocrRevealRegionsForPage(page) {
   }, 300);
 }
 
+//: **Every match is marked in the text** (INBOX 853, the owner: "when
+//: searching in the ocr workspace extracted text, I feel it should highlight
+//: the key words"). The filter kept the rows that held the word and said
+//: "3 of 8 rows"; now each occurrence in a region's words is a `<mark>` on
+//: the app's one find-highlight recipe (`mark.global-find-hit`), the current
+//: one stronger (`.global-find-current`) and scrolled into view, and the count
+//: is of occurrences: "3 of 15". Enter and Shift+Enter, or the two buttons
+//: beside the count, step through them. A region's words are editable, so the
+//: marks are taken out by writing its text back (never while it is being
+//: typed in: only the find box's own input, a step or a redraw gets here).
+let ocrFindHits = [], ocrFindCurrent = -1;
+
+function ocrFindMarkRegion(text, query) {
+  if (text.querySelector("mark.global-find-hit")) text.textContent = text.textContent;
+  if (!query || text.classList.contains("ocr-region-text-empty")) return [];
+  const source = text.textContent;
+  const lower = source.toLowerCase();
+  const marks = [];
+  const frag = document.createDocumentFragment();
+  let at = 0;
+  for (let hit = lower.indexOf(query); hit !== -1; hit = lower.indexOf(query, at)) {
+    if (hit > at) frag.appendChild(document.createTextNode(source.slice(at, hit)));
+    const mark = document.createElement("mark");
+    mark.className = "global-find-hit";
+    mark.textContent = source.slice(hit, hit + query.length);
+    frag.appendChild(mark);
+    marks.push(mark);
+    at = hit + query.length;
+  }
+  if (!marks.length) return [];
+  if (at < source.length) frag.appendChild(document.createTextNode(source.slice(at)));
+  text.replaceChildren(frag);
+  return marks;
+}
+
 function ocrApplyFind() {
   const query = ($("ocr-find")?.value || "").trim().toLowerCase();
   const rows = [...document.querySelectorAll("#ocr-region-list .ocr-region")];
-  let hits = 0;
+  ocrFindHits = [];
   for (const row of rows) {
-    const text = (row.textContent || "").toLowerCase();
-    const match = !query || text.includes(query);
+    const text = row.querySelector(".ocr-region-text");
+    const marks = text ? ocrFindMarkRegion(text, query) : [];
+    const match = !query || marks.length > 0;
     row.classList.toggle("hidden", !match);
     row.classList.toggle("is-found", Boolean(query) && match);
-    if (query && match) hits += 1;
+    ocrFindHits.push(...marks);
   }
-  const count = $("ocr-find-count");
-  if (count) count.textContent = query ? `${hits} of ${rows.length}` : "";
+  //: Stays on the match the person was at when the same word is still found
+  //: (a redraw after a page load), else starts at the first.
+  ocrFindCurrent = ocrFindHits.length ? 0 : -1;
+  ocrFindShowCurrent(false);
   //: The boxes on the picture follow the filter, so "find" answers *where* as
   //: well as *what*: the one thing this workspace can do that a text search
   //: over a transcription cannot.
@@ -6303,6 +6613,41 @@ function ocrApplyFind() {
     );
     box.classList.toggle("is-dimmed", Boolean(query) && row?.classList.contains("hidden"));
   }
+}
+
+function ocrFindShowCurrent(scroll) {
+  const query = ($("ocr-find")?.value || "").trim();
+  const count = $("ocr-find-count");
+  for (const mark of ocrFindHits) mark.classList.remove("global-find-current");
+  const current = ocrFindHits[ocrFindCurrent];
+  if (count) {
+    count.textContent = !query ? "" : current ? `${ocrFindCurrent + 1} of ${ocrFindHits.length}` : "No matches";
+  }
+  for (const id of ["ocr-find-prev", "ocr-find-next"]) {
+    const button = $(id);
+    if (button) button.disabled = ocrFindHits.length < 2;
+    button?.classList.toggle("hidden", !query);
+  }
+  if (!current) return;
+  current.classList.add("global-find-current");
+  if (!scroll) return;
+  //: The nearest scrolling ancestor's own scrollTop, not `scrollIntoView`,
+  //: which walks every scroller up the page (DESIGN.md, a list that says
+  //: where you are).
+  let box = current.parentElement;
+  while (box && !(box.scrollHeight > box.clientHeight && /auto|scroll/.test(getComputedStyle(box).overflowY))) {
+    box = box.parentElement;
+  }
+  if (!box) return;
+  const at = current.getBoundingClientRect();
+  const frame = box.getBoundingClientRect();
+  box.scrollTop += at.top - frame.top - (frame.height - at.height) / 2;
+}
+
+function ocrFindStep(delta) {
+  if (!ocrFindHits.length) return;
+  ocrFindCurrent = (ocrFindCurrent + delta + ocrFindHits.length) % ocrFindHits.length;
+  ocrFindShowCurrent(true);
 }
 
 //: Reading a *picture*, as opposed to a page of a document. Deliberately the
@@ -6328,15 +6673,23 @@ async function ocrReadImage(image, button) {
   $("ocr-message").classList.remove("hidden");
   const progress = typeof toastProgress === "function" ? toastProgress(label) : null;
   try {
-    await trackOcrRead(
+    const kind = ocrIsLocal(reader) ? "ocr" : "vision-ocr";
+    const before = ocrFieldText(kind);
+    const row = await trackOcrRead(
       image,
       label,
       analyseMediaRow(
         image,
-        ocrIsLocal(reader) ? "ocr" : "vision-ocr",
+        kind,
         ocrIsLocal(reader) ? { force: true, engine: reader } : { force: true }
       )
     );
+    const after = ((kind === "ocr" ? row?.ocr_text : row?.vision_ocr_text) || "").trim();
+    //: A fresh read replaces the reading that was there, the first read after
+    //: an engine install included: undo puts the old one back.
+    if (after !== before.trim()) {
+      pushUndo(`Read with ${ocrReaderNameFor(reader)}`, ocrTextWriter(image, kind, before), ocrTextWriter(image, kind, after));
+    }
     //: Re-read rather than render the response: the regions endpoint is the
     //: one thing that knows how to turn either reader's answer into boxes, and
     //: a second renderer here would drift from it.
@@ -6529,7 +6882,9 @@ async function ocrReadRange(spec) {
 //: nothing is out of reach at 390 that is on screen at 1440. Measured, not a
 //: breakpoint, because the row's width depends on the reader's name, whether
 //: the file is a document, and the zoom level's digits.
-const OCR_DOCK_STEPS = ["is-tight", 1, 2, 3, "is-tightest"];
+//: `is-terse` last (WORLD_CLASS_PLAN 28.4 row 4): at 320 the row was 10 px
+//: too wide with everything folded, and Read sat past the edge; its icon goes.
+const OCR_DOCK_STEPS = ["is-tight", 1, 2, 3, "is-tightest", "is-terse"];
 
 function ocrDockFits(dock) {
   const box = dock.getBoundingClientRect();
@@ -6550,18 +6905,65 @@ function ocrDockFits(dock) {
   return true;
 }
 
-function ocrFitDock() {
-  const dock = $("ocr-dock");
-  if (!dock || dock.offsetParent === null) return;
+//: **One measure where there were six** (WORLD_CLASS_PLAN 28.4 row 9). Each
+//: step is a style recalculation of the whole dialog, 30 to 90 ms apiece at
+//: 390 under load (traced), and a phone needs every step: the open spent
+//: 480 ms here, twice over. The step that fitted last time, for the same
+//: width and the same words, is put back at once and checked once.
+function ocrDockApply(dock, count) {
   const folded = [...dock.querySelectorAll("[data-fold]")];
-  dock.classList.remove("is-tight", "is-tightest");
+  dock.classList.remove(...OCR_DOCK_STEPS.filter((step) => typeof step === "string"));
   for (const el of folded) el.classList.remove("is-folded");
-  for (const step of OCR_DOCK_STEPS) {
-    if (ocrDockFits(dock)) break;
+  for (const step of OCR_DOCK_STEPS.slice(0, count)) {
     if (typeof step === "string") dock.classList.add(step);
     else for (const el of folded) if (Number(el.dataset.fold) === step) el.classList.add("is-folded");
   }
+}
+
+function ocrFitDock() {
+  const dock = $("ocr-dock");
+  if (!dock || dock.offsetParent === null) return;
+  cancelAnimationFrame(ocrUi.dockFrame);
+  //: Width, words and which controls are shown (a document's layout pair
+  //: comes and goes without changing a word).
+  const shown = [...dock.querySelectorAll("button, details, select, input")]
+    .filter((el) => !el.closest(".hidden, [hidden]")).length;
+  const key = `${Math.round(dock.getBoundingClientRect().width)}|${dock.textContent.length}|${shown}`;
+  //: Fitted already at this width with these words: the row is as it was
+  //: left (its own resize, from that fit, is what asked again).
+  if (dock.dataset.fitKey === key) return;
+  //: The fewest steps that fit, found by halving (folding more never makes
+  //: the row wider): three measures for six steps, where walking them took
+  //: up to six. All six applied is the floor, as it always was.
+  const steps = OCR_DOCK_STEPS.length;
+  const fits = (count) => {
+    ocrDockApply(dock, count);
+    return ocrDockFits(dock);
+  };
+  let lo = 0;
+  let hi = steps;
+  if (ocrUi.dockFit.key === key) {
+    //: Same width, same words: the step that fitted is the answer, checked.
+    if (fits(ocrUi.dockFit.step)) lo = hi = ocrUi.dockFit.step;
+    else lo = ocrUi.dockFit.step + 1;
+  }
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (fits(mid)) hi = mid;
+    else lo = mid + 1;
+  }
+  const count = Math.min(lo, steps);
+  ocrDockApply(dock, count);
+  ocrUi.dockFit = { key, step: count };
+  dock.dataset.fitKey = key;
   ocrSyncToolsMenu();
+}
+
+//: Several things ask for a fit as the dialog opens (the open, the readers'
+//: answer, the dock's own resize): one per frame.
+function ocrScheduleFitDock() {
+  cancelAnimationFrame(ocrUi.dockFrame);
+  ocrUi.dockFrame = requestAnimationFrame(() => ocrFitDock());
 }
 
 //: Watched, because the card follows the window and a phone turns sideways.
@@ -6570,8 +6972,7 @@ function ocrWatchDock() {
   const dock = $("ocr-dock");
   if (!dock || ocrUi.dockObserver || typeof ResizeObserver === "undefined") return;
   ocrUi.dockObserver = new ResizeObserver(() => {
-    cancelAnimationFrame(ocrUi.dockFrame);
-    ocrUi.dockFrame = requestAnimationFrame(() => ocrFitDock());
+    ocrScheduleFitDock();
   });
   ocrUi.dockObserver.observe(dock);
 }
@@ -6852,7 +7253,17 @@ onDomReady(() => {
   }
   $("ocr-prev-page")?.addEventListener("click", () => ocrStepPage(-1));
   $("ocr-next-page")?.addEventListener("click", () => ocrStepPage(1));
-  $("ocr-find")?.addEventListener("input", () => ocrApplyFind());
+  $("ocr-find")?.addEventListener("input", () => {
+    ocrApplyFind();
+    ocrFindShowCurrent(true);
+  });
+  $("ocr-find")?.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    ocrFindStep(event.shiftKey ? -1 : 1);
+  });
+  $("ocr-find-prev")?.addEventListener("click", () => ocrFindStep(-1));
+  $("ocr-find-next")?.addEventListener("click", () => ocrFindStep(1));
   //: A reader is a claim about *who read this*, so switching it clears the
   //: reading rather than leaving one reader's words under the other's name.
   $("ocr-reader")?.addEventListener("change", () => {
@@ -6886,12 +7297,13 @@ onDomReady(() => {
   $("ocr-to-chat")?.addEventListener("click", () => {
     const text = ocrAllText();
     if (!text) return toast("There is nothing to ask about yet. Read the page first.", "info");
-    if (typeof attachSelectionContext !== "function") return toast("The chat isn't available right now.", true);
+    if (typeof attachSelectionContext !== "function") return toast("The chat isn't available right now.", "info");
     const name = ocrWorkspaceCurrent?.original_name || "this image";
     const pdf = ocrIsPdf(ocrWorkspaceCurrent);
     const where = pdf ? `${name}, page ${ocrWorkspacePage + 1}` : name;
     closeOcrWorkspace();
-    attachSelectionContext({
+    const agentOn = attachSelectionContext({
+      quiet: true,
       kind: "reading",
       title: where,
       text: text.length > 8000 ? `${text.slice(0, 8000)}…` : text,
@@ -6903,7 +7315,7 @@ onDomReady(() => {
       after: "",
       surfaceId: "",
     });
-    toast(`The text of ${where} is attached to your next chat message. Type your question.`);
+    toast(`The text of ${where} is attached to your next chat message${agentOn ? ", and Agent mode is on" : ""}. Type your question.`);
   });
   //: Arrow keys and Page Up/Down move between pages, which is what every
   //: document reader on the machine already does, a page rail you can only
@@ -7046,14 +7458,62 @@ onDomReady(() => {
   //: A cancelled pointer (the browser taking over for a scroll gesture, the
   //: window losing focus) has to leave no half-drawn rectangle behind.
   $("ocr-select")?.addEventListener("pointercancel", () => ocrClearRegionSelection());
-  $("ocr-region-read")?.addEventListener("click", () => ocrRunRegion("read"));
-  $("ocr-region-describe")?.addEventListener("click", () => ocrRunRegion("describe"));
+  //: On the document: a copy is dispatched where the focus is, not where the
+  //: selection started, and a drag that began on a word may end off the page.
+  document.addEventListener("copy", (event) => {
+    if (!$("ocr-live-text")?.contains(window.getSelection()?.anchorNode || null)) return;
+    const text = ocrLiveTextSelection();
+    if (!text) return;
+    event.preventDefault();
+    event.clipboardData.setData("text/plain", text);
+  });
+  //: A press on a word that selects nothing is a press on its region, as a
+  //: press on the region's box always was.
+  $("ocr-live-text")?.addEventListener("click", (event) => {
+    const word = event.target.closest?.(".ocr-live-word");
+    if (word && window.getSelection()?.isCollapsed) ocrSelectRegion(Number(word.dataset.region));
+  });
+  $("ocr-region-read")?.addEventListener("click", (event) => ocrRefusedPress(event.currentTarget) || ocrRunRegion("read"));
+  $("ocr-region-describe")?.addEventListener("click", (event) => ocrRefusedPress(event.currentTarget) || ocrRunRegion("describe"));
   $("ocr-region-cancel")?.addEventListener("click", () => ocrClearRegionSelection());
   $("ocr-zoom-in")?.addEventListener("click", () => ocrStepZoom(1));
   $("ocr-zoom-out")?.addEventListener("click", () => ocrStepZoom(-1));
+  //: **A pinch zooms the page** (the owner, 2026-10-10: "I cant two finger
+  //: trackpad zoom in or out on documents or images on the ocr workspace?").
+  //: A trackpad pinch reaches the page as `wheel` events with `ctrlKey` and a
+  //: few pixels each; a Ctrl+mouse notch is about 100, which is a factor of
+  //: about 1.2, near one of the strip's steps. Continuous and about the
+  //: pointer, so the window's own zoom never sees it.
+  $("ocr-page-pane")?.addEventListener("wheel", (event) => {
+    if (!event.ctrlKey) return;
+    event.preventDefault();
+    const delta = Math.max(-100, Math.min(100, event.deltaY));
+    ocrZoomAbout(ocrShownZoom() * Math.exp(-delta / 500), event.clientX, event.clientY);
+  }, { passive: false });
+  //: Two fingers on a touch screen: the level follows the distance between
+  //: them, about their midpoint. One finger still scrolls the page or draws
+  //: a region, as before.
+  const pinch = { from: 0, level: 1 };
+  const spread = (touches) => Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+  $("ocr-page-pane")?.addEventListener("touchstart", (event) => {
+    if (event.touches.length !== 2) return;
+    pinch.from = spread(event.touches);
+    pinch.level = ocrShownZoom();
+    ocrClearRegionSelection();
+  }, { passive: true });
+  $("ocr-page-pane")?.addEventListener("touchmove", (event) => {
+    if (event.touches.length !== 2 || !pinch.from) return;
+    event.preventDefault();
+    const [a, b] = event.touches;
+    ocrZoomAbout(pinch.level * (spread(event.touches) / pinch.from), (a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2);
+  }, { passive: false });
+  $("ocr-page-pane")?.addEventListener("touchend", (event) => {
+    if (event.touches.length < 2) pinch.from = 0;
+  }, { passive: true });
   $("ocr-image")?.addEventListener("load", () => {
     ocrApplyZoom();
     ocrSyncZoomButtons();
+    ocrFitLiveText();
   });
   window.addEventListener("resize", () => {
     if (!$("ocr-workspace")?.classList.contains("hidden")) ocrApplyZoom();
@@ -7132,7 +7592,7 @@ onDomReady(() => {
       //: same gap; one `catch` now covers both.)
       $("ocr-message").textContent = error.message || "Couldn't describe that.";
       $("ocr-message").classList.remove("hidden");
-      toast(error.message || "Couldn't describe that.", true);
+      toast(error.message || voiceLine("failed", { what: "describe that" }), true);
     } finally {
       button.disabled = false;
     }
@@ -7147,14 +7607,14 @@ onDomReady(() => {
     if (!image) return;
     const isPdf = ocrIsPdf(image);
     const what = isPdf ? `page ${ocrWorkspacePage + 1}` : "this image";
-    if (!(await confirmDialog(`Delete the reading for ${what}? You can read it again any time.`))) {
-      return;
-    }
+    //: No confirm: the reading goes to the bin and the toast's Undo (or
+    //: Ctrl+Z) brings it back (WORLD_CLASS_PLAN 28.4 row 2).
     button.disabled = true;
     try {
+      const page = ocrWorkspacePage;
+      let remove;
       if (isPdf) {
-        const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
-        await apiJson(`${base}/page-reads/${ocrWorkspacePage}`, { method: "DELETE" });
+        remove = () => ocrBinPage(image, page);
       } else {
         //: Same reader-to-field mapping `ocrReadImage` uses for the read
         //: itself, so delete clears the field the *current* reader would
@@ -7167,15 +7627,16 @@ onDomReady(() => {
         const kind = shown
           ? (shown === "tesseract" ? "ocr" : "vision-ocr")
           : (ocrIsLocal(ocrReader()) ? "ocr" : "vision-ocr");
-        await analyseMediaRow(image, kind, { text: "" });
-        //: The gallery tile behind this dialog now claims a reading that is
-        //: gone: same repaint `ocrReadImage` triggers after writing one.
-        renderLibraryImagesGallery();
+        remove = () => ocrBinField(image, kind);
       }
-      toast("Reading deleted.");
+      const binnedId = await remove();
+      //: The gallery tile behind this dialog now claims a reading that is
+      //: gone: same repaint `ocrReadImage` triggers after writing one.
+      renderLibraryImagesGallery();
+      ocrOfferBinUndo(image, `Delete the reading of ${what}`, "Reading moved to the bin.", binnedId, remove);
       await ocrLoadPage(image, ocrWorkspacePage);
     } catch (error) {
-      toast(error.message || "Could not delete that reading.", true);
+      toast(error.message || voiceLine("failed", { what: "delete that reading" }), true);
     } finally {
       button.disabled = false;
     }
@@ -7193,13 +7654,9 @@ onDomReady(() => {
     if (!image) return;
     button.disabled = true;
     try {
-      const base = image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
-      await apiJson(`${base}/ocr-clean-loops`, { method: "POST" });
-      renderLibraryImagesGallery();
-      toast("Cleaned up repeated lines.");
-      await ocrLoadPage(image, ocrWorkspacePage);
+      await ocrCleanLoops(image);
     } catch (error) {
-      toast(error.message || "Could not clean up that reading.", true);
+      toast(error.message || voiceLine("failed", { what: "clean up that reading" }), true);
     } finally {
       button.disabled = false;
     }
@@ -7219,7 +7676,7 @@ onDomReady(() => {
 
   $("ocr-read-page")?.addEventListener("click", async (event) => {
     const image = ocrWorkspaceCurrent;
-    if (!image) return;
+    if (!image || ocrRefusedPress(event.currentTarget)) return;
     if (!ocrIsPdf(image)) return ocrReadImage(image, event.currentTarget);
     const button = event.currentTarget;
     const page = ocrWorkspacePage;
@@ -7300,12 +7757,14 @@ onDomReady(() => {
       : (ocrIsLocal(ocrReader()) ? "ocr" : "vision-ocr");
     setBusy(button, true, "Saving…");
     try {
-      await analyseMediaRow(image, kind, { text: box.value, edited: true });
+      const before = ocrFieldText(kind);
+      const after = box.value;
+      await analyseMediaRow(image, kind, { text: after, edited: true });
       renderLibraryImagesGallery();
-      toast("Saved your changes.");
+      ocrOfferTextUndo(image, kind, "Edit the reading", "Saved your changes.", before, after, true);
       await ocrLoadPage(image, ocrWorkspacePage);
     } catch (error) {
-      toast(error.message || "Couldn't save that.", true);
+      toast(error.message || voiceLine("failed", { what: "save that" }), true);
     } finally {
       setBusy(button, false);
     }
@@ -7339,16 +7798,104 @@ onDomReady(() => {
       const body = `${heading}\n\n${picture}${text}`;
       const created = await apiJson("/entries", {
         method: "POST",
-        body: JSON.stringify({ content: body }),
+        body: JSON.stringify({ content: body, defer_filing: true }),
       });
+      pushEntryCreateUndo(created, "Saved a picture's text as a note");
       toast("Saved as a note.");
       $("ocr-workspace").classList.add("hidden");
       flashEntry(created.id);
     } catch (error) {
-      toast(error.message || "Couldn't save that note.", true);
+      toast(error.message || voiceLine("failed", { what: "save that note" }), true);
     }
   });
 });
+
+//: **The five reading acts undo** (WORLD_CLASS_PLAN 28.4 row 2, rule 1):
+//: saving an edit, deleting a reading, cleaning loops, a region read and a
+//: fresh read (the one an engine install leads to) each go on the app's undo
+//: stack with a toast whose Undo is the same entry (`offerUndo`). A text
+//: change is undone by writing the text it replaced back through the same
+//: route; a delete is undone from the bin it went to (`/reading-bin`).
+function ocrBase(image) {
+  return image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`;
+}
+
+async function ocrRepaintReading(image) {
+  renderLibraryImagesGallery();
+  const open = !$("ocr-workspace")?.classList.contains("hidden");
+  if (open && ocrWorkspaceCurrent && ocrWorkspaceCurrent.id === image.id) {
+    await ocrLoadPage(ocrWorkspaceCurrent, ocrWorkspacePage);
+  }
+}
+
+//: The text a reading field holds now, from the readings the workspace last
+//: painted (`ocr-regions`' `readings`): "ocr" is Tesseract's, "vision-ocr"
+//: the model's.
+function ocrFieldText(kind) {
+  const source = kind === "ocr" ? "tesseract" : "vision";
+  return ocrWorkspaceReadings.find((r) => r.source === source)?.text || "";
+}
+
+//: `edited` is the redo's flag: an edit redone is still the person's
+//: correction (`VisionOcrBody.edited`), and the reading it undoes to is not.
+function ocrTextWriter(image, kind, text, edited = false) {
+  return async () => {
+    await analyseMediaRow(image, kind, edited ? { text, edited: true } : { text });
+    await ocrRepaintReading(image);
+  };
+}
+
+function ocrOfferTextUndo(image, kind, label, message, before, after, edited = false) {
+  return offerUndo(label, message, ocrTextWriter(image, kind, before), ocrTextWriter(image, kind, after, edited));
+}
+
+//: A delete went to the bin as `binnedId`; Undo restores it from there and
+//: Redo deletes it again (`remove` answers the new bin id).
+function ocrOfferBinUndo(image, label, message, binnedId, remove) {
+  const held = { id: binnedId };
+  return offerUndo(
+    label,
+    message,
+    async () => {
+      if (held.id) await apiJson(`/reading-bin/${held.id}/restore`, { method: "POST" });
+      await ocrRepaintReading(image);
+    },
+    async () => {
+      held.id = await remove();
+      await ocrRepaintReading(image);
+    }
+  );
+}
+
+async function ocrBinPage(image, page) {
+  const body = await apiJson(`${ocrBase(image)}/page-reads/${page}`, { method: "DELETE" });
+  return body?.binned_id || null;
+}
+
+async function ocrBinField(image, kind) {
+  const source = kind === "ocr" ? "tesseract" : "vision";
+  const body = await apiJson(`${ocrBase(image)}/readings/${source}`, { method: "DELETE" });
+  return body?.binned_id || null;
+}
+
+//: "Clean up repeated lines", undoable: the two fields as they were go back
+//: through the same text routes, whichever of them the clean changed.
+async function ocrCleanLoops(image) {
+  const before = { ocr: ocrFieldText("ocr"), "vision-ocr": ocrFieldText("vision-ocr") };
+  const after = await apiJson(`${ocrBase(image)}/ocr-clean-loops`, { method: "POST" });
+  const now = { ocr: (after?.ocr_text || "").trim(), "vision-ocr": (after?.vision_ocr_text || "").trim() };
+  const changed = Object.keys(before).filter((kind) => before[kind].trim() !== now[kind]);
+  renderLibraryImagesGallery();
+  if (!changed.length) {
+    toast("No repeated lines to clean up.");
+  } else {
+    const put = (texts) => async () => {
+      for (const kind of changed) await ocrTextWriter(image, kind, texts[kind])();
+    };
+    offerUndo("Clean up repeated lines", "Cleaned up repeated lines.", put(before), put(now));
+  }
+  await ocrLoadPage(image, ocrWorkspacePage);
+}
 
 async function analyseMediaRow(image, kind, payload = {}) {
   if (image._isAttachment) {
@@ -7624,6 +8171,18 @@ function mediaRowDeleteEndpoint(image) {
   return `/media/${image.id}`;
 }
 
+//: A deleted Library file in the undo kit's shape (INBOX 898): the server kept
+//: its row and bytes under `gone.undo_token`.
+function libraryMediaBinItem(image, endpoint, gone) {
+  return { del: [endpoint, "DELETE"], restore: `${image._isAttachment ? "/files" : "/media"}/restore`, token: gone.undo_token };
+}
+
+//: What shows the Library's files, drawn again after a delete's Undo or Redo.
+const libraryMediaRepaint = (notesToo) => async () => {
+  await renderLibraryImagesGallery();
+  if (notesToo) loadEntries().catch(() => {});
+};
+
 function syncLibraryMediaSelectbar() {
   const bar = document.getElementById("library-media-selectbar");
   const count = document.getElementById("library-media-selected-count");
@@ -7654,14 +8213,17 @@ async function bulkDeleteLibraryMedia() {
     },
   );
   if (!answer.ok) return;
+  const kept = [];
   for (const image of rows) {
     const endpoint = `${mediaRowDeleteEndpoint(image)}${answer.checked ? "?strip_references=true" : ""}`;
-    await apiJson(endpoint, { method: "DELETE" }).catch((err) =>
+    const gone = await apiJson(endpoint, { method: "DELETE" }).catch((err) =>
       toast(err.message, true)
     );
+    if (gone) kept.push(libraryMediaBinItem(image, endpoint, gone));
     const idx = libraryImagesCache.indexOf(image);
     if (idx !== -1) libraryImagesCache.splice(idx, 1);
   }
+  pushTokenUndo(rows.length === 1 ? `Deleted “${rows[0].original_name}”` : `Deleted ${rows.length} files`, kept, libraryMediaRepaint(answer.checked));
   libraryMediaSelection.clear();
   syncLibraryMediaSelectbar();
   filterLibraryImagesGallery();
@@ -7677,6 +8239,7 @@ async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
   const grid = $("library-images-grid");
   const empty = $("library-images-empty");
   if (!grid) return;
+  const gen = ++libraryImagesGen;
   //: The grid is rebuilt from scratch on every render, so the view class has
   //: to be re-applied with it, the toggle is a property of the list, not of
   //: the tiles that happen to be in it right now.
@@ -7696,6 +8259,7 @@ async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
   //: back when the gallery really is empty.
   if (grid.querySelector(":scope > .skeleton")) empty?.classList.add("hidden");
   const images = await apiPagedList("/media", MEDIA_PAGE_SIZE, { silent: true }).catch(() => null);
+  if (gen !== libraryImagesGen) return;
   // A note's own attached file (`Attachment`, not `MediaUpload`) never came
   // from `/media` at all: reported directly, twice: "a pdf I uplaoded to a
   // note doesnt show in the libary" and "my uploaded pdf file isnt shown in
@@ -7711,6 +8275,7 @@ async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
   // `/media/{name}.ext` row: would silently call every attachment a "file"
   // regardless of its real mime.
   const attachments = await apiPagedList("/files/gallery", 200, { silent: true }).catch(() => []);
+  if (gen !== libraryImagesGen) return;
   clearSkeletons(grid);
   // **These two loops are load-bearing and were once silently lost.**
   // Reported: "none of the images and sketches are in the images library
@@ -7735,6 +8300,7 @@ async function renderLibraryImagesGallery({ ifUnchanged = "render" } = {}) {
     item.vision_ocr_text = item.vision_ocr_text || "";
   }
   libraryImagesCache = [...(images || []), ...(attachments || [])];
+  libraryImagesLoaded = true;
   const fingerprint = libraryImagesFingerprint(libraryImagesCache);
   const unchanged = fingerprint === libraryImagesSignature;
   libraryImagesSignature = fingerprint;
@@ -7792,7 +8358,7 @@ onDomReady(() => {
   if (select) {
     select.value = libraryMediaSort();
     select.addEventListener("change", () => {
-      localStorage.setItem(LIBRARY_MEDIA_SORT_KEY, select.value);
+      prefs.set(LIBRARY_MEDIA_SORT_KEY, select.value);
       filterLibraryImagesGallery();
     });
   }
@@ -8106,9 +8672,10 @@ function filterLibraryImagesGallery() {
       // would either 404 or, worse, delete an unrelated MediaUpload row
       // that happened to share the same numeric id.
       const endpoint = `${mediaRowDeleteEndpoint(image)}${answer.checked ? "?strip_references=true" : ""}`;
-      await apiJson(endpoint, { method: "DELETE" }).catch((err) =>
+      const gone = await apiJson(endpoint, { method: "DELETE" }).catch((err) =>
         toast(err.message, true)
       );
+      if (gone) pushTokenUndo(`Deleted “${image.original_name}”`, [libraryMediaBinItem(image, endpoint, gone)], libraryMediaRepaint(answer.checked));
       //: The notes on screen are now out of date by exactly the edit the
       //: server just made, so they are refetched rather than left showing a
       //: picture that is gone from both the disk and the note.
@@ -8205,6 +8772,17 @@ function filterLibraryImagesGallery() {
           const savedName = image._isAttachment
             ? (saved.attachments || []).find((a) => a.id === image.id)?.filename || next
             : saved.original_name;
+          const wasName = image.original_name;
+          if (savedName !== wasName) {
+            pushRequestUndo(
+              "Renamed a file",
+              image._isAttachment ? `/files/${image.id}` : `/media/${image.id}`,
+              "PUT",
+              image._isAttachment ? { filename: wasName } : { original_name: wasName },
+              image._isAttachment ? { filename: savedName } : { original_name: savedName },
+              () => renderLibraryImagesGallery()
+            );
+          }
           image.original_name = savedName;
           cap.replaceChildren(document.createTextNode(savedName));
           img.alt = savedName;
@@ -8419,7 +8997,7 @@ function filterLibraryImagesGallery() {
           });
         } catch (error) {
           setCaptionState(image.caption);
-          toast(error.message || "Couldn't save that caption.", true);
+          toast(error.message || voiceLine("failed", { what: "save that caption" }), true);
         }
       };
       box.addEventListener("keydown", (keyEvent) => {
@@ -8484,7 +9062,7 @@ function filterLibraryImagesGallery() {
       } catch (error) {
         captionText.textContent = previousCaptionText;
         syncProvenance();
-        toast(error.message || "Couldn't generate a caption.", true);
+        toast(error.message || voiceLine("failed", { what: "generate a caption" }), true);
       } finally {
         captionBtn.disabled = false;
       }
@@ -8575,7 +9153,7 @@ function filterLibraryImagesGallery() {
           setOcrState(updated.ocr_text);
         } catch (error) {
           setOcrState(image.ocr_text);
-          toast(error.message || "Couldn't save that text.", true);
+          toast(error.message || voiceLine("failed", { what: "save that text" }), true);
         }
       };
       box.addEventListener("keydown", (keyEvent) => {
@@ -8618,7 +9196,7 @@ function filterLibraryImagesGallery() {
         setOcrState(updated.ocr_text);
       } catch (error) {
         ocrText.textContent = previousOcrText;
-        toast(error.message || "Couldn't read the text in that image.", true);
+        toast(error.message || voiceLine("failed", { what: "read the text in that image" }), true);
       } finally {
         ocrBtn.disabled = modelStatus && modelStatus.tesseract_available === false;
       }
@@ -8763,7 +9341,7 @@ function filterLibraryImagesGallery() {
           setVisionOcrState(updated.vision_ocr_text, updated.vision_ocr_model);
         } catch (error) {
           setVisionOcrState(previousText, previousModel);
-          toast(error.message || "Couldn't save that text.", true);
+          toast(error.message || voiceLine("failed", { what: "save that text" }), true);
         }
       };
       box.addEventListener("keydown", (keyEvent) => {
@@ -8801,7 +9379,7 @@ function filterLibraryImagesGallery() {
         // re-hiding the box if this was the first-ever attempt and it
         // failed, rather than leaving an empty line visible forever.
         setVisionOcrState(image.vision_ocr_text, image.vision_ocr_model);
-        toast(error.message || "Couldn't read the text in that image.", true);
+        toast(error.message || voiceLine("failed", { what: "read the text in that image" }), true);
       } finally {
         visionOcrBtn.disabled = false;
       }
@@ -9456,7 +10034,7 @@ onDomReady(() => {
     const sections = [
       "library-view-documents", "library-view-docs", "library-view-skills",
       "library-view-whiteboard", "library-view-media", "library-view-links",
-      "library-view-contents",
+      "library-view-contents", "library-view-recordings",
     ];
 
     buttons.forEach(btn => {
@@ -9502,7 +10080,16 @@ onDomReady(() => {
         librarySectionShownAt[targetId] = now;
         if (targetId === "library-view-media") {
           setLibraryMediaKind(btn.dataset.mediaKind);
-          renderLibraryImagesGallery();
+          //: Images and Files share one grid: with the cache in hand the new
+          //: kind is drawn in this same frame and the fetch only redraws when
+          //: the answer differs, so the other kind's tiles (or placeholders)
+          //: never show under this heading (INBOX 852).
+          if (libraryImagesLoaded) {
+            filterLibraryImagesGallery();
+            renderLibraryImagesGallery({ ifUnchanged: "skip" });
+          } else {
+            renderLibraryImagesGallery();
+          }
           startLibraryImagesPoll();
         } else if (fresh) {
           stopLibraryImagesPoll();
@@ -9530,6 +10117,8 @@ onDomReady(() => {
             renderBookmarks();
           } else if (targetId === "library-view-contents") {
             renderContents();
+          } else if (targetId === "library-view-recordings") {
+            ensureModule("meetings").then(() => renderRecordings());
           }
         }
       });
@@ -9588,7 +10177,7 @@ onDomReady(() => {
     docsPageSizeSelect.value = libraryDocsPageSize;
     docsPageSizeSelect.addEventListener("change", (e) => {
       libraryDocsPageSize = e.target.value;
-      localStorage.setItem("library-docs-page-size", libraryDocsPageSize);
+      prefs.set("library-docs-page-size", libraryDocsPageSize);
       libraryDocsCurrentPage = 1;
       renderLibraryDocuments();
     });
@@ -9607,7 +10196,7 @@ onDomReady(() => {
     libraryPageSizeSelect.value = libraryPageSize;
     libraryPageSizeSelect.addEventListener("change", (e) => {
       libraryPageSize = e.target.value;
-      localStorage.setItem("library-page-size", libraryPageSize);
+      prefs.set("library-page-size", libraryPageSize);
       libraryCurrentPage = 1;
       renderLibrary();
     });
@@ -9644,7 +10233,8 @@ onDomReady(() => {
         //: decoration: a new row takes its space from it, and this upload,
         //: hand-rolled without it, once landed in "default" rather than the
         //: space being worked in. A refusal throws the server's sentence.
-        await api.upload("/media/upload", form);
+        const made = await (await api.upload("/media/upload", form)).json().catch(() => null);
+        pushUploadUndo(`Uploaded “${file.name}”`, "/media", made, renderLibraryImagesGallery);
         uploaded++;
       } catch (error) {
         toast(`${file.name}: ${error.message}`, true);
@@ -9677,6 +10267,22 @@ onDomReady(() => {
       groupInput.value = "";
       if ($("bookmark-note-input")) $("bookmark-note-input").value = "";
       urlInput.focus();
+      if (!created.duplicate_of && created.id != null) {
+        let liveId = created.id;
+        const body = { url, title: created.title || "", group_name: created.group_name || "", note: created.note || "" };
+        pushUndo(
+          `Added the bookmark “${clipText(created.title || url, 40)}”`,
+          async () => {
+            await apiJson(`/bookmarks/${liveId}`, { method: "DELETE" });
+            await renderBookmarks();
+          },
+          async () => {
+            const again = await apiJson("/bookmarks", { method: "POST", body: JSON.stringify(body) });
+            liveId = again.id ?? liveId;
+            await renderBookmarks();
+          }
+        );
+      }
       if (created.duplicate_of) {
         toast(`Saved: you already had this bookmark (${created.title || created.url}).`);
       }
@@ -9736,7 +10342,7 @@ onDomReady(() => {
     contentsGroup.addEventListener("change", () => {
       contentsMode = CONTENTS_GROUPS.includes(contentsGroup.value) ? contentsGroup.value : "category";
       try {
-        localStorage.setItem(CONTENTS_GROUP_KEY, contentsMode);
+        prefs.set(CONTENTS_GROUP_KEY, contentsMode);
       } catch {
         // A blocked storage only forgets the choice.
       }
@@ -10138,20 +10744,41 @@ async function bulkDeleteLibraryLinks() {
 //: body of a `PUT /bookmarks/{id}`; the selection survives (it is pruned by
 //: `renderBookmarks`), so "Move to group" then "Mark read" is two presses, not
 //: a re-select.
+//: Bookmarks written in bulk are one step on the stack (INBOX 898): Undo puts
+//: each one's old fields back, Redo writes the new ones again.
+function pushBookmarksPutUndo(label, items) {
+  const putEach = async (key) => {
+    for (const item of items) {
+      await apiJson(`/bookmarks/${item.id}`, { method: "PUT", body: JSON.stringify(item[key]) }).catch((e) => toast(e.message, true));
+    }
+    await renderBookmarks();
+  };
+  return pushUndo(label, () => putEach("before"), () => putEach("after"));
+}
+
 async function bulkUpdateLibraryLinks(changes, done) {
   const links = [...libraryLinksSelection.values()];
   if (!links.length) return;
   let changed = 0;
+  const written = [];
   for (const bookmark of links) {
     try {
       await apiJson(`/bookmarks/${bookmark.id}`, { method: "PUT", body: JSON.stringify(changes) });
+      written.push({
+        id: bookmark.id,
+        before: Object.fromEntries(Object.keys(changes).map((key) => [key, bookmark[key] ?? (typeof changes[key] === "boolean" ? false : "")])),
+        after: changes,
+      });
       changed++;
     } catch (err) {
       toast(err.message, true);
     }
   }
   libraryLinksSelection.clear();
-  if (changed) toast(done(changed));
+  if (changed) {
+    toast(done(changed));
+    pushBookmarksPutUndo(`Changed ${changed} bookmark${changed === 1 ? "" : "s"}`, written);
+  }
   await renderBookmarks();
 }
 
@@ -10201,7 +10828,7 @@ function emptyBookmarkGroups() {
 
 function setEmptyBookmarkGroups(groups) {
   try {
-    localStorage.setItem(BOOKMARK_EMPTY_GROUPS_KEY, JSON.stringify([...new Set(groups)].sort()));
+    prefs.set(BOOKMARK_EMPTY_GROUPS_KEY, JSON.stringify([...new Set(groups)].sort()));
   } catch {
     /* storage full or blocked: the group just won't survive a reload. */
   }
@@ -10225,21 +10852,24 @@ function allBookmarkGroups() {
 //: a rename is rare and a moment of latency is cheaper than a thundering herd.
 async function renameBookmarkGroup(from, to) {
   let moved = 0;
+  const written = [];
   for (const bookmark of bookmarksCache.filter((b) => b.group_name === from)) {
     try {
       await apiJson(`/bookmarks/${bookmark.id}`, {
         method: "PUT",
         body: JSON.stringify({ group_name: to }),
       });
+      written.push({ id: bookmark.id, before: { group_name: from }, after: { group_name: to } });
       moved++;
     } catch (error) {
-      toast(error.message || "Couldn't move that bookmark.", true);
+      toast(error.message || voiceLine("failed", { what: "move that bookmark" }), true);
     }
   }
   const empties = emptyBookmarkGroups().filter((g) => g !== from);
   if (to) empties.push(to);
   setEmptyBookmarkGroups(empties);
   if (bookmarkGroupFilter === from) bookmarkGroupFilter = to || null;
+  if (written.length) pushBookmarksPutUndo(to ? `Renamed the group “${from}”` : `Deleted the group “${from}”`, written);
   return moved;
 }
 
@@ -10480,7 +11110,7 @@ onDomReady(() => {
   if (!select) return;
   select.value = bookmarkSort();
   select.addEventListener("change", () => {
-    localStorage.setItem(BOOKMARK_SORT_KEY, select.value);
+    prefs.set(BOOKMARK_SORT_KEY, select.value);
     filterBookmarks();
   });
 });
@@ -10794,19 +11424,19 @@ function bookmarkRow(bookmark) {
       }
       save.disabled = true;
       try {
-        await apiJson(`/bookmarks/${bookmark.id}`, {
-          method: "PUT",
-          body: JSON.stringify({
-            title: titleInput.value.trim(),
-            url,
-            group_name: groupInput.value.trim(),
-            note: noteInput.value.trim(),
-          }),
-        });
+        const edited = {
+          title: titleInput.value.trim(),
+          url,
+          group_name: groupInput.value.trim(),
+          note: noteInput.value.trim(),
+        };
+        const wasFields = { title: bookmark.title || "", url: bookmark.url, group_name: bookmark.group_name || "", note: bookmark.note || "" };
+        await apiJson(`/bookmarks/${bookmark.id}`, { method: "PUT", body: JSON.stringify(edited) });
+        pushBookmarksPutUndo("Edited a bookmark", [{ id: bookmark.id, before: wasFields, after: edited }]);
         renderBookmarks();
       } catch (error) {
         save.disabled = false;
-        toast(error.message || "Couldn't save that bookmark.", true);
+        toast(error.message || voiceLine("failed", { what: "save that bookmark" }), true);
       }
     });
 
@@ -10832,6 +11462,7 @@ function bookmarkRow(bookmark) {
       method: "PUT",
       body: JSON.stringify({ group_name: value }),
     });
+    pushBookmarksPutUndo("Moved a bookmark to another group", [{ id: bookmark.id, before: { group_name: bookmark.group_name || "" }, after: { group_name: value } }]);
     renderBookmarks();
   };
 
@@ -10842,6 +11473,7 @@ function bookmarkRow(bookmark) {
       method: "PUT",
       body: JSON.stringify({ is_read: !bookmark.is_read }),
     });
+    pushBookmarksPutUndo(bookmark.is_read ? "Marked a bookmark unread" : "Marked a bookmark read", [{ id: bookmark.id, before: { is_read: Boolean(bookmark.is_read) }, after: { is_read: !bookmark.is_read } }]);
     renderBookmarks();
   };
 
@@ -11029,7 +11661,7 @@ function contentsGroups(entries) {
       //: them??"*, three fair questions, and the label answered none of
       //: them. It is not a folder you can make: folders in this app are the
       //: directories of an imported Obsidian vault, and a note typed into
-      //: MemoryMap has no path at all. The heading now says that.
+      //: Tessellate has no path at all. The heading now says that.
       addTo(path ? folder || CONTENTS_VAULT_ROOT : CONTENTS_NO_FOLDER, entry);
     }
   } else if (contentsMode === "topic") {
@@ -11049,7 +11681,7 @@ function contentsGroups(entries) {
 //: The two synthetic folder headings. Named constants because three places
 //: need to agree on them, the grouper, the ordering (they sort last) and the
 //: explanation shown when they are all there is.
-const CONTENTS_NO_FOLDER = "Written in MemoryMap (no folder)";
+const CONTENTS_NO_FOLDER = "Written in Tessellate (no folder)";
 const CONTENTS_VAULT_ROOT = "Top level of the vault";
 
 function contentsSectionLabel(key) {
@@ -11349,9 +11981,95 @@ function contentsBuildSection(outline, { key, label, total, fill }) {
   heading.contentsSet = setOpen;
   setOpen(!folded.has(key));
   heading.addEventListener("click", () => setOpen(list.hidden));
+  contentsWireTopicHeading(heading, key);
   fill(list);
   section.append(heading, list);
   outline.appendChild(section);
+}
+
+//: **A topic is renamed in this list too** (the owner, 2026-10-10: "I cant
+//: rename a topic??", "I still cant edit topics in the graph or anywhere
+//: else"). Under By topic a heading is a topic: F2 or its right-click menu
+//: renames it in place (the graph's route, kept by the topic's notes), and
+//: the menu also shows it on the graph.
+function contentsWireTopicHeading(heading, key) {
+  if (contentsMode !== "topic" || key === CONTENTS_NO_TOPIC) return;
+  const names = contentsTopicNames();
+  const topic = (contentsTopics?.topics || []).find((t) => names.get(t.id) === key);
+  if (!topic) return;
+  heading.title = "F2 or right-click to rename this topic or show it on the graph";
+  heading.addEventListener("keydown", (event) => {
+    if (event.key !== "F2") return;
+    event.preventDefault();
+    contentsRenameTopic(heading, topic);
+  });
+  heading.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+    openMenuAtPoint([
+      { label: "ph:pencil-simple Rename topic", run: () => contentsRenameTopic(heading, topic) },
+      {
+        label: "ph:graph Show on the graph",
+        run: async () => {
+          await switchTab("graph");
+          showTopicInGraph(topic.ids[0]);
+        },
+      },
+    ], "Topic", event.clientX, event.clientY);
+  });
+}
+
+function contentsRenameTopic(heading, topic) {
+  const field = document.createElement("input");
+  field.type = "text";
+  field.maxLength = 80;
+  field.className = "graph-topic-rename";
+  field.value = topic.name;
+  field.setAttribute("aria-label", `Rename the topic ${topic.name}`);
+  field.title = "Enter to save, Escape to keep the name; empty brings the found name back";
+  //: Save and Cancel beside the field, as on the graph's topic card; their
+  //: mousedown is kept off the field so its blur (which saves) does not fire
+  //: before the press that means Cancel.
+  const edit = document.createElement("div");
+  edit.className = "contents-topic-rename";
+  const saveBtn = smallButton("ph:check", "Save the name", () => finish(true));
+  const cancelBtn = smallButton("ph:x", "Keep the old name", () => finish(false));
+  for (const b of [saveBtn, cancelBtn]) {
+    b.classList.add("icon-only");
+    b.addEventListener("mousedown", (event) => event.preventDefault());
+  }
+  edit.append(field, saveBtn, cancelBtn);
+  heading.hidden = true;
+  heading.after(edit);
+  let done = false;
+  const finish = async (save) => {
+    if (done) return;
+    done = true;
+    const wanted = field.value.trim();
+    edit.remove();
+    heading.hidden = false;
+    if (!save || wanted === topic.name) {
+      heading.focus();
+      return;
+    }
+    const rename = () => apiJson("/graph/topics/name", { method: "PUT", body: JSON.stringify({ ids: topic.ids, name: wanted }) });
+    const row = await rename()
+      .catch((e) => { toast(`The topic was not renamed: ${e?.message || e}.`, true, { action: ["Try again", rename] }); return null; });
+    if (!row) return;
+    const repaint = () => {
+      if (typeof noteTopicsCache !== "undefined") noteTopicsCache.clear();
+      return renderContents();
+    };
+    pushRequestUndo(`Renamed the topic “${topic.name}”`, "/graph/topics/name", "PUT", { ids: topic.ids, name: topic.name }, { ids: topic.ids, name: wanted }, repaint);
+    repaint();
+  };
+  field.addEventListener("keydown", (event) => {
+    event.stopPropagation();
+    if (event.key === "Enter") finish(true);
+    else if (event.key === "Escape") finish(false);
+  });
+  field.addEventListener("blur", () => finish(true));
+  field.focus();
+  field.select();
 }
 
 async function renderContents() {
@@ -11430,7 +12148,7 @@ async function renderContents() {
   if (hint && contentsMode === "folder" && groups.size === 1 && groups.has(CONTENTS_NO_FOLDER)) {
     hint.textContent =
       "Folders come from an imported Obsidian vault, they are not created in "
-      + "MemoryMap. Nothing has been imported yet, so every note is grouped "
+      + "Tessellate. Nothing has been imported yet, so every note is grouped "
       + "here. Import a vault from Settings → Import & export to see its folder tree.";
     hint.classList.remove("hidden");
   }
@@ -11666,4 +12384,38 @@ async function remindAbout({ title, entryId = null, documentId = null }) {
     toast(error.message, true);
     return false;
   });
+}
+
+//: **The first image a note actually shows** (moved here from shell-reminders.js
+//: with its only caller, `noteAnyImage`, to leave boot room; libr-1011), for surfaces that want to put a
+//: face on a row rather than a filename. Reported against the Contents tab,
+//: which rendered every note as `noteLabel` text: so a note that *is* a photo
+//: appeared as "20251018_OHR.SilburyHill….jpg", or as the bare word "image"
+//: when the alt text was empty.
+//:
+//: Reads the markdown rather than any stored field, because that is where a
+//: note's images live: pasted, dropped and AI-attached pictures all end up as
+//: `![alt](/media/…)` in the body, and there is no column that mirrors them.
+//:
+//: Only this app's own stored files. An external `https://` image in a note is
+//: skipped on purpose: the CSP blocks it (`img-src 'self' data: blob:`), so a
+//: thumbnail built from one would be a guaranteed broken frame, which is worse
+//: than no thumbnail at all.
+
+function noteFirstImage(content) {
+  const match = /!\[([^\]\n]{0,200})\]\((\/(?:media|files)\/[^)\n]{1,500})\)/.exec(content || "");
+  if (!match) return null;
+  return { alt: match[1] || "", url: match[2] };
+}
+
+//: A note's picture, wherever it lives, the markdown, or the attachments
+//: table. See `noteRowImage` in dashboard.js for the report behind this: an
+//: *attached* image appears nowhere in the note's text, so every surface that
+//: looked for `![](…)` alone showed nothing for a note whose only picture was
+//: attached rather than pasted.
+function noteAnyImage(entry) {
+  const embedded = noteFirstImage(entry?.content);
+  if (embedded) return embedded;
+  const attached = (entry?.attachments || []).find((file) => file.is_image);
+  return attached ? { alt: attached.filename || "", url: `/files/${attached.id}` } : null;
 }

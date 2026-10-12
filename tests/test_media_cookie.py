@@ -20,8 +20,8 @@ from pathlib import Path
 
 import pytest
 
-from memorymap.api import routes_auth
-from memorymap.core import deps
+from tessellate.api import routes_auth
+from tessellate.core import deps
 from tests._app_js import app_js_text
 
 FRONTEND = Path(__file__).resolve().parent.parent / "frontend"

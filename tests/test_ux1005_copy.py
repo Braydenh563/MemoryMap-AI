@@ -28,7 +28,7 @@ def test_a_help_badge_opening_a_settings_pane_names_it_as_the_nav_does():
     """UX-15: the Guide's storage answer said "Open Settings, Data"; the nav
     says "Import & export". A badge with a `target` names one control inside
     the pane and may say that control's name instead."""
-    from memorymap.ai import help_chat
+    from tessellate.ai import help_chat
 
     nav = _settings_nav()
     assert {"models", "data", "about"} <= set(nav), nav
@@ -44,7 +44,7 @@ def test_a_help_badge_opening_a_settings_pane_names_it_as_the_nav_does():
 
 
 def test_the_storage_answer_names_import_and_export():
-    from memorymap.ai import help_chat
+    from tessellate.ai import help_chat
 
     storage = next(t for t in help_chat.HELP_TOPICS if t["id"] == "storage")
     assert "Settings -> Data" not in storage["body"]

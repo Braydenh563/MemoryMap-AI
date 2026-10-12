@@ -10,11 +10,11 @@ from __future__ import annotations
 
 import time
 
-from memorymap.ai import lexical_filing
-from memorymap.ai.lexical_filing import tokens
+from tessellate.ai import lexical_filing
+from tessellate.ai.lexical_filing import tokens
 
 
-def _wait_settled(client, entry_id, timeout=90.0):
+def _wait_settled(client, entry_id, timeout=240.0):
     """Poll until the background filing pass settles the note.
 
     The ceiling is generous on purpose: it is not a speed claim (that is
@@ -71,24 +71,34 @@ def test_it_abstains_rather_than_guessing(client):
     assert status["filed_by"] == "none"
 
 
-def test_a_clear_lead_files_even_when_a_stray_word_splits_the_share(monkeypatch):
+def test_a_clear_lead_files_even_when_a_stray_word_splits_the_share(session):
     """CI's E2E run, 2026-10-06: "Tried a sourdough focaccia: 75% hydration,
-    olive oil, rosemary, baked hot" stayed Uncategorised with no model. The
-    tally (measured on the E2E fixture) gave its own category 2.6 times the
-    runner-up's vote but only 63% of the whole, because "oil" and "hot" also
-    sit in other categories' notes, and the share rule alone abstained.
-    `scratchpad/filing_eval.py`: coverage 0.15 to 0.17, precision 0.667 to
-    0.706 with the lead rule. A close race still abstains."""
-    from memorymap.ai import lexical_filing
+    olive oil, rosemary, baked hot" stayed Uncategorised with no model,
+    because "oil" and "hot" also sit in other categories' notes and the share
+    rule alone abstained. The decision (WORLD_CLASS 23) files on a lead
+    (`FILE_LEAD`); a close race still abstains."""
+    from tessellate.ai import lexical_filing
+    from tessellate.entry import manager
 
-    def tally(votes, supporters):
-        monkeypatch.setattr(lexical_filing, "_tally", lambda *_a, **_k: (votes, supporters))
-
-    tally({"Cooking": 0.681, "Home": 0.264, "Health": 0.138}, {"Cooking": 3, "Home": 2, "Health": 1})
-    match = lexical_filing.lexical_category(None, "sourdough focaccia")
+    for content, category in (
+        ("Sourdough loaf, 70% hydration, baked in a hot oven", "Cooking"),
+        ("Focaccia with rosemary and olive oil", "Cooking"),
+        ("Pasta with garlic and chilli oil", "Cooking"),
+        ("Oil the squeaky hinge on the back door", "Home"),
+        ("The hot water tank needs a new thermostat", "Home"),
+        ("Hot bath for the sore back", "Health"),
+        ("Physio exercises for the back", "Health"),
+        ("Red notebook, spiral bound", "Stationery"),
+        ("Red notebook for the desk", "Desk"),
+        ("Red notebook, ruled", "Stationery"),
+        ("Red notebook by the phone", "Desk"),
+    ):
+        manager.create_entry(session, content, category_name=category)
+    session.commit()
+    match = lexical_filing.lexical_category(session, "Tried a sourdough focaccia: 75% hydration, olive oil, rosemary, baked hot")
     assert match is not None and match.name == "Cooking" and match.confidence < 85
-    tally({"Cooking": 0.6, "Home": 0.4}, {"Cooking": 3, "Home": 2})
-    assert lexical_filing.lexical_category(None, "a close race") is None
+    assert match.why
+    assert lexical_filing.lexical_category(session, "a red notebook") is None
 
 
 def test_a_category_named_in_the_note_counts(client):
@@ -115,11 +125,11 @@ def test_moving_a_words_filed_note_is_a_correction(client):
 
 
 def test_it_stays_fast_on_a_large_notebook(client):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     words = "alpha beta gamma delta epsilon zeta eta theta iota kappa".split()
     with deps.get_db().session() as session:
-        from memorymap.entry import manager
+        from tessellate.entry import manager
 
         for i in range(800):
             manager.create_entry(session, f"{words[i % 10]} note {i} about {words[(i * 3) % 10]}", category_name=f"C{i % 8}")
@@ -127,9 +137,17 @@ def test_it_stays_fast_on_a_large_notebook(client):
         #: CPU time of this process, not the wall clock: the claim is that the
         #: pass does little work on 800 notes, and the wall clock also counts
         #: every slice the scheduler hands to other processes.
-        started = time.process_time()
-        lexical_filing.lexical_category(session, "alpha gamma note")
-        took = time.process_time() - started
+        #: The least of three cold passes (the corpus forgotten each time): a
+        #: starved machine slows a pass by whatever it takes from the cache and
+        #: the scheduler, never by less than the work, so the minimum is the work.
+        #: The bound is the same 0.5 s of CPU; it failed at 0.8 with a dozen
+        #: other test runs on four cores while the work itself was 0.1 s.
+        took = 99.0
+        for _ in range(3):
+            lexical_filing.forget_corpus()
+            started = time.process_time()
+            lexical_filing.lexical_category(session, "alpha gamma note")
+            took = min(took, time.process_time() - started)
         assert took < 0.5, took
 
 

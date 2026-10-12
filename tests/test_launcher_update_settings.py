@@ -118,7 +118,7 @@ class TestStartShReadsTheSettings:
     def test_the_setting_survives_the_app_writing_the_file(self, tmp_path):
         """Written by `ConfigManager`, read by the launcher: the one shape
         that matters, and the one a hand-built fixture cannot prove."""
-        from memorymap.core.config import ConfigManager
+        from tessellate.core.config import ConfigManager
 
         data_dir = tmp_path / "written"
         config = ConfigManager(data_dir)
@@ -178,8 +178,8 @@ class TestTheDoctorSaysWhatWillHappen:
     obeys, so the two can never disagree."""
 
     def _doctor(self, data_dir: Path) -> str:
-        env = dict(os.environ, MEMORYMAP_DATA_DIR=str(data_dir))
-        env.pop("MEMORYMAP_PORT", None)
+        env = dict(os.environ, TESSELLATE_DATA_DIR=str(data_dir))
+        env.pop("TESSELLATE_PORT", None)
         result = subprocess.run(
             ["./start.sh", "--doctor"],
             cwd=ROOT,
@@ -279,7 +279,7 @@ class TestTheAppAgreesWithTheLaunchers:
     Settings would show a switch in the opposite position to the behaviour."""
 
     def test_a_source_checkout_asks_first_then_follows_main(self, tmp_path):
-        from memorymap.core.config import ConfigManager
+        from tessellate.core.config import ConfigManager
 
         config = ConfigManager(tmp_path / "fresh")
         assert config.get_preference("update_choice_made") is False
@@ -319,8 +319,8 @@ class TestTheFirstLaunchOfAFreshInstall:
         that used to fire about one time in eight."""
         data_dir = tmp_path / f"fresh{run}" / "data"
         data_dir.mkdir(parents=True)
-        env = dict(os.environ, MEMORYMAP_DATA_DIR=str(data_dir))
-        env.pop("MEMORYMAP_PORT", None)
+        env = dict(os.environ, TESSELLATE_DATA_DIR=str(data_dir))
+        env.pop("TESSELLATE_PORT", None)
         result = subprocess.run(
             ["./start.sh", "--doctor"],
             cwd=ROOT,
@@ -330,7 +330,7 @@ class TestTheFirstLaunchOfAFreshInstall:
             timeout=180,
         )
         assert result.returncode in (0, 1), (result.returncode, result.stdout, result.stderr)
-        assert "MemoryMap AI - checks" in result.stdout, result.stdout
+        assert "Tessellate - checks" in result.stdout, result.stdout
 
 
 def test_preferences_are_written_one_key_per_line_for_start_bat(tmp_path):
@@ -342,7 +342,7 @@ def test_preferences_are_written_one_key_per_line_for_start_bat(tmp_path):
     line, which `atomic_write_json`'s indent gives it; this pins that, so a
     change to compact JSON fails here rather than on someone's Windows
     launch (checked 2026-09-23 with a real `git` remote for the .sh side)."""
-    from memorymap.core.config import ConfigManager
+    from tessellate.core.config import ConfigManager
 
     config = ConfigManager(data_dir=tmp_path)
     config.set_preference("auto_update_enabled", True)

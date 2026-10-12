@@ -63,7 +63,7 @@ def test_a_field_hover_is_never_weaker_than_its_resting_edge() -> None:
     text = _css("07-whiteboard-misc.css")
     hover = re.search(r"textarea:hover:not\(:focus\)[^{]*\{([^}]*)\}", text)
     assert hover and "var(--control-edge)" in hover.group(1)
-    opener = re.search(r"\.select-opener:hover:not\(\[disabled\]\)\s*\{([^}]*)\}", text)
+    opener = re.search(r"\.select-opener:hover:not\(\[disabled\]\)[^{]*\{([^}]*)\}", text)
     assert opener and "var(--control-edge)" in opener.group(1)
 
 

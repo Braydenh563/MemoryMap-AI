@@ -1,0 +1,135 @@
+{
+ "note": "Read-tool requests in people's words and the owner's typos (Brief composer item 4): each must reach its tool with no model, and the answer must carry a link to the place.",
+ "routes": [
+  [
+   "show me every tag i have",
+   "list_tags"
+  ],
+  [
+   "shwo me evry tag i hav plz",
+   "list_tags"
+  ],
+  [
+   "what tags do i have",
+   "list_tags"
+  ],
+  [
+   "wat tags have i used",
+   "list_tags"
+  ],
+  [
+   "all my tags",
+   "list_tags"
+  ],
+  [
+   "which tags do I use the most",
+   "list_tags"
+  ],
+  [
+   "what categories do i have",
+   "list_categories"
+  ],
+  [
+   "show me my categorys",
+   "list_categories"
+  ],
+  [
+   "list the categories",
+   "list_categories"
+  ],
+  [
+   "wat categories r there",
+   "list_categories"
+  ],
+  [
+   "what reminders do i have",
+   "list_reminders"
+  ],
+  [
+   "any remindres coming up",
+   "list_reminders"
+  ],
+  [
+   "show my reminders pls",
+   "list_reminders"
+  ],
+  [
+   "show me my documents",
+   "list_documents"
+  ],
+  [
+   "what docs do i have",
+   "list_documents"
+  ],
+  [
+   "list my docs pls",
+   "list_documents"
+  ],
+  [
+   "show my notes",
+   "list_notes"
+  ],
+  [
+   "list all my notes",
+   "list_notes"
+  ],
+  [
+   "shwo all my notes",
+   "list_notes"
+  ],
+  [
+   "what skills do you have",
+   "list_skills"
+  ],
+  [
+   "wat skills r there",
+   "list_skills"
+  ],
+  [
+   "list the skills",
+   "list_skills"
+  ],
+  [
+   "give me an overview of my notebook",
+   "notebook_overview"
+  ],
+  [
+   "overveiw of my notebook",
+   "notebook_overview"
+  ],
+  [
+   "how big is my notebook",
+   "notebook_overview"
+  ],
+  [
+   "count my notes",
+   "count_notes"
+  ],
+  [
+   "notes per category",
+   "count_notes"
+  ],
+  [
+   "how are my notes connected",
+   "notebook_structure"
+  ],
+  [
+   "whats the structure of my notebook",
+   "notebook_structure"
+  ],
+  [
+   "show me the shape of my notebook",
+   "notebook_structure"
+  ]
+ ],
+ "not_tools": [
+  "what did I tag the dentist note",
+  "notes about the harbor launch",
+  "what is the plan for the trip",
+  "remind me to call mum tomorrow",
+  "tag the dentist note health",
+  "what tags does the dentist note have",
+  "which categories is the harbor note in"
+ ],
+ "measured": "2026-10-11: 12 of 30 before (read as typed), 15 of 30 read after the speller; 30 of 30 after"
+}

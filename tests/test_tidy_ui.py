@@ -8,7 +8,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from memorymap.ai import help_chat
+from tessellate.ai import help_chat
 
 ROOT = Path(__file__).resolve().parents[1]
 JS = ROOT / "frontend" / "js"
@@ -43,7 +43,7 @@ def test_it_is_lazy_and_reached_from_the_dock():
 
 def test_it_is_in_the_palette_tools_and_features_and_the_guide():
     assert "openTidySheet()" in _read("app-palette.js")
-    catalogue = _read("dashboard.js")
+    catalogue = _read("app-features.js")  # featureCatalog moved here with the boot diet (Brief 80)
     for reveal in ("tidy", "tidy-links", "tidy-duplicates", "tag-manager", "notes-review"):
         assert f'reveal: "{reveal}"' in catalogue
     topics = help_chat._matching_topics("how do I tidy up weak links without the ai")
@@ -84,9 +84,31 @@ def test_one_spacing_token_between_the_blocks_of_the_sheet():
     css = CSS.read_text(encoding="utf-8")
     assert "gap: var(--space-5)" in _rule(css, ".sheet-card.tidy-card")
     assert "margin: 0" in _rule(css, ".tidy-card .inbox-desc")
-    history = _rule(css, ".tidy-history")
-    assert "padding-inline: var(--space-4)" in history and "border:" in history
     assert "padding-block: var(--space-2)" in _rule(css, ".tidy-history-row")
+
+
+def test_recent_runs_is_a_quiet_disclosure_row():
+    """T2 (INBOX 830): Recent runs is DESIGN's disclosure row, a
+    `button.ghost.disclosure-row` with the one caret, not a full-width
+    bordered box; the list under it folds by `aria-expanded`."""
+    tidy = _read("tidy.js")
+    block = tidy.split("async function tidyHistory(")[1].split("\n}\n")[0]
+    assert 'head.className = "ghost small disclosure-row tidy-history-head";' in block
+    assert 'head.setAttribute("aria-expanded", "false")' in block and "list.hidden = true;" in block
+    css = CSS.read_text(encoding="utf-8")
+    assert "border:" not in _rule(css, ".tidy-history")
+
+
+def test_a_review_opens_in_place_with_a_back_link_and_no_bar_when_empty():
+    """T1 (INBOX 830): the back is a quiet link over the review's name, not a
+    bordered button beside a small title; an empty review is one line, with
+    no All, None or disabled action."""
+    tidy = _read("tidy.js")
+    assert 'back.classList.add("quiet", "tidy-back-link");' in tidy
+    foot = tidy.split("function tidyFoot(")[1].split("\n}\n")[0]
+    assert "state.foot.hidden = !state.rows.length;" in foot
+    css = CSS.read_text(encoding="utf-8")
+    assert "flex-direction: column" in _rule(css, ".tidy-nav")
 
 
 def _apply_table() -> dict[str, list[str]]:
@@ -103,7 +125,7 @@ def test_every_review_button_says_what_it_changes_in_plain_words():
     with the thing it acts on, the same words the review's description uses
     (so the sheet never names a button it has not explained), and no review
     still says Name, Unlink or Apply alone."""
-    from memorymap.entry import tidy as rules
+    from tessellate.entry import tidy as rules
 
     table = _apply_table()
     assert set(table) == set(rules.REVIEWS)
@@ -119,17 +141,18 @@ def test_every_review_button_says_what_it_changes_in_plain_words():
 
 
 def test_the_review_picker_is_an_overview_of_all_nine_not_a_dropdown():
-    """INBOX 718: "is it possible to see all issues identified??". Nine rows
+    """INBOX 718: "is it possible to see all issues identified??". A row per
+    review (eleven since WORLD_CLASS 23 added the two category reviews)
     (icon, name, count, one line on what it finds), the empty ones last, a
     row opens its review and a back button returns."""
-    from memorymap.entry import tidy as rules
+    from tessellate.entry import tidy as rules
 
     tidy = _read("tidy.js")
     assert 'select.id = "tidy-review"' not in tidy and 'select.className = "inbox-kind"' not in tidy
     block = tidy[tidy.index("const TIDY_ICONS") : tidy.index("async function openTidySheet")]
     icons = re.findall(r'^\s*"?([\w-]+)"?: "([\w-]+)",$', block, re.M)
     assert {k for k, _ in icons} == set(rules.REVIEWS), "every review has its glyph"
-    assert len({v for _, v in icons}) == 9, "and no two share one"
+    assert len({v for _, v in icons}) == len(rules.REVIEWS), "and no two share one"
     font = (ROOT / "frontend" / "vendor" / "phosphor" / "style.css").read_text(encoding="utf-8")
     for _, glyph in icons:
         assert f".ph-{glyph}:" in font, glyph
@@ -164,3 +187,25 @@ def test_a_help_popover_is_never_laid_over_its_own_trigger():
     assert "menuSidePlan(box.height, anchor, 10, margin)" in place
     assert "innerHeight - margin - box.height" not in place.replace("window.", "")
     assert 'panel.style.maxHeight = ""' in menus
+
+
+def test_the_badge_does_not_ask_the_server_while_the_app_is_locked():
+    """Audit 2026-10-10: `wiring.js` loads this module 4 s after the page, and
+    on the lock screen `GET /tidy` went out with no token: a 401 and a console
+    error on every launch."""
+    badge = _read("tidy.js").split("async function tidyBadge(", 1)[1].split("\n}\n", 1)[0]
+    assert badge.index("if (!authToken()) return;") < badge.index('apiJson("/tidy"')
+
+
+def test_a_suggestion_can_be_dismissed_for_good_from_its_row():
+    """INBOX 783, the owner: "how do I delete a suggestion??". The cross sits
+    beside the label (a button inside a label is a second control in the
+    first), asks the server to remember it, and the toast's Undo brings it
+    back; the '?' says so."""
+    tidy = _read("tidy.js")
+    assert 'dismiss.className = "ghost icon-only small tidy-dismiss"' in tidy
+    assert "li.append(label, dismiss)" in tidy
+    assert "/dismiss`" in tidy and '"undismiss"' in tidy and "offerUndo(" in tidy
+    assert "the cross hides a row" in tidy
+    css = (ROOT / "frontend" / "css" / "tidy-lazy.css").read_text(encoding="utf-8")
+    assert ".tidy-row-item" in css and ".tidy-dismiss" in css

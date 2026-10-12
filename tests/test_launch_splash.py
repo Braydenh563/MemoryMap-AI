@@ -19,7 +19,7 @@ import os
 import re
 from pathlib import Path
 
-from memorymap import __main__ as launcher
+from tessellate import __main__ as launcher
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -80,7 +80,7 @@ def test_every_exit_path_takes_the_splash_down():
     # Browser mode closes it itself; the end-of-script backstop covers the
     # error paths that fall through.
     assert text.count('del /q "!MM_SPLASH_FILE!"') >= 2
-    tail = text[text.index("MemoryMap AI has stopped") - 700 :]
+    tail = text[text.index("Tessellate has stopped") - 700 :]
     assert 'del /q "!MM_SPLASH_FILE!"' in tail
 
 
@@ -143,8 +143,8 @@ def test_both_exec_paths_take_the_unix_splash_down_by_hand():
     inherited by the new process, which would hold the fifo open and leave
     zenity on screen for the whole life of the app."""
     text = _start_sh()
-    for exec_line in ('exec "$VENV_PY" -m memorymap --desktop',
-                      'exec "$VENV_PY" -m memorymap\n'):
+    for exec_line in ('exec "$VENV_PY" -m tessellate --desktop',
+                      'exec "$VENV_PY" -m tessellate\n'):
         at = text.index(exec_line)
         before = text[max(0, at - 200):at]
         assert "mm_splash_done" in before, exec_line
@@ -199,36 +199,14 @@ def test_notify_mode_needs_no_cleanup():
     assert "notify" not in done_body
 
 
-def test_the_marquee_sits_under_the_step_text_not_across_it():
-    """Reported with a screenshot: the bar ran straight through "Checking for
-    updates on GitHub, 1s". The detail label starts 2px into the row and is
-    16px tall; the bar must start below that and end before the next row."""
+def test_the_bar_is_one_accent_panel_not_a_themed_progressbar():
+    """Reported: a green bar and a white one. A stock ProgressBar takes the
+    system theme and ignores ForeColor once themed, so the bar is two panels
+    in the app accent (Brief 85)."""
     ps1 = (REPO / "scripts" / "splash.ps1").read_text(encoding="utf-8")
-    drop = int(re.search(r"\$BAR_DROP\s*=\s*(\d+)", ps1).group(1))
-    height = int(re.search(r"\$BAR_HEIGHT\s*=\s*(\d+)", ps1).group(1))
-    step = int(re.search(r"\$ROW_STEP\s*=\s*(\d+)", ps1).group(1))
-    detail_h = int(re.search(r"\$detail\.Size\s*=.*Size\(320, (\d+)\)", ps1).group(1))
-    assert drop >= 2 + detail_h
-    assert drop + height <= step
-    assert ps1.count("($ROW_TOP + $BAR_DROP") == 2, "both bar placements use the offset"
-
-
-def test_the_progress_bar_is_not_colour_overridden():
-    """Reported: the bar "just stays empty".
-
-    Setting ForeColor or BackColor on a WinForms ProgressBar switches it off
-    the themed renderer and onto the plain one, and the plain renderer does
-    not draw a Marquee at all. The control is still there and still animating
-    in principle; nothing paints. So the colours have to stay off it, and the
-    animation speed has to be non-zero, which is the other way to get an empty
-    bar.
-    """
-    ps1 = (REPO / "scripts" / "splash.ps1").read_text(encoding="utf-8")
-    bar = [line for line in ps1.splitlines() if line.strip().startswith("$bar.")]
-    assert not any("ForeColor" in line or "BackColor" in line for line in bar), bar
-    speed = next(line for line in bar if "MarqueeAnimationSpeed" in line)
-    assert int(speed.split("=")[1].strip()) > 0
-    assert any('Style' in line and 'Marquee' in line for line in bar)
+    assert "System.Windows.Forms.ProgressBar" not in ps1
+    assert "$barFill.BackColor = $accent" in ps1
+    assert "$accent = [System.Drawing.Color]::FromArgb(79, 109, 245)" in ps1  # #4f6df5
 
 
 # --- the handoff window's own last step ----------------------------------------
@@ -255,7 +233,7 @@ def test_the_last_step_is_ticked_before_the_window_swaps_not_after():
 
     # Past the docstring, which names load_url in prose.
     src = inspect.getsource(launcher._boot_and_swap)
-    body = src[src.index('os.environ["MEMORYMAP_DESKTOP"]') :]
+    body = src[src.index('os.environ["TESSELLATE_DESKTOP"]') :]
     assert body.index("_mark_start_step_done(window)") < body.index("window.load_url(")
 
 
@@ -280,7 +258,7 @@ def test_browser_mode_ticks_the_final_step_and_desktop_mode_leaves_it_alone():
     assert 'mm_status "$MM_STEP_START" "Start" "Handed over to the app" "done"' in tail
     # And not on the desktop path, which hands the file to Python instead.
     desktop = sh[sh.index('mm_status "$MM_STEP_START" "Start" "Starting the app" "active"') :
-                 sh.index('exec "$VENV_PY" -m memorymap --desktop')]
+                 sh.index('exec "$VENV_PY" -m tessellate --desktop')]
     assert '"done"' not in desktop
 
     bat = _start_bat()
@@ -295,9 +273,9 @@ def test_the_entry_module_does_not_drag_the_whole_app_in_with_it():
     so someone with no console (the packaged build has none) sees something
     happening. But `main()` cannot run until Python has finished importing the
     module that defines it, and that module used to import
-    `memorymap.api.app`, which imports FastAPI, SQLAlchemy, the model manager
+    `tessellate.api.app`, which imports FastAPI, SQLAlchemy, the model manager
     and the embeddings module. Measured with `-X importtime` on a warm cache:
-    1,203ms to import `memorymap.__main__`, of which `memorymap.api.app` was
+    1,203ms to import `tessellate.__main__`, of which `tessellate.api.app` was
     1,113ms. 30ms once those two imports moved into `_run_server`, where the
     work is wanted and where it happens on the server thread, behind the
     window instead of in front of it.
@@ -314,8 +292,8 @@ def test_the_entry_module_does_not_drag_the_whole_app_in_with_it():
     import sys
 
     probe = (
-        "import sys; import memorymap.__main__; "
-        "print(','.join(sorted(m for m in ('memorymap.api.app', 'uvicorn', "
+        "import sys; import tessellate.__main__; "
+        "print(','.join(sorted(m for m in ('tessellate.api.app', 'uvicorn', "
         "'fastapi', 'sqlalchemy') if m in sys.modules)))"
     )
     root = Path(__file__).resolve().parents[1]
@@ -328,7 +306,7 @@ def test_the_entry_module_does_not_drag_the_whole_app_in_with_it():
         check=True,
     ).stdout.strip()
     assert not out, (
-        "importing memorymap.__main__ pulled in " + out + ": import these "
+        "importing tessellate.__main__ pulled in " + out + ": import these "
         "inside _run_server instead, so the desktop window can open first"
     )
 
@@ -337,8 +315,8 @@ def test_the_loading_page_wears_the_saved_look(tmp_path):
     """Owner: "some popup ui's havent followed the theme change like the
     loading screen". The desktop loading page reads the look mirrored to the
     server's preferences and recolours its own stylesheet."""
-    from memorymap import __main__ as main
-    from memorymap.core.config import ConfigManager
+    from tessellate import __main__ as main
+    from tessellate.core.config import ConfigManager
 
     fresh = main._recolour_loading_page(main._LOADING_HTML, str(tmp_path))
     assert "#161615" in fresh.split("</style>")[0]  # no look chosen: Quiet

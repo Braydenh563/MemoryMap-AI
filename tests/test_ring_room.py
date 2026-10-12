@@ -59,6 +59,9 @@ RING_ROOM: list[tuple[str, str, str]] = [
     ("the Settings pane", ".modal-content", "room"),
     ("menu rows", ".menu-item", "inset"),
     ("timeline sort buttons", ".timeline-sort", "inset"),
+    # The 2026-10-11 sweep (focus ring probe, 1440 and 390).
+    ("a page that scrolls, a stop flush with its bottom edge", ".tab-page", "room"),
+    ("Settings, Background jobs: Run now fills its row on a phone", ".job-run-now", "inset"),
 ]
 
 #: A pill track with an edge: its segments fill its inside, never the

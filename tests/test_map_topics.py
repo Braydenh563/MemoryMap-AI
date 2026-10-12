@@ -13,11 +13,11 @@ import json
 
 from fastapi.testclient import TestClient
 
-from memorymap.core import deps
+from tessellate.core import deps
 
 
 def _client():
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
     from tests.fakes import FakeEmbeddingService, FakeOllama
 
     deps.override_ai(
@@ -64,13 +64,13 @@ def test_the_upgrade_marks_the_topics_a_map_gesture_already_made(tmp_path):
     after, a long note and a board are not."""
     import sqlite3
 
-    from memorymap.core.database import DatabaseManager, _ensure_alembic_baseline
+    from tessellate.core.database import DatabaseManager, _ensure_alembic_baseline
 
     from datetime import datetime
 
     from sqlalchemy.orm import Session
 
-    from memorymap.core.database import Entry, WhiteboardNode
+    from tessellate.core.database import Entry, WhiteboardNode
 
     db_path = tmp_path / "old-maps.db"
     manager = DatabaseManager(db_path)

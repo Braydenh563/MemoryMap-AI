@@ -7,8 +7,8 @@ rather than needing a real Ollama, this suite runs fully offline.
 
 from __future__ import annotations
 
-from memorymap.ai.entities import extract_entities_pass, suggest_entities
-from memorymap.core.database import Entity, EntityMention, Entry
+from tessellate.ai.entities import extract_entities_pass, suggest_entities
+from tessellate.core.database import Entity, EntityMention, Entry
 
 
 class _FakeModelManager:
@@ -58,7 +58,7 @@ def test_extraction_pass_creates_entities_and_mentions(session):
 
 
 def test_extraction_pass_skips_already_scanned_notes(session):
-    from memorymap.core.database import utcnow
+    from tessellate.core.database import utcnow
 
     entry = Entry(content="Already scanned before.", ai_confidence=0, entities_extracted_at=utcnow())
     session.add(entry)
@@ -106,7 +106,7 @@ def test_graph_endpoint_includes_entities_only_when_asked(client):
     entry_resp = client.post("/entries", json={"content": "Sarah's note about the Riverside project."})
     entry_id = entry_resp.json()["id"]
 
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     with deps.get_db().session() as session:
         entity = Entity(name="Sarah")

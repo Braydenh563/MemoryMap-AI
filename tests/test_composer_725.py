@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.ai import composer
+from tessellate.ai import composer, composer_tables
 from tests.test_composer_688 import NOTES, TODAY, _note, assert_traceable
 
 
@@ -66,6 +66,20 @@ def test_word_forms_meet(a, b):
 def test_a_note_is_never_a_negation():
     assert composer._stem("note") != composer._stem("not")
     assert composer._stem("notes") != composer._stem("not")
+
+
+@pytest.mark.parametrize(
+    ("a", "b"),
+    [("business", "busy"), ("university", "universe"), ("general", "generous"), ("organ", "organisation")],
+)
+def test_unrelated_words_do_not_meet(a, b):
+    """The stemmer's rule (`_stem`: "a stemmer that turned news into new
+    would match the wrong notes"), held for the collisions a full Porter
+    stemmer makes:
+    "business" and "busy" are both "busi" to it, and "university" and
+    "universe" both "univers" (2026-10-10 triage, decision 3: the vendored
+    Porter stemmer measured no gain on the eval and fails this)."""
+    assert composer._stem(a) != composer._stem(b)
 
 
 # --- redundancy ---------------------------------------------------------------------
@@ -148,7 +162,7 @@ def test_a_second_note_on_the_subject_is_said_with_no_also():
     second = text.split("\n\n")[1]
     #: INBOX 741: the sentence itself, its note named after it, never
     #: "**Offline** also says:".
-    assert "Beta testers active in the forum did not know the app works offline. (**Offline**)" in second
+    assert "Beta testers active in the forum did not know the app works offline. [**Offline**]" in second
     assert not second.startswith("**Offline**") and "says" not in second
 
 
@@ -171,7 +185,11 @@ def test_a_broad_question_opens_with_how_many_notes_mention_it():
     ]
     result = ask("What do I know about sourdough?", notes)
     first = result["text"].split("\n", 1)[0]
-    assert first.startswith("At least three of your notes mention “sourdough”, from 3 September to 3 October.")
+    #: The lead and its middle are a pair with variants (decision 51's floor).
+    leads = composer_tables.VOICE_VARIANTS["natural"]["mention_lead"]
+    mids = composer_tables.VOICE_VARIANTS["natural"]["mention_mid"]
+    said = tuple(f"{composer.PHRASES[a]}three{composer.PHRASES[b]}“sourdough”, from 3 September to 3 October." for a, b in zip(leads, mids))
+    assert first.startswith(said), first
     #: The note named for the subject leads, and every note counted is quoted.
     assert "**Sourdough log**" in first
     assert {row["note_id"] for row in result["grounding"]} == {1, 2, 3}
@@ -202,7 +220,9 @@ def test_a_pictures_reading_is_introduced_as_the_picture():
     assert ("picture", "a blue bean drawn in pen") in kinds and ("picture_text", "bean v2") in kinds
     assert not any(s.text.startswith("[Pictures") for s in view.sentences)
     result = ask("What does the bean sketch show?", [PICTURE_NOTE])
-    assert "The picture in **Sketches** shows a blue bean drawn in pen." in result["text"]
+    #: Its words are said with it, never as a second sentence naming the
+    #: picture again (INBOX 787).
+    assert "The picture in **Sketches** shows a blue bean drawn in pen, which reads “bean v2”." in result["text"]
     row = next(r for r in result["grounding"] if r["sentence"] == "a blue bean drawn in pen")
     assert PICTURE_NOTE["content"][row["start"]:row["end"]] == "a blue bean drawn in pen"
 
@@ -275,7 +295,7 @@ def test_a_composed_answers_next_questions_are_drawn_as_its_chips():
     chat_js = Path("frontend/js/chat-attach.js").read_text(encoding="utf-8")
     assert "composedNext = Array.isArray(event.next) ? event.next : [];" in chat_js
     assert "offerFollowups(bubble, question, answerRaw, meta?.composed ? composedNext : null);" in chat_js
-    routes = Path("src/memorymap/api/routes_chat.py").read_text(encoding="utf-8")
+    routes = Path("src/tessellate/api/routes_chat.py").read_text(encoding="utf-8")
     assert '"next": result["next"],' in routes
 
 
@@ -289,9 +309,10 @@ def test_with_no_model_chat_stays_open_and_agent_mode_says_what_it_needs(client)
     from pathlib import Path
 
     markup = Path("frontend/index.html").read_text(encoding="utf-8")
-    assert '<textarea id="chat-input" rows="1"' in markup and '<button id="chat-send">' in markup
+    assert '<textarea id="chat-input"' in markup and '<button id="chat-send">' in markup
     status_js = Path("frontend/js/status.js").read_text(encoding="utf-8")
-    assert "const gated = aiIsOff() && !engine;" in status_js
+    #: The gate is one helper since the 2026-10-10 chat list: no model and no Needle.
+    assert "return modelStatus?.model_ready === true || !!modelStatus?.tools_engine;" in status_js and "const gated = !agentModeAvailable();" in status_js
     assert "Chat answers from your notes" in status_js and "Chat cannot answer yet" not in status_js
     status = client.get("/models/status").json()
     assert status["ollama_running"] is False and "tools_engine" in status

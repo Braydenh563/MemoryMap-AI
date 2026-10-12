@@ -1,0 +1,110 @@
+/* The Improve sheet's styles, out of the boot sheets (gzip budget, 2026-10-12); loaded with improve-panel.js. */
+
+#improve-overlay {
+  position: fixed;
+  inset: 0;
+  /* See #sketch-overlay's comment: same tier, same reason. Both moved to
+     1010 alongside `.modal-overlay` (01-forms-settings.css) when that tier
+     itself moved off 55 to clear #agent-monitor's z-index: 1000. */
+  z-index: 1010;
+  background: var(--scrim);
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 1.5rem;
+}
+
+#improve-overlay.hidden {
+  display: none;
+}
+
+#improve-card {
+  width: min(760px, 96vw);
+  max-height: 92vh;
+  overflow-y: auto;
+  background: var(--modal-bg);
+}
+
+.improve-mode.active {
+  background: var(--accent-surface);
+  color: var(--on-accent);
+}
+
+#improve-custom-row {
+  margin-top: var(--space-4);
+  margin-bottom: var(--space-4);
+  gap: var(--space-3);
+  align-items: stretch;
+}
+
+#improve-custom-input {
+  flex: 1;
+  margin: 0;
+}
+
+#improve-custom-go {
+  margin: 0;
+  height: auto;
+}
+
+.improve-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+  margin-top: var(--space-4);
+}
+
+@media (max-width: 599.98px) {
+  .improve-cols {
+    grid-template-columns: 1fr;
+  }
+}
+
+#improve-result {
+  border-color: var(--border);
+}
+
+/* Improve writing's modes are the document AI assistant's verb bar (the
+   owner at release: "change the pill selection bar to be the same"): one
+   full-width track, equal segments, the chosen one a quiet ground with an
+   accent ring rather than four separate bordered buttons and a filled one.
+   Same measures as `.doc-ai-card > #doc-ai-verb`. */
+#improve-modes {
+  display: flex;
+  gap: 0.15rem;
+  height: var(--control-h);
+  padding: var(--space-1);
+  background: var(--chip-bg);
+  border-radius: var(--radius-choice);
+}
+:root[data-glass="off"] #improve-modes {
+  background: var(--card);
+  border: 1px solid var(--border);
+}
+#improve-modes > .improve-mode {
+  flex: 1 1 0;
+  /* Never square: `--radius-inner` is 0 at a small radius setting, and
+     the chosen segment drew square corners (the owner at release). */
+  border-radius: max(var(--radius-inner), var(--radius-sm));
+  min-width: 0;
+  height: 100%;
+  padding-block: 0;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--text-md);
+  font-weight: 500;
+  box-shadow: none;
+}
+#improve-modes > .improve-mode:not(.active):hover,
+#improve-modes > .improve-mode:not(.active):is(:focus-visible, :has(:focus-visible)) {
+  background: var(--ghost-btn-bg);
+}
+#improve-modes > .improve-mode.active {
+  background: var(--ghost-btn-bg);
+  color: var(--ink);
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+}

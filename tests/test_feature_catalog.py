@@ -54,6 +54,8 @@ SCRIPTS = (
     "documents.js",
     "library.js",
     "dashboard.js",
+    #: The catalogue itself (Brief bootdiet), lazy behind `LAZY_MODULES.appPalette`.
+    "app-features.js",
     "settings.js",
     "editor.js",
     "timeline.js",
@@ -72,6 +74,13 @@ SCRIPTS = (
     "meetings.js",
     #: Tidy (INBOX 691), lazy behind `LAZY_MODULES.tidy`.
     "tidy.js",
+    #: The Activity panel (Brief 73), lazy behind `LAZY_MODULES.activity`.
+    "activity-panel.js",
+    #: The Statistics page (Brief 89), lazy behind `LAZY_MODULES.statistics`.
+    "statistics.js",
+    #: The palette's timer, stopwatch, counts and templates (Brief 89),
+    #: lazy behind `LAZY_MODULES.utilities`.
+    "utility-tools.js",
 )
 
 #: Names a row may call that are the platform rather than the app. Kept short
@@ -162,8 +171,8 @@ def _without_strings(text: str) -> str:
 def _catalogues() -> dict[str, str]:
     """The two tables, with their comments stripped."""
     return {
-        "featureCatalog (dashboard.js)": _strip_comments(
-            _body(_read("dashboard.js"), "function featureCatalog() {")
+        "featureCatalog (app-features.js)": _strip_comments(
+            _body(_read("app-features.js"), "function featureCatalog() {")
         ),
         "paletteCommands (app.js)": _strip_comments(
             _body(_read("app.js"), "function paletteCommands() {")
@@ -312,7 +321,7 @@ def test_no_two_rows_claim_the_same_thing():
     the end starts double-counting: the heading counts rows, so a duplicate
     inflates the number the dialog puts in front of the reader.
     """
-    body = _catalogues()["featureCatalog (dashboard.js)"]
+    body = _catalogues()["featureCatalog (app-features.js)"]
     names = re.findall(r'\{\s*name:\s*"([^"]+)"', body)
     duplicates = sorted({name for name in names if names.count(name) > 1})
     assert not duplicates, f"these feature names appear more than once: {duplicates}"
@@ -326,7 +335,7 @@ def test_no_two_rows_claim_the_same_thing():
 def test_the_count_in_the_heading_is_counted_not_typed():
     """The number is the list's own length, or it is a number that drifts.
 
-    "105 things MemoryMap can do" was accurate on the day it was written. It is
+    "105 things Tessellate can do" was accurate on the day it was written. It is
     computed from the rendered rows (`shown` in `renderFeatures`), and this
     keeps it that way: a literal in that string would be a promise the file
     stops keeping the moment a row is added.
@@ -337,6 +346,6 @@ def test_the_count_in_the_heading_is_counted_not_typed():
     assert "${shown}" in heading.group(0), (
         "the heading must count the rows it just rendered, not carry a number"
     )
-    assert not re.search(r"\b\d{2,}\s+things MemoryMap can do", source), (
+    assert not re.search(r"\b\d{2,}\s+things Tessellate can do", source), (
         "the count in the heading is hard-coded; it has to come from the list"
     )

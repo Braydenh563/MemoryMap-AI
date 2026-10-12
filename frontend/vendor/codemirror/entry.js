@@ -38,3 +38,13 @@ export { properties } from "@codemirror/legacy-modes/mode/properties";
 // also pulls in lang-html (PHP is embedded in HTML), and it costs +98,144
 // bytes raw and +28,563 gzipped on its own, 10.6% of this bundle for one
 // language. DOCUMENTS_PLAN records the decision.
+// Added 2026-10-10 (Brief 42, each sized before it landed, gzip -9 against
+// this bundle): the merge view, to compare the editor with a saved version
+// and take or undo one hunk (+29,294 raw, +10,014 gzipped); the minimap, off
+// by default (+15,676, +5,235); Visual Basic and VBScript, two legacy modes
+// (+9,926, +3,340). Indentation markers were measured too (+1,647) and left
+// out: `docIndentGuides` in documents-code.js already draws them.
+export * as merge from "@codemirror/merge";
+export { showMinimap } from "@replit/codemirror-minimap";
+export { vb } from "@codemirror/legacy-modes/mode/vb";
+export { vbScript } from "@codemirror/legacy-modes/mode/vbscript";

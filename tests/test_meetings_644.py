@@ -4,15 +4,15 @@ One shape (`entry/meetings.py`), made by `POST /meetings`, read by
 `GET /entries/{id}/meeting`; an action item becomes a real reminder with no
 model; a meeting sits on the timeline at its own date; Summarise keeps only
 the lines whose source words are in the note. The audit these answer is
-docs/roadmap/agent-remaining/meetings-644.md.
+docs/roadmap/archive/agent-remaining/meetings-644.md.
 """
 
 from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from memorymap.ai import meeting_summary
-from memorymap.entry import meetings, properties
+from tessellate.ai import meeting_summary
+from tessellate.entry import meetings, properties
 
 NOTE = (
     "---\ntype: Meeting\ndate: 2026-10-07 14:00\nattendees: [Sam, Priya]\n---\n"
@@ -195,11 +195,16 @@ def test_append_writes_through_the_notes_route(client) -> None:
     assert unknown.status_code == 422
 
 
-def test_summarise_without_a_model_says_so(client) -> None:
+def test_summarise_without_a_model_reads_by_rules_and_says_so(client) -> None:
+    """28.5 row 2: no model is no longer a 503. The rules read the notes and
+    the answer says, in one line, that they did."""
     note = _make(client)
     response = client.post(f"/entries/{note['id']}/meeting/summarise")
-    assert response.status_code == 503
-    assert "local AI" in response.json()["detail"]
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["by"] == "rules" and "local AI is off" in body["note"]
+    #: "Sam will send the deck" is already "Send the deck @Sam by Friday".
+    assert body["actions"] == []
 
 
 # --- the timeline ------------------------------------------------------------
@@ -264,7 +269,7 @@ def test_none_is_an_empty_answer() -> None:
 def test_summarise_with_a_model(app_state, fake_ollama) -> None:
     from fastapi.testclient import TestClient
 
-    from memorymap.api.app import create_app
+    from tessellate.api.app import create_app
 
     client = TestClient(create_app())
     note = _make(client)
@@ -277,6 +282,7 @@ def test_summarise_with_a_model(app_state, fake_ollama) -> None:
     body = response.json()
     assert body["lines"]["decisions"] == ["- Launch in November, from “Launch moves to November”"]
     assert body["actions"] == [] and body["dropped"] == 1
+    assert body["by"] == "model" and body["note"] == ""
     #: Nothing was written: the note is as it was.
     kept = client.get(f"/entries/{note['id']}").json()
     assert kept["content"] == NOTE

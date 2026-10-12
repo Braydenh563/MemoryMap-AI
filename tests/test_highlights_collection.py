@@ -7,8 +7,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from memorymap.entry import highlights, manager
-from memorymap.search import engine
+from tessellate.entry import highlights, manager
+from tessellate.search import engine
 
 
 def _note(session, content, **flags):

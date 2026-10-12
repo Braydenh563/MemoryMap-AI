@@ -306,6 +306,16 @@ const empty = [];
   const run = async (label) => {
     await page.mouse.move(2, 2);
     await page.keyboard.press('Tab'); await page.keyboard.press('Shift+Tab');
+    //: SCROLL_END=1 (ledger 1543): scroll every scroller to its far end first, so a
+    //: control cut at a scrolled edge is measured, not skipped as "more content
+    //: past it". Run it as well as the default, which measures the start.
+    if (process.env.SCROLL_END) await page.evaluate(() => {
+      for (const el of document.querySelectorAll('*')) {
+        const cs = getComputedStyle(el);
+        if (/auto|scroll/.test(cs.overflowY) && el.scrollHeight > el.clientHeight + 1) el.scrollTop = el.scrollHeight;
+        if (/auto|scroll/.test(cs.overflowX) && el.scrollWidth > el.clientWidth + 1) el.scrollLeft = el.scrollWidth;
+      }
+    });
     if (process.env.DBGSEL) await page.evaluate((x) => { window.__dbgSel = x; }, process.env.DBGSEL);
     const r = await page.evaluate(MEASURE);
     surfaces++;

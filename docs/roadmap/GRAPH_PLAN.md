@@ -319,6 +319,20 @@ description of what they wanted.
 The group drag this entry left open is built: moved to HISTORY.md ("Moved
 from the plans, 2026-09-23", GRAPH_PLAN.md).
 
+## Decision made, 2026-10-11: a drag moves, a double-click pins
+
+The owner: "moving nodes keeps them stuck there, they should only be stuck
+in place if I double click on them to freez their position. though if the
+user moves them, they should settle into place in that general position".
+INBOX 802's hold (a dropped note held at the drop until the layout rested,
+then let go into a map with no heat left) read as a pin. Now the drag holds
+the note under the pointer only while dragging; on release `fx`/`fy` clear
+and the layout is left at a low heat (`RELEASE_ALPHA` 0.02, graph-worker.js),
+so the note eases into place near the drop (a 360-unit drop: 58 from it at
+rest, `test_graph_feel_100.py`). Double-click toggles a real pin with its
+held ring; Shift and drag still pins; Unpin all clears only real pins; a
+pinned note dragged stays pinned. Help says drag moves, double-click pins.
+
 ## Placed from INBOX, 2026-09-13
 
 - **Hovering a node grows it into its own halo** (INBOX 149, the owner: "can
@@ -353,6 +367,21 @@ this: it is set and released by the code that already owns it.
 Read this where the code carries it out: `graphCaptureView`/`graphApplyView`
 (`frontend/js/graph.js`) and `renderGraphCanvas`/`gcStartWorker`
 (`frontend/js/graph-canvas.js`, the default renderer).
+
+Claim #238 (2026-10-11): the hold was a separate `freeze` after `init`, and a
+view re-picks its layout, which clears the fit, so the init warmed for 450ms
+first and moved every saved note. The hold now rides in the init (`held`), a
+restore never warms or plays an intro, and graphviewpos.js compares with what
+the view stored, not a snapshot taken mid-settle.
+
+## Decision made, 2026-10-11: the drawn map is for reading
+
+BACKLOG's "decide what the graph is *for*" (a picture for a person, or a
+thing the AI walks): the picture. A person wants few, meaningful lines, so
+the map draws links and, on a toggle, each note's two closest matches; the
+AI's retrieval walks the links table and the index, weighted, and never
+needs a line drawn to use it. Typed links and strength serve both without
+the picture growing denser.
 
 
 ## Decision made, 2026-09-24: similarity is each note's two closest matches
@@ -469,7 +498,7 @@ backgrounds, Curved links, Cluster glow, then 514's Arrows, Text fade and Link
 thickness; Length by similarity and Group by category move to Physics (they are
 forces) beside Link force, so Show stays four rows. Off, Label backgrounds draws each name
 on the old 3px card-coloured outline; the placement keeps it clear of lines
-either way (`scratchpad/ui-sweeps/graphplates.js`: 19 plates on, 19 outlines
+either way (`scratchpad/ui-sweeps/graphdepth2.js graphplates`: 19 plates on, 19 outlines
 off, off kept after a reload).
 
 ## Decision made, 2026-10-04: a Filter fold
@@ -561,3 +590,69 @@ entity-to-entity triples at notebook scale (slow and unreliable on a small
 local model; typing happens on accept, one pair at a time); Leiden as a
 dependency (label propagation in Python suffices at 10k); formulas and
 rollups beyond count, sum, min, max, earliest and latest.
+
+## Decision made, 2026-10-10: a category is where a note is filed, a topic is what its links say it is about
+
+The owner, 2026-10-10: "Should topics from the graph be more integrated app
+wide?? How are they different from categories??"
+
+- **A category is chosen.** One per note, set by you or by filing, a folder
+  in the sidebar, the same until someone changes it. Notes, Library, Tidy and
+  filing all read it.
+- **A topic is found.** The graph's label propagation over the links
+  (`entry/topics.py`) puts a note in at most one topic of three or more; it
+  moves when the links move, is named by the tag, entity or word its notes
+  share most, and can be renamed. The name is kept by the topic's notes (half
+  of them shared), so it survives a recompute.
+- **Neither writes the other.** A topic never files a note, and filing never
+  reads topics. A topic whose notes sit in three categories is the useful
+  disagreement. Turning a topic into a category is a person's own act
+  (2026-10-11, ledger 945; Brief 39b's steps did not carry it): the topic's
+  card has File as a category, the batch bar's one move with one Undo, the
+  name offered being the topic's.
+- **A topic is never "Topic 2" while its notes say something** (2026-10-11,
+  the owner on a "Topic 2" chip): below the share bar the best term two of
+  its notes share names it, then its most linked readable note's title
+  ("Around ..."); "Topic N" is left for private or untitled notes.
+- **Three notes stay at the fit's zoom clamp** (2026-10-11, ledger 967): at
+  1440x900 they fill 0.80 of the free height, not more, because past
+  `GRAPH_FIT_MAX_ZOOM` (2.5) the nodes and names grow cartoonish; a tiny
+  map reads as tiny.
+- **Integration is the same object shown everywhere, not a second taxonomy.**
+  The note card and the note's panel on the map carry its topic as a chip that
+  opens the graph on it; the name is renamed in place wherever it is written
+  (the plate, the card, the panel); a topic is moved on the map by its name,
+  its notes together and pinned.
+
+## Placed from the owner's list, 2026-10-10
+
+Every entry is built (the graph agent, 2026-10-10): the owner's words, the
+recommendations and what was built moved to HISTORY.md, "Moved from the
+plans, 2026-10-10 (graph-1010)". The categories-versus-topics answer is the
+decision above; turning a topic into a category is the card's File as a category.
+
+### Vendored capabilities to use, 2026-10-10 (Brief 75)
+
+The owner: "make sure all the vendored repositories are made full use of. I want maximum utility." Ranked by the utility to the surface; `scratchpad/vendor_use.py` prints the counts ("available N, called M") and `tests/test_vendor_utilisation.py` ratchets them, so a row that lands raises its floor in the same commit. Each is a lead from a lower-bound count: grep the call site before building (CLAUDE.md section 1).
+
+- **VC11, D3 hierarchy layouts as a category overview** (M, rank 11). D3's hierarchy module is 15 exports with 2 called; `treemap`, `pack` and `partition` would show the notebook's categories by size. Measure: a treemap of the categories at 1,000 notes renders in under 100 ms and every rectangle's area is within 1% of its note count; reachable from the graph's view switch with a `data-help-for` popover.
+
+## Placed from Brief 60, 2026-10-10 (the measured census)
+
+- The graph is not idle at rest: `scratchpad/ui-sweeps/frames.js` counted 1, 9 and 10 long tasks (58 to 70 ms) in 3 s, 150 to 170 ms of script a second and 38 to 52 gaps over 20 ms of 83 to 134 frames, 2.5 s after the tab opened; a drag was 12 to 44 gaps over 20 ms of 302. Find what still runs (the force simulation after it settles, or a redraw loop) and stop it at rest; target zero long tasks (WORLD_CLASS 26.5).
+- `/graph` is 22 ms for 45 KB of 71 notes; 10 of that is `_payload_key` (`routes_graph.py:667`). Not measured at 5,000 notes.
+
+## Placed from INBOX, 2026-10-10 (the owner on the graph, again)
+
+- INBOX 798, the owner 2026-10-10 23:27Z, screenshot: "the graph is still completely broken 😞 I miss how it used to move 😞 look at how the movement is in main and base and refine off that" (34 notes in one vertical line, topic labels stacked on it) and "there is no smooth transition, I just change views or reset it and it just suddenly changes or disappears and reappears". Owner: the graphfeel agent, round 2 (root cause of the line; main's motion as the reference; animated view changes).
+- INBOX 799, the owner 2026-10-10 23:45Z: "Alright work autonomously to fix, finish,redesign, improve and extend everything. I will be at work. Impress me! :D" (the standing order for the day: the queue in HANDOVER, three Opus agents at most, Sonnet for well-defined work).
+
+## Placed from INBOX, 2026-10-11 (the owner on dragging the force graph)
+
+Owner: the graph agent (Opus), when a slot frees.
+
+- INBOX 802, graph, the owner 2026-10-11 03:35Z, verbatim: "The graph movement is a lot closer to how it is on main and better than you had it, but I still cant move the force graph as well. Can you like copy the physics of the force graph on main?? like if cant drag parts of the graph to different areas of the graph and have it kinda settle into place there. idk but I quite like how it is on the main branch. also the resetting or re-centering of the force graph is not smooth and doesnt smoothlly pan over." Recommendation, taken: port main's force simulation and its drag (a dragged node pins while held, the simulation reheats, neighbours follow, it settles where dropped); reset and recentre ease the view transform over the motion token, never jump. Then, 03:50Z, screenshot (the graph sits right of centre, an empty minimap top left): "why's the graph so positioned to the right and not in the middle??" Fit centres on the visible canvas, reserving only what a showing panel covers.
+
+## Placed from the owner, 2026-10-11: a tessellation view (next PR)
+
+The owner: "I'm thinking next pr we should add another graph view which better resembles the essence of the name tessellate". A third view beside the force graph and the map: every note owns one cell of a plane tiled with no gaps (a Voronoi tessellation over the existing 2D layout, or a hexagon grid placed by it), neighbours are related notes, categories are coloured regions with a heavier border, and a new note settles into its cell the way the logo's third cell does. First step: mock three variants (Voronoi, hexagon grid, hexagon clusters per category) at 50, 500 and 2,000 notes for the owner to pick from, then a brief here.

@@ -1,0 +1,360 @@
+/* graph-lazy.css: the Graph tab's styles that arrived after the boot budget
+   ran out, loaded with the graph's own scripts (app.js `LAZY_MODULES.graph`)
+   rather than at boot. Everything here is drawn only once the map is. */
+
+/* **A topic's name plate is a handle** (the owner, 2026-10-10: "I want to be
+   able to drag whole topics around on the graph"): the grab hand while the
+   pointer is over one in the force layout (`gcPlateAtWorld`). */
+#graph-canvas.graph-plate-hover {
+  cursor: grab;
+}
+
+/* **A topic renamed where its name is** ("I cant rename a topic??"): the
+   field `gcRenameTopicInline` opens in place of the name on the topic's card
+   or a note's panel, or floating over the plate on the map. The app's own
+   text field; this sets only its size and, over the map, its place. */
+.graph-topic-rename {
+  min-width: 0;
+  max-width: 100%;
+  padding: var(--space-1) var(--space-2);
+  font-weight: 600;
+}
+
+.graph-topic-rename.is-floating {
+  position: absolute;
+  z-index: 3;
+  box-shadow: var(--shadow-sm);
+  /* Its height comes from the plate (gcRenameTopicInline), so nothing here
+     may add to it: no floor, no vertical padding, the plate's type size. */
+  min-height: 0;
+  padding: 0 var(--space-2);
+  font-size: var(--text-xs);
+  line-height: 1;
+  box-sizing: border-box;
+}
+
+/* A topic's card (KG6): the trace result's shell (02-chat-graph.css),
+   right-aligned at a reading width like the options it sits under. The head is
+   a grid so the count can sit under the name and the name's cell can become
+   the rename field without moving anything else: the dot, the name (or field)
+   and the tools on one row, the muted count under the name. */
+.graph-overlay .graph-topic {
+  align-self: flex-end;
+  width: min(24rem, 100%);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+}
+.graph-topic-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "dot name tools"
+    ". count .";
+  align-items: center;
+  column-gap: var(--space-2);
+  row-gap: var(--space-1);
+}
+.graph-topic-head > strong,
+.graph-topic-head > .graph-topic-rename {
+  grid-area: name;
+  min-width: 0;
+}
+/* The field is the height of the buttons beside it, so editing moves nothing. */
+.graph-topic-head > .graph-topic-rename {
+  height: var(--control-h-dense);
+  min-height: 0;
+  margin: 0;
+  box-sizing: border-box;
+}
+@media (pointer: coarse) {
+  .graph-topic-head > .graph-topic-rename {
+    align-self: stretch;
+    height: auto;
+  }
+}
+.graph-topic-head > strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-md);
+}
+.graph-topic-dot {
+  grid-area: dot;
+  width: 0.625rem;
+  aspect-ratio: 1;
+  border-radius: var(--radius-pill);
+  --topic-colour: var(--muted);
+  background: var(--topic-colour);
+}
+.graph-topic-count {
+  grid-area: count;
+  white-space: nowrap;
+}
+.graph-topic-tools {
+  grid-area: tools;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.graph-topic-terms,
+.graph-topic-summary {
+  margin: var(--space-2) 0 0;
+}
+.graph-topic-actions {
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+  flex-wrap: wrap;
+}
+
+/* A note's topic in its panel: the chip and its pencil on one line. */
+.graph-popup-topic {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* A note's properties in its panel: the card's table, then Properties. */
+.graph-popup-props {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.graph-popup-props .note-props {
+  margin: 0;
+}
+
+/* **The first map's wait** (Brief 100, `gcArriving` in graph-canvas.js): a
+   faint glow of the accent breathes in the middle of the card from the
+   render's start until the canvas fades in, and fades as it does, so the
+   card is never an empty frame between the tab's skeleton and the map. */
+#graph-box::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity calc(var(--ui-slow) * 2) var(--ease-out);
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent) 12%, transparent), transparent) center / min(70%, 32rem) min(70%, 32rem) no-repeat;
+}
+#graph-box.graph-arriving::after {
+  opacity: 1;
+  animation: graph-arriving 1.6s var(--ease-in-out) infinite alternate;
+}
+@keyframes graph-arriving {
+  from {
+    scale: 0.9;
+  }
+  to {
+    scale: 1.05;
+  }
+}
+/* Less motion asked for: no breathing, and the glow goes with the map's cut. */
+@media (prefers-reduced-motion: reduce) {
+  #graph-box::after,
+  #graph-box.graph-arriving::after {
+    transition: none;
+    animation: none;
+  }
+}
+:root[data-motion="reduced"] #graph-box::after {
+  transition: none;
+  animation: none;
+}
+
+.graph-edge-similar {
+  stroke-dasharray: 2 5;
+  stroke-width: 1.2;
+  stroke: var(--accent);
+}
+/* A manual link is clickable (opens the management panel); a documented
+   reason gets its own visible weight, not just a hover tooltip, asked for
+   directly ("a visual way to see the reasons for each connection"). */
+.graph-edge-manageable {
+  cursor: pointer;
+}
+.graph-edge-reasoned {
+  stroke: var(--accent);
+  stroke-opacity: 0.8;
+  stroke-width: 2.2;
+}
+/* A `contradicts` link: the one type that means "these are at odds" rather
+   than "these belong together", produced by the Tensions review. Dashed as
+   well as coloured on purpose: colour alone would not separate it for anyone
+   who cannot tell it from the accent, and on a dense graph the dash is the
+   part that reads at a glance. Placed after `.graph-edge-reasoned` because
+   these links always carry a reason and would otherwise be overridden by it. */
+.graph-edge-contradicts {
+  stroke: var(--error);
+  stroke-opacity: 0.85;
+  stroke-width: 2.2;
+  stroke-dasharray: 6 4;
+}
+/* The invisible, much wider click target laid over each thin visible edge, 
+   reported directly: "the links are hard to click on". `stroke: transparent`
+   still hit-tests (unlike `fill: none` with no stroke at all), and only a
+   link edge (`.graph-edge-manageable`) actually wants a pointer/click; every
+   other kind stays pointer-events:none so it can't steal a click meant for
+   whatever's underneath it. */
+.graph-edge-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14;
+  pointer-events: none;
+}
+.graph-edge-hit.graph-edge-manageable {
+  pointer-events: stroke;
+  cursor: pointer;
+}
+.graph-link-peek > p {
+  margin: 0;
+}
+.graph-link-peek-kind {
+  font-weight: 600;
+}
+.graph-link-peek-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+.graph-link-panel-reason {
+  width: 100%;
+  resize: vertical;
+}
+/* Two note titles stacked, not run together as one sentence, see the
+   comment where this is built in app.js for the report that caused it. */
+.graph-link-panel-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  text-align: left;
+}
+.graph-link-panel-arrow {
+  font-size: var(--text-sm);
+}
+/* --- a traced path (§9) -----------------------------------------------------
+   Drawn as its own layer rather than by highlighting the edges underneath.
+   Two reasons, and the second is the one that decided it: a step may be a
+   *shared tag*, which the map draws no line for at all, so highlighting
+   existing edges would show a chain with gaps in it, in exactly the places the
+   explanation is most needed. And a path is a different kind of thing from a
+   connection: it is an answer to a question, so it sits on top. */
+.graph-path-line {
+  stroke: var(--accent);
+  stroke-width: 4;
+  stroke-opacity: 0.85;
+  stroke-linecap: round;
+  fill: none;
+  pointer-events: none;
+}
+/* The routes you are not reading. Thin and faint enough to read as context
+   rather than as the answer, and still visible enough to be worth drawing, 
+   a route at 0.2 opacity is a route nobody notices, which is the same as not
+   drawing it. Dashed as well as faint, because colour alone is not a signal
+   everyone can use. */
+.graph-path-line.is-dimmed {
+  stroke-width: 2;
+  stroke-opacity: 0.42;
+  stroke-dasharray: 6 5;
+}
+/* The switcher above the path. `role="tablist"` in the markup, so these are
+   tabs and read as a choice between views of one thing, which is what they
+   are: rather than as six unrelated buttons. */
+.graph-trace-routes {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+.legend-line {
+  display: inline-block;
+  width: 1.25rem;
+  height: 0;
+  border-top: 2px solid var(--muted);
+}
+.graph-trace-arrow {
+  color: var(--muted);
+}
+.graph-trace-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
+/* Arrow + reason, one unit between two note chips, quiet relative to the
+   chips, because the chips are what you clicked for. `white-space: nowrap`
+   keeps the arrow glued to its label; the *unit* still wraps freely with
+   the rest of the row, it just never splits mid-arrow. */
+.graph-trace-connector {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--muted);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+}
+.graph-trace-arrow-icon {
+  color: var(--border);
+}
+.graph-trace-step {
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.graph-popup-tool-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+/* The hairline is the only thing between two groups. Drawn by the second of
+   the pair (the chat dock's own recipe, 06-timeline-dialogs.css) so it can
+   never be left dangling at the end of the row, and in --border rather than
+   --divider for the same reason that dock uses it: --divider is the line
+   between stacked rows, faint because the rows are already apart, and two
+   groups of icons standing shoulder to shoulder need a mark you can see. */
+.graph-popup-tool-group+.graph-popup-tool-group::before {
+  content: "";
+  align-self: stretch;
+  width: 1px;
+  margin-inline: var(--space-2);
+  background: var(--border);
+}
+/* Bin is set apart inside its own group by a gap rather than a fourth
+   hairline: three groups is the structure. */
+.graph-popup-tool-bin {
+  margin-left: var(--space-3);
+}
+/* A category heading in a tree layout, a real node in the drawing, but not
+   a note: hollow, so it never reads as something you can open. */
+.graph-core.graph-group {
+  fill-opacity: 0.25;
+  stroke: currentColor;
+  stroke-width: 2;
+}
+/* Filing edges (category → note) are quieter than a link the user made. */
+.graph-edge-filing {
+  stroke-dasharray: 3 3;
+  opacity: 0.45;
+}
+/* The two ends, read back as chips. An unset end says what the next click
+   does rather than sitting empty, the mode's whole job is to be legible
+   halfway through. */
+.trace-chip {
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 14rem;
+}
+.trace-chip.is-set {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--ink);
+}
+.trace-chip.is-empty {
+  border-style: dashed;
+  color: var(--muted);
+}

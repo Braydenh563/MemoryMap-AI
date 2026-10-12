@@ -43,6 +43,8 @@ function settingRowText(el) {
 //: would be searching empty panes) and skipping what a person cannot see:
 //: a pane's own hidden state does not count, a hidden group inside it does.
 function settingRows() {
+  //: Asked before the first query, so the first word typed is read by meaning.
+  meaningAsk();
   const rows = [];
   for (const pane of document.querySelectorAll("#settings-modal .settings-section")) {
     const name = pane.id.slice("settings-".length);
@@ -56,30 +58,80 @@ function settingRows() {
       const hiddenBy = el.closest(".hidden");
       if (hiddenBy && hiddenBy !== pane && pane.contains(hiddenBy)) continue;
       const text = settingRowText(el);
-      if (text.length < 3 || text.length > 110) continue;
+      //: A switch's own words can run long ("Load the search model when the
+      //: app starts (off: ...)"); it is still a setting, where a long run of
+      //: words with no control in it is a paragraph.
+      if (text.length < 3 || (text.length > 110 && !el.querySelector("input, select, textarea"))) continue;
       const group = el.closest(".settings-group, details.settings-fold");
       const head = el.matches("h3, h4") ? null : group?.querySelector("h3, h4, summary h3");
       //: A help topic says which group of topics it is in (INBOX 448).
       const where = head ? head.textContent.replace(/\s+/g, " ").trim() : el.closest("[data-help-group]")?.dataset.helpGroup || "";
       //: `data-keys` and `data-find`: a help topic's keywords and text, so it is found by
       //: the words a person types, not only by its title.
-      const haystack = `${text} ${el.getAttribute("title") || ""} ${el.querySelector("input, select, textarea")?.getAttribute("aria-label") || ""} ${el.dataset.keys || ""} ${el.dataset.find || ""}`.toLowerCase();
+      //: The row's whole text too, its helper copy included: a setting is
+      //: found by what it does ("battery"), not only by its label.
+      const haystack = `${text} ${el.textContent || ""} ${el.getAttribute("title") || ""} ${el.querySelector("input, select, textarea")?.getAttribute("aria-label") || ""} ${el.dataset.keys || ""} ${el.dataset.find || ""}`.toLowerCase();
       rows.push({ section: name, sectionLabel, where, text, haystack, keys: el.dataset.keys || "", el, isHead: el.matches("h3, h4") });
     }
   }
   return rows;
 }
 
-//: Matching settings for a typed query: every word must appear, a row that
+//: Matching settings for a typed query: every thing it names must appear, a row that
 //: starts with the word or has it at a word start ranks above one that merely
 //: contains it, and a group head above a control. Capped, because a list of
 //: forty is the section filter over again.
+//: **Words that mean one thing** (CHAT_PLAN section 2, Brief 94): "night",
+//: "dark" and "theme" find the same setting, "chnage pasword" finds the
+//: password. The rule is meaning.js's (`meaningAlts`, in this bundle); the
+//: rows' own words are its vocabulary, so a slip of a label reads as it.
+let settingVocabCache = null;
+function settingVocab(rows) {
+  if (rows || !settingVocabCache) {
+    settingVocabCache = new Set();
+    for (const row of rows || settingRows()) {
+      for (const w of meaningWords(`${row.text} ${row.sectionLabel} ${row.keys}`)) settingVocabCache.add(w);
+    }
+  }
+  return settingVocabCache;
+}
+
+//: What a query asks for, as one list of words-meaning-the-same per thing
+//: named (`meaningAlts`); filterSettings (settings.js) asks it for the nav.
+function settingQueryAlts(query) {
+  return meaningAlts(query, settingVocab());
+}
+
+//: A query typed before the meaning tables landed is read again with them.
+document.addEventListener("meaning-ready", () => {
+  const box = $("settings-search");
+  if (box?.value) filterSettings(box.value);
+  const help = $("help-search");
+  if (help?.value) helpApplySearch(help.value);
+});
+
 function findSettings(query, limit = 8) {
-  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const words = meaningNamed(query);
   if (!words.length) return [];
+  const rows = settingRows();
+  const alts = meaningAlts(query, settingVocab(rows));
+  //: Every thing named, or, when no row holds them all, all but one of two
+  //: or more ("what the ai remembers about me" is a memory question first).
+  //: A help topic is held by meaning in its title and keywords only: its
+  //: body names half the app. The words as typed still reach the body.
+  const said = (row) => (row.keys ? `${row.text} ${row.keys}` : row.haystack);
+  const plain = (row) => words.every((w) => row.haystack.includes(w));
+  const pick = (miss) => rows.filter((row) => meaningMissing(alts, said(row)) <= miss);
+  let found = pick(0);
+  if (!found.length && alts.length > 1) found = pick(1);
+  //: Within half the nearest row's closeness ("trash" is the bin, not every
+  //: row that says "remove", the fifth word of the group).
+  const near = new Map(found.map((row) => [row, meaningCloseness(alts, said(row))]));
+  const best = Math.max(0, ...near.values());
+  found = found.filter((row) => near.get(row) >= best / 2);
+  found = found.concat(rows.filter((row) => !found.includes(row) && plain(row)));
   const scored = [];
-  for (const row of settingRows()) {
-    if (!words.every((w) => row.haystack.includes(w))) continue;
+  for (const row of found) {
     const lower = row.text.toLowerCase();
     let score = row.isHead ? 1 : 0;
     for (const w of words) {
@@ -87,6 +139,9 @@ function findSettings(query, limit = 8) {
       else if (lower.includes(` ${w}`)) score += 2;
       else if (lower.includes(w)) score += 1;
     }
+    //: A row whose own name holds a thing ranks above one that holds it only
+    //: in its helper copy, and the thing's own name above another word for it.
+    score += 4 * meaningCloseness(alts, lower);
     //: Among help topics, one whose keywords hold the words as typed
     //: outranks one whose text merely contains them somewhere ("suggested
     //: downloads" is the model topic's phrase, and only scattered words in the
@@ -131,7 +186,16 @@ function openSettingRow(row) {
     }
     if (!el.getClientRects().length) return;
     flashRevealed(el);
-    const control = el.matches("label") ? el.control || el.querySelector("input, select, textarea") : el.querySelector?.("input, select, textarea");
+    //: The row's control, not its words (OPEN, a11y: "Accent colour" landed
+    //: on its DIV at both widths): a `.setting-label` stands beside its
+    //: control inside `.setting-row`, and a control can be a button group
+    //: (the swatches), whose chosen button is the one to land on. A head
+    //: (h3, h4, legend) names a group and keeps the focus itself.
+    const FIELD = "input:not([type=hidden]), select, textarea";
+    const pick = (root) => root?.querySelector?.(FIELD) ||
+      root?.querySelector?.('[aria-checked="true"], [aria-pressed="true"], button:not([disabled])');
+    const control = el.matches("label") ? el.control || el.querySelector(FIELD)
+      : el.querySelector?.(FIELD) || (el.matches(".setting-label") ? pick(el.closest(".setting-row")) : null);
     if (control && control.getClientRects().length) {
       (typeof focusSelect === "function" && control.tagName === "SELECT" ? focusSelect : (c) => c.focus({ preventScroll: true }))(control);
     } else {
@@ -142,29 +206,55 @@ function openSettingRow(row) {
 }
 
 //: Draw the results under the search field. Returns how many there were.
+function settingResultItem(row) {
+  const item = document.createElement("li");
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "settings-result";
+  const name = document.createElement("span");
+  name.className = "settings-result-name";
+  name.textContent = row.text;
+  const where = document.createElement("span");
+  where.className = "settings-result-where";
+  where.textContent = row.where && row.where !== row.text ? `${row.sectionLabel} · ${row.where}` : row.sectionLabel;
+  button.append(name, where);
+  button.addEventListener("click", () => openSettingRow(row));
+  item.appendChild(button);
+  return item;
+}
+
 function renderSettingResults(query) {
   const list = $("settings-results");
   if (!list) return 0;
   list.replaceChildren();
   const found = query.trim().length >= 2 ? findSettings(query) : [];
-  for (const row of found) {
-    const item = document.createElement("li");
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "settings-result";
-    const name = document.createElement("span");
-    name.className = "settings-result-name";
-    name.textContent = row.text;
-    const where = document.createElement("span");
-    where.className = "settings-result-where";
-    where.textContent = row.where && row.where !== row.text ? `${row.sectionLabel} · ${row.where}` : row.sectionLabel;
-    button.append(name, where);
-    button.addEventListener("click", () => openSettingRow(row));
-    item.appendChild(button);
-    list.appendChild(item);
-  }
+  for (const row of found) list.appendChild(settingResultItem(row));
   list.classList.toggle("hidden", !found.length);
+  settingNearAdd(query, found);
   return found.length;
+}
+
+//: **Close in meaning** (Brief 94): with an embedding model on, up to three
+//: settings nearest the words by meaning that the words themselves did not
+//: reach, under their own head, once the server has answered and only if the
+//: box still says the same.
+function settingNearAdd(query, found) {
+  if (query.trim().length < 3) return;
+  const rows = settingRows().filter((row) => !row.keys);
+  meaningNear(query, rows.map((row) => `${row.text} (${row.sectionLabel})`)).then((picked) => {
+    const list = $("settings-results");
+    if (!list || $("settings-search")?.value !== query) return;
+    const listed = new Set(found.map((row) => `${row.section}|${row.text}`));
+    const more = picked.map((i) => rows[i]).filter((row) => row && !listed.has(`${row.section}|${row.text}`)).slice(0, 3);
+    if (!more.length) return;
+    const head = document.createElement("li");
+    head.className = "settings-result-head muted text-sm";
+    head.setAttribute("role", "presentation");
+    head.textContent = "Close in meaning";
+    list.appendChild(head);
+    for (const row of more) list.appendChild(settingResultItem(row));
+    list.classList.remove("hidden");
+  });
 }
 
 //: Arrow keys inside the results, and from the search field into them.
@@ -215,7 +305,7 @@ function settingsIndexHeads(pane) {
 
 //: The pane's own title: a `.settings-pane-title`, or a `.help-head` only
 //: when it opens the pane. A `.help-head` further down is a group's head
-//: (Tasks ends with "Quit MemoryMap" as one), and anchoring the strip after
+//: (Tasks ends with "Quit Tessellate" as one), and anchoring the strip after
 //: it put the strip at the bottom of the pane (INBOX 541).
 function settingsPaneTitleHead(pane) {
   const title = pane.querySelector(":scope > .settings-pane-title");
@@ -446,6 +536,8 @@ function settingsIndexBuild(name) {
 //: Called when a section opens: build now, again once its async content has
 //: arrived, and keep it current while the pane changes.
 function settingsIndexWatchSection(name) {
+  //: Each row's changed marker and reset (WORLD_CLASS_PLAN 25f), a file of its own.
+  lazyScript("/js/settings-rows.js").then((ok) => ok && settingRowsWatch(name));
   settingsIndexWatch?.disconnect();
   settingsIndexWatch = null;
   const pane = $(`settings-${name}`);
@@ -584,6 +676,7 @@ function helpTopicRow(topic) {
   summary.dataset.keys = topic.find.toLowerCase();
   summary.dataset.find = topic.body.toLowerCase();
   details._help = [topic.title, topic.find, topic.body, topic.path].join(" ").toLowerCase();
+  details._named = `${topic.title} ${topic.find}`.toLowerCase();
   details.append(summary, document.createElement("p"));
   //: A link to Help from inside Help goes nowhere.
   const link = topic.link && topic.link.section !== "help" ? topic.link : null;
@@ -601,14 +694,26 @@ function helpTopicRow(topic) {
 
 // --- search (INBOX 520) -------------------------------------------------------------
 
-//: The typed words, lower-cased; a topic must hold every one.
+//: The typed words that name something (meaning.js: "how do I" and "my"
+//: name nothing); a topic must hold every one.
 function helpQueryTerms(query) {
-  return query.toLowerCase().split(/\s+/).filter(Boolean);
+  return meaningNamed(query);
 }
 
-function helpMatches(terms, text) {
-  return terms.every((term) => text.includes(term));
+//: How a topic holds the query: above 1 by its name and keywords (`named`),
+//: the words or the things they name (meaning.js, Brief 94: "trash" is "Undo
+//: and the bin"), more the nearer the words typed; 1 by its body's words
+//: only; 0 not at all.
+function helpMatches(terms, text, things = null, named = text) {
+  const whole = terms.every((term) => named.includes(term));
+  if (whole || (things && meaningHolds(things, named))) return 2 + (whole ? 1 : 0) + (things ? meaningCloseness(things, named) : 0);
+  return terms.every((term) => text.includes(term)) ? 1 : 0;
 }
+
+//: A topic held by name must come within this share of the nearest one (the
+//: Guide's runner-up rule, help_chat.py `_RUNNER_UP_SHARE`): "trash" is the
+//: bin's topic, not every topic whose keywords say "remove".
+const HELP_RUNNER_UP = 0.85;
 
 let helpOpenBefore = null;
 
@@ -620,16 +725,32 @@ function helpApplySearch(query) {
   if (!box) return;
   const terms = helpQueryTerms(query);
   const searching = terms.length > 0;
+  const things = searching ? meaningAlts(query) : null;
   const escaped = terms.map((t) => t.replace(HELP_NAME_ESCAPE, "\\$&")).sort((a, b) => b.length - a.length);
   const rx = searching ? new RegExp(escaped.join("|"), "gi") : null;
   if (searching && !helpOpenBefore) helpOpenBefore = new Map([...box.querySelectorAll("details")].map((d) => [d, d.open]));
   let shown = 0;
   let total = 0;
-  for (const list of box.querySelectorAll(".help-accordion")) {
+  //: Topics that hold the query by name, when any do; the bodies only when
+  //: none does: a body names half the app, so "the little guy in the
+  //: corner" listed a dozen topics ahead of the companion's own.
+  const lists = [...box.querySelectorAll(".help-accordion")];
+  const tiers = new Map();
+  for (const list of lists) for (const details of list.children) tiers.set(details, helpMatches(terms, details._help, things, details._named));
+  const best = Math.max(0, ...tiers.values());
+  const floor = best >= 2 ? Math.max(2, best * HELP_RUNNER_UP) : 1;
+  for (const list of lists) {
     let any = false;
+    //: The best match first within its group while searching, and the
+    //: written order back once the box is cleared (OPEN 1109: a topic held by
+    //: its name sat below weaker ones, help top-3 38/60 against Settings' 58/60).
+    const order = [...list.children];
+    order.forEach((details, at) => { if (details._helpAt === undefined) details._helpAt = at; });
+    order.sort((a, b) => (searching ? tiers.get(b) - tiers.get(a) : 0) || a._helpAt - b._helpAt);
+    if (order.some((details, at) => details !== list.children[at])) list.append(...order);
     for (const details of list.children) {
       total += 1;
-      const hit = helpMatches(terms, details._help);
+      const hit = !searching || tiers.get(details) >= floor;
       details.classList.toggle("hidden", !hit);
       if (!hit) continue;
       any = true;
@@ -643,7 +764,7 @@ function helpApplySearch(query) {
   //: The tours and the Atlas row are sections of the page too.
   let others = 0;
   for (const group of document.querySelectorAll("#settings-help > .settings-group")) {
-    const hit = helpMatches(terms, group.textContent.toLowerCase());
+    const hit = helpMatches(terms, group.textContent.toLowerCase(), things) > 0;
     group.classList.toggle("hidden", !hit);
     if (hit) others += 1;
   }
@@ -660,6 +781,8 @@ function helpSearchBind() {
   const input = $("help-search");
   if (!input || input._bound) return;
   input._bound = true;
+  //: The manual (manual.js, lazy): the same topics as one page.
+  $("help-open-manual")?.addEventListener("click", () => lazyScript("/js/manual.js").then((ok) => ok && openManual()));
   input.addEventListener("input", () => helpApplySearch(input.value));
   input.addEventListener("keydown", (e) => {
     //: Escape clears the query before it closes the window.
@@ -669,6 +792,60 @@ function helpSearchBind() {
     input.value = "";
     helpApplySearch("");
   });
+}
+
+//: **Settings, Help, Credits**: every library the app is built on, from
+//: frontend/credits.json (scripts/build_credits.py writes it from
+//: docs/THIRD_PARTY.md; tests/test_credits.py holds the two equal). Drawn the
+//: first time the fold opens: a group head per part, then a row per library
+//: with its licence and a link to where it came from.
+let creditsLoad = null;
+function renderCredits() {
+  const fold = $("credits-fold");
+  const box = $("credits-list");
+  if (!fold || !box || fold.dataset.wired) return;
+  fold.dataset.wired = "1";
+  const draw = () => {
+    if (!fold.open || creditsLoad) return;
+    creditsLoad = api("/credits.json", { silent: true })
+      .then((answer) => (answer.ok ? answer.json() : Promise.reject(new Error(String(answer.status)))))
+      .then((data) => {
+        const parts = [];
+        for (const group of data.groups || []) {
+          const head = document.createElement("h4");
+          head.className = "setting-subhead";
+          head.textContent = group.title;
+          const list = document.createElement("ul");
+          list.className = "credits-rows";
+          for (const row of group.rows) {
+            const item = document.createElement("li");
+            const name = document.createElement("a");
+            name.href = row.source;
+            name.target = "_blank";
+            name.rel = "noopener noreferrer";
+            name.textContent = row.name;
+            const licence = document.createElement("span");
+            licence.className = "muted";
+            licence.textContent = row.licence;
+            item.append(name, licence);
+            list.append(item);
+          }
+          parts.push(head, list);
+        }
+        box.replaceChildren(...parts);
+        box.removeAttribute("aria-busy");
+      })
+      .catch(() => {
+        creditsLoad = null;
+        const line = document.createElement("p");
+        line.className = "muted";
+        line.textContent = "The credits did not load. The full list is in docs/THIRD_PARTY.md.";
+        box.replaceChildren(line);
+        box.removeAttribute("aria-busy");
+      });
+  };
+  fold.addEventListener("toggle", draw);
+  draw();
 }
 
 function renderHelpTopics() {

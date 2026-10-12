@@ -1,0 +1,88 @@
+{
+ "skill": "Reorganise my categories",
+ "small_class": false,
+ "cases": [
+  {
+   "id": "recipe-categories",
+   "notebook": [
+    {
+     "content": "Lentil soup: onions, carrots, red lentils",
+     "category": "Recipe",
+     "tags": []
+    },
+    {
+     "content": "Banana bread with walnuts",
+     "category": "Recipes",
+     "tags": []
+    },
+    {
+     "content": "Pancakes for Sunday",
+     "category": "Recipes",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "categories_merged": [
+     [
+      "Recipe",
+      "Recipes"
+     ]
+    ],
+    "notes_kept": true
+   }
+  },
+  {
+   "id": "travel-trips",
+   "notebook": [
+    {
+     "content": "Lisbon flights booked for May",
+     "category": "Travel",
+     "tags": []
+    },
+    {
+     "content": "Packing list for the Lisbon trip",
+     "category": "Trips",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "categories_merged": [
+     [
+      "Travel",
+      "Trips"
+     ]
+    ],
+    "notes_kept": true
+   }
+  },
+  {
+   "id": "work-job",
+   "notebook": [
+    {
+     "content": "Quarterly report due Friday",
+     "category": "Work",
+     "tags": []
+    },
+    {
+     "content": "Performance review notes",
+     "category": "Job",
+     "tags": []
+    },
+    {
+     "content": "Standup moved to 9:30",
+     "category": "Work",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "categories_merged": [
+     [
+      "Work",
+      "Job"
+     ]
+    ],
+    "notes_kept": true
+   }
+  }
+ ]
+}

@@ -52,3 +52,93 @@
 .nav-history-empty {
   padding: var(--space-2) var(--space-3);
 }
+
+/* A row and its remove X (nav-history.js `navHistoryItem`). The X is a sibling
+   of the row's button (a button inside a button is not a button) but drawn
+   inside it: laid over the button's right end, so the row's fill spans it and
+   there is no gap between the highlight and the X (INBOX 846: it sat 40px
+   right of the highlight). It shows while the row is pointed at or focused,
+   and always on touch. The button's text yields the X's width only then. */
+.nav-history-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.nav-history-row > .nav-history-item {
+  flex: 1;
+  min-width: 0;
+}
+
+/* The fill follows the row, not the button, so it holds while the pointer is
+   over the X. The same ground the button's own hover takes. */
+.nav-history-row:hover > .nav-history-item,
+.nav-history-row:focus-within > .nav-history-item {
+  background-color: var(--ghost-btn-bg);
+  padding-inline-end: calc(var(--space-2) + var(--control-h-dense) + var(--space-1));
+}
+
+.nav-history-remove {
+  position: absolute;
+  inset-inline-end: var(--space-1);
+  top: 50%;
+  translate: 0 -50%;
+  opacity: 0;
+}
+
+.nav-history-row:hover > .nav-history-remove,
+.nav-history-row:focus-within > .nav-history-remove {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .nav-history-remove {
+    opacity: 1;
+  }
+  .nav-history-row > .nav-history-item {
+    padding-inline-end: calc(var(--space-2) + var(--target-min) + var(--space-1));
+  }
+}
+
+/* The footer (INBOX 845): "N older steps not shown" on the left, the clear
+   action on the right, one row pinned to the bottom of the scrolling list so
+   the action is never below the fold. The action is a quiet text button:
+   muted at rest, the destructive ink and the ghost ground only under the
+   pointer or the keyboard. */
+.nav-history-foot {
+  position: sticky;
+  bottom: calc(var(--space-2) * -1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  background: var(--modal-bg-opaque);
+}
+
+.nav-history-foot > .nav-history-more {
+  padding: 0;
+  text-align: start;
+}
+
+.nav-history-clear {
+  margin-inline-start: auto;
+  min-height: 0;
+  height: var(--control-h-dense);
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.nav-history-clear:hover,
+.nav-history-clear:focus-visible {
+  background: var(--error-soft);
+  color: var(--error);
+}

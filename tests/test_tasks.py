@@ -13,7 +13,7 @@ import time
 
 import pytest
 
-from memorymap.ai import model_manager
+from tessellate.ai import model_manager
 
 
 @pytest.fixture(autouse=True)
@@ -96,7 +96,7 @@ def test_a_finished_job_is_not_a_task(client, monkeypatch):
 def test_the_embedding_warm_up_is_a_visible_job(client, monkeypatch):
     """~90 MB on first use, in a background thread, with nothing on screen, 
     which reads as the app being broken rather than busy."""
-    from memorymap.ai import embeddings as embeddings_module
+    from tessellate.ai import embeddings as embeddings_module
 
     monkeypatch.setattr(embeddings_module, "warmup_running", lambda: True)
     task = next(t for t in client.get("/tasks").json()["tasks"] if t["kind"] == "embeddings")
@@ -113,7 +113,7 @@ def test_a_vision_caption_shows_up_while_running(client, monkeypatch):
     """ROADMAP §89.6: a caption call is a real model round-trip with nothing
     visible anywhere while it runs, same "invisible until it's the Tasks
     panel's job to say so" shape as the embedding warm-up above."""
-    from memorymap.ai import captioning
+    from tessellate.ai import captioning
 
     monkeypatch.setattr(
         captioning,
@@ -129,7 +129,7 @@ def test_a_vision_caption_shows_up_while_running(client, monkeypatch):
 
 def test_the_searxng_install_is_a_visible_job(client, monkeypatch):
     """Minutes long, and previously visible only on the Web search screen."""
-    from memorymap.search import searxng_manager
+    from tessellate.search import searxng_manager
 
     monkeypatch.setitem(searxng_manager._install_state, "running", True)
     monkeypatch.setitem(searxng_manager._install_state, "step", "Unpacking SearXNG…")
@@ -144,7 +144,7 @@ def test_a_long_job_carries_its_progress_and_its_output(client, monkeypatch):
     """Reported: "the searxng reinstall doesn't have a progress bar so idk if
     it has frozen or is working". The bar answers that while it moves; the
     lines answer it while the bar sits still."""
-    from memorymap.search import searxng_manager
+    from tessellate.search import searxng_manager
 
     monkeypatch.setitem(searxng_manager._install_state, "running", True)
     monkeypatch.setitem(searxng_manager._install_state, "stage", 4)
@@ -173,8 +173,8 @@ def test_every_task_carries_a_log_field_even_when_it_is_empty(client, monkeypatc
 
 
 def test_several_jobs_at_once_all_appear(client, monkeypatch):
-    from memorymap.ai import embeddings as embeddings_module
-    from memorymap.search import searxng_manager
+    from tessellate.ai import embeddings as embeddings_module
+    from tessellate.search import searxng_manager
 
     monkeypatch.setattr(
         model_manager,
@@ -199,7 +199,7 @@ def test_a_searxng_start_is_a_visible_task(client, monkeypatch):
     """The longest silence in the app from the user's side: a start waits up
     to 90 seconds for the service to answer. The install was listed here and
     this was not, so the panel looked broken to anyone watching a start."""
-    from memorymap.search import searxng_manager
+    from tessellate.search import searxng_manager
 
     monkeypatch.setitem(searxng_manager._start_state, "running", True)
     monkeypatch.setitem(searxng_manager._start_state, "backend", "source")
@@ -210,7 +210,7 @@ def test_a_searxng_start_is_a_visible_task(client, monkeypatch):
     # same reason. A pinned clock tests the arithmetic, which is the point.
     import types
 
-    from memorymap.api import routes_tasks
+    from tessellate.api import routes_tasks
 
     now = time.time()
     clock = types.SimpleNamespace(
@@ -240,7 +240,7 @@ def test_a_searxng_start_is_a_visible_task(client, monkeypatch):
 
 
 def test_nothing_is_listed_once_the_start_finishes(client):
-    from memorymap.search import searxng_manager
+    from tessellate.search import searxng_manager
 
     searxng_manager._start_state["running"] = False
     kinds = [t["kind"] for t in client.get("/tasks").json()["tasks"]]
@@ -259,7 +259,7 @@ def test_cancel_unknown_kind_is_400(client):
 
 
 def test_reindex_cancel_flag_stops_the_worker(app_state):
-    from memorymap.core import deps
+    from tessellate.core import deps
 
     job = model_manager.Job(kind="reindex", total=5)
     job.cancel_requested = True
@@ -286,7 +286,7 @@ def test_reindex_cancel_flag_stops_the_worker(app_state):
 
 
 def test_the_tasks_endpoint_reports_history_as_well(ai_client):
-    from memorymap.core import taskhistory
+    from tessellate.core import taskhistory
 
     taskhistory.clear()
     taskhistory.record("reindex", "Re-indexing your notes", "failed", "disk full")
@@ -299,7 +299,7 @@ def test_the_tasks_endpoint_reports_history_as_well(ai_client):
 def test_a_failure_keeps_its_reason(ai_client):
     """The reason used to exist only in the log console, a different screen
     that you have to know to look at."""
-    from memorymap.core import taskhistory
+    from tessellate.core import taskhistory
 
     taskhistory.clear()
     taskhistory.record("pull", "Downloading llama3.2", "failed", "connection refused")
@@ -307,7 +307,7 @@ def test_a_failure_keeps_its_reason(ai_client):
 
 
 def test_the_newest_ending_comes_first(ai_client):
-    from memorymap.core import taskhistory
+    from tessellate.core import taskhistory
 
     taskhistory.clear()
     taskhistory.record("pull", "first", "completed")
@@ -321,7 +321,7 @@ def test_the_newest_ending_comes_first(ai_client):
 def test_cancelling_is_not_recorded_as_a_failure():
     """A user stopping something is not an error, and reporting it in red is
     how people learn to ignore red."""
-    from memorymap.core import taskhistory
+    from tessellate.core import taskhistory
 
     taskhistory.clear()
     taskhistory.record("reindex", "Re-indexing", "cancelled")
@@ -331,7 +331,7 @@ def test_cancelling_is_not_recorded_as_a_failure():
 def test_the_history_cannot_grow_without_limit():
     """In memory, so it needs a hard bound, a machine that re-indexes on a
     loop must not be able to grow this forever."""
-    from memorymap.core import taskhistory
+    from tessellate.core import taskhistory
 
     taskhistory.clear()
     for i in range(taskhistory.MAX_ENTRIES + 25):
@@ -340,7 +340,7 @@ def test_the_history_cannot_grow_without_limit():
 
 
 def test_an_unknown_outcome_does_not_become_a_scary_one():
-    from memorymap.core import taskhistory
+    from tessellate.core import taskhistory
 
     taskhistory.clear()
     taskhistory.record("pull", "odd", "exploded")
@@ -350,13 +350,13 @@ def test_an_unknown_outcome_does_not_become_a_scary_one():
 def test_recording_never_raises():
     """Called from worker threads at the moment a job ends. It must not be
     able to turn a finished job into a crashed one."""
-    from memorymap.core import taskhistory
+    from tessellate.core import taskhistory
 
     taskhistory.record(None, None, None, None)  # type: ignore[arg-type]
 
 
 def test_the_history_can_be_cleared(ai_client):
-    from memorymap.core import taskhistory
+    from tessellate.core import taskhistory
 
     taskhistory.record("pull", "something", "completed")
     assert ai_client.post("/tasks/history/clear").json()["cleared"] is True
@@ -376,7 +376,7 @@ def test_quitting_uses_the_launchers_own_close_when_it_registered_one(ai_client,
     registers the tray Quit's close and /shutdown runs that instead."""
     import threading
 
-    from memorymap.core import quit_hook
+    from tessellate.core import quit_hook
 
     ran = threading.Event()
     signalled = []
@@ -394,7 +394,7 @@ def test_quitting_falls_back_to_sigint_without_a_registered_close(ai_client, mon
     import signal
     import threading
 
-    from memorymap.core import quit_hook
+    from tessellate.core import quit_hook
 
     quit_hook.set_quit_handler(None)
     sent = threading.Event()

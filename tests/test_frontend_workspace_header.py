@@ -145,8 +145,8 @@ def test_an_upload_takes_the_space_the_header_names(client):
 
     from sqlalchemy import select
 
-    from memorymap.core import deps
-    from memorymap.core.database import MediaUpload
+    from tessellate.core import deps
+    from tessellate.core.database import MediaUpload
 
     png = b"\x89PNG\r\n\x1a\n" + b"0" * 64
     named = client.post(

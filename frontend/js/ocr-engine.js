@@ -26,7 +26,12 @@ let ocrEngineLatest = null;
 let ocrEngineTimer = null;
 //: One install at a time, process-wide, like the server's: `running` follows
 //: `GET /extras`, `failed` is the sentence to show until the next try.
-const ocrEngineInstall = { running: false, step: "", failed: "" };
+//: `extra` is which one: "ocr" (Tesseract) or "rapidocr".
+const ocrEngineInstall = { running: false, step: "", failed: "", extra: "ocr" };
+const OCR_ENGINE_EXTRAS = {
+  ocr: { name: "Tesseract", ask: "Install Tesseract OCR?\n\nAbout 10 MB is downloaded from PyPI, then your system's package manager (winget, Homebrew, apt) is asked for the Tesseract program. It reads text in images on this computer, and nothing is sent anywhere. No restart is needed." },
+  rapidocr: { name: "RapidOCR", ask: "Install RapidOCR?\n\nAbout 60 MB is downloaded from PyPI, with no system program to fetch. It reads text in images on this computer (English and Chinese), and nothing is sent anywhere. No restart is needed." },
+};
 
 //: Mount the status line into `host` and keep it current. `readers` is the
 //: `/ocr-readers` answer when the caller already has it (the workspace asked
@@ -48,7 +53,8 @@ async function ocrEngineMount(host, { readers = null, settings = false, popover 
   //: still running: pick it up rather than offering a second Install button.
   if (!settings && !ocrEngineInstall.running) {
     const body = await apiJson("/extras", { silent: true }).catch(() => null);
-    if (body && body.running && body.installing === "ocr") {
+    if (body && body.running && OCR_ENGINE_EXTRAS[body.installing]) {
+      ocrEngineInstall.extra = body.installing;
       ocrEngineInstall.running = true;
       ocrEngineInstall.failed = "";
       ocrEngineFollow();
@@ -99,10 +105,11 @@ function ocrEnginePaint(host) {
   line.className = "ocr-engine-line";
 
   if (ocrEngineInstall.running) {
+    const installing = `Installing ${OCR_ENGINE_EXTRAS[ocrEngineInstall.extra].name}`;
     line.appendChild(
       opts.popover
-        ? ocrEngineStatusLine("Installing Tesseract", "is-busy")
-        : chip("ph:spin Installing Tesseract", "item-label ocr-engine-chip")
+        ? ocrEngineStatusLine(installing, "is-busy")
+        : chip(`ph:spin ${installing}`, "item-label ocr-engine-chip")
     );
     const step = document.createElement("span");
     step.className = "muted ocr-engine-detail";
@@ -137,6 +144,44 @@ function ocrEnginePaint(host) {
     return;
   }
 
+  //: **Nothing reads at all** (WORLD_CLASS_PLAN 28.4 row 5): no engine and
+  //: no model. One line, RapidOCR first because it is pip alone with no
+  //: system program to fetch (the half a Tesseract install most often fails
+  //: on), each with its download size; Tesseract second. Not in Settings,
+  //: whose Packages row already owns both installs.
+  const noModel = !(readers.vision ? readers.vision_model : "");
+  if (noModel && !engine.rapidocr && !opts.settings) {
+    line.appendChild(
+      opts.popover
+        ? ocrEngineStatusLine("Nothing can read pages yet", "is-warn")
+        : chip("ph:warning Nothing can read pages yet", "item-label is-warn ocr-engine-chip")
+    );
+    const offer = document.createElement("span");
+    offer.className = "muted ocr-engine-detail";
+    const rapidSize = engine.rapidocr_size ? `, ${engine.rapidocr_size}` : "";
+    const tessSize = engine.tesseract_size ? `${engine.tesseract_size} plus a system program` : "plus a system program";
+    offer.textContent = `Install RapidOCR (nothing else to install${rapidSize}) or Tesseract (${tessSize}) to read on this computer, or start an AI model in Settings.`;
+    const again = (extra) => ocrEngineInstall.failed && ocrEngineInstall.extra === extra;
+    line.append(
+      offer,
+      smallButton(
+        again("rapidocr") ? "ph:arrow-clockwise Try RapidOCR again" : "ph:download-simple Install RapidOCR",
+        "Install RapidOCR on this computer",
+        () => ocrEngineStartInstall("rapidocr"),
+        false
+      ),
+      smallButton(
+        again("ocr") ? "ph:arrow-clockwise Try Tesseract again" : "ph:download-simple Install Tesseract",
+        "Install Tesseract OCR on this computer",
+        () => ocrEngineStartInstall("ocr"),
+        false
+      )
+    );
+    host.appendChild(line);
+    ocrEnginePaintFailure(host);
+    return;
+  }
+
   //: Not ready: say which half is missing, what still works, and give the one
   //: action. The sentence about the AI reader is the fallback the owner asked
   //: for, stated before the failure rather than after it.
@@ -161,13 +206,16 @@ function ocrEnginePaint(host) {
     )
   );
   host.appendChild(line);
-  if (ocrEngineInstall.failed) {
-    const failed = document.createElement("p");
-    failed.className = "ocr-engine-note is-error";
-    failed.setAttribute("role", "alert");
-    failed.textContent = `${ocrEngineInstall.failed} The install log is in Settings, Packages.`;
-    host.appendChild(failed);
-  }
+  ocrEnginePaintFailure(host);
+}
+
+function ocrEnginePaintFailure(host) {
+  if (!ocrEngineInstall.failed) return;
+  const failed = document.createElement("p");
+  failed.className = "ocr-engine-note is-error";
+  failed.setAttribute("role", "alert");
+  failed.textContent = `${ocrEngineInstall.failed} The install log is in Settings, Packages.`;
+  host.appendChild(failed);
 }
 
 //: The popover's state, the reader button's dot repeated beside its words: a
@@ -235,16 +283,12 @@ function ocrEngineLanguagePicker(engine, opts) {
   return wrap;
 }
 
-async function ocrEngineStartInstall() {
-  const ok = await confirmDialog(
-    "Install Tesseract OCR?\n\nAbout 10 MB is downloaded from PyPI, then your system's " +
-      "package manager (winget, Homebrew, apt) is asked for the Tesseract program. " +
-      "It reads text in images on this computer, and nothing is sent anywhere. " +
-      "No restart is needed."
-  );
+async function ocrEngineStartInstall(extra = "ocr") {
+  const ok = await confirmDialog(OCR_ENGINE_EXTRAS[extra].ask);
   if (!ok) return;
   ocrEngineInstall.failed = "";
-  const result = await apiJson("/extras/ocr/install", { method: "POST" }).catch((error) => ({
+  ocrEngineInstall.extra = extra;
+  const result = await apiJson(`/extras/${extra}/install`, { method: "POST" }).catch((error) => ({
     started: false,
     message: error.message,
   }));
@@ -265,7 +309,7 @@ async function ocrEngineStartInstall() {
 async function ocrEngineFollow() {
   clearTimeout(ocrEngineTimer);
   const body = await apiJson("/extras", { silent: true }).catch(() => null);
-  if (body && body.running && body.installing === "ocr") {
+  if (body && body.running && body.installing === ocrEngineInstall.extra) {
     ocrEngineInstall.step = body.step || "Installing…";
     ocrEnginePaintAll();
     ocrEngineTimer = setTimeout(ocrEngineFollow, 1200);
@@ -273,9 +317,10 @@ async function ocrEngineFollow() {
   }
   ocrEngineInstall.running = false;
   ocrEngineLatest = await apiJson("/ocr-readers", { silent: true }).catch(() => ocrEngineLatest);
-  if (ocrEngineLatest?.engine?.ready) {
+  const rapid = ocrEngineInstall.extra === "rapidocr";
+  if (rapid ? ocrEngineLatest?.engine?.rapidocr : ocrEngineLatest?.engine?.ready) {
     ocrEngineInstall.failed = "";
-    toast("Tesseract is ready.");
+    toast(`${OCR_ENGINE_EXTRAS[ocrEngineInstall.extra].name} is ready.`);
   } else {
     ocrEngineInstall.failed = (body?.step || ocrEngineLatest?.engine?.reason || "The install did not finish.").trim();
   }

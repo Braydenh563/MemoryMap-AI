@@ -18,9 +18,9 @@ from __future__ import annotations
 
 import json
 
-from memorymap.ai import librarian
-from memorymap.core.database import Entry, EntryLink
-from memorymap.search import search_manager
+from tessellate.ai import librarian
+from tessellate.core.database import Entry, EntryLink
+from tessellate.search import search_manager
 
 
 def _note(session, content, tags=None):
@@ -91,7 +91,7 @@ def test_a_connected_notes_reason_reaches_both_prompts_not_just_the_api(client):
     match types but none for "connected", so a reason traced all the way to
     the Link row was still dropped right before it reached the prompt text,
     on both the plain librarian path and agent mode."""
-    from memorymap.ai import agent, librarian
+    from tessellate.ai import agent, librarian
 
     note = {
         "id": 1,

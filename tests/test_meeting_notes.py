@@ -73,12 +73,14 @@ def test_the_canvas_is_sized_to_its_box_after_it_is_shown():
 
 def test_stopping_and_closing_both_tear_it_down():
     """A live AudioContext with nothing drawing it is a microphone nobody is
-    looking at: the same reasoning `closeMeetingRecorder` already applies to
-    the MediaRecorder."""
-    for fn in ("function closeMeetingRecorder()",):
+    looking at. Closing the dialog while recording no longer ends it (it goes
+    on in the dock, UI_MODERNISATION V1), so the teardown is Discard's."""
+    for fn in ("function discardMeetingTake()",):
         block = JS.split(fn)[1].split("\n}")[0]
         assert "stopMeetingWave()" in block
-    stop_handler = JS.split('meetingRecorder.addEventListener("stop"')[1].split("});")[0]
+    # The stop listener hands over to `meetingRecordingStopped` (28.5 row 1).
+    assert 'recorder.addEventListener("stop", () => meetingRecordingStopped(' in JS
+    stop_handler = JS.split("async function meetingRecordingStopped(")[1].split("\n}\n")[0]
     assert "stopMeetingWave()" in stop_handler
 
 
@@ -92,7 +94,7 @@ def test_it_is_reachable_without_going_to_the_dashboard():
     assert '"ph:microphone Record a meeting or lecture"' in JS
     assert "recordMeeting: { keys:" in JS
     assert "recordMeeting: openMeetingRecorder," in JS
-    launcher = Path("src/memorymap/__main__.py").read_text(encoding="utf-8")
+    launcher = Path("src/tessellate/__main__.py").read_text(encoding="utf-8")
     assert '"Record a meeting"' in launcher
 
 
@@ -143,7 +145,7 @@ def test_stop_works_from_paused_and_a_discard_is_not_transcribed():
     assert 'meetingRecorder.state === "paused"' in block
     assert "meetingRecorder.requestData()" in block
     assert "recorder.discarded" in block
-    close = JS.split("function closeMeetingRecorder()")[1].split("\n}\n")[0]
+    close = JS.split("function discardMeetingTake()")[1].split("\n}\n")[0]
     assert "meetingRecorder.discarded = true" in close
 
 

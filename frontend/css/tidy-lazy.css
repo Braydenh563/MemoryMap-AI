@@ -37,17 +37,35 @@
   display: none;
 }
 
+/* T1: the back is a quiet link over the review's name, which is the
+   heading of the pane, not a small title beside a bordered button. */
 .tidy-nav {
   display: flex;
-  align-items: center;
-  gap: var(--space-4);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
 }
 
-.tidy-title {
+button.ghost.quiet.tidy-back-link {
+  margin-inline-start: calc(-1 * var(--space-2));
+  padding-inline: var(--space-2);
+  color: var(--muted);
+}
+
+.tidy-foot[hidden] {
+  display: none;
+}
+
+/* Two classes: `.card h3` (the eyebrow, --text-sm) outranked one, which is
+   why the review's name read as a small caption. */
+.tidy-nav .tidy-title {
   min-width: 0;
   margin: 0;
-  font-size: var(--text-md);
+  font-size: var(--text-lg);
   font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  color: var(--text);
 }
 
 /* The overview: nine rows, each a button, on the picker's row. The picker's
@@ -134,7 +152,9 @@
 .tidy-card .setting-check.tidy-auto,
 .tidy-card .setting-check.tidy-auto:hover,
 .tidy-card .setting-check.tidy-auto:has(input:checked),
-.tidy-card .setting-check.tidy-auto:has(input:checked):hover {
+.tidy-card .setting-check.tidy-auto:has(input:checked):hover,
+.tidy-card .setting-check.tidy-auto:is(:focus-visible, :has(:focus-visible)),
+.tidy-card .setting-check.tidy-auto:has(input:checked):is(:focus-visible, :has(:focus-visible)) {
   background: transparent;
   padding-inline: 0;
 }
@@ -206,41 +226,24 @@
   margin-inline-start: auto;
 }
 
-/* Recent runs is its own bordered block: the card's gap keeps it off the
-   action row above, and its rows sit inside it with padding rather than
-   against its edge or the sheet's. */
+/* Recent runs (T2, INBOX 830): a quiet disclosure row and the list it
+   opens, no box round them; the card's gap keeps it off the rows above. */
 .tidy-history:empty {
   display: none;
 }
 
 .tidy-history {
   flex: 0 0 auto;
-  padding-inline: var(--space-4);
-  border: 1px solid var(--divider);
-  border-radius: var(--radius-md);
 }
 
-/* The app dresses every bare `summary` as a button (border, fill, padding);
-   inside Recent runs' own bordered block that was a box in a box. */
-details.tidy-history > summary.tidy-history-head {
-  padding: 0;
-  border: 0;
-  background: transparent;
-}
-
-.tidy-history-head {
-  display: flex;
-  align-items: center;
+button.ghost.disclosure-row.tidy-history-head {
   gap: var(--space-1);
   min-height: var(--target-min);
-  list-style: none;
-  cursor: pointer;
   font-size: var(--text-sm);
-  font-weight: 600;
   color: var(--muted);
 }
 
-.tidy-history-head::-webkit-details-marker {
+.tidy-history-list[hidden] {
   display: none;
 }
 
@@ -249,7 +252,7 @@ details.tidy-history > summary.tidy-history-head {
   transition: rotate var(--ui-fast) var(--ease-out);
 }
 
-.tidy-history:not([open]) .contents-caret {
+.tidy-history-head[aria-expanded="false"] .contents-caret {
   rotate: -90deg;
 }
 
@@ -294,5 +297,37 @@ details.tidy-history > summary.tidy-history-head {
   .tidy-foot-end {
     width: 100%;
     justify-content: flex-end;
+  }
+}
+
+/* A row and the cross that dismisses it for good (INBOX 783), beside the label
+   rather than inside it. Quiet at rest, full on the row's hover and focus and
+   always full under a finger. */
+.tidy-row-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+.tidy-row-item > label {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tidy-dismiss {
+  flex: 0 0 auto;
+  margin-top: var(--space-1);
+  color: var(--muted);
+  opacity: 0.6;
+  transition: opacity var(--ui-base) var(--ease-out);
+}
+
+.tidy-row-item:is(:hover, :focus-within) > .tidy-dismiss {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .tidy-dismiss {
+    opacity: 1;
   }
 }

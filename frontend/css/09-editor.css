@@ -29,15 +29,6 @@
   flex-direction: column;
 }
 
-/* The wrapper says which engine is in charge, so the fallback textarea can be
-   taken out of the layout without being taken out of the DOM: it is still the
-   surface the adapter falls back to if the bundle never loads, and a
-   `display: none` textarea is one that keeps its value and its listeners. */
-.doc-source-wrap.has-cm > #doc-content,
-.doc-source-wrap.has-cm > .doc-gutter {
-  display: none;
-}
-
 /* The view fills the host, and carries the reading measure the textarea used
    to carry. `.cm-editor` is CodeMirror's outer element; giving it a height
    here rather than in the theme is the one exception to the rule above, and
@@ -65,13 +56,20 @@
   margin-inline: auto;
 }
 
-#tab-documents.doc-wide .doc-editor .cm-editor {
-  max-width: none;
+/* **A code file uses the pane's width** (INBOX 788; measured by the docsui
+   agent and again by `codedocs.js`: a .py at 1440 drew 724px of a 1,090px
+   pane, centred). Code has no reading measure: a line is as long as it is,
+   and its gutter belongs at the pane's edge as VS Code puts it. The cap only
+   stops a line running across an ultrawide window; prose keeps its measure
+   (the rules below are `:not(.doc-content-code)`). */
+.doc-editor .cm-editor.doc-content-code {
+  max-width: min(100%, 100rem);
+  margin-inline: 0;
 }
 
 /* **A document is a page** (DOCUMENTS_PLAN 17a). Prose gets a margin either
    side of its text and a measure counted in characters; a code file keeps the
-   narrow inset and the older cap, because its line numbers sit against the
+   narrow inset (and has the pane's width, above), because its line numbers sit against the
    text they count and a 2rem gap between a number and its line reads as two
    columns rather than one.
 
@@ -92,10 +90,6 @@
 
   .doc-source-wrap .doc-editor .cm-editor:not(.doc-content-code) .cm-content {
     padding-inline: var(--doc-gutter);
-  }
-
-  #tab-documents.doc-wide .doc-editor .cm-editor:not(.doc-content-code) {
-    max-width: none;
   }
 }
 
@@ -168,7 +162,8 @@
   cursor: pointer;
 }
 
-.doc-editor .cm-search .cm-button:hover {
+.doc-editor .cm-search .cm-button:hover,
+.doc-editor .cm-search .cm-button:is(:focus-visible, :has(:focus-visible)) {
   background: var(--ghost-btn-bg-hover);
 }
 
@@ -255,10 +250,6 @@
   text-decoration-color: color-mix(in srgb, var(--muted) 70%, transparent);
 }
 
-#tab-documents.doc-wide .doc-props {
-  max-width: none;
-}
-
 .doc-props.hidden {
   display: none;
 }
@@ -286,33 +277,6 @@
   align-items: center;
   gap: var(--space-1);
   min-width: 0;
-}
-
-/* Two classes deep on purpose: the app's own `input[type="text"]` rule is
-   0,1,1 specific and would otherwise win, which is measured rather than
-   guessed (it did: 41.6px tall fields at 13.6px in a row of 28px controls,
-   and a panel 210px tall for three properties). */
-.doc-props input.doc-prop-input,
-.doc-props input.doc-prop-add {
-  font: inherit;
-  font-size: var(--text-md);
-  color: var(--text);
-  background: var(--field-inset);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  padding: var(--space-1) var(--space-2);
-  min-width: 0;
-}
-
-.doc-props input.doc-prop-input {
-  flex: 1 1 auto;
-}
-
-/* The field that adds a tag sits at the end of the chips it adds to, so it is
-   sized to the word being typed rather than to the row. */
-.doc-props input.doc-prop-add {
-  flex: 0 1 8ch;
-  background: none;
 }
 
 .doc-props input.doc-prop-input:hover,
@@ -345,17 +309,10 @@
   border: 0;
 }
 
-.doc-prop-btn:hover {
+.doc-prop-btn:is(:hover, :focus-visible),
+.doc-prop-btn:is(:focus-visible, :has(:focus-visible)) {
   color: var(--text);
   background: none;
-}
-
-/* The row's trash button appears on hover or focus, so eight properties are
-   eight values rather than eight values and eight buttons. It stays in the
-   layout either way: revealing it by changing `display` would make every row
-   jump sideways as the pointer crossed it. */
-.doc-prop-row > .doc-prop-btn {
-  opacity: 0;
 }
 
 .doc-prop-row:hover > .doc-prop-btn,
@@ -363,19 +320,8 @@
   opacity: 1;
 }
 
-/* A field the document's `type:` names and the document has not written yet:
-   the same row as a written one, its name in italics so it reads as an offer
-   rather than a fact. Nothing is in the file until a value is. */
-.doc-prop-unset > .doc-prop-key {
-  font-style: italic;
-}
-
 .doc-prop-check {
   margin: 0;
-}
-
-.doc-prop-spacer {
-  visibility: hidden;
 }
 
 .doc-prop-new {
@@ -383,26 +329,10 @@
   align-items: center;
 }
 
-.doc-props input.doc-prop-new-input {
-  max-width: var(--form-label-col);
-}
-
 /* Read view: the same rows without the fields. */
 .doc-props-read {
   border-bottom: 1px solid var(--border);
   padding-inline: 0;
-}
-
-/* A phone has no room for a label column and a value side by side: the key
-   goes above its value and the whole row reads as one block. */
-@media (max-width: 599.98px) {
-  .doc-prop-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .doc-prop-key {
-    grid-column: 1 / -1;
-  }
 }
 
 /* =============================================================================
@@ -540,7 +470,8 @@
     border-color var(--ui-fast) var(--ease-out);
 }
 
-.cm-md-task-hit > .cm-md-task:hover {
+.cm-md-task-hit > .cm-md-task:hover,
+.cm-md-task-hit > .cm-md-task:is(:focus-visible, :has(:focus-visible)) {
   border-color: var(--accent);
 }
 
@@ -612,14 +543,6 @@
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 
-.doc-embed-block-body > :first-child {
-  margin-top: 0;
-}
-
-.doc-embed-block-body > :last-child {
-  margin-bottom: 0;
-}
-
 /* The source line is a link, not a caption: it opens the document at the
    block. Right-aligned and small, which is where a citation goes. */
 .doc-embed-block-source {
@@ -672,20 +595,6 @@
   overflow-wrap: anywhere;
 }
 
-/* The two states the shared classes already colour, given a ground here so a
-   change is findable by scanning rather than by reading every line. The
-   strike-through the chat's one-line removal carries is cancelled: over forty
-   lines it stops being emphasis and starts being noise. */
-.doc-diff .diff-removed {
-  margin-bottom: 0;
-  background: var(--error-soft);
-  text-decoration: none;
-}
-
-.doc-diff .diff-added {
-  background: var(--ok-soft);
-}
-
 /* What is between two changes, said rather than shown. */
 .doc-diff-gap {
   padding: var(--space-1) var(--space-2);
@@ -713,17 +622,6 @@
   font-size: var(--text-xs);
 }
 
-.doc-diff-hunk-head:first-child {
-  margin-top: 0;
-  border-top: none;
-}
-
-/* A skipped change stays on screen and stops looking like part of the answer:
-   it is a choice you can take back, not a change that has gone away. */
-.doc-diff-line.is-skipped {
-  opacity: 0.45;
-}
-
 .doc-diff-empty {
   margin: 0;
 }
@@ -736,28 +634,6 @@
 
 .doc-diff-head {
   margin: 0 0 var(--space-1);
-}
-
-/* The history row's three columns, once there are three actions in the last
-   one. Measured with the diff's "Changes" button added: the actions block
-   takes 245px of a 420px dialog and `.doc-ai-history-text` is `flex: 1 1 auto`,
-   so the text column was squeezed to 134.6px and a 238-character preview wrapped
-   to 270px, making a 346px row in a 384px list: one version filled the history.
-   Two rules, both about the same mistake, a row that lets one part of itself
-   take the space the rest needs:
-
-   - the text column asks for a real basis and refuses to shrink below it, so
-     the actions wrap within themselves instead of crushing it;
-   - the preview is two lines and then an ellipsis. It is an opening, not the
-     version: "View" is how you read the version, and a preview that grows to
-     nine lines is neither. */
-#doc-history-list .doc-ai-history-text {
-  flex: 1 0 14rem;
-}
-
-#doc-history-list .doc-history-actions {
-  flex-wrap: wrap;
-  justify-content: flex-end;
 }
 
 .doc-history-preview {
@@ -782,24 +658,6 @@
 .doc-ai-diff-head {
   margin: 0 0 var(--space-1);
   font-size: var(--text-sm);
-}
-
-/* =============================================================================
-   Reading and focus (DOCUMENTS_PLAN Phase 5 item 4, PLAN D9)
-   ============================================================================= */
-
-/* Dimming is written here rather than in the theme object, which is this
-   file's one exception to "layout here, ink in the theme", and it is a
-   specificity argument rather than a preference: CodeMirror's own sheets are
-   adopted stylesheets and sort after this file, so a rule at equal
-   specificity would lose. `.doc-dim` is not a class CodeMirror sets, and
-   `.cm-line.cm-doc-dimmed` is (0,2,0) against the base rule's (0,1,0), so this
-   wins wherever the sheets land. Opacity rather than a colour: the text stays
-   the text, and every mark on it (a finding's underline, a highlight, a
-   selection) fades with it rather than surviving into a faded line. */
-.cm-line.cm-doc-dimmed {
-  opacity: 0.35;
-  transition: opacity var(--ui-fast) var(--ease-out);
 }
 
 /* A serif for the rendered page only, and a little more leading with it: a
@@ -830,16 +688,6 @@
 .doc-serif #doc-panes.reading > #doc-preview,
 .doc-serif #doc-preview {
   max-width: 82ch;
-}
-
-/* And the width toggle still releases it. Both classes sit on
-   `#tab-documents`, so this is one element carrying two, and without this
-   rule the cap above (a later file, equal specificity) would quietly win over
-   `.doc-wide #doc-preview` and leave the one control whose whole job is
-   "give me the window I paid for" doing nothing for a serif reader. */
-.doc-wide.doc-serif #doc-panes.reading > #doc-preview,
-.doc-wide.doc-serif #doc-preview {
-  max-width: none;
 }
 
 /* --- the assistant's three verbs (INBOX 192) --------------------------------
@@ -1049,11 +897,6 @@
   min-height: 0;
 }
 
-.note-surface-stretch .cm-editor .cm-scroller {
-  min-height: 0;
-  max-height: none;
-}
-
 /* Laid over the view rather than hidden: same box, no ink, no pointer, out of
    the tab order (the mount sets `tabindex="-1"` as well, because a stylesheet
    cannot). */
@@ -1087,22 +930,6 @@
    export they were written for. Everything here is about the page itself:
    the sheet, the ink, the measure and where a break may fall. */
 @media print {
-  /* **The last of the chrome.** 05-sidebars-themes.css hides the tab bar, the
-     sidebar, the dock and the toolbar; it was written for the PDF export and
-     predates three of the things that now sit around the editor. Measured
-     with the rest of it gone: the status bar still printed at 1408x38 and the
-     breadcrumb row at 1408x24, both of them at the full width of the sheet
-     because the card around them had already been taken away. The find bar,
-     the writing panel and the phone bar are listed with them rather than
-     waiting to be found on a printed page. */
-  body.printing-doc #doc-statusbar,
-  body.printing-doc #doc-crumbs,
-  body.printing-doc #doc-find-bar,
-  body.printing-doc #doc-prose-panel,
-  body.printing-doc .doc-phone-bar,
-  body.printing-doc #doc-title {
-    display: none !important;
-  }
 
   /* A printed page is not a screen: the app's own dark or tinted grounds cost
      ink and read worse, so the page is black on white whatever the app is
@@ -1126,34 +953,6 @@
     margin: 2cm;
   }
 
-  body.printing-doc #doc-preview {
-    max-width: 68ch;
-    margin-inline: auto;
-    /* 1.5 on screen is a reading line; on paper, where the eye returns across
-       a fixed column with no scrolling, a touch more leading is the
-       conventional answer, and it is the number the serif option already uses
-       on screen. */
-    line-height: 1.6;
-  }
-
-  /* **A heading at the foot of a page is a heading on the wrong page.**
-     `break-after: avoid` keeps it with the text it names; two lines either
-     side of a break is the widow and orphan rule every typesetter uses and
-     the one thing a browser will do for free if it is asked. */
-  body.printing-doc #doc-preview h1,
-  body.printing-doc #doc-preview h2,
-  body.printing-doc #doc-preview h3,
-  body.printing-doc #doc-preview h4 {
-    break-after: avoid;
-    break-inside: avoid;
-  }
-
-  body.printing-doc #doc-preview p,
-  body.printing-doc #doc-preview li {
-    orphans: 2;
-    widows: 2;
-  }
-
   /* `\newpage` (DOCUMENTS_PLAN D4): the next part on a new page, and no
      trace of the on-screen line. */
   .md-page-break {
@@ -1167,25 +966,6 @@
   .md-page-break::after,
   .md-page-break > span {
     display: none;
-  }
-
-  /* A table, a code block, a quotation or an image split across a page break
-     is the shape that makes a printed document look like a mistake. Each is
-     small enough that keeping it whole costs at most a short page. */
-  body.printing-doc #doc-preview pre,
-  body.printing-doc #doc-preview blockquote,
-  body.printing-doc #doc-preview table,
-  body.printing-doc #doc-preview figure,
-  body.printing-doc #doc-preview img {
-    break-inside: avoid;
-  }
-
-  /* An image that is taller than the page cannot be kept whole, and one wider
-     than the column runs off the edge of the sheet with no scrollbar to
-     rescue it. */
-  body.printing-doc #doc-preview img {
-    max-width: 100%;
-    max-height: 22cm;
   }
 
   /* **A link on paper is just words unless it says where it goes.** Only
@@ -1242,16 +1022,6 @@
   box-shadow: var(--shadow-sm);
 }
 
-.doc-block-bar.hidden {
-  display: none;
-}
-
-/* The callout's kind, as its own tile: the same ink the block wears. */
-.doc-block-bar .doc-block-kind {
-  background: color-mix(in srgb, var(--callout-accent) 18%, transparent);
-  color: var(--callout-accent);
-}
-
 /* The margin reader (WORLD_CLASS_PLAN I2, margin-reader.js): a column to the
    right of the editor, inside `.doc-source-wrap`'s flex row, holding at most
    three cards pinned level with the paragraph they are about (the stack's
@@ -1286,12 +1056,6 @@
   background: var(--surface-2);
 }
 
-.doc-margin-card-head {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
-}
-
 .doc-margin-card-text {
   margin: 0;
   font-size: var(--text-sm);
@@ -1303,12 +1067,6 @@
   margin: 0;
   font-size: var(--text-xs);
   color: var(--muted);
-}
-
-.doc-margin-card-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-1);
 }
 
 @media (max-width: 1099.98px) {
@@ -1339,26 +1097,9 @@
   color: var(--ink);
 }
 
-.md-mermaid svg {
-  display: block;
-  max-width: 100%;
-  height: auto;
-  margin: 0 auto;
-  font-family: var(--font-sans);
-  font-size: var(--text-md);
-}
-
 .md-mermaid .md-mermaid-node,
 .md-mermaid .md-mermaid-label-bg {
   fill: var(--card);
-}
-
-.md-mermaid .md-mermaid-label {
-  font-size: var(--text-sm);
-}
-
-.cm-md-mermaid {
-  cursor: text;
 }
 
 @media print {

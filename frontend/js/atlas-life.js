@@ -190,6 +190,7 @@ function atlasTailAttach(box) {
   const specks = core?.querySelector(".atl-speck");
   const tail = {
     box,
+    svg,
     spec,
     rest,
     paths: {
@@ -216,6 +217,9 @@ function atlasTailAttach(box) {
     raf: 0,
     tick: 0,
     drawn: false,
+    settle: 0,
+    resting: false,
+    sway: null,
   };
   box.atlasTail = tail;
   box.dataset.atlTail = "live";
@@ -242,13 +246,16 @@ function atlasTailPick(tail, state, now) {
   tail.goal = { curl: base.curl + jit(-0.18, 0.18), amp: base.amp * jit(0.8, 1.25), period: base.period * jit(0.85, 1.2), k: base.k * jit(0.85, 1.15) };
   tail.act = act;
   tail.state = state;
-  tail.until = now + (base.ms || 4000 + Math.random() * 5000);
+  const calm = !base.ms && atlasTailCalm(tail, tail.box);
+  tail.until = now + (base.ms || (calm ? 9000 + Math.random() * 9000 : 4000 + Math.random() * 5000));
+  tail.settle = now + ATLAS_TAIL_SETTLE_MS;
 }
 function atlasTailFrame(tail, now) {
   tail.raf = 0;
   const { box, spec } = tail;
   if (!box.isConnected) return;
-  const live = atlasMotionOK(box) && !box.classList.contains("atl-off") && !document.hidden;
+  //: `data-atlas-hidden`: a hidden window, or the app locked (atlas.js).
+  const live = atlasMotionOK(box) && !box.classList.contains("atl-off") && !document.hidden && !document.documentElement.hasAttribute("data-atlas-hidden");
   //: The rings' and the planets' loops run and rest with it (`atlasRingLoops`).
   for (const anim of box.atlasLoops || []) if (live !== (anim.playState === "running")) live ? anim.play() : anim.pause();
   //: Thirty a second: each draw repaints the tail's layer.
@@ -257,7 +264,17 @@ function atlasTailFrame(tail, now) {
   atlasPropsFrame(box, live, tail.tick);
   //: And the chest's breath (`atlasBreathFrame`).
   atlasBreathFrame(box, live, now);
-  if (live && tail.tick % 2 && tail.drawn) {
+  //: Resting on the compositor (`atlasTailRest`): nothing to draw while the
+  //: state holds and the act has not run out; the breath and the props
+  //: above are all this beat does.
+  if (tail.resting) {
+    if (live && atlasTailCalm(tail, box) && atlasLowerState(box.closest("#nm-buddy"), box) === tail.state && now < tail.until) {
+      tail.raf = setTimeout(() => atlasTailFrame(tail, performance.now()), ATLAS_TAIL_REST_BEAT_MS);
+      return;
+    }
+    atlasTailUnrest(tail);
+  }
+  if (live && tail.tick % 2 && tail.drawn && !tail.calm) {
     tail.raf = requestAnimationFrame((t) => atlasTailFrame(tail, t));
     return;
   }
@@ -300,8 +317,73 @@ function atlasTailFrame(tail, now) {
   const stretch = live ? () => 1 + 0.03 * Math.cos(tail.ph3) : null;
   atlasTailDraw(tail, (s) => atlasTailBend(s, p, live ? tail.ph : 0, live ? tail.ph2 : 0, drift, live ? tail.ph3 : 0), stretch);
   tail.drawn = true;
-  if (live) tail.raf = requestAnimationFrame((t) => atlasTailFrame(tail, t));
+  //: **At rest in its corner, fifteen draws a second, not thirty** (Brief 34
+  //: decision 7: the companion must never cost the rest of the app).
+  //: Measured at 1440 on the dashboard (companionperf.js IDLE=1, a loaded
+  //: machine): the corner Atlas idle cost 35s of main thread a minute and
+  //: 1,399 layouts, against 0.5s and 3 with the companion off, most of it
+  //: this loop: a frame asked for sixty times a second to draw the tail's
+  //: paths on every other one. Resting, sitting, lying, thinking or low,
+  //: the tail moves on clocks of 1.7s and longer, so fifteen steps a second
+  //: read as the same sway, and a timer between them asks for no frames.
+  //: Walking, carried, gesturing, startled or glad, and always in the large
+  //: view, where it is the one thing on screen, it keeps the frame loop.
+  tail.calm = live && atlasTailCalm(tail, box);
+  if (live && tail.calm && now >= tail.settle) {
+    atlasTailRest(tail, p);
+    tail.raf = setTimeout(() => atlasTailFrame(tail, performance.now()), ATLAS_TAIL_REST_BEAT_MS);
+  } else if (live && tail.calm) {
+    tail.raf = setTimeout(() => {
+      tail.raf = requestAnimationFrame((t) => atlasTailFrame(tail, t));
+    }, ATLAS_TAIL_CALM_MS);
+  } else if (live) tail.raf = requestAnimationFrame((t) => atlasTailFrame(tail, t));
   else tail.at = 0;
+}
+const ATLAS_TAIL_CALM = new Set(["idle", "sit", "lie", "think", "sad"]);
+const ATLAS_TAIL_CALM_MS = 66;
+function atlasTailCalm(tail, box) {
+  return ATLAS_TAIL_CALM.has(tail.state) && !!box.closest("#nm-buddy") && !box.closest(".nm-viewer-figure");
+}
+//: **At rest the tail goes to the compositor** (Brief 34 continues, step 2;
+//: decision 7, under 1ms a minute beyond the face): fifteen path draws a
+//: second were about 770 layouts and 2s of script a minute at rest in the
+//: corner. A calm act now draws for `ATLAS_TAIL_SETTLE_MS` while its springs
+//: ease into it (no snap), then holds that drawn shape and sways the tail's
+//: own layer root about its root, a Web Animation of `transform` only (the
+//: companion's pacer leaves layer roots alone), the act's swing and period
+//: from its table, so a curl sways slow and small and a sway wide. Calm acts
+//: hold 9 to 18s here, not 4 to 9, so the redraws are rare; a new act, a new
+//: state, the large view or a walk takes the live loop back, the layer
+//: easing home from wherever its sway was. `data-atl-tail` says which.
+const ATLAS_TAIL_SETTLE_MS = 1600;
+//: The resting beat is also the chest's (`atlasBreathFrame`): at 2.5 steps a
+//: second its 0.7px swell moves under 0.2px a step, and each step is a style
+//: recalc and a layout of the body's drawing (recalc.js: the breath at 10 a
+//: second was 550 recalcs and 200 layouts a minute of Atlas at rest).
+const ATLAS_TAIL_REST_BEAT_MS = 400;
+function atlasTailRest(tail, p) {
+  const { box, svg } = tail;
+  tail.resting = true;
+  box.dataset.atlTail = "rest";
+  if (!svg?.animate) return;
+  const vb = svg.viewBox?.baseVal;
+  const [rx, ry] = tail.rest[0];
+  if (vb?.width) svg.style.transformOrigin = `${atlasFix(((rx - vb.x) / vb.width) * 100)}% ${atlasFix(((ry - vb.y) / vb.height) * 100)}%`;
+  const deg = atlasFix(Math.min(7, Math.max(1.5, (p.amp * 180) / Math.PI * 0.3)));
+  const at = (d, k) => ({ transform: `rotate(${d}deg) scale(${k})` });
+  tail.sway = svg.animate([at(0, 1), at(deg, 1.015), at(0, 1), at(-deg, 0.99), at(0, 1)], {
+    duration: Math.round(Math.max(2.4, p.period) * 1000), iterations: Infinity, easing: "ease-in-out",
+  });
+}
+function atlasTailUnrest(tail) {
+  const { box, svg } = tail;
+  tail.resting = false;
+  box.dataset.atlTail = "live";
+  if (!tail.sway) return;
+  const from = getComputedStyle(svg).transform;
+  tail.sway.cancel();
+  tail.sway = null;
+  if (from && from !== "none") svg.animate([{ transform: from }, { transform: "none" }], { duration: 400, easing: "cubic-bezier(0.33, 0, 0.2, 1)" });
 }
 function atlasTailDraw(tail, bend, stretch) {
   const { pts, turn, segs } = atlasTailShape(tail.rest, bend, stretch);
@@ -450,8 +532,16 @@ function atlasBreathFrame(box, live, now) {
   box.atlasTorsos ||= [...box.querySelectorAll(".atl-layer-body .nmb-torso")];
   let k = 0;
   if (live) {
-    const rise = box.querySelector(".atl-lw-breathe")?.getAnimations()[0];
-    const period = rise ? +rise.effect.getComputedTiming().duration : box.dataset.atlasLook === "feminine" ? 4000 : 4600;
+    //: The rise's animation is looked up once in a while, not every step:
+    //: `getAnimations` brings the page's style up to date to answer, a
+    //: second recalc each step.
+    if (!box.atlasRise || now > (box.atlasRiseAt || 0)) {
+      box.atlasRise = box.querySelector(".atl-lw-breathe")?.getAnimations()[0] || null;
+      box.atlasRisePeriod = box.atlasRise ? +box.atlasRise.effect.getComputedTiming().duration : 0;
+      box.atlasRiseAt = now + 5000;
+    }
+    const rise = box.atlasRise?.playState === "idle" ? null : box.atlasRise;
+    const period = rise ? box.atlasRisePeriod : box.dataset.atlasLook === "feminine" ? 4000 : 4600;
     const at = rise && rise.currentTime !== null ? +rise.currentTime : now;
     k = (1 - Math.cos((2 * Math.PI * at) / period)) / 2;
   }
@@ -480,29 +570,29 @@ const ATLAS_LOWER_STATES = {
   idle: { ms: 900, ease: "cubic-bezier(0.45, 0, 0.35, 1)", v: [[-2.5, 1, 1, 2, -5], [2, 1, 1.02, -2, 4], [3.5, 0.98, 1, 1, 7], [-1, 1.02, 0.99, -3, -2]] },
   walk: { ms: 450, ease: "cubic-bezier(0.34, 1.3, 0.64, 1)", v: [[-9, 0.94, 1.08, 6, -12], [-7, 0.95, 1.1, 8, -9], [-11, 0.93, 1.06, 4, -15]] },
   sit: { ms: 550, ease: "cubic-bezier(0.34, 1.25, 0.6, 1)", v: [[3, 1.1, 0.86, -3, -14], [-3, 1.08, 0.88, 3, 14], [2, 1.12, 0.84, -2, -10]] },
-  lie: { ms: 600, ease: "cubic-bezier(0.4, 1.15, 0.6, 1)", v: [[3, 1, 0.86, -3, 24], [2, 1.02, 0.9, -2, 30]] },
+  lie: { ms: 600, ease: "cubic-bezier(0.4, 1.15, 0.6, 1)", v: [[3, 1, 0.86, -3, 24], [2, 1.02, 0.9, -2, 30], [4, 0.99, 0.88, -4, 19]] },
   gesture: { ms: 350, ease: "cubic-bezier(0.3, 1.6, 0.6, 1)", v: [[-5, 0.98, 0.95, 4, 9], [-3, 1, 0.94, 6, 12], [-6, 0.97, 0.96, 3, 7]] },
-  think: { ms: 900, ease: "cubic-bezier(0.45, 0, 0.55, 1)", v: [[6, 1, 0.97, -4, 12], [4, 0.99, 0.96, -6, 16]] },
+  think: { ms: 900, ease: "cubic-bezier(0.45, 0, 0.55, 1)", v: [[6, 1, 0.97, -4, 12], [4, 0.99, 0.96, -6, 16], [-3, 1, 0.98, 3, 9]] },
   happy: { ms: 380, ease: "cubic-bezier(0.25, 1.8, 0.5, 1)", v: [[-6, 1.02, 0.94, 5, -10], [5, 1.02, 0.95, -5, -14], [-4, 1.03, 0.93, 3, -8]] },
-  sad: { ms: 800, ease: "cubic-bezier(0.5, 0, 0.6, 1)", v: [[1.5, 0.96, 1.07, -1, 16], [-1.5, 0.97, 1.06, 1, 20]] },
-  startle: { ms: 260, ease: "cubic-bezier(0.2, 2, 0.4, 1)", v: [[-4, 0.94, 0.9, 4, -18], [-3, 0.95, 0.92, 5, -22]] },
+  sad: { ms: 800, ease: "cubic-bezier(0.5, 0, 0.6, 1)", v: [[1.5, 0.96, 1.07, -1, 16], [-1.5, 0.97, 1.06, 1, 20], [0.5, 0.95, 1.08, -2, 24]] },
+  startle: { ms: 260, ease: "cubic-bezier(0.2, 2, 0.4, 1)", v: [[-4, 0.94, 0.9, 4, -18], [-3, 0.95, 0.92, 5, -22], [3, 0.93, 0.91, -4, -14]] },
 };
 //: The hair's turn about the crown and the nebula stream's [turn, width,
 //: height] about the figure's middle, per state (INBOX 575, the owner:
 //: "both atlas avatars have a tail as well, same with the hair, and the
 //: nebular stream ... dynamically animated and changed"), a variant each
 //: as the lower body's; a walk's turn takes the way it goes.
-const ATLAS_HAIR_STATES = { idle: [0, 1.6, -1.4, 0.8], walk: [-5, -4, -6], sit: [2, 1], lie: [4, 5], gesture: [-3, -2], think: [2.5, 1.5], happy: [-3.5, -2.5, -4], sad: [4, 5], startle: [-6, -7] };
+const ATLAS_HAIR_STATES = { idle: [0, 1.6, -1.4, 0.8], walk: [-5, -4, -6], sit: [2, 1, 3], lie: [4, 5, 3], gesture: [-3, -2, -4], think: [2.5, 1.5, 3.5], happy: [-3.5, -2.5, -4], sad: [4, 5, 6], startle: [-6, -7, -5] };
 const ATLAS_NEB_STATES = {
   idle: [[0, 1, 1], [2, 1.02, 0.98], [-2, 0.98, 1.02], [1, 1.01, 1]],
   walk: [[-4, 1.05, 0.95], [-3, 1.06, 0.94], [-5, 1.04, 0.96]],
-  sit: [[3, 1.06, 0.9], [-3, 1.08, 0.88]],
-  lie: [[6, 1.04, 0.86], [4, 1.06, 0.84]],
-  gesture: [[-2, 1.03, 1.03], [-3, 1.02, 1.04]],
-  think: [[5, 0.97, 1], [7, 0.96, 1.01]],
+  sit: [[3, 1.06, 0.9], [-3, 1.08, 0.88], [1, 1.07, 0.89]],
+  lie: [[6, 1.04, 0.86], [4, 1.06, 0.84], [8, 1.03, 0.87]],
+  gesture: [[-2, 1.03, 1.03], [-3, 1.02, 1.04], [-1, 1.04, 1.02]],
+  think: [[5, 0.97, 1], [7, 0.96, 1.01], [3, 0.98, 0.99]],
   happy: [[-3, 1.04, 1.04], [3, 1.05, 1.03], [-2, 1.03, 1.05]],
-  sad: [[2, 0.97, 0.94], [-1, 0.96, 0.95]],
-  startle: [[-6, 1.08, 1.08], [-5, 1.1, 1.06]],
+  sad: [[2, 0.97, 0.94], [-1, 0.96, 0.95], [1, 0.95, 0.96]],
+  startle: [[-6, 1.08, 1.08], [-5, 1.1, 1.06], [-7, 1.07, 1.09]],
 };
 //: The rig's lower body (atlas.js, `atlasRigAttach`, which makes the rest of
 //: the rig at once): the boxes the state's pose turns, attached when this
@@ -518,6 +608,7 @@ function atlasRigLowerAttach(box) {
     neb: [...box.querySelectorAll(".atl-lw-pose-neb, .atl-lw-pose-neb-front")],
     state: "",
     variant: 0,
+    last: {},
     at: 0,
     shown: "",
     timer: 0,
@@ -539,7 +630,12 @@ function atlasRigLower(rig, now, live, buddy) {
   if (fresh || (live && state === "idle" && now >= low.at)) {
     //: Reduced motion keeps each state's first pose and no idle variation.
     const pick = live ? Math.floor(Math.random() * spec.v.length) : 0;
-    low.variant = !fresh && spec.v.length > 1 && pick === low.variant ? (pick + 1) % spec.v.length : pick;
+    //: Never the one it took the last time it was in this state (Brief 88:
+    //: three or more variants per pose, never the last), on entering it
+    //: as well as at rest; reduced motion keeps the first.
+    const last = low.last[state] ?? -1;
+    low.variant = live && spec.v.length > 1 && pick === last ? (pick + 1 + Math.floor(Math.random() * (spec.v.length - 1))) % spec.v.length : pick;
+    low.last[state] = low.variant;
     low.state = state;
     low.at = now + 8000 + Math.random() * 6000;
   }

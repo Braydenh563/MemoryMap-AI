@@ -560,150 +560,15 @@ async function copyToClipboard(text, button) {
     flashCopied(button);
     return true;
   }
-  showCopyFallback(text);
+  lazyScript("/js/chat-edit.js").then(() => showCopyFallback(text));
   return false;
 }
 
-// The last resort: show the text, already selected, and say what to press.
-// Reached when the browser refuses both copy mechanisms, usually a hardened
-// or embedded webview. The text is still on screen and still selectable, so
-// the answer to "how do I get this error out" is never "you can't".
-function showCopyFallback(text) {
-  const existing = $("copy-fallback");
-  if (existing) existing.remove();
+//: `showCopyFallback`, the last resort, is chat-edit.js's (lazy: the boot
+//: gzip ratchet); `copyToClipboard` fetches it when it is needed.
 
-  const overlay = document.createElement("div");
-  overlay.id = "copy-fallback";
-  overlay.className = "modal-overlay";
-  overlay.setAttribute("role", "dialog");
-  overlay.setAttribute("aria-label", "Copy this text");
-
-  const card = document.createElement("div");
-  card.className = "modal-card copy-fallback-card";
-
-  const heading = document.createElement("h3");
-  heading.textContent = "Copy this";
-
-  const note = document.createElement("p");
-  note.className = "muted";
-  note.textContent =
-    "This browser wouldn't let the app write to the clipboard, it's already " +
-    "selected below, so press Ctrl+C (⌘C on a Mac).";
-
-  const box = document.createElement("textarea");
-  box.className = "copy-fallback-text";
-  box.value = text;
-  box.setAttribute("readonly", "");
-  box.rows = 12;
-
-  const close = document.createElement("button");
-  close.className = "small";
-  close.textContent = "Done";
-  const dismiss = () => overlay.remove();
-  close.addEventListener("click", dismiss);
-  wireBackdropClose(overlay, () => dismiss());
-  overlay.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") dismiss();
-  });
-
-  card.append(heading, note, box, close);
-  overlay.appendChild(card);
-  document.body.appendChild(overlay);
-  box.focus();
-  box.select();
-}
-
-// Put a question back in the input so it can be tweaked and re-sent.
-// Edit a question in place, the way you'd expect a chat to work.
-//
-// The old version just copied the text into the input box: the original
-// question and its answer stayed put, and re-sending appended a second
-// exchange below them. So a small correction left the thread showing the typo,
-// the answer to the typo, and then the fix, which is the opposite of editing.
-//
-// Now the bubble itself becomes a textarea. Saving rewrites that question,
-// drops every exchange after it (they were answers to the old wording), and
-// asks again from that point.
-function editAndResend(bubble, text) {
-  if (chatController) return; // not mid-stream
-  if (bubble.querySelector(".msg-edit")) return; // already editing
-  const body = bubble.querySelector(".msg-body");
-  const actions = bubble.querySelector(".msg-actions");
-  const original = text;
-
-  const editor = document.createElement("div");
-  editor.className = "msg-edit";
-  const box = document.createElement("textarea");
-  box.value = original;
-  box.rows = Math.min(8, Math.max(2, original.split("\n").length + 1));
-  box.setAttribute("aria-label", "Edit your question");
-
-  const hint = document.createElement("p");
-  hint.className = "muted msg-edit-hint";
-  hint.textContent =
-    "Saving replaces this question and clears the replies that came after it.";
-
-  const row = document.createElement("div");
-  row.className = "row msg-edit-actions";
-  const save = document.createElement("button");
-  save.className = "small";
-  save.textContent = "Save & resend";
-  const cancel = document.createElement("button");
-  cancel.className = "ghost small";
-  cancel.textContent = "Cancel";
-  row.append(save, cancel);
-  editor.append(box, hint, row);
-
-  const close = () => {
-    editor.remove();
-    body.classList.remove("hidden");
-    actions?.classList.remove("hidden");
-  };
-  cancel.addEventListener("click", close);
-  box.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      event.preventDefault();
-      close();
-    } else if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
-      event.preventDefault();
-      save.click();
-    }
-  });
-  save.addEventListener("click", async () => {
-    const edited = box.value.trim();
-    if (!edited) return;
-    if (edited === original) return close();
-
-    const bubbles = [...$("chat-messages").querySelectorAll(".msg")];
-    const turnIndex = Math.floor(bubbles.indexOf(bubble) / 2);
-
-    // Server first: if this fails, nothing on screen has been thrown away yet.
-    if (chatConv.id !== null) {
-      try {
-        const result = await apiJson(`/conversations/${chatConv.id}/truncate`, {
-          method: "POST",
-          body: JSON.stringify({ from_turn: turnIndex }),
-        });
-        if (result.conversation_deleted) chatConv.id = null;
-      } catch (error) {
-        toast(`Couldn't edit that: ${error.message}`, true);
-        return;
-      }
-    }
-    // Drop this bubble and everything after it, then ask again.
-    for (const later of bubbles.slice(bubbles.indexOf(bubble))) later.remove();
-    chatConv.turns = chatConv.turns.slice(0, turnIndex);
-    close();
-    loadConversationList();
-    sendChatMessage(edited);
-  });
-
-  body.classList.add("hidden");
-  actions?.classList.add("hidden");
-  bubble.appendChild(editor);
-  box.focus();
-  box.setSelectionRange(box.value.length, box.value.length);
-}
+//: `editAndResend`, a question edited in place, is chat-edit.js (lazy: the
+//: boot gzip ratchet; the Edit button in chat-agent.js fetches it first).
 
 // Re-run the most recent question and REPLACE the previous answer in place
 // (user request: a redo shouldn't stack a second answer below the old one).
@@ -773,6 +638,7 @@ async function forkFromBubble(bubble) {
       body: JSON.stringify({ up_to: index + 1 }),
     });
     await loadConversationList();
+    chatWriteRecord("chatForkUndo", fork);
     toastAction(`Forked at this message → “${fork.title}”.`, "Open it", () =>
       openConversation(fork.id), { go: { open: "conversation", id: fork.id } }
     );
@@ -781,8 +647,12 @@ async function forkFromBubble(bubble) {
   }
 }
 
+//: How many times the last question has been asked again (`retries`, kept on
+//: the function, not a top-level let): sent as `attempt`, so an answer
+//: composed from the notes is worded anew (CHAT_PLAN decision 34).
 function regenerateLastAnswer() {
   if (!lastChatQuestion || chatController) return;
+  regenerateLastAnswer.retries = (regenerateLastAnswer.retries || 0) + 1;
   const assistantBubbles = $("chat-messages").querySelectorAll(".msg.assistant");
   const lastAssistant = assistantBubbles[assistantBubbles.length - 1];
   if (lastAssistant) lastAssistant.remove(); // clear the old answer first
@@ -792,6 +662,7 @@ function regenerateLastAnswer() {
     noteIds: lastChatAttachments,
     imageMediaIds: lastChatImageAttachments.map((img) => img.id),
     documentIds: lastChatDocumentAttachments.map((d) => d.id),
+    attempt: regenerateLastAnswer.retries,
   });
 }
 
@@ -1146,16 +1017,7 @@ function renderWebPanelMenu(engine) {
     items.push({
       label: "ph:clock-counter-clockwise Clear recent searches",
       title: "Forget the searches listed under the field",
-      run: () => {
-        try {
-          localStorage.removeItem(WEB_SEARCH_HISTORY_KEY);
-        } catch {
-          /* blocked storage: nothing was kept to clear */
-        }
-        renderWebSearchHistory();
-        renderWebPanelMenu(engine);
-        announce("Recent searches cleared.");
-      },
+      run: clearWebSearchHistory,
     });
   }
   host.replaceChildren(kebabMenu(items, "Web search options"));
@@ -1167,8 +1029,9 @@ async function setWebSearxngRunning(start) {
   try {
     await apiJson(`/websearch/searxng/${start ? "start" : "stop"}`, { method: "POST" });
     toast(
+      //: The first-run wait only when there is a first run to wait for.
       start
-        ? "Starting SearXNG… the first run pulls the image, so give it a minute."
+        ? webEngineInfo?.state === "absent" ? "Setting SearXNG up… the first run downloads it, so give it a minute." : "Starting SearXNG…"
         : "Stopping SearXNG."
     );
   } catch (error) {
@@ -1325,7 +1188,7 @@ function buildWebResultRow(result) {
         {
           group: "read",
           label: "ph:book-open-text Read here",
-          title: "Read this page as text, inside MemoryMap",
+          title: "Read this page as text, inside Tessellate",
           run: () => openWebReader(result.url),
         },
         {
@@ -1394,11 +1257,23 @@ async function bookmarkWebResult(result) {
         note: (result.snippet || "").slice(0, 2000),
       }),
     });
+    if (saved && !saved.duplicate_of && saved.id != null) {
+      let liveId = saved.id;
+      pushUndo(
+        `Bookmarked “${clipText(saved.title || saved.url, 40)}”`,
+        () => apiJson(`/bookmarks/${liveId}`, { method: "DELETE" }),
+        async () => {
+          const again = await apiJson("/bookmarks", { method: "POST", body: JSON.stringify({ url: saved.url, title: saved.title || "", note: saved.note || "" }) });
+          liveId = again.id ?? liveId;
+        }
+      );
+    }
     toast(
       saved && saved.duplicate_of
         ? "Already in your bookmarks."
         : `Bookmarked “${saved.title || saved.url}”.`
     );
+    return true;
   } catch (error) {
     toast(error.message || "Couldn't save that bookmark.", true);
   }
@@ -1432,10 +1307,16 @@ function pushWebSearchHistory(query) {
     WEB_SEARCH_HISTORY_MAX
   );
   try {
-    localStorage.setItem(WEB_SEARCH_HISTORY_KEY, JSON.stringify(history));
+    prefs.set(WEB_SEARCH_HISTORY_KEY, JSON.stringify(history));
   } catch {
     /* storage full or blocked, the search itself still worked */
   }
+}
+
+//: Forget the web panel's recents with the way back for ten seconds, and a row
+//: in Settings, Recent changes (search-suggest.js `clearRecentSearches`, lazy).
+function clearWebSearchHistory() {
+  ensureModule("searchSuggest").then(() => clearRecentSearches("web"));
 }
 
 // Shown only while the query box is empty and nothing is on screen: recent
@@ -1454,21 +1335,27 @@ function renderWebSearchHistory() {
     return;
   }
   box.classList.remove("hidden");
+  //: The head carries its own Clear (a visible control, not only the panel's menu).
   const head = document.createElement("div");
-  head.className = "web-section-label";
-  head.textContent = "Recent";
+  head.className = "web-section-label web-recent-head";
+  head.append("Recent", smallButton("Clear recent", "Forget these searches", clearWebSearchHistory));
   box.appendChild(head);
   for (const query of history) {
-    const row = document.createElement("button");
-    row.type = "button";
-    row.className = "ghost web-recent";
-    setLabel(row, `ph:clock-counter-clockwise ${query}`);
-    row.title = `Search again: ${query}`;
-    row.addEventListener("click", () => {
+    const line = document.createElement("div");
+    line.className = "web-recent-row";
+    const row = smallButton(`ph:clock-counter-clockwise ${query}`, `Search again: ${query}`, () => {
       $("web-query").value = query;
       runWebSearch();
     });
-    box.appendChild(row);
+    row.classList.add("web-recent");
+    const remove = smallButton("ph:x", `Remove "${query}" from recent searches`, () => {
+      prefs.setJSON(WEB_SEARCH_HISTORY_KEY, history.filter((q) => q !== query));
+      renderWebSearchHistory();
+      renderWebPanelMenu(webEngineInfo);
+    });
+    remove.classList.add("web-recent-remove");
+    line.append(row, remove);
+    box.appendChild(line);
   }
 }
 
@@ -1497,7 +1384,9 @@ async function runWebSearch() {
     if (error?.name === "AbortError") return; // Stop, or a newer search
     if (!webRequestEnd(controller)) return;
     status.classList.add("error");
-    status.textContent = error.message;
+    //: With the way out beside it (the owner, 2026-10-10: "there should be a
+    //: retry button for failed web searches").
+    status.replaceChildren(`${error.message} `, smallButton("ph:arrow-clockwise Try again", "Search again", () => runWebSearch()));
     return;
   }
   if (!webRequestEnd(controller)) return;
@@ -1571,97 +1460,10 @@ async function askAboutPage(url, title) {
   await sendChatMessage(undefined, { useTools: true });
 }
 
-async function openWebReader(url) {
-  const status = $("web-status");
-  status.classList.remove("error");
-  status.textContent = "Opening…";
-  const controller = webRequestStart();
-  let page;
-  try {
-    page = await apiJson(`/websearch/read?url=${encodeURIComponent(url)}`, {
-      signal: controller.signal,
-    });
-  } catch (error) {
-    if (error?.name === "AbortError") return;
-    if (!webRequestEnd(controller)) return;
-    status.classList.add("error");
-    status.textContent = error.message;
-    return;
-  }
-  if (!webRequestEnd(controller)) return;
-  webReaderPage = page;
-  status.textContent = "";
-  $("web-reader-title").textContent = page.title || page.domain;
-  const length = page.read_minutes
-    ? ` · ${page.words.toLocaleString()} words, about ${page.read_minutes} min`
-    : "";
-  $("web-reader-source").textContent = `${page.domain}${length}`;
-  $("web-reader-source").title = page.url;
-
-  // Lay the page out as headings, paragraphs and lists rather than one wall
-  // of text. Built with createElement/textContent: never innerHTML, since
-  // the page is untrusted by definition.
-  const box = $("web-reader-text");
-  box.replaceChildren();
-  const blocks = page.blocks && page.blocks.length ? page.blocks : null;
-  if (!blocks) {
-    const fallback = document.createElement("p");
-    fallback.textContent = page.text || "(Nothing readable on that page.)";
-    box.appendChild(fallback);
-  } else {
-    let list = null;
-    for (const block of blocks) {
-      if (block.type === "li") {
-        if (!list) {
-          list = document.createElement("ul");
-          box.appendChild(list);
-        }
-        const li = document.createElement("li");
-        li.textContent = block.text;
-        list.appendChild(li);
-        continue;
-      }
-      list = null;
-      // Headings keep the page's own depth. Rendering every h1..h6 as one
-      // size threw away the outline, which is what tells you where you are
-      // in a long article.
-      const tag =
-        block.type === "heading"
-          ? `h${Math.min(6, Math.max(3, (block.level || 2) + 1))}`
-          : block.type === "pre"
-            ? "pre"
-            : block.type === "blockquote"
-              ? "blockquote"
-              : "p";
-      const el = document.createElement(tag);
-      if (block.type === "heading") el.className = "reader-heading";
-      el.textContent = block.text;
-      box.appendChild(el);
-    }
-  }
-  $("web-search-history").classList.add("hidden");
-  $("web-reader").classList.remove("hidden");
-  //: The reader is the pane's one scroller, so a new page starts at its top.
-  $("web-reader").scrollTop = 0;
-  $("web-reader-back").focus({ preventScroll: true });
-}
-
-async function saveWebPageAsNote() {
-  if (!webReaderPage) return;
-  // Prefer the structured read, it drops the nav/cookie chrome.
-  const readable = webPageMarkdown(webReaderPage);
-  const excerpt = (readable || webReaderPage.text || "").slice(0, 1200);
-  const content = `${webReaderPage.title}\n${webReaderPage.url}\n\n${excerpt}`;
-  try {
-    await apiJson("/entries", {
-      method: "POST",
-      body: JSON.stringify({ content, tags: ["web"] }),
-    });
-    toast("Saved as a note.");
-    loadEntries().catch(() => {});
-  } catch (error) {
-    toast(error.message, true);
-  }
+//: The reader itself is in web-clip.js (lazy; the boot gzip ratchet).
+function openWebReader(url) {
+  $("web-status").textContent = "Opening…";
+  ensureModule("webClip").then(() => showWebReader(url));
 }
 
 //: The reader's blocks as plain Markdown, shared by Save as note and Cite in
@@ -1689,6 +1491,11 @@ function webPageMarkdown(page) {
 //: One page at a time, like a selection: a citation is "this, about which I
 //: am about to ask", not a collection.
 let attachedWebPage = null;
+//: The page the last answer cited, for a follow-up about it (`webFollowUp`).
+//: A field rather than a top-level `let` (the global-scope ratchet): it was
+//: taken out as "never read" while chat-attach.js still read it, so every
+//: Chat send threw a ReferenceError (found by Brief 67's sweep).
+const chatWeb = { lastUrl: null };
 //: The budget for the page's text in the prompt. A long article runs to
 //: tens of thousands of characters; the opening of a page is where its claim
 //: is, and a local model's context is the scarcest thing in the round.
@@ -2079,14 +1886,11 @@ function renderChatContextMeter(stats) {
   pill.classList.toggle("is-warn", pct >= 70 && pct < 85);
   pill.classList.toggle("is-danger", pct >= 85);
   const approx = stats.usage_source === "estimated" ? "about " : "";
-  pill.title =
-    `This thread's last turn used ${approx}${compactTokens(used)} of the model's ` +
-    `${compactTokens(window)} context window.` +
-    (pct >= 70
-      ? "\n\nPast ~85% the next turn starts dropping the oldest part of its own " +
-        "prompt. Click to summarise the earlier messages instead."
-      : "\n\nClick to summarise the earlier messages.");
+  pill.title = `The last turn used ${approx}${compactTokens(used)} of the model's ${compactTokens(window)} context window. Open for what fills it.`;
+  //: The popover's rows (usage-ledger.js, lazy: the boot gzip ratchet).
+  ensureModule("usageLedger").then(() => renderChatContextPop(stats, used, window, pct));
 }
+
 
 //: How long the thread is, beside what it has cost. Asked for with the header
 //: redesign ("the metadata, model used, chat functions, token usage data and
@@ -2110,10 +1914,9 @@ function renderChatTurnCount() {
 //: of its most prominent controls, and the row read as a pile rather than as
 //: a header.
 //:
-//: The rows *click the original buttons*, which is the pattern the Library's
-//: own kebab already uses (library.js): every handler, confirm dialog and
-//: disabled state stays exactly where it was, and this file learns nothing new
-//: about what Export or Delete actually do.
+//: Fork and Compress rows click their visible buttons, so the disabled state
+//: and handler stay in one place; Export and Delete have no button of their
+//: own (Brief 88: the hidden proxies stacked over Fork) and call theirs.
 function mountChatActionsMenu() {
   const host = $("chat-actions-menu");
   if (!host || host.childElementCount) return;
@@ -2133,7 +1936,7 @@ function mountChatActionsMenu() {
           run: click("chat-compress"),
         },
         { ...featureModelMenuItem("chat"), group: "chat" },
-        { label: "ph:download-simple Export as Markdown", group: "keep", run: click("chat-export") },
+        { label: "ph:download-simple Export as Markdown", group: "keep", run: () => exportChatMarkdown() },
         {
           //: Odysseus's "Save to Documents", which lands better here than it
           //: does there: this app *has* a Documents tab, and a conversation
@@ -2153,7 +1956,7 @@ function mountChatActionsMenu() {
           },
         },
         { ...appLinkMenuItem("chat", () => chatConv.id), group: "keep" },
-        { label: "ph:trash Delete this chat", group: "end", danger: true, run: click("chat-delete") },
+        { label: "ph:trash Delete this chat", group: "end", danger: true, run: () => deleteCurrentChat() },
       ],
       "More actions for this conversation"
     )
@@ -2162,7 +1965,7 @@ function mountChatActionsMenu() {
 
 //: **A conversation, kept as a document.**
 //:
-//: The transcript already exports as a file (`#chat-export`); this keeps it
+//: The transcript already exports as a file (the menu's Export row); this keeps it
 //: *inside* the notebook, where it is searchable, linkable and editable like
 //: everything else. Titled after the conversation so the Documents list reads
 //: as a list of conversations rather than of dated blobs.
@@ -2178,6 +1981,7 @@ async function saveChatAsDocument() {
         content: `# ${title}\n\n${text}\n`,
       }),
     });
+    chatWriteRecord("chatDocumentUndo", doc);
     toastAction("Saved to your documents.", "Open it", () => {
       switchTab("documents");
       if (typeof openDocument === "function") openDocument(doc.id);
@@ -2567,7 +2371,8 @@ function stopThinkingWordRotation(dots) {
 //: Decided, not to be remade: waiting for the first token "Reaching Atlas…",
 //: a model loading "Waking the model…", retrieval "Reading your notes…",
 //: reasoning tokens "Atlas is thinking…", answer text "Atlas is writing…", a
-//: tool call "Atlas is <tool verb>…". A persona's name replaces Atlas. The
+//: tool call "Atlas is <tool verb>…". With no model connected, "Working it
+//: out without a model…" (INBOX 801). A persona's name replaces Atlas. The
 //: indicator keeps its own two shapes (dots, or the writing trace under
 //: "writing", which CSS keys off `data-phase`); only the words have six
 //: states. Every surface
@@ -2577,6 +2382,9 @@ function stopThinkingWordRotation(dots) {
 const PROGRESS_PHASES = {
   reaching: (who) => `Reaching ${who}…`,
   loading: () => "Waking the model…",
+  //: With no model connected (INBOX 801, the owner: "It said waking a model
+  //: when no model is connected"): the app's own engine is answering.
+  engine: () => "Working it out without a model…",
   reading: () => "Reading your notes…",
   thinking: (who) => `${who} is thinking…`,
   writing: (who) => `${who} is writing…`,
@@ -2649,7 +2457,7 @@ function typingDots(label = null, { persona = null, words = false } = {}) {
         if (next === "writing") stopThinkingWordRotation(dots);
       }
     };
-    if (words && typeof wantsThinkingWords === "function" && wantsThinkingWords()) {
+    if (words && wantsThinkingWords()) {
       startThinkingWordRotation(dots, persona);
     }
     return dots;

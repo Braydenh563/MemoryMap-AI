@@ -17,7 +17,7 @@ from urllib.parse import urlparse
 
 import pytest
 
-from memorymap.ai import offline
+from tessellate.ai import offline
 
 
 def _hosts(text: str) -> set[str]:
@@ -100,7 +100,7 @@ def test_the_two_surfaces_that_use_it_both_do(monkeypatch):
     """A helper nothing calls is the shape this app has been caught by before
     (a whole search engine with no doorway). These are the two that produce a
     message rather than an event."""
-    from memorymap.ai import drafter, extractor
+    from tessellate.ai import drafter, extractor
 
     monkeypatch.setattr(offline.shutil, "which", lambda _name: None)
     for produce in (drafter.offline_message, extractor.offline_message):

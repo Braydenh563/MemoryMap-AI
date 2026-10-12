@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import pytest
 
-from memorymap.core import crypto
+from tessellate.core import crypto
 
 
 def test_encrypt_decrypt_round_trip():

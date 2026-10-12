@@ -3,7 +3,7 @@
 `frontend/js/status.js` `plainHttpError` passes a server `detail` string
 straight to the person's toast, so every one is user-facing copy, not a log
 line (INBOX 472). This parses every `HTTPException(..., detail=...)` and
-every `{"detail": ...}` error body in `src/memorymap/api/*.py` with `ast`
+every `{"detail": ...}` error body in `src/tessellate/api/*.py` with `ast`
 (plus the two helpers that take the message as an argument, `get_or_404` and
 `_transcribe_upload`) and fails on a literal that:
 
@@ -27,7 +27,28 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-API = ROOT / "src" / "memorymap" / "api"
+API = ROOT / "src" / "tessellate" / "api"
+#: Route bodies moved out of `api/` into a service (Brief 61). Their
+#: `HTTPException` details still reach the person through the route, so they
+#: are held to the same rules.
+SERVICES = tuple(
+    path
+    for path in (
+        ROOT / "src" / "tessellate" / "files" / "service.py",
+        ROOT / "src" / "tessellate" / "whiteboard" / "service.py",
+    )
+    if path.exists()
+)
+
+
+def route_sources(api: Path = API) -> list[Path]:
+    """Every module whose `detail=` reaches the person: `api/*.py`, then the services."""
+    return sorted(api.glob("*.py")) + (list(SERVICES) if api == API else [])
+
+
+def label(path: Path) -> str:
+    """`routes_x.py` for a route module, `files/service.py` for a service."""
+    return path.name if path.parent == API else f"{path.parent.name}/{path.name}"
 
 #: (file name, exact text) -> why this literal is allowed to break a rule.
 ALLOWLIST: dict[tuple[str, str], str] = {}
@@ -128,14 +149,14 @@ def collect(computed: bool = False, api: Path = API):
     `<computed> source`, so the inventory can show them.
     """
     rows = set()
-    for path in sorted(api.glob("*.py")):
+    for path in route_sources(api):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for value, status in _walk(tree):
             texts = _pieces(value)
             for text in texts:
-                rows.add((path.name, value.lineno, text, status))
+                rows.add((label(path), value.lineno, text, status))
             if computed and not texts:
-                rows.add((path.name, value.lineno, "<computed> " + ast.unparse(value), status))
+                rows.add((label(path), value.lineno, "<computed> " + ast.unparse(value), status))
     return sorted(rows)
 
 
@@ -199,6 +220,8 @@ def test_the_collector_sees_the_shapes_the_routes_use():
     assert len(rows) > 200
     assert any("{}" in text for _f, _l, text, _s in rows), "no f-string detail parsed"
     assert any(f == "app.py" for f, *_ in rows), "no JSONResponse detail parsed"
+    for service in SERVICES:
+        assert any(f == label(service) for f, *_ in rows), f"{label(service)} not read"
     sample = ast.parse(
         'raise HTTPException(status_code=400, detail="bad_thing")\n'
         'raise HTTPException(400, "second_form")\n'

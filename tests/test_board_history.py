@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 
-from memorymap.core.database import AuditLog
+from tessellate.core.database import AuditLog
 
 
 def _board(client, name="History board", kind="board"):
@@ -92,7 +92,7 @@ def test_moments_group_a_sitting_and_count_what_it_did(client):
 def test_moments_split_after_two_minutes_and_page(client, app_state):
     from datetime import timedelta
 
-    from memorymap.core.deps import get_db
+    from tessellate.core.deps import get_db
 
     board = _board(client)
     bid = board["id"]
@@ -195,7 +195,7 @@ def test_a_compacted_moment_is_listed_but_not_shown(client):
     a = _sketch(client, bid, {"d": _rect(0, 0), "label": "x"})
     first = _last_event(client)
     client.put(f"/whiteboard/sketches/{a['id']}", json={"data": json.dumps({"d": _rect(0, 0), "label": "y"}), "board_id": bid, "x": 0, "y": 0, "z": 1})
-    from memorymap.core.deps import get_db
+    from tessellate.core.deps import get_db
 
     session = get_db().session()
     try:
@@ -255,3 +255,40 @@ def test_a_reused_id_brings_no_other_boards_history(client):
     assert (moment["added"], moment["removed"], moment["count"]) == (1, 0, 1)
     assert _labels(_at(client, bid, moment["id"])) == ["new"]
     assert fresh["id"] > 0
+
+
+# --- Named snapshots (Brief 77, WHITEBOARD_PLAN "Deepened 2026-10-10" row 4) --
+
+
+def test_a_snapshot_names_the_board_as_it_is_and_restores_to_it(client):
+    board = _board(client, "Snapshot board")
+    one = _text(client, board["id"], "One")
+    made = client.post("/whiteboard/history/snapshots", json={"board_id": board["id"], "name": "Before the move"})
+    assert made.status_code == 201, made.text
+    snap = made.json()
+    assert snap["name"] == "Before the move" and snap["event_id"] > 0
+    _text(client, board["id"], "Two")
+    listed = client.get("/whiteboard/history/snapshots", params={"board_id": board["id"]}).json()["snapshots"]
+    assert [s["name"] for s in listed] == ["Before the move"]
+    shown = _at(client, board["id"], snap["event_id"])
+    assert [o["data"]["content"] for o in shown["objects"]] == ["One"]
+    restored = client.post(f"/whiteboard/history/{snap['event_id']}/restore", params={"board_id": board["id"]}, json={})
+    assert restored.status_code == 200, restored.text
+    now = client.get("/whiteboard/", params={"board_id": board["id"]}).json()
+    assert [o["id"] for o in now["objects"]] == [one["id"]]
+
+
+def test_a_snapshot_with_no_name_is_called_snapshot_and_can_be_deleted(client):
+    board = _board(client, "Unnamed snapshot")
+    _text(client, board["id"], "Only")
+    snap = client.post("/whiteboard/history/snapshots", json={"board_id": board["id"]}).json()
+    assert snap["name"].startswith("Snapshot ")
+    gone = client.delete(f"/whiteboard/history/snapshots/{snap['id']}", params={"board_id": board["id"]})
+    assert gone.status_code == 204
+    assert client.get("/whiteboard/history/snapshots", params={"board_id": board["id"]}).json()["snapshots"] == []
+
+
+def test_an_empty_board_has_nothing_to_snapshot(client):
+    board = _board(client, "Empty snapshot")
+    out = client.post("/whiteboard/history/snapshots", json={"board_id": board["id"]})
+    assert out.status_code == 409

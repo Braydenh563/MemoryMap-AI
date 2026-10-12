@@ -1,0 +1,69 @@
+{
+ "skill": "Find loose ends",
+ "small_class": true,
+ "cases": [
+  {
+   "id": "invoice",
+   "notebook": [
+    {
+     "content": "Need to chase up the invoice from the plumber",
+     "category": "Admin",
+     "tags": []
+    },
+    {
+     "content": "Paid the gas bill",
+     "category": "Admin",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "invoice"
+    ]
+   }
+  },
+  {
+   "id": "passport",
+   "notebook": [
+    {
+     "content": "Todo: renew my passport before the Lisbon trip",
+     "category": "Travel",
+     "tags": []
+    },
+    {
+     "content": "Lisbon flights booked for May",
+     "category": "Travel",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "passport"
+    ]
+   }
+  },
+  {
+   "id": "reply-sam",
+   "notebook": [
+    {
+     "content": "Should reply to Sam about the offsite venue",
+     "category": "Work",
+     "tags": []
+    },
+    {
+     "content": "Standup moved to 9:30",
+     "category": "Work",
+     "tags": []
+    }
+   ],
+   "expect": {
+    "unchanged": true,
+    "answer_mentions": [
+     "sam"
+    ]
+   }
+  }
+ ]
+}

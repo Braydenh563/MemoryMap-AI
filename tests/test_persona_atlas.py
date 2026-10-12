@@ -5,7 +5,7 @@ persona be Atlas acting as the librarian. A notebook that saved
 `active_persona = "Librarian"` before the rename must keep answering.
 """
 
-from memorymap.ai import librarian
+from tessellate.ai import librarian
 from tests._app_js import app_js_text
 
 
@@ -43,7 +43,7 @@ def test_the_persona_text_the_app_shows_is_the_text_the_model_gets():
     app = app_js_text()
     match = re.search(r"^    \[name\]: `([^`]+)`,", app, re.M)
     assert match, "app.js's builtinPersonas() has no templated librarian row"
-    from memorymap.ai import AI_NAME
+    from tessellate.ai import AI_NAME
 
     assert match.group(1).replace("${name}", AI_NAME) == librarian.DEFAULT_PERSONA
     assert "BUILTIN_PERSONAS" not in app, "the persona table must be built from the name, not a literal"
@@ -51,7 +51,7 @@ def test_the_persona_text_the_app_shows_is_the_text_the_model_gets():
 
 def test_a_custom_persona_may_write_the_placeholder():
     config = _Config({"personas": [{"name": "Pirate", "prompt": "You are {ai_name}, a pirate."}]})
-    from memorymap.ai import AI_NAME
+    from tessellate.ai import AI_NAME
 
     assert librarian.resolve_persona_prompt("Pirate", config) == f"You are {AI_NAME}, a pirate."
 

@@ -23,23 +23,26 @@ import typing
 from fastapi import APIRouter
 from fastapi.routing import APIRoute
 
-import memorymap.api as api
+import tessellate.api as api
 
 LISTY_CALLS = {"list", "sorted", "all", "_to_out_bulk", "scalars"}
 
 #: Unpaged list routes, each with why its size is bounded (2026-10-05).
 BOUNDED = {
+    "/insights/patterns": "one line per pattern rule, a fixed set in ai/insights.py",
     "/ask-history/{turn_id}": "one saved turn's raw results, capped when the turn was saved",
     "/backups": "one row per backup file, made on purpose and few",
     "/chat/modes": "the chat modes this app ships",
     "/chat/recent": "the last questions asked, capped by `_recent_questions`",
     "/chat/suggestions": "a handful of starter questions built from two categories",
     "/chat/tools": "the AI tools this app defines",
+    "/documents/contents": "Replace in every document reads them whole, capped at CONTENTS_READ_MAX (1,000)",
     "/documents/outline": "capped at OUTLINE_DOCUMENTS documents",
     "/documents/{document_id}/ai-edit-log": "one document's AI edits",
     "/documents/{document_id}/bookmarks": "the bookmarks attached to one document",
     "/documents/{document_id}/revisions": "one document's revisions",
     "/embedding-models": "the embedding models this app offers, and its own install log",
+    "/entries/changes": "ids changed since a stamp, capped at CHANGES_IDS_MAX (60); `more` says to re-read the list",
     "/entries/link-suggestions": "at most twelve suggestions",
     "/entries/most-accessed": "the top five",
     "/entries/{entry_id}/bookmarks": "the bookmarks attached to one note",
@@ -64,7 +67,7 @@ OPEN: dict[str, str] = {}
 
 def _routes():
     for info in pkgutil.iter_modules(api.__path__):
-        module = importlib.import_module(f"memorymap.api.{info.name}")
+        module = importlib.import_module(f"tessellate.api.{info.name}")
         for value in vars(module).values():
             if isinstance(value, APIRouter):
                 yield from (r for r in value.routes if isinstance(r, APIRoute))

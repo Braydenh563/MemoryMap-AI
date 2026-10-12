@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ====================================================================
-#  MemoryMap AI - uninstaller for macOS / Linux
+#  Tessellate - uninstaller for macOS / Linux
 #
 #  Removes the virtual environment (.venv) that start.sh built, plus the
 #  caches that came with it, so the app stops being runnable from this
@@ -30,15 +30,15 @@ fi
 # --- Where the data actually is --------------------------------------
 # The same precedence start.sh uses, and for the same reason: this script
 # has to be able to name, measure and (only if asked) delete the right
-# folder on a machine where MEMORYMAP_DATA_DIR moved the notebook
+# folder on a machine where TESSELLATE_DATA_DIR moved the notebook
 # somewhere else entirely.
-DATA_DIR="${MEMORYMAP_DATA_DIR:-}"
+DATA_DIR="${TESSELLATE_DATA_DIR:-}"
 if [ -z "$DATA_DIR" ] && [ -f ".env" ]; then
-  DATA_DIR="$(grep -E '^MEMORYMAP_DATA_DIR=' ".env" 2>/dev/null | tail -n 1 | cut -d= -f2- | sed 's/^"//; s/"$//')"
+  DATA_DIR="$(grep -E '^TESSELLATE_DATA_DIR=' ".env" 2>/dev/null | tail -n 1 | cut -d= -f2- | sed 's/^"//; s/"$//')"
 fi
 [ -n "$DATA_DIR" ] || DATA_DIR="data"
 
-MM_PORT="${MEMORYMAP_PORT:-8000}"
+MM_PORT="${TESSELLATE_PORT:-8000}"
 
 # --- Flags -----------------------------------------------------------
 DRY_RUN=0
@@ -51,7 +51,7 @@ BAD_FLAG=""
 
 mm_help() {
   cat <<MM_HELP
-MemoryMap AI uninstaller
+Tessellate uninstaller
 
 Usage: ./uninstall.sh [options]
 
@@ -174,16 +174,17 @@ mm_port_is_memorymap() {
               cat <&3) 2>/dev/null || true )"
   fi
   case "$body" in
-    *"MemoryMap AI"*) return 0 ;;
+    # Tessellate, or a copy started before the rename (brand: keep-next)
+    *"Tessellate"*|*"MemoryMap AI"*) return 0 ;;
   esac
   return 1
 }
 
-echo "${TEAL}MemoryMap AI - uninstall${RESET}"
+echo "${TEAL}Tessellate - uninstall${RESET}"
 echo
 
 if mm_port_open "$MM_PORT" && mm_port_is_memorymap "$MM_PORT"; then
-  echo " ${RED}[x]${RESET} MemoryMap is still running on port $MM_PORT."
+  echo " ${RED}[x]${RESET} Tessellate is still running on port $MM_PORT."
   echo "        Close the app window, or press Ctrl+C in the terminal running it,"
   echo "        then run this again. Nothing was changed."
   exit 1
@@ -215,7 +216,8 @@ if [ "$SHORTCUTS" = "1" ]; then
   # else's launcher.
   for path in "$HOME/.local/share/applications/memorymap-ai.desktop" \
               "$HOME/Desktop/memorymap-ai.desktop" \
-              "$HOME/Desktop/MemoryMap AI"; do
+              "$HOME/Desktop/Tessellate" \
+              "$HOME/Desktop/MemoryMap AI"; do  # brand: keep, made before the rename
     # -L as well as -e: the macOS fallback is a symlink, and a symlink
     # whose target is already gone fails -e while still being a file on
     # someone's Desktop.
@@ -299,7 +301,7 @@ if [ -n "$EXPORT_TO" ]; then
     exit 1
   fi
   echo " ${TEAL}[..]${RESET} Exporting your notes to $EXPORT_TO..."
-  if ! .venv/bin/python -m memorymap --export "$EXPORT_TO"; then
+  if ! .venv/bin/python -m tessellate --export "$EXPORT_TO"; then
     echo " ${RED}[x]${RESET} The export failed, so nothing was removed."
     exit 1
   fi

@@ -32,6 +32,7 @@ import threading
 import time
 from pathlib import Path
 
+from tessellate.ai.unreachable import server_unreachable
 from tessellate.core import jobs, pdfpages
 
 #: Page reads in flight right now, keyed by an opaque id -> what is being read.
@@ -188,8 +189,6 @@ def vision_ocr_text(image_path: Path, model: str, ollama) -> str | None:
         # Same reasoning as ocr.extract_text's and captioning.caption_text's
         # own bare except: one bad image must never take down the request
         # or background thread it runs on.
-        from tessellate.ai.captioning import server_unreachable
-
         if server_unreachable(exc):
             logger.warning("Vision OCR skipped for %s: the model server is not running.", image_path.name)
         else:

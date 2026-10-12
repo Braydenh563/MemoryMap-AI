@@ -10590,18 +10590,17 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `asks` | src/tessellate/ai/capability.py:131 |
 | `privacy_line` | src/tessellate/ai/capability.py:154 |
 
-### src/tessellate/ai/captioning.py (8)
+### src/tessellate/ai/captioning.py (7)
 
 | Name | File:line |
 |---|---|
-| `caption_and_store` | src/tessellate/ai/captioning.py:279 |
-| `caption_in_background` | src/tessellate/ai/captioning.py:348 |
-| `caption_text` | src/tessellate/ai/captioning.py:238 |
-| `describe_document` | src/tessellate/ai/captioning.py:130 |
-| `page_caption_prompt` | src/tessellate/ai/captioning.py:191 |
-| `page_caption_text` | src/tessellate/ai/captioning.py:201 |
-| `running_captions` | src/tessellate/ai/captioning.py:50 |
-| `server_unreachable` | src/tessellate/ai/captioning.py:266 |
+| `caption_and_store` | src/tessellate/ai/captioning.py:267 |
+| `caption_in_background` | src/tessellate/ai/captioning.py:336 |
+| `caption_text` | src/tessellate/ai/captioning.py:239 |
+| `describe_document` | src/tessellate/ai/captioning.py:131 |
+| `page_caption_prompt` | src/tessellate/ai/captioning.py:192 |
+| `page_caption_text` | src/tessellate/ai/captioning.py:202 |
+| `running_captions` | src/tessellate/ai/captioning.py:51 |
 
 ### src/tessellate/ai/captions.py (16)
 
@@ -12863,6 +12862,12 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `served` | src/tessellate/ai/translate.py:85 |
 | `status` | src/tessellate/ai/translate.py:67 |
 
+### src/tessellate/ai/unreachable.py (1)
+
+| Name | File:line |
+|---|---|
+| `server_unreachable` | src/tessellate/ai/unreachable.py:10 |
+
 ### src/tessellate/ai/utilities.py (49)
 
 | Name | File:line |
@@ -12963,17 +12968,17 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 
 | Name | File:line |
 |---|---|
-| `cut_reading_loops` | src/tessellate/ai/vision_ocr.py:122 |
-| `finish_page_read` | src/tessellate/ai/vision_ocr.py:66 |
-| `pdf_reader_or_none` | src/tessellate/ai/vision_ocr.py:206 |
-| `pdf_vision_ocr_and_store` | src/tessellate/ai/vision_ocr.py:345 |
-| `pdf_vision_ocr_in_background` | src/tessellate/ai/vision_ocr.py:420 |
-| `pdf_vision_reader` | src/tessellate/ai/vision_ocr.py:249 |
-| `register_page_read` | src/tessellate/ai/vision_ocr.py:56 |
-| `running_page_reads` | src/tessellate/ai/vision_ocr.py:74 |
-| `vision_ocr_and_store` | src/tessellate/ai/vision_ocr.py:293 |
-| `vision_ocr_in_background` | src/tessellate/ai/vision_ocr.py:427 |
-| `vision_ocr_text` | src/tessellate/ai/vision_ocr.py:161 |
+| `cut_reading_loops` | src/tessellate/ai/vision_ocr.py:123 |
+| `finish_page_read` | src/tessellate/ai/vision_ocr.py:67 |
+| `pdf_reader_or_none` | src/tessellate/ai/vision_ocr.py:205 |
+| `pdf_vision_ocr_and_store` | src/tessellate/ai/vision_ocr.py:344 |
+| `pdf_vision_ocr_in_background` | src/tessellate/ai/vision_ocr.py:419 |
+| `pdf_vision_reader` | src/tessellate/ai/vision_ocr.py:248 |
+| `register_page_read` | src/tessellate/ai/vision_ocr.py:57 |
+| `running_page_reads` | src/tessellate/ai/vision_ocr.py:75 |
+| `vision_ocr_and_store` | src/tessellate/ai/vision_ocr.py:292 |
+| `vision_ocr_in_background` | src/tessellate/ai/vision_ocr.py:426 |
+| `vision_ocr_text` | src/tessellate/ai/vision_ocr.py:162 |
 
 ### src/tessellate/ai/vocative.py (13)
 

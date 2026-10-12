@@ -92,7 +92,7 @@ def test_an_app_link_is_not_an_unbacked_name():
 
 def test_a_refused_connection_is_one_plain_line():
     import requests
-    from tessellate.ai.captioning import server_unreachable
+    from tessellate.ai.unreachable import server_unreachable
     try:
         try:
             raise ConnectionRefusedError("refused")

@@ -5353,6 +5353,9 @@ select {
 #backup-list .entry-actions {
   align-items: center;
   gap: var(--space-2);
+  /* Pinned to the row's right end, so Restore and the bin line up down the
+     list whatever the date and age beside them measure (owner, 2026-10-12). */
+  margin-inline-start: auto;
 }
 #backup-list .entry-actions button {
   /* The panel's one control height, the token rather than a number: a

@@ -6,6 +6,7 @@ real database, and singletons are rebuilt between tests.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 import pytest
@@ -187,7 +188,9 @@ def _no_test_runs_pip(monkeypatch):
 
     def guard(args, *rest, **kwargs):
         argv = args if isinstance(args, (list, tuple)) else [args]
-        if any("pip" in str(part) for part in argv):
+        #: The command `pip`, not any text holding the letters: a temp file's
+        #: random name ("tmpq7pipx2.js") failed a test on CI that way, 2026-10-12.
+        if any(os.path.basename(str(part)).lower() in ("pip", "pip3", "pip.exe", "pip3.exe") for part in argv):
             raise RuntimeError(
                 "a test reached the real installer; fake extras.subprocess.Popen "
                 "or extras.start in the test (see conftest._no_test_runs_pip)"

@@ -4,8 +4,7 @@
 
 # Tessellate <sub><sup>notes</sup></sub>
 
-<i>Your notes, pieced together</i>
-
+<i>Your notes, pieced together</i><br>
 <sub>Formerly MemoryMap AI</sub>
 
 **A notebook that files itself. Local AI, your machine, nothing sent anywhere unless you ask.**
@@ -370,7 +369,7 @@ in Ollama and pick it in the same place.
 
 ## Privacy
 
-Everything lives in one folder: `memorymap.db` (your notes), `preferences.json`,
+Everything lives in one folder: `tessellate.db` (your notes), `preferences.json`,
 `uploads/` and `backups/` (a snapshot once a day). Set `TESSELLATE_DATA_DIR` to
 put it elsewhere. Settings, Import & export exports your notes as JSON, CSV or
 Markdown, the whole notebook as a folder (each note as Markdown with its

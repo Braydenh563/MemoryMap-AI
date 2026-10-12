@@ -975,7 +975,7 @@ MORE_TOPICS: list[dict] = [
         ),
         "body": (
             "Settings, Keyboard shortcuts, Capture from anywhere shows the command "
-            "for this install (memorymap --capture, with its full path) and a "
+            "for this install (tessellate --capture, with its full path) and a "
             "Copy button. Give that command a key in your system's own keyboard "
             "settings: on Windows a desktop shortcut with it as the target and a "
             "Shortcut key, on macOS a Shortcuts action, on Linux a custom keyboard "

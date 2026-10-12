@@ -2131,7 +2131,7 @@ async function renderMcpSnippet() {
   pre.classList.remove("hidden");
   copy.classList.remove("hidden");
   note.classList.add("hidden");
-  const text = JSON.stringify({ mcpServers: { memorymap: mcp.config } }, null, 2);
+  const text = JSON.stringify({ mcpServers: { tessellate: mcp.config } }, null, 2);
   pre.textContent = text;
   copy.onclick = () => copyToClipboard(text, copy);
 }

@@ -7,6 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Tests: stabilized the model-path validator test by freezing its clock (a wall-clock minute that matched the answer's number was read as backed and the "Heads up" warning was lost); production validation behaviour is unchanged.
+
 ## [0.5.0] - 2026-10-12
 
 - Tessellate: the product renamed from MemoryMap AI ("Your notes, pieced together"); the no-model composer answers personal, task, Guide and date questions from your notes; PIN quick unlock; LAN device trust; launch splash and logo animation; whiteboard mind map placement; timeline pill glide; jobs logs per run.

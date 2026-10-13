@@ -7,6 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Docs: the owner's 2026-10-13 composer batch placed in BACKLOG (magic add-on wording, Harper hover-confirm, variation, unusual input, Atlas's Assistant naming, note-type switch, the packaged desktop window, recent-notes composing, taxonomy options and uni filing, the composer's Improve writing and Generate title).
+
 ## [0.5.0] - 2026-10-12
 
 - Tessellate: the product renamed from MemoryMap AI ("Your notes, pieced together"); the no-model composer answers personal, task, Guide and date questions from your notes; PIN quick unlock; LAN device trust; launch splash and logo animation; whiteboard mind map placement; timeline pill glide; jobs logs per run.

@@ -25,6 +25,9 @@
 [![Downloads](https://img.shields.io/github/downloads/Braydenh563/Tessellate/total)](https://github.com/Braydenh563/Tessellate/releases)
 [![Tests](https://img.shields.io/badge/tests-10%2C200%2B%20offline-brightgreen)](tests)
 
+[![Complexity](https://github.com/Braydenh563/Tessellate/actions/workflows/complexity.yml/badge.svg)](https://github.com/Braydenh563/Tessellate/actions/workflows/complexity.yml)
+[![Performance](https://github.com/Braydenh563/Tessellate/actions/workflows/performance.yml/badge.svg)](https://github.com/Braydenh563/Tessellate/actions/workflows/performance.yml)
+
 <img src="docs/screenshots/notes.png" alt="Notes: the categories down the left with their counts, note cards newest first, each with its category, tags and the notes it links to, and the Connections panel for the open note on the right" width="850">
 
 </div>

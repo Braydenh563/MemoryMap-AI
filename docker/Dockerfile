@@ -6,7 +6,7 @@
 # Two variants from one file: the default has no torch (the deterministic
 # engine, FTS5 search, an Ollama embedder on the host); --build-arg
 # WITH_EMBEDDER=1 adds sentence-transformers and CPU torch (about +1.1 GB).
-FROM python:3.13-slim AS build
+FROM python:3.14-slim AS build
 ARG WITH_EMBEDDER=0
 ENV PIP_NO_CACHE_DIR=1 PIP_DISABLE_PIP_VERSION_CHECK=1
 WORKDIR /app
@@ -27,7 +27,7 @@ COPY migrations ./migrations
 COPY alembic.ini ./
 RUN /venv/bin/pip install --no-deps -e .
 
-FROM python:3.13-slim
+FROM python:3.14-slim
 RUN useradd --create-home --uid 1000 mm \
  && mkdir -p /data /models \
  && chown mm:mm /data /models

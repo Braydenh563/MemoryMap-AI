@@ -19,6 +19,10 @@
 [![Latest release](https://img.shields.io/github/v/release/Braydenh563/Tessellate)](https://github.com/Braydenh563/Tessellate/releases/latest)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](pyproject.toml)
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-green)](LICENSE)
+[![Secrets](https://github.com/Braydenh563/Tessellate/actions/workflows/secrets.yml/badge.svg)](https://github.com/Braydenh563/Tessellate/actions/workflows/secrets.yml)
+[![Last commit](https://img.shields.io/github/last-commit/Braydenh563/Tessellate)](https://github.com/Braydenh563/Tessellate/commits/main)
+[![Downloads](https://img.shields.io/github/downloads/Braydenh563/Tessellate/total)](https://github.com/Braydenh563/Tessellate/releases)
+[![Tests](https://img.shields.io/badge/tests-10%2C200%2B%20offline-brightgreen)](tests)
 
 <img src="docs/screenshots/notes.png" alt="Notes: the categories down the left with their counts, note cards newest first, each with its category, tags and the notes it links to, and the Connections panel for the open note on the right" width="850">
 
@@ -437,6 +441,17 @@ measured figure is the slowest of four runs' medians; the budget is 1.5 times it
 | Search | 30 | 50 |
 | Board open | 108 | 170 |
 | Document open | 359 | 540 |
+
+The same figures as bars, slowest first (first interaction left out, as it would
+dwarf the rest):
+
+| Interaction | Measured | |
+| --- | --- | --- |
+| Boot to first paint | 713 ms | ██████████████ |
+| Document open | 359 ms | ███████ |
+| List paint | 139 ms | ███ |
+| Board open | 108 ms | ██ |
+| Search | 30 ms | █ |
 
 The first interaction is the first click the app answers after a cold start,
 with the session kept. `GET /models/bench/budgets?live=true` times the server's

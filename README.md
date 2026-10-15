@@ -20,11 +20,8 @@
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](pyproject.toml)
 [![License: AGPL v3](https://img.shields.io/badge/license-AGPL--3.0-green)](LICENSE)
 
-[![Secrets](https://github.com/Braydenh563/Tessellate/actions/workflows/secrets.yml/badge.svg)](https://github.com/Braydenh563/Tessellate/actions/workflows/secrets.yml)
 [![Last commit](https://img.shields.io/github/last-commit/Braydenh563/Tessellate)](https://github.com/Braydenh563/Tessellate/commits/main)
-[![Downloads](https://img.shields.io/github/downloads/Braydenh563/Tessellate/total)](https://github.com/Braydenh563/Tessellate/releases)
 [![Tests](https://img.shields.io/badge/tests-10%2C200%2B%20offline-brightgreen)](tests)
-
 [![Complexity](https://github.com/Braydenh563/Tessellate/actions/workflows/complexity.yml/badge.svg)](https://github.com/Braydenh563/Tessellate/actions/workflows/complexity.yml)
 [![Performance](https://github.com/Braydenh563/Tessellate/actions/workflows/performance.yml/badge.svg)](https://github.com/Braydenh563/Tessellate/actions/workflows/performance.yml)
 

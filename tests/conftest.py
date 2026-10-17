@@ -16,7 +16,7 @@ from tessellate.ai import model_manager
 from tessellate.core import deps, taskhistory, vault
 
 
-# --- one copy of each frontend file, however many test modules read it --------
+# --- one copy of each source file, however many test modules read it ----------
 #
 # About 145 test modules read a frontend file into a module-level constant
 # (`SRC = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(...)`: 36 of
@@ -27,29 +27,43 @@ from tessellate.core import deps, taskhistory, vault
 # the first test ran). Strings are immutable, so handing every caller the same
 # object is invisible to the tests and drops that to the 11 MB the files
 # really are. Keyed by size and mtime so a test that writes one of these files
-# still reads what it wrote; only paths under `frontend/` are shared.
+# still reads what it wrote. The repo-scanning tests (`tests/_repo_files.py`)
+# read every `src/` and `tests/` file and some of `docs/` between them, so those
+# trees share the same cache; `errors` is part of the key because a scanner
+# that reads with `errors="replace"` gets different text from one that does not.
 
-_FRONTEND_DIR = Path(__file__).resolve().parents[1] / "frontend"
+_REPO = Path(__file__).resolve().parents[1]
+_SHARED_PREFIXES = tuple(str(_REPO / d) + os.sep for d in ("frontend", "src", "docs", "tests"))
 _real_read_text = Path.read_text
 _shared_texts: dict[tuple, str] = {}
 
 
 def _read_text_once(self, encoding=None, errors=None):
-    if errors is None:
-        try:
-            if _FRONTEND_DIR in self.resolve().parents:
-                st = self.stat()
-                key = (str(self), encoding, st.st_mtime_ns, st.st_size)
-                text = _shared_texts.get(key)
-                if text is None:
-                    text = _shared_texts[key] = _real_read_text(self, encoding)
-                return text
-        except OSError:
-            pass  # let the real call raise the error the test expects
+    try:
+        if str(self.resolve()).startswith(_SHARED_PREFIXES):
+            st = self.stat()
+            key = (str(self), encoding, errors, st.st_mtime_ns, st.st_size)
+            text = _shared_texts.get(key)
+            if text is None:
+                text = _shared_texts[key] = _real_read_text(self, encoding, errors)
+            return text
+    except OSError:
+        pass  # let the real call raise the error the test expects
     return _real_read_text(self, encoding, errors)
 
 
 Path.read_text = _read_text_once
+
+
+@pytest.fixture(scope="session")
+def repo_tree():
+    """`repo_files` from `tests/_repo_files.py`: the checkout walked once per
+    process, filtered per call. A scanner that builds its file list at import
+    (for `parametrize`) imports the function; one that scans inside a test can
+    take this fixture instead."""
+    from tests._repo_files import repo_files
+
+    return repo_files
 
 
 @pytest.fixture()

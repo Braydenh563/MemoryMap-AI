@@ -10,6 +10,8 @@ substituting an en-dash.
 """
 from pathlib import Path
 
+from tests._repo_files import repo_files
+
 ROOT = Path(__file__).resolve().parents[1]
 ROOTS = (ROOT / "frontend", ROOT / "src", ROOT / "tests")
 EXTS = {".js", ".html", ".css", ".py", ".json", ".md", ".txt"}
@@ -18,15 +20,12 @@ EM_DASH = chr(0x2014)  # built, not written, so this file passes its own check
 
 
 def _files():
-    for root in ROOTS:
-        for path in root.rglob("*"):
-            if path.suffix in EXTS and not (SKIP_PARTS & set(path.parts)):
-                yield path
+    return repo_files(*ROOTS, suffixes=tuple(sorted(EXTS)), exclude_dirs=tuple(sorted(SKIP_PARTS)))
 
 
 def _doc_files():
     """The docs the owner reads: docs/**/*.md, docs/index.html, root *.md."""
-    yield from (ROOT / "docs").rglob("*.md")
+    yield from repo_files(ROOT / "docs", suffixes=(".md",))
     yield ROOT / "docs" / "index.html"
     yield from ROOT.glob("*.md")
 

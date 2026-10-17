@@ -31,6 +31,7 @@ import re
 from pathlib import Path
 
 from tessellate.api.asset_strip import strip_css, strip_html, strip_js
+from tests._repo_files import repo_files
 
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
 URL = re.compile(r"""https?://([^\s"'`)<>/:]+)[^\s"'`)<>]*""")
@@ -102,7 +103,7 @@ def test_the_app_names_no_other_host():
 
 def test_no_vendored_library_reaches_out():
     found = []
-    for path in sorted((FRONTEND / "vendor").rglob("*.js")) + sorted((FRONTEND / "vendor").rglob("*.mjs")):
+    for path in repo_files(FRONTEND / "vendor", suffixes=(".js",)) + repo_files(FRONTEND / "vendor", suffixes=(".mjs",)):
         text = path.read_text(encoding="utf-8", errors="replace")
         for match in VENDOR_REQUEST.finditer(text):
             address = match.group(1)

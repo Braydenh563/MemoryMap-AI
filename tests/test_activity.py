@@ -10,6 +10,7 @@ import pytest
 
 from tessellate.ai import model_manager
 from tessellate.core import activity, jobruns
+from tests._repo_files import repo_files
 
 SRC = Path(__file__).resolve().parents[1] / "src" / "tessellate"
 
@@ -153,7 +154,7 @@ THREAD_SITES = {
 
 def test_every_thread_site_is_registered_with_activity():
     found = set()
-    for path in SRC.rglob("*.py"):
+    for path in repo_files(SRC, suffixes=(".py",)):
         text = path.read_text(encoding="utf-8")
         if re.search(r"threading\.Thread\(", re.sub(r"(?m)^\s*#.*$|`[^`]*`", "", text)):
             found.add(path.relative_to(SRC).as_posix())

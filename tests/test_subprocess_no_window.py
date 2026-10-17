@@ -22,6 +22,8 @@ a `sys.platform` branch at each call site.
 import ast
 from pathlib import Path
 
+from tests._repo_files import repo_files
+
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 SPAWNERS = {"Popen", "run", "call", "check_call", "check_output"}
@@ -37,7 +39,7 @@ EXEMPT = {
 
 
 def _spawn_calls():
-    for path in sorted(SRC.rglob("*.py")):
+    for path in repo_files(SRC, suffixes=(".py",)):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):

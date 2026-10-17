@@ -11,6 +11,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from tests._repo_files import repo_files
+
 ROADMAP = Path(__file__).resolve().parent.parent / "docs" / "roadmap"
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -28,8 +30,6 @@ ROOT = Path(__file__).resolve().parent.parent
 _SKIP_PARTS = {".git", ".venv", "node_modules", "__pycache__", ".gate", "shots", "worktrees"}
 
 
-def _skip(path: Path) -> bool:
-    return any(part in _SKIP_PARTS for part in path.parts)
 PLANS = sorted(ROADMAP.glob("*_PLAN.md")) + [ROADMAP / "AGENT_SKILLS_REFORM.md"]
 
 
@@ -122,9 +122,7 @@ def test_no_conflict_marker_survives_a_merge():
     divider = "=" * 7
     closer = ">" * 7 + " "
     offenders = []
-    for path in sorted(ROOT.rglob("*")):
-        if not path.is_file() or _skip(path):
-            continue
+    for path in repo_files(exclude_dirs=tuple(sorted(_SKIP_PARTS))):
         if path.suffix.lower() not in {".md", ".py", ".js", ".css", ".html", ".json", ".txt", ".yml", ".yaml"}:
             continue
         try:

@@ -46,6 +46,8 @@ from pathlib import Path
 
 import pytest
 
+from tests._repo_files import repo_files
+
 ROOT = Path(__file__).resolve().parents[1]
 
 #: Set by `scratchpad/llama-dev.sh serve`, and by nothing else. Read once, at
@@ -409,7 +411,7 @@ def test_the_evals_seam_is_the_only_thing_that_reaches_the_runner():
     # Nothing in tests/ runs the script or imports anything it builds.
     offenders = [
         path.name
-        for path in (ROOT / "tests").rglob("test_*.py")
+        for path in repo_files(ROOT / "tests", patterns=("test_*.py",))
         if "llama-dev" in path.read_text(encoding="utf-8")
         and path.name != Path(__file__).name
     ]

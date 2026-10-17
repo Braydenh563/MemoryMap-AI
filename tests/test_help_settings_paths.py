@@ -34,6 +34,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 from tessellate.ai import help_chat
+from tests._repo_files import repo_files
 
 ROOT = Path(__file__).resolve().parents[1]
 INDEX = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
@@ -260,7 +261,7 @@ def _ui_strings():
             if line.lstrip().startswith(("//", "*", "/*")):
                 continue
             yield name, line
-    for path in sorted((ROOT / "src" / "tessellate").rglob("*.py")):
+    for path in repo_files(ROOT / "src" / "tessellate", suffixes=(".py",)):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         docstrings = set()
         for node in ast.walk(tree):

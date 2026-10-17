@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5879, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5476, test files 1196, tests 10866, plan headings 955.
+Counts: frontend functions 5879, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5476, test files 1175, tests 10872, plan headings 955.
 
 ## Frontend functions (5879)
 
@@ -17281,7 +17281,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10866)
+## Tests (10872)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -17724,10 +17724,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_graph_grouping.py | 2 |
 | tests/test_graph_help_does_not_refit.py | 2 |
 | tests/test_graph_hover_fade.py | 6 |
-| tests/test_graph_layout_692.py | 8 |
-| tests/test_graph_layout_chip.py | 3 |
-| tests/test_graph_layout_order.py | 4 |
-| tests/test_graph_layout_switch_fit.py | 2 |
+| tests/test_graph_layout.py | 17 |
 | tests/test_graph_ledger_words.py | 3 |
 | tests/test_graph_local_scaling.py | 4 |
 | tests/test_graph_look.py | 10 |
@@ -17824,14 +17821,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_keyword_context.py | 8 |
 | tests/test_keyword_search.py | 22 |
 | tests/test_label_in_name_1345.py | 3 |
-| tests/test_lan_firewall_hint.py | 4 |
-| tests/test_lan_live.py | 20 |
-| tests/test_lan_mode.py | 22 |
-| tests/test_lan_networks_one_row.py | 7 |
-| tests/test_lan_restart_action.py | 5 |
-| tests/test_lan_serve.py | 11 |
-| tests/test_lan_tls.py | 24 |
-| tests/test_lan_trust.py | 27 |
+| tests/test_lan.py | 120 |
 | tests/test_launch_splash.py | 23 |
 | tests/test_launch_status.py | 25 |
 | tests/test_launcher_scripts.py | 92 |
@@ -18035,10 +18025,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_ocr_find_marks.py | 3 |
 | tests/test_ocr_model.py | 17 |
 | tests/test_ocr_old_cache_hint.py | 3 |
-| tests/test_ocr_page_range.py | 7 |
-| tests/test_ocr_page_read.py | 4 |
-| tests/test_ocr_page_read_tasks.py | 4 |
-| tests/test_ocr_page_reads_persist.py | 9 |
+| tests/test_ocr_page.py | 24 |
 | tests/test_ocr_pdf_regions.py | 6 |
 | tests/test_ocr_rapidocr.py | 9 |
 | tests/test_ocr_reader_split.py | 4 |
@@ -18173,6 +18160,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_reminders_reschedule.py | 5 |
 | tests/test_reminders_with_model.py | 2 |
 | tests/test_reply_variety.py | 11 |
+| tests/test_repo_files_helper.py | 6 |
 | tests/test_restart_everywhere.py | 7 |
 | tests/test_restore_roundtrip.py | 2 |
 | tests/test_resurface_spec.py | 14 |
@@ -18180,11 +18168,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_ring_room.py | 6 |
 | tests/test_round2_sweep_fixes.py | 3 |
 | tests/test_router.py | 13 |
-| tests/test_routes_batch_documents.py | 5 |
-| tests/test_routes_batch_entries.py | 5 |
-| tests/test_routes_batch_housekeeping.py | 5 |
-| tests/test_routes_batch_library.py | 2 |
-| tests/test_routes_batch_misc.py | 8 |
+| tests/test_routes_batch.py | 25 |
 | tests/test_routes_named.py | 2 |
 | tests/test_row_enter.py | 3 |
 | tests/test_rows_676.py | 6 |
@@ -18364,12 +18348,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_ui_recipes.py | 204 |
 | tests/test_ui_signatures.py | 2 |
 | tests/test_ui_state.py | 6 |
-| tests/test_undo_bin_ask_history.py | 5 |
-| tests/test_undo_bin_chat.py | 4 |
-| tests/test_undo_bin_files.py | 7 |
-| tests/test_undo_bin_learned.py | 4 |
-| tests/test_undo_bin_memory.py | 1 |
-| tests/test_undo_bin_tensions.py | 3 |
+| tests/test_undo_bin.py | 24 |
 | tests/test_undo_contract.py | 3 |
 | tests/test_undo_coverage.py | 9 |
 | tests/test_undo_store.py | 5 |

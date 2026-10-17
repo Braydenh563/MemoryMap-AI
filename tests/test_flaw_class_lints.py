@@ -21,6 +21,8 @@ import ast
 import tomllib
 from pathlib import Path
 
+from tests._repo_files import repo_files
+
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "src" / "tessellate"
 
@@ -65,7 +67,7 @@ def test_ble001_stays_enabled() -> None:
 
 def test_no_module_starts_more_threads_than_it_did() -> None:
     found = {}
-    for path in sorted(SRC.rglob("*.py")):
+    for path in repo_files(SRC, suffixes=(".py",)):
         calls = _thread_calls(ast.parse(path.read_text()))
         if calls:
             found[str(path.relative_to(SRC))] = calls

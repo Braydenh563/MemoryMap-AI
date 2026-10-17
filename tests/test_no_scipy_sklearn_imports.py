@@ -12,6 +12,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from tests._repo_files import repo_files
+
 SRC = Path(__file__).resolve().parents[1] / "src" / "tessellate"
 _IMPORT = re.compile(r"^\s*(?:import|from)\s+(?:scipy|sklearn)\b", re.M)
 
@@ -19,7 +21,7 @@ _IMPORT = re.compile(r"^\s*(?:import|from)\s+(?:scipy|sklearn)\b", re.M)
 def test_no_module_imports_scipy_or_sklearn():
     offenders = [
         p.relative_to(SRC).as_posix()
-        for p in sorted(SRC.rglob("*.py"))
+        for p in repo_files(SRC, suffixes=(".py",))
         if _IMPORT.search(p.read_text(encoding="utf-8", errors="ignore"))
     ]
     assert not offenders, f"import of scipy or sklearn in: {offenders}"

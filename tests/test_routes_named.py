@@ -19,6 +19,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from tests._repo_files import repo_files
+
 TESTS = Path(__file__).resolve().parent
 
 #: Empty since the last 49 were named (ledger 1573). A route that no test names
@@ -48,7 +50,7 @@ def route_table(app) -> set[tuple[str, str]]:  # noqa: ANN001
 
 def _test_literals() -> list[tuple[list[str], bool]]:
     text = ""
-    for p in sorted(TESTS.rglob("*.py")):
+    for p in repo_files(TESTS, suffixes=(".py",)):
         if p.name != Path(__file__).name:  # this file's seed would name every route in it
             text += p.read_text(encoding="utf-8", errors="ignore") + "\n"
     lits = []

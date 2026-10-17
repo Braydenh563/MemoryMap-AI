@@ -126,10 +126,11 @@ def test_every_logged_kind_of_thing_has_a_word():
     from pathlib import Path
 
     from tessellate.api.routes_library import _ENTITY_WORDS
+    from tests._repo_files import repo_files
 
     src = Path(__file__).resolve().parent.parent / "src" / "tessellate"
     written = set()
-    for path in src.rglob("*.py"):
+    for path in repo_files(src, suffixes=(".py",)):
         text = path.read_text(encoding="utf-8")
         written.update(re.findall(r"log_action\(\s*\w+,\s*\"\w+\",\s*\"(\w+)\"", text))
         written.update(re.findall(r"events\.writes\(\s*\"(\w+)\"", text))

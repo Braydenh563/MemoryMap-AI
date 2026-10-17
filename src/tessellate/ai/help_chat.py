@@ -174,7 +174,11 @@ HELP_TOPICS: list[dict] = [
             "own in Settings, Skills (New skill in the pane's bar opens the form). A skill can use the AI's tools, so it "
             "does the work rather than just describing it. A skill can also be "
             "a Markdown file saved in the skills folder that Settings, Skills "
-            "names; it is listed without a restart."
+            "names; it is listed without a restart. With no model running, nine built-in skills "
+            "still run, read straight off your notes with no AI and labelled as such: Summarise my week, "
+            "Daily review, Catch up on a topic, Find loose ends, Auto-tag my notes, Link related notes, "
+            "Tidy suggestions, Notebook health check and Find notes worth combining. "
+            "The others are marked (needs a model) in the Skills menu."
         ),
         "badge": {"label": "Skills", "section": "skills"},
     },

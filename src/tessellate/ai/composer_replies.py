@@ -14,28 +14,12 @@ acknowledged now and then rather than every time.
 from __future__ import annotations
 
 SOCIAL_NATURAL: dict[str, tuple[str, ...]] = {
-    "greeting": (
-        "Hey, what's up?",
-        "Hello, good to see you.",
-        "Hi. I'm here whenever you want to look something up, plan the day or tidy a few notes.",
-        "Hey hey. Ask me anything.",
-    ),
     "morning": (
         "Good morning to you too.",
         "Morning, hope the day is starting gently. Want a look at what's on today?",
         "Morning. Coffee first, then notes?",
         "Good morning. Shall I pull up today's reminders?",
         "Morning. I'm ready when you are, whether that's today's plans or something you wrote last week.",
-    ),
-    "thanks": (
-        "Sure thing.",
-        "Glad it was useful. If anything else comes up, just ask and I'll dig it out of your notes.",
-    ),
-    "bye": (
-        "Take it easy.",
-        "Bye for now, and good luck with the rest of your day.",
-        "Off you go then. I'll be right here with everything you wrote whenever you're back.",
-        "Have a good one.",
     ),
     "ack": (
         "Sounds good.",
@@ -145,25 +129,12 @@ SOCIAL_PROFESSIONAL: dict[str, tuple[str, ...]] = {
         "Good morning to you.",
         "Good morning. I am ready whenever you would like to review your plans or an earlier note.",
     ),
-    "thanks": (
-        "Certainly.",
-        "You are most welcome. Please ask whenever you need something further.",
-        "Happy to help. Is there anything else?",
-        "Of course.",
-    ),
     "how": (
         "Very well, thank you. And you?",
         "All is in order here.",
         "Everything is running as it should. What would you like to review?",
         "Well, thank you. Your notes are up to date and ready to search.",
         "Quite well. How may I assist?",
-    ),
-    "bye": (
-        "Goodbye.",
-        "Thank you, and goodbye for now.",
-        "Until next time. Your notes and reminders are saved.",
-        "Have a good day.",
-        "Goodbye. I will be available whenever you return.",
     ),
     "sorry": (
         "Not at all.",

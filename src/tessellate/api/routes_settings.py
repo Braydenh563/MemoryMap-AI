@@ -32,7 +32,7 @@ from sqlalchemy.orm import Session
 
 from tessellate import __version__
 from tessellate.ai import budget as run_budget
-from tessellate.ai import librarian, presets, skills
+from tessellate.ai import librarian, presets, skill_composer, skills
 from tessellate.api.routes_categories import CATEGORY_PALETTE_KEYS
 from tessellate.core import backup, backup_bundle, deps, embedmodels, events, extras, jobruns, logbuffer, security
 from tessellate.core.config import default_preferences
@@ -1470,6 +1470,8 @@ def list_skills() -> dict:
                 "changes": bool(set(skill["tools"]) & tools.WRITE_TOOLS)
                 or (not skill["tools"] and bool(skill["steps"])),
                 "needs_larger_model": skills.larger_model_reason(skill["name"], rates) if rates else "",
+                #: Runs with no model, composed from the notes (O7, `ai/skill_composer.py`).
+                "composer": skill_composer.can_run(skill),
             }
         )
     where = skill_folder.folder(config)

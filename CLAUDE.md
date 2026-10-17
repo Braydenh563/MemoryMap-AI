@@ -318,14 +318,12 @@ The levers, in order:
 - Independent checks on risky or UI changes: `reviewer` (the diff),
   `ux-auditor` (WCAG 2.2, CARP, DESIGN.md), `blind-tester` (the goal and
   URL only). The builder does not grade its own work.
-- The `usage-guard` plugin (`tools/usage-guard/`) shows context per turn in
-  the status line, warns on a cold cache and on images, answers `/spend`
-  with the cost split and the best next step, opens `/dash` (running
-  agents with model, calls and tokens; task progress; cost by model), and denies whole-file reads
-  of the code map and HISTORY, a third identical call in a row, an agent
-  with no model (unless its type pins one) and a Fable agent the owner did
-  not name. Install once per machine:
-  `/plugin install usage-guard --marketplace Braydenh563/Tessellate`.
+- The `lean-workflow` plugin (`tools/lean-workflow/`, README there) is
+  this workflow packaged for any repo: autopilot rules, the guards (huge
+  whole-file reads, a third identical call, an agent with no model, an
+  unrequested Fable agent), context and cold-cache warnings, `/spend`,
+  `/dash` and `/prune`. Install once per machine:
+  `/plugin install lean-workflow --marketplace Braydenh563/Tessellate`.
 - At session end run the `retro` skill: it measures the session, keeps the
   ledger and changes at most one rule, so the workflow improves across
   sessions on evidence.

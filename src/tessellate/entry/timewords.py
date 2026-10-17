@@ -116,6 +116,10 @@ def _written_date(year: str | None, month: int, day: int, today: date):
     return nearest, DAY
 
 
+def _weekday_late(m, t):
+    return _weekday(m, t)
+
+
 # Every pattern gets the match and "today" and returns (date, precision).
 # Order matters: the longer phrase has to be tried before the shorter one it
 # contains, or "the day after tomorrow" resolves as "tomorrow".
@@ -162,11 +166,10 @@ _RULES: list[tuple[str, object]] = [
     # "last friday", "next tues", "this monday", "on wednesday"
     # The lambda is NOT redundant, though CodeQL's `py/unnecessary-lambda`
     # says so (#47) and the suggested `_weekday` is a NameError: this table is
-    # built at import time and `_weekday` is defined below it. The lambda
+    # built at import time and `_weekday` is defined below it. The wrapper
     # defers the lookup to call time, which is the only reason the module
     # imports at all. Checked by replacing it and watching the suite fail.
-    (r"(last|next|this|on) (" + "|".join(_WEEKDAYS) + r")\b",
-     lambda m, t: _weekday(m, t)),
+    (r"(last|next|this|on) (" + "|".join(_WEEKDAYS) + r")\b", _weekday_late),
 ]
 
 _COMPILED = [(re.compile(pattern, re.IGNORECASE), resolve) for pattern, resolve in _RULES]

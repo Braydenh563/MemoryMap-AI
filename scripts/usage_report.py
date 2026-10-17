@@ -13,6 +13,7 @@ weights are ratios, not a measurement of plan usage.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -23,7 +24,7 @@ COLD_GAP_S = 3600  # past this the cache has expired and the next turn rewrites 
 
 def project_dir() -> Path:
     root = Path(__file__).resolve().parent.parent
-    return Path.home() / ".claude" / "projects" / str(root).replace("/", "-")
+    return Path.home() / ".claude" / "projects" / re.sub(r"[^A-Za-z0-9]", "-", str(root))
 
 
 def turns(path: Path) -> list[dict]:

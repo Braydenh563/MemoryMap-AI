@@ -105,3 +105,17 @@ def test_the_two_surfaces_that_use_it_both_do(monkeypatch):
     monkeypatch.setattr(offline.shutil, "which", lambda _name: None)
     for produce in (drafter.offline_message, extractor.offline_message):
         assert any(host == "ollama.com" for host in _hosts(produce()))
+
+
+def test_a_refused_connection_is_one_plain_line():
+    import requests
+    from tessellate.ai.unreachable import server_unreachable
+    try:
+        try:
+            raise ConnectionRefusedError("refused")
+        except ConnectionRefusedError as cause:
+            raise RuntimeError("Chat failed") from cause
+    except RuntimeError as exc:
+        assert server_unreachable(exc)
+    assert not server_unreachable(ValueError("a corrupt image"))
+    assert server_unreachable(requests.exceptions.ConnectionError("x"))

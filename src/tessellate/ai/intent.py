@@ -192,8 +192,24 @@ _ROWS = ("qwertyuiop", "asdfghjkl", "zxcvbnm")
 _ROW_RUNS = frozenset(
     run for row in _ROWS for i in range(len(row) - 2) for run in (row[i : i + 3], row[i : i + 3][::-1])
 )
-_LAUGH = re.compile(r"(?:ha|he|ho|hi|ah|eh|oh|lo|ke|ya|ye)+|l+o+l+|k+e+k+|x+d+")
 _REPEAT = re.compile(r"(.)\1{3,}|(.{1,3})\2{2,}")
+
+
+def _laughs(word: str) -> bool:
+    """"hahaha", "lolol", "kekeke", "xd": laughter, not keys pressed at random.
+    String operations only: a pattern with nested repeats is polynomial on a
+    long run of one letter (CodeQL)."""
+    left = word
+    for unit in ("ha", "he", "ho", "hi", "ah", "eh", "oh", "lo", "ke", "ya", "ye"):
+        left = left.replace(unit, "")
+    if not left:
+        return True
+    letters = set(word)
+    return (
+        (letters <= {"l", "o"} and word[0] == word[-1] == "l")
+        or (letters <= {"k", "e"} and word[0] == word[-1] == "k")
+        or (letters <= {"x", "d"} and word[0] == "x")
+    )
 
 
 def _mash_word(word: str) -> bool:
@@ -203,10 +219,10 @@ def _mash_word(word: str) -> bool:
     is never one (`spelling.is_word`)."""
     from tessellate.ai import spelling
 
-    if len(word) < 4 or not word.isalpha() or spelling.is_word(word) or _LAUGH.fullmatch(word):
+    if len(word) < 4 or not word.isalpha() or spelling.is_word(word) or _laughs(word):
         return False
     vowels = sum(c in "aeiou" for c in word) / len(word)
-    if _REPEAT.search(word):
+    if _REPEAT.search(word[:40]):
         return True
     if any(word[i : i + 3] in _ROW_RUNS for i in range(len(word) - 2)) and vowels <= 0.34:
         return True

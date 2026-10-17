@@ -1680,6 +1680,19 @@ class _TurnPlan:
     ceiling: int
 
 
+def _narrow_keeps(name: str, question: str, keep_pref: bool) -> bool:
+    """Whether a small model's stable toolbox keeps `name`: no orchestration
+    tool unless the request itself says to call `make_plan` (Plan mode), and
+    `save_user_preference` only when the request is about the user."""
+    plan = name == "make_plan" and tools.asks_for_plan(question)
+    return (name not in tools.ORCHESTRATION_TOOLS or plan) and (keep_pref or name != "save_user_preference")
+
+
+def _plan_exempt(question: str) -> frozenset[str]:
+    """Orchestration tools a small window may not drop for this request."""
+    return frozenset({"make_plan"}) if tools.asks_for_plan(question) else frozenset()
+
+
 def _prepare_turn(
     session: Session,
     question: str,
@@ -1798,8 +1811,7 @@ def _prepare_turn(
         focus_names = [
             name
             for name in dict.fromkeys([*tools.CORE_TOOLS, *cued])
-            if (name not in tools.ORCHESTRATION_TOOLS or (name == "make_plan" and tools.asks_for_plan(question)))
-            and (keep_pref or name != "save_user_preference")
+            if _narrow_keeps(name, question, keep_pref)
         ]
     if focus_names is not None and allowed_tools is None and _picture_in_hand(question, notes):
         focus_names = [name for name in focus_names if name not in _CANVAS_TOOLS]
@@ -1873,7 +1885,7 @@ def _prepare_turn(
         if budget is not None and budget.window_tokens <= SMALL_WINDOW_TOKENS:
             every_tool = tools.compact_schemas(every_tool)
         keep = tools.keep_first_for(question)
-        exempt = frozenset({"make_plan"}) if tools.asks_for_plan(question) else frozenset()
+        exempt = _plan_exempt(question)
         every_tool, _ = tools.within_budget(every_tool, budget.tool_schema_chars, keep, exempt)
         offered, dropped = tools.within_budget(offered, budget.tool_schema_chars, keep, exempt)
         if dropped:

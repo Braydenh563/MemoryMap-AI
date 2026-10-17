@@ -1820,6 +1820,13 @@ def _run_bulk() -> None:
         _finish_bulk()
 
 
+def _uninstall_skip(extra, installed: bool) -> str:  # noqa: ANN001
+    """Why a bulk uninstall passes this package by, or "" when it goes ahead."""
+    if not installed:
+        return "Not installed, so there was nothing to remove."
+    return removal_locked(extra) or ""
+
+
 def _run_bulk_item(item: dict) -> None:
     """One package of a bulk action, with the guards its own button has."""
     extra = EXTRAS_BY_ID[item["id"]]
@@ -1827,14 +1834,9 @@ def _run_bulk_item(item: dict) -> None:
     installed = is_installed(extra)
     reinstall = action == "reinstall" and installed
     if action == "uninstall":
-        if not installed:
-            item["outcome"] = "skipped"
-            item["message"] = "Not installed, so there was nothing to remove."
-            return
-        locked = removal_locked(extra)
-        if locked:
-            item["outcome"] = "skipped"
-            item["message"] = locked
+        skipped = _uninstall_skip(extra, installed)
+        if skipped:
+            item["outcome"], item["message"] = "skipped", skipped
             return
         refused = _loaded_in_process_reason(extra)
     else:

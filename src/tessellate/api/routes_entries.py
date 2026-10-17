@@ -1561,29 +1561,33 @@ def reevaluate_entry(entry_id: int, session: Session = Depends(get_session)) -> 
         logger.warning("re-evaluation's link step failed", exc_info=True)
         suggested_links = []
 
-    #: The other places the note could go, with why (owner, 2026-10-17: Tag with
-    #: Atlas "didn't suggest alternate categories to make or move to"). Not from
-    #: a private note's text, like the tags above.
-    suggested_categories: list[dict] = []
-    if not getattr(entry, "is_private", False):
-        try:
-            from tessellate.ai import lexical_filing
-
-            for name, reason in lexical_filing.suggest_categories_explained(
-                session, manager.readable_content(entry) or "", exclude_entry_id=entry.id, limit=4,
-            ):
-                if name not in (manager.category_name_for(session, entry), manager.UNCATEGORISED):
-                    suggested_categories.append({"name": name, "why": reason})
-        except Exception:
-            logger.info("re-evaluation's category step failed", exc_info=True)
     return {
         "entry": _to_out(session, entry, filed_by=filed_by).model_dump(),
         "recategorised_to": recategorised_to,
-        "suggested_categories": suggested_categories[:3],
+        "suggested_categories": _other_categories(session, entry),
         "suggested_tags": suggested_tags,
         "suggested_tag_reasons": {} if getattr(entry, "is_private", False) else _tag_reasons(entry.content or "", suggested_tags),
         "suggested_links": suggested_links,
     }
+
+
+def _other_categories(session: Session, entry) -> list[dict]:  # noqa: ANN001
+    """The other places the note could go, with why (owner, 2026-10-17: Tag with
+    Atlas "didn't suggest alternate categories to make or move to"). Not from a
+    private note's text, like the tags."""
+    if getattr(entry, "is_private", False):
+        return []
+    try:
+        from tessellate.ai import lexical_filing
+
+        here = manager.category_name_for(session, entry)
+        found = lexical_filing.suggest_categories_explained(
+            session, manager.readable_content(entry) or "", exclude_entry_id=entry.id, limit=4,
+        )
+        return [{"name": name, "why": why} for name, why in found if name not in (here, manager.UNCATEGORISED)][:3]
+    except Exception:
+        logger.info("re-evaluation's category step failed", exc_info=True)
+        return []
 
 
 def _reevaluate_tags(session: Session, entry) -> list[str]:  # noqa: ANN001

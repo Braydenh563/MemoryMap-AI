@@ -471,10 +471,13 @@ _ANYTHING_ON = re.compile(
 )
 
 
-def _asks_newest(question: str) -> bool:
+def _still_recent(question: str) -> bool:
+    """Whether a retrieval that fell back to the newest notes still answers
+    `question`: it does when there is no subject, or when the whole question is
+    a recency ask ("What have I saved recently?": "saved" is a verb there)."""
     from tessellate.search.search_manager import is_recency_ask
 
-    return is_recency_ask(question)
+    return not subject_terms(question) or is_recency_ask(question)
 
 
 def _respell(text: str) -> str:
@@ -4183,8 +4186,7 @@ def _compose(
     #: be in no note found (engine probe P7).
     #: Unless retrieval read it as a recency ask outright ("What have I saved
     #: recently?": "saved" is a verb there, not a subject; owner, 2026-10-17).
-    if recent and subject_terms(question) and not _asks_newest(question):
-        recent = False
+    recent = recent and _still_recent(question)
     if not recent and not said:
         parts = split_parts(question)
         if len(parts) > 1:

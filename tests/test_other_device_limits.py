@@ -53,7 +53,7 @@ def phone(app, here):
     from tessellate.core import deps, lantrust
 
     #: These tests are about what a signed-in phone may change, not about the
-    #: new-device question (tests/test_lan_trust.py holds that).
+    #: new-device question (tests/test_lan.py holds that).
     lantrust.set_flag(deps.get_config().data_dir, "ask_new_devices", False)
     return _signed_in(TestClient(app, client=PHONE))
 

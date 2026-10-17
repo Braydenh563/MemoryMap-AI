@@ -87,7 +87,7 @@ use `el.style.x =` or a class).
 
 Built 2026-10-04 (WORLD_CLASS_PLAN B2, `core/jobstore.py`, `tests/test_jobstore.py`): the `jobs` table, leases with a heartbeat, resume after a real SIGKILL, `GET /jobs`, `GET /jobs/stream`, cancel, for the pool's kinds; the `THREAD_SITES` ratchet in `tests/test_activity.py` holds the thread count.
 State (briefs-1011): the rest is built except one kind; the Built note is in HISTORY.md ("Moved from the plans, 2026-10-11", Brief 9 rest).
-Left: the folder import (`routes_settings.import_directory`, a request task) onto the pool as kind `import`. Its runner is already idempotent (`_already_imported` skips a file by path and text hash), so it can be durable; five test files read its result straight after the POST (`test_import_idempotent`, `test_import_directory_roots`, `test_markdown_export_import`, `test_job_runs`, `test_lan_mode`) and need a wait for the job.
+Left: the folder import (`routes_settings.import_directory`, a request task) onto the pool as kind `import`. Its runner is already idempotent (`_already_imported` skips a file by path and text hash), so it can be durable; five test files read its result straight after the POST (`test_import_idempotent`, `test_import_directory_roots`, `test_markdown_export_import`, `test_job_runs`, `test_lan`) and need a wait for the job.
 
 ### Brief 10: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)")
 
@@ -345,7 +345,7 @@ The owner uses an iPhone. Recommendation taken (standing order 3): everything au
 - **New-device approval.** The first sign-in from a device over the network is held until this computer allows it (a notice with Allow and Deny); allowed devices are remembered and listed with Remove. Override: "Ask before a new device signs in" (on by default).
 - **Clients from private addresses only.** The LAN port refuses a client whose address is not private, shared or link-local (a forwarded port, a public-address network). Override: none.
 - **The iPhone flow.** The lock screen, reached over the network, offers "Install the certificate" (the profile download) and the steps; Settings shows a QR code of the address if one fits the scripts budget, else the address large and copyable.
-- Tests first; the real-socket harness is `tests/test_lan_serve.py`. Not verifiable here: a real iPhone, Windows' category.
+- Tests first; the real-socket harness is `tests/test_lan.py`. Not verifiable here: a real iPhone, Windows' category.
 
 ### Brief 103: built; moved to HISTORY.md ("Moved from the plans, 2026-10-11 (SESSION_BRIEFS triage, briefs-1011)")
 

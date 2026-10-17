@@ -30,5 +30,5 @@ security for the lan and open connection". Branch `agent/phone-1011`.
 
 ## Found, not fixed
 - #chat-title is a 94x24 role=button h2; an overhang would steal the subline's taps; Rename is in the chat menu.
-- test_every_route_is_locked (pem 404) and test_lan_mode end-to-end SSL EOF fail on base 1da846803 already.
+- test_every_route_is_locked (pem 404) and test_lan end-to-end SSL EOF fail on base 1da846803 already.
 - 388 handshake-failure count needs core/lanserve.py (lanbar).

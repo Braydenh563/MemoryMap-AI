@@ -1630,7 +1630,7 @@ MORE_TOPICS.extend(
                 "dates in my notes", "time words", "this friday", "next friday",
                 "saved recently", "recently saved", "lately", "last note", "latest note",
                 "newest note", "newest notes", "what did i write", "what did i save",
-                "recent notes",
+                "recent notes", "out of date", "newer note", "older note",
             ),
             "body": (
                 "Ask and Chat read a note's time words as the note meant them: "
@@ -1640,7 +1640,12 @@ MORE_TOPICS.extend(
                 "notebook rather than by searching for the words: \"What have I "
                 "saved recently?\", \"what did I write lately\" or \"my last "
                 "note\" lists your newest notes newest first, each cited with when "
-                "it was written, and works with no AI model running."
+                "it was written, and works with no AI model running. When a newer "
+                "note says something else about the same thing (\"my address is "
+                "now ...\"), the answer comes from the newer one and one line says "
+                "what the older said; and a note that says how long it holds "
+                "(\"until June\") gets a line once that time has passed, saying "
+                "it may be out of date."
             ),
             "badge": {"label": "Chat", "tab": "chat"},
         },

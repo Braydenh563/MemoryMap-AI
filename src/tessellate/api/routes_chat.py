@@ -2451,6 +2451,20 @@ def _with_older(text: str, older: list, result: dict) -> str:
     return "\n\n".join([*kept, line])
 
 
+def _with_lapsed(text: str, current: list, result: dict, req: _StreamRequest) -> str:
+    """The answer, and one line when the note it came from says how long it
+    holds and that has passed (O11, `supersede.lapsed`)."""
+    from tessellate.ai import supersede
+
+    if not current or not result.get("grounding"):
+        return text
+    today = user_now(deps.get_config()).date()
+    found = supersede.lapsed(req.question or "", current, today)
+    if found is None:
+        return text
+    return text + "\n\n" + supersede.lapsed_line(found, voice=_composer_voice(), today=today, seed=len(text))
+
+
 def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> Iterator[dict]:
     """The pre-Wave-G behaviour: stream a grounded answer, no tools."""
     exact = _exact_events(req, prepared, ollama_running)
@@ -2627,6 +2641,7 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         if not result["grounding"] and prepared.get("meaning_loading"):
             text += "\n\n" + composer_digest.PHRASES["meaning_loading"]
         text = _with_older(text, older, result)
+        text = _with_lapsed(text, current, result, req)
         yield {"type": "answer", "delta": text}
         if result["grounding"]:
             yield {

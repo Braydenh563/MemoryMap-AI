@@ -1886,17 +1886,15 @@ def _prepare_turn(
             every_tool = tools.compact_schemas(every_tool)
         keep = tools.keep_first_for(question)
         exempt = _plan_exempt(question)
-        every_tool, _ = tools.within_budget(every_tool, budget.tool_schema_chars, keep, exempt)
-        offered, dropped = tools.within_budget(offered, budget.tool_schema_chars, keep, exempt)
+        chances = dict(tools.rank_tools(question, _recent_text(history)))
+        every_tool, _ = tools.within_budget(every_tool, budget.tool_schema_chars, keep, exempt, chances)
+        offered, dropped = tools.within_budget(offered, budget.tool_schema_chars, keep, exempt, chances)
         if dropped:
             # Visible in Settings → Logs, because "the AI didn't use the tool I
             # expected" is otherwise indistinguishable from the model choosing
-            # not to.
+            # not to. Each name carries the chance the question gave it.
             logging.getLogger("tessellate.agent").info(
-                "tool budget: %d-token window fits %d tools; held back %s",
-                budget.window_tokens,
-                len(offered),
-                ", ".join(dropped[:8]) + ("…" if len(dropped) > 8 else ""),
+                "%s (%d-token window)", tools.ranking_line([t["function"]["name"] for t in offered], dropped, chances), budget.window_tokens
             )
     # Roadmap §11a's prescribed first step: measure before cutting. One line
     # per turn saying what the prompt is made of, so "which half dominates a

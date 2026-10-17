@@ -23,7 +23,7 @@ from datetime import timedelta
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from tessellate.ai import librarian, skills, toolwords
+from tessellate.ai import librarian, skills, toolrank, toolwords
 from tessellate.ai.ollama_client import OllamaError
 from tessellate.ai.provider import set_write_tools
 from tessellate.core import activity, deps, events
@@ -4636,11 +4636,37 @@ def keep_first_for(question: str) -> list[str] | None:
     return None
 
 
+def rank_tools(question: str, recent: str = "", recent_tools: tuple[str, ...] = ()) -> list[tuple[str, float]]:
+    """Every registered tool with the probability the question wants it,
+    likeliest first (`ai/toolrank.py`). Not filtered by Settings: whether a
+    tool is on is a separate fact, and a ranking that hid the off ones could
+    not say what a turn held back."""
+    focus = focus_detail(question, recent)
+    specs = [{"function": {"name": s.name, "description": s.description, "parameters": s.parameters}} for s in TOOLS.values()]
+    return toolrank.rank(
+        question,
+        specs,
+        core=CORE_TOOLS,
+        groups=TOOL_GROUPS,
+        ranked_groups=focus.ranked,
+        kept_first=keep_first_for(question),
+        writes=WRITE_TOOLS,
+        asking_about=focus.asking_about,
+        recent_tools=recent_tools,
+    )
+
+
+def ranking_line(offered: list[str], held_back: list[str], chances: dict[str, float]) -> str:
+    """The log line for a turn's ranking, see `toolrank.line`."""
+    return toolrank.line(offered, held_back, chances)
+
+
 def within_budget(
     offered: list[dict],
     budget_chars: int,
     keep_first: list[str] | None = None,
     exempt: frozenset[str] = frozenset(),
+    ranking: dict[str, float] | None = None,
 ) -> tuple[list[dict], list[str]]:
     """(the tools that fit, the names dropped), most important kept.
 
@@ -4663,7 +4689,10 @@ def within_budget(
         offered = compact_schemas(offered)
     priority = list(keep_first or CORE_TOOLS)
     rank = {name: index for index, name in enumerate(priority)}
-    ordered = sorted(offered, key=lambda t: rank.get(t["function"]["name"], len(rank)))
+    chances = ranking or {}
+    # The priority list first, then the likeliest (`rank_tools`); equal chances
+    # keep the order the focus gave them.
+    ordered = sorted(offered, key=lambda t: (rank.get(t["function"]["name"], len(rank)), -chances.get(t["function"]["name"], 0.0)))
 
     kept: list[dict] = []
     dropped: list[str] = []

@@ -4046,6 +4046,12 @@ function gcShowNodeMenu(node, clientX, clientY, s = gcTab) {
       title: "Open this note in the notes list",
       run: () => flashEntry(node.id),
     });
+  } else if (node.type === "attachment" || node.type === "document") {
+    items.push({
+      label: "ph:arrow-square-out Open",
+      title: node.type === "document" ? "Open this document" : "Open this file",
+      run: () => gcOpenNodeTarget(node),
+    });
   }
   items.push({
     label: node.fx != null ? "ph:push-pin-slash Unpin" : "ph:push-pin Pin in place",
@@ -4159,6 +4165,10 @@ function gcClickNode(event, node, s = gcTab) {
     openEntityPage(String(node.id).slice("entity:".length));
     return;
   }
+  //: **A file or a document on the map opens what it stands for** (B73: "Cant
+  //: select on separate attachment nodes in the graph??"). Both fell to the
+  //: line below and a click did nothing at all.
+  if (gcOpenNodeTarget(node)) return;
   if (!gcIsNote(node)) return;
   if (traceModeActive) {
     pickTraceEnd(node);
@@ -4169,6 +4179,22 @@ function gcClickNode(event, node, s = gcTab) {
     return;
   }
   openGraphPopup(event || { clientX: 0, clientY: 0, stopPropagation() {} }, node);
+}
+
+//: What a file node or a document node opens: the file in the lightbox every
+//: attachment opens in, the document in the editor. False for any other node,
+//: so a caller falls through to its own meaning of a click.
+function gcOpenNodeTarget(node) {
+  const id = String(node.id).replace(/^[a-z]+:/, "");
+  if (node.type === "attachment" && /^\d+$/.test(id) && typeof openLightbox === "function") {
+    openLightbox([{ filename: node.preview, getUrl: () => mediaSrc(`/files/${id}`) }], 0);
+    return true;
+  }
+  if (node.type === "document" && /^\d+$/.test(id) && typeof openDocument === "function") {
+    openDocument(Number(id));
+    return true;
+  }
+  return false;
 }
 
 //: GRAPH_PLAN 514 (3): a click on an unwritten [[name]] writes the note, with

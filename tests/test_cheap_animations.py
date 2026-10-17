@@ -50,6 +50,8 @@ from pathlib import Path
 
 import pytest
 
+from tests._repo_files import repo_files
+
 ROOT = Path(__file__).resolve().parents[1]
 CSS_DIR = ROOT / "frontend"
 
@@ -92,7 +94,7 @@ DURATION = re.compile(r"^[\d.]+m?s$")
 
 
 def _css_files() -> list[Path]:
-    return sorted(p for p in CSS_DIR.rglob("*.css") if ".min." not in p.name)
+    return [p for p in repo_files(CSS_DIR, suffixes=(".css",)) if ".min." not in p.name]
 
 
 def _strip_comments(value: str) -> str:

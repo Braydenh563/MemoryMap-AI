@@ -23,6 +23,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from tests._repo_files import repo_files
+
 FRONTEND = Path(__file__).resolve().parents[1] / "frontend"
 PHOSPHOR_CSS = FRONTEND / "vendor" / "phosphor" / "style.css"
 
@@ -46,9 +48,7 @@ def _strip_line_comments(source: str) -> str:
 
 def _requested() -> dict[str, set[str]]:
     used: dict[str, set[str]] = {}
-    for path in sorted([*FRONTEND.rglob("*.js"), *FRONTEND.rglob("*.html")]):
-        if "vendor" in path.parts:
-            continue
+    for path in repo_files(FRONTEND, suffixes=(".js", ".html"), exclude_dirs=("vendor",)):
         source = path.read_text(encoding="utf-8")
         text = _strip_line_comments(source) if path.suffix == ".js" else source
         #: The two ways this app names an icon: the `ph:name Label` marker

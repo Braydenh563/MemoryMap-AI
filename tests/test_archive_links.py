@@ -13,6 +13,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from tests._repo_files import repo_files
+
 ROADMAP = Path(__file__).resolve().parents[1] / "docs" / "roadmap"
 DIRS = (ROADMAP / "agent-remaining", ROADMAP / "archive")
 
@@ -37,7 +39,7 @@ def test_every_relative_link_in_the_agent_files_resolves():
     broken = {
         str(path.relative_to(ROADMAP)): bad
         for directory in DIRS
-        for path in sorted(directory.rglob("*.md"))
+        for path in repo_files(directory, suffixes=(".md",))
         if (bad := _broken(path))
     }
     assert not broken, f"links that point at nothing: {broken}"

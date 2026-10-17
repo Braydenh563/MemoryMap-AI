@@ -13,6 +13,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from tests._repo_files import repo_files
+
 ROOT = Path(__file__).resolve().parent.parent
 CSS = sorted((ROOT / "frontend" / "css").glob("*.css"))
 
@@ -38,8 +40,8 @@ def _selector_classes() -> set[str]:
 
 def _corpus() -> str:
     parts = [(ROOT / "frontend" / "index.html").read_text(encoding="utf-8")]
-    for folder, pattern in (("frontend/js", "*.js"), ("frontend", "*.html"), ("frontend", "*.svg"), ("src", "*.py")):
-        for path in sorted((ROOT / folder).rglob(pattern)):
+    for folder, suffix in (("frontend/js", ".js"), ("frontend", ".html"), ("frontend", ".svg"), ("src", ".py")):
+        for path in repo_files(ROOT / folder, suffixes=(suffix,)):
             parts.append(path.read_text(encoding="utf-8", errors="ignore"))
     return "\n".join(parts)
 

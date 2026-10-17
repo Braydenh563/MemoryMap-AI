@@ -471,6 +471,12 @@ _ANYTHING_ON = re.compile(
 )
 
 
+def _asks_newest(question: str) -> bool:
+    from tessellate.search.search_manager import is_recency_ask
+
+    return is_recency_ask(question)
+
+
 def _respell(text: str) -> str:
     """Slang and text-speak spelled out, misspelt asking words put right,
     run-together words split (`question_noise`, INBOX 741: "does it cover
@@ -3295,17 +3301,17 @@ SOCIAL_PROFESSIONAL = composer_tables.SOCIAL_PROFESSIONAL
 #: doesn't know it is atlas"): who it is and what it does are said in its
 #: name, in both voices, with no model and with one.
 SOCIAL["who"] = (
-    "I am Atlas, this notebook's assistant. With no model running I answer from your notes in their own words.",
-    "I'm Atlas. I find things in your notes and say what they say.",
-    "Atlas, at your service: I answer from your notes, and with a model connected I write and use tools too.",
-    "I am Atlas. Ask me when something is, what you decided or what you did last week.",
+    "This is Atlas's assistant speaking. With no model running I answer from your notes in their own words.",
+    "The assistant that works for Atlas, that's me. I find things in your notes and say what they say.",
+    "Atlas's assistant, at your service: I answer from your notes, and to talk to Atlas itself you can connect a model.",
+    "Think of me as Atlas's assistant: ask me when something is, what you decided or what you did last week.",
 )
 SOCIAL["about_app"] = (
-    "I'm Atlas. I answer from your notes: when something is, who said what, what the latest is on a project. "
+    "I'm Atlas's assistant. I answer from your notes: when something is, who said what, what the latest is on a project. "
     "I also set reminders, tag, pin and move notes, and work out sums and conversions. Connecting a model adds writing in its own words.",
-    "Atlas here. Ask about anything you wrote down: a date, a decision, a list, how a project is going or what you did "
+    "Atlas's assistant here. Ask about anything you wrote down: a date, a decision, a list, how a project is going or what you did "
     "last week. Say \"remind me to...\" and I set it. Connecting a model adds writing and tools.",
-    "I'm Atlas, and I read your notes for you: ask when something happened or who said what, or tell me to pin, tag or delete a note.",
+    "I'm Atlas's assistant, and I read your notes for you: ask when something happened or who said what, or tell me to pin, tag or delete a note.",
 )
 
 #: Eight phrasings or more in every family, of more than one shape
@@ -3344,6 +3350,12 @@ def social_kind(message: str, intent: str = "smalltalk") -> str:
     """The kind of conversational turn `message` is: one of `SOCIAL`."""
     if intent == "about_app":
         return "about_app"
+    from tessellate.ai import intent as intent_module
+
+    if intent_module.is_mash(message):
+        return "unclear"
+    if intent_module.is_test(message):
+        return "test"
     return question_noise.social_kind(message) or next(
         (name for name, pattern in _SOCIAL_KIND if pattern.search(message or "")), "ack"
     )
@@ -4169,7 +4181,9 @@ def _compose(
     #: retrieval fell back to them for a question with a subject ("summarise
     #: my gym notes" with no gym note), the subject is answered, or said to
     #: be in no note found (engine probe P7).
-    if recent and subject_terms(question):
+    #: Unless retrieval read it as a recency ask outright ("What have I saved
+    #: recently?": "saved" is a verb there, not a subject; owner, 2026-10-17).
+    if recent and subject_terms(question) and not _asks_newest(question):
         recent = False
     if not recent and not said:
         parts = split_parts(question)

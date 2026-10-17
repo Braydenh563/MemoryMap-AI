@@ -274,6 +274,11 @@ def answer(message: str, session: Session) -> StatAnswer | None:
         return _stale_notes(session)
     if _asks(text, _TAG_WORDS, r"together|alongside|\bpairs?\b|combination|co-?occur"):
         return _tag_pairs(session)
+    #: "What do my notes cover so far", "what's in my notebook", "what have I
+    #: been writing about", "an overview of my notes": a question about the
+    #: whole notebook, never a search for the word "cover" (owner, 2026-10-17).
+    if _COVERAGE.match(text.rstrip("?!. ")):
+        return _coverage(session)
     #: "Stats" and "statistics" only: "summary" and "overview" ask for the
     #: notes' content ("a summary of the trip"), which the composer answers.
     if _asks(text, r"\bstat(?:istic)?s\b"):
@@ -646,6 +651,57 @@ def _tag_pairs(session: Session) -> StatAnswer:
         f"#{top_a} and #{top_b} appear together most often, on {_plural(top_n, 'note')}. "
         f"The top {len(common)} pairings are listed below.",
         [{"label": f"#{a} + #{b}", "count": n} for (a, b), n in common],
+    )
+
+
+_SOFAR = r"(?: (?:so far|overall|in total|all together|at the moment|right now|lately|these days))?"
+#: Anchored whole-message patterns: "what do my notes say about golf" has a
+#: subject and is a search.
+_COVERAGE = re.compile(
+    rf"^(?:what|which)(?: things| topics| subjects| areas)? (?:do|does|are) (?:my |the )?(?:notes?|notebook|entries) (?:cover|contain|hold|include|have in them){_SOFAR}$"
+    rf"|^what(?:'s| is| are) (?:in|inside) (?:my |the )?(?:notes?|notebook){_SOFAR}$"
+    rf"|^what (?:have i|did i|do i) (?:been )?(?:writing|written|write|wrote|noting|noted|saving|saved|note|save)(?: (?:about|on))?{_SOFAR}$"
+    rf"|^what (?:topics|subjects|themes|things|areas) (?:do i|have i|did i) (?:write|writing|written|wrote|note|noted|cover|covered|keep notes)(?: (?:about|on))?{_SOFAR}$"
+    rf"|^(?:give me |show me |can i get |i want )?(?:an? )?(?:overview|summary|rundown|run down|breakdown|tour) of (?:my |the )?(?:notes|notebook|everything){_SOFAR}$"
+)
+
+
+def _coverage(session: Session) -> StatAnswer:
+    """What the notebook holds, in a few sentences: how many notes over what
+    span, the areas they are filed in and the tags that come up most."""
+    note_total = session.scalar(_visible(select(func.count(Entry.id)))) or 0
+    if not note_total:
+        return StatAnswer("coverage", "There are no notes to read yet.")
+    made = sorted(value for value in session.scalars(_visible(select(Entry.created_at))).all() if value)
+    areas = session.execute(
+        _visible(select(Category.name, func.count(Entry.id)).join(Category, Category.id == Entry.category_id).group_by(Category.name))
+        .order_by(func.count(Entry.id).desc())
+    ).all()
+    areas = [(name, n) for name, n in areas if name and name != "Uncategorised"][:6]
+    tags = Counter(tag for raw in session.scalars(_visible(select(Entry.tags))).all() for tag in set(_tags_of(raw)))
+    top_tags = [(tag, n) for tag, n in tags.most_common(6)]
+    sentences = [f"You have {_plural(note_total, 'note')}{_span_words(made)}."]
+    words: list[tuple[str, int]] = []
+    if not areas and not top_tags:
+        #: Nothing filed or tagged yet: say what the notes are made of.
+        counted: Counter[str] = Counter()
+        for content in session.scalars(_visible(select(Entry.content))).all():
+            counted.update({w for w in re.findall(r"[a-z][a-z'-]{2,}", str(content or "").lower()) if w not in _PLAIN})
+        words = [(w, n) for w, n in counted.most_common(6) if n >= 2]
+        if words:
+            sentences.append("The words that come up most are " + ", ".join(f"“{w}” ({n})" for w, n in words) + ".")
+    if areas:
+        sentences.append("They are filed under " + ", ".join(f"{name} ({n})" for name, n in areas) + ".")
+    if top_tags:
+        sentences.append("The tags that come up most are " + ", ".join(f"{tag} ({n})" for tag, n in top_tags) + ".")
+    offer = {"kind": "open", "label": "Open Statistics for the full picture?", "surface": "statistics"}
+    return StatAnswer(
+        "coverage",
+        "\n\n".join([" ".join(sentences), offer["label"]]),
+        [{"label": name, "count": n} for name, n in areas]
+        + [{"label": f"#{tag}", "count": n} for tag, n in top_tags]
+        + [{"label": w, "count": n} for w, n in words],
+        offer,
     )
 
 

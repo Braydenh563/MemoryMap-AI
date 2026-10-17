@@ -1139,10 +1139,10 @@ SOCIAL_PROFESSIONAL: dict[str, tuple[str, ...]] = {
         "Noted. Please ask whenever you are ready.",
         "Very good. What would you like to review next?",
     ),
-    #: The engine is Atlas (CHAT_PLAN decision 36), in both voices.
+    #: The engine is Atlas's assistant (CHAT_PLAN decision 36, amended 2026-10-17), in both voices.
     "who": (
-        "I am Atlas, the notebook's assistant. Without a model running, I answer from your notes in their own words.",
-        "This is Atlas. I locate entries in your notes and report what they say.",
+        "I am Atlas's assistant. Without a model running, I answer from your notes in their own words.",
+        "This is Atlas's assistant. It locates entries in your notes and reports what they say.",
     ),
     "joke": (
         "I do not compose jokes; I report what your notes contain. If you recorded one, ask for it.",
@@ -1153,9 +1153,9 @@ SOCIAL_PROFESSIONAL: dict[str, tuple[str, ...]] = {
         "The message was not recognised as words. What should be located?",
     ),
     "about_app": (
-        "I am Atlas. I answer from your notes: dates, decisions and the status of a project. I also set reminders and "
+        "I am Atlas's assistant. I answer from your notes: dates, decisions and the status of a project. I also set reminders and "
         "tag, move or pin notes on request. Connecting a model adds writing and summaries.",
-        "Atlas answers from what you have recorded: a date, a decision, a list or the status of a project, and acts on "
+        "The assistant answers from what you have recorded: a date, a decision, a list or the status of a project, and acts on "
         "request (reminders, tags, pins). Connecting a model adds writing and tools.",
     ),
 }
@@ -1600,7 +1600,7 @@ INSIGHT_SLOTS: dict[str, str] = {
     "after": "clause", "hedge": "hedge",
 }
 
-#: Who it is and what it does are said as Atlas (CHAT_PLAN decision 36,
+#: Who it is and what it does are said as Atlas's assistant (CHAT_PLAN decision 36,
 #: `composer.SOCIAL`): the unnamed lines added for these two kinds are retired.
 for _retired in ("who", "about_app"):
     SOCIAL_NATURAL_EXTRA.pop(_retired, None)

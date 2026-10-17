@@ -2266,7 +2266,11 @@ def _capability_answer(req: _StreamRequest, ollama_running: bool) -> str:
         web = bool(deps.get_config().get_preference("web_search_enabled", False))
     except Exception:  # noqa: BLE001  # an unreadable preference is off
         web = False
-    return capability.answer(req.question, prefs={"web_search_enabled": web}, model_running=ollama_running)
+    recent, seed = _reply_seed(req)
+    return capability.answer(
+        req.question, prefs={"web_search_enabled": web}, model_running=ollama_running,
+        voice=_composer_voice(), recent=recent, seed=seed,
+    )
 
 
 def _in_notes(session: Session):  # noqa: ANN202
@@ -3328,7 +3332,8 @@ def _address(question: str, session: Session, skill: dict | None) -> tuple:
     what's on today" searches for today, not for brotato, and "yo
     brotatockiibidyrizzler" is a call, never a search. A skill's question
     is its own."""
-    address = None if skill else vocative.split(question, in_notes=_in_notes(session))
+    #: Keys pressed at random are not a nickname for the assistant.
+    address = None if skill or intent.is_mash(question) or intent.is_test(question) else vocative.split(question, in_notes=_in_notes(session))
     if address is None or not address.names:
         return question, None
     return address.question, address

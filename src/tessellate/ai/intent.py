@@ -169,7 +169,7 @@ def classify(message: str) -> str:
         return ACT
 
     #: A key-mash ("asdfgh"): asked what was meant, never searched for.
-    if _ONE_WORD.fullmatch(text) and _MASH.search(text):
+    if is_mash(message) or is_test(message):
         return SMALLTALK
 
     # "hey, what did I write about pasta" is a question wearing a greeting.
@@ -187,10 +187,55 @@ def classify(message: str) -> str:
     return NOTES
 
 
+#: Keys that sit next to each other on one row, three in a row either way.
+_ROWS = ("qwertyuiop", "asdfghjkl", "zxcvbnm")
+_ROW_RUNS = frozenset(
+    run for row in _ROWS for i in range(len(row) - 2) for run in (row[i : i + 3], row[i : i + 3][::-1])
+)
+_LAUGH = re.compile(r"(?:ha|he|ho|hi|ah|eh|oh|lo|ke|ya|ye)+|l+o+l+|k+e+k+|x+d+")
+_REPEAT = re.compile(r"(.)\1{3,}|(.{1,3})\2{2,}")
+
+
+def _mash_word(word: str) -> bool:
+    """One token that is keys pressed at random, not a word and not a name:
+    a run of neighbouring keys in a word with few vowels, a letter or a short
+    unit repeated, or no vowel at all. A word the dictionary holds ("rhythms")
+    is never one (`spelling.is_word`)."""
+    from tessellate.ai import spelling
+
+    if len(word) < 4 or not word.isalpha() or spelling.is_word(word) or _LAUGH.fullmatch(word):
+        return False
+    vowels = sum(c in "aeiou" for c in word) / len(word)
+    if _REPEAT.search(word):
+        return True
+    if any(word[i : i + 3] in _ROW_RUNS for i in range(len(word) - 2)) and vowels <= 0.34:
+        return True
+    return vowels == 0 and "y" not in word
+
+
 def is_mash(message: str) -> bool:
-    """A key-mash ("asdfgh"): small talk to `classify`, nothing at all to a reading."""
+    """Keys pressed at random ("asdfgh", "asdkjhfgs", "jkjkjkjk", "kjhgf lkjh"):
+    small talk to `classify`, nothing at all to a reading, and never a name the
+    person is calling the assistant (`vocative`)."""
     text = _normalise(message)
-    return bool(_ONE_WORD.fullmatch(text) and _MASH.search(text))
+    if _ONE_WORD.fullmatch(text) and _MASH.search(text):
+        return True
+    words = text.split()
+    return 0 < len(words) <= 4 and all(_mash_word(w) for w in words)
+
+
+#: "test", "testing 123", "is this thing on", "hello world": a message sent to
+#: see whether the app answers. Not "test" inside a question about notes.
+_TEST = re.compile(
+    r"(?:test(?:ing|s|ed)?(?: (?:test(?:ing)?|message|note|only|please|one|two|three|\d+))*"
+    r"|(?:is )?(?:this|it) (?:thing |mic |app )?(?:on|working|live)"
+    r"|hello world|can you hear me|anyone (?:there|home)|1 2 3|one two three|check(?:ing)?(?: (?:1 2|one two))?)",
+)
+
+
+def is_test(message: str) -> bool:
+    text = _normalise(message)
+    return bool(text) and len(text) <= 40 and bool(_TEST.fullmatch(text))
 
 
 def needs_retrieval(intent: str) -> bool:

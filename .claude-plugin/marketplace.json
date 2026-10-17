@@ -1,5 +1,12 @@
 {
   "name": "tessellate",
-  "owner": { "name": "Braydenh563" },
-  "plugins": [{ "name": "usage-guard", "source": "./tools/usage-guard" }]
+  "owner": {
+    "name": "Braydenh563"
+  },
+  "plugins": [
+    {
+      "name": "lean-workflow",
+      "source": "./tools/lean-workflow"
+    }
+  ]
 }

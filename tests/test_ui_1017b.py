@@ -21,9 +21,27 @@ def test_b01_first_steps_stay_reachable_in_a_menu_and_the_bell():
     assert "function getStartedSteps(" in first
     assert "function getStartedItems(" in first
     assert "function firstStepsBellRow(" in first
-    dash = frontend_text("dashboard.js")
-    assert "async function renderGetStarted(" in dash
+    assert "async function renderGetStarted(" in first
+    steps = first[first.index("async function renderFirstSteps(") :]
+    assert steps.index("renderGetStarted();") < steps.index("firstStepsState()"), "drawn whether or not the card is"
+    assert "renderFirstSteps(host, skip)" in frontend_text("dashboard.js")
     assert 'id="dash-start"' in INDEX
     assert INDEX.index('id="dash-start"') < INDEX.index('id="dash-customise"')
     notif = frontend_text("notifications.js")
     assert "firstStepsBellRow" in notif
+
+
+def test_b05_connect_a_model_is_a_split_button_with_a_hide_row():
+    """The caret half holds Hide these popups, the Settings preference, so the
+    switch need not be found in Settings, Models."""
+    status = frontend_text("status.js")
+    body = status[status.index("function renderAiOfflineNotice(") :].split("\n}\n")[0]
+    assert "aiOfflineSplit(link)" in body
+    js = (ROOT / "frontend" / "js" / "offline-split.js").read_text(encoding="utf-8")
+    split = js[js.index("function aiOfflineSplit(") :]
+    assert "split-button-main" in split and "split-button-caret" in split
+    assert "kebabMenu(" in split and "Hide these popups" in split
+    hide = js[js.index("function hideAiOfflineNotices(") :].split("\n}\n")[0]
+    assert '"hideOfflineNotice"' in hide and "Show them again" in hide
+    css = (ROOT / "frontend" / "css" / "offline-split-lazy.css").read_text(encoding="utf-8")
+    assert ".ai-offline-split" in css

@@ -476,7 +476,10 @@ HELP_TOPICS: list[dict] = [
             "penalty) are exposed there too, starting at what the model itself "
             "recommends. The No model connected banner above Ask, Chat and "
             "the writing desk can be hidden for good with Hide the \"No model "
-            "connected\" notices under Model backend (saved on this device); "
+            "connected\" notices under Model backend (saved on this device), "
+            "or from the banner itself: the caret beside Connect a model has "
+            "Hide these popups, and the toast that follows offers Show them "
+            "again; "
             "Atlas still answers from your notes without a model."
         ),
         "badge": {"label": "Models", "section": "models"},

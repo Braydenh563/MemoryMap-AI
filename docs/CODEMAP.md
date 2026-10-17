@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5879, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5478, test files 1176, tests 10875, plan headings 956.
+Counts: frontend functions 5879, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5478, test files 1176, tests 10876, plan headings 956.
 
 ## Frontend functions (5879)
 
@@ -1151,46 +1151,46 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | Name | File:line |
 |---|---|
 | `_namesSignature` | frontend/js/ai-tools.js:149 |
-| `applyEmbeddingBackend` | frontend/js/ai-tools.js:1010 |
-| `applyFeatureModel` | frontend/js/ai-tools.js:517 |
-| `applyPalette` | frontend/js/ai-tools.js:1413 |
-| `applyRestoredLook` | frontend/js/ai-tools.js:1348 |
-| `clearEmbeddingBackendLatch` | frontend/js/ai-tools.js:1057 |
-| `featureModelChoiceLabel` | frontend/js/ai-tools.js:511 |
-| `featureModelMenuItem` | frontend/js/ai-tools.js:632 |
-| `featureModelRow` | frontend/js/ai-tools.js:493 |
-| `featureModelState` | frontend/js/ai-tools.js:501 |
+| `applyEmbeddingBackend` | frontend/js/ai-tools.js:1023 |
+| `applyFeatureModel` | frontend/js/ai-tools.js:530 |
+| `applyPalette` | frontend/js/ai-tools.js:1426 |
+| `applyRestoredLook` | frontend/js/ai-tools.js:1361 |
+| `clearEmbeddingBackendLatch` | frontend/js/ai-tools.js:1070 |
+| `featureModelChoiceLabel` | frontend/js/ai-tools.js:524 |
+| `featureModelMenuItem` | frontend/js/ai-tools.js:645 |
+| `featureModelRow` | frontend/js/ai-tools.js:506 |
+| `featureModelState` | frontend/js/ai-tools.js:514 |
 | `fillModelSelect` | frontend/js/ai-tools.js:153 |
-| `lookFromOtherWindow` | frontend/js/ai-tools.js:1383 |
-| `looksLikeEmbeddingModel` | frontend/js/ai-tools.js:1006 |
-| `mirroredUiKeys` | frontend/js/ai-tools.js:1161 |
-| `openChatModelPanel` | frontend/js/ai-tools.js:324 |
+| `lookFromOtherWindow` | frontend/js/ai-tools.js:1396 |
+| `looksLikeEmbeddingModel` | frontend/js/ai-tools.js:1019 |
+| `mirroredUiKeys` | frontend/js/ai-tools.js:1174 |
+| `openChatModelPanel` | frontend/js/ai-tools.js:337 |
 | `paintTaskRunLines` | frontend/js/ai-tools.js:54 |
-| `placeChatModelPanel` | frontend/js/ai-tools.js:292 |
-| `pullLookFromNotebook` | frontend/js/ai-tools.js:1369 |
-| `renderAutonomousModelPicker` | frontend/js/ai-tools.js:765 |
-| `renderChatActiveModelBadge` | frontend/js/ai-tools.js:217 |
+| `placeChatModelPanel` | frontend/js/ai-tools.js:305 |
+| `pullLookFromNotebook` | frontend/js/ai-tools.js:1382 |
+| `renderAutonomousModelPicker` | frontend/js/ai-tools.js:778 |
+| `renderChatActiveModelBadge` | frontend/js/ai-tools.js:230 |
 | `renderChatModelPicker` | frontend/js/ai-tools.js:186 |
-| `renderEmbeddingPicker` | frontend/js/ai-tools.js:780 |
-| `renderFeatureModels` | frontend/js/ai-tools.js:537 |
-| `renderOcrModelPicker` | frontend/js/ai-tools.js:746 |
-| `renderReindex` | frontend/js/ai-tools.js:942 |
-| `renderUtilityModelPicker` | frontend/js/ai-tools.js:418 |
-| `renderVisionModelPicker` | frontend/js/ai-tools.js:441 |
-| `saveUiState` | frontend/js/ai-tools.js:1219 |
-| `seedUiStateFromServer` | frontend/js/ai-tools.js:1296 |
-| `syncEmbeddingPickerState` | frontend/js/ai-tools.js:879 |
-| `syncFeatureModelSelects` | frontend/js/ai-tools.js:667 |
+| `renderEmbeddingPicker` | frontend/js/ai-tools.js:793 |
+| `renderFeatureModels` | frontend/js/ai-tools.js:550 |
+| `renderOcrModelPicker` | frontend/js/ai-tools.js:759 |
+| `renderReindex` | frontend/js/ai-tools.js:955 |
+| `renderUtilityModelPicker` | frontend/js/ai-tools.js:431 |
+| `renderVisionModelPicker` | frontend/js/ai-tools.js:454 |
+| `saveUiState` | frontend/js/ai-tools.js:1232 |
+| `seedUiStateFromServer` | frontend/js/ai-tools.js:1309 |
+| `syncEmbeddingPickerState` | frontend/js/ai-tools.js:892 |
+| `syncFeatureModelSelects` | frontend/js/ai-tools.js:680 |
 | `taskElapsed` | frontend/js/ai-tools.js:80 |
 | `taskRunFold` | frontend/js/ai-tools.js:31 |
 | `taskRunLinesText` | frontend/js/ai-tools.js:21 |
 | `taskSteps` | frontend/js/ai-tools.js:98 |
-| `uiStateFingerprint` | frontend/js/ai-tools.js:1208 |
-| `uiStatePayload` | frontend/js/ai-tools.js:1195 |
-| `uiStateRememberSynced` | frontend/js/ai-tools.js:1337 |
-| `watchMirroredUiKeys` | frontend/js/ai-tools.js:1264 |
-| `wireFeatureModelSelects` | frontend/js/ai-tools.js:728 |
-| `wireReindexButton` | frontend/js/ai-tools.js:921 |
+| `uiStateFingerprint` | frontend/js/ai-tools.js:1221 |
+| `uiStatePayload` | frontend/js/ai-tools.js:1208 |
+| `uiStateRememberSynced` | frontend/js/ai-tools.js:1350 |
+| `watchMirroredUiKeys` | frontend/js/ai-tools.js:1277 |
+| `wireFeatureModelSelects` | frontend/js/ai-tools.js:741 |
+| `wireReindexButton` | frontend/js/ai-tools.js:934 |
 
 ### frontend/js/phone-shell.js (58)
 
@@ -17283,7 +17283,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10875)
+## Tests (10876)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -18218,7 +18218,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_server_time_readers.py | 1 |
 | tests/test_session_navigation.py | 6 |
 | tests/test_setting_label_toggles.py | 3 |
-| tests/test_settings_bugs_1017.py | 1 |
+| tests/test_settings_bugs_1017.py | 2 |
 | tests/test_settings_field_edge.py | 2 |
 | tests/test_settings_group_heads.py | 2 |
 | tests/test_settings_ia.py | 7 |

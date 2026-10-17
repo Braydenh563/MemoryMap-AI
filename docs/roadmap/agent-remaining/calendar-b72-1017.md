@@ -22,4 +22,6 @@ Found on arrival: Phase 5 steps 1 to 4 were built 2026-10-11 (HISTORY, "TIMELINE
 - step 2: the feed's week ahead and the landing on today; row detail to timeline-detail.js (boot offset); timelineZoom const fix.
 - done f06de1e: step 2.
 - step 3: the offer's reason and notice name the timeline and the calendar; Show on calendar (`timelineCalendarOn`, drops the cached month read).
-- next: HISTORY Built block, TIMELINE_PLAN 12 row 6 pointer, bugs-1017 B72.
+- done 69064a7: step 3.
+- docs: HISTORY Built block, TIMELINE_PLAN 12 row 6 pointer, bugs-1017 B72 built.
+- remaining: none. Not verified: a touch double tap on a cell (Playwright mouse only); a real model's reading of the words.

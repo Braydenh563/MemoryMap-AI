@@ -206,7 +206,7 @@ Entries are the owner's words, then the recommendation.
 
 ### Placed from INBOX 561 (2026-10-17)
 
-The day strip rework (543) is merged and waits on the owner's look; INBOX 904 B72 widens it into the calendar view (Phase 5 below).
+The day strip rework (543) is merged and waits on the owner's look; INBOX 904 B72 widened it into the calendar view: built 2026-10-17, HISTORY.md, "Moved from the plans, 2026-10-17 (TIMELINE B72)".
 
 Item 561, **The owner, 2026-10-05, verbatim.** "I dont like this section in th
      timeline, it needs redesigning, restructuring, moving ro smth"
@@ -413,6 +413,6 @@ reschedule, week view), Google Calendar's agenda on the phone.
 | 3 | expansion | Drag to reschedule with the undo bar (decision 16) | Built 2026-10-11 (Brief 55): HISTORY.md, "Moved from the plans, 2026-10-11 (TIMELINE Brief 55)" | |
 | 4 | expansion | Week grid with hour rows; agenda below 768 | Built 2026-10-11 (Brief 55): HISTORY.md, "Moved from the plans, 2026-10-11 (TIMELINE Brief 55)" | |
 | 5 | expansion | Notes as dots, day notes as heads, meetings on the grid (decision 15) | Built 2026-10-11 (Brief 55): HISTORY.md, "Moved from the plans, 2026-10-11 (TIMELINE Brief 55)" | |
-| 6 | expansion | `N` on a day opens quick add with the day filled (decision 18, CHAT_PLAN decision 50) | the saved due day equals the cell | 2, 12 |
+| 6 | expansion | `N` on a day opens quick add with the day filled (decision 18, CHAT_PLAN decision 50) | Built 2026-10-17 (INBOX 904 B72): HISTORY.md, "Moved from the plans, 2026-10-17 (TIMELINE B72)" | |
 
-**Briefs.** 66 (row 6); 55's rows 1 to 5 are built.
+**Briefs.** Rows 1 to 6 are built.

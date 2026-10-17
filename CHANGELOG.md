@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Chat, 13 more slash commands (`ai/slash_more.py`): `/today`, `/yesterday`, `/find <words>`, `/pinned`, `/oldest [n]`, `/random`, `/tags`, `/categories`, `/todo`, `/due [week]`, `/calc <sum>`, `/stats`, `/orphans`, all exact with no model; the "/" menu has a row for each, built from `GET /chat/commands` (a command that takes words fills the box), the Guide topic and `/help` are written from the same registry, and plain words read as the command ("what are my pinned notes", "show my 3 oldest notes", "do I have any open todos", "give me a random note", slips such as "wich notes are pined" included; 1 false read in 7,945 fixture strings, the existing untagged one).
 - Composer, hello, thanks and goodbye are composed from a head and a tail (`ai/composer_parts.py`), not a stored line said whole: with no model, 300 seeds of "hi", "thanks" and "bye" gave 19, 18 and 18 distinct replies (13, 8, 8 professional), now 104, 121, 124 (104, 70, 71), and a reply never ends on a sentence one of the last three ended on.
 - Settings, Models: saving or resetting the memory correction offers Undo (and Redo), like every other write (`saveModelHardware`).
 - Workflow: sessions on this repo auto-compact at 400k tokens (`.claude/settings.json`) with compact instructions in CLAUDE.md section 8, so long sessions stay cheap per turn and keep their state.

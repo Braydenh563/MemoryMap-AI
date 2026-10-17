@@ -2536,25 +2536,26 @@ MORE_TOPICS.append({
     ),
     "badge": {"label": "Dashboard", "tab": "dashboard"},
 })
-#: Slash commands (O6, `ai/slash.py`): the registry's own names, held to it by
-#: tests/test_slash.py.
-MORE_TOPICS.append({
-    "id": "slash-commands",
-    "keywords": (
-        "slash commands", "slash command", "commands", "/recent", "/count", "/made", "/untagged", "/help",
-        "exact answers", "chat commands", "type a command",
-    ),
-    "body": (
-        "Type a command in the chat box for an exact answer from your notes, "
-        "with no AI: /recent [n] lists your newest notes, /count [tag, category "
-        "or word] counts them, /made [day or span] lists what you wrote then "
-        "(\"/made last week\"), /untagged lists the notes with no tags, and "
-        "/help [command] says how to type one. Commands, in the / menu, lists "
-        "them all, and asking in plain words (\"which notes have no tags\") "
-        "runs the same command."
-    ),
-    "badge": {"label": "Chat", "tab": "chat"},
-})
+#: Slash commands (O6, `ai/slash.py`): written from the registry, so a command
+#: added there is in this topic, `/help` and the "/" menu at once.
+def _slash_commands_topic() -> dict:
+    from tessellate.ai import slash
+
+    listed = " ".join(f"{c.usage}: {c.summary}" for c in slash.COMMANDS.values())
+    return {
+        "id": "slash-commands",
+        "keywords": ("slash commands", "slash command", "commands", "exact answers", "chat commands", "type a command", *(f"/{name}" for name in slash.COMMANDS)),
+        "body": (
+            "Type a command in the chat box for an exact answer from your notes, with no AI. "
+            f"{listed} Typing / opens a menu with a row for each command; one that takes words "
+            "fills the box with its name and waits for them. Asking in plain words "
+            "(\"which notes have no tags\") runs the same command."
+        ),
+        "badge": {"label": "Chat", "tab": "chat"},
+    }
+
+
+MORE_TOPICS.append(_slash_commands_topic())
 TOPIC_META["slash-commands"] = {"title": "Slash commands", "path": "Chat tab, type / in the box, Commands"}
 
 

@@ -15,9 +15,10 @@ its own: "which notes have no tags" runs `/untagged` (`infer`). "What did I
 write last week" and "what have I saved recently" were answered before this
 module, by the digest and the recency path, and keep their answers.
 
-Starts with the four the brief names: `/recent [n]`, `/count [tag, category
-or word]`, `/made <when>` and `/untagged`, and `/help [command]`. Each works
-with no model; a missing or unreadable argument says how to type it.
+The four the brief names are here (`/recent [n]`, `/count [tag, category or
+word]`, `/made <when>`, `/untagged`) and `/help [command]`; the rest are
+`slash_more.MORE`. Each works with no model; a missing or unreadable argument
+says how to type it.
 """
 
 from __future__ import annotations
@@ -31,7 +32,7 @@ from datetime import date, datetime, timedelta
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from tessellate.ai import realise
+from tessellate.ai import realise, slash_more
 
 #: How many rows a command shows; the sentence says how many there are.
 SHOWN = 8
@@ -176,6 +177,7 @@ COMMANDS: dict[str, Command] = {
         Command("count", "/count [tag, category or word]", "how many notes, or how many carry a tag, sit in a category or mention a word.", "/count golf", _count),
         Command("made", "/made [day or span]", "the notes written on a day or over a span.", "/made last week", _made),
         Command("untagged", "/untagged", "the notes with no tags yet.", "/untagged", _untagged),
+        *(Command(*row) for row in slash_more.MORE),
         Command("help", "/help [command]", "these commands, or how to type one.", "/help made", _help),
     )
 }
@@ -193,18 +195,40 @@ def parse(text: str) -> tuple[str, str] | None:
     return typed.group(1).lower(), typed.group(2).strip()
 
 
-#: "which notes have no tags", "show me my untagged notes": a list asked for.
-_UNTAGGED_LIST = re.compile(
-    r"^(?:which|what|show(?: me)?|list|give me|find)\b.*\b(?:untagged|no tags?|without (?:any )?tags?|not tagged|haven'?t tagged)\b", re.I
+#: A list asked for in ordinary words, and the command it is: "which notes
+#: have no tags", "what are my pinned notes", "show my 3 oldest notes", "do I
+#: have any open todos", "give me a random note". Each needs a question or
+#: request word first and the thing's own word after, so "pin the dentist
+#: note" and "my oldest friend" are not commands. The first group, when it
+#: holds digits, is the argument.
+_ASKING = r"^(?:which|what|whats|show|list|give|any|do|are|find|pick|pull|surprise)\b"
+_INFERRED = (
+    ("untagged", re.compile(_ASKING + r".*\b(?:untagged|no tags?|without (?:any )?tags?|not tagged|haven'?t tagged)\b", re.I)),
+    ("pinned", re.compile(_ASKING + r".*\bpinn?ed\b.*\bnotes?\b|" + _ASKING + r".*\bnotes?\b.*\bpinn?ed\b", re.I)),
+    ("oldest", re.compile(_ASKING + r".*?\b(?:(\d+) )?oldest notes?\b", re.I)),
+    ("todo", re.compile(_ASKING + r".*\b(?:open|unchecked|outstanding)\s+(?:to-?dos?|check ?boxes|tick ?boxes)\b", re.I)),
+    ("random", re.compile(_ASKING + r".*\b(?:a|one) (?:random|rando?m) notes?\b", re.I)),
 )
+
+
+def _inferred(text: str) -> tuple[str, str] | None:
+    for name, pattern in _INFERRED:
+        found = pattern.search(text)
+        if found:
+            return name, (found.group(1) if found.re.groups and found.group(1) else "")
+    return None
 
 
 def infer(text: str) -> tuple[str, str] | None:
     """The command an ordinary sentence asks for, where the composer had no
-    list of its own; None otherwise."""
-    if _UNTAGGED_LIST.search(" ".join((text or "").split())):
-        return "untagged", ""
-    return None
+    list of its own; None otherwise. A sentence with a slip in it ("wich
+    notes are pined") is read as the speller puts it right."""
+    from tessellate.ai import question_noise
+
+    said = " ".join((text or "").split())
+    if not said or len(said) > 160:
+        return None
+    return _inferred(said) or _inferred(question_noise.repair(question_noise.tidy(said)))
 
 
 def answer(session: Session, text: str, now: datetime, *, typed_only: bool = False) -> str | None:

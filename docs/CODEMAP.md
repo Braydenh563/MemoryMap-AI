@@ -2,9 +2,9 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5930, frontend ids 2509, CSS sections 494, backend routes 607, backend modules 5581, test files 1215, tests 11035, plan headings 957.
+Counts: frontend functions 5931, frontend ids 2509, CSS sections 494, backend routes 607, backend modules 5602, test files 1215, tests 11047, plan headings 957.
 
-## Frontend functions (5930)
+## Frontend functions (5931)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -1755,81 +1755,82 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `richPickerSplitLabel` | frontend/js/rich-picker.js:33 |
 | `richPickerTile` | frontend/js/rich-picker.js:86 |
 
-### frontend/js/editor.js (71)
+### frontend/js/editor.js (72)
 
 | Name | File:line |
 |---|---|
-| `askAboutSelection` | frontend/js/editor.js:2066 |
+| `askAboutSelection` | frontend/js/editor.js:2089 |
 | `calloutHint` | frontend/js/editor.js:347 |
 | `calloutKindOf` | frontend/js/editor.js:285 |
 | `calloutRewriteHead` | frontend/js/editor.js:299 |
-| `chatCommands` | frontend/js/editor.js:577 |
+| `chatCommands` | frontend/js/editor.js:602 |
+| `chatSlashRows` | frontend/js/editor.js:577 |
 | `editorApplyAction` | frontend/js/editor.js:451 |
 | `editorApplyNamed` | frontend/js/editor.js:509 |
-| `editorBackOverTrail` | frontend/js/editor.js:903 |
-| `editorBlock` | frontend/js/editor.js:763 |
-| `editorBlockRows` | frontend/js/editor.js:804 |
-| `editorCaretPoint` | frontend/js/editor.js:1023 |
-| `editorChoiceDialog` | frontend/js/editor.js:2090 |
-| `editorCloseMenu` | frontend/js/editor.js:1064 |
-| `editorCodeLanguageRows` | frontend/js/editor.js:792 |
-| `editorCommands` | frontend/js/editor.js:916 |
+| `editorBackOverTrail` | frontend/js/editor.js:926 |
+| `editorBlock` | frontend/js/editor.js:786 |
+| `editorBlockRows` | frontend/js/editor.js:827 |
+| `editorCaretPoint` | frontend/js/editor.js:1046 |
+| `editorChoiceDialog` | frontend/js/editor.js:2113 |
+| `editorCloseMenu` | frontend/js/editor.js:1087 |
+| `editorCodeLanguageRows` | frontend/js/editor.js:815 |
+| `editorCommands` | frontend/js/editor.js:939 |
 | `editorEnsureSurfaceModule` | frontend/js/editor.js:129 |
-| `editorFinishFence` | frontend/js/editor.js:1081 |
+| `editorFinishFence` | frontend/js/editor.js:1104 |
 | `editorFuzzyMatch` | frontend/js/editor.js:307 |
 | `editorFuzzyRank` | frontend/js/editor.js:327 |
-| `editorGroupStarts` | frontend/js/editor.js:1449 |
-| `editorHandleInput` | frontend/js/editor.js:1594 |
+| `editorGroupStarts` | frontend/js/editor.js:1472 |
+| `editorHandleInput` | frontend/js/editor.js:1617 |
 | `editorHintAllPlaceholders` | frontend/js/editor.js:216 |
 | `editorHintPlaceholder` | frontend/js/editor.js:190 |
 | `editorInsertBlock` | frontend/js/editor.js:525 |
 | `editorInsertBoardObject` | frontend/js/editor.js:555 |
 | `editorInsertBookmarkLink` | frontend/js/editor.js:542 |
-| `editorLinkMatches` | frontend/js/editor.js:1128 |
-| `editorLoadFiles` | frontend/js/editor.js:1251 |
-| `editorMenuIcon` | frontend/js/editor.js:1291 |
-| `editorMenuList` | frontend/js/editor.js:1296 |
-| `editorNextGroupStart` | frontend/js/editor.js:1459 |
+| `editorLinkMatches` | frontend/js/editor.js:1151 |
+| `editorLoadFiles` | frontend/js/editor.js:1274 |
+| `editorMenuIcon` | frontend/js/editor.js:1314 |
+| `editorMenuList` | frontend/js/editor.js:1319 |
+| `editorNextGroupStart` | frontend/js/editor.js:1482 |
 | `editorNotifyHost` | frontend/js/editor.js:373 |
-| `editorOpenMenu` | frontend/js/editor.js:1515 |
+| `editorOpenMenu` | frontend/js/editor.js:1538 |
 | `editorOpenMenuByShortcut` | frontend/js/editor.js:173 |
 | `editorPickGlyph` | frontend/js/editor.js:432 |
-| `editorPositionMenu` | frontend/js/editor.js:1037 |
-| `editorRankCommands` | frontend/js/editor.js:1121 |
-| `editorRecentIds` | frontend/js/editor.js:736 |
-| `editorRefreshMenu` | frontend/js/editor.js:1529 |
-| `editorRememberBlock` | frontend/js/editor.js:745 |
-| `editorRenderMenu` | frontend/js/editor.js:1300 |
-| `editorRenderPreview` | frontend/js/editor.js:1370 |
-| `editorRevealRow` | frontend/js/editor.js:1426 |
-| `editorRunItem` | frontend/js/editor.js:1471 |
-| `editorSetActive` | frontend/js/editor.js:1406 |
+| `editorPositionMenu` | frontend/js/editor.js:1060 |
+| `editorRankCommands` | frontend/js/editor.js:1144 |
+| `editorRecentIds` | frontend/js/editor.js:759 |
+| `editorRefreshMenu` | frontend/js/editor.js:1552 |
+| `editorRememberBlock` | frontend/js/editor.js:768 |
+| `editorRenderMenu` | frontend/js/editor.js:1323 |
+| `editorRenderPreview` | frontend/js/editor.js:1393 |
+| `editorRevealRow` | frontend/js/editor.js:1449 |
+| `editorRunItem` | frontend/js/editor.js:1494 |
+| `editorSetActive` | frontend/js/editor.js:1429 |
 | `editorSplice` | frontend/js/editor.js:398 |
 | `editorSurfaceFor` | frontend/js/editor.js:105 |
 | `editorSurfaceKind` | frontend/js/editor.js:72 |
-| `editorTokenAt` | frontend/js/editor.js:1097 |
-| `inlineAiAvailable` | frontend/js/editor.js:2486 |
-| `inlineAiClose` | frontend/js/editor.js:2525 |
-| `inlineAiDescribeScope` | frontend/js/editor.js:2428 |
-| `inlineAiElement` | frontend/js/editor.js:2322 |
-| `inlineAiIsCode` | frontend/js/editor.js:2449 |
-| `inlineAiOpen` | frontend/js/editor.js:2491 |
-| `inlineAiPosition` | frontend/js/editor.js:2407 |
-| `inlineAiRetry` | frontend/js/editor.js:2547 |
-| `inlineAiSubmit` | frontend/js/editor.js:2558 |
-| `inlineAiSyncModel` | frontend/js/editor.js:2457 |
-| `inlineAiUndo` | frontend/js/editor.js:2538 |
-| `isEditorSurface` | frontend/js/editor.js:1968 |
-| `offerToCreateWikiTarget` | frontend/js/editor.js:2155 |
+| `editorTokenAt` | frontend/js/editor.js:1120 |
+| `inlineAiAvailable` | frontend/js/editor.js:2509 |
+| `inlineAiClose` | frontend/js/editor.js:2548 |
+| `inlineAiDescribeScope` | frontend/js/editor.js:2451 |
+| `inlineAiElement` | frontend/js/editor.js:2345 |
+| `inlineAiIsCode` | frontend/js/editor.js:2472 |
+| `inlineAiOpen` | frontend/js/editor.js:2514 |
+| `inlineAiPosition` | frontend/js/editor.js:2430 |
+| `inlineAiRetry` | frontend/js/editor.js:2570 |
+| `inlineAiSubmit` | frontend/js/editor.js:2581 |
+| `inlineAiSyncModel` | frontend/js/editor.js:2480 |
+| `inlineAiUndo` | frontend/js/editor.js:2561 |
+| `isEditorSurface` | frontend/js/editor.js:1991 |
+| `offerToCreateWikiTarget` | frontend/js/editor.js:2178 |
 | `pickIconOrEmoji` | frontend/js/editor.js:424 |
-| `selectionBarElement` | frontend/js/editor.js:1807 |
-| `selectionBarHide` | frontend/js/editor.js:1878 |
-| `selectionBarShow` | frontend/js/editor.js:1883 |
-| `selectionBarSync` | frontend/js/editor.js:1972 |
-| `selectionContextFrom` | frontend/js/editor.js:2014 |
-| `selectionContextSource` | frontend/js/editor.js:2047 |
-| `selectionOffsets` | frontend/js/editor.js:2024 |
-| `skillCommands` | frontend/js/editor.js:648 |
+| `selectionBarElement` | frontend/js/editor.js:1830 |
+| `selectionBarHide` | frontend/js/editor.js:1901 |
+| `selectionBarShow` | frontend/js/editor.js:1906 |
+| `selectionBarSync` | frontend/js/editor.js:1995 |
+| `selectionContextFrom` | frontend/js/editor.js:2037 |
+| `selectionContextSource` | frontend/js/editor.js:2070 |
+| `selectionOffsets` | frontend/js/editor.js:2047 |
+| `skillCommands` | frontend/js/editor.js:671 |
 
 ### frontend/js/dashboard.js (141)
 
@@ -10416,7 +10417,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/tessellate/api/routes_ask_history.py:164 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/tessellate/api/run_sandbox.py:1592 |
 
-## Backend modules (5581)
+## Backend modules (5602)
 
 Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -11492,11 +11493,12 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `topic_title` | src/tessellate/ai/help_chat.py:2535 |
 | `topics_for` | src/tessellate/ai/help_chat.py:2614 |
 
-### src/tessellate/ai/help_topics_more.py (1)
+### src/tessellate/ai/help_topics_more.py (2)
 
 | Name | File:line |
 |---|---|
 | `_act_topic` | src/tessellate/ai/help_topics_more.py:2440 |
+| `_slash_commands_topic` | src/tessellate/ai/help_topics_more.py:2541 |
 
 ### src/tessellate/ai/inbox.py (7)
 
@@ -12397,25 +12399,50 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `stored` | src/tessellate/ai/skills.py:1795 |
 | `verify_spec` | src/tessellate/ai/skills.py:269 |
 
-### src/tessellate/ai/slash.py (15)
+### src/tessellate/ai/slash.py (16)
 
 | Name | File:line |
 |---|---|
-| `Command` | src/tessellate/ai/slash.py:41 |
-| `_count` | src/tessellate/ai/slash.py:94 |
-| `_help` | src/tessellate/ai/slash.py:162 |
-| `_made` | src/tessellate/ai/slash.py:130 |
-| `_more` | src/tessellate/ai/slash.py:71 |
-| `_notes` | src/tessellate/ai/slash.py:64 |
-| `_recent` | src/tessellate/ai/slash.py:75 |
-| `_rows` | src/tessellate/ai/slash.py:49 |
-| `_tags_of` | src/tessellate/ai/slash.py:86 |
-| `_untagged` | src/tessellate/ai/slash.py:152 |
-| `_window` | src/tessellate/ai/slash.py:119 |
-| `answer` | src/tessellate/ai/slash.py:210 |
-| `catalogue` | src/tessellate/ai/slash.py:223 |
-| `infer` | src/tessellate/ai/slash.py:202 |
-| `parse` | src/tessellate/ai/slash.py:186 |
+| `Command` | src/tessellate/ai/slash.py:42 |
+| `_count` | src/tessellate/ai/slash.py:95 |
+| `_help` | src/tessellate/ai/slash.py:163 |
+| `_inferred` | src/tessellate/ai/slash.py:214 |
+| `_made` | src/tessellate/ai/slash.py:131 |
+| `_more` | src/tessellate/ai/slash.py:72 |
+| `_notes` | src/tessellate/ai/slash.py:65 |
+| `_recent` | src/tessellate/ai/slash.py:76 |
+| `_rows` | src/tessellate/ai/slash.py:50 |
+| `_tags_of` | src/tessellate/ai/slash.py:87 |
+| `_untagged` | src/tessellate/ai/slash.py:153 |
+| `_window` | src/tessellate/ai/slash.py:120 |
+| `answer` | src/tessellate/ai/slash.py:234 |
+| `catalogue` | src/tessellate/ai/slash.py:247 |
+| `infer` | src/tessellate/ai/slash.py:222 |
+| `parse` | src/tessellate/ai/slash.py:188 |
+
+### src/tessellate/ai/slash_more.py (19)
+
+| Name | File:line |
+|---|---|
+| `_calc` | src/tessellate/ai/slash_more.py:159 |
+| `_categories` | src/tessellate/ai/slash_more.py:110 |
+| `_day` | src/tessellate/ai/slash_more.py:31 |
+| `_due` | src/tessellate/ai/slash_more.py:145 |
+| `_find` | src/tessellate/ai/slash_more.py:61 |
+| `_listed` | src/tessellate/ai/slash_more.py:46 |
+| `_newest` | src/tessellate/ai/slash_more.py:40 |
+| `_oldest` | src/tessellate/ai/slash_more.py:81 |
+| `_orphans` | src/tessellate/ai/slash_more.py:192 |
+| `_pinned` | src/tessellate/ai/slash_more.py:73 |
+| `_random` | src/tessellate/ai/slash_more.py:91 |
+| `_s` | src/tessellate/ai/slash_more.py:25 |
+| `_stats` | src/tessellate/ai/slash_more.py:178 |
+| `_streak` | src/tessellate/ai/slash_more.py:170 |
+| `_tags` | src/tessellate/ai/slash_more.py:99 |
+| `_today` | src/tessellate/ai/slash_more.py:53 |
+| `_todo` | src/tessellate/ai/slash_more.py:125 |
+| `_when` | src/tessellate/ai/slash_more.py:138 |
+| `_yesterday` | src/tessellate/ai/slash_more.py:57 |
 
 ### src/tessellate/ai/source_check.py (5)
 
@@ -17486,7 +17513,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (11035)
+## Tests (11047)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -18475,7 +18502,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_skill_run_undo.py | 5 |
 | tests/test_skills.py | 83 |
 | tests/test_skills_evals.py | 6 |
-| tests/test_slash.py | 6 |
+| tests/test_slash.py | 18 |
 | tests/test_smooth_boot.py | 16 |
 | tests/test_source_check.py | 8 |
 | tests/test_space_delete_cascades.py | 1 |

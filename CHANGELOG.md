@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Documents and forms, from the owner's 2026-10-17 list: an md document opened after a code file starts in live view, the edit form's tag input sits under the chips, unticking a quick access row no longer scrolls the manager, Full view holds in a short window, a document's date row uses the app's own picker, new documents and boards open with their name selected, a redraw no longer sends the shape library to the top, the empty-board card is one row, a packaged build refuses to remove the desktop window, and clicking an autocorrected word opens Keep, Put back or Edit instead of reverting.
 - Writing room: Save as note now files a note (it saved a draft); the caret half offers Save as draft. The Tag with Atlas panel moved out of the boot scripts into the tag-suggest bundle.
 - Tag with Atlas: the panel offers the other categories the note could go in (one tap moves it), says plainly when it has no tags to suggest, and always has a field for a tag of your own.
 - Canvas fixes from the owner's 2026-10-17 list: the whiteboard's Group and Ungroup follow the selection, W and H scale a multi-selection and x/y/w/h update live; the companion rides a scroll area that became scrollable after it perched; a middle-mouse drag pans the graph from its first pixel; file, bookmark and document nodes open from the mind map and graph (F2 sets a caption on a reference node); a document node can be pinned in the graph; a leash force keeps linked bridge notes nearer their category.

@@ -186,7 +186,7 @@ function firstStepsCard(host, state) {
 
 async function renderFirstSteps(host, cardOff = false) {
   renderGetStarted();
-  if (cardOff) return;
+  if (cardOff) return void host.replaceChildren();
   lazyScript("/css/first-run-lazy.css");
   const state = await firstStepsState();
   //: All three done and no sample notes left: the steps have done their job.

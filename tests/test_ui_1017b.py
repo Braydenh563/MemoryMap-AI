@@ -59,3 +59,15 @@ def test_b76_the_drafting_spinner_is_on_the_atlas_side():
     assert 'setLabel($("draft-status"), "ph:spin' not in desk
     busy = desk[desk.index("function setDraftBusy(") :].split("\n}\n")[0]
     assert "if (!busy) setDraftWorking();" in busy
+
+
+def test_a_finished_jobs_logs_button_stays_top_right_on_the_title_line():
+    """BACKLOG "Start of the next PR": the Logs button wrapped to a row of its own
+    under a long line (123px down at 390). The row is the name and the button, on
+    one line that does not wrap; the when and model line sits under it."""
+    css = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
+    row = css[css.index("#task-history .entry-meta {") :].split("}")[0]
+    assert "flex-wrap: nowrap" in row
+    assert "margin-inline-start: auto" in css[css.index("#task-history .entry-meta > .row-actions {") :].split("}")[0]
+    js = (ROOT / "frontend" / "js" / "chat-tasks.js").read_text(encoding="utf-8")
+    assert "row.append(name, taskLogButton(item));" in js and "li.append(row, when);" in js

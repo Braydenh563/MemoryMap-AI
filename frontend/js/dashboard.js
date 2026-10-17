@@ -1600,7 +1600,6 @@ function renderFirstStepsLazy() {
   const host = $("dash-first-steps");
   if (!host || !entriesEverLoaded) return;
   const skip = dashEditMode || (allEntries.length && prefs.get("firstStepsHidden", null) === "1");
-  if (skip) host.replaceChildren();
   //: The Get started menu beside Customise is drawn whether or not the card is.
   lazyScript("/js/first-run.js").then((ok) => ok && renderFirstSteps(host, skip));
 }

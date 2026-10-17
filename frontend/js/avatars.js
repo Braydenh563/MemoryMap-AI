@@ -5098,7 +5098,7 @@ function nameMarkBuddyUnheld() {
 //: (one box read every 700ms; it was two seconds, in the air all that time,
 //: INBOX 521) catches only what changes with nothing announcing it
 //: (content arriving above the panel), eased rather than jumped.
-const nmbFollow = { frame: 0, until: 0, poll: 0, observer: null, barObserver: null, scrollAt: 0, recheck: 0, support: 0 };
+const nmbFollow = { frame: 0, until: 0, poll: 0, observer: null, scrollAt: 0, recheck: 0, support: 0 };
 function nameMarkBuddyKeepUp(ms = 1500) {
   if (!nmb.glue) return;
   nmbFollow.until = Math.max(nmbFollow.until, performance.now() + ms);
@@ -5289,15 +5289,14 @@ document.addEventListener("visibilitychange", () => {
 function nameMarkBuddyWatch() {
   const g = nmb.glue;
   if (typeof ResizeObserver === "function") {
-    //: A bar holds nothing to follow, but it can go (hidden, emptied, folded
-    //: away) with no scroll, resize or class change to say so: its going is a
-    //: look at the perch now. A resize observer costs nothing while it rests.
-    const bar = !g && ["bar", "hang"].includes(nmb.spot?.edge?.kind) ? nmb.spot.edge.el : null;
-    if (!nmbFollow.barObserver) nmbFollow.barObserver = new ResizeObserver(() => queueNameMarkBuddyCheck());
-    nmbFollow.barObserver.disconnect();
-    if (bar) nmbFollow.barObserver.observe(bar);
-    if (!nmbFollow.observer) nmbFollow.observer = new ResizeObserver(() => nameMarkBuddyKeepUp());
+    //: One observer. Following a panel it keeps the follow loop up; on a bar,
+    //: which holds nothing to follow, its going (hidden, emptied, folded away,
+    //: with no scroll, resize or class change to say so) is a look at the
+    //: perch now. A resize observer costs nothing while it rests.
+    if (!nmbFollow.observer) nmbFollow.observer = new ResizeObserver(() => (nmb.glue ? nameMarkBuddyKeepUp() : queueNameMarkBuddyCheck()));
     nmbFollow.observer.disconnect();
+    const bar = !g && ["bar", "hang"].includes(nmb.spot?.edge?.kind) ? nmb.spot.edge.el : null;
+    if (bar) nmbFollow.observer.observe(bar);
     if (g) {
       nmbFollow.observer.observe(g.el);
       const page = g.el.closest(".tab-page") || document.getElementById(`tab-${nameMarkBuddyTab()}`);
@@ -6415,7 +6414,6 @@ function nameMarkBuddyLockSync() {
 //: document-wide `:has()` did this and cost 4.7 of each 16.7 ms drag frame.
 const NMB_COVER_SEL = "dialog, .modal-overlay, .lock-overlay";
 function nameMarkBuddyCoverCheck() {
-  nmb.coverFrame = 0;
   const buddy = document.getElementById("nm-buddy");
   if (!buddy) return;
   const lock = document.querySelector("#lock-overlay:not(.hidden)");
@@ -6426,7 +6424,11 @@ function nameMarkBuddyCoverCheck() {
 function nameMarkBuddyCoverWatch(records) {
   const hit = (n) => n.nodeType === 1 && (n.matches(NMB_COVER_SEL) || n.querySelector(NMB_COVER_SEL));
   const touched = records.some((m) => (m.type === "attributes" ? m.target.matches(NMB_COVER_SEL) : [...m.addedNodes, ...m.removedNodes].some(hit)));
-  if (touched && !nmb.coverFrame) nmb.coverFrame = requestAnimationFrame(nameMarkBuddyCoverCheck);
+  //: Read on the perch check's own frame (`queueNameMarkBuddyCheck`).
+  if (touched) {
+    nmb.coverDirty = true;
+    queueNameMarkBuddyCheck();
+  }
 }
 //: `typeof MutationObserver`: tests/test_atlas_shape.py loads this file in a node vm with a bare `document`.
 if (typeof MutationObserver === "function" && document.getElementById("lock-overlay")) {
@@ -6533,6 +6535,10 @@ function queueNameMarkBuddyCheck() {
   if (nmb.checkFrame || !document.getElementById("nm-buddy")) return;
   nmb.checkFrame = requestAnimationFrame(() => {
     nmb.checkFrame = 0;
+    if (nmb.coverDirty) {
+      nmb.coverDirty = false;
+      nameMarkBuddyCoverCheck();
+    }
     nameMarkBuddyCheck();
   });
 }
@@ -9085,7 +9091,12 @@ function nameMarkBuddyBuild() {
   nameMarkBuddyToggles(buddy);
   if (typeof MutationObserver === "function") {
     nmb.coverObserver?.disconnect();
-    nmb.coverObserver = new MutationObserver(nameMarkBuddyCoverWatch);
+    //: The one watch of the page: the body's own class (the back-to-top button) asks for a
+    //: perch check, and a dialog or overlay anywhere sets `data-cover`.
+    nmb.coverObserver = new MutationObserver((records) => {
+      if (records.some((r) => r.type === "attributes" && r.target === document.body)) queueNameMarkBuddyCheck();
+      nameMarkBuddyCoverWatch(records);
+    });
     nmb.coverObserver.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["class", "open"] });
   }
   nameMarkBuddyCoverCheck();
@@ -9491,7 +9502,6 @@ function syncNameMarkBuddy() {
 //: settles (a card it stands on may have moved), and on resize, where it
 //: chooses again.
 if (typeof MutationObserver === "function") {
-  new MutationObserver(queueNameMarkBuddyCheck).observe(document.body, { attributes: true, attributeFilter: ["class"] });
   const toasts = document.getElementById("toast-box");
   if (toasts) {
     new MutationObserver((records) => {

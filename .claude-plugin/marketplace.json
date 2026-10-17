@@ -1,0 +1,5 @@
+{
+  "name": "tessellate",
+  "owner": { "name": "Braydenh563" },
+  "plugins": [{ "name": "usage-guard", "source": "./tools/usage-guard" }]
+}

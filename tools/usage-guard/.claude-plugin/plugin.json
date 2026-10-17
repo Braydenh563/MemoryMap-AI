@@ -1,0 +1,1 @@
+{ "name": "usage-guard", "version": "0.3.0", "types": "./types/index.d.ts", "description": "Usage dashboard and guards: /dash pane (agents, tasks, cost by model), /spend advice, context meter, cold-cache and image warnings, blocks huge reads, repeated calls, model-less and unrequested Fable agents." }

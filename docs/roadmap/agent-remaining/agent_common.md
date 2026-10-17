@@ -2,13 +2,13 @@
 
 Setup (replace NAME and PORT with the brief's values; BRANCH is the integration branch the brief names):
 
-    cd /home/user/MemoryMap-AI && git worktree add <scratchpad>/wt-NAME -b agent/NAME-<mmdd> BRANCH
-    cd <scratchpad>/wt-NAME && git merge --no-edit -q BRANCH && ln -s /home/user/MemoryMap-AI/.venv .venv
+    cd /home/user/Tessellate && git worktree add <scratchpad>/wt-NAME -b agent/NAME-<mmdd> BRANCH
+    cd <scratchpad>/wt-NAME && git merge --no-edit -q BRANCH && ln -s /home/user/Tessellate/.venv .venv
 
 - Python is `PYTHONPATH=src .venv/bin/python` (fastapi, pytest, ruff, numpy; no torch, no sentence-transformers). Commit with plain `git add <your paths>`, never `git add -A`; one commit per step; the orchestrator merges. Do NOT push, do not merge into the working branch, do not create plan documents; decisions in a plan's "Decisions made" are not remade.
 - Commit trailers: the two lines the session supplies, last in every message. No model identifiers anywhere else.
 - Before each commit: `bash scripts/gate.sh --staged` plus the targeted tests for files you touched, serially or `-n 2` at most. Never the full suite. `node --check frontend/js/FILE.js` after any JS edit.
-- Serve (setsid, never plain `&`): `bash scratchpad/ui-sweeps/serve.sh PORT <datadir>`, or `setsid env PYTHONPATH=src MEMORYMAP_DATA_DIR=<datadir> .venv/bin/python -m uvicorn memorymap.api.app:create_app --factory --port PORT > <log> 2>&1 < /dev/null &`. Restart after any Python change. Never `pkill -f` a pattern in your own command line (exit 144): use `pgrep -f '[u]vicorn.*--port PORT' | xargs -r kill`, never on the same shell line as a start.
+- Serve (setsid, never plain `&`): `bash scratchpad/ui-sweeps/serve.sh PORT <datadir>`, or `setsid env PYTHONPATH=src TESSELLATE_DATA_DIR=<datadir> .venv/bin/python -m uvicorn tessellate.api.app:create_app --factory --port PORT > <log> 2>&1 < /dev/null &`. Restart after any Python change. Never `pkill -f` a pattern in your own command line (exit 144): use `pgrep -f '[u]vicorn.*--port PORT' | xargs -r kill`, never on the same shell line as a start.
 - Playwright: node scripts requiring `/opt/node22/lib/node_modules/playwright`, `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`. `scratchpad/ui-sweeps/lib.js` `boot(opts)` RETURNS `{browser, ctx, page, OUT}`. Login: fill `#lock-password` with `testpassword123`, click `#lock-submit`; `THEME=dark` for dark. Never `waitUntil: "networkidle"` (use `domcontentloaded` plus `waitForTimeout`). Bash times out at 120 s: long runs go in the background with output to a file.
 - Measure, do not look: `getComputedStyle`, `getBoundingClientRect`, `scrollHeight` vs `clientHeight`, `scratchpad/pngpixel.py`. Every claim is a number from a sweep you name. Reproduce a bug before theorising; say plainly what you could not verify.
 - Copy: sentence case, no em-dashes (a lint fails), no exclamation marks, no "Oops". Inline `style=` is refused by the CSP: `el.style.x =` or a class. New UI from DESIGN.md's recipe index (`kebabMenu`, `.dock`, `data-help-for`, tokens); a need the index lacks gets its recipe and lint in the same commit. Help moves with the UI (standing order 13).

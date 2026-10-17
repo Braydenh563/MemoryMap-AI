@@ -15,6 +15,8 @@ import ast
 import re
 from pathlib import Path
 
+from tests._repo_files import repo_files
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -52,7 +54,7 @@ def _imported_by_name() -> set[str]:
     """Every `importlib.import_module("tessellate...")` with a literal name."""
     pattern = re.compile(r"""import_module\(\s*["'](tessellate(?:\.\w+)+)["']\s*\)""")
     names: set[str] = set()
-    for path in (ROOT / "src" / "tessellate").rglob("*.py"):
+    for path in repo_files(ROOT / "src" / "tessellate", suffixes=(".py",)):
         names.update(pattern.findall(path.read_text(encoding="utf-8")))
     return names
 

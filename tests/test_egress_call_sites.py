@@ -11,6 +11,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from tests._repo_files import repo_files
+
 SRC = Path(__file__).resolve().parents[1] / "src" / "tessellate"
 
 _CALL = re.compile(
@@ -35,7 +37,7 @@ UNNAMED = {
 
 def _outbound_files() -> dict[str, str]:
     found = {}
-    for path in SRC.rglob("*.py"):
+    for path in repo_files(SRC, suffixes=(".py",)):
         text = path.read_text(encoding="utf-8", errors="replace")
         if _CALL.search(text):
             found[path.relative_to(SRC).as_posix()] = text

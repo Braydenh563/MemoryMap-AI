@@ -21,6 +21,7 @@ from tessellate.ai import model_manager
 from tessellate.core import deps, jobruns, taskhistory
 from tessellate.core.database import EmbeddingRecord, JobRun
 from tests._app_js import frontend_text
+from tests._repo_files import repo_files
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -432,7 +433,7 @@ def test_every_kind_in_the_overview_is_written_by_some_job():
     from pathlib import Path
 
     src = Path(__file__).resolve().parent.parent / "src" / "tessellate"
-    text = "\n".join(p.read_text(encoding="utf-8") for p in src.rglob("*.py") if p.name != "jobruns.py")
+    text = "\n".join(p.read_text(encoding="utf-8") for p in repo_files(src, suffixes=(".py",), exclude_names=("jobruns.py",)))
     written = set(re.findall(r'(?:job_run|begin)\("([a-z-]+)"', text))
     written |= set(taskhistory.LAST_RUN_KINDS.values())
     assert set(jobruns.KINDS) <= written, set(jobruns.KINDS) - written

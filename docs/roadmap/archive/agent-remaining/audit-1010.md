@@ -7,5 +7,5 @@ The owner: "fix, improve and extend and add everything I have missed or havent t
 - Semantic search precision needs a real embedder; `scratchpad/search-relevance-1010.py` runs unchanged with one installed.
 - HTML, docx and PDF export re-import diffs need the `documents` extra (markitdown, python-docx) installed (row 5).
 - 20,000-note memory curve (row 11), and idle CPU with the Atlas companion animating (the audit measured 0.72 percent of one core total, server 0.28, tab 0.44, at 5,000 notes).
-- Lock-screen rate limit and the LAN certificate were read, not attacked: `tests/test_auth_hardening_1005.py` holds the first, Brief 40's packaging agent owns the second.
+- Lock-screen rate limit and the LAN certificate were read, not attacked: `tests/test_security_boundaries.py` holds the first, Brief 40's packaging agent owns the second.
 - Gate state at the audit's head: `scripts/gate.sh --staged` fails only on the vendored-library rows of BACKLOG row 8 (ruff in vendor/, a conflict marker, the README tool count); nothing else.

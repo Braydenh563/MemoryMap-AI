@@ -4741,9 +4741,12 @@ function nameMarkBuddyDrop(x, y) {
       if (!fall || d < fall.d) fall = { kind: "yours", ...spot, edge, d, falls: true };
     }
   }
-  //: Nothing under it to stand on: it floats where it was let go, stepped
-  //: aside if that is over a control.
-  return fall || nameMarkBuddyStepAside({ kind: "yours", pose: "float", legs: "", x, y }, obstacles);
+  if (fall) return fall;
+  //: Nothing under it: it floats where it was let go, stepped aside from a
+  //: control; one it cannot clear (a throw onto chat's foot floated over the
+  //: mode switch) is no place of its own, so the nearest good perch.
+  const open = nameMarkBuddyStepAside({ kind: "yours", pose: "float", legs: "", x, y }, obstacles);
+  return nameMarkBuddyHits(open.x, open.y, "float", obstacles) ? nameMarkBuddyChoose(tab, obstacles, [x, y], 4) || open : open;
 }
 
 //: **Where it is drawn: one `transform` on the host.** Its `left` and
@@ -6512,13 +6515,10 @@ function nameMarkBuddyLockSync() {
   const lock = document.getElementById("lock-overlay");
   if (band) band.style.display = lock && !lock.classList.contains("hidden") && lock.dataset.mode !== "prompt" ? "none" : "";
 }
-//: **Out of the way of a modal or the lock screen**: the companion fades and
-//: stops taking the pointer (`data-cover`, read by the CSS). This was
-//: `body:has(dialog[open]:modal, ...) #nm-buddy`, which the browser matched
-//: against the whole document on every restyle of the companion, so each
-//: frame of a drag or a throw paid 4.7 ms of a 16.7 ms frame for it (0.2 ms
-//: without). Checked once a frame at most, and only when a dialog, overlay
-//: or lock screen was added, removed, opened or hidden.
+//: **Out of the way of a modal or the lock screen**: `data-cover`, read by the
+//: CSS. It was `body:has(dialog[open]:modal, ...) #nm-buddy`, matched over
+//: the whole document on every restyle of the companion: 4.7 ms of each 16.7
+//: ms frame of a drag or throw. Checked once a frame at most, on a change.
 const NMB_COVER_SEL = "dialog, .modal-overlay, .lock-overlay";
 function nameMarkBuddyCoverCheck() {
   nmb.coverFrame = 0;
@@ -6526,12 +6526,11 @@ function nameMarkBuddyCoverCheck() {
   if (!buddy) return;
   const lock = document.querySelector("#lock-overlay:not(.hidden)");
   const cover = lock ? "lock" : document.querySelector("dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hidden)") ? "modal" : "";
-  if ((buddy.dataset.cover || "") === cover) return;
   if (cover) buddy.dataset.cover = cover;
   else delete buddy.dataset.cover;
 }
 function nameMarkBuddyCoverWatch(records) {
-  const hit = (n) => n.nodeType === 1 && (n.matches(NMB_COVER_SEL) || !!n.querySelector(NMB_COVER_SEL));
+  const hit = (n) => n.nodeType === 1 && (n.matches(NMB_COVER_SEL) || n.querySelector(NMB_COVER_SEL));
   const touched = records.some((m) => (m.type === "attributes" ? m.target.matches(NMB_COVER_SEL) : [...m.addedNodes, ...m.removedNodes].some(hit)));
   if (touched && !nmb.coverFrame) nmb.coverFrame = requestAnimationFrame(nameMarkBuddyCoverCheck);
 }

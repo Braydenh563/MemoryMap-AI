@@ -103,7 +103,8 @@ function packagesCan(extra, action) {
   if (extra.installing || extra.queued) return false;
   if (action === "install") return !extra.installed && !extra.unavailable;
   if (action === "reinstall") return extra.installed && !extra.unavailable;
-  return extra.installed;
+  //: The packaged app keeps its own desktop window (INBOX 904 B27).
+  return extra.installed && extra.removable !== false;
 }
 
 // --- bundles -----------------------------------------------------------------
@@ -363,23 +364,27 @@ function packagesRow(extra, body) {
 //: Reinstall says why rather than running.
 function packagesRowMenu(extra, body) {
   const busy = "Wait for the install in hand to finish.";
-  return kebabMenu(
-    [
-      {
-        label: "ph:arrow-clockwise Reinstall",
-        disabled: Boolean(body.running || extra.unavailable),
-        title: body.running ? busy : extra.unavailable || "",
-        run: () => (body.running || extra.unavailable ? toast(body.running ? busy : extra.unavailable, "info") : packagesReinstallOne(extra)),
-      },
-      {
-        label: "ph:trash Remove",
-        danger: true,
-        disabled: Boolean(body.running),
-        title: body.running ? busy : "",
-        run: () => (body.running ? toast(busy, "info") : packagesRemoveOne(extra)),
-      },
-    ],
-    `More for ${extra.label}`, { vertical: true });
+  const items = [
+    {
+      label: "ph:arrow-clockwise Reinstall",
+      disabled: Boolean(body.running || extra.unavailable),
+      title: body.running ? busy : extra.unavailable || "",
+      run: () => (body.running || extra.unavailable ? toast(body.running ? busy : extra.unavailable, "info") : packagesReinstallOne(extra)),
+    },
+  ];
+  //: No Remove at all on a package the build keeps (the packaged app's own
+  //: desktop window, INBOX 904 B27): a row that is offered and refused is a
+  //: trap, and the server refuses it as well.
+  if (extra.removable !== false) {
+    items.push({
+      label: "ph:trash Remove",
+      danger: true,
+      disabled: Boolean(body.running),
+      title: body.running ? busy : "",
+      run: () => (body.running ? toast(busy, "info") : packagesRemoveOne(extra)),
+    });
+  }
+  return kebabMenu(items, `More for ${extra.label}`, { vertical: true });
 }
 
 async function packagesInstallOne(extra) {

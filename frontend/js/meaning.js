@@ -9,7 +9,7 @@
 //
 // The tables are the server's (`GET /read/words`, ai/meaning.py), asked once;
 // the rule is ai/meaning.py's `alts` and `holds`, and the two are kept the same
-// by tests/test_meaning_1011.py. Lazy, in the Settings and palette bundles
+// by tests/test_meaning.py. Lazy, in the Settings and palette bundles
 // (`LAZY_MODULES`, app.js): every caller is in one of those, or asks with a
 // `typeof` guard and matches the plain words without it.
 //

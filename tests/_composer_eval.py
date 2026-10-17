@@ -757,7 +757,7 @@ def run_did_you_mean() -> dict:
 #
 # Each set is a fixture in `fixtures/composer/` (written by a seeded generator;
 # every expected value is worked out from the row itself, never by running
-# the engine) with a `run_*` and a `*_summary`; `tests/test_engine_evals_1010.py`
+# the engine) with a `run_*` and a `*_summary`; `tests/test_engine_dialogue.py`
 # holds the floors.
 
 FIXTURES = Path(__file__).parent / "fixtures" / "composer"

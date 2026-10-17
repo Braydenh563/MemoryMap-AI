@@ -9,6 +9,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 - Workflow: usage tiers, model rungs and the Fable opt-in rule (CLAUDE.md section 8), four project subagents, `scripts/usage_report.py`, the `retro` skill and ledger, and the `usage-guard` plugin.
 - Docs: the owner's 2026-10-13 composer batch placed in BACKLOG (magic add-on wording, Harper hover-confirm, variation, unusual input, Atlas's Assistant naming, note-type switch, the packaged desktop window, recent-notes composing, taxonomy options and uni filing, the composer's Improve writing and Generate title).
+- Tests: the 32 repo-scanning tests share one cached tree walk (`tests/_repo_files.py`) and one decoded copy of each `src/`, `docs/` and `tests/` file (`tests/conftest.py`), instead of an `rglob` each; every test keeps its own file set and exclusions.
 
 ## [0.5.0] - 2026-10-12
 

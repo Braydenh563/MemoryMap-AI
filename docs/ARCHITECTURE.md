@@ -1388,6 +1388,7 @@ style, optional AI profile, …) live in `data/preferences.json`, managed by
   `node --check`, ruff, and the tests that name the files you changed);
   `--staged` checks the index before a commit; the full suite runs in CI on
   every push and locally only at the end of a large piece of work.
+- **Scanning the tree:** a test that reads many source files takes its list from `repo_files()` in `tests/_repo_files.py` (the checkout walked once per process, filtered per call by `suffixes`, `patterns`, `exclude_dirs`, `exclude_names`), never its own `rglob`; `Path.read_text` for files under `frontend/`, `src/`, `docs/` and `tests/` is cached in `tests/conftest.py`, so the scanners share one decoded copy.
 - **The suite cannot see the UI.** Every layout and wiring bug fixed so far
   passed a fully green run: a header overflowing its own box by 215px, a
   button focusing an element inside a hidden section, an accent picker with no

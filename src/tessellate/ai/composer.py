@@ -77,7 +77,7 @@ from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime
 
-from tessellate.ai import act_registry, composer_ack, composer_overview, composer_replies, composer_tables, grounding, phrasing, question_noise, realise, spelling, utilities, variants
+from tessellate.ai import act_registry, composer_ack, composer_overview, composer_parts, composer_replies, composer_tables, grounding, phrasing, question_noise, realise, spelling, utilities, variants
 from tessellate.ai import recognise as rec
 from tessellate.ai import when as when_words
 from tessellate.search import query as query_understanding
@@ -3167,28 +3167,10 @@ def _fit_terms(terms: list[str], views: list[NoteView], report: list | None = No
 #: greeting twice in a row is not answered word for word the same. Nothing
 #: here says anything about the notes: these are the app's own words.
 SOCIAL: dict[str, tuple[str, ...]] = {
-    "greeting": (
-        "Hello. Ask me anything about your notes and I will answer from what you wrote.",
-        "Hi. What would you like to find in your notes?",
-        "Hello again. What is on your mind?",
-        "Hi there. I can tell you when something is, what you decided, or what the latest is on a project.",
-        "Greetings. What can I look up for you today?",
-        "Hey. Just let me know what you need from your records.",
-    ),
     "morning": (
         "Good morning. What would you like to look up?",
         "Morning. Your notes are ready when you are.",
         "Morning. Ask me about anything you have jotted down.",
-    ),
-    "thanks": (
-        "You are welcome.",
-        "Glad that helped.",
-        "Any time. Ask again whenever you need something from your notes.",
-        "Happy to help.",
-        "No problem at all.",
-        "You got it. Anything else?",
-        "My pleasure. What else can we find?",
-        "Happy to assist. Let me know if you need more.",
     ),
     "how": (
         "All good here, and your notes are in order. What can I find for you?",
@@ -3196,14 +3178,6 @@ SOCIAL: dict[str, tuple[str, ...]] = {
         "Fine, thank you. Anything you want to look up?",
         "Everything is excellent. How can I assist you with your notes?",
         "I am well, thanks. Let's dig into your records.",
-    ),
-    "bye": (
-        "Bye for now. Your notes will be here.",
-        "See you soon.",
-        "Take care. Everything you wrote is saved.",
-        "Goodbye. Feel free to return when you need me.",
-        "Catch you later. I'll keep your notes safe.",
-        "Farewell. Let me know if you need anything else later.",
     ),
     "sorry": (
         "No need to apologise. What would you like to try?",
@@ -3323,6 +3297,10 @@ for _kind, _more in composer_replies.SOCIAL_NATURAL.items():
     SOCIAL[_kind] = SOCIAL.get(_kind, ()) + _more
 for _kind, _more in composer_replies.SOCIAL_PROFESSIONAL.items():
     SOCIAL_PROFESSIONAL[_kind] = SOCIAL_PROFESSIONAL.get(_kind, ()) + _more
+#: A hello, a thanks and a goodbye are a head and a tail chosen as a pair
+#: (`composer_parts`), not a stored line said whole.
+SOCIAL.update(composer_parts.lines("natural"))
+SOCIAL_PROFESSIONAL.update(composer_parts.lines("professional"))
 
 _SOCIAL_KIND = (
     ("morning", re.compile(r"\bgood (?:morning|afternoon|evening|day)\b|^morning\b", re.I)),
@@ -3427,15 +3405,20 @@ def _social_line(message: str, kind: str, previous: str, last_question: str, voi
     recent = [r for r in recent if r] or ([previous] if previous else [])
     professional = composer_tables.voice_of(voice) == "professional"
     lines = (SOCIAL_PROFESSIONAL if professional else SOCIAL)[kind]
+    #: A composed line never ends on a sentence one of the last few ended on.
+    lines = [x for x in lines if not composer_parts.repeats_tail(x, recent[-phrasing.RECENT:])] or lines
     line = phrasing.choose(lines, f"social:{kind}:{message}", recent, seed or _SESSION.get())
     subject = _asked_span(last_question, subject_terms(last_question)) if last_question else ""
     if kind in _NEXT_STEP_KINDS and subject and len(subject) <= 40:
-        #: Never two questions back to back: after a line that asks, the
-        #: next step is said, not asked.
-        steps = [n for n in (NEXT_STEPS_PROFESSIONAL if professional else NEXT_STEPS) if not (line.endswith("?") and n.endswith("?"))]
-        step = _pick(f"{message}|{subject}", "social:next", steps).format(subject=subject)
-        line = f"{line} {step}"
+        line = f"{line} {_next_step(line, message, subject, professional)}"
     return line
+
+
+def _next_step(line: str, message: str, subject: str, professional: bool) -> str:
+    """Never two questions back to back: after a line that asks, the next
+    step is said, not asked."""
+    steps = [n for n in (NEXT_STEPS_PROFESSIONAL if professional else NEXT_STEPS) if not (line.endswith("?") and n.endswith("?"))]
+    return _pick(f"{message}|{subject}", "social:next", steps).format(subject=subject)
 
 
 def call(names: list[str] | str, recent: list[str] | tuple = (), seed: str = "", voice: str = composer_tables.DEFAULT_VOICE) -> str:

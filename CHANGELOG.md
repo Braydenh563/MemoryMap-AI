@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Composer, hello, thanks and goodbye are composed from a head and a tail (`ai/composer_parts.py`), not a stored line said whole: with no model, 300 seeds of "hi", "thanks" and "bye" gave 19, 18 and 18 distinct replies (13, 8, 8 professional), now 104, 121, 124 (104, 70, 71), and a reply never ends on a sentence one of the last three ended on.
 - Settings, Models: saving or resetting the memory correction offers Undo (and Redo), like every other write (`saveModelHardware`).
 - Workflow: sessions on this repo auto-compact at 400k tokens (`.claude/settings.json`) with compact instructions in CLAUDE.md section 8, so long sessions stay cheap per turn and keep their state.
 - Companion physics, from the owner's 2026-10-17 report ("throwing companions ... insanely framey and laggy"): a carried or thrown companion no longer restyles the whole page tree each frame. At 4x CPU slowdown the flight ran at 19 fps (median frame 50 ms) and now runs at 55 to 58 fps; the carry went from 34 to 38 fps to 56 to 59. The cause was a document-wide `:has()` rule matched on every restyle of the companion and an inherited sway property written on it each frame; both are replaced. A throw let go on a busy page is also read from the input's own timestamps, so it flies instead of dropping. Atlas's arm rig now reads style once before it writes any (a thrown Atlas: 29 fps to 58 at normal speed, 5 fps to 24 at 4x CPU slowdown).

@@ -202,7 +202,9 @@ HELP_TOPICS: list[dict] = [
         "keywords": ("reminder", "due date", "snooze", "recur", "recurring", "early alert"),
         "body": (
             "The Reminders tab groups items into Overdue / Today / Upcoming / "
-            "Done. Set a priority, snooze, edit inline, or make one recurring: "
+            "Done. Add a reminder at the top of the Reminders tab: type it in plain words on the "
+            "Magic add line and press the sparkle, or fill in Remind me to, the "
+            "date and the time, then Add. Set a priority, snooze, edit inline, or make one recurring: "
             "\"every weekday\", \"every 2 weeks\", \"the last Friday of the month\", "
             "with an early alert such as \"1 day before\". "
             "The date and time fields open a month and the day's times, and "
@@ -469,7 +471,7 @@ HELP_TOPICS: list[dict] = [
         "id": "models",
         "keywords": ("model", "ollama", "lm studio", "vllm", "llama.cpp", "utility model", "chat model", "sampling", "temperature", "no model connected", "no model notice", "hide notice", "banner", "popup"),
         "body": (
-            "Settings, Models picks the chat model and an optional smaller "
+            "Connect a model in Settings, Models, which picks the chat model and an optional smaller "
             "utility model for background jobs. Any OpenAI-compatible server "
             "works, not just Ollama, LM Studio, llama-server, Jan, vLLM. "
             "Sampling parameters (temperature, top-p, top-k, min-p, repeat "
@@ -3080,6 +3082,22 @@ _HOW_TO = re.compile(
 )
 HELP_BLOCK_MAX_TOPICS = 2
 HELP_BLOCK_MAX_CHARS = 1400
+
+
+def names_app(question: str) -> bool:
+    """Whether a how-to the notes could not answer plainly names a part of the
+    app: a keyword of several words ("connect a model"), or two keywords of
+    the topic it matches. One single-word keyword is not enough: "how do I
+    learn python" matches Code files on "python", and "how can I improve my
+    sleep" Capture on "improve" (O1, measured 2026-10-17)."""
+    if not question or not _HOW_FRAME.match(question):
+        return False
+    topics = _matching_topics(question)
+    if not topics:
+        return False
+    lowered = question.lower()
+    hits = [k for k in topics[0]["keywords"] if _keyword_in(k, lowered)]
+    return len(hits) >= 2 or any(" " in k.strip() and not _HOW_FRAME.match(k) for k in hits)
 
 
 def help_block_for(question: str) -> str:

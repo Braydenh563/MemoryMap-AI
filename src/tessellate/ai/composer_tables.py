@@ -1155,7 +1155,7 @@ SOCIAL_PROFESSIONAL: dict[str, tuple[str, ...]] = {
     "about_app": (
         "I am Atlas's assistant. I answer from your notes: dates, decisions and the status of a project. I also set reminders and "
         "tag, move or pin notes on request. Connecting a model adds writing and summaries.",
-        "The assistant answers from what you have recorded: a date, a decision, a list or the status of a project, and acts on "
+        "Atlas's assistant answers from what you have recorded: a date, a decision, a list or the status of a project, and acts on "
         "request (reminders, tags, pins). Connecting a model adds writing and tools.",
     ),
 }

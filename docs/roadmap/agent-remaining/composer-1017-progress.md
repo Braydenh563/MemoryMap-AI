@@ -1,0 +1,4 @@
+# composer-1017 progress (brief: composer-1017.md)
+
+- O1 done (commit "Composer O1"): measured Chat, Chat request and Ask with no model on 8 questions, identical answers (Chat already composes through Ask's engine). Fixed: how-to help line (5 of 7 how-tos led with the wrong sentence), how-tos found in no note that name the app ("how do I connect a model") answered from help, search_help answered "nothing" for "reminder", summarize_notes said "In the all time". Also repaired test_engine_identity (7 about_app lines lacked "Atlas's assistant", from a9d427c).
+- next: O2 Guide intent (B11, B86): help_chat.offline_answer reads intent from the words before the tab. Measured on :8785 from the graph tab: "How do I use the app??" and "cna you help me" answer with the Graph topic; "what is this page for" with Board library; "what should I ask" with the Ask/Chat paragraph; "What can Atlas change" (Chat's own empty-state chip) with Agent mode.

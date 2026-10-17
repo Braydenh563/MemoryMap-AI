@@ -3557,6 +3557,24 @@ _HELP_DOING: dict[str, frozenset[str]] = {
 _HELP_WEAK = frozenset("one two three four five lots many several all every".split())
 
 
+def _help_verb(question: str) -> str:
+    """The doing a how-to asks about, its first word after the asking frame
+    ("export" in "how do I export my notes"), or ""."""
+    from tessellate.ai import help_chat
+
+    frame = help_chat._HOW_FRAME.match(question or "")
+    rest = _words(question[frame.end():]) if frame else []
+    return rest[0] if rest else ""
+
+
+def _help_pairs(question: str) -> set[str]:
+    """Adjacent content words of a question, as typed ("back up", "hide
+    unlinked"), the asking and counting words left out."""
+    typed = re.findall(r"[a-z0-9]+", (question or "").lower())
+    content = [bool(_words(w)) and w not in _HELP_WEAK for w in typed]
+    return {f"{typed[i]} {typed[i + 1]}" for i in range(len(typed) - 1) if content[i] and content[i + 1]}
+
+
 def help_line(question: str, topics: list[dict]) -> tuple[str, str] | None:
     """The one sentence of the best topic that answers a how-to (its step
     sentence sharing the most of the question's words) and the topic's id:
@@ -3575,8 +3593,14 @@ def help_line(question: str, topics: list[dict]) -> tuple[str, str] | None:
     #: words that are noise in a notebook ("note") name the control in Help.
     wanted = set(_words(question))
     #: The topic's own name is what every one of its sentences is about, so it
-    #: counts half: the verb asked ("make") is what picks the sentence.
-    named = set(_words(str(topic.get("id", "")).replace("-", " ")))
+    #: counts half: the verb asked ("make") is what picks the sentence. Unless
+    #: the name is the verb asked: "how do I export my notes" in import-export
+    #: led with Tidy up duplicates, since "notes" outweighed a halved "export".
+    verb = _help_verb(question)
+    named = set(_words(str(topic.get("id", "")).replace("-", " "))) - {verb}
+    #: Two content words side by side in the question and the sentence are
+    #: the control's name ("back up", "hide unlinked"): half a word more.
+    pairs = _help_pairs(question)
 
     def shared(line: str) -> float:
         #: A word and its longer form ("remind", "reminder") are one word here;
@@ -3588,7 +3612,8 @@ def help_line(question: str, topics: list[dict]) -> tuple[str, str] | None:
 
         hits = sum(0.25 if w in _HELP_WEAK else 0.5 if w in named else 1 for w in wanted if any(one(w, h) for h in have))
         kin = sum(1 for w in wanted if not any(one(w, h) for h in have) and any(one(g, h) for g in _HELP_DOING.get(w, ()) for h in have))
-        return hits + 0.5 * kin
+        said = " " + " ".join(re.findall(r"[a-z0-9]+", line.lower())) + " "
+        return hits + 0.5 * kin + 0.5 * sum(1 for p in pairs if f" {p} " in said)
 
     #: A later sentence must say more to lead: the topic opens on its point
     #: ("Link one note to another by typing [[" over the Suggestions sheet,
@@ -3989,6 +4014,8 @@ def _nothing(
         "parts": parts,
         "next": ["".join(part[1] for part in chip) for chip in chips],
         "next_parts": chips,
+        #: No answer in the notes: `compose` may give the app's help instead.
+        "missed": True,
     }
 
 
@@ -4057,9 +4084,22 @@ def compose(
         _SESSION.reset(token)
         _LEARNED.reset(known)
         _KNOWN.reset(owned)
+    #: A how-to the notes have nothing on that plainly names the app ("how do
+    #: I connect a model") is the help register's (O1): it was answered 'No
+    #: note I found says anything about "connect" or "model"'.
+    if result.get("missed") and _names_app(asked):
+        helped = _help_result(asked, salt=salt, turn=turn, dialogue=None, previous=previous)
+        if helped:
+            result = helped
     if dialogue is not None:
         dialogue.record(asked, result)
     return result
+
+
+def _names_app(question: str) -> bool:
+    from tessellate.ai import help_chat
+
+    return help_chat.names_app(question)
 
 
 def _help_result(question: str, *, salt: str, turn: int | None, dialogue: Dialogue | None, previous: str) -> dict | None:

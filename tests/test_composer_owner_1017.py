@@ -167,3 +167,41 @@ def test_a_category_named_for_the_app_is_not_renamed_to_a_generic_topic(session)
     session.commit()
     rows = tidy._rows_category_names(session, "standard")
     assert not [r for r in rows if "About Tessellate" in r["title"]], rows
+
+
+#: How-tos answered in Chat with no model, with words of the sentence that
+#: answers each (O1, BACKLOG "Composer quality outside Ask"): measured
+#: 2026-10-17, five of these led with a sentence about something else.
+HOW_TOS = (
+    ("How do I add a reminder?", "Magic add"),
+    ("how do i make a reminder", "Magic add"),
+    ("how do I export my notes", "Export your data"),
+    ("how do I back up my notes", "Back up now"),
+    ("how do I connect a model", "Connect a model"),
+    ("how do I hide unlinked notes on the map of notes", "Hide unlinked"),
+    ("how do I link two notes together", "typing [["),
+)
+
+
+def test_a_how_to_in_chat_leads_with_the_sentence_that_answers_it(client, session):
+    """O1 (BACKLOG "Composer quality outside Ask"): "How do I add a reminder?"
+    in Chat answered "The Reminders tab groups items into Overdue / Today /
+    Upcoming / Done", and "how do I export my notes" led with Tidy up
+    duplicates. The verb asked counts in full even when the topic is named
+    for it, and a pair of words the sentence also says counts extra."""
+    from tessellate.ai import help_chat, reading
+
+    assert reading.__name__
+    for question, said in HOW_TOS:
+        line, _ = composer.help_line(question, help_chat.topics_for(question))
+        assert said in line, (question, line)
+    _seed(session)
+    for body in ({"use_tools": False}, {"use_tools": True}, {"notes_only": True, "use_tools": False}):
+        text = _ask(client, "How do I add a reminder?", **body)["text"]
+        assert "Magic add" in text, (body, text)
+        #: Read as a notes question (no app word the router knows), found in
+        #: no note, and plainly about the app: the help says it.
+        text = _ask(client, "how do I connect a model", **body)["text"]
+        assert text.startswith("Connect a model in Settings, Models"), (body, text)
+        text = _ask(client, "how do I learn python", **body)["text"]
+        assert "Settings" not in text and "python" in text.lower(), (body, text)

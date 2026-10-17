@@ -915,11 +915,16 @@ def _search_help(session: Session, args: dict) -> dict:
     """The app's own help for a feature, so a question about how Tessellate
     works is answered from its guide rather than from the notes or the
     model's guesses (the same block `help_chat` adds to an app question)."""
-    from tessellate.ai import help_chat
+    from tessellate.ai import composer, help_chat
     query = args.get("query") or ""
-    text = help_chat.help_block_for(query)
+    #: A tool call is already the asking: "reminder" is a topic to look up,
+    #: not a sentence that has to read as a how-to first (help_block_for's
+    #: gate returned nothing for it, O1 probe 2026-10-17).
+    text = help_chat.help_block_for(query) or help_chat.help_block_for(f"how do I use {query}")
+    line = composer.help_line(query, help_chat.topics_for(query)) if text else None
     return {
         "guide_text": text,
+        "answer": line[0] if line else "",
         "label": f"ph:book-open Read the guide on “{_clip(query, 40)}”",
     }
 

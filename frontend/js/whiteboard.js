@@ -522,7 +522,24 @@ function wbEndPanShield() {
   }, 250);
 }
 
+//: **No blur over moving pixels** (the owner, 2026-10-12: a trackpad pan of a
+//: mind map "slow and laggy" with a tool panel showing). The panels over a
+//: board are glass, and a backdrop blur samples what is under it, which moves
+//: every pan frame: five panels re-blurred per frame, 85 frames in 2 s against
+//: 117 with Glass off (tests/test_wb_pan_blur.py). The blur is dropped while
+//: the board moves (`#wb-canvas-view.wb-moving`, library-lazy.css) and comes
+//: back this long after the last pan or zoom step.
+const WB_MOVING_MS = 180;
+let wbMovingTimer = 0;
+function wbMarkMoving() {
+  const view = document.getElementById("wb-canvas-view");
+  if (view && !view.classList.contains("wb-moving")) view.classList.add("wb-moving");
+  clearTimeout(wbMovingTimer);
+  wbMovingTimer = setTimeout(() => view?.classList.remove("wb-moving"), WB_MOVING_MS);
+}
+
 function handleWbZoom(e) {
+  wbMarkMoving();
   //: A view that is not where the last fit put it is not "fitted" any more,
   //: so a panel opening does not pull it back (`wbRefitIfFitted`).
   if (wbFit.on && (e.sourceEvent || (Date.now() > wbFit.until && !wbSameView(e.transform, wbFit.target)))) wbFit.on = false;

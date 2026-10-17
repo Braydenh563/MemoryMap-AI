@@ -4763,6 +4763,18 @@ function nameMarkBuddyPut(buddy, x, y) {
   if (nmb.menuPlace && nameMarkBuddyMenuOpen()) nmb.menuPlace();
 }
 
+//: The lean of a carried or flying companion, against the pull: the body by
+//: 0.4 deg a unit and each leg by 1 deg, 0 clearing it. Written to the
+//: elements that wear it, not as a custom property on #nm-buddy: an inherited
+//: property set every frame restyled the whole drawing, and a thrown Atlas ran
+//: at 29 frames in 1.6 s against 92 without it (test_companion_motion.py).
+function nameMarkBuddySway(buddy, sway) {
+  const lean = Math.round(sway * 10) / 10;
+  for (const el of buddy.querySelectorAll(".nm-figure:not(.nmb-fig-leaving), .nmb-leg")) {
+    el.style.rotate = lean ? `${el.classList.contains("nmb-leg") ? lean : lean * 0.4}deg` : "";
+  }
+}
+
 //: **Leaves with its panel, like the page does** (INBOX 426 x, the owner:
 //: "if I scroll really fast the companion will just float in the corner
 //: ... then it will disappear"). On a panel inside a scroll area it rides
@@ -6139,7 +6151,7 @@ function nameMarkBuddyThrow(buddy, vx, vy) {
       if (nmb.flight !== flight) return;
       nmb.flight = null;
       buddy.classList.remove("nm-buddy-dragging");
-      buddy.style.setProperty("--nmb-sway", "0");
+      nameMarkBuddySway(buddy, 0);
       if (!char) return;
       //: Stopped while still turned (the cap, a grab): eased upright, the
       //: short way, never snapped.
@@ -6163,7 +6175,7 @@ function nameMarkBuddyThrow(buddy, vx, vy) {
     }
     nameMarkBuddyPut(buddy, Math.round(s.x), Math.round(s.y));
     if (char) char.style.rotate = `${s.rot.toFixed(1)}deg`;
-    buddy.style.setProperty("--nmb-sway", Math.max(-28, Math.min(28, -s.vx * 10)).toFixed(1));
+    nameMarkBuddySway(buddy, Math.max(-28, Math.min(28, -s.vx * 10)));
     if (hit > 0.5 && char && typeof char.animate === "function") {
       //: Squashed by how hard it came down.
       const a = Math.min(0.22, hit * 0.09);
@@ -9170,10 +9182,10 @@ function nameMarkBuddyBuild() {
     const vx = drag.x - (drag.lastX ?? drag.x);
     drag.lastX = drag.x;
     const sway = Math.max(-28, Math.min(28, -vx * 1.4));
-    buddy.style.setProperty("--nmb-sway", sway.toFixed(1));
+    nameMarkBuddySway(buddy, sway);
     if (Math.abs(vx) > 1) buddy.dataset.turn = vx < 0 ? "l" : "r";
     clearTimeout(drag.settle);
-    drag.settle = setTimeout(() => buddy.style.setProperty("--nmb-sway", "0"), 120);
+    drag.settle = setTimeout(() => nameMarkBuddySway(buddy, 0), 120);
   };
   face.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 || nmb.visit) return;
@@ -9239,7 +9251,7 @@ function nameMarkBuddyBuild() {
       buddy.style.translate = "";
       buddy.classList.remove("nm-buddy-dragging");
       clearTimeout(drag.settle);
-      buddy.style.setProperty("--nmb-sway", "0");
+      nameMarkBuddySway(buddy, 0);
       delete buddy.dataset.turn;
       nameMarkBuddyPut(buddy, Math.round(box.left), Math.round(box.top));
       //: **Thrown** (INBOX 882): let go while still moving fast, it flies

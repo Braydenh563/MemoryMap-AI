@@ -5180,7 +5180,6 @@ body .chip.item-label,
    measures perches in those px. */
 #nm-buddy {
   --nmb-lean: 0;
-  --nmb-sway: 0;
   --nmb-edge: 72px;
   --nmb-ex: 0;
   --nmb-ey: 0;
@@ -5868,14 +5867,12 @@ body .chip.item-label,
 #nm-buddy[data-turn="l"] .nm-char .nm-buddy-head { translate: -3.5px 0; }
 #nm-buddy[data-turn="r"] .nm-char .nm-buddy-head { translate: 3.5px 0; }
 #nm-buddy[data-turn] .nm-figure { transform: scaleX(0.95); }
-/* Carried: it swings against the pull (`--nmb-sway`, from the drag's
+/* Carried: it swings against the pull (`nameMarkBuddySway`, from the drag's
    speed) and its eyes go wide. */
 #nm-buddy.nm-buddy-dragging .nm-figure {
   transform-origin: 50% 0;
-  rotate: calc(var(--nmb-sway) * 0.4deg);
 }
 #nm-buddy.nm-buddy-dragging .nmb-leg {
-  rotate: calc(var(--nmb-sway) * 1deg);
   transition: rotate var(--motion-slow) var(--ease-out);
 }
 #nm-buddy.nm-buddy-dragging .name-mark .nm-eyes {

@@ -899,6 +899,10 @@ function gcResize(s = gcTab) {
   const dpr = window.devicePixelRatio || 1;
   if (width === s.dims.w && height === s.dims.h && dpr === s.dpr) return false;
   s.dims = { w: width, h: height };
+  //: Whether this size was read off a laid-out box, not the fallback for one
+  //: never measured (a map drawn while its tab is hidden): the resize
+  //: observer reframes a fallback-sized map at once instead of gliding.
+  s.dimsReal = Boolean(box && box.clientWidth && box.clientHeight);
   s.dpr = dpr;
   s.canvas.width = Math.max(1, Math.round(width * dpr));
   s.canvas.height = Math.max(1, Math.round(height * dpr));
@@ -933,6 +937,7 @@ function gcEnsureCanvas(s = gcTab) {
   if (!s.observer && typeof ResizeObserver !== "undefined") {
     s.observer = new ResizeObserver((entries) => {
       const before = { ...s.dims };
+      const wasReal = s.dimsReal !== false;
       if (!gcResize(s)) {
         if (entries.some((entry) => entry.target.id !== s.boxId && !entry.target.matches(GC_FIT_MENUS))) gcRefitForPanels(s);
         return;
@@ -943,7 +948,7 @@ function gcEnsureCanvas(s = gcTab) {
       //: person moved keeps its middle in the middle, so a panel opening or
       //: closing beside it never leaves the map off to one side.
       if (s.zoom && s.svg && before.w && before.h && s.nodes?.length) {
-        if (!s.userZoomed) fitGraphToView(s.svg, null, s.zoom, s.nodes, s.dims.w, s.dims.h);
+        if (!s.userZoomed) fitGraphToView(s.svg, null, s.zoom, s.nodes, s.dims.w, s.dims.h, !wasReal);
         else s.svg.call(s.zoom.translateBy, (s.dims.w - before.w) / 2 / s.transform.k, (s.dims.h - before.h) / 2 / s.transform.k);
       }
       gcRequestDraw(s);

@@ -11603,6 +11603,12 @@ Link to another note with [[its first few words]]."></textarea>
                   <option value="medium">Medium: most accurate, slowest</option>
                 </select>
               </div>
+              <!-- B61: a size is fetched the first time it is used, not when it
+                   is chosen. Says which are on this computer, and removes one. -->
+              <div class="row space-between setting-row hidden" id="voice-model-state">
+                <p id="voice-model-note" class="muted"></p>
+                <button type="button" id="voice-model-remove" class="ghost small hidden">Remove this size</button>
+              </div>
               <!-- Brief 87 step 2: Whisper's options (ai/voice.py options_from).
                    Measured on 20 clips with silence and hum around them. -->
               <label class="check-row" id="voice-skip-silence-row">

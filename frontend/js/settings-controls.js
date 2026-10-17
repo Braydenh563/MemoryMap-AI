@@ -703,9 +703,7 @@ $("autonomous-trigger").addEventListener("click", () => {
     .catch((err) => toast(err.message, true));
 });
 
-$("voice-model-select").addEventListener("change", (e) =>
-  setPreference("voice_model", e.target.value)
-);
+//: The dictation size select is wired in settings-packages.js (voiceModelsWire), which paints it.
 $("voice-skip-silence").addEventListener("change", (e) =>
   setPreference("voice_skip_silence", e.target.checked)
 );

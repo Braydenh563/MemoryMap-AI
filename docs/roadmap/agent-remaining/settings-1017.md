@@ -11,4 +11,5 @@ Tests: tests/test_settings_bugs_1017.py (one per bug).
 - B57 done: Default accent ("indigo") painted #4664f0 inline; now sets nothing (computed back to the palette's #2f5bd3). 5567c10.
 - B63 done: renderBrandLogo now repaints #dash-hero-emblem (gradient stayed rgb(91,124,255) after crimson; now rgb(255,91,95)). ae7fc72.
 - B14 done: Expand all / Collapse all in the dock of panes with 2+ folds (skills, websearch, appearance, shortcuts, help, about; probe p/b14b.js at 1440 and 390). Left: panes with 0-1 fold (models, personas, tools, ...) get none; their "sections" are not collapsible. a29dfab.
-- B68 done: gemma4:26b card labelled "gemma4:26b (a4b)", purpose rewritten (pull tag unchanged). Next: B61.
+- B68 done: gemma4:26b card labelled "gemma4:26b (a4b)", purpose rewritten (pull tag unchanged). cc91af3.
+- B61 done (smallest honest): dictation sizes marked "(on this computer)" / "(~N MB to download)", confirm on choosing a size that is not here (cancel reverts, nothing downloads until first dictation), Remove this size (DELETE /voice/models/{size}); embedding models already had remove. Left: unsloth gemma embedding licence remark (not touched), a delete for other model kinds. Next: B75.

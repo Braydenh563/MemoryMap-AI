@@ -152,3 +152,15 @@ def test_b68_the_gemma4_26b_card_says_it_is_a4b():
     assert "a4b" in entry["purpose"] and "12B-class" not in entry["purpose"]
     cards = (ROOT / "frontend" / "js" / "settings-models.js").read_text(encoding="utf-8")
     assert "model.label ||" in cards
+
+
+# B61 (the backend half is tests/test_voice_models.py). Probe p/b61.js: the
+# options carried no installed marker and choosing a size sent only
+# `PUT /preferences`, with no word about a download at the first dictation.
+def test_b61_the_dictation_size_menu_marks_installed_confirms_and_removes():
+    js = (ROOT / "frontend" / "js" / "settings-packages.js").read_text(encoding="utf-8")
+    assert "(on this computer)" in js and "to download)" in js
+    assert "confirmDialog(" in js.split("function voiceModelsWire", 1)[1]
+    assert "/voice/models/" in js and 'method: "DELETE"' in js
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert 'id="voice-model-remove"' in html and 'id="voice-model-note"' in html

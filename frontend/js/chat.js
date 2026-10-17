@@ -1048,13 +1048,9 @@ async function refreshWebSearxngStrip() {
   } else if (provider === "duckduckgo") {
     setWebEngineDot("remote", provider);
   }
-  if (provider === "duckduckgo") {
-    // This provider never touches SearXNG, a command here would control
-    // nothing a search actually uses.
-    webEngineInfo = null;
-    renderWebPanelMenu(null);
-    return;
-  }
+  //: DuckDuckGo never touches SearXNG, so the dot above keeps saying DuckDuckGo
+  //: answers; the menu still offers the engine's command, since starting it is
+  //: how someone on DuckDuckGo gets to try SearXNG (B55: the item was "gone").
   const info = await apiJson("/websearch/searxng/status").catch(() => null);
   if (!info || !info.backend) {
     // No usable backend (Docker or a virtualenv) to run it at all, Settings
@@ -1075,7 +1071,7 @@ async function refreshWebSearxngStrip() {
           ? "absent"
           : "stopped";
   webEngineInfo = { state, running };
-  if (!prefsCache || prefsCache.web_search_enabled) setWebEngineDot(state, provider);
+  if (!prefsCache || prefsCache.web_search_enabled) setWebEngineDot(provider === "duckduckgo" ? "remote" : state, provider);
   renderWebPanelMenu(webEngineInfo);
   // Keep polling while it settles, same as Settings' own richer view:
   // otherwise "starting" can stick with no way to tell it's still moving.

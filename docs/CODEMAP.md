@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5884, frontend ids 2498, CSS sections 494, backend routes 605, backend modules 5483, test files 1177, tests 10887, plan headings 956.
+Counts: frontend functions 5884, frontend ids 2498, CSS sections 494, backend routes 605, backend modules 5483, test files 1177, tests 10889, plan headings 956.
 
 ## Frontend functions (5884)
 
@@ -425,88 +425,88 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `aiWritingTrace` | frontend/js/chat.js:2198 |
-| `applyCompression` | frontend/js/chat.js:2058 |
-| `askAboutPage` | frontend/js/chat.js:1447 |
+| `aiWritingTrace` | frontend/js/chat.js:2194 |
+| `applyCompression` | frontend/js/chat.js:2054 |
+| `askAboutPage` | frontend/js/chat.js:1443 |
 | `assistantLabel` | frontend/js/chat.js:52 |
 | `assistantMessageActions` | frontend/js/chat.js:162 |
 | `atlasSuggestion` | frontend/js/chat.js:674 |
-| `batteryModeOn` | frontend/js/chat.js:2100 |
-| `bookmarkWebResult` | frontend/js/chat.js:1250 |
-| `buildWebResultRow` | frontend/js/chat.js:1127 |
+| `batteryModeOn` | frontend/js/chat.js:2096 |
+| `bookmarkWebResult` | frontend/js/chat.js:1246 |
+| `buildWebResultRow` | frontend/js/chat.js:1123 |
 | `chatHistoryToSend` | frontend/js/chat.js:36 |
 | `chatMessageActions` | frontend/js/chat.js:65 |
-| `chatTranscriptText` | frontend/js/chat.js:1996 |
+| `chatTranscriptText` | frontend/js/chat.js:1992 |
 | `chatTurnTranscript` | frontend/js/chat.js:125 |
-| `citeWebPage` | frontend/js/chat.js:1504 |
+| `citeWebPage` | frontend/js/chat.js:1500 |
 | `clearChatEmptyState` | frontend/js/chat.js:803 |
-| `clearWebSearchHistory` | frontend/js/chat.js:1318 |
+| `clearWebSearchHistory` | frontend/js/chat.js:1314 |
 | `closeWebReader` | frontend/js/chat.js:872 |
 | `compactTokens` | frontend/js/chat.js:490 |
-| `compressChatContext` | frontend/js/chat.js:2024 |
+| `compressChatContext` | frontend/js/chat.js:2020 |
 | `continueRunControls` | frontend/js/chat.js:226 |
 | `copyToClipboard` | frontend/js/chat.js:547 |
 | `copyViaTextarea` | frontend/js/chat.js:514 |
-| `copyWebLink` | frontend/js/chat.js:1242 |
-| `fillPersonaMark` | frontend/js/chat.js:1779 |
+| `copyWebLink` | frontend/js/chat.js:1238 |
+| `fillPersonaMark` | frontend/js/chat.js:1775 |
 | `flashCopied` | frontend/js/chat.js:536 |
 | `forkFromBubble` | frontend/js/chat.js:626 |
-| `livingInterval` | frontend/js/chat.js:2184 |
-| `loadResponseModes` | frontend/js/chat.js:1734 |
-| `loadWebSearchHistory` | frontend/js/chat.js:1293 |
+| `livingInterval` | frontend/js/chat.js:2180 |
+| `loadResponseModes` | frontend/js/chat.js:1730 |
+| `loadWebSearchHistory` | frontend/js/chat.js:1289 |
 | `manualPauseControls` | frontend/js/chat.js:272 |
 | `messageMetaLine` | frontend/js/chat.js:340 |
 | `metaItem` | frontend/js/chat.js:306 |
-| `mountChatActionsMenu` | frontend/js/chat.js:1920 |
-| `openWebPageExternally` | frontend/js/chat.js:1238 |
-| `openWebReader` | frontend/js/chat.js:1464 |
-| `personaOptions` | frontend/js/chat.js:1796 |
-| `progressLine` | frontend/js/chat.js:2526 |
-| `progressMotionWanted` | frontend/js/chat.js:2136 |
-| `progressPhaseText` | frontend/js/chat.js:2394 |
-| `pushWebSearchHistory` | frontend/js/chat.js:1302 |
+| `mountChatActionsMenu` | frontend/js/chat.js:1916 |
+| `openWebPageExternally` | frontend/js/chat.js:1234 |
+| `openWebReader` | frontend/js/chat.js:1460 |
+| `personaOptions` | frontend/js/chat.js:1792 |
+| `progressLine` | frontend/js/chat.js:2522 |
+| `progressMotionWanted` | frontend/js/chat.js:2132 |
+| `progressPhaseText` | frontend/js/chat.js:2390 |
+| `pushWebSearchHistory` | frontend/js/chat.js:1298 |
 | `questionForBubble` | frontend/js/chat.js:580 |
-| `reducedMotionWanted` | frontend/js/chat.js:2106 |
+| `reducedMotionWanted` | frontend/js/chat.js:2102 |
 | `refreshWebSearxngStrip` | frontend/js/chat.js:1043 |
 | `regenerateFromBubble` | frontend/js/chat.js:598 |
 | `regenerateLastAnswer` | frontend/js/chat.js:653 |
 | `removeChatBubble` | frontend/js/chat.js:500 |
-| `renderChatContextMeter` | frontend/js/chat.js:1870 |
+| `renderChatContextMeter` | frontend/js/chat.js:1866 |
 | `renderChatEmptyState` | frontend/js/chat.js:694 |
-| `renderChatTurnCount` | frontend/js/chat.js:1900 |
-| `renderChatUsage` | frontend/js/chat.js:1853 |
-| `renderCompressionState` | frontend/js/chat.js:2071 |
-| `renderModelContextBox` | frontend/js/chat.js:1597 |
-| `renderModelHealthNote` | frontend/js/chat.js:1697 |
-| `renderModelSpec` | frontend/js/chat.js:1625 |
-| `renderWebPageAttachment` | frontend/js/chat.js:1531 |
+| `renderChatTurnCount` | frontend/js/chat.js:1896 |
+| `renderChatUsage` | frontend/js/chat.js:1849 |
+| `renderCompressionState` | frontend/js/chat.js:2067 |
+| `renderModelContextBox` | frontend/js/chat.js:1593 |
+| `renderModelHealthNote` | frontend/js/chat.js:1693 |
+| `renderModelSpec` | frontend/js/chat.js:1621 |
+| `renderWebPageAttachment` | frontend/js/chat.js:1527 |
 | `renderWebPanelMenu` | frontend/js/chat.js:977 |
-| `renderWebSearchHistory` | frontend/js/chat.js:1327 |
+| `renderWebSearchHistory` | frontend/js/chat.js:1323 |
 | `rewriteAnswerWith` | frontend/js/chat.js:617 |
-| `runWebSearch` | frontend/js/chat.js:1362 |
-| `saveChatAsDocument` | frontend/js/chat.js:1972 |
-| `scheduleThinkingWordTick` | frontend/js/chat.js:2312 |
-| `setResponseMode` | frontend/js/chat.js:1757 |
+| `runWebSearch` | frontend/js/chat.js:1358 |
+| `saveChatAsDocument` | frontend/js/chat.js:1968 |
+| `scheduleThinkingWordTick` | frontend/js/chat.js:2308 |
+| `setResponseMode` | frontend/js/chat.js:1753 |
 | `setWebEngineDot` | frontend/js/chat.js:963 |
 | `setWebSearxngRunning` | frontend/js/chat.js:1028 |
-| `showCompressReview` | frontend/js/chat.js:2046 |
-| `startThinkingWordRotation` | frontend/js/chat.js:2340 |
-| `stopThinkingWordRotation` | frontend/js/chat.js:2362 |
+| `showCompressReview` | frontend/js/chat.js:2042 |
+| `startThinkingWordRotation` | frontend/js/chat.js:2336 |
+| `stopThinkingWordRotation` | frontend/js/chat.js:2358 |
 | `stopWebRequest` | frontend/js/chat.js:857 |
-| `togglePersonaPrompt` | frontend/js/chat.js:1845 |
+| `togglePersonaPrompt` | frontend/js/chat.js:1841 |
 | `toggleWebPanel` | frontend/js/chat.js:885 |
-| `toolPhaseVerb` | frontend/js/chat.js:2409 |
-| `typingDots` | frontend/js/chat.js:2423 |
+| `toolPhaseVerb` | frontend/js/chat.js:2405 |
+| `typingDots` | frontend/js/chat.js:2419 |
 | `webEngineWords` | frontend/js/chat.js:946 |
-| `webPageContextBlock` | frontend/js/chat.js:1562 |
-| `webPageMarkdown` | frontend/js/chat.js:1471 |
-| `webQueryTerms` | frontend/js/chat.js:1114 |
+| `webPageContextBlock` | frontend/js/chat.js:1558 |
+| `webPageMarkdown` | frontend/js/chat.js:1467 |
+| `webQueryTerms` | frontend/js/chat.js:1110 |
 | `webReaderIsOpen` | frontend/js/chat.js:868 |
 | `webRequestEnd` | frontend/js/chat.js:847 |
 | `webRequestStart` | frontend/js/chat.js:838 |
-| `webResultMark` | frontend/js/chat.js:1093 |
-| `wheelScrollsHorizontally` | frontend/js/chat.js:2247 |
-| `wireHorizontalWheelScrolling` | frontend/js/chat.js:2280 |
+| `webResultMark` | frontend/js/chat.js:1089 |
+| `wheelScrollsHorizontally` | frontend/js/chat.js:2243 |
+| `wireHorizontalWheelScrolling` | frontend/js/chat.js:2276 |
 
 ### frontend/js/chat-agent.js (71)
 
@@ -2324,42 +2324,42 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | Name | File:line |
 |---|---|
 | `closePalette` | frontend/js/app-palette.js:91 |
-| `notesPaletteCommands` | frontend/js/app-palette.js:696 |
+| `notesPaletteCommands` | frontend/js/app-palette.js:706 |
 | `openPalette` | frontend/js/app-palette.js:55 |
-| `paletteActRows` | frontend/js/app-palette.js:340 |
-| `paletteBase` | frontend/js/app-palette.js:295 |
-| `paletteDistance` | frontend/js/app-palette.js:527 |
+| `paletteActRows` | frontend/js/app-palette.js:350 |
+| `paletteBase` | frontend/js/app-palette.js:305 |
+| `paletteDistance` | frontend/js/app-palette.js:537 |
 | `paletteEditorMatches` | frontend/js/app-palette.js:130 |
 | `paletteFeature` | frontend/js/app-palette.js:37 |
-| `paletteFeatureRows` | frontend/js/app-palette.js:323 |
-| `paletteFind` | frontend/js/app-palette.js:573 |
+| `paletteFeatureRows` | frontend/js/app-palette.js:333 |
+| `paletteFind` | frontend/js/app-palette.js:583 |
 | `paletteFuzzyScore` | frontend/js/app-palette.js:110 |
-| `paletteGoToCategory` | frontend/js/app-palette.js:782 |
-| `paletteKeydown` | frontend/js/app-palette.js:654 |
-| `paletteLight` | frontend/js/app-palette.js:636 |
+| `paletteGoToCategory` | frontend/js/app-palette.js:792 |
+| `paletteKeydown` | frontend/js/app-palette.js:664 |
+| `paletteLight` | frontend/js/app-palette.js:646 |
 | `paletteMatches` | frontend/js/app-palette.js:140 |
-| `paletteNearRows` | frontend/js/app-palette.js:553 |
-| `paletteNearest` | frontend/js/app-palette.js:507 |
-| `paletteNearestCommand` | frontend/js/app-palette.js:578 |
-| `paletteNearestRows` | frontend/js/app-palette.js:542 |
-| `paletteNotesInHand` | frontend/js/app-palette.js:772 |
-| `palettePick` | frontend/js/app-palette.js:482 |
-| `palettePicks` | frontend/js/app-palette.js:463 |
-| `palettePool` | frontend/js/app-palette.js:301 |
-| `palettePrefixPicks` | frontend/js/app-palette.js:471 |
-| `paletteRanked` | frontend/js/app-palette.js:439 |
-| `paletteRefresh` | frontend/js/app-palette.js:315 |
+| `paletteNearRows` | frontend/js/app-palette.js:563 |
+| `paletteNearest` | frontend/js/app-palette.js:517 |
+| `paletteNearestCommand` | frontend/js/app-palette.js:588 |
+| `paletteNearestRows` | frontend/js/app-palette.js:552 |
+| `paletteNotesInHand` | frontend/js/app-palette.js:782 |
+| `palettePick` | frontend/js/app-palette.js:492 |
+| `palettePicks` | frontend/js/app-palette.js:473 |
+| `palettePool` | frontend/js/app-palette.js:311 |
+| `palettePrefixPicks` | frontend/js/app-palette.js:481 |
+| `paletteRanked` | frontend/js/app-palette.js:449 |
+| `paletteRefresh` | frontend/js/app-palette.js:325 |
 | `paletteRun` | frontend/js/app-palette.js:44 |
-| `paletteScore` | frontend/js/app-palette.js:411 |
-| `paletteSettingRows` | frontend/js/app-palette.js:375 |
-| `paletteStartAct` | frontend/js/app-palette.js:362 |
-| `paletteTarget` | frontend/js/app-palette.js:306 |
+| `paletteScore` | frontend/js/app-palette.js:421 |
+| `paletteSettingRows` | frontend/js/app-palette.js:385 |
+| `paletteStartAct` | frontend/js/app-palette.js:372 |
+| `paletteTarget` | frontend/js/app-palette.js:316 |
 | `paletteText` | frontend/js/app-palette.js:101 |
-| `paletteVocab` | frontend/js/app-palette.js:427 |
-| `paletteWhy` | frontend/js/app-palette.js:496 |
-| `paletteWords` | frontend/js/app-palette.js:398 |
-| `renderPalette` | frontend/js/app-palette.js:589 |
-| `scrollPaletteToActive` | frontend/js/app-palette.js:681 |
+| `paletteVocab` | frontend/js/app-palette.js:437 |
+| `paletteWhy` | frontend/js/app-palette.js:506 |
+| `paletteWords` | frontend/js/app-palette.js:408 |
+| `renderPalette` | frontend/js/app-palette.js:599 |
+| `scrollPaletteToActive` | frontend/js/app-palette.js:691 |
 | `utilityPaletteRows` | frontend/js/app-palette.js:213 |
 
 ### frontend/js/ask-chart.js (9)
@@ -17297,7 +17297,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10887)
+## Tests (10889)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -18232,7 +18232,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_server_time_readers.py | 1 |
 | tests/test_session_navigation.py | 6 |
 | tests/test_setting_label_toggles.py | 3 |
-| tests/test_settings_bugs_1017.py | 10 |
+| tests/test_settings_bugs_1017.py | 12 |
 | tests/test_settings_field_edge.py | 2 |
 | tests/test_settings_group_heads.py | 2 |
 | tests/test_settings_ia.py | 7 |

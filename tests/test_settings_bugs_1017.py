@@ -94,6 +94,8 @@ def _run_node(script: str) -> str:
 def _js_function(path: str, name: str) -> str:
     src = (ROOT / "frontend" / "js" / path).read_text(encoding="utf-8")
     start = src.index(f"function {name}(")
+    if src[max(0, start - 6) : start] == "async ":
+        start -= 6
     return src[start : src.index("\n}\n", start) + 3]
 
 
@@ -179,3 +181,38 @@ def test_b75_the_help_popover_shell_sets_one_text_size():
     ]
     assert sized, "no .help-popover rule sets a font-size"
     assert all("font-size: var(--text-lg)" in body for body in sized)
+
+
+# B55 (second half): "the button in the dropdown for starting searxng in the
+# web sidebar in the chat tab is gone". With the search provider on DuckDuckGo
+# the strip returned before drawing the engine's command (probe p/b55.js with
+# PROVIDER=duckduckgo and a stopped engine: menu items ["Web search settings"]).
+# The command is still offered there, since starting the engine is how someone
+# on DuckDuckGo gets to try SearXNG; the dot keeps saying DuckDuckGo answers.
+def test_b55_the_web_menu_still_offers_to_start_searxng_on_duckduckgo():
+    import json
+
+    script = (
+        "const calls = { menu: [], dot: [] };\n"
+        "let prefsCache = { search_provider: 'duckduckgo', web_search_enabled: true };\n"
+        "let webSearxngTimer = null, webEngineInfo = null;\n"
+        "async function apiJson() { return { backend: 'source', state: 'stopped', responding: false, installing: false }; }\n"
+        "function setWebEngineDot(state, provider) { calls.dot.push(state); }\n"
+        "function renderWebPanelMenu(engine) { calls.menu.push(engine); }\n"
+        + _js_function("chat.js", "refreshWebSearxngStrip")
+        + "\nrefreshWebSearxngStrip().then(() => console.log(JSON.stringify(calls)));\n"
+    )
+    calls = json.loads(_run_node(script))
+    assert calls["menu"] and calls["menu"][-1] == {"state": "stopped", "running": False}
+    assert calls["dot"][-1] == "remote"
+
+
+# B55 (first half, the smallest honest part of "hard to find"): the clipper's
+# bookmark lived only in Settings, Import & export. Typing clip, clipper or
+# bookmarklet in the palette now offers a row that opens it. A redesign of the
+# clipper's flow is not done.
+def test_b55_the_palette_finds_the_web_clipper():
+    palette = (ROOT / "frontend" / "js" / "app-palette.js").read_text(encoding="utf-8")
+    assert "Web clipper" in palette and 'openSettingsModal("data", "web-clip-box")' in palette
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert 'id="web-clip-box"' in html

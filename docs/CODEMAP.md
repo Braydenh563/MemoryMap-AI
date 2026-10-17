@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5879, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5476, test files 1222, tests 10866, plan headings 955.
+Counts: frontend functions 5879, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5476, test files 1221, tests 10866, plan headings 955.
 
 ## Frontend functions (5879)
 
@@ -17445,7 +17445,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_chunk_vectors.py | 11 |
 | tests/test_citation_after_heading.py | 1 |
 | tests/test_claimed_work.py | 18 |
-| tests/test_clear_app_cache.py | 4 |
+| tests/test_clear_app_cache.py | 8 |
 | tests/test_client_key_idempotent.py | 2 |
 | tests/test_clip_text.py | 1 |
 | tests/test_clock_weekday.py | 5 |
@@ -18250,7 +18250,6 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_server_time_readers.py | 1 |
 | tests/test_session_navigation.py | 6 |
 | tests/test_setting_label_toggles.py | 3 |
-| tests/test_settings_clear_1011.py | 4 |
 | tests/test_settings_field_edge.py | 2 |
 | tests/test_settings_group_heads.py | 2 |
 | tests/test_settings_history_1011.py | 10 |

@@ -14,6 +14,7 @@ ids; media cleanup counts what the library holds. The browser half is
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
@@ -383,3 +384,59 @@ def test_deleting_an_import_with_its_items_is_undone_whole(ai_client):
     ai_client.post("/board-library/libraries/restore", json={"token": gone["undo_token"]})
     assert len(ai_client.get(f"/board-library?library_id={library_id}").json()["items"]) == result["items"]
     assert len(ai_client.get(f"/board-library?library_id={yours}").json()["items"]) == 1
+
+
+# A Library tile draws what placing it makes (INBOX 794).
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_a_library_tile_draws_what_placing_it_makes():
+    """INBOX 794: the board Library's shape tiles drew every ink as the page's
+    text colour, a faint fill lifted to 18% and one hairline, so with a cyan pen
+    a placed shape was cyan and its tile was grey. `placed` resolves the ink to
+    the pen's, and keeps the payload's own fill opacity, width and dash (the
+    board's own dash ratios). Run against the shipped shapes and the board's
+    own `wbDashArray`."""
+    import json
+    import shutil
+    import subprocess
+
+    import pytest
+
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node is not installed")
+    templates = (ROOT / "frontend" / "js" / "whiteboard-templates.js").read_text(encoding="utf-8")
+    board = (ROOT / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
+
+    def fn(src: str, name: str) -> str:
+        start = src.index(f"function {name}(")
+        return src[start : src.index("\n}\n", start) + 3]
+
+    shapes = json.loads((ROOT / "frontend" / "board-library" / "general.json").read_text(encoding="utf-8"))["items"][:6]
+    dashed = {"box": {"w": 100, "h": 100}, "items": [{"key": "a", "kind": "sketch", "data": {"d": "M 0 0 L 90 0", "color": "ink", "width": 4, "dash": "dashed"}}]}
+    dotted = json.loads(json.dumps(dashed).replace("dashed", "dotted"))
+    payloads = [s["payload"] for s in shapes] + [dashed, dotted]
+    script = (
+        fn(templates, "wbThumbRound") + fn(templates, "wbBoardThumbSpec") + fn(board, "wbDashArray")
+        + f"const P = {json.dumps(payloads)};"
+        + "console.log(JSON.stringify({"
+        + "placed: P.map((p) => wbBoardThumbSpec(p, { placed: true, ink: '#00bcd4' }).parts.filter((x) => x.tag === 'path').map((x) => x.a)),"
+        + "plain: P.map((p) => wbBoardThumbSpec(p).parts.filter((x) => x.tag === 'path').map((x) => x.a)),"
+        + "dash: [wbDashArray('dashed', 4), wbDashArray('dotted', 4)]"
+        + "}));"
+    )
+    out = json.loads(subprocess.run([node, "-e", script], capture_output=True, text=True, check=True).stdout)
+    for payload, placed, plain in zip(payloads, out["placed"], out["plain"]):
+        sketches = [i for i in payload["items"] if i["kind"] == "sketch"]
+        for item, tile, old in zip(sketches, placed, plain):
+            data = item["data"]
+            if data.get("color") == "ink":
+                assert tile["stroke"] == "#00bcd4" and old["stroke"] == "currentColor"
+            if data.get("fill") == "ink":
+                assert tile["fill"] == "#00bcd4"
+                assert tile["fill-opacity"] == str(data["fillOpacity"]), "the tile lifts no fill"
+            if data.get("width"):
+                assert tile["stroke-width"] == data["width"]
+    dashes = [tile.get("stroke-dasharray") for tile in out["placed"][-2] + out["placed"][-1]]
+    assert dashes == out["dash"], dashes

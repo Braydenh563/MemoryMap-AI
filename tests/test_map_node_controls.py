@@ -213,3 +213,99 @@ def test_a_selected_connector_has_a_visible_label_button():
     wb = frontend_text("whiteboard.js")
     assert 'getElementById("wb-prop-label")?.addEventListener("click"' in wb
     assert 'labelButton.classList.toggle("hidden", !wbLinkTakesLabel(item, parsed))' in wb
+
+
+# Map and board canvas: topic add buttons, raster refresh, outline editing, the Map tab and fit-to-view (INBOX 790 to 794).
+_REPO = Path(__file__).resolve().parents[1]
+
+
+def test_a_topics_add_buttons_are_surfaces_at_the_target_floor():
+    """INBOX 791: the `+` and the library button on a node were transparent
+    28px ghosts. A card surface, a hairline, `--target-min` (44 on touch), a
+    body-size glyph, one size at every zoom, and a link glyph for the
+    reference (a bookmarks glyph read as "copy")."""
+    lazy = (_REPO / "frontend" / "css" / "library-lazy.css").read_text(encoding="utf-8")
+    box = re.search(r"\.wb-map-actions > button:not\(#wb-map-actions-row\) \{([^}]*)\}", lazy)
+    assert box
+    for want in ("width: var(--target-min)", "height: var(--target-min)", "background: var(--modal-bg-opaque)", "border: 1px solid var(--ghost-btn-border)"):
+        assert want in box.group(1), want
+    # INBOX 816: scaled with the topic between 20 and 28px (44 to 20 on touch),
+    # not one size at every zoom.
+    assert re.search(r"\.wb-map-actions \{\s*transform: scale\(clamp\(calc\(20 / 28 \* var\(--wb-inv-zoom\)\), 1, var\(--wb-inv-zoom\)\)\)", lazy)
+    js = (_REPO / "frontend" / "js" / "whiteboard-map.js").read_text(encoding="utf-8")
+    assert '"ph ph-link-simple"' in js and "bookmarks-simple" not in js
+    wb = (_REPO / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
+    assert '".wb-map-actions"' in wb
+
+
+def test_the_board_layers_are_rasterised_again_when_a_zoom_settles():
+    wb = (_REPO / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
+    refresh = wb[wb.index("function wbRefreshRaster") :][:600]
+    assert 'style.willChange = "auto"' in refresh and 'style.willChange = ""' in refresh
+    publish = wb[wb.index("function wbPublishInvZoom") :][:200]
+    assert "wbRefreshRaster()" in publish
+
+
+def _slice(js: str, name: str, span: int = 2500) -> str:
+    return js[js.index(f"function {name}") :][:span]
+
+
+def test_outline_rows_read_until_asked_to_be_edited():
+    """INBOX 792: "i dont think i should be typing in these outline options in
+    the sidebar unless i like double click on them or press an edit button".
+    A row is read-only; a double click, F2, Enter or its pencil opens it, Enter
+    saves and Escape puts the old name back."""
+    js = (_REPO / "frontend" / "js" / "whiteboard-map.js").read_text(encoding="utf-8")
+    row = _slice(js, "wbOutlineRowEl", 2200)
+    assert "field.readOnly = true;" in row and "wb-outline-edit" in row
+    assert "readOnly = false" in _slice(js, "wbOutlineEdit")
+    stop = _slice(js, "wbOutlineStopEdit")
+    assert "cancel" in stop and "wbMapLabel(row._node)" in stop
+    keys = js[js.index('getElementById("wb-outline-tree")?.addEventListener("keydown"') :][:2600]
+    assert 'event.key === "F2"' in keys and 'event.key === "Escape"' in keys
+    assert "wbOutlineStopEdit(row, { cancel: true })" in keys
+    assert 'addEventListener("dblclick"' in js[js.index("wbOutlineEdit(row)") - 600 :][:1400] or "dblclick" in js
+    mirror = js[js.index('getElementById("wb-outline-tree")?.addEventListener("input"') :][:300]
+    assert "wbOutlineEditing(row)" in mirror
+    css = (_REPO / "frontend" / "css" / "library-lazy.css").read_text(encoding="utf-8")
+    assert "#wb-outline-tree .wb-outline-row.is-editing > .wb-outline-text" in css
+
+
+def test_this_map_tab_is_tiles_actions_and_a_help_popover():
+    """INBOX 791: "this side tab looks a little messy". The counts are
+    number-over-label tiles two across (one builder with the stats dialog),
+    the actions are one group of quiet buttons, and the Library hint is the
+    help popover recipe."""
+    js = (_REPO / "frontend" / "js" / "whiteboard-map.js").read_text(encoding="utf-8")
+    lib = (_REPO / "frontend" / "js" / "whiteboard-library.js").read_text(encoding="utf-8")
+    assert "wbMapStatsList(wbMapStats(wbMapIndex()), { tiles: true })" in lib
+    assert "function wbMapStatsList(stats, { tiles = false } = {})" in js
+    html = (_REPO / "frontend" / "index.html").read_text(encoding="utf-8")
+    panel = html[html.index('data-side-panel="map"') :]
+    panel = panel[: panel.index("</section>")]
+    assert 'class="wb-side-actions"' in panel and 'data-help-for="wb-side-map-help"' in panel
+    assert "wb-menu-item" not in panel, "the actions are buttons, not menu rows"
+    for button in ("wb-side-map-look", "wb-side-map-expand", "wb-side-map-tidy"):
+        assert f'class="ghost small" id="{button}"' in panel
+    css = (_REPO / "frontend" / "css" / "library-lazy.css").read_text(encoding="utf-8")
+    assert re.search(r"\.wb-map-stat-grid \{[^}]*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\)", css)
+
+
+def test_a_fit_goes_into_the_canvas_the_person_can_see():
+    """INBOX 792: "the fitting to screen features ... should be based on what
+    panels are currently showing and the screen resolution/size". The fit and
+    the centring use the free area (the canvas box less the top bar, tools dock,
+    sidebar and Format panel, each off the side it sits on), and a view still
+    where the last fit put it is fitted again when a panel opens, closes or
+    the window changes size; a pan or a zoom of the person's own ends that."""
+    js = (_REPO / "frontend" / "js" / "whiteboard.js").read_text(encoding="utf-8")
+    assert 'const WB_FIT_OCCLUDERS = ["#wb-topbar", "#wb-tools-panel", "#wb-sidebar", "#wb-format"];' in js
+    fit = _slice(js, "wbZoomToFit", 1800)
+    assert "wbFreeArea(container)" in fit and "container.getBoundingClientRect()" not in fit
+    assert "wbFit.on = true" in fit
+    center = _slice(js, "wbCenterOn", 900)
+    assert "wbFreeArea(container)" in center
+    zoom = _slice(js, "handleWbZoom", 400)
+    assert "e.sourceEvent" in zoom and "wbFit.on = false" in zoom
+    assert 'for (const id of ["whiteboard-container", "wb-sidebar", "wb-format", "wb-tools-panel"])' in js
+    assert "setTimeout(wbRefitIfFitted, 200)" in js

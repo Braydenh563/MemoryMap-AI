@@ -2,9 +2,9 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5881, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5479, test files 1181, tests 10890, plan headings 956.
+Counts: frontend functions 5883, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5479, test files 1181, tests 10891, plan headings 956.
 
-## Frontend functions (5881)
+## Frontend functions (5883)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -2480,22 +2480,24 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `attachmentPlayer` | frontend/js/attachment-actions.js:47 |
 | `attachmentUpload` | frontend/js/attachment-actions.js:17 |
 
-### frontend/js/autocorrect.js (12)
+### frontend/js/autocorrect.js (14)
 
 | Name | File:line |
 |---|---|
-| `autocorrectAt` | frontend/js/autocorrect.js:86 |
-| `autocorrectField` | frontend/js/autocorrect.js:180 |
-| `autocorrectFieldRect` | frontend/js/autocorrect.js:227 |
-| `autocorrectFind` | frontend/js/autocorrect.js:67 |
-| `autocorrectForget` | frontend/js/autocorrect.js:128 |
-| `autocorrectFresh` | frontend/js/autocorrect.js:261 |
-| `autocorrectLayer` | frontend/js/autocorrect.js:169 |
-| `autocorrectMark` | frontend/js/autocorrect.js:140 |
-| `autocorrectMoved` | frontend/js/autocorrect.js:254 |
-| `autocorrectPlace` | frontend/js/autocorrect.js:157 |
-| `autocorrectSurface` | frontend/js/autocorrect.js:199 |
-| `autocorrectUndo` | frontend/js/autocorrect.js:111 |
+| `autocorrectAt` | frontend/js/autocorrect.js:87 |
+| `autocorrectEdit` | frontend/js/autocorrect.js:191 |
+| `autocorrectField` | frontend/js/autocorrect.js:222 |
+| `autocorrectFieldRect` | frontend/js/autocorrect.js:277 |
+| `autocorrectFind` | frontend/js/autocorrect.js:68 |
+| `autocorrectForget` | frontend/js/autocorrect.js:129 |
+| `autocorrectFresh` | frontend/js/autocorrect.js:311 |
+| `autocorrectLayer` | frontend/js/autocorrect.js:211 |
+| `autocorrectMark` | frontend/js/autocorrect.js:141 |
+| `autocorrectMenu` | frontend/js/autocorrect.js:163 |
+| `autocorrectMoved` | frontend/js/autocorrect.js:304 |
+| `autocorrectPlace` | frontend/js/autocorrect.js:199 |
+| `autocorrectSurface` | frontend/js/autocorrect.js:245 |
+| `autocorrectUndo` | frontend/js/autocorrect.js:112 |
 
 ### frontend/js/batch-space.js (3)
 
@@ -17286,7 +17288,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10890)
+## Tests (10891)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -17357,7 +17359,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_audio_section.py | 4 |
 | tests/test_audit_export.py | 9 |
 | tests/test_auth_headers_space.py | 4 |
-| tests/test_autocorrect.py | 10 |
+| tests/test_autocorrect.py | 11 |
 | tests/test_autonomous.py | 28 |
 | tests/test_autonomous_state_isolation.py | 4 |
 | tests/test_backend_switch_keeps_embeddings.py | 2 |

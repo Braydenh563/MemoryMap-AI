@@ -12,8 +12,9 @@
 // owner's own slips (Brief 90's fixtures).
 //
 // One switch, Settings, General, Writing (`autocorrect`, on by default). A
-// correction is underlined for five seconds, and a click on the underline puts
-// the word back; Ctrl+Z or Backspace straight after it does the same, and the
+// correction is underlined for five seconds, and a click on the underline opens
+// a small menu (keep, put back, edit); Ctrl+Z or Backspace straight after it
+// puts the word back at once, and the
 // toast carries Undo. A word put back is not corrected again this session,
 // and a word in the dictionary never is.
 
@@ -142,15 +143,56 @@ function autocorrectMark(entry) {
   mark.type = "button";
   mark.className = "autocorrect-mark";
   mark.tabIndex = -1;
-  mark.title = `Corrected from “${entry.typed}”. Click to put it back.`;
-  mark.setAttribute("aria-label", `Put back “${entry.typed}”`);
+  mark.title = `Corrected from “${entry.typed}”. Click to keep it, put it back or edit it.`;
+  mark.setAttribute("aria-label", `Corrected “${entry.typed}” to “${entry.fixed}”: keep, put back or edit`);
   mark.style.zIndex = autocorrectLayer(entry.box.el);
   mark.addEventListener("mousedown", (event) => event.preventDefault());
-  mark.addEventListener("click", () => autocorrectUndo(entry));
+  mark.addEventListener("click", () => autocorrectMenu(entry));
   document.body.appendChild(mark);
   entry.mark = mark;
   entry.timer = setTimeout(() => autocorrectForget(entry), AUTOCORRECT_SECONDS * 1000);
   autocorrectPlace(entry);
+}
+
+//: **A click on the underline asks, it does not undo** (INBOX 904 B09: "when I
+//: clicked the word that was underlined, it instantly reverted"). The app's one
+//: menu-at-a-point recipe, under the word: Keep it (the underline goes), Put
+//: back what was typed, or Edit it (the word is selected in its box, so typing
+//: replaces it). The five-second timer stops while it is open: a menu that
+//: closed itself under the pointer would be the same surprise again.
+function autocorrectMenu(entry) {
+  const rect = entry.mark?.getBoundingClientRect();
+  if (!rect || typeof openMenuAtPoint !== "function") return;
+  clearTimeout(entry.timer);
+  entry.timer = setTimeout(() => autocorrectForget(entry), 60 * 1000);
+  openMenuAtPoint(
+    [
+      { label: `ph:check Keep “${entry.fixed}”`, title: "Leave the corrected word as it is", run: () => autocorrectForget(entry) },
+      { label: `ph:arrow-counter-clockwise Put back “${entry.typed}”`, title: "Restore what you typed, and leave it alone from now on", run: () => autocorrectUndo(entry) },
+      { label: "ph:pencil-simple Edit the word", title: "Select it so you can type over it", run: () => autocorrectEdit(entry) },
+    ],
+    `Autocorrected “${entry.typed}”`,
+    rect.left,
+    rect.bottom + 4
+  );
+  //: Under the word; but a menu that flipped up from the window's edge lands on
+  //: the very word it is about, so a frame later (once the recipe has placed and
+  //: focused it) it is moved to sit over the word instead.
+  requestAnimationFrame(() => {
+    const menu = document.querySelector(".action-menu.action-menu-escaped") || (typeof pointerMenuHost !== "undefined" && pointerMenuHost?.querySelector(".action-menu"));
+    const box = menu?.getBoundingClientRect();
+    if (!box || !(box.top < rect.bottom && box.bottom > rect.top)) return;
+    menu.style.bottom = "auto";
+    menu.style.top = `${Math.max(8, rect.top - 4 - box.height)}px`;
+  });
+}
+
+//: The corrected word selected in its box, for typing over it.
+function autocorrectEdit(entry) {
+  const end = entry.start + entry.fixed.length;
+  if (entry.box.text.slice(entry.start, end) !== entry.fixed) return autocorrectForget(entry);
+  entry.box.select(entry.start, end);
+  return autocorrectForget(entry);
 }
 
 //: Placed, and placed again when anything scrolls; a word out of view hides it.
@@ -191,6 +233,10 @@ function autocorrectField(el) {
       }
     },
     setSelection: (at) => el.setSelectionRange(at, at),
+    select(from, to) {
+      el.focus();
+      el.setSelectionRange(from, to);
+    },
     rect: (from, to) => autocorrectFieldRect(el, from, to),
   };
 }
@@ -203,6 +249,10 @@ function autocorrectSurface(surface) {
     selection: () => surface.selection(),
     replace: (from, to, text) => surface.replaceRange(from, to, text),
     setSelection: (at) => surface.setSelection(at),
+    select(from, to) {
+      surface.focus();
+      surface.setSelection(from, to);
+    },
     rect(from, to) {
       const a = surface.coordsAt(from);
       const b = surface.coordsAt(to);

@@ -2469,8 +2469,9 @@ MORE_TOPICS.append({
     "body": (
         "Autocorrect fixes a clear typo, such as teh, as you finish the "
         "word, in the note boxes, the chat and Ask composers and the titles. "
-        "The corrected word is underlined for five seconds: click it to put "
-        "back what you typed, or press Backspace or Ctrl+Z straight after, and "
+        "The corrected word is underlined for five seconds: click it for a "
+        "small menu to keep it, put back what you typed, or edit the word, "
+        "or press Backspace or Ctrl+Z straight after to put it back, and "
         "the toast carries Undo too. A word you put back is left alone for the "
         "rest of the session, and a word in your dictionary never changes. It "
         "never runs in code, links, tags or search boxes. Turn it off in "

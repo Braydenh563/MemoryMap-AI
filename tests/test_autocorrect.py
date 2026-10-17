@@ -181,3 +181,21 @@ def test_help_moves_with_it():
         assert words in topic["body"], words
     dictionary_help = INDEX[INDEX.index('id="doc-dictionary-help"') :][:2000]
     assert "Settings, General" in dictionary_help
+
+
+def test_a_click_on_the_underline_opens_a_menu_and_does_not_revert():
+    # INBOX 904 B09: "when I clicked the word that was underlined, it instantly
+    # reverted, it should show a little popup near the word for confirming or
+    # reverting". The click opens `openMenuAtPoint`'s menu at the word (Keep,
+    # Put back, Edit); only Put back reverts. Browser check:
+    # scratchpad/ui-sweeps/autocorrectmenu.js.
+    mark = SOURCE[SOURCE.index("function autocorrectMark(") :]
+    mark = mark[: mark.index("\n}\n")]
+    assert 'addEventListener("click", () => autocorrectMenu(entry))' in mark
+    assert 'addEventListener("click", () => autocorrectUndo(entry))' not in mark
+    menu = SOURCE[SOURCE.index("function autocorrectMenu(") :]
+    menu = menu[: menu.index("\n}\n")]
+    assert "openMenuAtPoint(" in menu
+    for row in ("Keep", "Put back", "Edit"):
+        assert row in menu, row
+    assert "autocorrectUndo(entry)" in menu and "autocorrectForget(entry)" in menu

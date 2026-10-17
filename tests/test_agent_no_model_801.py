@@ -296,7 +296,7 @@ def test_with_web_on_it_says_how_to_ask(ai_client, fake_ollama, app_state):
     events = _model_events(ai_client, "can you search the web?")
     text = "".join(e.get("delta", "") for e in events if e["type"] == "answer")
     #: Decision 75: the model answers; the capability line is its context
-    #: (tests/test_capability_1011.py reads the prompt).
+    #: (tests/test_composer_social.py reads the prompt).
     assert text and not [e for e in events if e["type"] == "tool"]
 
 

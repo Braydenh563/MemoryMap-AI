@@ -186,3 +186,18 @@ def test_variety_floor_in_the_help_register():
         assert all(r["shape"] == "help" for r in results), question
         seen = realise.variety(results)
         assert seen["facts"] == 1 and seen["wordings"] >= realise.VARIETY_FLOOR, (question, seen)
+
+
+@pytest.mark.parametrize(
+    ("written", "said"),
+    [
+        ("I live in Perth and I work part time at the cafe.", "you live in Perth and you work part time at the cafe."),
+        ("Then Sam and I left.", "Then you and Sam left."),
+        ("Sam and I went to Lisbon.", "you and Sam went to Lisbon."),
+        ("I went with Sam and me.", "you went with you and Sam."),
+    ],
+)
+def test_a_place_before_and_i_is_not_a_person_beside_the_writer(written, said):
+    """Found probing item 8: "I live in Perth and I work at the cafe" was
+    said back as "You live in you and Perth work part time at the cafe"."""
+    assert realise.shift_person(written) == said

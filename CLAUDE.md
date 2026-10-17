@@ -55,12 +55,15 @@ disagree, the most recent dated entry wins.
 3. **Decisions are not remade.** Every plan has a "Decisions made" section.
    A missing decision becomes an INBOX entry with a one-line
    recommendation, which is then taken.
-4. **Agents.** Mainly Opus; Sonnet for well-defined labour (lints, copy
-   moves, fixture edits, sweeps, bugs whose fix is named). Opus for anything
-   with a design judgement (frontend layout and visual work, plan phases,
-   backend moves against their spec tests, plans and specs). Never Fable
-   agents: the owner's usage cannot carry them. The agent cap is the
-   owner's latest word at the top of HANDOVER; if unsure, take the lower
+4. **Agents.** Route by the rungs in section 8: Haiku for lookup and
+   mechanical labour (searches, triage, lints, copy moves, fixture edits,
+   doc placement), Sonnet for implementation (named bugs, bounded features,
+   sweeps), Opus for design judgement (frontend layout and visual work,
+   plan phases, backend moves against their spec tests, plans and specs,
+   risky reviews). Fable is opt-in only: no routing, escalation, hook,
+   skill, agent, retry or scheduled task may start it; use it only when
+   the owner names it for a task, and only for that task. The agent cap is
+   the tier line at the top of HANDOVER; if unsure, take the lower
    number. Each agent gets its own worktree, port and data dir. Its first
    step is `git merge --no-edit -q <working branch>`, because a worktree can
    be cut from an old base and a reset is refused. It commits per step and
@@ -92,7 +95,9 @@ disagree, the most recent dated entry wins.
    longer help behind a `data-help-for` '?' popover.
 7. **CI red is fixed the same hour.** CodeQL comments are bug reports: fix,
    push, resolve the thread. The hourly check-in (`send_later`) re-arms
-   itself at the end of every turn with these orders in its prompt.
+   at the end of a turn only while an agent runs or a PR waits, with these
+   orders in its prompt, and stops after 3 empty check-ins: each one
+   rewrites the whole context into the cache.
 8. **No new plan documents.** A new need is a brief row in the plan it
    belongs to, or an INBOX entry.
 9. **Commit trailers** on every commit: the `Co-Authored-By` and
@@ -281,3 +286,42 @@ Quality first: never downgrade model or effort for quality-sensitive work
 because usage is high. Subagents report a status line plus results, never a
 transcript. When usage is low, say so in one line and be terser rather than
 silently cutting corners.
+
+**What usage costs.** Every turn re-reads the whole context; cached reads
+are cheap per token but are most of the tokens, so cost is turns times
+context. `python scripts/usage_report.py` prints the split for a session.
+The levers, in order:
+
+- Fewer turns: batch independent tool calls into one response; one brief
+  that names files and line ranges beats an agent that searches.
+- Less context: start a fresh session at each milestone (the HANDOVER "Now"
+  line carries the state); grep, then read line ranges; no screenshots
+  where a number will do (an image stays in context every turn after).
+- No cold rewrites: a gap over the cache lifetime (about an hour) rewrites
+  the whole context at the higher write rate; avoid idle check-ins.
+- Cheapest capable rung, escalated on evidence, never by task length.
+
+**Rungs and tiers.** HANDOVER's top line names the tier (`max` or `pro`).
+
+| Rung | Model, effort | Work |
+| --- | --- | --- |
+| scout | Haiku | lookup, triage, log and test-failure reading, mechanical edits with a runnable check |
+| implement | Sonnet high | named fixes, bounded multi-file changes, tests, sweeps |
+| judge | Opus medium, high if a lower rung failed with evidence | design, ambiguous bugs, architecture, risky review |
+
+- Orchestrator: Sonnet high by default; Opus medium for a design-heavy
+  session. Fable only as section 2.4 says.
+- `max`: at most three agents at once, at most one of them Opus. `pro`: one
+  agent at a time, no Opus agents, targeted tests only, no check-in loop.
+- Retries: one per new hypothesis. The same call three times in a row is a
+  stop: report the blocker.
+- Independent checks on risky or UI changes: `reviewer` (the diff),
+  `ux-auditor` (WCAG 2.2, CARP, DESIGN.md), `blind-tester` (the goal and
+  URL only). The builder does not grade its own work.
+- The `usage-guard` plugin (`tools/usage-guard/`) denies whole-file reads
+  of the code map and HISTORY, a third identical call in a row and a Fable
+  agent the owner did not name. Install once per machine:
+  `/plugin install usage-guard --marketplace Braydenh563/Tessellate`.
+- At session end run the `retro` skill: it measures the session, keeps the
+  ledger and changes at most one rule, so the workflow improves across
+  sessions on evidence.

@@ -7339,6 +7339,7 @@ button.connection-row:is(:hover, :focus-visible) {
 .wb-empty-hint-actions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: space-between;
   gap: var(--space-2);
 }
 .wb-help-foot {

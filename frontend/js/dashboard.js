@@ -1088,6 +1088,11 @@ function dashDensity() {
   return DASH_DENSITIES.includes(saved) ? saved : "full";
 }
 
+//: Whether the level was picked, as opposed to being the default.
+function dashDensityChosen() {
+  return DASH_DENSITIES.includes(prefs.get(DASH_DENSITY_KEY, null));
+}
+
 //: **The emblem is the hero's art, and art is what a density step spends**
 //: (INBOX 279). The first cut of the three levels hid the mark outright at the
 //: first step down and then kept a display-sized clock beside a greeting it had
@@ -1205,8 +1210,15 @@ function applyDashDensity(value, { persist = true } = {}) {
   //: by default (`effectiveDensity`, settings.js): measured at 1093x614 the
   //: first widget started 32px under the fold with the hero, the Start
   //: something tiles and the stats at full size. Focused stays Focused.
+  //: **Unless Full was picked and Compact is only the window's height**
+  //: (INBOX 904 B12 and B64: "why does the quick access look so small on the
+  //: full view", "sometimes loses its full form"). The View menu ticked Full
+  //: while a window under 700px made the tiles 34px tall with no hint line.
+  //: A choice always wins over Auto: an app density chosen in Appearance still
+  //: folds Full, a short window alone no longer does once Full is chosen.
   const appCompact = document.documentElement.dataset.density === "compact";
-  if (page) page.dataset.density = density === "full" && appCompact ? "compact" : density;
+  const appChosen = Boolean(prefs.get("density", null));
+  if (page) page.dataset.density = density === "full" && appCompact && (appChosen || !dashDensityChosen()) ? "compact" : density;
   //: The mark is the one part of the banner CSS cannot resize (see
   //: `DASH_EMBLEM_SIZE`), so the level change redraws it, but only once the
   //: dashboard has drawn one: this function also runs at wiring time, before
@@ -1429,7 +1441,9 @@ function dashMoreItems(entries) {
 function dashCustomiseItems() {
   const items = [];
   if (!window.matchMedia("(max-width: 599.98px)").matches) {
-    const current = dashDensity();
+    //: What the page is showing, not what is stored: with no choice made, a
+    //: short window shows Compact, and the tick used to say Full.
+    const current = document.getElementById("tab-dashboard")?.dataset.density || dashDensity();
     items.push({
       label: "ph:layout View",
       group: "page",

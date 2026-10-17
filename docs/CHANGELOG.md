@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Workflow: sessions on this repo auto-compact at 400k tokens (`.claude/settings.json`) with compact instructions in CLAUDE.md section 8, so long sessions stay cheap per turn and keep their state.
 - Workflow: the `lean-workflow` plugin (1.1.0) moves to its own MIT repository, `Braydenh563/lean-workflow`; `tools/lean-workflow`, its marketplace file and its template test leave this repository, and the install line in CLAUDE.md section 8 changes.
 - Workflow: `lean-workflow` 1.1.0 adds a generic `scripts/codemap.py` (Python, JS/TS, Go definitions and test files, `--check` freshness), `orient.sh` and `gate.sh` (`--changed`, `--staged`, filled from the repo's CI) that `lean-setup` installs, an Inbox and a Decisions list in `now.md`, line-limit warnings for CLAUDE.md and `now.md`, and rules for remaining-work files, fixed test clocks and measured UI claims; `lean upgrade` adds them to a 1.0 repo.
 - CodeQL notes on main: timewords' deferred weekday rule is a named function, logbuffer's sequence is an `itertools.count`, composer no longer builds an unused synonym table at import.

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import re
 
-from _css_paths import css_text
+from tests._css_paths import css_text
 
 
 def _rule(selector: str) -> str:

@@ -108,3 +108,21 @@ def test_a_topic_card_files_its_notes_as_a_category_only_when_asked():
     assert 'topic.name.replace(/^#/, "")' in card, "a tag-named topic files under the word, not the hash"
     guide = (ROOT / "src" / "tessellate" / "ai" / "help_chat.py").read_text(encoding="utf-8")
     assert "File as a category files its notes under one category" in guide
+
+
+# The floating rename field matches the plate (OPEN row 795).
+
+
+def _css(name: str) -> str:
+    return (ROOT / "frontend" / "css" / name).read_text(encoding="utf-8")
+
+
+def test_the_floating_topic_rename_is_the_plate_s_height():
+    """OPEN row 795: the field floated 42px tall over a 17px topic plate."""
+    graph = (ROOT / "frontend" / "js" / "graph-canvas.js").read_text(encoding="utf-8")
+    start = graph.index("function gcRenameTopicInline(")
+    body = graph[start : graph.index("\n}\n", start)]
+    assert "const plateH = (plate.bottom - plate.top) * t.k;" in body
+    assert "field.style.height = `${height}px`;" in body and "Math.round(plateH + 6)" in body
+    rule = re.search(r"\.graph-topic-rename\.is-floating\s*\{([^}]*)\}", _css("graph-lazy.css")).group(1)
+    assert "min-height: 0" in rule and "padding: 0 var(--space-2)" in rule

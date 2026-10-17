@@ -174,3 +174,16 @@ def test_the_board_card_keeps_its_contract_on_the_engine() -> None:
     assert 'content.addEventListener("focusout"' in body, "blur no longer commits"
     region = _region(DOCS, "NOTE-SURFACE")
     assert "host.noteSurfaceKeys" in region, "the engine no longer runs a host's own keys"
+
+
+def test_a_note_box_gone_before_the_editor_loads_is_not_mounted():
+    """cardarrows sweep at 390: a card's editor closed with Escape while
+    CodeMirror loaded threw "Cannot read properties of null (reading
+    'insertBefore')" in `mountNoteSurface`. After the load, a box with no
+    parent gets the plain surface and nothing is inserted."""
+    docs = (ROOT / "frontend" / "js" / "documents.js").read_text(encoding="utf-8")
+    start = docs.index("async function mountNoteSurface(")
+    body = docs[start : docs.index("\n}\n", start)]
+    loaded = body.index("await loadCodeMirror()")
+    guard = body.index("if (!host.parentNode) return textareaSurface(host);")
+    assert loaded < guard < body.index("host.parentNode.insertBefore(wrap, host)")

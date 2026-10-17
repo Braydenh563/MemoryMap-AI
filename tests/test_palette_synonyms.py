@@ -13,6 +13,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from tests._app_js import frontend_text
+
 _JS = Path(__file__).resolve().parents[1] / "frontend" / "js"
 #: The row registry stays in settings-panes.js (boot); the palette's own
 #: window, `paletteMatches` with it, moved to the lazy app-palette.js.
@@ -73,3 +75,17 @@ def test_the_guide_is_one_ctrl_k_away():
     row = row[: row.index("}")]
     assert 'reveal: "atlas-help"' in row
     assert "guide" in row and "help" in row
+
+
+# The palette weighs a typed prefix at half a pick (OPEN ledger 1408).
+
+def _fn(text: str, name: str) -> str:
+    start = text.index(f"function {name}(")
+    return text[start : text.index("\n}\n", start)]
+
+
+def test_1408_the_palette_learns_prefixes_at_half_weight():
+    js = frontend_text("app-palette.js")
+    assert "const picks = palettePrefixPicks(lowered);" in js
+    body = _fn(js, "palettePrefixPicks")
+    assert "typed.length < 2" in body and "n / 2" in body

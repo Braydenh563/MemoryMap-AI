@@ -202,3 +202,23 @@ def test_the_badge_sweep_measures_against_the_recipes_target():
     assert 'capcentre(tr, it["cap"])' in py and "xcentre" not in py
     design = (Path(__file__).resolve().parents[1] / "docs" / "DESIGN.md").read_text(encoding="utf-8")
     assert "the x-height band INBOX 503 measured against is retired" in design
+
+
+# An empty chip is hidden, so a badge filled later leaves no stub (INBOX 803).
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def _front_css(name: str) -> str:
+    return (ROOT / "frontend" / "css" / name).read_text(encoding="utf-8")
+
+
+def test_a_badge_with_no_text_is_hidden():
+    css = _front_css("01-forms-settings.css")
+    block = css[css.index(".chip:empty {"):].split("}", 1)[0]
+    assert "display: none" in block
+    # The two Ask badges are empty in the markup and filled by renderChatMeta,
+    # so they are what the rule is for; a space inside would defeat :empty.
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    assert '<span id="answered-by" class="chip answer-model"></span>' in html
+    assert '<span id="search-mode" class="chip"></span>' in html

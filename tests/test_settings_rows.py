@@ -14,6 +14,7 @@ import re
 from pathlib import Path
 
 from tessellate.api.routes_settings import PreferencesBody
+from tests._app_js import frontend_text
 
 ROOT = Path(__file__).resolve().parents[1]
 ROWS_JS = (ROOT / "frontend" / "js" / "settings-rows.js").read_text(encoding="utf-8")
@@ -209,3 +210,16 @@ def test_import_merges_personas_and_templates_by_name(client):
     exported["replace_lists"] = True
     client.post("/preferences/import", json=exported)
     assert [p["name"] for p in client.get("/preferences").json()["personas"]] == ["Coach", "Editor"]
+
+
+# A found setting lands on its control (OPEN ledger 1407).
+
+def _fn(text: str, name: str) -> str:
+    start = text.index(f"function {name}(")
+    return text[start : text.index("\n}\n", start)]
+
+
+def test_1407_a_found_setting_lands_on_its_control():
+    body = _fn(frontend_text("settings-find.js"), "openSettingRow")
+    assert 'pick(el.closest(".setting-row"))' in body
+    assert '[aria-checked="true"], [aria-pressed="true"], button:not([disabled])' in body

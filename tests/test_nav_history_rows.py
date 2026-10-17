@@ -159,3 +159,39 @@ def test_the_row_text_is_never_the_raw_entry_label():
     built from the note itself, so its flattened opening cannot come back."""
     assert "noteLabel(" not in NAV_HISTORY
     assert "navHistoryNoteTitle(note)" in NAV_HISTORY
+
+
+# The history's X sits inside the row's fill and Clear is a quiet footer button (INBOX 845, 846).
+
+CSS = ROOT / "frontend" / "css"
+
+
+def test_the_nav_history_x_is_drawn_inside_the_rows_fill():
+    """"there's an excessive gap on the right for the x close buttons on the
+    nav history, can you integrate them together??" (INBOX 846). Measured at
+    1440: the row's button filled 177px and the X sat 4px past it (28px,
+    outside the highlight). The X is laid over the button's right end, the fill
+    follows the row, and the button yields the X's width only while shown."""
+    css = (CSS / "nav-history-lazy.css").read_text(encoding="utf-8")
+    row = css[css.index(".nav-history-row {") :].split("}", 1)[0]
+    assert "position: relative;" in row
+    remove = css[css.index(".nav-history-remove {") :].split("}", 1)[0]
+    assert "position: absolute;" in remove and "opacity: 0;" in remove
+    fill = css[css.index(".nav-history-row:hover > .nav-history-item,") :].split("}", 1)[0]
+    assert "background-color: var(--ghost-btn-bg);" in fill and "padding-inline-end:" in fill
+
+
+def test_the_nav_history_clear_action_is_a_quiet_footer_text_button():
+    """"can you redesign or change the design of this 'clear this list'
+    button??" (INBOX 845). It was a bordered, tinted button with a trash icon on
+    a row of its own (32px tall, a 1px border, a lilac fill). Now one footer row:
+    the older-steps count left, a muted text action right, the destructive ink
+    only under the pointer or keyboard; no icon, no fill at rest."""
+    js = (JS / "nav-history.js").read_text(encoding="utf-8")
+    assert "ph:trash" not in js and 'foot.className = "nav-history-foot";' in js
+    assert 'clear.className = "nav-history-clear";' in js
+    css = (CSS / "nav-history-lazy.css").read_text(encoding="utf-8")
+    rest = css[css.index(".nav-history-clear {") :].split("}", 1)[0]
+    assert "background: none;" in rest and "color: var(--muted);" in rest
+    hover = css[css.index(".nav-history-clear:hover,") :].split("}", 1)[0]
+    assert "color: var(--error);" in hover

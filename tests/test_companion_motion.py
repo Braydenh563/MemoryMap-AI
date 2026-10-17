@@ -1722,3 +1722,16 @@ def test_the_companion_steps_off_a_dock_more_menu():
     popups = re.search(r"const NMB_POPUPS = \"(.*)\";", js).group(1)
     assert 'details[open][class*=\\"menu\\"] > :not(summary)' in popups
     assert '[role=\\"menu\\"]:not(.hidden)' in popups
+
+
+# The companion's words check counts only drawn text (INBOX 812).
+
+
+def test_the_companions_words_check_counts_only_drawn_text():
+    # INBOX 812: the walk's 400-node cap was spent on text nobody can see (the
+    # Ask card's closed history list sits ahead of the answer), so the words
+    # under Atlas read as 0 over the "You asked:" line.
+    js = (ROOT / "frontend" / "js" / "avatars.js").read_text(encoding="utf-8")
+    body = js[js.index("function nameMarkBuddyWordsUnder("):].split("\nconst NMB_WORDS_PX", 1)[0]
+    assert "checkVisibility()" in body and "FILTER_REJECT" in body
+    assert body.index("n.textContent.trim()") < body.index("seen += 1")

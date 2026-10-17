@@ -298,3 +298,15 @@ def test_the_pages_segment_is_not_offered_beside_images() -> None:
 
     js = Path("frontend/js/library.js").read_text(encoding="utf-8")
     assert 'if (paged && ocrRailMode !== "images") {' in js
+
+
+# The workspace paints the saved caption before the read is awaited (INBOX 803).
+
+
+def test_the_ocr_workspace_paints_the_caption_before_the_read_is_awaited():
+    # INBOX 803: the saved description showed only after the reader finished.
+    js = (ROOT / "frontend" / "js" / "library.js").read_text(encoding="utf-8")
+    body = js[js.index("async function ocrLoadPage("):]
+    assert body.index("ocrPaintCaption(image);") < body.index("await apiJson(ocrRegionsUrl(")
+    # A document's descriptions are asked for beside the read, not behind it.
+    assert body.index("const storedAsked") < body.index("await apiJson(ocrRegionsUrl(")

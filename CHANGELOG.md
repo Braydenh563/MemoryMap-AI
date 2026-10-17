@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Workflow: `lean-workflow` 1.1.0 adds a generic `scripts/codemap.py` (Python, JS/TS, Go definitions and test files, `--check` freshness), `orient.sh` and `gate.sh` (`--changed`, `--staged`, filled from the repo's CI) that `lean-setup` installs, an Inbox and a Decisions list in `now.md`, line-limit warnings for CLAUDE.md and `now.md`, and rules for remaining-work files, fixed test clocks and measured UI claims; `lean upgrade` adds them to a 1.0 repo.
 - CodeQL notes on main: timewords' deferred weekday rule is a named function, logbuffer's sequence is an `itertools.count`, composer no longer builds an unused synonym table at import.
 - Workflow: `usage-guard` becomes the portable `lean-workflow` plugin (agents, `retro` and `lean-setup` skills, autopilot prompt, `/prune`, session history, large-output and auto wrap-up notes); `test_acts` reminder time bomb fixed.
 - Workflow: usage tiers, model rungs and the Fable opt-in rule (CLAUDE.md section 8), four project subagents, `scripts/usage_report.py`, the `retro` skill and ledger, and the `usage-guard` plugin.

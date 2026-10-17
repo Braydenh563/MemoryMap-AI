@@ -21,6 +21,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from tests._repo_files import repo_files
+
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src" / "tessellate"
 
@@ -83,7 +85,7 @@ def test_every_like_call_site_escapes_or_is_a_literal_pattern():
     call = re.compile(r"\.i?like\(", re.MULTILINE)
     literal_only = re.compile(r'^\s*"[^"{}]*"\s*\)')
     offenders = []
-    for path in sorted(SRC.rglob("*.py")):
+    for path in repo_files(SRC, suffixes=(".py",)):
         text = path.read_text(encoding="utf-8")
         for match in call.finditer(text):
             tail = text[match.end() : match.end() + 400]

@@ -33,6 +33,8 @@ import ast
 from collections import defaultdict
 from pathlib import Path
 
+from tests._repo_files import repo_files
+
 SRC = Path(__file__).resolve().parents[1] / "src"
 PACKAGE = "tessellate"
 
@@ -49,7 +51,7 @@ def _module_name(path: Path) -> str:
 
 
 def _import_graph() -> dict[str, set[str]]:
-    modules = {_module_name(p): p for p in SRC.rglob("*.py")}
+    modules = {_module_name(p): p for p in repo_files(SRC, suffixes=(".py",))}
     graph: dict[str, set[str]] = defaultdict(set)
     for name, path in modules.items():
         tree = ast.parse(path.read_text(encoding="utf-8"))

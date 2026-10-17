@@ -19,6 +19,8 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+from tests._repo_files import repo_files
+
 SRC = Path(__file__).resolve().parents[1] / "src" / "tessellate"
 
 #: Calls that count as "says something": the logging methods, the project's
@@ -80,9 +82,7 @@ def _is_broad(handler: ast.ExceptHandler) -> bool:
 
 def silent_handlers() -> set[str]:
     found: set[str] = set()
-    for path in sorted(SRC.rglob("*.py")):
-        if "vendor" in path.parts:
-            continue
+    for path in repo_files(SRC, suffixes=(".py",), exclude_dirs=("vendor",)):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         rel = path.relative_to(SRC.parent.parent).as_posix()
 

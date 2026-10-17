@@ -24,6 +24,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from tests._repo_files import repo_files
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src" / "tessellate"
@@ -68,7 +69,7 @@ INVENTORY = {
 
 def _network_files() -> dict[str, set[str]]:
     found: dict[str, set[str]] = {}
-    for path in sorted(SRC.rglob("*.py")):
+    for path in repo_files(SRC, suffixes=(".py",)):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         names: set[str] = set()
         for node in ast.walk(tree):

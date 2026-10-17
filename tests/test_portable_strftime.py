@@ -12,13 +12,15 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from tests._repo_files import repo_files
+
 SRC = Path(__file__).resolve().parent.parent / "src" / "tessellate"
 FLAG = re.compile(r"%[-#][a-zA-Z]")
 
 
 def test_no_glibc_or_windows_only_strftime_flags():
     found = []
-    for path in SRC.rglob("*.py"):
+    for path in repo_files(SRC, suffixes=(".py",)):
         for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
             code = line.split("#", 1)[0]
             if ("strftime" in code or "%" in code) and FLAG.search(code) and ("strftime" in code or "f\"" not in code):

@@ -1,23 +1,4 @@
-"""A page reading survives the workspace being closed.
-
-Reported twice, in the same words the second time: *"ai read the pages 1-3 in my
-pdf as I put it, but no text appeared in any of the extracted text areas??
-notifications appeared saying the pages were read but nothing happened after
-that."*
-
-The second sentence is the diagnosis. A page read is a model round-trip of
-several seconds, and the app deliberately announces it as a background task so
-the workspace can be closed while it runs (`test_ocr_page_read_tasks.py`), but
-the result only ever existed in the HTTP response and in the DOM that response
-painted. Close the window, switch tab, or simply have the read land after you
-have moved on, and the reading was gone: reopening the document ran the
-*regions* request, which knows nothing about page reads, and painted an empty
-pane over work that had genuinely happened.
-
-`PageRead` stores each page as it completes and `GET /{files,media}/{id}/page-reads`
-hands back what is known, in the same envelope a range read returns so the
-workspace can put it through one renderer.
-"""
+"""OCR workspace page reads: ranges, single pages, background tasks and persisted readings."""
 
 from __future__ import annotations
 
@@ -25,9 +6,77 @@ import io
 
 import pytest
 
-from tessellate.api import routes_files
-from tessellate.api import routes_files as files_service
+from tessellate.ai import vision_ocr
+from tessellate.api import routes_files, routes_files as files_service, routes_tasks
+from tessellate.api.routes_files import _parse_page_spec, MAX_RANGE_PAGES
 from tessellate.core import pdfpages
+
+
+# Reading a PDF by page range: the range parser (the read itself loops over the single-page reader).
+
+
+@pytest.mark.parametrize(
+    ("spec", "count", "expected"),
+    [
+        # "everything", in the two spellings a caller might send.
+        ("all", 5, [0, 1, 2, 3, 4]),
+        ("*", 3, [0, 1, 2]),
+        # Empty means the same as "all": the control defaults to the whole
+        # document, so a blank box must not read nothing.
+        ("", 3, [0, 1, 2]),
+        # One-based on the way in, because that is what the page rail shows.
+        ("1", 5, [0]),
+        ("2-2", 5, [1]),
+        ("1-3", 5, [0, 1, 2]),
+        ("1,4", 5, [0, 3]),
+        ("1-2,4-5", 5, [0, 1, 3, 4]),
+        (" 1 - 2 , 4 ", 5, [0, 1, 3]),  # spaces are how people actually type
+    ],
+)
+def test_a_page_spec_becomes_the_pages_a_person_meant(spec, count, expected):
+    assert _parse_page_spec(spec, count) == expected
+
+
+def test_a_backwards_range_is_read_the_way_it_was_meant():
+    """"3-1" is a typo for "1-3", not an empty selection."""
+    assert _parse_page_spec("3-1", 5) == [0, 1, 2]
+
+
+def test_a_range_past_the_end_is_clamped_to_the_document():
+    assert _parse_page_spec("1-99", 3) == [0, 1, 2]
+
+
+def test_page_zero_does_not_exist_because_people_count_from_one():
+    assert _parse_page_spec("0", 3) == []
+
+
+def test_junk_is_skipped_rather_than_refusing_the_whole_range():
+    """A stray character should cost you that one part, not the request.
+
+    Refusing everything would mean a mistyped range reads nothing and says
+    little; this reads the pages it could understand.
+    """
+    assert _parse_page_spec("abc", 3) == []
+    assert _parse_page_spec("1,abc,3", 5) == [0, 2]
+
+
+def test_duplicates_and_overlaps_collapse():
+    """Asking for a page twice must not read it twice, a vision pass is
+    seconds per page, and the overlap in "1-3,2-4" is easy to type."""
+    assert _parse_page_spec("1-3,2-4", 10) == [0, 1, 2, 3]
+    assert _parse_page_spec("2,2,2", 5) == [1]
+
+
+def test_there_is_a_ceiling_on_one_request():
+    """"All" on a 300-page scan is not a request anyone means synchronously."""
+    assert MAX_RANGE_PAGES > 0
+    assert len(_parse_page_spec("all", 300)) == 300  # the parser is honest…
+    # …and the cap is applied by `_vision_read_range`, which reports how far it
+    # got so the reader can ask for the next block.
+
+
+# Reading one page with the vision model: the refusals and the routing; nothing is stored.
+
 
 ONE_PAGE_PDF = (
     b"%PDF-1.4\n"
@@ -50,6 +99,81 @@ def _attach(client, name: str, data: bytes) -> int:
     )
     assert upload.status_code == 201, upload.text
     return upload.json()["attachments"][-1]["id"]
+
+
+def test_only_a_pdf_is_read_a_page_at_a_time(client):
+    """An image *is* one page, it goes through the ordinary vision read, and
+    offering a page-scoped route for it would imply a page rail that does not
+    exist."""
+    attachment_id = _attach(client, "photo.png", b"\x89PNG\r\n\x1a\n" + b"0" * 32)
+    response = client.post(f"/files/{attachment_id}/ocr-page-read?page=0")
+    assert response.status_code == 415
+
+
+def test_a_missing_model_is_a_409_not_a_500(client):
+    """The commonest state on this machine: no Ollama running. The workspace
+    shows the message; a 500 would show a stack trace to somebody whose only
+    problem is that they have not started their model server."""
+    if not pdfpages.available():
+        pytest.skip("the pdfpages extra is not installed")
+    attachment_id = _attach(client, "scan.pdf", ONE_PAGE_PDF)
+    response = client.post(f"/files/{attachment_id}/ocr-page-read?page=0")
+    assert response.status_code == 409
+    assert "model" in response.json()["detail"].lower()
+
+
+def test_without_the_rasteriser_it_answers_rather_than_failing(client, monkeypatch):
+    """No pypdfium2 means no pixels to read, which is a *state* rather than an
+    error: the reader is told what to install, in the response body, at 200."""
+    monkeypatch.setattr(pdfpages, "available", lambda: False)
+    attachment_id = _attach(client, "scan.pdf", ONE_PAGE_PDF)
+    response = client.post(f"/files/{attachment_id}/ocr-page-read?page=0")
+    assert response.status_code == 200
+    assert "rasteriser" in response.json()["message"]
+    assert response.json()["text"] == ""
+
+
+def test_an_unknown_attachment_is_a_404(client):
+    assert client.post("/files/9999/ocr-page-read?page=0").status_code == 404
+
+
+# A PDF page read shows up in Settings, Background tasks, while it runs.
+
+
+def test_a_running_page_read_is_listed_as_a_background_task():
+    token = vision_ocr.register_page_read("Reading page 4 of scan.pdf")
+    try:
+        kinds = {task["kind"]: task for task in routes_tasks.collect()}
+        assert "page-read" in kinds, "a running page read must appear in GET /tasks"
+        assert kinds["page-read"]["label"] == "Reading page 4 of scan.pdf"
+    finally:
+        vision_ocr.finish_page_read(token)
+
+
+def test_a_finished_page_read_leaves_the_list():
+    token = vision_ocr.register_page_read("Reading page 1 of scan.pdf")
+    vision_ocr.finish_page_read(token)
+    assert all(task["kind"] != "page-read" for task in routes_tasks.collect())
+
+
+def test_finishing_twice_is_not_an_error():
+    # `_read_page` drops it in a `finally`, and a `finally` that can throw
+    # hides the real error.
+    token = vision_ocr.register_page_read("Reading page 2 of scan.pdf")
+    vision_ocr.finish_page_read(token)
+    vision_ocr.finish_page_read(token)
+
+
+def test_the_reader_is_named_when_it_is_tesseract():
+    token = vision_ocr.register_page_read("Reading page 3", model="Tesseract")
+    try:
+        task = next(t for t in routes_tasks.collect() if t["kind"] == "page-read")
+        assert "Tesseract" in task["detail"]
+    finally:
+        vision_ocr.finish_page_read(token)
+
+
+# A page reading survives the workspace being closed (PageRead rows and GET page-reads).
 
 
 def test_a_document_with_nothing_read_reports_nothing(client):

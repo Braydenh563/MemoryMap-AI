@@ -50,13 +50,8 @@
   flex-wrap: wrap;
 }
 
-/* B83: a day digest sentence (dash-day.js) is read, not pressed. */
+/* B83: a day digest sentence (dash-day.js) is read, not pressed: no pointer, and the
+   row hover ground in 01-forms-settings.css leaves it out. */
 .dash-list li.digest-day-said {
   cursor: default;
-}
-
-@media (hover: hover) {
-  .dash-list li.digest-day-said:hover {
-    background: none;
-  }
 }

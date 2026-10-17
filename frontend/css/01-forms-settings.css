@@ -4012,8 +4012,8 @@ html.modal-open body {
   cursor: pointer;
 }
 @media (hover: hover) {
-  .dash-list li:hover,
-  .dash-list li:is(:focus-visible, :has(:focus-visible)) {
+  .dash-list li:not(.digest-day-said):hover,
+  .dash-list li:not(.digest-day-said):is(:focus-visible, :has(:focus-visible)) {
     background: var(--accent-soft);
   }
 }

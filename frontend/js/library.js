@@ -5288,7 +5288,7 @@ async function ocrLoadPage(image, page = 0, opts = {}) {
 //: button in the same notice.
 function ocrNoRendererLink() {
   const message = $("ocr-message");
-  if (!/Settings, Packages/.test(message.textContent) || message.querySelector("button")) return;
+  if (!message.textContent.includes("Settings, Packages") || message.querySelector("button")) return;
   message.append(" ", smallButton("ph:package Open Settings, Packages", "Install the PDF pages package", () => openSettingsModal("extras")));
 }
 

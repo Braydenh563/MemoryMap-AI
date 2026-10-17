@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5879, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5478, test files 1176, tests 10876, plan headings 956.
+Counts: frontend functions 5879, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5478, test files 1176, tests 10877, plan headings 956.
 
 ## Frontend functions (5879)
 
@@ -15671,10 +15671,10 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `clear_finished` | src/tessellate/core/jobruns.py:192 |
 | `clear_live` | src/tessellate/core/jobruns.py:211 |
 | `current` | src/tessellate/core/jobruns.py:227 |
-| `describe_night_pass` | src/tessellate/core/jobruns.py:648 |
+| `describe_night_pass` | src/tessellate/core/jobruns.py:650 |
 | `finished` | src/tessellate/core/jobruns.py:186 |
 | `job_run` | src/tessellate/core/jobruns.py:530 |
-| `last_runs` | src/tessellate/core/jobruns.py:606 |
+| `last_runs` | src/tessellate/core/jobruns.py:608 |
 | `live` | src/tessellate/core/jobruns.py:220 |
 | `mark_interrupted` | src/tessellate/core/jobruns.py:579 |
 | `merged_history` | src/tessellate/core/jobruns.py:491 |
@@ -17283,7 +17283,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10876)
+## Tests (10877)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -17810,7 +17810,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_janitor_short.py | 5 |
 | tests/test_janitor_warm.py | 2 |
 | tests/test_job_backpressure.py | 2 |
-| tests/test_job_runs.py | 49 |
+| tests/test_job_runs.py | 50 |
 | tests/test_jobruns_no_raw_exceptions.py | 1 |
 | tests/test_jobs_durable_kinds.py | 14 |
 | tests/test_jobs_pool.py | 10 |

@@ -1,27 +1,18 @@
-"""INBOX 692 and 693: a more intentional force layout, and a Reshuffle.
-
-The owner, with a screenshot of a link passing behind other notes' dots:
-"bit of overlap"; and "is there a way to get the graph to sit in ways that
-are more visually appealing and understandable and profesional ...
-intentional"; and "can you add a resuffle button". The decisions (693's
-entry): clusters by category with clear space between them, hubs central,
-labels never over dots or lines, links routed round the notes they do not
-join, nodes never touching, a Reshuffle (new seed, animated) and a fit.
-
-These run the real worker in node (d3 vendored, `self` and `importScripts`
-stubbed), step it to rest on a fixture shaped like the showcase notebook
-(seven categories, hubs, chains, bridges, loose notes), and measure the
-settled geometry. The browser half is `scratchpad/ui-sweeps/graph692.js`.
-"""
+"""Graph layout: the intentional force layout and Reshuffle, the layout chip, layouts independent of note order, and the fitted view after a switch."""
 
 from __future__ import annotations
 
 import json
+from pathlib import Path
+import re
 import shutil
 import subprocess
-from pathlib import Path
 
 import pytest
+
+
+# A more intentional force layout and a Reshuffle: the real worker run in node, settled geometry measured (browser half: scratchpad/ui-sweeps/graph692.js).
+
 
 ROOT = Path(__file__).resolve().parents[1]
 JS = ROOT / "frontend" / "js"
@@ -376,3 +367,193 @@ def test_shape_is_dimmed_with_its_reason_off_the_force_layout():
     assert 'class="graph-option-row graph-physics" id="graph-shape-row"' in html
     help_text = (ROOT / "src" / "tessellate" / "ai" / "help_chat.py").read_text(encoding="utf-8")
     assert "the Force layout's own, dimmed under the others" in help_text
+
+
+# The graph names a fixed layout with a chip, and notes leaving the picture fade out.
+
+
+CANVAS = (ROOT / "frontend" / "js" / "graph-canvas.js").read_text(encoding="utf-8")
+HTML = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+CSS = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+
+
+def test_the_dock_chip_is_hidden_under_force_and_opens_the_layout_choice():
+    assert re.search(r'<button id="graph-layout-chip" class="[^"]*\bhidden\b[^"]*" type="button"', HTML)
+    body = CANVAS[CANVAS.index("function graphSyncLayoutChip(") :]
+    body = body[: body.index("\n}\n")]
+    assert 'layoutKind !== "force"' in body and 'classList.toggle("hidden", !named)' in body
+    assert "setGraphOptionsOpen(true)" in body and "openGraphControlsSheet(chip)" in body
+    assert 'focusSelect(document.getElementById("graph-layout"))' in body
+    # Both renderers' stats line call it, so neither leaves a stale chip.
+    assert "graphSyncLayoutChip(layoutKind);" in CANVAS
+    assert "graphSyncLayoutChip(layoutKind);" in (ROOT / "frontend" / "js" / "graph.js").read_text(encoding="utf-8")
+
+
+def test_the_chip_survives_the_phone_dock_that_hides_every_other_chip():
+    assert re.search(r"\.dock-identity > #graph-layout-chip:not\(\.hidden\) \{\s*display: inline-flex;", CSS)
+
+
+def test_a_note_leaving_the_picture_fades_instead_of_vanishing():
+    mark = CANVAS[CANVAS.index("function gcMarkLeaving(") :]
+    mark = mark[: mark.index("\n}\n")]
+    assert "gcStill()" in mark, "less motion keeps the cut"
+    assert "staying.has(n.id)" in mark
+    draw = CANVAS[CANVAS.index("function gcDrawLeaving(") :]
+    draw = draw[: draw.index("\n}\n")]
+    assert "GC_BORN_MS" in draw and "s.bornPending = true" in draw, "the fade must keep the frame loop going"
+    assert "gcMarkLeaving(s, graphNodesRef, nodes);\n  s.epoch += 1;" in CANVAS, "marked before graphNodesRef is replaced"
+    assert "gcDrawLeaving(ctx, s, bornAt);" in CANVAS
+
+
+# Computed layouts do not depend on the order /graph lists notes.
+
+
+GRAPH = (ROOT / "frontend" / "js" / "graph.js").read_text(encoding="utf-8")
+D3 = ROOT / "frontend" / "vendor" / "d3.v7.min.js"
+
+
+def _graph_function(name: str) -> str:
+    start = GRAPH.index(f"\nfunction {name}(") + 1
+    return GRAPH[start : GRAPH.index("\n}\n", start) + 2]
+
+
+def _const(name: str) -> str:
+    return re.search(rf"^const {name} = [^\n]*", GRAPH, re.M).group(0)
+
+
+ORDER_SCRIPT = "\n".join(
+    [
+        f"const d3 = require({json.dumps(str(D3))});",
+        *(_const(name) for name in ("TREE_ROW", "TREE_COL", "RADIAL_ARC", "RADIAL_LABEL", "RADIAL_GAP", "REPLY_RING", "ARC_STEP")),
+        _graph_function("graphGroupNode"),
+        _graph_function("radialRings"),
+        _graph_function("replyLoops"),
+        _graph_function("layoutHierarchy"),
+        """
+const n = (id, extra = {}) => ({ id, category: "A", preview: String(id), ...extra });
+const cases = {
+  replyFirst: [n(3, { parent_id: 2 }), n(2, { parent_id: 1 }), n(1), n(4, { category: "B" })],
+  selfReply: [n(1, { parent_id: 1 }), n(2)],
+  cycle: [n(1, { parent_id: 2 }), n(2, { parent_id: 1 }), n(3)],
+};
+const out = {};
+for (const [name, nodes] of Object.entries(cases)) {
+  for (const kind of ["tree", "radial", "arc"]) {
+    try {
+      const r = layoutHierarchy(nodes.map((x) => ({ ...x })), kind, 1200, 800);
+      const notes = r.nodes.filter((p) => typeof p.id === "number");
+      out[`${name}/${kind}`] = {
+        ids: notes.map((p) => p.id).sort(),
+        finite: notes.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y)),
+        threads: r.links.filter((l) => l.kind === "thread").map((l) => [l.source.id, l.target.id]),
+      };
+    } catch (e) {
+      out[`${name}/${kind}`] = { error: String(e) };
+    }
+  }
+}
+console.log(JSON.stringify(out));
+""",
+    ]
+)
+
+
+@pytest.fixture(scope="module")
+def laid():
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node is not installed")
+    run = subprocess.run([node, "-e", ORDER_SCRIPT], capture_output=True, text=True, timeout=60)
+    assert run.returncode == 0, run.stderr
+    return json.loads(run.stdout)
+
+
+@pytest.mark.parametrize("kind", ["tree", "radial", "arc"])
+def test_a_reply_listed_before_the_note_it_answers_is_laid_out_under_it(laid, kind):
+    got = laid[f"replyFirst/{kind}"]
+    assert "error" not in got, got
+    assert got["ids"] == [1, 2, 3, 4] and got["finite"]
+    assert sorted(got["threads"]) == [[1, 2], [2, 3]]
+
+
+@pytest.mark.parametrize("case", ["selfReply", "cycle"])
+@pytest.mark.parametrize("kind", ["tree", "radial", "arc"])
+def test_a_reply_chain_that_loops_is_filed_under_its_category_not_lost(laid, case, kind):
+    got = laid[f"{case}/{kind}"]
+    assert "error" not in got, got
+    expected = [1, 2] if case == "selfReply" else [1, 2, 3]
+    assert got["ids"] == expected and got["finite"]
+    assert got["threads"] == []
+
+
+def _layout() -> str:
+    start = GRAPH.index("function layoutHierarchy(")
+    return GRAPH[start : GRAPH.index("d3.hierarchy(", start)]
+
+
+def test_every_child_list_exists_before_any_is_filled():
+    body = _layout()
+    seed = body.index("for (const node of nodes) children.set(node.id, []);")
+    assert seed < body.index("children.get(parent.id).push(node)")
+
+
+def test_a_reply_loop_hangs_off_its_category():
+    assert "!replyLoops(node, byId)" in _layout()
+
+
+# A layout switch ends on the fitted view of the new layout.
+
+
+def _function(text: str, name: str) -> str:
+    start = re.search(rf"\n(async )?function {name}\(", text).start() + 1
+    return text[start : text.index("\n}\n", start) + 2]
+
+
+def test_the_render_decides_to_frame_before_its_first_await():
+    body = _function(CANVAS, "renderGraphCanvas")
+    first_await = body.index("await ")
+    decided = body.index("const reframe = !gcAutoFitDone(s)")
+    assert decided < first_await
+    # And the decision, not the flag a stale tick can spend, is what frames
+    # both kinds of layout.
+    assert "if (reframe || !gcAutoFitDone(s))" in body
+    assert "if (reframe) gcSetAutoFitDone(s, false);\n    gcStartWorker(" in body
+
+
+FIT_SCRIPT = "\n".join(
+    [
+        _function(GRAPH, "graphMinimapFinite"),
+        _function(GRAPH, "frameTree"),
+        _function(GRAPH, "graphGlideMs"),
+        """
+let got = null;
+const gcStill = () => false;
+const d3 = { zoomIdentity: { translate(x, y) { return { scale(k) { return { x, y, k }; } }; } } };
+const svg = { transition() { return { duration() { return { call(_f, t) { got = t; } }; } }; } };
+// A ring of twelve notes round (600, 400), every one at radius 150.
+const ring = Array.from({ length: 12 }, (_, i) => ({
+  x: 600 + 150 * Math.cos((i / 12) * 2 * Math.PI),
+  y: 400 + 150 * Math.sin((i / 12) * 2 * Math.PI),
+  depth: 1,
+}));
+frameTree(svg, { transform: null }, null, ring, 1400, 800, true, false);
+const mid = { x: got.x + got.k * 600, y: got.y + got.k * 400 };
+console.log(JSON.stringify({ k: got.k, mid }));
+""",
+    ]
+)
+
+
+@pytest.fixture(scope="module")
+def framed():
+    node = shutil.which("node")
+    if not node:
+        pytest.skip("node is not installed")
+    run = subprocess.run([node, "-e", FIT_SCRIPT], capture_output=True, text=True, timeout=60)
+    assert run.returncode == 0, run.stderr
+    return json.loads(run.stdout)
+
+
+def test_a_radial_is_centred_in_the_view(framed):
+    assert abs(framed["mid"]["x"] - 700) < 1
+    assert abs(framed["mid"]["y"] - 400) < 1

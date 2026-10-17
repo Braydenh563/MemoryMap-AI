@@ -1003,7 +1003,7 @@ const HOME_PULL = 1.5;
 
 //: **A line never runs through a note it does not join** (INBOX 693, the
 //: owner's screenshot of a link passing behind other notes' dots: "bit of
-//: overlap"). Measured on the 692 fixture (`tests/test_graph_layout_692.py`):
+//: overlap"). Measured on the 692 fixture (`tests/test_graph_layout.py`):
 //: 7 (line, dot) pairs where a drawn line crossed a dot it has nothing to do
 //: with, and 8 on the showcase notebook in the browser
 //: (`scratchpad/ui-sweeps/graph692.js`). Nothing in the forces knew a line

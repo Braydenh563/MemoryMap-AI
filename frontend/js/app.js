@@ -2164,7 +2164,7 @@ const LAZY_ENTRY_POINTS = {
   writingDesk: ["composeDraft", "suggestDraftTitle", "saveDraftAsNote", "draftSaveMenuInit"],
   //: Each called for its effect when a figure mounts or moves; nothing reads a result.
   atlasMotion: ["atlasBlinkStart", "atlasRigAttach", "atlasRigWake"],
-  companionMenu: ["nameMarkBuddyMenu", "openNameMarkViewer"],
+  companionMenu: ["nameMarkBuddyMenu", "openNameMarkViewer", "mountBuddyPresets"],
   //: Opened, asked or drawn for their effect; `openHelpChat`'s close is read by no caller.
   helpChat: ["openHelpChat", "askAtlas", "renderAtlasStarters"],
   batchSpace: ["batchMoveToSpace"],

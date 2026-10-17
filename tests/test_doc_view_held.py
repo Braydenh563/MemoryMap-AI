@@ -27,7 +27,7 @@ def _function(name: str) -> str:
 
 def test_set_doc_view_does_not_store_a_code_files_source():
     body = _function("setDocView")
-    assert re.search(r"if\s*\(\s*!docViewHeld\s*\)\s*prefs\.set\(DOC_VIEW_KEY", body), (
+    assert re.search(r"if\s*\(\s*!docViewState\.held\s*\)\s*prefs\.set\(DOC_VIEW_KEY", body), (
         "the store must be skipped while Source is only the code file's"
     )
 
@@ -35,12 +35,12 @@ def test_set_doc_view_does_not_store_a_code_files_source():
 def test_last_edit_view_ignores_a_held_source():
     body = _function("setDocView")
     assert re.search(r"lastEditView = docView", body)
-    assert re.search(r"!docViewHeld\)\s*lastEditView = docView", body)
+    assert re.search(r"!docViewState\.held\)\s*lastEditView = docView", body)
 
 
 def test_changing_back_to_a_markdown_type_restores_the_chosen_view():
     body = _function("syncDocFileType")
-    assert re.search(r"type\.previewable && docViewHeld\)\s*setDocView\(docDefaultView\(\)\)", body)
+    assert re.search(r"type\.previewable && docViewState\.held\)\s*setDocView\(docDefaultView\(\)\)", body)
 
 
 def test_default_view_is_live_and_shared_by_boot():

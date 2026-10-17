@@ -4180,11 +4180,11 @@ function gcClickNode(event, node, s = gcTab) {
 //: so a caller falls through to its own meaning of a click.
 function gcOpenNodeTarget(node) {
   const id = String(node.id).replace(/^[a-z]+:/, "");
-  if (node.type === "attachment" && /^\d+$/.test(id) && typeof openLightbox === "function") {
+  if (node.type === "attachment" && /^\d+$/.test(id)) {
     openLightbox([{ filename: node.preview, getUrl: () => mediaSrc(`/files/${id}`) }], 0);
     return true;
   }
-  if (node.type === "document" && /^\d+$/.test(id) && typeof openDocument === "function") {
+  if (node.type === "document" && /^\d+$/.test(id)) {
     openDocument(Number(id));
     return true;
   }

@@ -1695,6 +1695,10 @@ async function loadMostUsed() {
 // --- model manager (Phase 3.5) ---------------------------------------------------
 
 let modelStatus = null; // latest /models/status payload
+//: The readouts settings-controls.js (a lazy bundle) draws, by name: it fills
+//: them in when it loads, so a boot file calls `settingsReadouts.auto?.()`
+//: rather than guarding a function that may not exist yet.
+const settingsReadouts = {};
 
 //: **The start-up choice, said once with Change** (the owner, 2026-10-07: on
 //: a fresh install with five models it ran a llama3.2 it did not have). Once
@@ -2844,7 +2848,7 @@ function renderSettings() {
   //: settings, and a person with the server down still needs to see and clear
   //: an override (WORLD_CLASS_PLAN 20, "Still open").
   renderFeatureModels(status);
-  if (typeof renderSmallModelAuto === "function") renderSmallModelAuto();
+  settingsReadouts.smallModel?.();
   if (status.ollama_running) {
     renderChatModelPicker(status);
     renderUtilityModelPicker(status);

@@ -132,7 +132,7 @@ function syncDocFileType({ prose = true } = {}) {
   }
   if (!type.previewable && !DOC_VIEWS_UNRENDERED.includes(docView)) setDocView("source");
   //: And back: a markdown type again, and Source was only the code file's.
-  else if (type.previewable && docViewHeld) setDocView(docDefaultView());
+  else if (type.previewable && docViewState.held) setDocView(docDefaultView());
   //: The engine's own language and wrapping, where it is mounted.
   docCmSyncFileType();
   docCmApplySpellcheck();
@@ -327,7 +327,7 @@ let docView = "source";
 //: switched back from `.py` to `.md` stayed there). Nothing stored, nothing
 //: remembered as the last editing view; the file type coming back to a
 //: markdown one restores the view the person actually chose.
-let docViewHeld = false;
+const docViewState = { held: false };
 
 //: The view a markdown document opens in when it is not holding one: the
 //: stored choice, else Live (Rendered on a phone, Phase 11 item 6).
@@ -673,9 +673,9 @@ function setDocView(mode) {
   if (!type.previewable && !DOC_VIEWS_UNRENDERED.includes(mode)) mode = "source";
   docView = DOC_VIEWS.includes(mode) ? mode : "source";
   //: Source in a code file is the file's only editing view, not a choice.
-  docViewHeld = !type.previewable && docView === "source";
+  docViewState.held = !type.previewable && docView === "source";
   try {
-    if (!docViewHeld) prefs.set(DOC_VIEW_KEY, docView);
+    if (!docViewState.held) prefs.set(DOC_VIEW_KEY, docView);
   } catch {
     // A private window with storage blocked is not a reason to refuse to
     // change view: the choice just does not survive the reload.
@@ -710,7 +710,7 @@ function setDocView(mode) {
   $("doc-panes").classList.toggle("split", docView === "split");
   $("doc-panes").classList.toggle("reading", docView === "rendered");
 
-  if (docView !== "rendered" && !docViewHeld) lastEditView = docView;
+  if (docView !== "rendered" && !docViewState.held) lastEditView = docView;
   for (const button of document.querySelectorAll("#doc-view-seg [data-doc-view], #doc-view-menu [data-doc-view]")) {
     // Edit is on for every mode that is not Read; the menu items behind
     // it mark the one editing mode in use.

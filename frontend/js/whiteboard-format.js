@@ -29,7 +29,7 @@ const WB_FMT_TABS = ["style", "text", "arrange", "data"];
 //: What is selected, as `{kind, id, item, bbox}` rows: the multi-selection
 //: when there is one, else the one selected item.
 //: The Format panel's open tab and its queued sync.
-const wbFmtState = { fmtTab: "style", fmtSyncQueued: false };
+const wbFmtState = { fmtTab: "style", fmtSyncQueued: false, fmtLiveQueued: false, fmtFrameQueued: false };
 
 function wbFmtEntries() {
   if (wbMultiSelection.size) return wbSelectionEntries();
@@ -321,9 +321,24 @@ function wbFormatToggle(tab = null) {
 function wbFormatSyncSoon() {
   if (wbFmtState.fmtSyncQueued || !wbFormatIsOpen()) return;
   wbFmtState.fmtSyncQueued = true;
+  wbFmtFrameSoon();
+}
+
+//: The panel's one frame callback: the full read and the four live numbers
+//: below share it (a second `requestAnimationFrame` was a second wake source).
+function wbFmtFrameSoon() {
+  if (wbFmtState.fmtFrameQueued) return;
+  wbFmtState.fmtFrameQueued = true;
   requestAnimationFrame(() => {
+    wbFmtState.fmtFrameQueued = false;
+    //: Both flags drop first so a throw in a read cannot leave one stuck.
+    const full = wbFmtState.fmtSyncQueued;
+    const live = wbFmtState.fmtLiveQueued;
     wbFmtState.fmtSyncQueued = false;
-    wbFormatSync();
+    wbFmtState.fmtLiveQueued = false;
+    //: The full read also writes x, y, w and h, so it covers the live one.
+    if (full) wbFormatSync();
+    else if (live) wbFormatLiveRead();
   });
 }
 
@@ -478,19 +493,20 @@ function wbFormatSync() {
 function wbFormatLiveSoon(event) {
   if (wbFmtState.fmtLiveQueued || !(event.buttons & 1) || !wbFormatIsOpen() || wbFmtState.fmtTab !== "arrange") return;
   wbFmtState.fmtLiveQueued = true;
-  requestAnimationFrame(() => {
-    wbFmtState.fmtLiveQueued = false;
-    const box = wbFmtBox(wbFmtEntries());
-    if (!box) return;
-    const set = (id, value) => {
-      const el = document.getElementById(id);
-      if (el && document.activeElement !== el) el.value = value;
-    };
-    set("wb-fmt-x", Math.round(box.minX));
-    set("wb-fmt-y", Math.round(box.minY));
-    set("wb-fmt-w", Math.round(box.maxX - box.minX));
-    set("wb-fmt-h", Math.round(box.maxY - box.minY));
-  });
+  wbFmtFrameSoon();
+}
+
+function wbFormatLiveRead() {
+  const box = wbFmtBox(wbFmtEntries());
+  if (!box) return;
+  const set = (id, value) => {
+    const el = document.getElementById(id);
+    if (el && document.activeElement !== el) el.value = value;
+  };
+  set("wb-fmt-x", Math.round(box.minX));
+  set("wb-fmt-y", Math.round(box.minY));
+  set("wb-fmt-w", Math.round(box.maxX - box.minX));
+  set("wb-fmt-h", Math.round(box.maxY - box.minY));
 }
 
 //: --- Edit data (draw.io's custom properties; canvasdepth2) ----------------

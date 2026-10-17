@@ -4580,9 +4580,7 @@ def keep_first_for(question: str) -> list[str] | None:
     the budget. They were appended last and so cut first, and the model, told
     about web search by the help text but not handed the tool, thought for 150
     seconds and answered that it had no way to look (owner, 2026-10-12)."""
-    from tessellate.ai import composer_digest
-
-    if composer_digest.asks_web(question) and tool_enabled("web_search"):
+    if toolwords.asks_web(question) and tool_enabled("web_search"):
         return ["web_search", "read_url", *CORE_TOOLS]
     if asks_for_plan(question):
         return ["make_plan", *CORE_TOOLS]

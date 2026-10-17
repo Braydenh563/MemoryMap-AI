@@ -92,8 +92,7 @@ async function renderExtras() {
 // already here, nor how to get one off the disk. `GET /voice/status` knows
 // (`models`), `DELETE /voice/models/<size>` removes one.
 
-let voiceModelStates = {};
-let voiceModelsWired = false;
+const voiceModels = { states: {}, wired: false };
 
 const VOICE_SIZE_NAMES = { tiny: "Tiny", base: "Base", small: "Small", medium: "Medium" };
 
@@ -102,16 +101,16 @@ async function voiceModelsPaint() {
   if (!select) return;
   const status = await apiJson("/voice/status", { silent: true }).catch(() => null);
   if (!status || !status.models) return;
-  voiceModelStates = status.models;
+  voiceModels.states = status.models;
   for (const option of select.options) {
-    const state = voiceModelStates[option.value];
+    const state = voiceModels.states[option.value];
     option.dataset.base = option.dataset.base || option.textContent;
     const mark = !state ? "" : state.installed ? " (on this computer)" : ` (${state.approx} to download)`;
     if (option.textContent !== option.dataset.base + mark) option.textContent = option.dataset.base + mark;
   }
   const size = select.value;
   select.dataset.chosen = prefsCache?.voice_model || "base"; // the saved size, not one still being confirmed
-  const state = voiceModelStates[size];
+  const state = voiceModels.states[size];
   const name = VOICE_SIZE_NAMES[size] || size;
   $("voice-model-note").textContent = !state
     ? ""
@@ -122,15 +121,15 @@ async function voiceModelsPaint() {
 }
 
 function voiceModelsWire() {
-  if (voiceModelsWired) return;
-  voiceModelsWired = true;
+  if (voiceModels.wired) return;
+  voiceModels.wired = true;
   const select = $("voice-model-select");
 
   let reverting = false;
   select.addEventListener("change", async () => {
     if (reverting) return;
     const size = select.value;
-    const state = voiceModelStates[size];
+    const state = voiceModels.states[size];
     const name = VOICE_SIZE_NAMES[size] || size;
     //: Choosing a size that is not here is the moment a download is committed
     //: to (it happens at the first dictation), so ask now and let a change of
@@ -156,7 +155,7 @@ function voiceModelsWire() {
   $("voice-model-remove").addEventListener("click", async () => {
     const size = select.value;
     const name = VOICE_SIZE_NAMES[size] || size;
-    const state = voiceModelStates[size];
+    const state = voiceModels.states[size];
     const ok = await confirmDialog(
       `Remove the ${name} dictation model?\n\nIt frees ${formatFileSize(state?.bytes || 0)}. It downloads again the next time you dictate with it.`,
       { confirmLabel: "Remove" }

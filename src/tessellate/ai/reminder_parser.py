@@ -149,7 +149,21 @@ _ASKING = re.compile(
     r"(?:i (?:need|have|must|should|want|ought) to |i'?ve got to |i gotta |need to |have to |must )?",
     re.I,
 )
-_PLEASE = re.compile(r"[,\s]+(?:please|pls|plz|thanks|thank you|ty)\.?$", re.I)
+_PLEASE_WORDS = ("thank you", "thanks", "please", "pls", "plz", "ty")
+
+
+def _drop_please(said: str) -> str:
+    """A closing "please" / "thanks" off the end, with the comma or space
+    before it. A suffix check, not a regex over the whole line, so a long
+    run of spaces cannot make it slow (CodeQL)."""
+    tail = said.rstrip()
+    tail = tail[:-1] if tail.endswith(".") else tail
+    for word in _PLEASE_WORDS:
+        if tail.lower().endswith(word):
+            head = tail[: -len(word)]
+            if head and (head[-1] == "," or head[-1].isspace()):
+                return head.rstrip(", \t\n\r\f\v")
+    return said
 #: Real-word slips the speller cannot see: "too buy milk", "cal mum".
 _TOO_VERB = re.compile(
     r"\btoo (buy|call|get|pay|go|do|see|make|take|send|book|finish|start|check|ask|pick|clean|cook|write|read|water|feed|"
@@ -177,7 +191,7 @@ def worded(text: str) -> str:
     said = " ".join((text or "").split())
     said = _TOO_VERB.sub(lambda m: f"to {m.group(1)}", said)
     said = _ASKING.sub("", said)
-    said = _PLEASE.sub("", said)
+    said = _drop_please(said)
     said = _CAL.sub(lambda m: f"{m.group(1)}all {m.group(2)}", said)
     said = proofread.proofread(said)[0].strip(" ,;:")
     return said[:1].upper() + said[1:] if said else (text or "")

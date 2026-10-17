@@ -530,12 +530,11 @@ function wbEndPanShield() {
 //: the board moves (`#wb-canvas-view.wb-moving`, library-lazy.css) and comes
 //: back this long after the last pan or zoom step.
 const WB_MOVING_MS = 180;
-let wbMovingTimer = 0;
 function wbMarkMoving() {
   const view = document.getElementById("wb-canvas-view");
   if (view && !view.classList.contains("wb-moving")) view.classList.add("wb-moving");
-  clearTimeout(wbMovingTimer);
-  wbMovingTimer = setTimeout(() => view?.classList.remove("wb-moving"), WB_MOVING_MS);
+  clearTimeout(wbMarkMoving.timer);
+  wbMarkMoving.timer = setTimeout(() => view?.classList.remove("wb-moving"), WB_MOVING_MS);
 }
 
 function handleWbZoom(e) {

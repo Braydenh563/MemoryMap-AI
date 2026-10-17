@@ -52,8 +52,7 @@ const MODEL_USE = {
 
 const modelCards = new Map(); // name -> { el, sig, host }
 let modelHardwareGb; // undefined: not asked yet; null: unknown
-let modelHardware = null; // the whole /models/hardware reply (B67)
-let modelHardwareAt = 0;
+const modelHw = { data: null, at: 0 }; // the whole /models/hardware reply and when it came (B67)
 //: Free memory moves, so the verdicts are asked for again this often while the
 //: page is open (two small requests).
 const MODEL_HARDWARE_REFRESH_MS = 30000;
@@ -138,7 +137,7 @@ function modelFitTitle(model) {
 
 //: Why the badge is not the plain share of memory (`fit_reason`, model_cards.py).
 function modelFitReasonText(model) {
-  const hw = modelHardware || {};
+  const hw = modelHw.data || {};
   if (model.fit_reason === "gpu") return ` It runs on the graphics card, which has ${modelGb(hw.vram_gb || 0)} of its own.`;
   if (model.fit_reason === "low_free") return ` Only ${modelGb(hw.free_ram_gb || 0)} of memory is free right now.`;
   return "";
@@ -530,7 +529,7 @@ function renderSuggested(status) {
   if (modelHardwareGb === undefined) {
     modelHardwareGb = null;
     refreshModelHardware(false);
-  } else if (Date.now() - modelHardwareAt > MODEL_HARDWARE_REFRESH_MS) {
+  } else if (Date.now() - modelHw.at > MODEL_HARDWARE_REFRESH_MS) {
     refreshModelHardware(true);
   }
   paintModelHardware();
@@ -645,7 +644,7 @@ function modelHardwareSentence(hw) {
 function paintModelHardware() {
   const line = $("suggested-hardware");
   if (!line) return;
-  const hw = modelHardware;
+  const hw = modelHw.data;
   line.textContent = modelHardwareGb && hw
     ? modelHardwareSentence(hw)
     : "Models Ollama can download for you. This computer's memory could not be read, so fit is not shown. Edit tells us what it has.";
@@ -653,10 +652,10 @@ function paintModelHardware() {
 }
 
 async function refreshModelHardware(withCatalog) {
-  modelHardwareAt = Date.now();
+  modelHw.at = Date.now();
   try {
     const reply = await apiJson("/models/hardware", { silent: true });
-    modelHardware = reply;
+    modelHw.data = reply;
     modelHardwareGb = reply && reply.ram_gb ? reply.ram_gb : null;
     if (withCatalog) suggestedCatalog = (await apiJson("/models/suggested", { silent: true })) || suggestedCatalog;
   } catch (error) {
@@ -672,21 +671,21 @@ function openModelHardwareForm(open) {
   if (!form || !edit) return;
   form.classList.toggle("hidden", !open);
   edit.setAttribute("aria-expanded", String(open));
-  if (!open || !modelHardware) return;
-  $("hardware-ram").value = modelHardware.ram_gb || "";
-  $("hardware-vram").value = modelHardware.vram_gb || 0;
+  if (!open || !modelHw.data) return;
+  $("hardware-ram").value = modelHw.data.ram_gb || "";
+  $("hardware-vram").value = modelHw.data.vram_gb || 0;
   $("hardware-ram").focus();
 }
 
 //: Save sends only what differs from nothing: blank memory means "as detected".
 async function saveModelHardware(body) {
   try {
-    modelHardware = await apiJson("/models/hardware", { method: "PUT", body: JSON.stringify(body) });
+    modelHw.data = await apiJson("/models/hardware", { method: "PUT", body: JSON.stringify(body) });
   } catch (error) {
     toast(error.message || "Could not save that.", true);
     return;
   }
-  modelHardwareGb = modelHardware.ram_gb || null;
+  modelHardwareGb = modelHw.data.ram_gb || null;
   openModelHardwareForm(false);
   refreshModelHardware(true);
 }
@@ -702,8 +701,8 @@ $("suggested-hardware-form")?.addEventListener("submit", (event) => {
   const vram = parseFloat($("hardware-vram").value);
   const body = {};
   //: Only a number that differs from the detected one is a correction.
-  if (ram > 0 && ram !== modelHardware.detected_ram_gb) body.ram_gb = ram;
-  if (vram >= 0 && vram !== (modelHardware.detected_vram_gb || 0)) body.vram_gb = vram;
+  if (ram > 0 && ram !== modelHw.data.detected_ram_gb) body.ram_gb = ram;
+  if (vram >= 0 && vram !== (modelHw.data.detected_vram_gb || 0)) body.vram_gb = vram;
   saveModelHardware(body);
 });
 

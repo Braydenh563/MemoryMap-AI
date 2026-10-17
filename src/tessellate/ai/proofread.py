@@ -21,8 +21,9 @@ _SENTENCE_START = re.compile(r"(^|[.!?]\s+|\n\s*)([a-z])")
 _LONE_I = re.compile(r"(?<![\w'])i(?=(?:'m|'ve|'ll|'d)?(?![\w']))")
 _SPACES = re.compile(r"[ \t]{2,}")
 _TIGHT = re.compile(r"(?<=[a-z])([,.])(?=[A-Za-z]{2,})")
-#: Kept as typed: a URL, an address, code, a tag or a [[link]].
-_UNTOUCHED = re.compile(r"(https?://\S+|\S+@\S+|`[^`]*`|#\w+|\[\[[^\]]*\]\])")
+#: Kept as typed: a URL, an address, code, a tag or a [[link]]. The runs are
+#: bounded so a long line of one repeated character stays linear (CodeQL).
+_UNTOUCHED = re.compile(r"(https?://\S+|\S{1,100}@\S{1,255}|`[^`]{0,500}`|#\w+|\[\[[^\]]{0,200}\]\])")
 
 
 def proofread(text: str, known=frozenset()) -> tuple[str, list[tuple[str, str]]]:  # noqa: ANN001

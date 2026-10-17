@@ -164,7 +164,7 @@ def classify(message: str) -> str:
 
     from tessellate.ai import act_registry
 
-    act = act_registry.typed_reader(message, datetime.now()) if act_registry.typed_reader else None
+    act = act_registry.typed_reader(message, datetime.now())
     if act and act["intent"] != "summarise":
         return ACT
 

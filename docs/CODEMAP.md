@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5912, frontend ids 2507, CSS sections 494, backend routes 606, backend modules 5512, test files 1200, tests 10968, plan headings 957.
+Counts: frontend functions 5912, frontend ids 2507, CSS sections 494, backend routes 606, backend modules 5512, test files 1201, tests 10971, plan headings 957.
 
 ## Frontend functions (5912)
 
@@ -5193,21 +5193,21 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `allSettingRows` | frontend/js/settings-rows.js:296 |
-| `applyLookSettings` | frontend/js/settings-rows.js:432 |
-| `applySettingsFile` | frontend/js/settings-rows.js:447 |
-| `browserOnlySettings` | frontend/js/settings-rows.js:401 |
-| `exportSettingsFile` | frontend/js/settings-rows.js:417 |
-| `fireSettingEvents` | frontend/js/settings-rows.js:334 |
-| `importSettingsFile` | frontend/js/settings-rows.js:462 |
+| `allSettingRows` | frontend/js/settings-rows.js:294 |
+| `applyLookSettings` | frontend/js/settings-rows.js:430 |
+| `applySettingsFile` | frontend/js/settings-rows.js:445 |
+| `browserOnlySettings` | frontend/js/settings-rows.js:399 |
+| `exportSettingsFile` | frontend/js/settings-rows.js:415 |
+| `fireSettingEvents` | frontend/js/settings-rows.js:332 |
+| `importSettingsFile` | frontend/js/settings-rows.js:460 |
 | `lookBase` | frontend/js/settings-rows.js:169 |
-| `paintSectionReset` | frontend/js/settings-rows.js:315 |
-| `paintSettingRow` | frontend/js/settings-rows.js:285 |
-| `paintSettingRows` | frontend/js/settings-rows.js:307 |
-| `resetSettingRow` | frontend/js/settings-rows.js:341 |
-| `resetSettingSection` | frontend/js/settings-rows.js:363 |
+| `paintSectionReset` | frontend/js/settings-rows.js:313 |
+| `paintSettingRow` | frontend/js/settings-rows.js:283 |
+| `paintSettingRows` | frontend/js/settings-rows.js:305 |
+| `resetSettingRow` | frontend/js/settings-rows.js:339 |
+| `resetSettingSection` | frontend/js/settings-rows.js:361 |
 | `sameSettingValue` | frontend/js/settings-rows.js:163 |
-| `scheduleSettingRowsPaint` | frontend/js/settings-rows.js:371 |
+| `scheduleSettingRowsPaint` | frontend/js/settings-rows.js:369 |
 | `settingDefaultShown` | frontend/js/settings-rows.js:174 |
 | `settingDefaults` | frontend/js/settings-rows.js:122 |
 | `settingIsModified` | frontend/js/settings-rows.js:180 |
@@ -5219,14 +5219,14 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `settingRowEl` | frontend/js/settings-rows.js:197 |
 | `settingRowName` | frontend/js/settings-rows.js:204 |
 | `settingRowShown` | frontend/js/settings-rows.js:214 |
-| `settingRowsIn` | frontend/js/settings-rows.js:300 |
-| `settingRowsWatch` | frontend/js/settings-rows.js:382 |
-| `settingScopeChip` | frontend/js/settings-rows.js:276 |
+| `settingRowsIn` | frontend/js/settings-rows.js:298 |
+| `settingRowsWatch` | frontend/js/settings-rows.js:380 |
+| `settingScopeChip` | frontend/js/settings-rows.js:274 |
 | `settingSegButton` | frontend/js/settings-rows.js:139 |
 | `settingShows` | frontend/js/settings-rows.js:155 |
-| `settingsFileSnapshot` | frontend/js/settings-rows.js:412 |
-| `settingsImportWords` | frontend/js/settings-rows.js:454 |
-| `wireSettingsFile` | frontend/js/settings-rows.js:486 |
+| `settingsFileSnapshot` | frontend/js/settings-rows.js:410 |
+| `settingsImportWords` | frontend/js/settings-rows.js:452 |
+| `wireSettingsFile` | frontend/js/settings-rows.js:484 |
 
 ### frontend/js/shared-intake.js (2)
 
@@ -9769,7 +9769,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/recovery-lazy.css | 115 |
 | frontend/css/reveal-lazy.css | 10 |
 | frontend/css/search-lazy.css | 153 |
-| frontend/css/settings-controls-lazy.css | 52 |
+| frontend/css/settings-controls-lazy.css | 74 |
 | frontend/css/settings-data-lazy.css | 60 |
 | frontend/css/tidy-lazy.css | 333 |
 | frontend/css/timeline-calendar-lazy.css | 273 |
@@ -17365,7 +17365,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10968)
+## Tests (10971)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -18326,6 +18326,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_settings_pane_actions.py | 3 |
 | tests/test_settings_pane_intro.py | 2 |
 | tests/test_settings_recent_changes.py | 8 |
+| tests/test_settings_reset_gaps.py | 3 |
 | tests/test_settings_row_heads.py | 2 |
 | tests/test_settings_rows.py | 13 |
 | tests/test_settings_skeletons.py | 4 |

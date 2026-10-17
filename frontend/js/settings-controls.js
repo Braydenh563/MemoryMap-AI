@@ -2953,11 +2953,9 @@ function renderAutoChoices() {
   const still = reducedMotionWanted();
   word("progress-motion", still ? "still now" : "moving now", "Follows reduced motion: your system's, or this app's own");
   word("bg-motion", still ? "still now" : "moving now", "Follows reduced motion: your system's, or this app's own");
-  if (typeof atlasLookReason === "function") {
-    const { look, reason } = atlasLookReason();
-    const from = { "face-looks": "from Face looks", "your-look": "from your own look", default: "main look" }[reason] || "";
-    word("atlas-look", from ? `${look}, ${from}` : look, "Matches Face looks when it is one look, otherwise the look you chose for your own face");
-  }
+  const { look, reason } = atlasLookReason();
+  const from = { "face-looks": "from Face looks", "your-look": "from your own look", default: "main look" }[reason] || "";
+  word("atlas-look", from ? `${look}, ${from}` : look, "Matches Face looks when it is one look, otherwise the look you chose for your own face");
 }
 
 //: B56: Auto names what it resolved to for the model in use. The server's
@@ -2976,6 +2974,8 @@ function renderSmallModelAuto() {
         ? `${modelStatus.chat_model} does not read as a small model, so each step is offered the whole toolbox`
         : `The name ${modelStatus.chat_model} carries no size, which counts as not small`;
 }
+settingsReadouts.auto = renderAutoChoices;
+settingsReadouts.smallModel = renderSmallModelAuto;
 
 //: **Expand all / Collapse all in a pane's dock** (INBOX 904 B14: "each settings
 //: page should have an expand and collapse all sections button at the top").

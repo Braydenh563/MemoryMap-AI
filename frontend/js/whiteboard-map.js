@@ -3084,7 +3084,7 @@ function wbMapOpenReference(d) {
   //: a document readable); a bookmark opens its address in a new tab, held to
   //: the schemes a link on a page may have (B38: "I cant ... even go to the
   //: thing attached"; both used to send the person away to the Library).
-  if (d.kind === "file" && typeof openLightbox === "function") {
+  if (d.kind === "file") {
     openLightbox([{ filename: wbMapLabel(d), getUrl: () => mediaSrc(`/files/${refId}`) }], 0);
     return;
   }

@@ -69,8 +69,12 @@ def test_b56_every_auto_choice_says_what_it_resolved_to():
     for select in ("density-seg", "perf-mode", "progress-motion", "bg-motion", "atlas-look"):
         assert f'"{select}"' in body, select
     # drawn with the rest of Appearance, and again when the window is resized
-    assert "renderAutoChoices()" in text.split("function renderAppearance", 1)[1]
-    assert "renderAutoChoices" in text.split("DENSITY_SHORT.addEventListener", 1)[1][:400]
+    # settings-controls.js registers it in `settingsReadouts` (status.js) when it loads, so a boot file
+    # needs no `typeof` guard on a function that may not exist yet.
+    assert "settingsReadouts.auto?.()" in text.split("function renderAppearance", 1)[1]
+    assert "settingsReadouts.auto?.()" in text.split("DENSITY_SHORT.addEventListener", 1)[1][:400]
+    controls = (ROOT / "frontend" / "js" / "settings-controls.js").read_text(encoding="utf-8")
+    assert "settingsReadouts.auto = renderAutoChoices;" in controls
 
 
 def test_b56_status_says_whether_the_chat_model_reads_as_small(client):

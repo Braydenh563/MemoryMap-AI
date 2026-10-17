@@ -2,9 +2,9 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5929, frontend ids 2509, CSS sections 494, backend routes 607, backend modules 5578, test files 1214, tests 11031, plan headings 957.
+Counts: frontend functions 5930, frontend ids 2509, CSS sections 494, backend routes 607, backend modules 5578, test files 1214, tests 11031, plan headings 957.
 
-## Frontend functions (5929)
+## Frontend functions (5930)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -5151,12 +5151,12 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `renderHealthBlock` | frontend/js/settings-health.js:3 |
 | `renderSamplingRows` | frontend/js/settings-health.js:83 |
 
-### frontend/js/settings-models.js (32)
+### frontend/js/settings-models.js (33)
 
 | Name | File:line |
 |---|---|
 | `buildModelCard` | frontend/js/settings-models.js:323 |
-| `checkCustomModel` | frontend/js/settings-models.js:742 |
+| `checkCustomModel` | frontend/js/settings-models.js:748 |
 | `modelBase` | frontend/js/settings-models.js:72 |
 | `modelBytes` | frontend/js/settings-models.js:304 |
 | `modelCancel` | frontend/js/settings-models.js:197 |
@@ -5181,11 +5181,12 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `modelUse` | frontend/js/settings-models.js:207 |
 | `openModelHardwareForm` | frontend/js/settings-models.js:668 |
 | `paintModelHardware` | frontend/js/settings-models.js:644 |
+| `putModelHardware` | frontend/js/settings-models.js:681 |
 | `refreshModelHardware` | frontend/js/settings-models.js:654 |
-| `renderCustomCards` | frontend/js/settings-models.js:714 |
+| `renderCustomCards` | frontend/js/settings-models.js:720 |
 | `renderInstalledModels` | frontend/js/settings-models.js:509 |
 | `renderSuggested` | frontend/js/settings-models.js:525 |
-| `saveModelHardware` | frontend/js/settings-models.js:681 |
+| `saveModelHardware` | frontend/js/settings-models.js:687 |
 | `updateModelProgress` | frontend/js/settings-models.js:443 |
 
 ### frontend/js/settings-packages.js (15)
@@ -9773,7 +9774,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/atlas-lazy.css | 52 |
 | frontend/css/captions-lazy.css | 95 |
 | frontend/css/dash-night-lazy.css | 29 |
-| frontend/css/dash-orphans-lazy.css | 62 |
+| frontend/css/dash-orphans-lazy.css | 57 |
 | frontend/css/file-drop-lazy.css | 51 |
 | frontend/css/first-run-lazy.css | 60 |
 | frontend/css/graph-lazy.css | 360 |
@@ -19273,7 +19274,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | E2 · The complexity of the AI path is where the next bug will be, High (read) | docs/roadmap/MODERNISATION_AUDIT.md:653 |
 | E3 · Model calls are scattered across request handlers, background threads and module singletons, High (read) | docs/roadmap/MODERNISATION_AUDIT.md:666 |
 | E4 · The honest positives, so the section is not one-sided (read) | docs/roadmap/MODERNISATION_AUDIT.md:676 |
-| Earlier sessions | docs/roadmap/HANDOVER.md:540 |
+| Earlier sessions | docs/roadmap/HANDOVER.md:542 |
 | Expert audit, 2026-10-10 | docs/roadmap/BACKLOG.md:4267 |
 | F. Agent harness: what "ultimate" needs that is not there | docs/roadmap/AUDIT.md:113 |
 | F. Performance and perceived speed | docs/roadmap/MODERNISATION_AUDIT.md:685 |
@@ -19306,7 +19307,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Harper (Automattic) | docs/roadmap/ANALYSIS.md:1783 |
 | Headroom: evaluated, not adopted | docs/roadmap/BACKLOG.md:710 |
 | How far each plan actually is (honest, as of 2026-10-03) | docs/roadmap/HANDOVER.md:327 |
-| How to proceed after PR 149 (the owner asked, 2026-09-14) | docs/roadmap/HANDOVER.md:494 |
+| How to proceed after PR 149 (the owner asked, 2026-09-14) | docs/roadmap/HANDOVER.md:496 |
 | How to proceed after PR 149 (written 2026-09-14; the live order is CLAUDE.md standing order 1 and HANDOVER's Now line) | docs/ROADMAP.md:295 |
 | How to read the evidence in here | docs/roadmap/MODERNISATION_AUDIT.md:23 |
 | How to work on this repo | docs/ROADMAP.md:364 |

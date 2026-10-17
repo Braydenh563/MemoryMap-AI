@@ -68,7 +68,7 @@ def test_a_finished_jobs_logs_button_stays_top_right_on_the_title_line():
     css = (ROOT / "frontend" / "css" / "01-forms-settings.css").read_text(encoding="utf-8")
     row = css[css.index("#task-history .entry-meta {") :].split("}")[0]
     assert "flex-wrap: nowrap" in row
-    assert "margin-inline-start: auto" in css[css.index("#task-history .entry-meta > .row-actions {") :].split("}")[0]
+    assert "margin-inline-start: auto" in css[css.index("#task-history .row-actions {") :].split("}")[0]
     js = (ROOT / "frontend" / "js" / "chat-tasks.js").read_text(encoding="utf-8")
     assert "row.append(name, taskLogButton(item));" in js and "li.append(row, when);" in js
 

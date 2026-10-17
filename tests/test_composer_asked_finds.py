@@ -101,3 +101,32 @@ def test_mentions_is_an_asking_word_and_not_a_subject(client, session):
     session.commit()
     text = _ask(client, "which note mentions perth", use_tools=False)["text"]
     assert "Perth" in text and "mentions" not in text.lower()
+
+
+# Asks for the web and the digest's cadence wording (owner, 2026-10-12).
+
+def test_a_turn_that_asks_for_the_web_goes_to_the_web_first():
+    """'hey can u pls search the web for ...' was answered from two unrelated
+    notes: a note matched, and the web was only the fallback."""
+    from tessellate.ai import composer_digest
+
+    asked = 'hey can u pls search the web for the book series "He Who Fights With Monsters" by Shirtaloon??'
+    assert composer_digest.asks_web(asked)
+    assert composer_digest.web_query(asked).startswith("the book series")
+    assert not composer_digest.asks_web("when did I buy that gamin mouse earlier this year??")
+    assert not composer_digest.asks_web("what did I order online last week")
+
+
+def test_cadence_takes_the_bare_unit():
+    """"roughly every a week" (owner, 2026-10-12)."""
+    import re
+    from tessellate.ai import composer_digest as d
+    for days in (1, 7, 30):
+        every = re.sub(r"^(?:about |nearly )?an? ", "", d._gap(days))
+        assert not every.startswith(("a ", "an ", "about a")), every
+
+
+def test_search_up_is_a_web_ask():
+    from tessellate.ai import composer_digest as d
+    assert d.asks_web("search up sandwich recipes including ham and cheese")
+    assert d.web_query("search up sandwich recipes") == "sandwich recipes"

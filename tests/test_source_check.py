@@ -110,3 +110,9 @@ def test_a_backed_answer_gets_no_flag(monkeypatch, app_state):
 def test_a_skill_step_is_not_checked(monkeypatch, app_state):
     _fake, text = _turn(monkeypatch, "Your note says Tuesday at 10:15.", show_plan=False)
     assert "Heads up" not in text
+
+
+def test_an_app_link_is_not_an_unbacked_name():
+    """"[Open your notes](#/notes)" drew "Heads up: ... could not find Open" (owner, 2026-10-12)."""
+    sources = Sources(["what did I write this week"])
+    assert unbacked_claims("You have no notes in this week.\n\n[Open your notes](#/notes)", sources) == []

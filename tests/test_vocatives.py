@@ -127,3 +127,10 @@ def test_the_chips_are_drawn_by_the_follow_up_strip():
     #: Both are drawn after the offer: the offer first, the strip after.
     assert ask.index("digestOffer(answerBox, answerOffer)") < ask.index("const followups = () => renderAskFollowups")
     assert "digestOffer([...bubble.querySelectorAll" in chat
+
+
+def test_an_emoticon_is_not_a_name():
+    """"hey :D" answered "Ha, D." (owner, 2026-10-12)."""
+    for text in ("hey :D", "hey :)", "hello xD", "yo ;P", "hi <3"):
+        said = vocative.split(text)
+        assert not said.names, (text, said)

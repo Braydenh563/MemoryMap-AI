@@ -10,7 +10,7 @@ from pathlib import Path
 import pytest
 
 from tessellate.ai import why
-from tests.test_capability_1011 import web  # noqa: F401  # the fixture
+from tests.test_composer_social import web  # noqa: F401  # the fixture
 from tests.test_composer_route_688 import _ask, _seed
 
 ROOT = Path(__file__).resolve().parents[1]

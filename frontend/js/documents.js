@@ -13332,7 +13332,7 @@ function setNoteSurfaceSource(host, source) {
 //: would have run in the textarea.
 function noteSurfaceUpdate(host, update) {
   const view = update.view;
-  if (update.docChanged || update.selectionSet) noteSurfaceMirror(host, view);
+  if (update.docChanged || update.selectionSet) noteSurfaceMirror(host, view, update.docChanged);
   if (!update.docChanged) return;
   const surface = noteSurfaceFor(host);
   const meta = noteSurfaceMeta(host);
@@ -13348,26 +13348,60 @@ function noteSurfaceUpdate(host, update) {
   }
 }
 
-function noteSurfaceMirror(host, view) {
-  const text = view.state.doc.toString();
-  const range = view.state.selection.main;
+//: **The hidden textarea is written once typing pauses, not on every key**
+//: (the owner, 2026-10-12: backspace and delete lag in a long note). Writing a
+//: textarea's value makes the browser rebuild its inner text, a text node and a
+//: <br> per line, and restyle them: 10,962 <br> insertions and 141 restyles of
+//: 1,764 elements in 25 Backspaces of a 1500-word note, every stack ending in
+//: that write. Reads of `value` and the selection come live from the view
+//: (`noteSurfaceOwnValue`), so the `input` event below sees the same text; the
+//: textarea itself is brought level `NOTE_MIRROR_MS` after the last change, or
+//: at once if something calls into it (`noteMirrorFlush`).
+const NOTE_MIRROR_MS = 250;
+function noteSurfaceMirror(host, view, docChanged) {
+  host.noteMirrorStale = true;
+  clearTimeout(host.noteMirrorTimer);
+  host.noteMirrorTimer = setTimeout(() => host.noteMirrorFlush?.(), NOTE_MIRROR_MS);
+  //: A script's own `box.value = ...` already told everyone; only a change
+  //: made in the view raises the event.
+  if (!docChanged || host.noteSettingValue) return;
   noteSurfaceMirroring = true;
   try {
-    const changed = host.value !== text;
-    if (changed) host.value = text;
-    //: Selection too, and on every update rather than only on a change:
-    //: app.js's `[[` suggest and "ask about the selection" both read
-    //: `selectionStart` off this element.
-    try {
-      host.setSelectionRange(Math.min(range.from, text.length), Math.min(range.to, text.length));
-    } catch (error) {
-      //: Some engines refuse a selection on a box that is not rendered. The
-      //: layering above is what makes this rare rather than routine, and a
-      //: refusal is not a reason to drop the text.
-    }
-    if (changed) host.dispatchEvent(new Event("input", { bubbles: true }));
+    host.dispatchEvent(new Event("input", { bubbles: true }));
   } finally {
     noteSurfaceMirroring = false;
+  }
+}
+
+//: What brings the textarea level with the view, and keeps anything that
+//: reaches into the textarea itself from finding it behind.
+function noteSurfaceMirrorTools(host, view, valueProto) {
+  const nativeRange = HTMLTextAreaElement.prototype.setSelectionRange;
+  host.noteMirrorStale = false;
+  host.noteMirrorFlush = () => {
+    clearTimeout(host.noteMirrorTimer);
+    if (!host.noteMirrorStale) return;
+    host.noteMirrorStale = false;
+    const text = view.state.doc.toString();
+    const range = view.state.selection.main;
+    noteSurfaceMirroring = true;
+    try {
+      valueProto.set.call(host, text);
+      //: Some engines refuse a selection on a box that is not rendered, and a
+      //: refusal is not a reason to drop the text.
+      nativeRange.call(host, Math.min(range.from, text.length), Math.min(range.to, text.length));
+    } catch (error) {
+      // The text is in; the caret there is the view's to keep.
+    } finally {
+      noteSurfaceMirroring = false;
+    }
+  };
+  for (const name of ["setRangeText", "select"]) {
+    const native = HTMLTextAreaElement.prototype[name];
+    host[name] = function mirrored(...args) {
+      host.noteMirrorFlush();
+      return native.apply(this, args);
+    };
   }
 }
 
@@ -13380,17 +13414,25 @@ function noteSurfaceMirror(host, view) {
 function noteSurfaceOwnValue(host, view) {
   const proto = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value");
   if (!proto || !proto.set) return;
+  noteSurfaceMirrorTools(host, view, proto);
   Object.defineProperty(host, "value", {
     configurable: true,
+    //: Live: the textarea behind it is only brought level once typing pauses.
     get() {
-      return proto.get.call(this);
+      return view.state.doc.toString();
     },
     set(next) {
       proto.set.call(this, next);
+      host.noteMirrorStale = false;
       if (noteSurfaceMirroring) return;
       const current = view.state.doc.toString();
       if (next === current) return;
-      view.dispatch({ changes: { from: 0, to: current.length, insert: String(next) } });
+      host.noteSettingValue = true;
+      try {
+        view.dispatch({ changes: { from: 0, to: current.length, insert: String(next) } });
+      } finally {
+        host.noteSettingValue = false;
+      }
     },
   });
   //: **And the selection, which is the half that looks like it works.**
@@ -13402,6 +13444,7 @@ function noteSurfaceOwnValue(host, view) {
   //: position 0 with its placeholder text instead of around the word.
   const setRange = host.setSelectionRange.bind(host);
   host.setSelectionRange = (from, to, direction) => {
+    host.noteMirrorFlush();
     setRange(from, to, direction);
     if (noteSurfaceMirroring) return;
     const length = view.state.doc.length;
@@ -13412,15 +13455,19 @@ function noteSurfaceOwnValue(host, view) {
   for (const name of ["selectionStart", "selectionEnd"]) {
     const own = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, name);
     if (!own || !own.set) continue;
+    const native = (key) => Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, key).get.call(host);
     Object.defineProperty(host, name, {
       configurable: true,
+      //: Live from the view's caret, as the value is.
       get() {
-        return own.get.call(this);
+        const range = view.state.selection.main;
+        return name === "selectionStart" ? range.from : range.to;
       },
       set(at) {
+        host.noteMirrorFlush();
         own.set.call(this, at);
         if (noteSurfaceMirroring) return;
-        host.setSelectionRange(this.selectionStart, this.selectionEnd);
+        host.setSelectionRange(native("selectionStart"), native("selectionEnd"));
       },
     });
   }

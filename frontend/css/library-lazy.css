@@ -6066,3 +6066,14 @@ input[type="color"].wb-colour-off {
 input[type="color"].wb-mixed {
   background: repeating-linear-gradient(45deg, var(--muted) 0 3px, transparent 3px 6px);
 }
+
+/* **No blur over moving pixels** (`wbMarkMoving`, whiteboard.js; the owner,
+   2026-10-12: a trackpad pan of a mind map "slow and laggy" with a tool panel
+   showing). Each blurred panel over the board re-samples what is under it on
+   every pan frame; while the board moves they are plain translucent panels
+   (the ground is still `--modal-bg`), and the blur returns 180 ms after the
+   last step. The same surfaces Glass off clears for good. */
+#wb-canvas-view.wb-moving :is(.wb-topbar, .whiteboard-floating-panel, .wb-map-strip, .wb-sidebar) {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}

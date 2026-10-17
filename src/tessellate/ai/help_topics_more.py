@@ -566,7 +566,7 @@ MORE_TOPICS: list[dict] = [
             "build a scheme", "border style", "shadow", "interface animations",
         ),
         "body": (
-            "Settings, Appearance. Themes: hover a theme to see it on the whole app, "
+            "Settings, Appearance. Themes: hover a theme, or press the eye in its corner, to see it on the whole app, "
             "press Surprise me for a random one, save and switch your own. Theme & "
             "colour: Palette, Mode (light, dark or system), Accent colour or a "
             "custom one (a colour a button's words cannot be read on is "
@@ -1658,7 +1658,10 @@ MORE_TOPICS.extend(
                 "(chat and filing, bigger machines, search, images, reading "
                 "text), each with its size on disk, the memory it asks for, what "
                 "it is good at and whether it fits this computer, and one "
-                "starting pick per group. One button downloads it or puts it to "
+                "starting pick per group. A line above the cards shows the "
+                "memory, free memory and graphics card it detected, and Edit "
+                "corrects them when they are wrong; the badges use the "
+                "corrected numbers and the memory free now. One button downloads it or puts it to "
                 "use, with progress and Cancel on the card; Remove and Copy name "
                 "are in its menu. Hide models too big for this computer leaves "
                 "out the ones that will not fit. Download another model takes any "

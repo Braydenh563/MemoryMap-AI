@@ -5867,14 +5867,12 @@ body .chip.item-label,
 #nm-buddy[data-turn="l"] .nm-char .nm-buddy-head { translate: -3.5px 0; }
 #nm-buddy[data-turn="r"] .nm-char .nm-buddy-head { translate: 3.5px 0; }
 #nm-buddy[data-turn] .nm-figure { transform: scaleX(0.95); }
-/* Carried: it swings against the pull (`--nmb-sway`, from the drag's
+/* Carried: it swings against the pull (`nameMarkBuddySway`, from the drag's
    speed) and its eyes go wide. */
 #nm-buddy.nm-buddy-dragging .nm-figure {
   transform-origin: 50% 0;
-  rotate: calc(var(--nmb-sway) * 0.4deg);
 }
 #nm-buddy.nm-buddy-dragging .nmb-leg {
-  rotate: calc(var(--nmb-sway) * 1deg);
   transition: rotate var(--motion-slow) var(--ease-out);
 }
 #nm-buddy.nm-buddy-dragging .name-mark .nm-eyes {
@@ -6009,8 +6007,6 @@ body .chip.item-label,
    (6 recalcs in 2s became 105). A new reader needs its own link. */
 @property --nmb-tilt { syntax: "<number>"; inherits: false; initial-value: 0; }
 @property --nmb-lean { syntax: "<number>"; inherits: false; initial-value: 0; }
-/* The lean against a pull: written on the figure and the legs only (`nameMarkBuddySway`), so it never restyles the rest. */
-@property --nmb-sway { syntax: "<number>"; inherits: false; initial-value: 0; }
 #nm-buddy :is(.nm-buddy-face, .nm-buddy-char) { --nmb-tilt: inherit; --nmb-lean: inherit; }
 #nm-buddy.nmb-duck .nm-buddy-char { transform: translateY(10px); }
 /* Tucked behind the bottom bar (the last resort in a small window): only

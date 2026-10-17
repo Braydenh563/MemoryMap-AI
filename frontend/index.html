@@ -9768,14 +9768,33 @@ Link to another note with [[its first few words]]."></textarea>
                   <i class="ph ph-question" aria-hidden="true"></i>
                 </button>
               </div>
-              <p id="suggested-hardware" class="muted">Models Ollama can download for you.</p>
+              <div class="row suggested-hardware-row">
+                <p id="suggested-hardware" class="muted">Models Ollama can download for you.</p>
+                <button type="button" id="suggested-hardware-edit" class="ghost small hidden"
+                  aria-expanded="false" aria-controls="suggested-hardware-form"
+                  title="Correct the memory and graphics card this page detected">Edit</button>
+              </div>
+              <form id="suggested-hardware-form" class="row hidden" autocomplete="off">
+                <label>Memory (GB)
+                  <input type="number" id="hardware-ram" min="1" max="4096" step="0.5" inputmode="decimal">
+                </label>
+                <label>Video memory (GB)
+                  <input type="number" id="hardware-vram" min="0" max="4096" step="0.5" inputmode="decimal"
+                    placeholder="0 for none">
+                </label>
+                <button type="submit" class="ghost small">Save</button>
+                <button type="button" id="hardware-reset" class="ghost small">Use detected</button>
+                <button type="button" id="hardware-cancel" class="ghost small">Cancel</button>
+              </form>
               <div class="help-body hidden" id="suggested-help" role="dialog" aria-label="About these downloads">
                 <p>
                   Each card says how much memory the model asks for and whether
                   that fits this computer: Fits is under 60% of its memory,
-                  Tight is up to 85%, and Too big is more than that. It counts
-                  system memory only; a graphics card with enough memory of its
-                  own runs the same model faster than the badge suggests.
+                  Tight is up to 85%, and Too big is more than that. A graphics
+                  card whose own memory holds the model counts instead of the
+                  system memory, and memory that is free only right now can
+                  take a Fits down to Tight. The line above the cards shows
+                  what was detected; Edit corrects it when it is wrong.
                 </p>
                 <p>
                   Sizes with a ~ are the download size we shipped and have not
@@ -10763,8 +10782,8 @@ Link to another note with [[its first few words]]."></textarea>
                   A theme sets everything below in one go. Anything you then
                   change by hand sits on top of it and wins, so you can pick
                   a theme and still choose your own accent colour. Rest the
-                  pointer on a theme to see it before you pick it, or press
-                  Surprise me for one at random.
+                  pointer on a theme, or press the eye in its corner, to see it
+                  before you pick it, or press Surprise me for one at random.
                 </p>
               </div>
               <div id="theme-presets" class="theme-presets"></div>

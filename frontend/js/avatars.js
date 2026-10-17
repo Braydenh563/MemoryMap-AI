@@ -4763,6 +4763,18 @@ function nameMarkBuddyPut(buddy, x, y) {
   if (nmb.menuPlace && nameMarkBuddyMenuOpen()) nmb.menuPlace();
 }
 
+//: The lean of a carried or flying companion, against the pull: the body by
+//: 0.4 deg a unit and each leg by 1 deg, 0 clearing it. Written to the
+//: elements that wear it, not as a custom property on #nm-buddy: an inherited
+//: property set every frame restyled the whole drawing, and a thrown Atlas ran
+//: at 29 frames in 1.6 s against 92 without it (test_companion_motion.py).
+function nameMarkBuddySway(buddy, sway) {
+  const lean = Math.round(sway * 10) / 10;
+  for (const el of buddy.querySelectorAll(".nm-figure:not(.nmb-fig-leaving), .nmb-leg")) {
+    el.style.rotate = lean ? `${el.classList.contains("nmb-leg") ? lean : lean * 0.4}deg` : "";
+  }
+}
+
 //: **Leaves with its panel, like the page does** (INBOX 426 x, the owner:
 //: "if I scroll really fast the companion will just float in the corner
 //: ... then it will disappear"). On a panel inside a scroll area it rides
@@ -6110,17 +6122,6 @@ function nameMarkBuddyWorld(tab) {
     .filter((e) => e.type === "top" && e.kind !== "bar" && e.right - e.left >= NMB_W && e.y > roof + NMB_FEET && e.y < base)
     .map((e) => ({ left: e.left - NMB_W / 2, right: e.right - NMB_W / 2, y: e.y - NMB_FEET + 1 }));
   return { left: 0, right: innerWidth - NMB_W, top: roof, floor: base - NMB_FEET + 1, ledges };
-}
-
-//: Its lean against a pull or a throw (degrees at the legs), written on the
-//: figure and the legs, the only elements that read `--nmb-sway` (the CSS
-//: registers it non-inheriting). Written on `#nm-buddy` it restyled every
-//: descendant each frame: 53 to 140 elements, 7 to 15 ms, measured.
-function nameMarkBuddySway(buddy, sway) {
-  const v = sway.toFixed(1);
-  if (nmb.sway === v) return;
-  nmb.sway = v;
-  for (const el of buddy.querySelectorAll(".nm-figure, .nmb-leg")) el.style.setProperty("--nmb-sway", v);
 }
 
 //: Let go at `vx`, `vy` (px per ms): the flight, one frame at a time on

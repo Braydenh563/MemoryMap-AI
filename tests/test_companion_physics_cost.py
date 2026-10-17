@@ -15,8 +15,8 @@ style recalculation, not script. Two things made each frame's restyle of
   modal overlay or the lock screen is up, and the CSS reads that.
 - `--nmb-sway` was an inherited custom property written on `#nm-buddy` every
   frame, which restyles every descendant of the figure (53 to 140 elements,
-  7 to 15 ms). It is now registered non-inheriting and written on the
-  figure and the legs, the only elements that read it.
+  7 to 15 ms). The lean is now written on the figure and the legs, the only
+  elements that wear it (the perf agent's 27ec556, found independently).
 
 These are static checks because the number only shows in a browser; the
 sweep that measures it is described in
@@ -62,12 +62,12 @@ def test_a_cover_over_the_page_is_a_flag_the_script_sets() -> None:
     assert "MutationObserver" in AV[AV.index("nmb.coverObserver") - 200 : AV.index("nmb.coverObserver") + 400]
 
 
-def test_sway_is_a_non_inherited_property_written_on_the_parts_that_read_it() -> None:
-    css = _css()
-    assert re.search(r'@property --nmb-sway\s*\{[^}]*inherits:\s*false', css)
-    assert 'buddy.style.setProperty("--nmb-sway"' not in AV, "an inherited write on #nm-buddy restyles every descendant"
+def test_sway_is_written_on_the_parts_that_wear_it_not_on_the_companion() -> None:
+    # 27ec556 (the perf agent) and this branch found the same cause: an inherited
+    # custom property set on #nm-buddy every frame restyles the whole drawing.
+    assert "--nmb-sway" not in AV and "--nmb-sway" not in _css()
     fn = _fn("nameMarkBuddySway")
-    assert ".nm-figure" in fn and ".nmb-leg" in fn and 'setProperty("--nmb-sway"' in fn
+    assert ".nm-figure" in fn and ".nmb-leg" in fn and "style.rotate" in fn
 
 
 def test_the_carry_writes_the_turn_only_when_it_changes() -> None:

@@ -52,6 +52,11 @@ const MODEL_USE = {
 
 const modelCards = new Map(); // name -> { el, sig, host }
 let modelHardwareGb; // undefined: not asked yet; null: unknown
+let modelHardware = null; // the whole /models/hardware reply (B67)
+let modelHardwareAt = 0;
+//: Free memory moves, so the verdicts are asked for again this often while the
+//: page is open (two small requests).
+const MODEL_HARDWARE_REFRESH_MS = 30000;
 let modelLastStatus = null;
 let modelGroupsSig = "";
 let modelCatalogNames = "";
@@ -125,9 +130,18 @@ function modelFitTitle(model) {
   if (!model.ram_gb || !modelHardwareGb) return "";
   const need = modelGb(model.ram_gb);
   const have = modelGb(modelHardwareGb);
-  if (model.fit === "fits") return `Needs about ${need} of memory; this computer has ${have}.`;
-  if (model.fit === "tight") return `Needs about ${need} of memory and this computer has ${have}: it will run, with little to spare.`;
+  const reason = modelFitReasonText(model);
+  if (model.fit === "fits") return `Needs about ${need} of memory; this computer has ${have}.${reason}`;
+  if (model.fit === "tight") return `Needs about ${need} of memory and this computer has ${have}: it will run, with little to spare.${reason}`;
   return `Needs about ${need} of memory and this computer has ${have}: it would be very slow or fail.`;
+}
+
+//: Why the badge is not the plain share of memory (`fit_reason`, model_cards.py).
+function modelFitReasonText(model) {
+  const hw = modelHardware || {};
+  if (model.fit_reason === "gpu") return ` It runs on the graphics card, which has ${modelGb(hw.vram_gb || 0)} of its own.`;
+  if (model.fit_reason === "low_free") return ` Only ${modelGb(hw.free_ram_gb || 0)} of memory is free right now.`;
+  return "";
 }
 
 function modelFacts(model) {
@@ -301,7 +315,7 @@ function modelProgressText(pull) {
 
 function modelSignature(model, state) {
   return JSON.stringify([
-    model.name, model.fit, model.size, model.size_source, model.ram_gb, model.recommended,
+    model.name, model.fit, model.fit_reason, model.size,model.size_source, model.ram_gb, model.recommended,
     state.kind, state.installed, state.roles,
     state.pull ? [state.pull.status, state.pull.error] : null, modelHardwareGb,
   ]);
@@ -515,13 +529,9 @@ function renderSuggested(status) {
   if (!host || !suggestedCatalog) return;
   if (modelHardwareGb === undefined) {
     modelHardwareGb = null;
-    apiJson("/models/hardware", { silent: true })
-      .then((reply) => {
-        modelHardwareGb = reply && reply.ram_gb ? reply.ram_gb : null;
-        paintModelHardware();
-        if (modelLastStatus) renderSuggested(modelLastStatus);
-      })
-      .catch(() => {});
+    refreshModelHardware(false);
+  } else if (Date.now() - modelHardwareAt > MODEL_HARDWARE_REFRESH_MS) {
+    refreshModelHardware(true);
   }
   paintModelHardware();
 
@@ -616,13 +626,86 @@ function renderSuggested(status) {
   renderCustomCards(status);
 }
 
+//: The hardware line above the cards (INBOX 904 B67): memory, memory free now,
+//: the graphics card, and how many models are here, with Edit to correct it.
+function modelHardwareSentence(hw) {
+  const parts = [`${modelGb(hw.ram_gb)} of memory`];
+  if (hw.free_ram_gb) parts[0] += ` (${modelGb(hw.free_ram_gb)} free now)`;
+  const card = (hw.gpus || [])[0];
+  if (hw.vram_gb) parts.push(`${card && !hw.override ? `${card.name} with ` : ""}${modelGb(hw.vram_gb)} of video memory`);
+  else if (card && card.shared) parts.push(`${card.name}, which shares the memory`);
+  else parts.push("no graphics card with memory of its own");
+  const here = hw.models_installed
+    ? ` ${hw.models_installed} model${hw.models_installed === 1 ? "" : "s"} installed${hw.models_loaded ? `, ${hw.models_loaded} loaded now` : ""}.`
+    : "";
+  const fixed = hw.override ? " You corrected these numbers." : "";
+  return `This computer: ${parts.join(", ")}.${here}${fixed} Each card says whether a model fits.`;
+}
+
 function paintModelHardware() {
   const line = $("suggested-hardware");
   if (!line) return;
-  line.textContent = modelHardwareGb
-    ? `This computer has ${modelGb(modelHardwareGb)} of memory. Each card says whether a model fits.`
-    : "Models Ollama can download for you. This computer's memory could not be read, so fit is not shown.";
+  const hw = modelHardware;
+  line.textContent = modelHardwareGb && hw
+    ? modelHardwareSentence(hw)
+    : "Models Ollama can download for you. This computer's memory could not be read, so fit is not shown. Edit tells us what it has.";
+  $("suggested-hardware-edit")?.classList.toggle("hidden", !hw);
 }
+
+async function refreshModelHardware(withCatalog) {
+  modelHardwareAt = Date.now();
+  try {
+    const reply = await apiJson("/models/hardware", { silent: true });
+    modelHardware = reply;
+    modelHardwareGb = reply && reply.ram_gb ? reply.ram_gb : null;
+    if (withCatalog) suggestedCatalog = (await apiJson("/models/suggested", { silent: true })) || suggestedCatalog;
+  } catch (error) {
+    return;
+  }
+  paintModelHardware();
+  if (modelLastStatus) renderSuggested(modelLastStatus);
+}
+
+function openModelHardwareForm(open) {
+  const form = $("suggested-hardware-form");
+  const edit = $("suggested-hardware-edit");
+  if (!form || !edit) return;
+  form.classList.toggle("hidden", !open);
+  edit.setAttribute("aria-expanded", String(open));
+  if (!open || !modelHardware) return;
+  $("hardware-ram").value = modelHardware.ram_gb || "";
+  $("hardware-vram").value = modelHardware.vram_gb || 0;
+  $("hardware-ram").focus();
+}
+
+//: Save sends only what differs from nothing: blank memory means "as detected".
+async function saveModelHardware(body) {
+  try {
+    modelHardware = await apiJson("/models/hardware", { method: "PUT", body: JSON.stringify(body) });
+  } catch (error) {
+    toast(error.message || "Could not save that.", true);
+    return;
+  }
+  modelHardwareGb = modelHardware.ram_gb || null;
+  openModelHardwareForm(false);
+  refreshModelHardware(true);
+}
+
+$("suggested-hardware-edit")?.addEventListener("click", () => {
+  openModelHardwareForm($("suggested-hardware-form").classList.contains("hidden"));
+});
+$("hardware-cancel")?.addEventListener("click", () => openModelHardwareForm(false));
+$("hardware-reset")?.addEventListener("click", () => saveModelHardware({}));
+$("suggested-hardware-form")?.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const ram = parseFloat($("hardware-ram").value);
+  const vram = parseFloat($("hardware-vram").value);
+  const body = {};
+  //: Only a number that differs from the detected one is a correction.
+  if (ram > 0 && ram !== modelHardware.detected_ram_gb) body.ram_gb = ram;
+  if (vram >= 0 && vram !== (modelHardware.detected_vram_gb || 0)) body.vram_gb = vram;
+  saveModelHardware(body);
+});
 
 // --- "Download another model" ----------------------------------------------------------------
 

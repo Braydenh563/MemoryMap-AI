@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5880, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5478, test files 1176, tests 10878, plan headings 956.
+Counts: frontend functions 5880, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5478, test files 1177, tests 10879, plan headings 956.
 
 ## Frontend functions (5880)
 
@@ -9221,7 +9221,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Atlas, the app's guide (INBOX 224) | frontend/css/08-consistency.css:1803 |
 | Atlas, the assistant's own character (atlas.js) | frontend/css/08-consistency.css:6569 |
 | BOARD NAVIGATOR AND BOARD SEARCH | frontend/css/07-whiteboard-misc.css:6292 |
-| BREADCRUMBS: WHERE THE CARET IS | frontend/css/05-sidebars-themes.css:6010 |
+| BREADCRUMBS: WHERE THE CARET IS | frontend/css/05-sidebars-themes.css:6012 |
 | Boards, 2026-10-10 (boardmap-1010): lazy with the board, off the boot | frontend/css/library-lazy.css:4192 |
 | Capture: the add tools as a quiet toolbar (INBOX 395) | frontend/css/08-consistency.css:4511 |
 | Capture: the two labelled rows under the note box | frontend/css/07-whiteboard-misc.css:2719 |
@@ -9402,8 +9402,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | activity heatmap + tag cloud widgets | frontend/css/03-dashboard-widgets.css:1992 |
 | activity log | frontend/css/01-forms-settings.css:2811 |
 | activity, as a timeline rather than as cards | frontend/css/library-lazy.css:3066 |
-| an embedded document, drawn as a card (INBOX 421 b) | frontend/css/05-sidebars-themes.css:6118 |
-| and inside a small phone | frontend/css/05-sidebars-themes.css:5896 |
+| an embedded document, drawn as a card (INBOX 421 b) | frontend/css/05-sidebars-themes.css:6120 |
+| and inside a small phone | frontend/css/05-sidebars-themes.css:5898 |
 | appearance settings: grouped, scannable rows | frontend/css/04-chat-dock-appearance.css:1964 |
 | assistant message layout | frontend/css/05-sidebars-themes.css:4411 |
 | attaching notes to a chat message | frontend/css/04-chat-dock-appearance.css:2839 |
@@ -9629,7 +9629,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the page scrollers scroll on the compositor | frontend/css/08-consistency.css:4298 |
 | the page shell (§35L) | frontend/css/00-tokens-shell.css:3601 |
 | the palette on a touch screen (INBOX 464) | frontend/css/10-responsive.css:2476 |
-| the phone header fits inside the phone | frontend/css/05-sidebars-themes.css:5865 |
+| the phone header fits inside the phone | frontend/css/05-sidebars-themes.css:5867 |
 | the picker itself | frontend/css/05-sidebars-themes.css:3750 |
 | the primary action floats, where a dock has one | frontend/css/07-whiteboard-misc.css:10223 |
 | the quick-nav chord's guide | frontend/css/10-responsive.css:421 |
@@ -9695,7 +9695,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/02-chat-graph.css | 5738 |
 | frontend/css/03-dashboard-widgets.css | 5029 |
 | frontend/css/04-chat-dock-appearance.css | 6476 |
-| frontend/css/05-sidebars-themes.css | 6228 |
+| frontend/css/05-sidebars-themes.css | 6230 |
 | frontend/css/06-timeline-dialogs.css | 3722 |
 | frontend/css/07-whiteboard-misc.css | 11893 |
 | frontend/css/08-consistency.css | 10551 |
@@ -17284,7 +17284,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10878)
+## Tests (10879)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -17992,6 +17992,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_note_backlinks_kg1.py | 11 |
 | tests/test_note_edit_kept.py | 6 |
 | tests/test_note_edit_strip_options.py | 1 |
+| tests/test_note_edit_tag_input.py | 1 |
 | tests/test_note_editing_api.py | 10 |
 | tests/test_note_flow_0432.py | 27 |
 | tests/test_note_form_property_block.py | 3 |

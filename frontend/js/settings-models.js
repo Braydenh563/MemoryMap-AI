@@ -678,16 +678,28 @@ function openModelHardwareForm(open) {
 }
 
 //: Save sends only what differs from nothing: blank memory means "as detected".
+//: One PUT, used by the save and by its Undo and Redo.
+async function putModelHardware(body) {
+  modelHw.data = await apiJson("/models/hardware", { method: "PUT", body: JSON.stringify(body) });
+  modelHardwareGb = modelHw.data.ram_gb || null;
+  refreshModelHardware(true);
+}
+
 async function saveModelHardware(body) {
+  const before = modelHw.data?.override || {};
   try {
-    modelHw.data = await apiJson("/models/hardware", { method: "PUT", body: JSON.stringify(body) });
+    await putModelHardware(body);
   } catch (error) {
     toast(error.message || "Could not save that.", true);
     return;
   }
-  modelHardwareGb = modelHw.data.ram_gb || null;
   openModelHardwareForm(false);
-  refreshModelHardware(true);
+  offerUndo(
+    "Memory correction",
+    Object.keys(body).length ? "Memory correction saved." : "Back to the detected memory.",
+    () => putModelHardware(before),
+    () => putModelHardware(body)
+  );
 }
 
 $("suggested-hardware-edit")?.addEventListener("click", () => {

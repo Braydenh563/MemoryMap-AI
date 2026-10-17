@@ -36,6 +36,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from tests._app_js import frontend_text
+
 ROOT = Path(__file__).resolve().parents[1]
 INDEX = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
 JS = ROOT / "frontend" / "js"
@@ -310,3 +312,24 @@ def test_the_ocr_workspace_paints_the_caption_before_the_read_is_awaited():
     assert body.index("ocrPaintCaption(image);") < body.index("await apiJson(ocrRegionsUrl(")
     # A document's descriptions are asked for beside the read, not behind it.
     assert body.index("const storedAsked") < body.index("await apiJson(ocrRegionsUrl(")
+
+
+# The OCR workspace is found by its name and pinches (owner 2026-10-10).
+
+
+def test_the_ocr_workspace_is_found_by_its_name_and_pinches():
+    """"there's no option to have the ocr workspace in the quick access
+    section in the dashboard, it also isnt accessible in the" palette or Find
+    anything (searching "ocr" found nothing: the command said "Read a
+    document or image with AI"); "I cant two finger trackpad zoom". Measured:
+    paletteCommands has "OCR workspace: read a document or image"; in the
+    workspace a pinch (Ctrl wheel, 12 x 8 px) went Fit to 125%, a Ctrl notch
+    back to 100%, the app's own zoom stayed 100."""
+    panes = frontend_text("settings-panes.js")
+    assert 'label: "ph:scan OCR workspace: read a document or image",' in panes
+    lib = frontend_text("library.js")
+    assert '$("ocr-page-pane")?.addEventListener("wheel", (event) => {' in lib
+    # Continuous about the pointer, and two fingers on a touch screen too
+    # (WORLD_CLASS_PLAN 28.4 row 3, scratchpad/ui-sweeps/ocr79.js).
+    assert "ocrZoomAbout(ocrShownZoom() * Math.exp(-delta / 500), event.clientX, event.clientY);" in lib
+    assert '$("ocr-page-pane")?.addEventListener("touchmove", (event) => {' in lib

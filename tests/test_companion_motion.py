@@ -29,7 +29,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from tests._app_js import app_js_text
+from tests._app_js import app_js_text, frontend_text
 
 ROOT = Path(__file__).resolve().parents[1]
 #: avatars.js and its lazy half, companion-menu.js (the menu and the enlarged
@@ -1735,3 +1735,18 @@ def test_the_companions_words_check_counts_only_drawn_text():
     body = js[js.index("function nameMarkBuddyWordsUnder("):].split("\nconst NMB_WORDS_PX", 1)[0]
     assert "checkVisibility()" in body and "FILTER_REJECT" in body
     assert body.index("n.textContent.trim()") < body.index("seen += 1")
+
+
+# The companion's menu opens in the enlarged view (owner 2026-10-10).
+
+
+def test_the_companion_menu_opens_in_the_enlarged_view():
+    """"I cant right click to view the menu to change the companion in the
+    expanded popup view". Measured: right-click in the enlarged view opens
+    the menu on top (z 2601 over the card) with Companion, Atlas look and
+    Size only; choosing a persona there switches it and the card stays open."""
+    avatars = frontend_text("avatars.js")
+    handler = avatars[avatars.index('face.addEventListener("contextmenu"') :][:600]
+    assert "if (nmb.visit) return;" not in handler
+    menu = frontend_text("companion-menu.js")
+    assert 'nmb.visit ? items.filter((item) => item.group === "who") : items' in menu

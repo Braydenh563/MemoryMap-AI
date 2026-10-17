@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-from tests._app_js import app_js_text
+from tests._app_js import app_js_text, frontend_text
 
 ROOT = Path(__file__).resolve().parents[1]
 JS = ROOT / "frontend" / "js"
@@ -195,3 +195,17 @@ def test_the_nav_history_clear_action_is_a_quiet_footer_text_button():
     assert "background: none;" in rest and "color: var(--muted);" in rest
     hover = css[css.index(".nav-history-clear:hover,") :].split("}", 1)[0]
     assert "color: var(--error);" in hover
+
+
+# The places list can lose a row or be cleared (owner 2026-10-10).
+
+
+def test_the_places_list_can_lose_a_row_or_be_cleared():
+    """"no way to clear the destination history or delete individual
+    records??". Measured on six visits: the X (28 px, shown on hover) took
+    Library off (5 left, current kept), Back then walked the edited stack to
+    Timeline, and Clear this list left only where you are (Back disabled)."""
+    nav = frontend_text("nav-history.js")
+    assert "function navHistoryForget(group, event)" in nav and "function navHistoryClear(event)" in nav
+    assert "tabHistory.edited = true;" in nav
+    assert "tabHistory.edited ||" in frontend_text("router.js")

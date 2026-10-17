@@ -16,6 +16,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from tests._app_js import frontend_text
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -45,3 +47,18 @@ def test_the_name_is_drawn_until_the_real_one_is_mounted():
     rule = re.search(r"\.doc-toolbar\.is-collapsed:not\(:has\(\.doc-toolbar-tools\)\)::before\s*\{([^}]*)\}", css)
     assert rule, "no pre-mount name for a collapsed strip"
     assert 'content: "Formatting"' in rule.group(1)
+
+
+# The folded capture strip opens when its word is pressed (owner 2026-10-10).
+
+
+def test_the_folded_capture_strip_opens_when_pressed():
+    """"The note capture subtab formatting toolbar wont open". Measured: before
+    the box was focused the strip held only Source and the drawn word
+    "Formatting", a label with nothing to press; a press on the word now
+    focuses the box and the strip opens (Bold, Italic, ... 30 tools). The
+    press goes through `startNewNote`, the one path that shows Capture before
+    focusing (tests/test_note_making.py), so the box is never focused hidden."""
+    lst = frontend_text("notes-list.js")
+    body = lst[lst.index("function foldNoteToolbarForFirstPaint() {") :][:1500]
+    assert 'startNewNote();' in body

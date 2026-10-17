@@ -4116,7 +4116,7 @@ Acrobat for highlights and comments on a PDF page.
 
 | # | Kind | Row | Measure | Rules |
 | --- | --- | --- | --- | --- |
-| 1 | fix | **Found built 2026-10-10 (Brief 79 checked; `tests/test_chatui_1010.py`)**: quick access, Find anything and the palette row "OCR workspace: read a document or image" | quick access present; palette 1 click; a search for "ocr" finds it | 2, 6, 10 |
+| 1 | fix | **Found built 2026-10-10 (Brief 79 checked; `tests/test_ocr_workspace_717.py`)**: quick access, Find anything and the palette row "OCR workspace: read a document or image" | quick access present; palette 1 click; a search for "ocr" finds it | 2, 6, 10 |
 | 2 | fix | **Built 2026-10-10 (Brief 79; HISTORY "WORLD_CLASS 28.4, Brief 79")**: undo for the five reading acts; a deleted reading goes to the bin (`BinnedReading`) | `ocr79.js` 0/5 to 5/5 at 1440 and 390 | 1, 3 |
 | 3 | fix | **Built 2026-10-10 (Brief 79; HISTORY "WORLD_CLASS 28.4, Brief 79")**: pinch zoom about the pointer, Ctrl+wheel and two fingers | `ocr79.js`: Ctrl+wheel Fit to 150%, drift 0; touch at 390 Fit to 176% (nothing before) | 8, 11 |
 | 4 | fix | **Built 2026-10-10 (Brief 79; HISTORY "WORLD_CLASS 28.4, Brief 79")**: the reader menu spans the window under 600; Read sheds its icon last | past the edge 3 to 0 at 390, 4 to 0 at 320 | 7, 8 |

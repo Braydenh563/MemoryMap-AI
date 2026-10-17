@@ -9733,12 +9733,12 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | File | Lines |
 |---|---|
 | frontend/css/00-tokens-shell.css | 4300 |
-| frontend/css/01-forms-settings.css | 6301 |
+| frontend/css/01-forms-settings.css | 6298 |
 | frontend/css/02-chat-graph.css | 5738 |
 | frontend/css/03-dashboard-widgets.css | 5029 |
 | frontend/css/04-chat-dock-appearance.css | 6476 |
 | frontend/css/05-sidebars-themes.css | 6230 |
-| frontend/css/06-timeline-dialogs.css | 3722 |
+| frontend/css/06-timeline-dialogs.css | 3718 |
 | frontend/css/07-whiteboard-misc.css | 11898 |
 | frontend/css/08-consistency.css | 10553 |
 | frontend/css/09-editor.css | 1116 |

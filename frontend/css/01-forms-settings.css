@@ -6285,14 +6285,11 @@ select {
   }
 }
 
-/* A finished job's Logs button stays top right (BACKLOG "Start of the next PR":
-   it wrapped to a row of its own under a long line, 123px down at 390): the row
-   is the name and the button on one line, never wrapping, and the line of
-   when, how long and which model sits under it. */
+/* A finished job's Logs button stays top right on one line (BACKLOG). */
 #task-history .entry-meta {
   flex-wrap: nowrap;
 }
-#task-history .entry-meta > .row-actions {
+#task-history .row-actions {
   margin-inline-start: auto;
 }
 /* No lines to show: the empty state takes the list's place, not an empty bar. */

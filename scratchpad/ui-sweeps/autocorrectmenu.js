@@ -49,6 +49,13 @@ async function probe(page, label, focusSel, readSel, how = 'click') {
   }, readSel);
   if (!out.mark) return out;
   const cx = out.mark.l + out.mark.w / 2, cy = out.mark.t + out.mark.h / 2;
+  if (how === 'ctrlz') {
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(400);
+    out.textAfterCtrlZ = await read(page, readSel);
+    out.markAfterCtrlZ = await markRect(page);
+    return out;
+  }
   if (how === 'hover') {
     await page.mouse.move(cx, cy);
     await page.waitForTimeout(700);

@@ -2233,7 +2233,9 @@ async function openConversation(id) {
 async function loadChatSuggestions() {
   // Only the welcome placeholder may be present, real messages hide the chips.
   if ($("chat-messages").querySelector(".msg")) return;
+  loadChatSuggestions.pending = true;
   const picks = await apiJson("/chat/suggestions").catch(() => []);
+  loadChatSuggestions.pending = false;
 
   // Re-check after the await in case a message was sent while we waited
   if ($("chat-messages").querySelector(".msg")) return;
@@ -2249,10 +2251,11 @@ async function loadChatSuggestions() {
   // here would otherwise throw past the point where anything could tell.
   const box = $("chat-suggest");
   if (!box) return;
+  clearSkeletons(box);
   box.replaceChildren();
   box.classList.toggle("hidden", picks.length === 0);
-  //: The empty card waits for these (`renderChatEmptyState`); the chips go
-  //: in below in this same task, so no frame shows it without them.
+  //: The empty card shows skeletons for these (`renderChatEmptyState`); the
+  //: chips go in below in this same task, so no frame shows neither.
   $("chat-messages").querySelector(".chat-empty")?.classList.remove("chat-empty-waiting");
   if (!picks.length) return;
   const label = document.createElement("span");

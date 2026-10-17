@@ -6077,3 +6077,94 @@ input[type="color"].wb-mixed {
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
+
+/* --- moved from 07-whiteboard-misc.css (boot CSS cap, 2026-10-17): the OCR workspace's own rules, whose selectors name only ocr-* classes and ids that no boot rule
+   still names (a boot override would lose to a rule that loads after it). The workspace opens from the Library bundle (library.js `openOcrWorkspace`). --- */
+
+.ocr-card {
+  width: min(96vw, 1500px);
+  height: min(92vh, 1000px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.ocr-head-right {
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+}
+.ocr-pager {
+  align-items: center;
+  gap: var(--space-1);
+}
+.ocr-scroll {
+  display: flex;
+  flex-direction: column;
+  /* `safe` for the same reason `.ocr-page` needs it: centred content wider
+     than its scroll container overflows both ways, and the left overflow is
+     unreachable because a scroll container's origin is its left edge. */
+  align-items: safe center;
+  gap: var(--space-4);
+  width: 100%;
+  min-width: 0;
+}
+.ocr-find-icon {
+  flex: none;
+  color: var(--muted);
+}
+.ocr-find-count {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+.ocr-rail {
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding-right: var(--space-2);
+}
+.ocr-box-heading {
+  border-style: dashed;
+}
+.ocr-region-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.ocr-region-kind-heading {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.ocr-engine:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.ocr-engine-lang-label {
+  font-size: var(--text-sm);
+}
+.ocr-engine-progress {
+  width: 10rem;
+  margin: 0;
+}
+.ocr-edit-box {
+  width: 100%;
+  min-height: 12rem;
+  resize: vertical;
+}
+.ocr-edit-actions {
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.ocr-region-size {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}

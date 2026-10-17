@@ -143,7 +143,7 @@ def remove_model(size: str) -> tuple[bool, str]:
 
             shutil.rmtree(folder)
         except OSError:
-            logger.warning("couldn't remove the Whisper %s model", size, exc_info=True)
+            logger.warning("couldn't remove the Whisper %s model", safe_value(size, 40), exc_info=True)
             return False, f"Couldn't remove the {size} dictation model: see Settings, Logs for why."
     return True, f"The {size} dictation model is removed. It downloads again the next time you dictate with it."
 

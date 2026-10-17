@@ -38,6 +38,9 @@ def test_a_downloaded_size_can_be_removed_and_nothing_else(client, monkeypatch, 
     bystander.mkdir()
     done = client.delete("/voice/models/small")
     assert done.status_code == 200 and done.json()["removed"] is True
-    assert not folder.exists() and bystander.exists()
-    assert client.delete("/voice/models/small").status_code == 404  # already gone
-    assert client.delete("/voice/models/huge").status_code == 404  # not a size we offer
+    assert not folder.exists()
+    assert bystander.exists()
+    gone = client.delete("/voice/models/small")  # already gone
+    assert gone.status_code == 404
+    huge = client.delete("/voice/models/huge")  # not a size we offer
+    assert huge.status_code == 404

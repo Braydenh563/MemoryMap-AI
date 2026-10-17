@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5879, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5476, test files 1220, tests 10866, plan headings 955.
+Counts: frontend functions 5879, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5476, test files 1218, tests 10866, plan headings 955.
 
 ## Frontend functions (5879)
 
@@ -17353,7 +17353,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_audit_export.py | 9 |
 | tests/test_auth_hardening_1005.py | 16 |
 | tests/test_auth_headers_space.py | 4 |
-| tests/test_autocorrect_1011.py | 10 |
+| tests/test_autocorrect.py | 10 |
 | tests/test_autonomous.py | 28 |
 | tests/test_autonomous_state_isolation.py | 4 |
 | tests/test_backend_switch_keeps_embeddings.py | 2 |
@@ -17450,7 +17450,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_clip_text.py | 1 |
 | tests/test_clock_weekday.py | 5 |
 | tests/test_code_completion.py | 29 |
-| tests/test_code_documents.py | 19 |
+| tests/test_code_documents.py | 47 |
 | tests/test_code_editing.py | 24 |
 | tests/test_code_ide_b42.py | 9 |
 | tests/test_code_vscode.py | 23 |
@@ -17570,7 +17570,6 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_dock_menu_closed_hidden.py | 2 |
 | tests/test_docker_env.py | 7 |
 | tests/test_docker_files.py | 4 |
-| tests/test_docs_1011.py | 28 |
 | tests/test_docs_layout.py | 5 |
 | tests/test_docs_links.py | 2 |
 | tests/test_docs_site.py | 11 |
@@ -17751,7 +17750,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_graph_settles.py | 3 |
 | tests/test_graph_similarity.py | 7 |
 | tests/test_graph_slim.py | 3 |
-| tests/test_graph_topic_drag.py | 6 |
+| tests/test_graph_topic_drag.py | 7 |
 | tests/test_graph_view_positions.py | 6 |
 | tests/test_greeting_compose.py | 5 |
 | tests/test_greeting_name.py | 9 |
@@ -18023,7 +18022,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_note_preview_groups.py | 5 |
 | tests/test_note_preview_lines.py | 5 |
 | tests/test_note_properties_kg4.py | 10 |
-| tests/test_note_surface.py | 6 |
+| tests/test_note_surface.py | 7 |
 | tests/test_note_surface_readonly.py | 2 |
 | tests/test_note_template_picker.py | 5 |
 | tests/test_note_types_graph_d5.py | 8 |
@@ -18348,7 +18347,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_tidy_ui.py | 13 |
 | tests/test_tie_chip_b9.py | 5 |
 | tests/test_time_travel_spec.py | 9 |
-| tests/test_timeline.py | 31 |
+| tests/test_timeline.py | 32 |
 | tests/test_timeline_auto_scale.py | 3 |
 | tests/test_timeline_cal_span_glide.py | 1 |
 | tests/test_timeline_calendar_window.py | 7 |
@@ -18440,7 +18439,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_wb_export_inline_images.py | 3 |
 | tests/test_wb_export_png.py | 4 |
 | tests/test_wb_find_replace.py | 2 |
-| tests/test_wb_format.py | 11 |
+| tests/test_wb_format.py | 13 |
 | tests/test_wb_frame_title_target.py | 2 |
 | tests/test_wb_guides.py | 5 |
 | tests/test_wb_hand_drawn.py | 3 |
@@ -18452,7 +18451,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_wb_menu_rows_close.py | 2 |
 | tests/test_wb_mermaid_kinds.py | 6 |
 | tests/test_wb_middle_pan.py | 4 |
-| tests/test_wb_more_shapes.py | 3 |
+| tests/test_wb_more_shapes.py | 4 |
 | tests/test_wb_navigator_cost.py | 6 |
 | tests/test_wb_navigator_drag.py | 5 |
 | tests/test_wb_node_menu_place.py | 7 |
@@ -18468,7 +18467,6 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_wb_resize_from_centre.py | 5 |
 | tests/test_wb_resize_guides.py | 9 |
 | tests/test_wb_rotate_links.py | 2 |
-| tests/test_wb_small_rows_1011.py | 6 |
 | tests/test_wb_table.py | 3 |
 | tests/test_wb_valign.py | 3 |
 | tests/test_wb_waypoints.py | 14 |

@@ -449,7 +449,7 @@ function matchesSearch(entry) {
 // documents.js, which editor.js's "/" menu reuses) and INLINE_MD below reads
 // back. One table, so a mark cannot be written that the renderer does not
 // draw: the Red/Grey highlight bug lived in the gap between the two.
-// tests/test_docs_1011.py runs each mark through INLINE_MD. `$` math is
+// tests/test_code_documents.py runs each mark through INLINE_MD. `$` math is
 // drawn by documents.js's docMathTree; `%%` comments are never rendered.
 const MD_INLINE_MARKS = {
   bold: "**",

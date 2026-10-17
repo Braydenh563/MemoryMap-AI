@@ -707,61 +707,46 @@ function renderAtlasStarters() {
 //: with the open tab's topic). The reply says who is answering; the tab's
 //: starters go under it as chips, the same ones the empty state offers.
 function renderHelpChatGreeting(row) {
+  helpChatChips(row, atlasStartersFor(agentCurrentTab()), (question) => askAtlas(question), "Ask Atlas: ");
+}
+
+function helpChatChips(row, items, pick, titled) {
   const host = document.createElement("div");
   host.className = "help-chat-badges";
-  const tab = agentCurrentTab();
-  for (const question of atlasStartersFor(tab)) {
+  for (const item of items) {
     const chip = document.createElement("button");
     chip.type = "button";
     chip.className = "ghost small atlas-starter";
-    chip.textContent = question;
-    chip.title = `Ask Atlas: ${question}`;
-    chip.addEventListener("click", () => askAtlas(question));
+    chip.textContent = item;
+    chip.title = titled + item;
+    chip.addEventListener("click", () => pick(item));
     host.appendChild(chip);
   }
   row.appendChild(host);
 }
 
-//: **Asked what to ask, the answer's asks are chips** (INBOX 904 B11, B86;
-//: BACKLOG "Guide answers what can I do in the chat"). Each fills the box it
-//: is for, Chat's or Notes' Ask, and leaves the caret there: the person reads
-//: it, edits a word and sends, rather than having a question sent for them.
-//: The greeting's chip recipe, so the two read as one row.
+//: B11, B86: asked what to ask, the asks are chips that fill Chat's or
+//: Ask's box (not sent), in the greeting's chip recipe.
 function renderHelpChatAsks(row, asks, to) {
-  const host = document.createElement("div");
-  host.className = "help-chat-badges";
-  for (const ask of asks) {
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "ghost small atlas-starter";
-    chip.textContent = ask;
-    chip.title = to === "notes" ? `Put in Notes, Ask: ${ask}` : `Put in Chat: ${ask}`;
-    chip.addEventListener("click", () => fillAskBox(ask, to));
-    host.appendChild(chip);
-  }
-  row.appendChild(host);
+  helpChatChips(row, asks, (ask) => fillAskBox(ask, to), to === "notes" ? "Put in Notes, Ask: " : "Put in Chat: ");
 }
 
 async function fillAskBox(text, to) {
   if (to === "notes") {
     await switchTab("notes");
-    if (typeof showNotesSection === "function") showNotesSection("ask");
+    showNotesSection("ask");
   } else {
     await switchTab("chat");
   }
   const box = $(to === "notes" ? "question" : "chat-input");
   if (!box) return;
   box.value = text;
-  //: The autogrow and the send button read the input event.
   box.dispatchEvent(new Event("input", { bubbles: true }));
-  //: After the tab switch has placed its own focus (measured: a plain
-  //: focus() here left document.activeElement on the body).
-  requestAnimationFrame(() =>
-    setTimeout(() => {
-      box.focus();
-      box.setSelectionRange?.(text.length, text.length);
-    }, 120)
-  );
+  //: After the tab switch's own focus.
+  setTimeout(() => {
+    box.focus();
+    box.setSelectionRange?.(text.length, text.length);
+  }, 140);
 }
 
 //: The one way in with a question already chosen: used by the starters, and

@@ -63,7 +63,8 @@ def test_a_test_message_is_acknowledged_as_a_test(ai_client, session):
     for message in ("test", "testing", "Test 123", "testing testing", "is this thing on?", "hello world"):
         text = _ask(ai_client, message, notes_only=True, use_tools=False)["text"]
         assert "no mention" not in text.lower() and "nothing in your notes" not in text.lower(), (message, text)
-        assert text in composer.SOCIAL["test"] + composer.SOCIAL_PROFESSIONAL["test"], (message, text)
+        #: The family's line, and (O5) perhaps an ask about the newest note.
+        assert any(text.startswith(line) for line in composer.SOCIAL["test"] + composer.SOCIAL_PROFESSIONAL["test"]), (message, text)
 
 
 def test_the_capability_rundown_is_composed_and_sized_to_the_request():
@@ -182,6 +183,24 @@ def test_a_time_with_no_note_in_it_is_said_as_that_with_where_the_notes_are(clie
         lines = {composer.empty_window("last month", None, None, voice=voice, seed=str(i)) for i in range(60)}
         assert len(lines) >= 8, (voice, lines)
         assert all("!" not in line and chr(0x2014) not in line and line[0].isupper() for line in lines), lines
+
+
+def test_a_hello_ends_on_an_ask_about_the_newest_note(client, session):
+    """O5 (B07: replies vary and feel alive): a stored opener, then an
+    invitation built on a word of the newest note, eight wordings a voice,
+    never after an opener that already asks or suggests."""
+    for voice in ("natural", "professional"):
+        lines = composer.INVITES[voice]
+        assert len(set(lines)) >= 8 and all("{subject}" in line and "!" not in line and chr(0x2014) not in line for line in lines)
+    said = {composer.social("good morning", invite="golf", seed=str(i)) for i in range(40)}
+    assert len(said) >= 6 and all("golf" in s or s.endswith("?") for s in said), said
+    assert sum("golf" in s for s in said) >= 4, said
+    assert "golf" not in composer.social("asdkjhfgs", invite="golf")
+    _seed(session)
+    texts = [_ask(client, hello, use_tools=False)["text"] for hello in ("hi", "hello", "good morning", "hey there", "morning")]
+    assert any("golf" in text for text in texts), texts
+    #: The ask it offers is one the notes answer.
+    assert "Golf practice" in _ask(client, "what did I write about golf", use_tools=False)["text"]
 
 
 #: How-tos answered in Chat with no model, with words of the sentence that

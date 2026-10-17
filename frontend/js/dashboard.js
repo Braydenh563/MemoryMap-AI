@@ -498,7 +498,7 @@ async function renderDashSubmessage() {
     nameMarkBuddyStreak(streak);
   }
   const pattern = patterns?.patterns?.[0];
-  if (pattern) bits.push(["patterns", `Patterns: ${pattern.short}`, pattern.text]);
+  if (pattern) bits.push(["patterns", "Pattern: ", pattern.text]);
   //: One span per fact, its separator inside it, so a view can fold one fact
   //: away whole: the Focused hero's glance says what is due (INBOX 675), and
   //: hides the reminders fact here rather than saying it twice.
@@ -509,20 +509,8 @@ async function renderDashSubmessage() {
       bit.dataset.bit = kind;
       bit.textContent = i ? ` · ${text}` : text;
       if (whole) bit.title = whole;
-      //: The pattern's Confirm and Not right (CHAT_PLAN decision 60) behind
-      //: one ⋯, so the line stays one line; a confirmed one has neither.
-      if (kind === "patterns" && !pattern.confirmed) {
-        const send = (verdict) =>
-          insightSend(pattern, verdict)
-            .then(() => renderDashSubmessage())
-            .catch((error) => toast(error.message, true));
-        bit.appendChild(
-          kebabMenu(
-            INSIGHT_VERDICT_ITEMS.map((item) => ({ label: item.label, title: item.title, run: () => send(item.verdict) })),
-            "Is this pattern right?"
-          )
-        );
-      }
+      //: B84: its words open its notes; its ⋯ asks if it is right (dash-day.js).
+      if (kind === "patterns") dashPatternBit(bit, pattern);
       return bit;
     })
   );

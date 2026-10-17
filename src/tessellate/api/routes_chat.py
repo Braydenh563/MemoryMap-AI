@@ -2315,7 +2315,31 @@ def _social_reply(req: _StreamRequest, prepared: dict) -> str:
         voice=_composer_voice(),
         recent=recent,
         seed=seed,
+        invite=_newest_word(req.session),
     )
+
+
+def _newest_word(session: Session) -> str:
+    """A word the newest note is about, for a hello's invitation (O5): its
+    first search term of four letters or more that is an everyday word, so
+    "what did I write about golf" finds the note it came from; "" when
+    there is none."""
+    from tessellate.ai import spelling
+    from tessellate.ai.tools._common import _visible
+    from tessellate.core.database import Entry
+    from tessellate.search import query as query_understanding
+
+    newest = session.query(Entry.content).filter(*_visible()).order_by(Entry.created_at.desc()).first()
+    if not newest:
+        return ""
+    for term in query_understanding.search_terms(str(newest[0] or "")[:400]):
+        if len(term) >= 4 and term.isalpha() and term not in _NOT_A_SUBJECT and spelling.is_word(term):
+            return term
+    return ""
+
+
+#: A note's kind, not what it is about ("Idea: build a bird feeder").
+_NOT_A_SUBJECT = frozenset("idea ideas note notes todo todos reminder thought thoughts list draft remember".split())
 
 
 def _call_events(req: _StreamRequest) -> list[dict]:

@@ -2122,7 +2122,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
     )),
     ("Graph, Timeline, Reminders and Dashboard", (
         "graph", "graph-controls", "graph-display", "entities", "properties", "timeline", "timeline-controls", "reminders",
-        "reminders-controls", "dashboard", "dashboard-controls", "notifications", "spaces", "statistics",
+        "reminders-controls", "dashboard", "dashboard-controls", "patterns", "notifications", "spaces", "statistics",
     )),
     ("Small tools", (
         "timer", "count-words", "insert-template",
@@ -2498,3 +2498,27 @@ MORE_TOPICS.append({
     "badge": {"label": "Help", "section": "help", "target": "credits-fold"},
 })
 TOPIC_META["credits"] = {"title": "Credits and licences", "path": "Settings, Help, Credits", "target": "credits-fold"}
+
+
+#: Patterns (INBOX 904 B84, the owner: "Do the patterns ever change?? What's
+#: the meaning or use of them?? Can I view them"), with the line that opens.
+MORE_TOPICS.append({
+    "id": "patterns",
+    "keywords": (
+        "patterns", "pattern", "what are patterns", "times since", "weeks running", "keeps coming up",
+        "patterns line", "do patterns change", "see the patterns",
+    ),
+    "body": (
+        "Patterns are what your notes keep coming back to, counted from the notes "
+        "themselves with no AI: a subject that came up again and again (\"university "
+        "came up 4 times since 16 July\"), one written about every week, a plan "
+        "still open, a decision you went back on, or a busy week. They change as you write, "
+        "since each is counted again whenever the dashboard draws. Press the "
+        "pattern on the dashboard's line to see the notes behind it; Notes, Tidy "
+        "lists every pattern whole. Its ... menu has Confirm, which says it as a "
+        "fact from then on, and Not right, which never shows it or anything like "
+        "it again."
+    ),
+    "badge": {"label": "Dashboard", "tab": "dashboard"},
+})
+TOPIC_META["patterns"] = {"title": "Patterns", "path": "The dashboard's line under the greeting, and Notes, Tidy"}

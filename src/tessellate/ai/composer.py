@@ -3345,6 +3345,37 @@ NEXT_STEPS = (
 )
 NEXT_STEPS_PROFESSIONAL = composer_tables.NEXT_STEPS_PROFESSIONAL
 
+#: **A greeting composed from parts, one of them the person's own** (O5;
+#: INBOX 904 B07, the owner: replies should vary and feel alive; CHAT_PLAN
+#: decision 76's rundown is composed the same way). After a stored opener, a
+#: hello, a test or an unclear turn gets an invitation built on a word of
+#: the newest note (`invite`, the route's), so the same "hi" reads
+#: differently as the notebook changes, and the ask it offers is one the
+#: notes answer.
+_INVITE_KINDS = ("greeting", "morning", "test", "unclear")
+INVITES = {
+    "natural": (
+        "Your newest note mentions {subject}: ask “what did I write about {subject}” to pick up from there.",
+        "Lately you've been writing about {subject}, if you'd like to pick that back up.",
+        "Your last note was about {subject}, so “what did I write about {subject}” is a good place to start.",
+        "Picking up where you left off: try “what did I write about {subject}”.",
+        "The last thing you wrote touched on {subject}. Ask about it and I'll pull the notes.",
+        "If it helps, “what did I write about {subject}” brings back your newest note.",
+        "Your notes most recently turned to {subject}; I can go through them with you.",
+        "Carry on from your latest note with “what did I write about {subject}”.",
+    ),
+    "professional": (
+        "The most recent note concerns {subject}; ask “what did I write about {subject}” to review it.",
+        "The latest entry mentions {subject}. A question about it will bring up the notes.",
+        "Your most recent entry refers to {subject}; it can be reviewed on request.",
+        "To continue, ask “what did I write about {subject}”.",
+        "The newest note relates to {subject}, should you wish to return to it.",
+        "Recent entries mention {subject}; a question about it retrieves them.",
+        "Ask “what did I write about {subject}” to see the most recent entry.",
+        "The last entry recorded was about {subject}.",
+    ),
+}
+
 
 def social_kind(message: str, intent: str = "smalltalk") -> str:
     """The kind of conversational turn `message` is: one of `SOCIAL`."""
@@ -3369,6 +3400,7 @@ def social(
     voice: str = composer_tables.DEFAULT_VOICE,
     recent: list[str] | tuple = (),
     seed: str = "",
+    invite: str = "",
 ) -> str:
     """The app's reply to a conversational turn with no model running (INBOX
     741: "any and all conversational messages"): warm, short, of the turn's
@@ -3376,8 +3408,19 @@ def social(
     first; `previous` alone when that is all there is) and shaped unlike the
     last (`phrasing.choose`), and after an acknowledgement or thanks, a next
     step on what was being talked about. `seed` is the conversation's: the
-    same seed and turns give the same words."""
+    same seed and turns give the same words. `invite` is a word of the
+    newest note: a hello, a test or an unclear turn ends on an ask about it
+    (`INVITES`) when its opener offered none."""
     kind = social_kind(message, intent)
+    line = _social_line(message, kind, previous, last_question, voice, recent, seed)
+    if invite and kind in _INVITE_KINDS and "“" not in line and not line.endswith("?"):
+        said = "professional" if composer_tables.voice_of(voice) == "professional" else "natural"
+        line = f"{line} {_pick(f'{message}|{invite}', f'invite:{seed}', list(INVITES[said])).format(subject=invite)}"
+    return line
+
+
+def _social_line(message: str, kind: str, previous: str, last_question: str, voice: str, recent, seed: str) -> str:  # noqa: ANN001
+    """The stored opener of `kind`, and a next step after an acknowledgement."""
     recent = [r for r in recent if r] or ([previous] if previous else [])
     professional = composer_tables.voice_of(voice) == "professional"
     lines = (SOCIAL_PROFESSIONAL if professional else SOCIAL)[kind]
@@ -3548,6 +3591,7 @@ _HELP_DOING: dict[str, frozenset[str]] = {
         frozenset({"change", "switch", "pick", "choose", "edit"}),
         frozenset({"find", "search", "look", "open"}),
         frozenset({"stop", "disable", "pause", "off", "hide"}),
+        frozenset({"see", "view", "show", "list", "read"}),
     )
     for word in group
 }

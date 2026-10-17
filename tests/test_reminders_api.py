@@ -9,7 +9,14 @@ from __future__ import annotations
 
 from datetime import timedelta
 
-from tessellate.core.database import utcnow
+import pytest
+
+from tests._frozen_clock import FIXED_NOW, freeze_reminder_clock
+
+
+@pytest.fixture(autouse=True)
+def _fixed_now(monkeypatch):
+    freeze_reminder_clock(monkeypatch)
 
 
 def _save(client, content, **extra):
@@ -20,7 +27,7 @@ def _save(client, content, **extra):
 
 def test_reminder_lifecycle(client):
     entry = _save(client, "buy a birthday present")
-    due = (utcnow() + timedelta(days=1)).isoformat()
+    due = (FIXED_NOW + timedelta(days=1)).isoformat()
 
     created = client.post(
         "/reminders",
@@ -59,7 +66,7 @@ def test_reminder_preview_does_not_leak_private_note_ciphertext(client):
     entry_id = entry.id
     session.close()
 
-    due = (utcnow() + timedelta(hours=1)).isoformat()
+    due = (FIXED_NOW + timedelta(hours=1)).isoformat()
     created = client.post(
         "/reminders", json={"text": "check this", "due_at": due, "entry_id": entry_id}
     ).json()
@@ -72,11 +79,11 @@ def test_a_reminder_cannot_be_set_in_the_past(client):
     """A reminder due before now will never usefully fire, asked for
     directly. Covers both create and edit, since a due date can slip into
     the past through either."""
-    past = (utcnow() - timedelta(hours=1)).isoformat()
+    past = (FIXED_NOW - timedelta(hours=1)).isoformat()
     created = client.post("/reminders", json={"text": "too late", "due_at": past})
     assert created.status_code == 422
 
-    future = (utcnow() + timedelta(hours=1)).isoformat()
+    future = (FIXED_NOW + timedelta(hours=1)).isoformat()
     reminder = client.post("/reminders", json={"text": "on time", "due_at": future}).json()
     edited = client.put(f"/reminders/{reminder['id']}", json={"due_at": past})
     assert edited.status_code == 422
@@ -88,7 +95,7 @@ def test_undo_puts_back_an_overdue_or_done_reminder(client):
     """INBOX 537: Undo re-makes a deleted reminder, and the past-date rule
     refused every overdue or completed one, so their Undo failed. `restore`
     is that Undo's door: the old due time and the done mark come back."""
-    past = (utcnow() - timedelta(hours=1)).isoformat()
+    past = (FIXED_NOW - timedelta(hours=1)).isoformat()
     back = client.post("/reminders", json={"text": "was overdue", "due_at": past, "restore": True, "done": True})
     assert back.status_code == 201, back.text
     assert back.json()["done"] is True
@@ -97,13 +104,13 @@ def test_undo_puts_back_an_overdue_or_done_reminder(client):
 
 
 def test_reminder_for_missing_entry_404s(client):
-    due = (utcnow() + timedelta(hours=1)).isoformat()
+    due = (FIXED_NOW + timedelta(hours=1)).isoformat()
     response = client.post("/reminders", json={"text": "x", "due_at": due, "entry_id": 99})
     assert response.status_code == 404
 
 
 def test_reminder_priority_and_recurring(client):
-    due = (utcnow() + timedelta(hours=2)).isoformat()
+    due = (FIXED_NOW + timedelta(hours=2)).isoformat()
 
     # Defaults when omitted.
     created = client.post("/reminders", json={"text": "water plants", "due_at": due}).json()
@@ -144,9 +151,9 @@ def test_reminder_times_come_back_marked_as_utc(client):
     offset, because SQLAlchemy returned the object still in memory. Only a
     later read from disk lost it. So this asserts on the LIST response.
     """
-    from datetime import datetime, timezone
+    from datetime import datetime
 
-    due = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
+    due = (FIXED_NOW + timedelta(minutes=5)).isoformat()
     client.post("/reminders", json={"text": "soon", "due_at": due})
 
     listed = client.get("/reminders").json()[0]
@@ -155,7 +162,7 @@ def test_reminder_times_come_back_marked_as_utc(client):
     # And it round-trips to the same instant, not one shifted by the offset.
     parsed = datetime.fromisoformat(listed["due_at"].replace("Z", "+00:00"))
     assert parsed.tzinfo is not None
-    assert abs((parsed - datetime.now(timezone.utc)).total_seconds() - 300) < 30
+    assert abs((parsed - FIXED_NOW).total_seconds() - 300) < 30
 
 
 # --- Magic Add's JSON parsing (success/fallback): the clock rules that back
@@ -219,7 +226,7 @@ def test_magic_add_needs_ai_running(ai_client, fake_ollama):
 
 
 def test_reminders_page_and_report_the_real_total(client):
-    due = utcnow() + timedelta(days=1)
+    due = FIXED_NOW + timedelta(days=1)
     for i in range(5):
         client.post(
             "/reminders",
@@ -252,7 +259,7 @@ def test_reminders_past_the_page_size_are_still_reachable(client):
     from tessellate.api import routes_reminders
 
     size = routes_reminders.REMINDERS_PAGE_SIZE
-    due = utcnow() + timedelta(days=1)
+    due = FIXED_NOW + timedelta(days=1)
     from tessellate.core import deps
     from tessellate.core.database import Reminder
 
@@ -295,7 +302,7 @@ def test_reminders_can_be_listed_for_one_note(client):
     """
     kitchen = _save(client, "the kitchen plan")
     garden = _save(client, "the garden plan")
-    due = (utcnow() + timedelta(days=1)).isoformat()
+    due = (FIXED_NOW + timedelta(days=1)).isoformat()
     for text, entry in (("ring the roofer", kitchen), ("measure the hall", kitchen), ("order bulbs", garden)):
         assert (
             client.post(
@@ -322,7 +329,7 @@ def test_reminder_counts_for_a_page_of_notes(client):
     kitchen = _save(client, "the kitchen plan")
     garden = _save(client, "the garden plan")
     quiet = _save(client, "a note nothing was promised about")
-    due = (utcnow() + timedelta(days=1)).isoformat()
+    due = (FIXED_NOW + timedelta(days=1)).isoformat()
     for entry in (kitchen, kitchen, garden):
         client.post("/reminders", json={"text": "do it", "due_at": due, "entry_id": entry["id"]})
 

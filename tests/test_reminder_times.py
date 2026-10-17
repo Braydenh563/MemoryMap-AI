@@ -27,6 +27,12 @@ from datetime import datetime, timedelta, timezone
 import pytest
 
 from tessellate.ai import reminder_parser
+from tests._frozen_clock import FIXED_NOW, freeze_reminder_clock
+
+
+@pytest.fixture(autouse=True)
+def _fixed_now(monkeypatch):
+    freeze_reminder_clock(monkeypatch)
 
 
 # --- the reported sentence --------------------------------------------------
@@ -43,7 +49,7 @@ def _due(client, text: str, offset: int = BRISBANE) -> datetime:
 
 
 def _minutes_away(due: datetime) -> float:
-    return (due - datetime.now(timezone.utc)).total_seconds() / 60
+    return (due - FIXED_NOW).total_seconds() / 60
 
 
 def test_the_reported_sentence_lands_half_an_hour_away(client):
@@ -57,7 +63,7 @@ def test_the_reported_sentence_does_not_land_tomorrow_morning(client):
     different claims, and it was the second one that was wrong."""
     due = _due(client, "play league of legends in half an hour")
     local = due + timedelta(minutes=BRISBANE)
-    assert local.date() == (datetime.now(timezone.utc) + timedelta(minutes=BRISBANE)).date() or (
+    assert local.date() == (FIXED_NOW + timedelta(minutes=BRISBANE)).date() or (
         _minutes_away(due) < 60
     ), "the reminder rolled over to another day"
 
@@ -251,13 +257,13 @@ def test_wall_clock_phrases_work_with_the_ai_off(client, text, kept, gone, day_o
     assert body["text"].lower() == kept, body["text"]
     assert gone not in body["text"].lower()
     due = datetime.fromisoformat(body["due_at"]).astimezone(timezone.utc)
-    now = datetime.now(timezone.utc)
+    now = FIXED_NOW
     if gone in ("tonight", "evening") and now.hour >= hour:
         #: Said after the hour, "tonight" is the next whole hour, not a time gone by.
         hour = (now.hour + 1) % 24
     assert due.hour == hour and due.minute == 0
     if day_offset is not None:
-        assert due.date() == (datetime.now(timezone.utc) + timedelta(days=day_offset)).date()
+        assert due.date() == (FIXED_NOW + timedelta(days=day_offset)).date()
 
 
 def test_a_wall_clock_phrase_is_read_on_the_users_clock(client):

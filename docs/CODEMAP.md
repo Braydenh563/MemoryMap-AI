@@ -3852,11 +3852,11 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 |---|---|
 | `KIND_LENGTH` | frontend/js/graph-worker.js:325 |
 | `alphaDecayFor` | frontend/js/graph-worker.js:136 |
-| `applyForces` | frontend/js/graph-worker.js:1393 |
+| `applyForces` | frontend/js/graph-worker.js:1395 |
 | `applyGrouping` | frontend/js/graph-worker.js:1339 |
 | `bridgeGroup` | frontend/js/graph-worker.js:585 |
 | `centreScale` | frontend/js/graph-worker.js:384 |
-| `clampToWorld` | frontend/js/graph-worker.js:1465 |
+| `clampToWorld` | frontend/js/graph-worker.js:1467 |
 | `clearCurve` | frontend/js/graph-worker.js:1027 |
 | `clearNearest` | frontend/js/graph-worker.js:1054 |
 | `clearPush` | frontend/js/graph-worker.js:1075 |
@@ -3881,7 +3881,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `introStep` | frontend/js/graph-worker.js:252 |
 | `leafForce` | frontend/js/graph-worker.js:1295 |
 | `linkStrength` | frontend/js/graph-worker.js:353 |
-| `loop` | frontend/js/graph-worker.js:1514 |
+| `loop` | frontend/js/graph-worker.js:1516 |
 | `median` | frontend/js/graph-worker.js:1202 |
 | `orbitForce` | frontend/js/graph-worker.js:990 |
 | `orbitRadiusAt` | frontend/js/graph-worker.js:859 |
@@ -3889,17 +3889,17 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `orbitUpdate` | frontend/js/graph-worker.js:932 |
 | `orbitUpdateGrouped` | frontend/js/graph-worker.js:878 |
 | `portraitPull` | frontend/js/graph-worker.js:441 |
-| `post` | frontend/js/graph-worker.js:1474 |
-| `reshuffle` | frontend/js/graph-worker.js:1423 |
+| `post` | frontend/js/graph-worker.js:1476 |
+| `reshuffle` | frontend/js/graph-worker.js:1425 |
 | `rimOffset` | frontend/js/graph-worker.js:1247 |
 | `ringFor` | frontend/js/graph-worker.js:698 |
-| `run` | frontend/js/graph-worker.js:1583 |
+| `run` | frontend/js/graph-worker.js:1585 |
 | `seededRandom` | frontend/js/graph-worker.js:608 |
 | `setRingSeed` | frontend/js/graph-worker.js:619 |
 | `shapeForce` | frontend/js/graph-worker.js:1269 |
-| `shuffleStep` | frontend/js/graph-worker.js:1449 |
+| `shuffleStep` | frontend/js/graph-worker.js:1451 |
 | `smallSpread` | frontend/js/graph-worker.js:374 |
-| `stopLoop` | frontend/js/graph-worker.js:1503 |
+| `stopLoop` | frontend/js/graph-worker.js:1505 |
 | `tetherForce` | frontend/js/graph-worker.js:1206 |
 | `tuning` | frontend/js/graph-worker.js:394 |
 | `warmLayout` | frontend/js/graph-worker.js:222 |

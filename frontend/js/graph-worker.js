@@ -75,7 +75,7 @@ let dragging = false;
 //: The heat a released drag leaves the layout at: enough for the dropped
 //: note and its neighbours to ease into place, too little for its links to
 //: haul it back across the map.
-const RELEASE_ALPHA = 0.02;
+const RELEASE_ALPHA = 0.016;
 const RELEASE_ALPHA_MIN = 0.01;
 // Performance mode (init.perf): the loop rests twice as long between ticks.
 let perf = false;
@@ -1222,7 +1222,7 @@ function tetherForce() {
     const typical = median(list.map((n) => Math.hypot(n.x - cx, n.y - cy)));
     const limit = Math.max(TETHER_FLOOR, typical * TETHER_SLACK);
     for (const node of list) {
-      if (!node.degree || node.fx != null) continue;
+      if (!node.degree || node.fx != null || node.placed) continue;
       const dx = cx - node.x;
       const dy = cy - node.y;
       const d = Math.hypot(dx, dy);
@@ -1370,8 +1370,10 @@ function applyGrouping(params) {
   //: no clear home"). Its pull home rises with the share of its lines that
   //: go to other categories (`node.away`, 0 to 1), so a bridge stands at the
   //: edge of its own cluster facing the ones it joins, not in the gap.
+  //: A note the reader dropped (`placed`) has no home pull: it settles where
+  //: it was put, and a reheat's other forces still move it.
   const pull = (node) =>
-    at(node)
+    at(node) && !node.placed
       ? node.degree === 0
         ? orbit.on
           ? 0.02
@@ -1814,6 +1816,11 @@ self.onmessage = (event) => {
           node.fx = null;
           node.fy = null;
           simulation.alpha(Math.min(Math.max(simulation.alpha(), RELEASE_ALPHA_MIN), RELEASE_ALPHA));
+          //: A note the reader put somewhere is on its leash no longer: the
+          //: tether is a rule for where the layout leaves a note, and it
+          //: pulled a dropped one 296px back toward its category.
+          node.placed = true;
+          if (ring.params) applyGrouping(ring.params);
         }
       }
       run();

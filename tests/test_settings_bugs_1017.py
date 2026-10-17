@@ -139,3 +139,16 @@ def test_b14_a_pane_with_folds_gets_an_expand_all_button_in_its_dock():
     assert ".dock-actions" in body and "Expand all" in body and "Collapse all" in body
     shown = _js_function("settings.js", "showSettingsSection")
     assert "ensureSettingsFoldAll(" in shown
+
+
+# B68: "Gemma4 26b is a4b". The pull tag stays gemma4:26b (a plain
+# gemma4:26b-a4b would 404, model_manager.py's note), so the card's label and
+# its purpose say what the model is: 26B of weights, about 4B active.
+def test_b68_the_gemma4_26b_card_says_it_is_a4b():
+    from tessellate.ai.model_manager import SUGGESTED_MODELS
+
+    entry = next(m for m in SUGGESTED_MODELS["moe"] if m["name"] == "gemma4:26b")
+    assert entry["label"] == "gemma4:26b (a4b)"
+    assert "a4b" in entry["purpose"] and "12B-class" not in entry["purpose"]
+    cards = (ROOT / "frontend" / "js" / "settings-models.js").read_text(encoding="utf-8")
+    assert "model.label ||" in cards

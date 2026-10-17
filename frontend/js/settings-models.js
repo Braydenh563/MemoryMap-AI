@@ -318,7 +318,7 @@ function buildModelCard(model, state) {
   head.className = "model-card-head";
   const name = document.createElement("h5");
   name.className = "model-card-name";
-  name.textContent = modelDisplayName(model.name);
+  name.textContent = model.label || modelDisplayName(model.name);
   name.title = model.name;
   head.appendChild(name);
   if (model.recommended) {

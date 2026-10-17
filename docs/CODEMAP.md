@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5882, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5478, test files 1176, tests 10882, plan headings 956.
+Counts: frontend functions 5882, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5478, test files 1176, tests 10883, plan headings 956.
 
 ## Frontend functions (5882)
 
@@ -11658,32 +11658,32 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | Name | File:line |
 |---|---|
 | `Embedder` | src/tessellate/ai/model_manager.py:29 |
-| `Feature` | src/tessellate/ai/model_manager.py:311 |
-| `Job` | src/tessellate/ai/model_manager.py:816 |
-| `ModelManager` | src/tessellate/ai/model_manager.py:421 |
-| `_is_app_client` | src/tessellate/ai/model_manager.py:1077 |
-| `_is_app_pair` | src/tessellate/ai/model_manager.py:919 |
-| `_reindex_pass` | src/tessellate/ai/model_manager.py:948 |
-| `_run_pull` | src/tessellate/ai/model_manager.py:1094 |
-| `_run_reindex` | src/tessellate/ai/model_manager.py:940 |
-| `cancel_pull` | src/tessellate/ai/model_manager.py:869 |
-| `cancel_reindex` | src/tessellate/ai/model_manager.py:859 |
-| `choose_chat_model_if_missing` | src/tessellate/ai/model_manager.py:1168 |
-| `choose_installed_chat_model` | src/tessellate/ai/model_manager.py:1144 |
-| `feature_pref_key` | src/tessellate/ai/model_manager.py:403 |
-| `is_installed_name` | src/tessellate/ai/model_manager.py:1159 |
-| `is_ocr_model` | src/tessellate/ai/model_manager.py:216 |
-| `is_small_model` | src/tessellate/ai/model_manager.py:270 |
-| `known_feature` | src/tessellate/ai/model_manager.py:407 |
-| `parameter_count` | src/tessellate/ai/model_manager.py:245 |
-| `pull_model` | src/tessellate/ai/model_manager.py:1084 |
-| `pull_statuses` | src/tessellate/ai/model_manager.py:854 |
-| `reindex_notebook` | src/tessellate/ai/model_manager.py:928 |
-| `reindex_status` | src/tessellate/ai/model_manager.py:849 |
-| `reset_jobs` | src/tessellate/ai/model_manager.py:841 |
-| `served_name` | src/tessellate/ai/model_manager.py:1190 |
-| `start_pull` | src/tessellate/ai/model_manager.py:1050 |
-| `start_reindex` | src/tessellate/ai/model_manager.py:879 |
+| `Feature` | src/tessellate/ai/model_manager.py:313 |
+| `Job` | src/tessellate/ai/model_manager.py:818 |
+| `ModelManager` | src/tessellate/ai/model_manager.py:423 |
+| `_is_app_client` | src/tessellate/ai/model_manager.py:1079 |
+| `_is_app_pair` | src/tessellate/ai/model_manager.py:921 |
+| `_reindex_pass` | src/tessellate/ai/model_manager.py:950 |
+| `_run_pull` | src/tessellate/ai/model_manager.py:1096 |
+| `_run_reindex` | src/tessellate/ai/model_manager.py:942 |
+| `cancel_pull` | src/tessellate/ai/model_manager.py:871 |
+| `cancel_reindex` | src/tessellate/ai/model_manager.py:861 |
+| `choose_chat_model_if_missing` | src/tessellate/ai/model_manager.py:1170 |
+| `choose_installed_chat_model` | src/tessellate/ai/model_manager.py:1146 |
+| `feature_pref_key` | src/tessellate/ai/model_manager.py:405 |
+| `is_installed_name` | src/tessellate/ai/model_manager.py:1161 |
+| `is_ocr_model` | src/tessellate/ai/model_manager.py:218 |
+| `is_small_model` | src/tessellate/ai/model_manager.py:272 |
+| `known_feature` | src/tessellate/ai/model_manager.py:409 |
+| `parameter_count` | src/tessellate/ai/model_manager.py:247 |
+| `pull_model` | src/tessellate/ai/model_manager.py:1086 |
+| `pull_statuses` | src/tessellate/ai/model_manager.py:856 |
+| `reindex_notebook` | src/tessellate/ai/model_manager.py:930 |
+| `reindex_status` | src/tessellate/ai/model_manager.py:851 |
+| `reset_jobs` | src/tessellate/ai/model_manager.py:843 |
+| `served_name` | src/tessellate/ai/model_manager.py:1192 |
+| `start_pull` | src/tessellate/ai/model_manager.py:1052 |
+| `start_reindex` | src/tessellate/ai/model_manager.py:881 |
 
 ### src/tessellate/ai/needle_provider.py (15)
 
@@ -17286,7 +17286,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10882)
+## Tests (10883)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -18221,7 +18221,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_server_time_readers.py | 1 |
 | tests/test_session_navigation.py | 6 |
 | tests/test_setting_label_toggles.py | 3 |
-| tests/test_settings_bugs_1017.py | 7 |
+| tests/test_settings_bugs_1017.py | 8 |
 | tests/test_settings_field_edge.py | 2 |
 | tests/test_settings_group_heads.py | 2 |
 | tests/test_settings_ia.py | 7 |

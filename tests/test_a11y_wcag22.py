@@ -352,7 +352,6 @@ def test_a_plain_activity_row_beside_button_rows_is_not_a_stray_list_item():
 
 def _js(name: str) -> str:
 
-    from tests._app_js import with_pieces
 
     return with_pieces(name)
 
@@ -370,7 +369,6 @@ def test_a_toggle_says_it_is_on_to_a_screen_reader_as_well_as_to_the_eye():
     # The fill alone, set by hand on these, is the finding.
     assert 'classList.toggle("active", b === button)' not in _js("wiring.js")
     assert '$("select-btn").classList.add("active")' not in _js("skills.js")
-    from pathlib import Path
 
     html = (Path(__file__).resolve().parents[1] / "frontend" / "index.html").read_text(encoding="utf-8")
     for fragment in ('id="select-btn" class="ghost small" aria-pressed="false"', 'data-filter="open"'):

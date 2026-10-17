@@ -27,7 +27,6 @@ def _ask_again(client):
 
 def _asked(client, session, question):
     """A question as the Ask box leaves it: a turn and the audit row behind the chip."""
-    from tessellate.entry import manager
 
     manager.log_action(session, "queried", "chat", detail=question)
     session.commit()
@@ -336,7 +335,6 @@ def test_a_correction_can_be_taken_back_by_its_id_only(ai_client, session):
     reply_4 = ai_client.delete(f"/learned/corrections/{made['id']}")
     assert reply_4.status_code == 404
     #: Any other row of the event log is out of reach.
-    from tessellate.entry import manager
 
     row = manager.log_action(session, "queried", "chat", detail="x")
     session.commit()

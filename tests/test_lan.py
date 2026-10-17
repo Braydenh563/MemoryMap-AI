@@ -709,7 +709,6 @@ def _through_host_check(server: tuple, host: str | None) -> tuple[int | None, bo
     """Run one request through HostCheckMiddleware with a made-up ASGI
     scope: the (address, port) the request arrived at, and its Host. Returns
     (the status the middleware answered with, or None; whether the app ran)."""
-    import asyncio
 
     from tessellate.core import security
 
@@ -951,7 +950,6 @@ def test_lan_mode_end_to_end(tmp_path, network_address):
         # INBOX 867: a new device waits until this computer allows it. The
         # phone's sign-in is held open; the computer's window hears of it at
         # once (/auth/lan-watch) and Allow lets the same sign-in through.
-        import threading
 
         result = {}
         asking = threading.Thread(
@@ -1144,7 +1142,6 @@ def test_a_second_notebook_on_this_computer_takes_the_next_lan_port(monkeypatch)
     """The owner, 2026-10-11: "what if multiple people are running memory map
     and want to connect over the same lan connection??" Two accounts on one
     computer: the second used to go local-only when 8443 was held."""
-    from tessellate.core import netbind
 
     monkeypatch.delenv("TESSELLATE_LAN_PORT", raising=False)
     assert netbind.lan_port_candidates(8443)[:3] == [8443, 8444, 8445]
@@ -1783,7 +1780,6 @@ def test_the_addresses_are_https_on_the_lan_port(app_state, monkeypatch):
 @pytest.mark.usefixtures("_no_live_listener")
 def test_regenerate_reaches_the_running_listener(tmp_path):
     """The live TLS context takes the new certificate: no restart needed."""
-    import ssl
 
     first = lancert.ensure(tmp_path, NAMES)
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -2187,7 +2183,6 @@ def _signed_in_phone(client) -> TestClient:
 def test_a_phone_cannot_loosen_the_lan_options(trust_lan_app):
     """A phone with the password used to turn "Allow on any network" on and
     "Ask before a new device signs in" off; the safer direction stays open."""
-    from tessellate.api.this_computer import REFUSAL
 
     phone = _signed_in_phone(trust_lan_app)
     for body in (
@@ -2202,7 +2197,6 @@ def test_a_phone_cannot_loosen_the_lan_options(trust_lan_app):
 
 
 def test_a_phone_cannot_allow_the_network_it_is_on(trust_lan_app):
-    from tessellate.api.this_computer import REFUSAL
 
     phone = _signed_in_phone(trust_lan_app)
     refused = phone.post("/auth/lan-networks/allow", json={"current_password": PASSWORD})

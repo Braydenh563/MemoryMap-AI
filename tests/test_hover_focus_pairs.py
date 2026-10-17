@@ -137,7 +137,6 @@ def _baseline_split_top(selector: str) -> list[str]:
 
 
 def _hover_only_selectors() -> set[tuple[str, str]]:
-    from tests._css_paths import CSS_FILES
 
     rules = []
     for path in CSS_FILES:

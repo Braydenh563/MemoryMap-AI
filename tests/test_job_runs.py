@@ -585,7 +585,6 @@ def test_a_job_run_writes_its_lines_to_the_app_log_under_its_run_id(caplog):
     """The history row's Logs button filters on "[run-N]" (owner 2026-10-11)."""
     import logging
 
-    from tessellate.core import jobruns
 
     with caplog.at_level(logging.INFO, logger="memorymap.jobruns"):
         with jobruns.job_run("reindex", origin="you") as run:

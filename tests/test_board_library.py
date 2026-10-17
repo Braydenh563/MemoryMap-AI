@@ -397,11 +397,9 @@ def test_a_library_tile_draws_what_placing_it_makes():
     the pen's, and keeps the payload's own fill opacity, width and dash (the
     board's own dash ratios). Run against the shipped shapes and the board's
     own `wbDashArray`."""
-    import json
     import shutil
     import subprocess
 
-    import pytest
 
     node = shutil.which("node")
     if not node:

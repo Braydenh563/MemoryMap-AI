@@ -350,7 +350,6 @@ def test_deleting_a_space_can_move_its_contents_to_another(client, session):
 
 
 def test_a_space_deleted_by_moving_comes_back_with_exactly_its_rows(client, session):
-    from tessellate.core.database import Category, Entry
 
     source = client.post("/spaces", json={"name": "Old", "icon": "ph-star"}).json()["id"]
     target = client.post("/spaces", json={"name": "New"}).json()["id"]

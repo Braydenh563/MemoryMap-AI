@@ -136,7 +136,6 @@ def test_a_follow_up_about_the_page_carries_the_page():
     import shutil
     import subprocess
 
-    import pytest
 
     if not shutil.which("node"):
         pytest.skip("needs node")

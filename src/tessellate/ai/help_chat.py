@@ -2634,7 +2634,7 @@ def topics_for(question: str, tab: str | None = None) -> list[dict]:
     #: page for" the tab's own topic, never the board library's "page".
     from tessellate.ai import guide_intent
 
-    read = guide_intent.topics(question, tab, {topic["id"]: topic for topic in HELP_TOPICS})
+    read = guide_intent.topics(question, tab, {topic["id"]: topic for topic in HELP_TOPICS}, TAB_TOPICS)
     if read:
         return read
     topics = _reading_topics(question)
@@ -2930,7 +2930,7 @@ def offline_answer(
     #: or what Atlas can change. Understood, so "Taking that as" is not said.
     from tessellate.ai import guide_intent
 
-    read = guide_intent.reply(question, tab)
+    read = guide_intent.reply(question, tab, {topic["id"]: topic for topic in HELP_TOPICS})
     if read:
         read["content"] = f"{read['content']}\n\n{OFFLINE_LEAD}" if not read.get("greeting") else read["content"]
         return read

@@ -2327,20 +2327,22 @@ def guided(text: str, accepts, vocabulary=None, *, real_to=_COMMAND_GLUE, known=
         low = core.lower()
         if len(low) < 3 or not low.isalpha() or low in vocabulary or low in known or (core[:1].isupper() and i):
             continue
-        real = spelling.is_word(low)
-        pool = vocabulary if real_to is None or not real else vocabulary & real_to
-        #: One slip changes at most two letters of the set, so the weighted
-        #: distance is measured only for words that pass that (13 ms a
-        #: question without it, measured on five ordinary questions).
-        letters = set(low)
-        near = [v for v in pool if abs(len(v) - len(low)) <= 1 and len(letters ^ set(v)) <= 2]
-        for gap, word in sorted((distance(low, v), v) for v in near):
-            if gap > 1.0:
-                break
+        pool = vocabulary if real_to is None or not spelling.is_word(low) else vocabulary & real_to
+        for word in _one_slip_from(low, pool):
             reading = " ".join([*tokens[:i], word + token[len(core):], *tokens[i + 1:]])
             if accepts(reading):
                 return reading
     return None
+
+
+def _one_slip_from(low: str, pool) -> list[str]:  # noqa: ANN001
+    """The words of `pool` one slip from `low`, nearest first. One slip
+    changes at most two letters of the set, so the weighted distance is
+    measured only for words that pass that (13 ms a question without it,
+    measured on five ordinary questions)."""
+    letters = set(low)
+    near = [v for v in pool if abs(len(v) - len(low)) <= 1 and len(letters ^ set(v)) <= 2]
+    return [word for gap, word in sorted((distance(low, v), v) for v in near) if gap <= 1.0]
 
 
 # --- 3. meaning as the fallback --------------------------------------------------

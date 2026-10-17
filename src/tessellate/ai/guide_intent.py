@@ -211,14 +211,14 @@ def _app_overview(by_id: dict[str, dict]) -> str:
     return "\n\n".join(lines)
 
 
-def reply(question: str, tab: str | None = None) -> dict | None:
-    """The Guide's own answer for IDEAS, HELP and ATLAS, in the shape
-    `help_chat.offline_answer` returns; None for any other reading."""
+def reply(question: str, tab: str | None, by_id: dict[str, dict]) -> dict | None:
+    """The Guide's own answer for APP, IDEAS, HELP and ATLAS, in the shape
+    `help_chat.offline_answer` returns; None for any other reading. `by_id`
+    is the help's topics by id (passed in: this module sits below help_chat
+    in the import graph)."""
     kind = read(question)
     if kind == APP:
-        from tessellate.ai.help_chat import HELP_TOPICS
-
-        said = _app_overview({topic["id"]: topic for topic in HELP_TOPICS})
+        said = _app_overview(by_id)
         return {"content": said, "badges": [], "sources": ["Tabs overview", "First steps"]} if said else None
     if kind == IDEAS:
         where = surface(question, tab)
@@ -254,16 +254,14 @@ def reply(question: str, tab: str | None = None) -> dict | None:
     return None
 
 
-def topics(question: str, tab: str | None, by_id: dict[str, dict]) -> list[dict] | None:
+def topics(question: str, tab: str | None, by_id: dict[str, dict], tab_topics: dict[str, tuple]) -> list[dict] | None:
     """The topics an APP or PAGE question is about, whatever topic its words
     happen to share a keyword with; None for any other reading."""
     kind = read(question)
     if kind == APP:
         ids = ("tabs-overview", "first-steps")
     elif kind == PAGE:
-        from tessellate.ai.help_chat import TAB_TOPICS
-
-        ids = TAB_TOPICS.get(tab or "", ()) or ("tabs-overview",)
+        ids = tab_topics.get(tab or "", ()) or ("tabs-overview",)
     else:
         return None
     found = [by_id[i] for i in ids if i in by_id]

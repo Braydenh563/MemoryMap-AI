@@ -513,8 +513,11 @@ def place_name_for(place: str) -> str | None:
     #: or "cat" never becomes a zone. A tie goes to the table, read first.
     #: Four letters only as a five-letter name with one letter dropped ("jaan"
     #: is japan, O3's slip test): never a change or an added letter.
-    if len(key) < 4:
-        return None
+    return _nearest_place(key) if len(key) >= 4 else None
+
+
+def _nearest_place(key: str) -> str | None:
+    """The place name `key` is a misspelling of, within its allowance."""
     allowed = 2 if len(key) >= 9 else 1
     best = None
     for name in (*PLACE_ZONES, *_zone_cities()):

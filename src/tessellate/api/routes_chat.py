@@ -2380,15 +2380,15 @@ def _exact_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
     return None
 
 
-def _empty_window(req: _StreamRequest, ollama_running: bool) -> str:
+def _no_notes_line(req: _StreamRequest, ollama_running: bool) -> str:
     """A subject-less question about a time with no note in it ("what did I
-    write last month"), said as that with where the notes are; "" for any
-    other question, or when a model answers (O1)."""
+    write last month"), said as that with where the notes are; for any
+    other question, or when a model answers, the plain "nothing matched" (O1)."""
     if ollama_running and not _composed(req, ollama_running):
-        return ""
+        return librarian.NO_RESULTS_MESSAGE
     planned = composer.plan(req.question or "")
     if not planned.window or planned.terms or not planned.window_phrase:
-        return ""
+        return librarian.NO_RESULTS_MESSAGE
     from sqlalchemy import func
 
     from tessellate.ai.tools._common import _visible
@@ -2480,7 +2480,7 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         # retrieval never sees the image, so an empty search result
         # must not stand in for "there's nothing to look at" (same fix
         # as `librarian.answer`'s own guard).
-        yield {"type": "answer", "delta": _empty_window(req, ollama_running) or librarian.NO_RESULTS_MESSAGE}
+        yield {"type": "answer", "delta": _no_notes_line(req, ollama_running)}
         # …but the notebook is more than its notes. See
         # `_related_elsewhere`: a question answered by a document, a saved
         # chat or a reminder used to end here regardless.

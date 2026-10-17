@@ -344,3 +344,62 @@ def test_deleting_a_space_can_move_its_contents_to_another(client, session):
     assert session.get(Entry, moved["id"]).category_id == shared[0].id
     into_itself = client.delete(f"/spaces/{target}?move_to={target}")
     assert into_itself.status_code == 400
+
+
+# Undo for a deleted space: it comes back with exactly its rows, or says it cannot
+
+
+def test_a_space_deleted_by_moving_comes_back_with_exactly_its_rows(client, session):
+    from tessellate.core.database import Category, Entry
+
+    source = client.post("/spaces", json={"name": "Old", "icon": "ph-star"}).json()["id"]
+    target = client.post("/spaces", json={"name": "New"}).json()["id"]
+    client.put(f"/spaces/{source}", json={"hidden_from_all": True})
+    moved = client.post("/entries", json={"content": "moves along", "category": "Shared"}, headers={"X-Workspace-ID": source}).json()
+    own = client.post("/entries", json={"content": "own category", "category": "Only old"}, headers={"X-Workspace-ID": source}).json()
+    stays = client.post("/entries", json={"content": "already there", "category": "Shared"}, headers={"X-Workspace-ID": target}).json()
+    shared_before = session.get(Entry, moved["id"]).category_id
+
+    gone = client.delete(f"/spaces/{source}?move_to={target}")
+    assert gone.status_code == 200, gone.text
+    restore = gone.json()["restore"]
+    assert restore["space"] == {"id": source, "name": "Old", "icon": "ph-star", "hidden_from_all": True}
+
+    back = client.post("/spaces/restore", json=restore)
+    assert back.status_code == 200, back.text
+    session.expire_all()
+    assert session.get(Entry, moved["id"]).workspace_id == source
+    assert session.get(Entry, own["id"]).workspace_id == source
+    assert session.get(Entry, stays["id"]).workspace_id == target
+    # The merged category is re-made in the source space, with its id, and
+    # its note points at it again; the target's own "Shared" is untouched.
+    assert session.get(Entry, moved["id"]).category_id == shared_before
+    assert session.get(Category, shared_before).workspace_id == source
+    assert session.get(Entry, stays["id"]).category_id != shared_before
+    spaces = {s["id"]: s for s in client.get("/spaces").json()}
+    assert spaces[source]["hidden_from_all"] is True and spaces[source]["icon"] == "ph-star"
+    # And it is findable in its own space again.
+    found = client.get("/entries", headers={"X-Workspace-ID": source}).json()
+    assert {e["id"] for e in found} == {moved["id"], own["id"]}
+
+
+def test_an_empty_space_comes_back_and_a_full_one_says_it_cannot(client):
+    empty = client.post("/spaces", json={"name": "Empty"}).json()["id"]
+    restore = client.delete(f"/spaces/{empty}").json()["restore"]
+    assert restore is not None
+    assert client.post("/spaces/restore", json=restore).status_code == 200
+    assert empty in {s["id"] for s in client.get("/spaces").json()}
+
+    full = client.post("/spaces", json={"name": "Full"}).json()["id"]
+    client.post("/entries", json={"content": "gone for good"}, headers={"X-Workspace-ID": full})
+    deleted = client.delete(f"/spaces/{full}")
+    assert deleted.json()["restore"] is None
+
+
+def test_a_space_restore_refuses_a_taken_id(client):
+    sid = client.post("/spaces", json={"name": "Twice"}).json()["id"]
+    restore = client.delete(f"/spaces/{sid}").json()["restore"]
+    client.post("/spaces", json={"name": "Twice"})
+    assert client.post("/spaces/restore", json=restore).status_code == 409
+    restore["space"]["id"] = "all"
+    assert client.post("/spaces/restore", json=restore).status_code == 400

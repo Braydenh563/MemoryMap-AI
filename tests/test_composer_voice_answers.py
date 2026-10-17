@@ -77,9 +77,10 @@ def test_synonym_groups_are_symmetric_and_never_hold_a_word_twice():
         assert len(group) == len(set(group))
         assert not (set(group) & seen), group
         seen |= set(group)
-    for stem, others in composer._SYNONYMS.items():
+    synonyms = composer._build_synonyms()
+    for stem, others in synonyms.items():
         for other in others:
-            assert stem in composer._SYNONYMS[other]
+            assert stem in synonyms[other]
 
 
 # --- new question kinds -----------------------------------------------------

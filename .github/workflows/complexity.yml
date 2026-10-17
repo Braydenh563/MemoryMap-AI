@@ -1,0 +1,44 @@
+name: Complexity
+on:
+  push:
+    branches: [main]
+    paths: ["src/**", "pyproject.toml"]
+  pull_request:
+    paths: ["src/**", "pyproject.toml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  complexity:
+    name: Complexity and perf scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip ruff radon
+
+      - name: Ruff complexity and performance rules (report only)
+        run: ruff check src --select C901,PERF --config "lint.mccabe.max-complexity = 15" --output-format=github --exit-zero
+
+      - name: Radon summary
+        run: |
+          {
+            echo "## Complexity report"
+            echo "### Functions ranked C or worse"
+            echo '```'
+            radon cc src -s -n C --exclude "src/tessellate/vendor/*" || true
+            echo '```'
+            echo "### Average complexity"
+            echo '```'
+            radon cc src -a --exclude "src/tessellate/vendor/*" | tail -n 2
+            echo '```'
+            echo "### Files with weak maintainability"
+            echo '```'
+            radon mi src -n B -s --exclude "src/tessellate/vendor/*" || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

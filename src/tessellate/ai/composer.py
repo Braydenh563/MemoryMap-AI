@@ -628,7 +628,7 @@ def _alternatives(stem: str) -> frozenset[str]:
 def _keyed_synonyms() -> dict[str, frozenset[str]]:
     """The groups keyed by `_stem`, the UK and US spellings as one
     ("counselling" is "counseling"): built at the first question, not at
-    import, which would load the English list (`_SYNONYMS` is the plain one)."""
+    import, which would load the English list (`_build_synonyms()` is the plain one)."""
     return _build_synonyms(_stem)
 
 
@@ -644,8 +644,6 @@ SYNONYM_WEIGHT = 0.7
 def _words(text: str) -> list[str]:
     return [_stem(w) for w in query_understanding.search_terms(text)]
 
-
-_SYNONYMS: dict[str, frozenset[str]] = _build_synonyms()
 
 
 def subject_terms(question: str) -> list[str]:

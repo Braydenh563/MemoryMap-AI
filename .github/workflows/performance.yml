@@ -1,0 +1,54 @@
+name: Performance
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 17 * * 0"
+  push:
+    branches: [main]
+    paths: ["frontend/**", "tests-e2e/**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: perf-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frames:
+    name: Frame time and idle redraws
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: tests-e2e/package-lock.json
+      - name: Install Playwright and browser
+        working-directory: tests-e2e
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Run the frame checks alone
+        working-directory: tests-e2e
+        env:
+          TESSELLATE_E2E_FRAMES: "1"
+          TESSELLATE_E2E_FRAMES_STRICT: "0"
+        run: npx playwright test specs/frames.spec.js --project=notebook --workers=1
+      - name: Upload the numbers
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: frames-report
+          path: tests-e2e/frames-report.json
+          retention-days: 30

@@ -26,3 +26,19 @@ updates:
       - github-actions
     commit-message:
       prefix: "ci"
+
+  - package-ecosystem: npm
+    directory: "/tests-e2e"
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [dependencies]
+    commit-message:
+      prefix: "deps"
+
+  - package-ecosystem: docker
+    directory: "/docker"
+    schedule:
+      interval: weekly
+      day: monday
+    labels: [dependencies]

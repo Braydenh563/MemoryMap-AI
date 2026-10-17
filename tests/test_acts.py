@@ -66,7 +66,10 @@ def test_every_write_act_has_an_inverse_that_restores_the_notebook(client, sessi
         acts.run(session, setup["card"]["steps"])
         session.commit()
     before = _state(session)
-    planned = acts.preview(session, acts.parse(act.example, NOW))
+    # The store refuses a reminder due in the past by the real clock, so a
+    # fixed NOW turns "on Friday" into a past date once that week is over.
+    now = datetime.now().replace(hour=12, minute=0, second=0, microsecond=0) if act.intent == "reminder" else NOW
+    planned = acts.preview(session, acts.parse(act.example, now))
     card = planned["card"]
     assert card["steps"], act.intent
     done = acts.run(session, card["steps"], card.get("skipped"))

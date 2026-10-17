@@ -7,6 +7,7 @@ only: nothing is written to disk, in keeping with the privacy posture.
 
 from __future__ import annotations
 
+import itertools
 import logging
 import re
 import threading
@@ -38,14 +39,11 @@ _dropped_since: str | None = None
 # never-reused number means a reconnecting reader can ask for "everything after
 # 8,317" and get exactly that, no replayed lines, and no silent gap where the
 # reconnect landed.
-_next_seq = 1
+_seq = itertools.count(1)
 
 
 def _assign_seq() -> int:
-    global _next_seq
-    seq = _next_seq
-    _next_seq += 1
-    return seq
+    return next(_seq)
 
 
 # Windows' asyncio Proactor loop logs an "Exception in callback

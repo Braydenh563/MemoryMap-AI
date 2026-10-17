@@ -46,7 +46,7 @@ def _clean():
 @pytest.fixture(autouse=True)
 def _devices_already_allowed(client):
     """These tests are about sessions and the vault, so the phone here is one
-    this computer already allowed; holding a new device is test_lan_trust.py's."""
+    this computer already allowed; holding a new device is test_lan.py's."""
     from tessellate.core import deps
     from tessellate.core import lantrust
 

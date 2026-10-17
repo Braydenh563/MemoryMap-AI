@@ -107,8 +107,7 @@ jobs:
             tests/test_files_describe.py \
             tests/test_media_api.py \
             tests/test_ocr_model.py \
-            tests/test_ocr_page_read.py \
-            tests/test_ocr_page_reads_persist.py \
+            tests/test_ocr_page.py \
             tests/test_ocr_pdf_regions.py \
             tests/test_ocr_regions.py \
             tests/test_page_captions.py

@@ -38,6 +38,10 @@ READS = (
     ("search_help", {"query": "how do I add a reminder"}, ("Magic add",)),
     ("search_help", {"query": "how do I export my notes"}, ("Export your data",)),
     ("get_current_time", {}, ("It is",)),
+    #: O10 (BACKLOG "A tool to list the tools"): the model can look itself up.
+    ("list_skills", {"tools": True}, ("tools", "Search notes", "asks first")),
+
+    ("list_skills", {"tool": "set_reminder"}, ("Set reminder is one of my tools", "It takes text", "needs")),
     ("calculate", {"question": "12 * 7"}, ("84",)),
 )
 

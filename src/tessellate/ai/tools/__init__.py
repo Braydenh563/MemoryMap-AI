@@ -929,6 +929,44 @@ def _search_help(session: Session, args: dict) -> dict:
     }
 
 
+def _tool_group(name: str) -> str:
+    """What a tool does to the notebook, as Settings, Tools groups it."""
+    if name in ("web_search", "read_url"):
+        return "online"
+    spec = TOOLS[name]
+    return "confirm" if spec.destructive else "write" if name in WRITE_TOOLS else "read"
+
+
+def _list_tools(session: Session, args: dict) -> dict:
+    """Every tool the assistant has, so a model asked what it can do, or
+    reaching for one it was not shown, looks it up instead of guessing (O10;
+    BACKLOG "A tool to list the tools"). `filter` keeps the ones whose name
+    or description holds the word. Read-only."""
+    if str(args.get("name") or "").strip():
+        return _describe_tool(session, args)
+    word = str(args.get("filter") or "").strip().lower()
+    rows = [
+        {"name": spec.name, "does": spec.description.split(". ")[0].rstrip(".")[:140], "group": _tool_group(spec.name),
+         "enabled": tool_enabled(spec.name)}
+        for spec in TOOLS.values()
+        if not word or word in spec.name.lower() or word in spec.description.lower()
+    ]
+    return {"tools": rows, "total": len(rows), "label": f"ph:wrench Listed {len(rows)} tools" + (f" for “{_clip(word, 30)}”" if word else "")}
+
+
+def _describe_tool(session: Session, args: dict) -> dict:
+    """One tool's whole description, its arguments and a worked call
+    (`list_tools` with a name)."""
+    name = str(args.get("name") or "").strip()
+    spec = TOOLS.get(name)
+    if spec is None:
+        return {"error": f"There is no tool called “{_clip(name, 40)}”; list_tools names them."}
+    return {
+        "name": name, "description": spec.description, "parameters": spec.parameters, "example": call_example(name),
+        "group": _tool_group(name), "enabled": tool_enabled(name), "label": f"ph:wrench Read how {name} works",
+    }
+
+
 def _get_current_time(session: Session, args: dict) -> dict:
     """Time-aware answers: the model can ask what 'now' is.
 
@@ -1198,8 +1236,11 @@ def _list_skills(session: Session, args: dict) -> dict:
 
     The built-ins used to live only in `app.js`, so a model asked "what skills
     do I have?" answered with the user's own and nothing else, while the
-    interface showed ten more.
+    interface showed ten more. `tools` or `tool` asks for the tools instead
+    (`_list_tools`).
     """
+    if args.get("tools") or str(args.get("tool") or "").strip():
+        return _list_tools(session, {"name": args.get("tool")})
     config = deps.get_config()
     catalog = skills.catalog(config, set(TOOLS))
     return {
@@ -3027,7 +3068,7 @@ TOOLS: dict[str, ToolSpec] = {
             "Place a tree of notes on a board in one call. Each node is a new note ('title') "
             "or an existing one ('note_id'), with a short 'ref' that children name as their "
             "'parent_ref'. One node has no parent_ref (the root), or parent_ref is card:<id> "
-            "to grow from a card on the board. Never invent x/y. Up to 60 nodes."
+            "to grow from a card on the board. Never invent x/y. "
             f"Up to {MAX_DIAGRAM_NODES} nodes.",
             {
                 "type": "object",
@@ -3298,10 +3339,13 @@ TOOLS: dict[str, ToolSpec] = {
         ),
         ToolSpec(
             "list_skills",
+            #: And the tools (O10, BACKLOG "A tool to list the tools, and the
+            #: skills"): folded in here, not a tool of its own, because every
+            #: schema must fit a 32k window untrimmed and a new tool tipped it.
             "List the user's saved skills: repeatable jobs you can start "
             "with run_skill. Each says when_to_use and whether it changes "
-            "notes.",
-            {"type": "object", "properties": {}},
+            "notes. tools:true lists your tools; tool: one's details.",
+            {"type": "object", "properties": {"tools": {"type": "boolean"}, "tool": {"type": "string"}}},
             _list_skills,
         ),
         ToolSpec(
@@ -4081,7 +4125,7 @@ TOOL_GROUPS: list[tuple[tuple[str, ...], tuple[str, ...]]] = [
     ),
     (
         ("list_skills", "run_skill", "save_skill", "delete_skill"),
-        ("skill", "shortcut"),
+        ("skill", "shortcut", "what can you do", "your tools", "which tool", "what tools", "list the tools", "capabilities"),
     ),
     (
         ("summarize_notes",),

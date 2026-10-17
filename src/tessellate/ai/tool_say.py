@@ -395,6 +395,8 @@ def _reminders(result: dict, args: dict) -> Said:
 
 
 def _skills(result: dict, args: dict) -> Said:
+    if "tools" in result or result.get("example") is not None:
+        return _tools(result, args)
     rows = [s for s in result.get("skills") or [] if isinstance(s, dict)]
     if not rows:
         return "You have no skills yet.", "", _chips(("Open Skills", SKILLS))
@@ -416,6 +418,44 @@ def _help(result: dict, args: dict) -> Said:
         return f"{lead} {answer}", "", _chips(("Open Help", settings_at("help")))
     body = "\n\n".join(cut_title(r.split(":", 1)[1].strip() if ":" in r else r, 320) for r in rows[:2])
     return lead, body, _chips(("Open Help", settings_at("help")))
+
+
+_GROUP_WORDS = {"read": "reads", "write": "changes notes", "confirm": "asks first", "online": "goes online"}
+
+
+def _tool_name(name: object) -> str:
+    """A tool's name as words ("search_notes" is "Search notes"), B48: a
+    tool is named for the person, never by its identifier."""
+    said = str(name or "").replace("_", " ").strip()
+    return said[:1].upper() + said[1:]
+
+
+def _tools(result: dict, args: dict) -> Said:
+    """`list_tools` (O10): how many, then a table of what each does; with a
+    name, that one tool and a call to copy."""
+    if result.get("example") is not None:
+        return _tool_described(result, args)
+    rows = [r for r in result.get("tools") or [] if isinstance(r, dict)]
+    if not rows:
+        return "No tool matches that.", "", _chips(("Open Settings, Tools it can use", settings_at("tools")))
+    off = sum(1 for r in rows if not r.get("enabled", True))
+    lead = f"I have {count_noun(len(rows), 'tool')}" + (f", {count_word_of(off)} of them turned off in Settings" if off else "") + "."
+    body = _table(["Tool", "What it does", "Kind"], [[_tool_name(r.get("name")), _plain(r.get("does")), _GROUP_WORDS.get(str(r.get("group")), "")]
+                                                     for r in rows[:30]])
+    return lead, body, _chips(("Open Settings, Tools it can use", settings_at("tools")))
+
+
+def _tool_described(result: dict, args: dict) -> Said:
+    """One tool (O10): what it does, then what it takes, in words (the call
+    itself, JSON, is the model's: `example` in the result)."""
+    name = _tool_name(result.get("name"))
+    state = "" if result.get("enabled", True) else " It is turned off in Settings, Tools it can use."
+    lead = f"{name} is one of my tools. {_sentence(str(result.get('description') or ''))}{state}"
+    schema = result.get("parameters") if isinstance(result.get("parameters"), dict) else {}
+    takes = list((schema.get("properties") or {}).keys())
+    needed = [k for k in schema.get("required") or [] if k in takes]
+    body = f"It takes {join_items(takes)}" + (f", and needs {join_items(needed)}." if needed else ".") if takes else "It takes nothing."
+    return lead, body, _chips(("Open Settings, Tools it can use", settings_at("tools")))
 
 
 def _chat_history(result: dict, args: dict) -> Said:

@@ -8,4 +8,5 @@ Tests: tests/test_settings_bugs_1017.py (one per bug).
 - B65 done: Use this model disabled with 0 options; Stop the model disabled unless loaded or an answer runs (probe p/b65.js, MODE=empty/idle/loaded; before all enabled). 6cb4ef9.
 - B66 done: mark_interrupted no longer stamps finished_at = start-up time (a 2-day-old run read "26 min ago"); line now reads the run's own start. Cause inferred from code + a seeded row; the owner's exact run was not reproduced. 94db83d.
 - B56 done: Auto options in Appearance (density, performance, progress/background movement, Atlas look) and small-model mode name what Auto resolved to ("Auto (compact now)"); /models/status gains chat_model_small. Left: context window placeholder "Auto", timeline Bucket by Auto. dd53c5f.
-- B57 done: Default accent ("indigo") painted #4664f0 inline; now sets nothing (computed back to the palette's #2f5bd3). Next: B63.
+- B57 done: Default accent ("indigo") painted #4664f0 inline; now sets nothing (computed back to the palette's #2f5bd3). 5567c10.
+- B63 done: renderBrandLogo now repaints #dash-hero-emblem (gradient stayed rgb(91,124,255) after crimson; now rgb(255,91,95)). Next: B14.

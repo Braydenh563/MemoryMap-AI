@@ -97,6 +97,15 @@ def _js_function(path: str, name: str) -> str:
     return src[start : src.index("\n}\n", start) + 3]
 
 
+# B63: the dashboard hero's logo (#dash-hero-emblem) is not an EMBLEM_SLOTS
+# slot, so a theme or colour change left its gradient on the old colours until
+# a reload (probe p/b63.js: after applyAccent('crimson') the span's gradient
+# stayed rgb(91, 124, 255)/rgb(79, 109, 245)/rgb(169, 39, 216)).
+def test_b63_recolouring_the_brand_logo_redraws_the_dashboard_hero_mark():
+    body = _js_function("phone-shell.js", "renderBrandLogo")
+    assert "paintDashEmblem()" in body
+
+
 # B57: pick an accent, then "Default": the app wore #4664f0 (the swatch's
 # fallback hex) as an inline --accent instead of the palette's own (#2f5bd3 on
 # the sandbox's palette, probe p/b57.js). "indigo" is the stored name of

@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5881, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5478, test files 1176, tests 10880, plan headings 956.
+Counts: frontend functions 5881, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5478, test files 1176, tests 10881, plan headings 956.
 
 ## Frontend functions (5881)
 
@@ -1196,63 +1196,63 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `buildSettingsJumpList` | frontend/js/phone-shell.js:1712 |
-| `clearAppCache` | frontend/js/phone-shell.js:2118 |
-| `closeNotePageIfGone` | frontend/js/phone-shell.js:1002 |
-| `dockArrangeLabel` | frontend/js/phone-shell.js:1874 |
-| `dockArrangeSlot` | frontend/js/phone-shell.js:1863 |
-| `dockChatAttachments` | frontend/js/phone-shell.js:1134 |
-| `dockChatTools` | frontend/js/phone-shell.js:1192 |
-| `dockItemCount` | frontend/js/phone-shell.js:1945 |
-| `dockPhoneStatus` | frontend/js/phone-shell.js:717 |
-| `dockShown` | frontend/js/phone-shell.js:1939 |
-| `dockTabBar` | frontend/js/phone-shell.js:573 |
+| `buildSettingsJumpList` | frontend/js/phone-shell.js:1716 |
+| `clearAppCache` | frontend/js/phone-shell.js:2122 |
+| `closeNotePageIfGone` | frontend/js/phone-shell.js:1006 |
+| `dockArrangeLabel` | frontend/js/phone-shell.js:1878 |
+| `dockArrangeSlot` | frontend/js/phone-shell.js:1867 |
+| `dockChatAttachments` | frontend/js/phone-shell.js:1138 |
+| `dockChatTools` | frontend/js/phone-shell.js:1196 |
+| `dockItemCount` | frontend/js/phone-shell.js:1949 |
+| `dockPhoneStatus` | frontend/js/phone-shell.js:721 |
+| `dockShown` | frontend/js/phone-shell.js:1943 |
+| `dockTabBar` | frontend/js/phone-shell.js:577 |
 | `emblemArt` | frontend/js/phone-shell.js:117 |
 | `emblemHsl` | frontend/js/phone-shell.js:67 |
 | `emblemPalette` | frontend/js/phone-shell.js:88 |
 | `emblemSetBusy` | frontend/js/phone-shell.js:165 |
 | `ensureP5` | frontend/js/phone-shell.js:34 |
-| `floatPrimaryActions` | frontend/js/phone-shell.js:1800 |
-| `focusTabPage` | frontend/js/phone-shell.js:382 |
-| `foldDockActions` | frontend/js/phone-shell.js:2000 |
-| `foldDockArrange` | frontend/js/phone-shell.js:1955 |
-| `foldSiblingsIntoMenu` | frontend/js/phone-shell.js:1905 |
-| `foldZoneIntoMenu` | frontend/js/phone-shell.js:1886 |
-| `forceReloadApp` | frontend/js/phone-shell.js:2133 |
-| `initBottomTabBar` | frontend/js/phone-shell.js:604 |
-| `initDockActionFolding` | frontend/js/phone-shell.js:2046 |
-| `initDockFolding` | frontend/js/phone-shell.js:1974 |
-| `initHeaderHeightToken` | frontend/js/phone-shell.js:506 |
-| `initKeyboardInset` | frontend/js/phone-shell.js:1644 |
-| `initNotePage` | frontend/js/phone-shell.js:1007 |
-| `initNotesSubtabHeightToken` | frontend/js/phone-shell.js:529 |
-| `initOcrPhonePage` | frontend/js/phone-shell.js:1094 |
-| `initPhoneChatRow` | frontend/js/phone-shell.js:1247 |
-| `initPhoneHeaderMore` | frontend/js/phone-shell.js:647 |
-| `initPhoneStatus` | frontend/js/phone-shell.js:753 |
-| `initPrimaryFab` | frontend/js/phone-shell.js:1826 |
-| `initRowSwipe` | frontend/js/phone-shell.js:848 |
-| `mountPhoneSidebarOpeners` | frontend/js/phone-shell.js:787 |
-| `ocrPhonePage` | frontend/js/phone-shell.js:1058 |
-| `openNotePage` | frontend/js/phone-shell.js:946 |
-| `openPhoneMoreSheet` | frontend/js/phone-shell.js:1493 |
-| `openSheet` | frontend/js/phone-shell.js:1287 |
-| `phoneMoreRunCount` | frontend/js/phone-shell.js:1574 |
-| `phoneSheetDialogs` | frontend/js/phone-shell.js:1113 |
-| `quitApp` | frontend/js/phone-shell.js:2085 |
-| `refreshNotePage` | frontend/js/phone-shell.js:991 |
+| `floatPrimaryActions` | frontend/js/phone-shell.js:1804 |
+| `focusTabPage` | frontend/js/phone-shell.js:386 |
+| `foldDockActions` | frontend/js/phone-shell.js:2004 |
+| `foldDockArrange` | frontend/js/phone-shell.js:1959 |
+| `foldSiblingsIntoMenu` | frontend/js/phone-shell.js:1909 |
+| `foldZoneIntoMenu` | frontend/js/phone-shell.js:1890 |
+| `forceReloadApp` | frontend/js/phone-shell.js:2137 |
+| `initBottomTabBar` | frontend/js/phone-shell.js:608 |
+| `initDockActionFolding` | frontend/js/phone-shell.js:2050 |
+| `initDockFolding` | frontend/js/phone-shell.js:1978 |
+| `initHeaderHeightToken` | frontend/js/phone-shell.js:510 |
+| `initKeyboardInset` | frontend/js/phone-shell.js:1648 |
+| `initNotePage` | frontend/js/phone-shell.js:1011 |
+| `initNotesSubtabHeightToken` | frontend/js/phone-shell.js:533 |
+| `initOcrPhonePage` | frontend/js/phone-shell.js:1098 |
+| `initPhoneChatRow` | frontend/js/phone-shell.js:1251 |
+| `initPhoneHeaderMore` | frontend/js/phone-shell.js:651 |
+| `initPhoneStatus` | frontend/js/phone-shell.js:757 |
+| `initPrimaryFab` | frontend/js/phone-shell.js:1830 |
+| `initRowSwipe` | frontend/js/phone-shell.js:852 |
+| `mountPhoneSidebarOpeners` | frontend/js/phone-shell.js:791 |
+| `ocrPhonePage` | frontend/js/phone-shell.js:1062 |
+| `openNotePage` | frontend/js/phone-shell.js:950 |
+| `openPhoneMoreSheet` | frontend/js/phone-shell.js:1497 |
+| `openSheet` | frontend/js/phone-shell.js:1291 |
+| `phoneMoreRunCount` | frontend/js/phone-shell.js:1578 |
+| `phoneSheetDialogs` | frontend/js/phone-shell.js:1117 |
+| `quitApp` | frontend/js/phone-shell.js:2089 |
+| `refreshNotePage` | frontend/js/phone-shell.js:995 |
 | `releaseDetachedEmblems` | frontend/js/phone-shell.js:201 |
 | `releaseEmblem` | frontend/js/phone-shell.js:184 |
-| `renderAutonomousReview` | frontend/js/phone-shell.js:2205 |
+| `renderAutonomousReview` | frontend/js/phone-shell.js:2209 |
 | `renderBrandLogo` | frontend/js/phone-shell.js:245 |
 | `renderEmblem` | frontend/js/phone-shell.js:207 |
-| `renderEmblemWhenShown` | frontend/js/phone-shell.js:259 |
-| `renderExportsList` | frontend/js/phone-shell.js:2144 |
-| `sheetRow` | frontend/js/phone-shell.js:1467 |
+| `renderEmblemWhenShown` | frontend/js/phone-shell.js:263 |
+| `renderExportsList` | frontend/js/phone-shell.js:2148 |
+| `sheetRow` | frontend/js/phone-shell.js:1471 |
 | `syncEmblemBusy` | frontend/js/phone-shell.js:153 |
-| `syncPhoneMoreButton` | frontend/js/phone-shell.js:1606 |
-| `syncPhoneMoreRuns` | frontend/js/phone-shell.js:1583 |
-| `toggleAutonomousPanel` | frontend/js/phone-shell.js:2180 |
+| `syncPhoneMoreButton` | frontend/js/phone-shell.js:1610 |
+| `syncPhoneMoreRuns` | frontend/js/phone-shell.js:1587 |
+| `toggleAutonomousPanel` | frontend/js/phone-shell.js:2184 |
 | `watchEmblemVisibility` | frontend/js/phone-shell.js:16 |
 
 ### frontend/js/wiring.js (34)
@@ -17285,7 +17285,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10880)
+## Tests (10881)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -18220,7 +18220,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_server_time_readers.py | 1 |
 | tests/test_session_navigation.py | 6 |
 | tests/test_setting_label_toggles.py | 3 |
-| tests/test_settings_bugs_1017.py | 5 |
+| tests/test_settings_bugs_1017.py | 6 |
 | tests/test_settings_field_edge.py | 2 |
 | tests/test_settings_group_heads.py | 2 |
 | tests/test_settings_ia.py | 7 |

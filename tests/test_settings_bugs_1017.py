@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from _css_paths import CSS_FILES
+from tests._css_paths import CSS_FILES
 
 ROOT = Path(__file__).resolve().parents[1]
 

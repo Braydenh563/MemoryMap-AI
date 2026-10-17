@@ -12,6 +12,10 @@ Found on arrival: Phase 5 steps 1 to 4 were built 2026-10-11 (HISTORY, "TIMELINE
 - An event's own reminder folds into the event's chip on the grid ("with a reminder" in its title), not a second chip.
 - The add sheet is its own lazy file (`timeline-cal-add.js`): the calendar's one-keydown-listener lint, and most visits add nothing.
 
+- The feed's days ahead are seven (today and the next seven always drawn on the day scale, any later day with rows as before); a fresh read lands on today (the dock's Today scroll), the future above it.
+
 ## Log
 
-- step 1: the add sheet (double click, head Add, N).
+- done 1c7182d: the add sheet (double click, head Add, N).
+- step 2: the feed's week ahead and the landing on today; row detail to timeline-detail.js (boot offset); timelineZoom const fix.
+- next: step 3, future dates in the note editor's offers: say the reminder is on the calendar and the timeline (ai/offers.py `_reminders` label, quickadd.js `noteOfferTake` toast), frontend/js/quickadd.js:706.

@@ -331,7 +331,9 @@ HELP_TOPICS: list[dict] = [
         "keywords": ("timeline",),
         "body": (
             "The Timeline tab lists what you wrote newest first, grouped by day, "
-            "week, month or year (Auto picks the finest that reads well), as a "
+            "week, month or year (Auto picks the finest that reads well); the feed "
+            "opens on today with the week ahead above it, and an empty day ahead has "
+            "an Add for a reminder or an event. It shows as a "
             "feed, as a sortable table or as a calendar of a month, a week or a "
             "day. Kinds chooses notes, boards and maps, documents "
             "and reminders; Options sets the grouping, Group by (category, tag "

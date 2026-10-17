@@ -2560,6 +2560,10 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    moves. */
 .help-popover {
   max-height: min(60vh, 32rem);
+  /* One text size whatever it holds: a Settings hint is a <small> and drew
+     12.27px against a help body's 14.72 (B75). */
+  font-size: var(--text-lg);
+  z-index: 2500;
 }
 /* --- a help popover opens over the surface that asked for it (INBOX 205) ---
    Reported: "the '?' tooltip dropdown in the popup agent shows behind the
@@ -2580,9 +2584,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    splash (3000), neither of which can be open at the same time as a '?'.
    A dialog added above 2500 must raise this with it, which is why the numbers
    above are named rather than left to be rediscovered. */
-.help-popover {
-  z-index: 2500;
-}
+/* (z-index 2500 is in the rule above: the tier, as explained here.) */
 /* The help page's Ask Atlas row follows the topics accordion directly; the
    accordion's last row carries no bottom margin, so the two touched (INBOX
    235: "there is no gap between the atlas section and the faq dropdowns"). */

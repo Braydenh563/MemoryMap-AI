@@ -432,7 +432,10 @@ MORE_TOPICS: list[dict] = [
             "packaged app keeps its Desktop window, so that row has Reinstall "
             "only), and its row shows its version and size on disk. What pip is "
             "doing shows an install as it runs. Dictation model size runs from "
-            "Tiny (fastest) to Medium (most accurate). Skip silence before "
+            "Tiny (fastest) to Medium (most accurate); each size says whether it "
+            "is on this computer, a size that is not downloads the first time "
+            "you dictate with it (choosing it asks first, and nothing downloads "
+            "until then), and Remove this size frees the disk. Skip silence before "
             "transcribing (on) stops Whisper writing words into the quiet around "
             "a clip; Dictation language skips the guess; Words to expect lists "
             "names and terms it should spell your way. Embedding models lists "
@@ -629,7 +632,9 @@ MORE_TOPICS: list[dict] = [
             "meaning follow under Close in meaning. A long section lists its "
             "groups under its own name in that list: press one to go to it, and "
             "the one you are reading is marked as you scroll. On a phone the "
-            "section picker holds the same groups under the section you are in."
+            "section picker holds the same groups under the section you are in. "
+            "A section with several folded groups has Expand all at the top of "
+            "its page (Collapse all once every group is open)."
         ),
         "badge": {"label": "General", "section": "general"},
     },
@@ -723,7 +728,7 @@ MORE_TOPICS: list[dict] = [
         ),
         "body": (
             "Settings, Import & export, Web clipper has a bookmark called Clip to "
-            "Tessellate. Drag it to your browser's bookmarks bar (or press Copy the "
+            "Tessellate (typing clipper in the command palette opens it). Drag it to your browser's bookmarks bar (or press Copy the "
             "bookmark and make a bookmark with it as the address). On any page, "
             "press it: a small Tessellate window opens beside the page with its "
             "title and address, and Save as a note keeps the page's main text, or "

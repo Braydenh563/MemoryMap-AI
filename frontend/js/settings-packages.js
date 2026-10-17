@@ -72,14 +72,104 @@ async function renderExtras() {
   const wrap = $("voice-model-wrap");
   if (wrap) {
     wrap.classList.toggle("hidden", !voiceExtra?.installed);
+    $("voice-model-state")?.classList.toggle("hidden", !voiceExtra?.installed);
     if (voiceExtra?.installed) {
       if (!prefsCache) prefsCache = await apiJson("/preferences").catch(() => null);
       $("voice-model-select").value = prefsCache?.voice_model || "base";
+      voiceModelsWire();
+      voiceModelsPaint();
       $("voice-skip-silence").checked = prefsCache?.voice_skip_silence ?? true;
       $("voice-language-select").value = prefsCache?.voice_language || "";
       $("voice-vocabulary").value = prefsCache?.voice_vocabulary || "";
     }
   }
+}
+
+// --- dictation model sizes (B61) ----------------------------------------------
+//
+// A size is fetched the first time it is used, not when it is chosen, so the
+// choice itself downloads nothing; but nothing said so, nor which sizes were
+// already here, nor how to get one off the disk. `GET /voice/status` knows
+// (`models`), `DELETE /voice/models/<size>` removes one.
+
+let voiceModelStates = {};
+let voiceModelsWired = false;
+
+const VOICE_SIZE_NAMES = { tiny: "Tiny", base: "Base", small: "Small", medium: "Medium" };
+
+async function voiceModelsPaint() {
+  const select = $("voice-model-select");
+  if (!select) return;
+  const status = await apiJson("/voice/status", { silent: true }).catch(() => null);
+  if (!status || !status.models) return;
+  voiceModelStates = status.models;
+  for (const option of select.options) {
+    const state = voiceModelStates[option.value];
+    option.dataset.base = option.dataset.base || option.textContent;
+    const mark = !state ? "" : state.installed ? " (on this computer)" : ` (${state.approx} to download)`;
+    if (option.textContent !== option.dataset.base + mark) option.textContent = option.dataset.base + mark;
+  }
+  const size = select.value;
+  select.dataset.chosen = prefsCache?.voice_model || "base"; // the saved size, not one still being confirmed
+  const state = voiceModelStates[size];
+  const name = VOICE_SIZE_NAMES[size] || size;
+  $("voice-model-note").textContent = !state
+    ? ""
+    : state.installed
+      ? `${name} is on this computer (${formatFileSize(state.bytes)}).`
+      : `${name} is not on this computer yet. It downloads (${state.approx}) the first time you dictate with it, so that needs a connection.`;
+  $("voice-model-remove").classList.toggle("hidden", !state?.installed);
+}
+
+function voiceModelsWire() {
+  if (voiceModelsWired) return;
+  voiceModelsWired = true;
+  const select = $("voice-model-select");
+
+  let reverting = false;
+  select.addEventListener("change", async () => {
+    if (reverting) return;
+    const size = select.value;
+    const state = voiceModelStates[size];
+    const name = VOICE_SIZE_NAMES[size] || size;
+    //: Choosing a size that is not here is the moment a download is committed
+    //: to (it happens at the first dictation), so ask now and let a change of
+    //: mind cost nothing.
+    if (state && !state.installed) {
+      const ok = await confirmDialog(
+        `Use the ${name} dictation model?\n\nIt is not on this computer. It downloads (${state.approx}) the first time you dictate with it. Nothing downloads until then.`,
+        { confirmLabel: "Use it", danger: false }
+      );
+      if (!ok) {
+        select.value = select.dataset.chosen || "base";
+        reverting = true;
+        select.dispatchEvent(new Event("change"));
+        reverting = false;
+        voiceModelsPaint();
+        return;
+      }
+    }
+    select.dataset.chosen = size;
+    await setPreference("voice_model", size);
+    voiceModelsPaint();
+  });
+  $("voice-model-remove").addEventListener("click", async () => {
+    const size = select.value;
+    const name = VOICE_SIZE_NAMES[size] || size;
+    const state = voiceModelStates[size];
+    const ok = await confirmDialog(
+      `Remove the ${name} dictation model?\n\nIt frees ${formatFileSize(state?.bytes || 0)}. It downloads again the next time you dictate with it.`,
+      { confirmLabel: "Remove" }
+    );
+    if (!ok) return;
+    try {
+      const done = await apiJson(`/voice/models/${encodeURIComponent(size)}`, { method: "DELETE" });
+      toast(done.message);
+    } catch (error) {
+      toast(error.message || "Couldn't remove that model.", true);
+    }
+    voiceModelsPaint();
+  });
 }
 
 //: The line under the list: a bulk action's place in its list and the

@@ -703,9 +703,7 @@ $("autonomous-trigger").addEventListener("click", () => {
     .catch((err) => toast(err.message, true));
 });
 
-$("voice-model-select").addEventListener("change", (e) =>
-  setPreference("voice_model", e.target.value)
-);
+//: The dictation size select is wired in settings-packages.js (voiceModelsWire), which paints it.
 $("voice-skip-silence").addEventListener("change", (e) =>
   setPreference("voice_skip_silence", e.target.checked)
 );
@@ -2932,3 +2930,95 @@ $("logs-empty-clear").addEventListener("click", () => {
   $("log-source").value = "all";
   renderActiveLogView();
 });
+
+// ---- B56: Auto says what it resolved to (settings-controls.js is lazy, off the boot budget) ----
+
+//: **Auto says what it resolved to** (INBOX 904 B56: "when settings are on auto,
+//: I can't tell what it autoed to"). Each Appearance select that has an Auto
+//: option names the answer in the option itself, so the closed face reads
+//: "Auto (compact now)" and the open list shows the same. The long form of what
+//: Auto means stays in the option's title and the row's own words.
+function renderAutoChoices() {
+  const word = (id, resolved, meaning) => {
+    const option = $(id)?.querySelector('option[value="auto"]');
+    if (!option) return;
+    const text = `Auto (${resolved})`;
+    if (option.textContent !== text) option.textContent = text;
+    if (meaning) option.title = meaning;
+  };
+  const dens = effectiveDensity();
+  word("density-seg", `${dens} now`, "Compact on a window 700px tall or less, the look's own spacing on a taller one");
+  const perf = smallMachine() || lessTransparencyWanted();
+  word("perf-mode", perf ? "on now" : "off now", "On for a machine with 2 cores or 4 GB or fewer, or when your system asks for less transparency");
+  const still = reducedMotionWanted();
+  word("progress-motion", still ? "still now" : "moving now", "Follows reduced motion: your system's, or this app's own");
+  word("bg-motion", still ? "still now" : "moving now", "Follows reduced motion: your system's, or this app's own");
+  if (typeof atlasLookReason === "function") {
+    const { look, reason } = atlasLookReason();
+    const from = { "face-looks": "from Face looks", "your-look": "from your own look", default: "main look" }[reason] || "";
+    word("atlas-look", from ? `${look}, ${from}` : look, "Matches Face looks when it is one look, otherwise the look you chose for your own face");
+  }
+}
+
+//: B56: Auto names what it resolved to for the model in use. The server's
+//: answer is `chat_model_small` (True, False, or None for "the name has no
+//: size in it", which the runner treats as off).
+function renderSmallModelAuto() {
+  const option = $("small-model-mode")?.querySelector('option[value="auto"]');
+  if (!option || typeof modelStatus === "undefined" || !modelStatus) return;
+  const small = modelStatus.chat_model_small;
+  const text = `Auto (${small === true ? "on" : "off"} now)`;
+  if (option.textContent !== text) option.textContent = text;
+  option.title =
+    small === true
+      ? `${modelStatus.chat_model} reads as a small model, so each step is offered one tool`
+      : small === false
+        ? `${modelStatus.chat_model} does not read as a small model, so each step is offered the whole toolbox`
+        : `The name ${modelStatus.chat_model} carries no size, which counts as not small`;
+}
+
+//: **Expand all / Collapse all in a pane's dock** (INBOX 904 B14: "each settings
+//: page should have an expand and collapse all sections button at the top").
+//: A pane with two or more folds gets one worded ghost in its `.dock-actions`,
+//: before the icon run; one fold or none has nothing to open all of. It says
+//: what pressing it does: Expand all while any fold is shut, Collapse all once
+//: every one is open. `toggle` does not bubble, so the pane listens in the
+//: capture phase and the label follows folds opened by hand too.
+function ensureSettingsFoldAll(box) {
+  if (!box) return;
+  const folds = () => [...box.querySelectorAll("details")].filter((d) => !d.parentElement.closest("details"));
+  const bar = box.querySelector(":scope > .settings-pane-title");
+  if (!bar || folds().length < 2) return;
+  let button = bar.querySelector("[data-fold-all]");
+  const paint = () => {
+    const shut = folds().some((d) => !d.open);
+    button.dataset.foldAll = shut ? "expand" : "collapse";
+    setLabel(button, shut ? "ph:arrows-out-line-vertical Expand all" : "ph:arrows-in-line-vertical Collapse all");
+    button.title = shut ? "Open every section on this page" : "Close every section on this page";
+  };
+  if (!button) {
+    let actions = bar.querySelector(".dock-actions");
+    if (!actions) {
+      actions = document.createElement("div");
+      actions.className = "dock-actions";
+      bar.appendChild(actions);
+    }
+    button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost small settings-fold-all";
+    button.dataset.foldAll = "expand";
+    button.addEventListener("click", () => {
+      const open = button.dataset.foldAll === "expand";
+      for (const fold of folds()) fold.open = open;
+      paint();
+    });
+    //: Worded ghosts first, the icon-only run (the '?') after them.
+    actions.insertBefore(button, actions.querySelector(".icon-only"));
+    box.addEventListener("toggle", paint, true);
+  }
+  paint();
+}
+
+//: This file arrives after the first Appearance render, so label once now.
+renderAutoChoices();
+renderSmallModelAuto();

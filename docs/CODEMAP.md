@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5879, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5477, test files 1176, tests 10877, plan headings 955.
+Counts: frontend functions 5879, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5477, test files 1175, tests 10872, plan headings 955.
 
 ## Frontend functions (5879)
 
@@ -17282,7 +17282,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10877)
+## Tests (10872)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -17832,7 +17832,6 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_lazy_heavy_imports.py | 4 |
 | tests/test_lazy_listener_refs.py | 1 |
 | tests/test_lazy_skeletons_598.py | 7 |
-| tests/test_lean_workflow_templates.py | 5 |
 | tests/test_learned_accuracy.py | 5 |
 | tests/test_learned_spec.py | 17 |
 | tests/test_lexical_filing.py | 10 |

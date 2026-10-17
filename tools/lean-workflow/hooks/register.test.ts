@@ -31,3 +31,15 @@ test('denies a Fable agent the user did not ask for', async ($, on) => {
   const r = await $.tool.call({ tool: 'Agent', description: 'x', prompt: 'p', model: 'fable' } as never)
   expect(r.deny).toContain('opt-in')
 })
+
+test('denies a whole-file read of a lockfile by default', async ($, on) => {
+  on('tool.call', () => ({ result: 'ok' }) as never)
+  const r = await $.tool.call({ tool: 'Read', file_path: 'web/package-lock.json' })
+  expect(r.deny).toContain('Grep it')
+})
+
+test('adds the autopilot section to the system prompt', async ($, on) => {
+  on('prompt.compose', () => ({ sections: [] }) as never)
+  const r = await $.prompt.compose({ model: 'm', promptModel: 'm', surfaces: [], tools: [], outputStyle: null, traits: [] } as never)
+  expect(JSON.stringify(r)).toContain('Lean workflow autopilot')
+})

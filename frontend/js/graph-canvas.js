@@ -3574,10 +3574,7 @@ function gcWireInteraction(s = gcTab) {
         after: { x: node.fx, y: node.fy },
       });
       if (pins.length) pins.push({ id: node.id, x: node.fx, y: node.fy });
-      else apiJson(`/graph/pin/${node.id}`, {
-        method: "PUT",
-        body: JSON.stringify({ x: node.graph_pin_x, y: node.graph_pin_y }),
-      }).catch(() => {
+      else graphPinSave(node.id, node.graph_pin_x, node.graph_pin_y).catch(() => {
         // Best-effort, exactly as on the SVG path: the placement has
         // already taken effect in memory, so a failed save costs the
         // reload and nothing else.
@@ -3720,10 +3717,7 @@ function gcTogglePin(node, s = gcTab) {
     before: wasPinned ? { x: node.x, y: node.y } : null,
     after: node.graph_pin_x == null ? null : { x: node.graph_pin_x, y: node.graph_pin_y },
   }]);
-  apiJson(`/graph/pin/${node.id}`, {
-    method: "PUT",
-    body: JSON.stringify({ x: node.graph_pin_x, y: node.graph_pin_y }),
-  }).catch(() => {
+  graphPinSave(node.id, node.graph_pin_x, node.graph_pin_y).catch(() => {
   });
 }
 

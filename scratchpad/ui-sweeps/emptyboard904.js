@@ -58,6 +58,11 @@ const ok = (n, c, d) => { if (!c) bad += 1; console.log(`${c ? "PASS" : "FAIL"} 
   console.log(JSON.stringify(m, null, 1));
   if (process.env.SHOT) await page.screenshot({ path: `${OUT}/emptyboard904-${vw}.png` });
   ok("the card is on screen", m.visible);
+  const narrow = vw < 600;
+  ok("no scrollbar inside the card", m.innerScroll[0] <= m.innerScroll[1] + 1 && m.innerScroll[2] <= m.innerScroll[3] + 1, JSON.stringify(m.innerScroll));
+  ok("both buttons inside the card", m.keys.l >= m.inner.l && m.dismiss.l + m.dismiss.w <= m.inner.l + m.inner.w);
+  ok("one actions row: the two buttons share a top (wide windows)", narrow || m.keys.t === m.dismiss.t, `${m.keys.t} and ${m.dismiss.t}`);
+  ok("no second foot row, card 140px or less (wide windows)", narrow || (m.foot === null && m.inner.h <= 140), `${m.inner.h}px`);
   await browser.close();
   console.log(bad ? `${bad} FAILED` : "all passed");
   process.exit(bad ? 1 : 0);

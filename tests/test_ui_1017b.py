@@ -71,3 +71,14 @@ def test_a_finished_jobs_logs_button_stays_top_right_on_the_title_line():
     assert "margin-inline-start: auto" in css[css.index("#task-history .entry-meta > .row-actions {") :].split("}")[0]
     js = (ROOT / "frontend" / "js" / "chat-tasks.js").read_text(encoding="utf-8")
     assert "row.append(name, taskLogButton(item));" in js and "li.append(row, when);" in js
+
+
+def test_ocr_workspace_without_a_renderer_lists_the_file_and_links_to_packages():
+    """The "m o" chord opened on a PDF with an empty rail (the switch had fallen
+    back to Files, the rail waited for pages) and a notice with no way on."""
+    lib = (ROOT / "frontend" / "js" / "library.js").read_text(encoding="utf-8")
+    build = lib[lib.index("function ocrBuildPageRail(") :].split("\n}\n")[0]
+    assert 'if (!rail.children.length) ocrRenderRail(image);' in build
+    link = lib[lib.index("function ocrNoRendererLink(") :].split("\n}\n")[0]
+    assert "Settings, Packages" in link and 'openSettingsModal("extras")' in link
+    assert "ocrNoRendererLink();" in lib

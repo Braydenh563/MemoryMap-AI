@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5880, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5478, test files 1177, tests 10879, plan headings 956.
+Counts: frontend functions 5880, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5478, test files 1177, tests 10880, plan headings 956.
 
 ## Frontend functions (5880)
 
@@ -4744,7 +4744,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `quickAccessPickTint` | frontend/js/quick-access.js:80 |
 | `quickAccessReslotted` | frontend/js/quick-access.js:178 |
 | `quickAccessTile` | frontend/js/quick-access.js:36 |
-| `saveQuickTint` | frontend/js/quick-access.js:466 |
+| `saveQuickTint` | frontend/js/quick-access.js:471 |
 
 ### frontend/js/quick-note.js (23)
 
@@ -17284,7 +17284,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10879)
+## Tests (10880)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -18124,7 +18124,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_question_noise.py | 31 |
 | tests/test_questions_own.py | 8 |
 | tests/test_questions_spec.py | 9 |
-| tests/test_quick_access.py | 27 |
+| tests/test_quick_access.py | 28 |
 | tests/test_quick_access_phone.py | 1 |
 | tests/test_quickadd.py | 13 |
 | tests/test_raw_fetch_headers.py | 2 |

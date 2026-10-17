@@ -2979,6 +2979,48 @@ function renderSmallModelAuto() {
         : `The name ${modelStatus.chat_model} carries no size, which counts as not small`;
 }
 
+//: **Expand all / Collapse all in a pane's dock** (INBOX 904 B14: "each settings
+//: page should have an expand and collapse all sections button at the top").
+//: A pane with two or more folds gets one worded ghost in its `.dock-actions`,
+//: before the icon run; one fold or none has nothing to open all of. It says
+//: what pressing it does: Expand all while any fold is shut, Collapse all once
+//: every one is open. `toggle` does not bubble, so the pane listens in the
+//: capture phase and the label follows folds opened by hand too.
+function ensureSettingsFoldAll(box) {
+  if (!box) return;
+  const folds = () => [...box.querySelectorAll("details")].filter((d) => !d.parentElement.closest("details"));
+  const bar = box.querySelector(":scope > .settings-pane-title");
+  if (!bar || folds().length < 2) return;
+  let button = bar.querySelector("[data-fold-all]");
+  const paint = () => {
+    const shut = folds().some((d) => !d.open);
+    button.dataset.foldAll = shut ? "expand" : "collapse";
+    setLabel(button, shut ? "ph:arrows-out-line-vertical Expand all" : "ph:arrows-in-line-vertical Collapse all");
+    button.title = shut ? "Open every section on this page" : "Close every section on this page";
+  };
+  if (!button) {
+    let actions = bar.querySelector(".dock-actions");
+    if (!actions) {
+      actions = document.createElement("div");
+      actions.className = "dock-actions";
+      bar.appendChild(actions);
+    }
+    button = document.createElement("button");
+    button.type = "button";
+    button.className = "ghost small settings-fold-all";
+    button.dataset.foldAll = "expand";
+    button.addEventListener("click", () => {
+      const open = button.dataset.foldAll === "expand";
+      for (const fold of folds()) fold.open = open;
+      paint();
+    });
+    //: Worded ghosts first, the icon-only run (the '?') after them.
+    actions.insertBefore(button, actions.querySelector(".icon-only"));
+    box.addEventListener("toggle", paint, true);
+  }
+  paint();
+}
+
 //: This file arrives after the first Appearance render, so label once now.
 renderAutoChoices();
 renderSmallModelAuto();

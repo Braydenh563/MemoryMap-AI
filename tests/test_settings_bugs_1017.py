@@ -127,3 +127,15 @@ def test_b57_default_accent_sets_no_inline_colour():
         + "\nconsole.log(JSON.stringify({ calls, data: document.documentElement.dataset.accent || null }));\n"
     )
     assert json.loads(_run_node(script)) == {"calls": [None], "data": None}
+
+
+# B14: "Each settings page should have an expand and collapse all sections
+# button at the top". Panes with two or more folds (Skills 2, Appearance 8,
+# Shortcuts 3, Help 168 at probe p/b14.js) get one in their dock; a pane with
+# one fold or none has nothing to expand all of.
+def test_b14_a_pane_with_folds_gets_an_expand_all_button_in_its_dock():
+    body = _js_function("settings-controls.js", "ensureSettingsFoldAll")
+    assert "data-fold-all" in body or "foldAll" in body
+    assert ".dock-actions" in body and "Expand all" in body and "Collapse all" in body
+    shown = _js_function("settings.js", "showSettingsSection")
+    assert "ensureSettingsFoldAll(" in shown

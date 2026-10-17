@@ -628,7 +628,9 @@ MORE_TOPICS: list[dict] = [
             "meaning follow under Close in meaning. A long section lists its "
             "groups under its own name in that list: press one to go to it, and "
             "the one you are reading is marked as you scroll. On a phone the "
-            "section picker holds the same groups under the section you are in."
+            "section picker holds the same groups under the section you are in. "
+            "A section with several folded groups has Expand all at the top of "
+            "its page (Collapse all once every group is open)."
         ),
         "badge": {"label": "General", "section": "general"},
     },

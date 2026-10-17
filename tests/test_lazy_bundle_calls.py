@@ -106,7 +106,10 @@ REACHED_AFTER_LOAD = {
     #: so a render that ran before it arrived loses nothing; the guarded calls
     #: only keep the labels current after that.
     "renderAutoChoices": "settingsControls, paints itself at the end of the file; later renders re-label",
-    "renderSmallModelAuto": "settingsControls, paints itself at the end of the file; later renders re-label",
+    #: B14: the pane's Expand all. openSettingsModal awaits settingsControls
+    #: before the window is shown, so showSettingsSection never runs ahead of it.
+    "ensureSettingsFoldAll": "settingsControls, the Settings window awaits it before any pane is shown",
+    "renderSmallModelAuto":"settingsControls, paints itself at the end of the file; later renders re-label",
     #: The history row's Logs button: it sits in Settings, whose window loads settingsControls first.
     "openTaskLog": "settingsControls, the Settings window awaits it before any row in it can be pressed",
     #: Background jobs, Report: the click awaits ensureModule('appImport') first.

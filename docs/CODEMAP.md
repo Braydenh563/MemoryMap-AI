@@ -2,9 +2,9 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5881, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5478, test files 1176, tests 10881, plan headings 956.
+Counts: frontend functions 5882, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5478, test files 1176, tests 10882, plan headings 956.
 
-## Frontend functions (5881)
+## Frontend functions (5882)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -2124,148 +2124,148 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `_segActive` | frontend/js/settings.js:2437 |
-| `accentInk` | frontend/js/settings.js:2077 |
-| `accentTone` | frontend/js/settings.js:2081 |
-| `activeAccent` | frontend/js/settings.js:1299 |
-| `activeLogContainer` | frontend/js/settings.js:824 |
-| `activePalette` | frontend/js/settings.js:2778 |
-| `activeThemePreset` | frontend/js/settings.js:1637 |
-| `appearancePref` | frontend/js/settings.js:1654 |
-| `applyAccent` | frontend/js/settings.js:1321 |
-| `applyAppearance` | frontend/js/settings.js:2290 |
-| `applyContrast` | frontend/js/settings.js:1376 |
-| `applyCustomAccent` | frontend/js/settings.js:2105 |
-| `applyCustomCss` | frontend/js/settings.js:2149 |
-| `applyCustomCssLegacy` | frontend/js/settings.js:2172 |
-| `applyEffectiveAccent` | frontend/js/settings.js:1357 |
-| `applyHarmony` | frontend/js/settings.js:1817 |
-| `applyPageBackground` | frontend/js/settings.js:2122 |
-| `applyResolvedMode` | frontend/js/settings.js:2385 |
-| `applySavedTheme` | frontend/js/settings.js:1921 |
-| `applyThemeChoice` | frontend/js/settings.js:2407 |
-| `applyThemePreset` | frontend/js/settings.js:1674 |
-| `bgArtOn` | frontend/js/settings.js:2874 |
-| `bgArtRefreshSeed` | frontend/js/settings.js:2869 |
-| `bgArtStyle` | frontend/js/settings.js:2979 |
-| `browserLogRecords` | frontend/js/settings.js:702 |
-| `bumpLogErrorBadge` | frontend/js/settings.js:967 |
-| `clearLogs` | frontend/js/settings.js:1142 |
-| `clearManualOverrides` | frontend/js/settings.js:1717 |
-| `closeLogs` | frontend/js/settings.js:1099 |
-| `closeSettingsModal` | frontend/js/settings.js:621 |
-| `collapseLongSettingHints` | frontend/js/settings.js:3623 |
-| `contrastOn` | frontend/js/settings.js:1372 |
-| `copyLogs` | frontend/js/settings.js:1108 |
-| `cssVarNow` | frontend/js/settings.js:2046 |
-| `currentAccentHex` | frontend/js/settings.js:1310 |
-| `currentLookValues` | frontend/js/settings.js:1876 |
-| `currentPageBackground` | frontend/js/settings.js:2133 |
-| `deleteSavedTheme` | frontend/js/settings.js:1944 |
-| `downloadSupportBundle` | frontend/js/settings.js:1165 |
-| `effectiveDensity` | frontend/js/settings.js:2224 |
-| `effectiveTheme` | frontend/js/settings.js:2347 |
+| `_segActive` | frontend/js/settings.js:2438 |
+| `accentInk` | frontend/js/settings.js:2078 |
+| `accentTone` | frontend/js/settings.js:2082 |
+| `activeAccent` | frontend/js/settings.js:1300 |
+| `activeLogContainer` | frontend/js/settings.js:825 |
+| `activePalette` | frontend/js/settings.js:2779 |
+| `activeThemePreset` | frontend/js/settings.js:1638 |
+| `appearancePref` | frontend/js/settings.js:1655 |
+| `applyAccent` | frontend/js/settings.js:1322 |
+| `applyAppearance` | frontend/js/settings.js:2291 |
+| `applyContrast` | frontend/js/settings.js:1377 |
+| `applyCustomAccent` | frontend/js/settings.js:2106 |
+| `applyCustomCss` | frontend/js/settings.js:2150 |
+| `applyCustomCssLegacy` | frontend/js/settings.js:2173 |
+| `applyEffectiveAccent` | frontend/js/settings.js:1358 |
+| `applyHarmony` | frontend/js/settings.js:1818 |
+| `applyPageBackground` | frontend/js/settings.js:2123 |
+| `applyResolvedMode` | frontend/js/settings.js:2386 |
+| `applySavedTheme` | frontend/js/settings.js:1922 |
+| `applyThemeChoice` | frontend/js/settings.js:2408 |
+| `applyThemePreset` | frontend/js/settings.js:1675 |
+| `bgArtOn` | frontend/js/settings.js:2875 |
+| `bgArtRefreshSeed` | frontend/js/settings.js:2870 |
+| `bgArtStyle` | frontend/js/settings.js:2980 |
+| `browserLogRecords` | frontend/js/settings.js:703 |
+| `bumpLogErrorBadge` | frontend/js/settings.js:968 |
+| `clearLogs` | frontend/js/settings.js:1143 |
+| `clearManualOverrides` | frontend/js/settings.js:1718 |
+| `closeLogs` | frontend/js/settings.js:1100 |
+| `closeSettingsModal` | frontend/js/settings.js:622 |
+| `collapseLongSettingHints` | frontend/js/settings.js:3624 |
+| `contrastOn` | frontend/js/settings.js:1373 |
+| `copyLogs` | frontend/js/settings.js:1109 |
+| `cssVarNow` | frontend/js/settings.js:2047 |
+| `currentAccentHex` | frontend/js/settings.js:1311 |
+| `currentLookValues` | frontend/js/settings.js:1877 |
+| `currentPageBackground` | frontend/js/settings.js:2134 |
+| `deleteSavedTheme` | frontend/js/settings.js:1945 |
+| `downloadSupportBundle` | frontend/js/settings.js:1166 |
+| `effectiveDensity` | frontend/js/settings.js:2225 |
+| `effectiveTheme` | frontend/js/settings.js:2348 |
 | `ensureSettingsPaneTitle` | frontend/js/settings.js:74 |
-| `filterSettings` | frontend/js/settings.js:565 |
-| `focusSettingsHeading` | frontend/js/settings.js:3369 |
-| `focusSettingsPane` | frontend/js/settings.js:3361 |
-| `harmonyScheme` | frontend/js/settings.js:1797 |
-| `hexRatio` | frontend/js/settings.js:2068 |
-| `hexToHsl` | frontend/js/settings.js:1749 |
-| `hexToRgbParts` | frontend/js/settings.js:2051 |
-| `hslToHex` | frontend/js/settings.js:1770 |
-| `jobDurationWords` | frontend/js/settings.js:4460 |
-| `jobRunLine` | frontend/js/settings.js:4471 |
-| `learnedBulk` | frontend/js/settings.js:3970 |
-| `learnedDelete` | frontend/js/settings.js:4180 |
-| `learnedEdit` | frontend/js/settings.js:4133 |
-| `learnedExport` | frontend/js/settings.js:4222 |
-| `learnedForget` | frontend/js/settings.js:4202 |
-| `learnedFromYouText` | frontend/js/settings.js:4320 |
-| `learnedKindLabel` | frontend/js/settings.js:3829 |
-| `learnedReset` | frontend/js/settings.js:4159 |
-| `learnedRow` | frontend/js/settings.js:4016 |
-| `learnedRunNow` | frontend/js/settings.js:4241 |
-| `learnedSetSwitch` | frontend/js/settings.js:3936 |
-| `lessTransparencyWanted` | frontend/js/settings.js:2196 |
-| `loadChangelog` | frontend/js/settings.js:441 |
-| `loadSamplingSettings` | frontend/js/settings.js:3577 |
-| `logLevelRank` | frontend/js/settings.js:676 |
-| `logMatchesFilters` | frontend/js/settings.js:724 |
-| `logRecordText` | frontend/js/settings.js:817 |
-| `logRow` | frontend/js/settings.js:746 |
-| `logTerminalLineText` | frontend/js/settings.js:905 |
-| `logTerminalParts` | frontend/js/settings.js:898 |
-| `logTerminalRow` | frontend/js/settings.js:909 |
-| `logTerminalTraceRow` | frontend/js/settings.js:932 |
-| `manualOverrides` | frontend/js/settings.js:1711 |
-| `measureLabelOptics` | frontend/js/settings.js:2254 |
-| `nearLogBottom` | frontend/js/settings.js:828 |
-| `noticePerfMode` | frontend/js/settings.js:3538 |
-| `openSettingsModal` | frontend/js/settings.js:248 |
-| `paintIntegrity` | frontend/js/settings.js:473 |
-| `paintJobLine` | frontend/js/settings.js:4503 |
-| `perfModeOn` | frontend/js/settings.js:2202 |
-| `perfModeReason` | frontend/js/settings.js:2211 |
-| `placeFoldHelp` | frontend/js/settings.js:4405 |
-| `refreshJobRuns` | frontend/js/settings.js:4519 |
-| `renderActiveLogView` | frontend/js/settings.js:954 |
-| `renderAppearance` | frontend/js/settings.js:2510 |
-| `renderBgMotionHint` | frontend/js/settings.js:2662 |
-| `renderBgStyleGrid` | frontend/js/settings.js:2904 |
-| `renderBgStyleHint` | frontend/js/settings.js:2647 |
-| `renderCopyLogsLabel` | frontend/js/settings.js:1123 |
-| `renderCustomThemes` | frontend/js/settings.js:1955 |
-| `renderJobOverview` | frontend/js/settings.js:4548 |
-| `renderLearned` | frontend/js/settings.js:4341 |
-| `renderLearnedFromYou` | frontend/js/settings.js:4332 |
-| `renderLearnedList` | frontend/js/settings.js:4093 |
-| `renderLearnedSwitches` | frontend/js/settings.js:3833 |
-| `renderLogErrorBadge` | frontend/js/settings.js:973 |
-| `renderLogGap` | frontend/js/settings.js:686 |
-| `renderLogList` | frontend/js/settings.js:873 |
-| `renderLogSharedUI` | frontend/js/settings.js:841 |
-| `renderLogTerminal` | frontend/js/settings.js:939 |
-| `renderLogs` | frontend/js/settings.js:1073 |
-| `renderPaletteGrid` | frontend/js/settings.js:2785 |
-| `renderProgressMotionHint` | frontend/js/settings.js:2629 |
-| `renderThemePresets` | frontend/js/settings.js:2443 |
-| `renderThemeToggle` | frontend/js/settings.js:2375 |
-| `repaintThemeAtOnce` | frontend/js/settings.js:1210 |
-| `resetAppearance` | frontend/js/settings.js:2837 |
-| `resetThemeOnly` | frontend/js/settings.js:1729 |
-| `resolvedTheme` | frontend/js/settings.js:2358 |
-| `saveCurrentLook` | frontend/js/settings.js:1894 |
-| `savedThemeCard` | frontend/js/settings.js:1989 |
-| `savedThemes` | frontend/js/settings.js:1889 |
-| `scheduleThemeArt` | frontend/js/settings.js:1226 |
-| `scrollLogToBottom` | frontend/js/settings.js:834 |
-| `serverLogRecord` | frontend/js/settings.js:711 |
-| `setCustomAccent` | frontend/js/settings.js:3200 |
-| `setLogLive` | frontend/js/settings.js:959 |
-| `setSettingsPeek` | frontend/js/settings.js:220 |
-| `settingsFoldState` | frontend/js/settings.js:4360 |
-| `settingsPeekIsOn` | frontend/js/settings.js:232 |
+| `filterSettings` | frontend/js/settings.js:566 |
+| `focusSettingsHeading` | frontend/js/settings.js:3370 |
+| `focusSettingsPane` | frontend/js/settings.js:3362 |
+| `harmonyScheme` | frontend/js/settings.js:1798 |
+| `hexRatio` | frontend/js/settings.js:2069 |
+| `hexToHsl` | frontend/js/settings.js:1750 |
+| `hexToRgbParts` | frontend/js/settings.js:2052 |
+| `hslToHex` | frontend/js/settings.js:1771 |
+| `jobDurationWords` | frontend/js/settings.js:4461 |
+| `jobRunLine` | frontend/js/settings.js:4472 |
+| `learnedBulk` | frontend/js/settings.js:3971 |
+| `learnedDelete` | frontend/js/settings.js:4181 |
+| `learnedEdit` | frontend/js/settings.js:4134 |
+| `learnedExport` | frontend/js/settings.js:4223 |
+| `learnedForget` | frontend/js/settings.js:4203 |
+| `learnedFromYouText` | frontend/js/settings.js:4321 |
+| `learnedKindLabel` | frontend/js/settings.js:3830 |
+| `learnedReset` | frontend/js/settings.js:4160 |
+| `learnedRow` | frontend/js/settings.js:4017 |
+| `learnedRunNow` | frontend/js/settings.js:4242 |
+| `learnedSetSwitch` | frontend/js/settings.js:3937 |
+| `lessTransparencyWanted` | frontend/js/settings.js:2197 |
+| `loadChangelog` | frontend/js/settings.js:442 |
+| `loadSamplingSettings` | frontend/js/settings.js:3578 |
+| `logLevelRank` | frontend/js/settings.js:677 |
+| `logMatchesFilters` | frontend/js/settings.js:725 |
+| `logRecordText` | frontend/js/settings.js:818 |
+| `logRow` | frontend/js/settings.js:747 |
+| `logTerminalLineText` | frontend/js/settings.js:906 |
+| `logTerminalParts` | frontend/js/settings.js:899 |
+| `logTerminalRow` | frontend/js/settings.js:910 |
+| `logTerminalTraceRow` | frontend/js/settings.js:933 |
+| `manualOverrides` | frontend/js/settings.js:1712 |
+| `measureLabelOptics` | frontend/js/settings.js:2255 |
+| `nearLogBottom` | frontend/js/settings.js:829 |
+| `noticePerfMode` | frontend/js/settings.js:3539 |
+| `openSettingsModal` | frontend/js/settings.js:249 |
+| `paintIntegrity` | frontend/js/settings.js:474 |
+| `paintJobLine` | frontend/js/settings.js:4504 |
+| `perfModeOn` | frontend/js/settings.js:2203 |
+| `perfModeReason` | frontend/js/settings.js:2212 |
+| `placeFoldHelp` | frontend/js/settings.js:4406 |
+| `refreshJobRuns` | frontend/js/settings.js:4520 |
+| `renderActiveLogView` | frontend/js/settings.js:955 |
+| `renderAppearance` | frontend/js/settings.js:2511 |
+| `renderBgMotionHint` | frontend/js/settings.js:2663 |
+| `renderBgStyleGrid` | frontend/js/settings.js:2905 |
+| `renderBgStyleHint` | frontend/js/settings.js:2648 |
+| `renderCopyLogsLabel` | frontend/js/settings.js:1124 |
+| `renderCustomThemes` | frontend/js/settings.js:1956 |
+| `renderJobOverview` | frontend/js/settings.js:4549 |
+| `renderLearned` | frontend/js/settings.js:4342 |
+| `renderLearnedFromYou` | frontend/js/settings.js:4333 |
+| `renderLearnedList` | frontend/js/settings.js:4094 |
+| `renderLearnedSwitches` | frontend/js/settings.js:3834 |
+| `renderLogErrorBadge` | frontend/js/settings.js:974 |
+| `renderLogGap` | frontend/js/settings.js:687 |
+| `renderLogList` | frontend/js/settings.js:874 |
+| `renderLogSharedUI` | frontend/js/settings.js:842 |
+| `renderLogTerminal` | frontend/js/settings.js:940 |
+| `renderLogs` | frontend/js/settings.js:1074 |
+| `renderPaletteGrid` | frontend/js/settings.js:2786 |
+| `renderProgressMotionHint` | frontend/js/settings.js:2630 |
+| `renderThemePresets` | frontend/js/settings.js:2444 |
+| `renderThemeToggle` | frontend/js/settings.js:2376 |
+| `repaintThemeAtOnce` | frontend/js/settings.js:1211 |
+| `resetAppearance` | frontend/js/settings.js:2838 |
+| `resetThemeOnly` | frontend/js/settings.js:1730 |
+| `resolvedTheme` | frontend/js/settings.js:2359 |
+| `saveCurrentLook` | frontend/js/settings.js:1895 |
+| `savedThemeCard` | frontend/js/settings.js:1990 |
+| `savedThemes` | frontend/js/settings.js:1890 |
+| `scheduleThemeArt` | frontend/js/settings.js:1227 |
+| `scrollLogToBottom` | frontend/js/settings.js:835 |
+| `serverLogRecord` | frontend/js/settings.js:712 |
+| `setCustomAccent` | frontend/js/settings.js:3201 |
+| `setLogLive` | frontend/js/settings.js:960 |
+| `setSettingsPeek` | frontend/js/settings.js:221 |
+| `settingsFoldState` | frontend/js/settings.js:4361 |
+| `settingsPeekIsOn` | frontend/js/settings.js:233 |
 | `settingsScroller` | frontend/js/settings.js:99 |
-| `settingsSectionText` | frontend/js/settings.js:537 |
+| `settingsSectionText` | frontend/js/settings.js:538 |
 | `showSettingsSection` | frontend/js/settings.js:108 |
-| `smallMachine` | frontend/js/settings.js:2189 |
-| `sortLogRecords` | frontend/js/settings.js:715 |
-| `startBgArt` | frontend/js/settings.js:2984 |
-| `startLogStream` | frontend/js/settings.js:1003 |
-| `stopBgArt` | frontend/js/settings.js:2878 |
-| `stopLogStream` | frontend/js/settings.js:1062 |
-| `syncLearnedSelectbar` | frontend/js/settings.js:3958 |
-| `taskLogButton` | frontend/js/settings.js:3469 |
-| `themeDefaultAccent` | frontend/js/settings.js:2497 |
-| `themeSwatch` | frontend/js/settings.js:1624 |
-| `themeValue` | frontend/js/settings.js:1647 |
-| `toggleBgArt` | frontend/js/settings.js:3049 |
-| `toggleTheme` | frontend/js/settings.js:1238 |
-| `updatePeekAvailability` | frontend/js/settings.js:236 |
-| `wireFoldHelps` | frontend/js/settings.js:4416 |
-| `wireLearnedSection` | frontend/js/settings.js:4275 |
-| `wireSettingsFolds` | frontend/js/settings.js:4369 |
+| `smallMachine` | frontend/js/settings.js:2190 |
+| `sortLogRecords` | frontend/js/settings.js:716 |
+| `startBgArt` | frontend/js/settings.js:2985 |
+| `startLogStream` | frontend/js/settings.js:1004 |
+| `stopBgArt` | frontend/js/settings.js:2879 |
+| `stopLogStream` | frontend/js/settings.js:1063 |
+| `syncLearnedSelectbar` | frontend/js/settings.js:3959 |
+| `taskLogButton` | frontend/js/settings.js:3470 |
+| `themeDefaultAccent` | frontend/js/settings.js:2498 |
+| `themeSwatch` | frontend/js/settings.js:1625 |
+| `themeValue` | frontend/js/settings.js:1648 |
+| `toggleBgArt` | frontend/js/settings.js:3050 |
+| `toggleTheme` | frontend/js/settings.js:1239 |
+| `updatePeekAvailability` | frontend/js/settings.js:237 |
+| `wireFoldHelps` | frontend/js/settings.js:4417 |
+| `wireLearnedSection` | frontend/js/settings.js:4276 |
+| `wireSettingsFolds` | frontend/js/settings.js:4370 |
 
 ### frontend/js/account-recovery.js (16)
 
@@ -4952,7 +4952,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `semanticOnboardingOffer` | frontend/js/semantic-notice.js:109 |
 | `semanticSetAutoInstall` | frontend/js/semantic-notice.js:29 |
 
-### frontend/js/settings-controls.js (60)
+### frontend/js/settings-controls.js (61)
 
 | Name | File:line |
 |---|---|
@@ -4968,6 +4968,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `chosenSkillTools` | frontend/js/settings-controls.js:2002 |
 | `chosenSkillVerify` | frontend/js/settings-controls.js:1981 |
 | `deleteProfile` | frontend/js/settings-controls.js:1895 |
+| `ensureSettingsFoldAll` | frontend/js/settings-controls.js:2989 |
 | `exportFullBackup` | frontend/js/settings-controls.js:1883 |
 | `findDuplicates` | frontend/js/settings-controls.js:1649 |
 | `lanAllowHere` | frontend/js/settings-controls.js:2468 |
@@ -11392,7 +11393,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 
 | Name | File:line |
 |---|---|
-| `_act_topic` | src/tessellate/ai/help_topics_more.py:2426 |
+| `_act_topic` | src/tessellate/ai/help_topics_more.py:2428 |
 
 ### src/tessellate/ai/inbox.py (7)
 
@@ -17285,7 +17286,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10881)
+## Tests (10882)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -18220,7 +18221,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_server_time_readers.py | 1 |
 | tests/test_session_navigation.py | 6 |
 | tests/test_setting_label_toggles.py | 3 |
-| tests/test_settings_bugs_1017.py | 6 |
+| tests/test_settings_bugs_1017.py | 7 |
 | tests/test_settings_field_edge.py | 2 |
 | tests/test_settings_group_heads.py | 2 |
 | tests/test_settings_ia.py | 7 |

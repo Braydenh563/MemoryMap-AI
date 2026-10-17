@@ -128,6 +128,7 @@ function showSettingsSection(name) {
     $(`settings-${section}`).classList.toggle("hidden", section !== name);
   }
   ensureSettingsPaneTitle($(`settings-${name}`), name);
+  ensureSettingsFoldAll($(`settings-${name}`));
   for (const button of document.querySelectorAll("#settings-nav button")) {
     button.classList.toggle("active", button.dataset.section === name);
     if (button.dataset.section) {

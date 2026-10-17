@@ -331,7 +331,9 @@ HELP_TOPICS: list[dict] = [
         "keywords": ("timeline",),
         "body": (
             "The Timeline tab lists what you wrote newest first, grouped by day, "
-            "week, month or year (Auto picks the finest that reads well), as a "
+            "week, month or year (Auto picks the finest that reads well); the feed "
+            "opens on today with the week ahead above it, and an empty day ahead has "
+            "an Add for a reminder or an event. It shows as a "
             "feed, as a sortable table or as a calendar of a month, a week or a "
             "day. Kinds chooses notes, boards and maps, documents "
             "and reminders; Options sets the grouping, Group by (category, tag "
@@ -1987,7 +1989,7 @@ HELP_TOPICS.extend(
         },
         {
             "id": "timeline-controls",
-            "keywords": ("time bucket", "feed view", "table view", "calendar view", "month view", "week view", "reschedule", "jump to today", "density strip", "group by"),
+            "keywords": ("time bucket", "feed view", "table view", "calendar view", "month view", "week view", "reschedule", "jump to today", "density strip", "group by", "add an event"),
             "body": (
                 (
                     "Timeline controls. Feed shows the newest first, grouped by date; Table shows every "
@@ -1997,7 +1999,8 @@ HELP_TOPICS.extend(
                     "a +n opens the day in the feed. Drag a reminder to another day or hour to move it, or "
                     "press Alt and an arrow on it (Undo puts it back); the arrows walk the days, Page Up and "
                     "Page Down the months, T is today, Enter or Space opens the day (from a Day view, in the "
-                    "feed) and N starts a reminder on it. Below a tablet's width the calendar is the month's "
+                    "feed); double-click a day or an hour, or press Add or N, to add a reminder or an event (a "
+                    "meeting note) there. Below a tablet's width the calendar is the month's "
                     "rows as a list. Pick the time bucket (Auto, Day, Week, Month or Year; Auto takes the "
                     "finest one that keeps the headers few and filled: days for a few weeks of notes, weeks "
                     "for a year, months for several years), what rows are grouped by (Category, Tag, Thread, "

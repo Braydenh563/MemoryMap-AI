@@ -2428,6 +2428,28 @@ def _no_notes_line(req: _StreamRequest, ollama_running: bool) -> str:
     )
 
 
+def _current_notes(req: _StreamRequest, notes: list[dict]) -> tuple[list[dict], list]:
+    """The notes with any a newer note on the asked subject supersedes left
+    out, and those left out (O11, `ai/supersede.py`)."""
+    from tessellate.ai import supersede
+
+    return supersede.current(req.question or "", notes)
+
+
+def _with_older(text: str, older: list, result: dict) -> str:
+    """The answer, and one line on what an older note said, when the answer
+    came from the notes and one was set aside (never silently dropped)."""
+    from tessellate.ai import supersede
+
+    if not older or not result.get("grounding"):
+        return text
+    line = supersede.older_line(older, voice=_composer_voice(), today=user_now(deps.get_config()).date(), seed=len(text))
+    #: "It's your only note on that so far" is not true with an older one.
+    only = {composer_digest._BASE["only_note"], *(v.get("only_note", "") for v in composer_digest.VOICES.values())}
+    kept = [part for part in text.split("\n\n") if part.strip() not in only]
+    return "\n\n".join([*kept, line])
+
+
 def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> Iterator[dict]:
     """The pre-Wave-G behaviour: stream a grounded answer, no tools."""
     exact = _exact_events(req, prepared, ollama_running)
@@ -2557,10 +2579,12 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         #: about me": what the notebook says of its writer (`ai/personal.py`),
         #: read from every note, not only the ones the search found.
         digest = None if follow else personal.answer(req.question, lambda: personal.notes_of(req.session), today)
+        #: O11: a newer note on the same thing is the current one.
+        current, older = _current_notes(req, prepared["notes"])
         if digest is None and (not follow or restated) and not str(prepared.get("search_mode") or "").endswith("recent"):
             try:
                 digest = composer_digest.answer(
-                follow.question if restated else req.question, prepared["notes"], today=user_now(deps.get_config()).date(),
+                follow.question if restated else req.question, current, today=user_now(deps.get_config()).date(),
                 voice=_answer_voice(), turn=len(req.history or []),
                 insight=_insight_level(), learned=_insight_memory(req.session), known=_verdicts(req.session),
             )
@@ -2568,7 +2592,7 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
                 logging.getLogger("tessellate.chat").exception("chat: the digest failed")
         result = digest or composer.compose(
             follow.question if follow else req.question,
-            prepared["notes"],
+            current,
             today=user_now(deps.get_config()).date(),
             recent=str(prepared.get("search_mode") or "").endswith("recent"),
             embed=_composer_embed(),
@@ -2601,6 +2625,7 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
             text = personal.general_reply(_web_allowed(req))
         if not result["grounding"] and prepared.get("meaning_loading"):
             text += "\n\n" + composer_digest.PHRASES["meaning_loading"]
+        text = _with_older(text, older, result)
         yield {"type": "answer", "delta": text}
         if result["grounding"]:
             yield {

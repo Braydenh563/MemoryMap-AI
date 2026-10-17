@@ -36,6 +36,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from tessellate.ai import reminder_parser, when
+from tessellate.ai import act_registry
 from tessellate.ai.act_registry import CONFIRM_INTENTS
 from tessellate.ai.filed_name import filed_listing
 
@@ -600,7 +601,17 @@ def read_typed(text: str, now: datetime) -> dict | None:
     from tessellate.ai import question_noise
 
     fixed = question_noise.repair(question_noise.tidy(text or ""))
-    return (read(fixed, now) if fixed and fixed != text else None) or read(text, now)
+    found = (read(fixed, now) if fixed and fixed != text else None) or read(text, now)
+    if found is not None or not text:
+        return found
+    #: One word a slip from a word the commands read ("pin the dentist noe",
+    #: "unlnk the gym note"), read so when that makes it a command (O3).
+    guided = question_noise.guided(question_noise.tidy(text), lambda t: read(t, now) is not None)
+    return read(guided, now) if guided else None
+
+
+#: Intent reads the typed commands through the leaf (act_registry.py says why).
+act_registry.typed_reader = read_typed
 
 
 def read(text: str, now: datetime) -> dict | None:

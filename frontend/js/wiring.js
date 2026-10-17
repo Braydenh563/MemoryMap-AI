@@ -24,7 +24,8 @@ reflectOnlineState();
 $("draft-compose").addEventListener("click", composeDraft);
 $("draft-undo").addEventListener("click", undoDraft);
 $("draft-cancel").addEventListener("click", cancelDraft);
-$("draft-save").addEventListener("click", saveDraftAsNote);
+$("draft-save").addEventListener("click", () => saveDraftAsNote());
+
 $("draft-title").addEventListener("click", suggestDraftTitle);
 // Refine is Draft with an instruction in hand: the same pass, so it runs the
 // same function rather than a second copy of it that could drift.

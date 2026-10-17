@@ -2560,6 +2560,10 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    moves. */
 .help-popover {
   max-height: min(60vh, 32rem);
+  /* One text size whatever it holds: a Settings hint is a <small> and drew
+     12.27px against a help body's 14.72 (B75). */
+  font-size: var(--text-lg);
+  z-index: 2500;
 }
 /* --- a help popover opens over the surface that asked for it (INBOX 205) ---
    Reported: "the '?' tooltip dropdown in the popup agent shows behind the
@@ -2580,9 +2584,7 @@ li:focus-within > .entry-meta .entry-actions > button.ghost,
    splash (3000), neither of which can be open at the same time as a '?'.
    A dialog added above 2500 must raise this with it, which is why the numbers
    above are named rather than left to be rediscovered. */
-.help-popover {
-  z-index: 2500;
-}
+/* (z-index 2500 is in the rule above: the tier, as explained here.) */
 /* The help page's Ask Atlas row follows the topics accordion directly; the
    accordion's last row carries no bottom margin, so the two touched (INBOX
    235: "there is no gap between the atlas section and the faq dropdowns"). */
@@ -5178,7 +5180,6 @@ body .chip.item-label,
    measures perches in those px. */
 #nm-buddy {
   --nmb-lean: 0;
-  --nmb-sway: 0;
   --nmb-edge: 72px;
   --nmb-ex: 0;
   --nmb-ey: 0;
@@ -5866,14 +5867,12 @@ body .chip.item-label,
 #nm-buddy[data-turn="l"] .nm-char .nm-buddy-head { translate: -3.5px 0; }
 #nm-buddy[data-turn="r"] .nm-char .nm-buddy-head { translate: 3.5px 0; }
 #nm-buddy[data-turn] .nm-figure { transform: scaleX(0.95); }
-/* Carried: it swings against the pull (`--nmb-sway`, from the drag's
+/* Carried: it swings against the pull (`nameMarkBuddySway`, from the drag's
    speed) and its eyes go wide. */
 #nm-buddy.nm-buddy-dragging .nm-figure {
   transform-origin: 50% 0;
-  rotate: calc(var(--nmb-sway) * 0.4deg);
 }
 #nm-buddy.nm-buddy-dragging .nmb-leg {
-  rotate: calc(var(--nmb-sway) * 1deg);
   transition: rotate var(--motion-slow) var(--ease-out);
 }
 #nm-buddy.nm-buddy-dragging .name-mark .nm-eyes {
@@ -8847,7 +8846,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 /* No companion while the app is locked (the owner: "the avatar shows even
    when the app is on the lock screen. it should only show when the app is
    unlocked"). */
-body:has(#lock-overlay:not(.hidden)) #nm-buddy {
+#nm-buddy[data-cover="lock"] {
   display: none;
 }
 /* The greeting persona's face beside its picker. */
@@ -9247,7 +9246,7 @@ h3.wb-sidebar-title {
    transitions drive its movement and must not be overridden. Not when the
    dialog is its own large view, which it has come into (INBOX 443,
    avatars.js `nameMarkBuddyVisit`). */
-body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hidden)) #nm-buddy:not(.nm-viewer-figure > *) {
+#nm-buddy[data-cover]:not(.nm-viewer-figure > *) {
   opacity: 0;
   pointer-events: none;
 }
@@ -9745,13 +9744,44 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   opacity: 0;
   visibility: hidden;
 }
-/* Chat's empty card waits unseen for its starters, then fades in whole
-   (`renderChatEmptyState`, chat.js): it used to grow round them in view. */
-.chat-empty {
-  transition: opacity var(--ui-base) var(--ease-out);
+/* Chat's empty card is drawn at once, the mark and the heading with it
+   (`renderChatEmptyState`, chat.js). The starters' room is held by skeleton
+   pills in `#chat-suggest` itself, so the box has its own padding, gap and
+   height and nothing moves when the real ones replace them (`clearSkeletons`
+   settles them in, staggered). The first piece stands for the "Try asking"
+   line, a full row of its own; a phone hides that line, so it hides too. */
+.chat-empty-waiting #chat-suggest > .skeleton {
+  flex: 0 0 auto;
+  width: 9rem;
+  height: var(--target-min);
+  margin: 0;
+  border-radius: var(--radius-md);
 }
-.chat-empty.chat-empty-waiting {
-  opacity: 0;
+.chat-empty-waiting #chat-suggest > .skeleton:nth-child(3) {
+  width: 11rem;
+}
+.chat-empty-waiting #chat-suggest > .skeleton::before,
+.chat-empty-waiting #chat-suggest > .skeleton::after {
+  display: none;
+}
+.chat-empty-waiting #chat-suggest > .skeleton:first-child {
+  flex: 1 0 100%;
+  height: 1.38rem;
+  border: 0;
+  background: none;
+  animation: none;
+}
+.chat-empty-waiting #chat-suggest > .skeleton:first-child::before {
+  display: block;
+  inset-inline-start: calc(50% - 3.5rem);
+  top: 0.35rem;
+  width: 7rem;
+  height: 0.7rem;
+}
+@media (max-width: 599.98px) {
+  .chat-empty-waiting #chat-suggest > .skeleton:first-child {
+    display: none;
+  }
 }
 /* --- motion: a popup arrives, and leaves the way it came (INBOX 580, 2026-10-05)
    Every dialog opened between two frames: Settings, the palette, Find

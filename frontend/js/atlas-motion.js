@@ -248,8 +248,16 @@ function atlasRigFrame(rig, now) {
   //: layer. A change of pose is drawn every frame; it is over in half a second.
   rig.tick = (rig.tick || 0) + 1;
   const write = !walking || rig.tick % 2 === 0;
-  for (const arm of rig.arms) {
-    const got = atlasRigRead(arm);
+  //: **Every read before any write.** Each arm used to read its probe, then
+  //: write its transform, so the next arm's read (and the head's) forced the
+  //: page to restyle again, three or four times a frame on top of the
+  //: flight's own writes (a thrown Atlas at 4x CPU: 5 frames a second, 0.9 s
+  //: of 5 s in `atlasRigRead` alone). Read once, up front, from one clean
+  //: style; the writes follow and the browser restyles once.
+  const reads = rig.arms.map((arm) => ({ ...atlasRigRead(arm), anim: live && arm.probe.getAnimations().length > 0 }));
+  const turnMatrix = rig.pose && rig.heads.length ? /matrix\(([^)]+)\)/.exec(getComputedStyle(rig.pose).transform) : null;
+  for (const [i, arm] of rig.arms.entries()) {
+    const got = reads[i];
     //: Unwrap the angle against the last target so a turn past 180
     //: degrees does not spin the long way round.
     const prev = arm.hist.length ? arm.hist[arm.hist.length - 1][1] : got.ang;
@@ -296,7 +304,7 @@ function atlasRigFrame(rig, now) {
     for (const k of ["sh", "el", "wr"]) if (Math.abs(j[k].x - j[k].t) > 0.15 || Math.abs(j[k].v) > 3) moving = true;
     if (!moving && live) for (const k of ["sh", "el", "wr", "sy"]) Object.assign(j[k], { x: j[k].t, v: 0 });
     if (moving) busy = true;
-    if (live && (arm.probe.getAnimations().length || (arm.antic && now < arm.antic.until))) busy = true;
+    if (live && (got.anim || (arm.antic && now < arm.antic.until))) busy = true;
     const t = `rotate(${atlasFix(j.sh.x)}deg)${Math.abs(j.sy.x - 1) > 0.002 ? ` scale(1, ${j.sy.x.toFixed(3)})` : ""}`;
     if (write && t !== arm.shown) {
       for (const g of arm.groups) g.style.setProperty("transform", t, "important");
@@ -315,7 +323,7 @@ function atlasRigFrame(rig, now) {
   //: The head steadies itself: the body's turn (its pose group's), lagged
   //: by a spring, less the turn itself, is how far the head is left behind.
   if (rig.pose && rig.heads.length) {
-    const m = /matrix\(([^)]+)\)/.exec(getComputedStyle(rig.pose).transform);
+    const m = turnMatrix;
     const turn = m ? (Math.atan2(+m[1].split(",")[1], +m[1].split(",")[0]) * 180) / Math.PI : 0;
     if (live) atlasRigSpring(rig.lag, turn, dt, 0.9);
     else Object.assign(rig.lag, { x: turn, v: 0, t: turn });

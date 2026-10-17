@@ -568,6 +568,31 @@ async function editorInsertBoardObject(textarea) {
 // "specialised boxes and frames", which is nobody's idea of the word
 // "callout", and a menu you can only search by its internal vocabulary is a
 // menu you have to already know.
+//: **One row a command** (O6; `ai/slash.py`'s registry, `GET /chat/commands`),
+//: so this menu, `/help` and the route cannot drift (tests/test_slash.py).
+//: The list is fetched once, on the first "/"; until it arrives, or offline,
+//: one row sends `/help`. A command that takes words fills the box with its
+//: name and waits for them; one that takes none runs.
+const chatSlash = { list: null };
+function chatSlashRows(afterPress) {
+  if (chatSlash.list === null) {
+    chatSlash.list = [];
+    apiJson("/chat/commands").then((r) => { chatSlash.list = r.commands || []; if (editorMenuState.trigger) editorRefreshMenu(); }).catch(() => { chatSlash.list = null; });
+  }
+  if (!chatSlash.list.length) {
+    return [{ id: "chat-commands", group: "Commands", icon: "ph:terminal", label: "Commands", hint: "exact answers, no AI", keywords: ["command", "slash", "help"], run: afterPress(() => sendChatMessage("/help")) }];
+  }
+  const fill = (name) => {
+    const box = $("chat-input");
+    box.value = `/${name} `;
+    box.focus();
+  };
+  return chatSlash.list.map((c) => ({
+    id: `chat-cmd-${c.name}`, group: "Commands", icon: "ph:terminal", label: c.usage, hint: c.summary.replace(/\.$/, ""), keywords: [c.name, "command", "slash"],
+    run: afterPress(() => (/[[<]/.test(c.usage) ? fill(c.name) : sendChatMessage(`/${c.name}`))),
+  }));
+}
+
 //: **What "/" offers in the chat box.** Not the note commands: a callout box
 //: or a template pasted into a question is nobody's intent, and the document
 //: AI actions have nowhere to run here. Each of these presses a control the
@@ -622,6 +647,7 @@ function chatCommands() {
     { id: "chat-web", primary: true, group: "This message", icon: "ph:globe", label: "Web search", hint: "toggle", keywords: ["web", "search", "online", "internet"], run: press("web-search-toggle") },
     { id: "chat-plan", primary: true, group: "This message", icon: "ph:compass", label: "Plan first", hint: "toggle", keywords: ["plan", "steps", "think"], run: press("chat-plan") },
     { id: "chat-skills", primary: true, group: "This message", icon: "ph:lightning", label: "Skills", hint: "run a saved skill", keywords: ["skill", "skills", "run", "workflow"], run: press("chat-skills-btn") },
+    ...chatSlashRows(afterPress),
     { id: "chat-mode-agent", group: "Mode", icon: "ph:strategy", label: "Agent mode", hint: "let it act on the notebook", keywords: ["agent", "mode", "tools", "act"], run: mode("agent") },
     { id: "chat-mode-chat", group: "Mode", icon: "ph:sparkle", label: "Ask mode", hint: "answer only", keywords: ["ask", "chat", "mode", "answer"], run: mode("chat") },
   ];

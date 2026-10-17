@@ -96,6 +96,10 @@ CSS_FILES = [
     CSS_DIR / "quick-access-lazy.css",
     #: Files dragged in from outside the window (settings-wiring.js's dragenter stub).
     CSS_DIR / "file-drop-lazy.css",
+    #: The no-model notice's split button (offline-split.js loads it, INBOX 904 B05).
+    CSS_DIR / "offline-split-lazy.css",
+    #: The Settings listeners' additions: the theme cards' eye (settings-controls.js).
+    CSS_DIR / "settings-controls-lazy.css",
 ]
 
 

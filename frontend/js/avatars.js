@@ -6112,6 +6112,17 @@ function nameMarkBuddyWorld(tab) {
   return { left: 0, right: innerWidth - NMB_W, top: roof, floor: base - NMB_FEET + 1, ledges };
 }
 
+//: Its lean against a pull or a throw (degrees at the legs), written on the
+//: figure and the legs, the only elements that read `--nmb-sway` (the CSS
+//: registers it non-inheriting). Written on `#nm-buddy` it restyled every
+//: descendant each frame: 53 to 140 elements, 7 to 15 ms, measured.
+function nameMarkBuddySway(buddy, sway) {
+  const v = sway.toFixed(1);
+  if (nmb.sway === v) return;
+  nmb.sway = v;
+  for (const el of buddy.querySelectorAll(".nm-figure, .nmb-leg")) el.style.setProperty("--nmb-sway", v);
+}
+
 //: Let go at `vx`, `vy` (px per ms): the flight, one frame at a time on
 //: transforms only, then its place. Reduce motion: the same flight worked
 //: out at once and a crossfade to where it comes down.
@@ -6139,7 +6150,7 @@ function nameMarkBuddyThrow(buddy, vx, vy) {
       if (nmb.flight !== flight) return;
       nmb.flight = null;
       buddy.classList.remove("nm-buddy-dragging");
-      buddy.style.setProperty("--nmb-sway", "0");
+      nameMarkBuddySway(buddy, 0);
       if (!char) return;
       //: Stopped while still turned (the cap, a grab): eased upright, the
       //: short way, never snapped.
@@ -6163,7 +6174,7 @@ function nameMarkBuddyThrow(buddy, vx, vy) {
     }
     nameMarkBuddyPut(buddy, Math.round(s.x), Math.round(s.y));
     if (char) char.style.rotate = `${s.rot.toFixed(1)}deg`;
-    buddy.style.setProperty("--nmb-sway", Math.max(-28, Math.min(28, -s.vx * 10)).toFixed(1));
+    nameMarkBuddySway(buddy, Math.max(-28, Math.min(28, -s.vx * 10)));
     if (hit > 0.5 && char && typeof char.animate === "function") {
       //: Squashed by how hard it came down.
       const a = Math.min(0.22, hit * 0.09);
@@ -6499,6 +6510,29 @@ function nameMarkBuddyLockSync() {
   const band = document.getElementById("nm-buddy-band");
   const lock = document.getElementById("lock-overlay");
   if (band) band.style.display = lock && !lock.classList.contains("hidden") && lock.dataset.mode !== "prompt" ? "none" : "";
+}
+//: **Out of the way of a modal or the lock screen**: the companion fades and
+//: stops taking the pointer (`data-cover`, read by the CSS). This was
+//: `body:has(dialog[open]:modal, ...) #nm-buddy`, which the browser matched
+//: against the whole document on every restyle of the companion, so each
+//: frame of a drag or a throw paid 4.7 ms of a 16.7 ms frame for it (0.2 ms
+//: without). Checked once a frame at most, and only when a dialog, overlay
+//: or lock screen was added, removed, opened or hidden.
+const NMB_COVER_SEL = "dialog, .modal-overlay, .lock-overlay";
+function nameMarkBuddyCoverCheck() {
+  nmb.coverFrame = 0;
+  const buddy = document.getElementById("nm-buddy");
+  if (!buddy) return;
+  const lock = document.querySelector("#lock-overlay:not(.hidden)");
+  const cover = lock ? "lock" : document.querySelector("dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hidden)") ? "modal" : "";
+  if ((buddy.dataset.cover || "") === cover) return;
+  if (cover) buddy.dataset.cover = cover;
+  else delete buddy.dataset.cover;
+}
+function nameMarkBuddyCoverWatch(records) {
+  const hit = (n) => n.nodeType === 1 && (n.matches(NMB_COVER_SEL) || !!n.querySelector(NMB_COVER_SEL));
+  const touched = records.some((m) => (m.type === "attributes" ? m.target.matches(NMB_COVER_SEL) : [...m.addedNodes, ...m.removedNodes].some(hit)));
+  if (touched && !nmb.coverFrame) nmb.coverFrame = requestAnimationFrame(nameMarkBuddyCoverCheck);
 }
 //: `typeof MutationObserver`: tests/test_atlas_shape.py loads this file in a node vm with a bare `document`.
 if (typeof MutationObserver === "function" && document.getElementById("lock-overlay")) {
@@ -9147,6 +9181,12 @@ function nameMarkBuddyBuild() {
   nameMarkBuddyLockSync();
   nameMarkBuddySetSize(nameMarkBuddyScaleSaved(), false);
   nameMarkBuddyToggles(buddy);
+  if (typeof MutationObserver === "function") {
+    nmb.coverObserver?.disconnect();
+    nmb.coverObserver = new MutationObserver(nameMarkBuddyCoverWatch);
+    nmb.coverObserver.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ["class", "open"] });
+  }
+  nameMarkBuddyCoverCheck();
   if (typeof IntersectionObserver === "function") {
     nmb.seenObserver?.disconnect();
     nmb.seenObserver = new IntersectionObserver((entries) => nameMarkBuddySeen(entries[entries.length - 1].isIntersecting), { threshold: 0 });
@@ -9170,10 +9210,12 @@ function nameMarkBuddyBuild() {
     const vx = drag.x - (drag.lastX ?? drag.x);
     drag.lastX = drag.x;
     const sway = Math.max(-28, Math.min(28, -vx * 1.4));
-    buddy.style.setProperty("--nmb-sway", sway.toFixed(1));
-    if (Math.abs(vx) > 1) buddy.dataset.turn = vx < 0 ? "l" : "r";
+    nameMarkBuddySway(buddy, sway);
+    //: Only on a change: a same-value attribute write still dirties its style.
+    const turn = vx < 0 ? "l" : "r";
+    if (Math.abs(vx) > 1 && buddy.dataset.turn !== turn) buddy.dataset.turn = turn;
     clearTimeout(drag.settle);
-    drag.settle = setTimeout(() => buddy.style.setProperty("--nmb-sway", "0"), 120);
+    drag.settle = setTimeout(() => nameMarkBuddySway(buddy, 0), 120);
   };
   face.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 || nmb.visit) return;
@@ -9192,7 +9234,10 @@ function nameMarkBuddyBuild() {
     drag.x = event.clientX;
     drag.y = event.clientY;
     //: The pull's last moves, for the speed it is let go at.
-    const t = performance.now();
+    //: The input's own time, not when this ran: on a busy main thread the
+    //: handler runs late, and a late stamp read the pull as having stopped
+    //: (a throw let go at speed came down as a plain drop at 4x CPU).
+    const t = event.timeStamp;
     (drag.samples ||= []).push([event.clientX, event.clientY, t]);
     while (drag.samples.length > 2 && t - drag.samples[0][2] > 160) drag.samples.shift();
     //: A click wobbles a pixel or two; only a real pull is a drag.
@@ -9229,7 +9274,7 @@ function nameMarkBuddyBuild() {
     }
     if (!dragFrame) dragFrame = requestAnimationFrame(follow);
   });
-  const release = () => {
+  const release = (event) => {
     if (drag?.flipped) nameMarkBuddyFlip(buddy, false);
     if (drag?.moved) {
       cancelAnimationFrame(dragFrame);
@@ -9239,12 +9284,12 @@ function nameMarkBuddyBuild() {
       buddy.style.translate = "";
       buddy.classList.remove("nm-buddy-dragging");
       clearTimeout(drag.settle);
-      buddy.style.setProperty("--nmb-sway", "0");
+      nameMarkBuddySway(buddy, 0);
       delete buddy.dataset.turn;
       nameMarkBuddyPut(buddy, Math.round(box.left), Math.round(box.top));
       //: **Thrown** (INBOX 882): let go while still moving fast, it flies
       //: (`nameMarkBuddyThrow`).
-      const v = nameMarkBuddyReleaseVelocity(drag.samples || [], performance.now());
+      const v = nameMarkBuddyReleaseVelocity(drag.samples || [], event?.timeStamp ?? performance.now());
       if (v && Math.hypot(v[0], v[1]) > NMB_TOSS_SPEED) {
         nameMarkBuddyThrow(buddy, v[0], v[1]);
         face.dataset.dragged = "1";

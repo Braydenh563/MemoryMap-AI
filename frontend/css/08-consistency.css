@@ -5180,7 +5180,6 @@ body .chip.item-label,
    measures perches in those px. */
 #nm-buddy {
   --nmb-lean: 0;
-  --nmb-sway: 0;
   --nmb-edge: 72px;
   --nmb-ex: 0;
   --nmb-ey: 0;
@@ -6010,6 +6009,8 @@ body .chip.item-label,
    (6 recalcs in 2s became 105). A new reader needs its own link. */
 @property --nmb-tilt { syntax: "<number>"; inherits: false; initial-value: 0; }
 @property --nmb-lean { syntax: "<number>"; inherits: false; initial-value: 0; }
+/* The lean against a pull: written on the figure and the legs only (`nameMarkBuddySway`), so it never restyles the rest. */
+@property --nmb-sway { syntax: "<number>"; inherits: false; initial-value: 0; }
 #nm-buddy :is(.nm-buddy-face, .nm-buddy-char) { --nmb-tilt: inherit; --nmb-lean: inherit; }
 #nm-buddy.nmb-duck .nm-buddy-char { transform: translateY(10px); }
 /* Tucked behind the bottom bar (the last resort in a small window): only
@@ -8849,7 +8850,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 /* No companion while the app is locked (the owner: "the avatar shows even
    when the app is on the lock screen. it should only show when the app is
    unlocked"). */
-body:has(#lock-overlay:not(.hidden)) #nm-buddy {
+#nm-buddy[data-cover="lock"] {
   display: none;
 }
 /* The greeting persona's face beside its picker. */
@@ -9249,7 +9250,7 @@ h3.wb-sidebar-title {
    transitions drive its movement and must not be overridden. Not when the
    dialog is its own large view, which it has come into (INBOX 443,
    avatars.js `nameMarkBuddyVisit`). */
-body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hidden)) #nm-buddy:not(.nm-viewer-figure > *) {
+#nm-buddy[data-cover]:not(.nm-viewer-figure > *) {
   opacity: 0;
   pointer-events: none;
 }

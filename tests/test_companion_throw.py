@@ -120,7 +120,7 @@ def test_it_comes_down_on_a_ledge_under_its_path_and_never_through_one() -> None
 
 def test_the_flight_is_one_frame_loop_on_transforms_and_lands_as_a_drop() -> None:
     build = AV[AV.index("function nameMarkBuddyBuild(") :]
-    assert "nameMarkBuddyReleaseVelocity(drag.samples || [], performance.now())" in build
+    assert "nameMarkBuddyReleaseVelocity(drag.samples || [], event?.timeStamp ?? performance.now())" in build
     assert "nameMarkBuddyThrow(buddy, v[0], v[1]);" in build
     throw = _fn("nameMarkBuddyThrow")
     # One requestAnimationFrame, its step capped so a hidden tab resumes in

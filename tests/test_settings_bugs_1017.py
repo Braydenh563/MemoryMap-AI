@@ -76,3 +76,45 @@ def test_b56_every_auto_choice_says_what_it_resolved_to():
 def test_b56_status_says_whether_the_chat_model_reads_as_small(client):
     body = client.get("/models/status").json()
     assert "chat_model_small" in body
+
+
+def _run_node(script: str) -> str:
+    import shutil
+    import subprocess
+
+    import pytest
+
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed")
+    done = subprocess.run([node, "-e", script], capture_output=True, text=True, timeout=60, check=True)
+    return done.stdout.strip()
+
+
+def _js_function(path: str, name: str) -> str:
+    src = (ROOT / "frontend" / "js" / path).read_text(encoding="utf-8")
+    start = src.index(f"function {name}(")
+    return src[start : src.index("\n}\n", start) + 3]
+
+
+# B57: pick an accent, then "Default": the app wore #4664f0 (the swatch's
+# fallback hex) as an inline --accent instead of the palette's own (#2f5bd3 on
+# the sandbox's palette, probe p/b57.js). "indigo" is the stored name of
+# "Default", which means no accent at all, so nothing may be set inline.
+def test_b57_default_accent_sets_no_inline_colour():
+    import json
+
+    src = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
+    accents = src[src.index("const ACCENTS = [") : src.index("];", src.index("const ACCENTS = [")) + 2]
+    script = (
+        accents
+        + "\nconst store = { accent: 'indigo' };"
+        + "\nconst prefs = { get: (k, d) => (k in store ? store[k] : d) };"
+        + "\nconst calls = [];"
+        + "\nfunction applyCustomAccent(hex) { calls.push(hex); }"
+        + "\nconst document = { documentElement: { dataset: {} } };\n"
+        + _js_function("settings.js", "applyEffectiveAccent")
+        + "\napplyEffectiveAccent();"
+        + "\nconsole.log(JSON.stringify({ calls, data: document.documentElement.dataset.accent || null }));\n"
+    )
+    assert json.loads(_run_node(script)) == {"calls": [None], "data": None}

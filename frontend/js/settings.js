@@ -1359,8 +1359,11 @@ function applyEffectiveAccent() {
   const custom = prefs.get("accent-custom", null);
   // Only a *stored* accent is a deliberate choice; a theme never sets one.
   const chosen = prefs.get("accent", null);
-  const preset = chosen ? ACCENTS.find((a) => a.name === chosen) : null;
-  if (preset && preset.name !== "indigo") root.dataset.accent = preset.name;
+  //: "indigo" is the stored name of Default, which is no accent: the palette's
+  //: own shows (B57: picking Default after a colour painted the swatch's
+  //: fallback #4664f0 inline over every palette).
+  const preset = chosen && chosen !== "indigo" ? ACCENTS.find((a) => a.name === chosen) : null;
+  if (preset) root.dataset.accent = preset.name;
   else delete root.dataset.accent;
   if (custom) return applyCustomAccent(custom); // a picked hex wins outright
   applyCustomAccent(preset ? preset.swatch : null);

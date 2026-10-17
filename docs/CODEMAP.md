@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5895, frontend ids 2496, CSS sections 494, backend routes 604, backend modules 5507, test files 1191, tests 10931, plan headings 956.
+Counts: frontend functions 5895, frontend ids 2496, CSS sections 494, backend routes 605, backend modules 5525, test files 1192, tests 10937, plan headings 956.
 
 ## Frontend functions (5895)
 
@@ -1762,77 +1762,77 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `askAboutSelection` | frontend/js/editor.js:2063 |
+| `askAboutSelection` | frontend/js/editor.js:2066 |
 | `calloutHint` | frontend/js/editor.js:347 |
 | `calloutKindOf` | frontend/js/editor.js:285 |
 | `calloutRewriteHead` | frontend/js/editor.js:299 |
 | `chatCommands` | frontend/js/editor.js:577 |
 | `editorApplyAction` | frontend/js/editor.js:451 |
 | `editorApplyNamed` | frontend/js/editor.js:509 |
-| `editorBackOverTrail` | frontend/js/editor.js:900 |
-| `editorBlock` | frontend/js/editor.js:760 |
-| `editorBlockRows` | frontend/js/editor.js:801 |
-| `editorCaretPoint` | frontend/js/editor.js:1020 |
-| `editorChoiceDialog` | frontend/js/editor.js:2087 |
-| `editorCloseMenu` | frontend/js/editor.js:1061 |
-| `editorCodeLanguageRows` | frontend/js/editor.js:789 |
-| `editorCommands` | frontend/js/editor.js:913 |
+| `editorBackOverTrail` | frontend/js/editor.js:903 |
+| `editorBlock` | frontend/js/editor.js:763 |
+| `editorBlockRows` | frontend/js/editor.js:804 |
+| `editorCaretPoint` | frontend/js/editor.js:1023 |
+| `editorChoiceDialog` | frontend/js/editor.js:2090 |
+| `editorCloseMenu` | frontend/js/editor.js:1064 |
+| `editorCodeLanguageRows` | frontend/js/editor.js:792 |
+| `editorCommands` | frontend/js/editor.js:916 |
 | `editorEnsureSurfaceModule` | frontend/js/editor.js:129 |
-| `editorFinishFence` | frontend/js/editor.js:1078 |
+| `editorFinishFence` | frontend/js/editor.js:1081 |
 | `editorFuzzyMatch` | frontend/js/editor.js:307 |
 | `editorFuzzyRank` | frontend/js/editor.js:327 |
-| `editorGroupStarts` | frontend/js/editor.js:1446 |
-| `editorHandleInput` | frontend/js/editor.js:1591 |
+| `editorGroupStarts` | frontend/js/editor.js:1449 |
+| `editorHandleInput` | frontend/js/editor.js:1594 |
 | `editorHintAllPlaceholders` | frontend/js/editor.js:216 |
 | `editorHintPlaceholder` | frontend/js/editor.js:190 |
 | `editorInsertBlock` | frontend/js/editor.js:525 |
 | `editorInsertBoardObject` | frontend/js/editor.js:555 |
 | `editorInsertBookmarkLink` | frontend/js/editor.js:542 |
-| `editorLinkMatches` | frontend/js/editor.js:1125 |
-| `editorLoadFiles` | frontend/js/editor.js:1248 |
-| `editorMenuIcon` | frontend/js/editor.js:1288 |
-| `editorMenuList` | frontend/js/editor.js:1293 |
-| `editorNextGroupStart` | frontend/js/editor.js:1456 |
+| `editorLinkMatches` | frontend/js/editor.js:1128 |
+| `editorLoadFiles` | frontend/js/editor.js:1251 |
+| `editorMenuIcon` | frontend/js/editor.js:1291 |
+| `editorMenuList` | frontend/js/editor.js:1296 |
+| `editorNextGroupStart` | frontend/js/editor.js:1459 |
 | `editorNotifyHost` | frontend/js/editor.js:373 |
-| `editorOpenMenu` | frontend/js/editor.js:1512 |
+| `editorOpenMenu` | frontend/js/editor.js:1515 |
 | `editorOpenMenuByShortcut` | frontend/js/editor.js:173 |
 | `editorPickGlyph` | frontend/js/editor.js:432 |
-| `editorPositionMenu` | frontend/js/editor.js:1034 |
-| `editorRankCommands` | frontend/js/editor.js:1118 |
-| `editorRecentIds` | frontend/js/editor.js:733 |
-| `editorRefreshMenu` | frontend/js/editor.js:1526 |
-| `editorRememberBlock` | frontend/js/editor.js:742 |
-| `editorRenderMenu` | frontend/js/editor.js:1297 |
-| `editorRenderPreview` | frontend/js/editor.js:1367 |
-| `editorRevealRow` | frontend/js/editor.js:1423 |
-| `editorRunItem` | frontend/js/editor.js:1468 |
-| `editorSetActive` | frontend/js/editor.js:1403 |
+| `editorPositionMenu` | frontend/js/editor.js:1037 |
+| `editorRankCommands` | frontend/js/editor.js:1121 |
+| `editorRecentIds` | frontend/js/editor.js:736 |
+| `editorRefreshMenu` | frontend/js/editor.js:1529 |
+| `editorRememberBlock` | frontend/js/editor.js:745 |
+| `editorRenderMenu` | frontend/js/editor.js:1300 |
+| `editorRenderPreview` | frontend/js/editor.js:1370 |
+| `editorRevealRow` | frontend/js/editor.js:1426 |
+| `editorRunItem` | frontend/js/editor.js:1471 |
+| `editorSetActive` | frontend/js/editor.js:1406 |
 | `editorSplice` | frontend/js/editor.js:398 |
 | `editorSurfaceFor` | frontend/js/editor.js:105 |
 | `editorSurfaceKind` | frontend/js/editor.js:72 |
-| `editorTokenAt` | frontend/js/editor.js:1094 |
-| `inlineAiAvailable` | frontend/js/editor.js:2483 |
-| `inlineAiClose` | frontend/js/editor.js:2522 |
-| `inlineAiDescribeScope` | frontend/js/editor.js:2425 |
-| `inlineAiElement` | frontend/js/editor.js:2319 |
-| `inlineAiIsCode` | frontend/js/editor.js:2446 |
-| `inlineAiOpen` | frontend/js/editor.js:2488 |
-| `inlineAiPosition` | frontend/js/editor.js:2404 |
-| `inlineAiRetry` | frontend/js/editor.js:2544 |
-| `inlineAiSubmit` | frontend/js/editor.js:2555 |
-| `inlineAiSyncModel` | frontend/js/editor.js:2454 |
-| `inlineAiUndo` | frontend/js/editor.js:2535 |
-| `isEditorSurface` | frontend/js/editor.js:1965 |
-| `offerToCreateWikiTarget` | frontend/js/editor.js:2152 |
+| `editorTokenAt` | frontend/js/editor.js:1097 |
+| `inlineAiAvailable` | frontend/js/editor.js:2486 |
+| `inlineAiClose` | frontend/js/editor.js:2525 |
+| `inlineAiDescribeScope` | frontend/js/editor.js:2428 |
+| `inlineAiElement` | frontend/js/editor.js:2322 |
+| `inlineAiIsCode` | frontend/js/editor.js:2449 |
+| `inlineAiOpen` | frontend/js/editor.js:2491 |
+| `inlineAiPosition` | frontend/js/editor.js:2407 |
+| `inlineAiRetry` | frontend/js/editor.js:2547 |
+| `inlineAiSubmit` | frontend/js/editor.js:2558 |
+| `inlineAiSyncModel` | frontend/js/editor.js:2457 |
+| `inlineAiUndo` | frontend/js/editor.js:2538 |
+| `isEditorSurface` | frontend/js/editor.js:1968 |
+| `offerToCreateWikiTarget` | frontend/js/editor.js:2155 |
 | `pickIconOrEmoji` | frontend/js/editor.js:424 |
-| `selectionBarElement` | frontend/js/editor.js:1804 |
-| `selectionBarHide` | frontend/js/editor.js:1875 |
-| `selectionBarShow` | frontend/js/editor.js:1880 |
-| `selectionBarSync` | frontend/js/editor.js:1969 |
-| `selectionContextFrom` | frontend/js/editor.js:2011 |
-| `selectionContextSource` | frontend/js/editor.js:2044 |
-| `selectionOffsets` | frontend/js/editor.js:2021 |
-| `skillCommands` | frontend/js/editor.js:645 |
+| `selectionBarElement` | frontend/js/editor.js:1807 |
+| `selectionBarHide` | frontend/js/editor.js:1878 |
+| `selectionBarShow` | frontend/js/editor.js:1883 |
+| `selectionBarSync` | frontend/js/editor.js:1972 |
+| `selectionContextFrom` | frontend/js/editor.js:2014 |
+| `selectionContextSource` | frontend/js/editor.js:2047 |
+| `selectionOffsets` | frontend/js/editor.js:2024 |
+| `skillCommands` | frontend/js/editor.js:648 |
 
 ### frontend/js/dashboard.js (140)
 
@@ -9747,7 +9747,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/usage-lazy.css | 34 |
 | frontend/css/utilities-lazy.css | 116 |
 
-## Backend routes (604)
+## Backend routes (605)
 
 `@router.<method>(`, `@<name>_router.<method>(` and `@app.<method>(` decorators in `src/tessellate/api/*.py`, sorted by path. The line is the decorator's.
 
@@ -9857,9 +9857,10 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/code-snippets/{snippet_id}` | PUT | `update_snippet` | src/tessellate/api/routes_code_snippets.py:105 |
 | `/command` | GET | `capture_command` | src/tessellate/api/routes_usage.py:46 |
 | `/command/run` | POST | `run_command` | src/tessellate/api/routes_chat.py:2820 |
+| `/commands` | GET | `list_commands` | src/tessellate/api/routes_chat.py:3539 |
 | `/compose` | POST | `compose_draft` | src/tessellate/api/routes_drafts.py:75 |
 | `/compose/stream` | POST | `compose_draft_stream` | src/tessellate/api/routes_drafts.py:110 |
-| `/compress` | POST | `compress_history` | src/tessellate/api/routes_chat.py:3578 |
+| `/compress` | POST | `compress_history` | src/tessellate/api/routes_chat.py:3612 |
 | `/compute` | POST | `compute` | src/tessellate/api/routes_resurface.py:85 |
 | `/confirm` | POST | `confirm_insight` | src/tessellate/api/routes_insights.py:426 |
 | `/contents` | GET | `read_contents` | src/tessellate/api/routes_documents.py:507 |
@@ -10058,7 +10059,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/merges/accept` | POST | `accept_merge` | src/tessellate/api/routes_inbox.py:143 |
 | `/merges/dismiss` | POST | `dismiss_merge` | src/tessellate/api/routes_inbox.py:157 |
 | `/merges/{undo_id}/undo` | POST | `undo_merge_route` | src/tessellate/api/routes_entities.py:227 |
-| `/modes` | GET | `list_modes` | src/tessellate/api/routes_chat.py:3514 |
+| `/modes` | GET | `list_modes` | src/tessellate/api/routes_chat.py:3548 |
 | `/most-accessed` | GET | `most_accessed` | src/tessellate/api/routes_entries.py:2477 |
 | `/most-opened` | GET | `most_opened` | src/tessellate/api/routes_vision.py:112 |
 | `/move` | POST | `move_notes` | src/tessellate/api/routes_categories.py:161 |
@@ -10212,8 +10213,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/tidy-proposals/dismiss` | POST | `dismiss_tidy` | src/tessellate/api/routes_vision.py:249 |
 | `/tidy-proposals/undismiss` | POST | `undismiss_tidy` | src/tessellate/api/routes_vision.py:261 |
 | `/title` | POST | `draft_title` | src/tessellate/api/routes_drafts.py:147 |
-| `/tools` | GET | `list_tools` | src/tessellate/api/routes_chat.py:3535 |
-| `/tools/execute` | POST | `execute_confirmed_tool` | src/tessellate/api/routes_chat.py:3617 |
+| `/tools` | GET | `list_tools` | src/tessellate/api/routes_chat.py:3569 |
+| `/tools/execute` | POST | `execute_confirmed_tool` | src/tessellate/api/routes_chat.py:3651 |
 | `/topics` | GET | `topics` | src/tessellate/api/routes_help.py:57 |
 | `/transcribe` | POST | `transcribe` | src/tessellate/api/routes_voice.py:94 |
 | `/transcribe-meeting` | POST | `transcribe_meeting` | src/tessellate/api/routes_voice.py:101 |
@@ -10358,7 +10359,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/tessellate/api/routes_ask_history.py:164 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/tessellate/api/run_sandbox.py:1592 |
 
-## Backend modules (5507)
+## Backend modules (5525)
 
 Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -12311,6 +12312,26 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `stored` | src/tessellate/ai/skills.py:1795 |
 | `verify_spec` | src/tessellate/ai/skills.py:269 |
 
+### src/tessellate/ai/slash.py (15)
+
+| Name | File:line |
+|---|---|
+| `Command` | src/tessellate/ai/slash.py:41 |
+| `_count` | src/tessellate/ai/slash.py:94 |
+| `_help` | src/tessellate/ai/slash.py:162 |
+| `_made` | src/tessellate/ai/slash.py:130 |
+| `_more` | src/tessellate/ai/slash.py:71 |
+| `_notes` | src/tessellate/ai/slash.py:64 |
+| `_recent` | src/tessellate/ai/slash.py:75 |
+| `_rows` | src/tessellate/ai/slash.py:49 |
+| `_tags_of` | src/tessellate/ai/slash.py:86 |
+| `_untagged` | src/tessellate/ai/slash.py:152 |
+| `_window` | src/tessellate/ai/slash.py:119 |
+| `answer` | src/tessellate/ai/slash.py:210 |
+| `catalogue` | src/tessellate/ai/slash.py:223 |
+| `infer` | src/tessellate/ai/slash.py:202 |
+| `parse` | src/tessellate/ai/slash.py:186 |
+
 ### src/tessellate/ai/source_check.py (5)
 
 | Name | File:line |
@@ -13442,7 +13463,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `set_category_colour` | src/tessellate/api/routes_categories.py:314 |
 | `split_category` | src/tessellate/api/routes_categories.py:184 |
 
-### src/tessellate/api/routes_chat.py (112)
+### src/tessellate/api/routes_chat.py (115)
 
 | Name | File:line |
 |---|---|
@@ -13450,16 +13471,17 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `ChatResponse` | src/tessellate/api/routes_chat.py:793 |
 | `ChatTurn` | src/tessellate/api/routes_chat.py:351 |
 | `CommandRunBody` | src/tessellate/api/routes_chat.py:2813 |
-| `CompressBody` | src/tessellate/api/routes_chat.py:3572 |
+| `CompressBody` | src/tessellate/api/routes_chat.py:3606 |
 | `FollowupBody` | src/tessellate/api/routes_chat.py:316 |
 | `PlanRun` | src/tessellate/api/routes_chat.py:360 |
 | `RememberBody` | src/tessellate/api/routes_chat.py:191 |
-| `ToolExecuteBody` | src/tessellate/api/routes_chat.py:3605 |
+| `ToolExecuteBody` | src/tessellate/api/routes_chat.py:3639 |
 | `_StreamRequest` | src/tessellate/api/routes_chat.py:1944 |
 | `_about` | src/tessellate/api/routes_chat.py:260 |
 | `_act_events` | src/tessellate/api/routes_chat.py:2742 |
 | `_address` | src/tessellate/api/routes_chat.py:3377 |
 | `_agent_events` | src/tessellate/api/routes_chat.py:2835 |
+| `_answer_lines` | src/tessellate/api/routes_chat.py:3514 |
 | `_answer_voice` | src/tessellate/api/routes_chat.py:1988 |
 | `_app_answers` | src/tessellate/api/routes_chat.py:2255 |
 | `_app_said` | src/tessellate/api/routes_chat.py:2356 |
@@ -13515,7 +13537,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `_plain_events` | src/tessellate/api/routes_chat.py:2431 |
 | `_prepare` | src/tessellate/api/routes_chat.py:1368 |
 | `_recent_questions` | src/tessellate/api/routes_chat.py:133 |
-| `_refuse_failed` | src/tessellate/api/routes_chat.py:3646 |
+| `_refuse_failed` | src/tessellate/api/routes_chat.py:3680 |
 | `_related_elsewhere` | src/tessellate/api/routes_chat.py:1854 |
 | `_reply_seed` | src/tessellate/api/routes_chat.py:2295 |
 | `_resolve_chat_images` | src/tessellate/api/routes_chat.py:624 |
@@ -13526,6 +13548,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `_run_title` | src/tessellate/api/routes_chat.py:3500 |
 | `_save_ask_turn` | src/tessellate/api/routes_chat.py:1804 |
 | `_searched_question` | src/tessellate/api/routes_chat.py:2984 |
+| `_slash_lines` | src/tessellate/api/routes_chat.py:3520 |
 | `_small_model_mode` | src/tessellate/api/routes_chat.py:717 |
 | `_social_reply` | src/tessellate/api/routes_chat.py:2305 |
 | `_spoken_act` | src/tessellate/api/routes_chat.py:2930 |
@@ -13549,11 +13572,12 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `chat` | src/tessellate/api/routes_chat.py:1683 |
 | `chat_followups` | src/tessellate/api/routes_chat.py:330 |
 | `chat_stream` | src/tessellate/api/routes_chat.py:3396 |
-| `compress_history` | src/tessellate/api/routes_chat.py:3579 |
-| `execute_confirmed_tool` | src/tessellate/api/routes_chat.py:3618 |
+| `compress_history` | src/tessellate/api/routes_chat.py:3613 |
+| `execute_confirmed_tool` | src/tessellate/api/routes_chat.py:3652 |
 | `forget_recent_question` | src/tessellate/api/routes_chat.py:184 |
-| `list_modes` | src/tessellate/api/routes_chat.py:3515 |
-| `list_tools` | src/tessellate/api/routes_chat.py:3536 |
+| `list_commands` | src/tessellate/api/routes_chat.py:3540 |
+| `list_modes` | src/tessellate/api/routes_chat.py:3549 |
+| `list_tools` | src/tessellate/api/routes_chat.py:3570 |
 | `recent_questions` | src/tessellate/api/routes_chat.py:178 |
 | `remember_recent_question` | src/tessellate/api/routes_chat.py:196 |
 | `run_command` | src/tessellate/api/routes_chat.py:2821 |
@@ -17334,7 +17358,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10931)
+## Tests (10937)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -18306,6 +18330,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_skill_run_undo.py | 5 |
 | tests/test_skills.py | 83 |
 | tests/test_skills_evals.py | 6 |
+| tests/test_slash.py | 6 |
 | tests/test_smooth_boot.py | 16 |
 | tests/test_source_check.py | 8 |
 | tests/test_space_delete_cascades.py | 1 |

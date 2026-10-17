@@ -1900,7 +1900,7 @@ HELP_TOPICS.extend(
                 "to your next question, and Ctrl+Shift+A opens the same agent over "
                 "any tab. Typing / in the box opens the chat menu: attach a note, a "
                 "document, a file or an image, upload one, Web search, "
-                "Plan first, Skills, "
+                "Plan first, Skills, Commands, "
                 "and Agent or Ask mode. The note button beside the box opens Attach: "
                 "a tab each for notes, documents, files, images and mind maps, with "
                 "a search; the arrows move, Space "

@@ -3472,7 +3472,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     # X-Accel-Buffering: no tells reverse proxies (nginx) not to buffer the
     # stream, so tokens reach the browser as they're produced.
     return StreamingResponse(
-        _interactive_lines(req),
+        _answer_lines(req),
         media_type="application/x-ndjson",
         headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )
@@ -3509,6 +3509,40 @@ def _run_title(req) -> str:  # noqa: ANN001
         return f"Running {name}" + (f": '{asked}'" if asked else "")
     agent = req.use_tools and not getattr(req.body, "notes_only", False)
     return f"{'Agent: ' if agent else 'Answering '}'{asked}'"
+
+
+def _answer_lines(req: _StreamRequest) -> Iterator[str]:
+    """The turn's stream: a slash command's exact lines, else the full turn."""
+    commanded = _slash_lines(req)
+    return iter(commanded) if commanded is not None else _interactive_lines(req)
+
+
+def _slash_lines(req: _StreamRequest) -> list[str] | None:
+    """**A slash command answers exactly, before any search** (O6,
+    `ai/slash.py`): the stream's lines for a typed `/command`, or for an
+    ordinary sentence that asks for one when no model answers ("which notes
+    have no tags"); None otherwise, and for a skill's run."""
+    from tessellate.ai import slash
+
+    if req.skill:
+        return None
+    typed_only = req.ollama.is_running() and not _composed(req, True)
+    said = slash.answer(req.session, req.body.question or "", user_now(deps.get_config()).replace(tzinfo=None), typed_only=typed_only)
+    if said is None:
+        return None
+    meta = {"type": "meta", "raw_results": [], "picture_alts": {}, "picture_sizes": {}, "search_mode": "command",
+            "connected_ids": [], "match_info": {}, "when_phrase": None, "as_of": None, "as_of_revisions": {},
+            "answered_by": None, "ollama_running": req.ollama.is_running(), "composed": True}
+    return [json.dumps(e) + "\n" for e in ({"type": "status", "stage": "searching"}, meta, {"type": "answer", "delta": said}, {"type": "done"})]
+
+
+@router.get("/commands")
+def list_commands() -> dict:
+    """The slash commands (`ai/slash.py`): what the Chat box's "/" menu
+    lists and `/help` says, from the one registry."""
+    from tessellate.ai import slash
+
+    return {"commands": slash.catalogue()}
 
 
 @router.get("/modes")

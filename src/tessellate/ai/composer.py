@@ -4036,7 +4036,7 @@ _EMPTY_WINDOW = {
         "You wrote nothing {when}.",
         "Nothing went into your notes {when}.",
         "No notes were written {when}.",
-        "I see no notes {when}.",
+        "I can't find a note written {when}.",
         "{When}, you wrote nothing down.",
         "There's nothing written {when}.",
         "Your notebook has nothing {when}.",

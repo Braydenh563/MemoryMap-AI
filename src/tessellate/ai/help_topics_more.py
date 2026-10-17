@@ -2104,7 +2104,7 @@ HELP_GROUPS: list[tuple[str, tuple[str, ...]]] = [
         "tags-categories", "filing", "suggested-tags", "tag-manager", "manage-categories", "tidy",
     )),
     ("Asking Atlas", (
-        "ask-chat", "answers-from-notes", "chat-controls", "chat-acts", "nicknames", "follow-up-trail", "why-this-answer", "line-verdicts", "answer-pictures", "time-and-recency", "notebook-questions",
+        "ask-chat", "answers-from-notes", "chat-controls", "slash-commands", "chat-acts", "nicknames", "follow-up-trail", "why-this-answer", "line-verdicts", "answer-pictures", "time-and-recency", "notebook-questions",
         "contradictions", "skills", "personas", "answer-style", "memory", "learned", "open-questions",
     )),
     ("Documents and code", (
@@ -2521,4 +2521,26 @@ MORE_TOPICS.append({
     ),
     "badge": {"label": "Dashboard", "tab": "dashboard"},
 })
+#: Slash commands (O6, `ai/slash.py`): the registry's own names, held to it by
+#: tests/test_slash.py.
+MORE_TOPICS.append({
+    "id": "slash-commands",
+    "keywords": (
+        "slash commands", "slash command", "commands", "/recent", "/count", "/made", "/untagged", "/help",
+        "exact answers", "chat commands", "type a command",
+    ),
+    "body": (
+        "Type a command in the chat box for an exact answer from your notes, "
+        "with no AI: /recent [n] lists your newest notes, /count [tag, category "
+        "or word] counts them, /made [day or span] lists what you wrote then "
+        "(\"/made last week\"), /untagged lists the notes with no tags, and "
+        "/help [command] says how to type one. Commands, in the / menu, lists "
+        "them all, and asking in plain words (\"which notes have no tags\") "
+        "runs the same command."
+    ),
+    "badge": {"label": "Chat", "tab": "chat"},
+})
+TOPIC_META["slash-commands"] = {"title": "Slash commands", "path": "Chat tab, type / in the box, Commands"}
+
+
 TOPIC_META["patterns"] = {"title": "Patterns", "path": "The dashboard's line under the greeting, and Notes, Tidy"}

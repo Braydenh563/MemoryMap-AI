@@ -118,7 +118,7 @@ _IDEAS_LEADS = (
 )
 
 _IDEAS_TAILS = {
-    "chat": "Typing / in the chat box opens its menu: attach a note or a file, web search, skills, and Agent or Ask mode.",
+    "chat": "Typing / in the chat box opens its menu: attach a note or a file, web search, skills, commands such as /recent, and Agent or Ask mode.",
     "notes": "Ask answers from your notes' own words; Chat can also act on them.",
     "reminders": "Ask these in Chat; the Reminders tab's Magic add line takes the reminders too.",
 }

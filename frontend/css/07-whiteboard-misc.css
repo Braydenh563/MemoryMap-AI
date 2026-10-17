@@ -5697,7 +5697,11 @@ button.connection-row:is(:hover, :focus-visible) {
   font-size: var(--text-sm);
   overflow-wrap: anywhere;
 }
-.ocr-engine-lang-wrap {
+/* In Settings the picker is also a <label> in `.settings-section`, whose rule
+   top-aligns a wrapped caption; the second selector keeps this row's centre
+   (B60: caption 7px above the select's centre line). */
+.ocr-engine-lang-wrap,
+.settings-section .ocr-engine-lang-wrap {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);

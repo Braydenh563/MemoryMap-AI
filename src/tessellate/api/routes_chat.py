@@ -3360,6 +3360,11 @@ def _address(question: str, session: Session, skill: dict | None) -> tuple:
     address = None if skill or intent.is_mash(question) or intent.is_test(question) else vocative.split(question, in_notes=_in_notes(session))
     if address is None or not address.names:
         return question, None
+    #: A slipped word at the end of a command is the command's, not a name:
+    #: "pin the dentist noe" lost "noe" as a nickname and pinned nothing (O3).
+    now = user_now(deps.get_config())
+    if acts.parse(question, now) is not None and acts.parse(address.question, now) is None:
+        return question, None
     return address.question, address
 
 

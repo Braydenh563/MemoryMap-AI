@@ -4214,7 +4214,16 @@ def _acknowledged(result: dict, asked: str, *, voice: str, seed: str, history: l
     if not result or not result.get("parts") or not (asked or "").strip():
         return result
     fixed: list[tuple[str, str]] = []
-    repaired = question_noise.repair(question_noise.tidy(" ".join(asked.split())), fixed=fixed, known=known)
+    tidy = question_noise.tidy(" ".join(asked.split()))
+    repaired = question_noise.repair(tidy, fixed=fixed, known=known)
+    #: A worked answer says the reading the utility used, which may be a
+    #: router's reading rather than the speller's: "what tmie is it in jaan"
+    #: was answered for Tokyo under "I took that to mean 'what the is it in
+    #: jan'" (O3).
+    if result.get("shape") == "utility" or utilities.kind_of(tidy) not in (None, "until_note"):
+        heard = utilities._heard(tidy)
+        fixed = [(a, b) for a, b in zip(tidy.split(), heard.split()) if a != b] if heard != tidy else []
+        repaired = heard
     if not fixed:
         return result
     parts = [*composer_ack.acknowledge(repaired, voice=voice, seed=seed, history=history, previous=previous), *result["parts"]]

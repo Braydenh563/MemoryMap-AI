@@ -600,7 +600,13 @@ def read_typed(text: str, now: datetime) -> dict | None:
     from tessellate.ai import question_noise
 
     fixed = question_noise.repair(question_noise.tidy(text or ""))
-    return (read(fixed, now) if fixed and fixed != text else None) or read(text, now)
+    found = (read(fixed, now) if fixed and fixed != text else None) or read(text, now)
+    if found is not None or not text:
+        return found
+    #: One word a slip from a word the commands read ("pin the dentist noe",
+    #: "unlnk the gym note"), read so when that makes it a command (O3).
+    guided = question_noise.guided(question_noise.tidy(text), lambda t: read(t, now) is not None)
+    return read(guided, now) if guided else None
 
 
 def read(text: str, now: datetime) -> dict | None:

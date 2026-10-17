@@ -358,7 +358,6 @@ async function loadChatSkills() {
   trigger.type = "button";
   trigger.id = "chat-skills-btn";
   trigger.className = "ghost small";
-  trigger.dataset.needsModel = "Skills require an AI model";
   trigger.setAttribute("aria-haspopup", "dialog");
   trigger.setAttribute("aria-expanded", "false");
   trigger.setAttribute("aria-controls", "chat-skills-panel");
@@ -403,7 +402,13 @@ function fillSkillSelect(select) {
       option.title = skillSummary(skill);
       //: Phase E, decision 2: measured below the bar on a small model, so
       //: shown with why rather than offered and hoped.
-      if (skill.needs_larger_model) {
+      //: O7 (B69): with no model, a skill the composer cannot read off the
+      //: notes says so and waits; the ones it runs stay open.
+      if (aiIsOff() && !skill.composer) {
+        option.textContent += "  (needs a model)";
+        option.title = "Needs a model: this skill writes in its own words. Connect one in Settings, Models.";
+        option.disabled = true;
+      } else if (skill.needs_larger_model) {
         option.textContent += "  (needs a larger model)";
         option.title = skill.needs_larger_model;
         option.disabled = true;

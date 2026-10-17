@@ -3689,7 +3689,7 @@ def _recall(out: _Answer, p: Plan, views: list[NoteView], question: str) -> None
     """Recall by time (decision 31's schema): the notes in the window, newest
     first, grouped by day, under the count; "nothing from then" when none."""
     inside = sorted((v for v in views if v.sentences and _in_window(v, p.window)), key=lambda v: (v.written, -v.rank), reverse=True)
-    said = _as_typed(p.window_phrase, question)
+    said = window_said(_as_typed(p.window_phrase, question))
     if not inside:
         out.t("recall_none").asked(said).t("stop")
         return
@@ -3990,6 +3990,21 @@ def _absent(terms: list[str], views: list[NoteView]) -> list[str]:
     return absent if terms and len(absent) == len(terms) else []
 
 
+#: A rolling window ("the last 7 days", "past week") is "in" it; "last week"
+#: and "last month" are calendar spans and read without.
+_ROLLING = re.compile(r"^(?P<the>the )?(?P<which>past|last|previous) (?P<n>(?:[\w-]+(?: of)? )?)?(?:days?|weeks?|months?|years?)$", re.I)
+
+
+def window_said(phrase: str) -> str:
+    """A time window as an adverbial: "in the last 7 days" for a rolling one,
+    the phrase as it is for "last week", "today" or "since 3 October"."""
+    found = _ROLLING.match((phrase or "").strip())
+    if not found or not (found.group("n") or found.group("the") or found.group("which").lower() == "past"):
+        return phrase
+    text = phrase.strip()
+    return f"in {text if found.group('the') else 'the ' + text}"
+
+
 def _as_typed(word: str, question: str) -> str:
     """`word` as the question spelled it: "Sam", not the lowered "sam"."""
     found = re.search(rf"\b{re.escape(word)}\b", question or "", re.I)
@@ -4061,6 +4076,7 @@ def empty_window(when: str, first: date | None, last: date | None, *, voice: str
     are (`first` and `last` written days; None for an empty notebook)."""
     voice = "professional" if composer_tables.voice_of(voice) == "professional" else "natural"
     today = today or date.today()
+    when = window_said(when)
     lead = _pick(seed or when, "empty_window", list(_EMPTY_WINDOW[voice])).format(when=when, When=when[:1].upper() + when[1:])
     if first is None or last is None:
         return lead

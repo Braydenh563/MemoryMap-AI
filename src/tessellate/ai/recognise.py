@@ -677,7 +677,7 @@ _DATE_PHRASE_SOURCE = (
             r"(?:the )?day (?:after tomorrow|before yesterday)",
             _AMOUNT_RE + r" " + _UNIT_RE + r" ago",
             r"in (?:a fortnight|" + _AMOUNT_RE + r" " + _UNIT_RE + r")",
-            r"(?:the )?(?:last|past|previous) (?:\d{1,3} |few |couple of |two |three )?(?:days|weeks|months|years)",
+            r"(?:the )?(?:last|past|previous) (?:(?:\d{1,3}|few|couple of|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve) )?(?:days|weeks|months|years)",
             r"(?:last|this|next|past|coming) (?:week|weekend|month|year)",
             r"(?:last|this|next|coming|on) " + _WEEKDAY_RE + r"(?: (?:morning|afternoon|evening|night))?",
             r"\d{4}-\d{2}-\d{2}",
@@ -701,7 +701,7 @@ _DATE_PHRASE_SOURCE = (
     + r")\b"
 )
 
-_AMOUNTS = {**{k: v for k, v in _NUMBERS.items() if isinstance(v, int)}, "a couple of": 2, "a few": 3, "seven": 7, "eight": 8, "nine": 9, "ten": 10}
+_AMOUNTS = {**{k: v for k, v in _NUMBERS.items() if isinstance(v, int)}, "a couple of": 2, "couple of": 2, "few": 3, "a few": 3, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12}
 
 
 def _amount(word: str) -> int | None:
@@ -831,7 +831,7 @@ def span(phrase: str, anchor: date, tense: str | None = None) -> tuple[date, dat
         if which == "past":
             return _back(a, 1, "year"), a, "year"
         return date(a.year + step, 1, 1), date(a.year + step, 12, 31), "year"
-    found = re.fullmatch(r"(?:the )?(?:last|past|previous) (?:(\d{1,3}|few|couple of|two|three) )?(days|weeks|months|years)", text)
+    found = re.fullmatch(r"(?:the )?(?:last|past|previous) (?:(\d{1,3}|few|couple of|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve) )?(days|weeks|months|years)", text)
     if found:
         amount = _amount(found.group(1) or "one") or {"few": 3, "couple of": 2}.get(found.group(1) or "", 1)
         return _back(a, amount, found.group(2)), a, "day"
@@ -940,7 +940,7 @@ def span(phrase: str, anchor: date, tense: str | None = None) -> tuple[date, dat
 #: ("last week", "3 days ago", "this month"), so "week 4" stays a subject
 #: and "last week" is not one. Moved from the composer (ledger row 453).
 _WINDOW_WORDS = re.compile(
-    r"\b(?:(?:the\s+)?(?:last|this|next|past|previous|coming)\s+(?:few\s+|couple\s+of\s+|\d{1,3}\s+|two\s+|three\s+)?"
+    r"\b(?:(?:the\s+)?(?:last|this|next|past|previous|coming)\s+(?:few\s+|couple\s+of\s+|\d{1,3}\s+|two\s+|three\s+|four\s+|five\s+|six\s+|seven\s+|eight\s+|nine\s+|ten\s+|eleven\s+|twelve\s+)?"
     r"(?:days?|weeks?|weekend|months?|years?|night|morning|evening|monday|tuesday|wednesday|thursday|friday|saturday|sunday)"
     r"|(?:the\s+)?week\s+before\s+last|(?:\d{1,3}|a|an|one|two|three|four|five|six)\s+(?:days?|weeks?|months?|years?)\s+ago"
     r"|(?:since|in|during)\s+(?:january|february|march|april|may|june|july|august|september|october|november|december))\b",

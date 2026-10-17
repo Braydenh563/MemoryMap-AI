@@ -20,6 +20,7 @@ import threading
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass, field
+from dataclasses import replace as with_changes
 from datetime import date, timezone
 from itertools import chain
 from pathlib import Path
@@ -3518,8 +3519,14 @@ def _interactive_lines(req):  # noqa: ANN001, ANN202
     label = "Running a skill" if req.skill else "Answering in Chat"
     with model_gate.interactive():
         yield from activity.tracked_stream(
-            "generation", label, _stream_lines(req), title=_run_title(req), stop_event=req.stop
+            "generation", label, _lines_for(req), title=_run_title(req), stop_event=req.stop
         )
+
+
+def _lines_for(req):  # noqa: ANN001, ANN202
+    """A skill with no model is the composer's (O7, `_skill_lines`); every
+    other turn is `_stream_lines`."""
+    return _skill_lines(req) if req.skill and not req.ollama.is_running() else _stream_lines(req)
 
 
 def _run_title(req) -> str:  # noqa: ANN001
@@ -3555,10 +3562,39 @@ def _slash_lines(req: _StreamRequest) -> list[str] | None:
     said = slash.answer(req.session, req.body.question or "", user_now(deps.get_config()).replace(tzinfo=None), typed_only=typed_only)
     if said is None:
         return None
+    return _composed_lines(req, [{"type": "answer", "delta": said}])
+
+
+def _composed_lines(req: _StreamRequest, events: list[dict]) -> list[str]:
+    """A turn the app answers itself, whole: the status, a meta line marking it
+    composed (the Ask box labels it "Composed from your notes, no AI"), the
+    events, done."""
     meta = {"type": "meta", "raw_results": [], "picture_alts": {}, "picture_sizes": {}, "search_mode": "command",
             "connected_ids": [], "match_info": {}, "when_phrase": None, "as_of": None, "as_of_revisions": {},
             "answered_by": None, "ollama_running": req.ollama.is_running(), "composed": True}
-    return [json.dumps(e) + "\n" for e in ({"type": "status", "stage": "searching"}, meta, {"type": "answer", "delta": said}, {"type": "done"})]
+    return [json.dumps(e) + "\n" for e in ({"type": "status", "stage": "searching"}, meta, *events, {"type": "done"})]
+
+
+def _skill_lines(req: _StreamRequest) -> Iterator[str]:
+    """**A skill with no model running** (O7, `ai/skill_composer.py`): the
+    composer runs the ones whose job is a reading of the notebook, and the
+    rest say they need a model, instead of a model-less runner answering the
+    skill's instruction as if it were a question about the notes."""
+    from tessellate.ai import skill_composer
+
+    skill = req.skill["skill"]
+    run = skill_composer.plan(skill, req.body.skill_inputs)
+    if run is None:
+        yield from _composed_lines(req, [{"type": "answer", "delta": skill_composer.needs_a_model(skill)}])
+    elif run[0] == "ask":
+        asked = req.body.model_copy(update={"question": run[1], "skill": None, "skill_inputs": None})
+        yield from _stream_lines(with_changes(req, body=asked, skill=None, question=run[1], use_tools=False, allowed_tools=None))
+    elif run[0] == "starter":
+        now = user_now(deps.get_config())
+        said = starter_acts.events(req.session, run[1], {}, now, req.body.note_ids, req.history, document_ids=req.body.document_ids, board_ids=req.body.board_ids)
+        yield from _composed_lines(req, said)
+    else:
+        yield from _composed_lines(req, [{"type": "answer", "delta": skill_composer.REPORTS[run[1]](req.session)}])
 
 
 @router.get("/commands")

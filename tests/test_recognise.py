@@ -127,3 +127,24 @@ def test_tense_is_read_from_the_sentence():
     assert past.value == date(2026, 10, 2)
     assert [s.value for s in future if s.kind == "date"] == [date(2026, 10, 9)]
     assert rec.recognise("in 20 minutes", now=NOW, locale="en-GB")[0].value == NOW + timedelta(minutes=20)
+
+
+# A monthly repeat set for a day some months lack keeps that day.
+
+
+def test_a_monthly_repeat_from_the_31st_keeps_its_day(client):
+    """Row 414: "monthly" from the 31st landed on 28 February and stayed on
+    the 28th. The day it was set for is kept (BYMONTHDAY) from the first
+    roll on, so March is the 31st again; a day the store collapsed to
+    "monthly" keeps its rule when the month may not hold it."""
+    assert rec.stored_repeat("FREQ=MONTHLY;BYMONTHDAY=31") == "FREQ=MONTHLY;BYMONTHDAY=31"
+    assert rec.stored_repeat("FREQ=MONTHLY;BYMONTHDAY=5") == "monthly"
+    made = client.post("/reminders", json={"text": "Pay rent", "due_at": "2030-01-31T09:00:00Z", "recurring": "monthly"}).json()
+    february = client.post(f"/reminders/{made['id']}/complete").json()
+    assert february["due_at"].startswith("2030-02-28T09:00"), february
+    march = client.post(f"/reminders/{made['id']}/complete").json()
+    assert march["due_at"].startswith("2030-03-31T09:00"), march
+    assert march["repeat_words"] == "monthly"
+    plain = client.post("/reminders", json={"text": "Water", "due_at": "2030-01-10T09:00:00Z", "recurring": "monthly"}).json()
+    rolled = client.post(f"/reminders/{plain['id']}/complete").json()
+    assert rolled["recurring"] == "monthly"

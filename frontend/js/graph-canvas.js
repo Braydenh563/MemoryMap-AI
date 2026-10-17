@@ -3246,6 +3246,13 @@ function gcWireInteraction(s = gcTab) {
     // picked up.
     .filter((event) => {
       if (event.type === "wheel") return true;
+      //: **The wheel pressed down pans from anywhere, over a node too** (B37:
+      //: "pressing down the scroll wheel and dragging sometimes glitches a
+      //: little initially"). Only the primary button was let through, so a
+      //: middle drag moved the camera 1.8px of 93 and the press kept its
+      //: default (Windows' autoscroll circle, below). The node drag declines
+      //: any button but the primary on its own.
+      if (event.button === 1) return true;
       if (event.button) return false;
       // Shift and drag on empty map is the lasso, not a pan.
       if (event.shiftKey) return false;
@@ -3291,6 +3298,16 @@ function gcWireInteraction(s = gcTab) {
       gcRequestDraw(s);
     });
   selection.call(zoom).on("dblclick.zoom", null);
+  //: A middle press that keeps its default starts the page's autoscroll
+  //: (Windows) before the first move; its release is a paste on Linux. The
+  //: board refuses both the same way (`initWhiteboard`).
+  //: Capture, because d3-zoom's own mousedown listener stops the event.
+  s.canvas.addEventListener("mousedown", (event) => {
+    if (event.button === 1) event.preventDefault();
+  }, true);
+  s.canvas.addEventListener("auxclick", (event) => {
+    if (event.button === 1) event.preventDefault();
+  }, true);
 
   // The rest of the app drives zoom through `graphSvg`/`graphZoom`, the
   // +/-/fit buttons, the keyboard, the minimap, saved views, `fitGraphToView`.

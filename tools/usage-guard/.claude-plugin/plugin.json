@@ -1,1 +1,1 @@
-{ "name": "usage-guard", "version": "0.1.0", "description": "Cuts wasted usage: blocks whole-file reads of huge docs, repeated identical calls and automatic Fable agents; shows a call counter." }
+{ "name": "usage-guard", "version": "0.2.0", "description": "Cuts wasted usage: live context meter, cold-cache and image warnings, /spend advice, blocks huge whole-file reads, repeated calls, model-less and unrequested Fable agents." }

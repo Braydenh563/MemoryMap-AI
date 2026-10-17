@@ -10,6 +10,9 @@ nothing else notices.
 
 from __future__ import annotations
 
+import re
+from pathlib import Path
+
 import pytest
 from sqlalchemy import select
 
@@ -17,6 +20,9 @@ from tessellate.ai import embeddings as embeddings_module
 from tessellate.ai import model_manager
 from tessellate.core import deps, jobruns, taskhistory
 from tessellate.core.database import EmbeddingRecord, JobRun
+from tests._app_js import frontend_text
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def _fail(exc: Exception) -> None:
@@ -559,3 +565,39 @@ def test_the_night_pass_reports_notes_read_of_notes_to_read(client, session):
     assert shot["progress"] is not None
     assert shot["log"][0].endswith("to read.") and any(line.startswith("Read ") for line in shot["log"])
     assert not any("Traceback" in line or "Error" in line for line in shot["log"])
+
+
+# The jobs poll stops when signed out; a run's log lines carry its run id for the Logs button (owner 2026-10-11, OPEN ledger 1424).
+
+def _fn(text: str, name: str) -> str:
+    start = text.index(f"function {name}(")
+    return text[start : text.index("\n}\n", start)]
+
+
+def test_1424_the_jobs_poll_stops_when_signed_out():
+    body = _fn(frontend_text("settings.js"), "refreshJobRuns")
+    assert "if (!authToken()) {\n    clearTimeout(jobRunsTimer);\n    return;\n  }" in body
+    assert "if (running && authToken()) jobRunsTimer = setTimeout(refreshJobRuns, 2000);" in body
+
+
+def test_a_job_run_writes_its_lines_to_the_app_log_under_its_run_id(caplog):
+    """The history row's Logs button filters on "[run-N]" (owner 2026-10-11)."""
+    import logging
+
+    from tessellate.core import jobruns
+
+    with caplog.at_level(logging.INFO, logger="memorymap.jobruns"):
+        with jobruns.job_run("reindex", origin="you") as run:
+            run.say("Reading notes")
+    lines = [r.getMessage() for r in caplog.records]
+    assert any(m.startswith(f"[{run.id}] ") and "Reading notes" in m for m in lines), lines
+    assert any(m.startswith(f"[{run.id}] ") and "finished" in m for m in lines), lines
+
+
+def test_the_logs_button_filters_on_the_run_and_an_empty_log_is_the_empty_state():
+    js = frontend_text("settings.js")
+    assert "`[${item.run_id}]`" in frontend_text("settings-controls.js")
+    shared = _fn(js, "renderLogSharedUI")
+    assert "This job wrote no log lines" in shared and '"log-none"' in shared
+    html = (ROOT / "frontend/index.html").read_text(encoding="utf-8")
+    assert re.search(r'id="logs-empty" class="empty-state hidden"', html)

@@ -11,7 +11,7 @@ after; the first Escape now closes only the help.
 import re
 from pathlib import Path
 
-from tests._app_js import app_js_text
+from tests._app_js import app_js_text, frontend_text
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -42,3 +42,17 @@ def test_the_dialogs_with_a_help_button_exist():
         if "data-help-for" in m.group(2)
     ]
     assert "quick-note" in dialogs
+
+
+# A help popover fades out before it goes home (OPEN ledger 1419).
+
+def _fn(text: str, name: str) -> str:
+    start = text.index(f"function {name}(")
+    return text[start : text.index("\n}\n", start)]
+
+
+def test_1419_a_help_popover_fades_out_before_it_goes_home():
+    body = _fn(frontend_text("menus.js"), "wireHelpPopover")
+    assert "afterMenuExit(panel, () => {" in body
+    assert "clearTimeout(panel._exitTimer);" in body
+    assert re.search(r"\.help-popover\.hidden,\s*\.action-menu\.hidden \{", (ROOT / "frontend" / "css" / "10-responsive.css").read_text(encoding="utf-8"))

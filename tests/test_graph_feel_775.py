@@ -207,3 +207,26 @@ def test_topic_hulls_belong_to_the_force_layout_and_a_tree_fits_at_0_4():
     assert '|| s.tree || graphColourMode() !== "topic"' in CANVAS
     assert "const fit = radial || arc || both >= 0.4 ? both : (width - 20) / spanX;" in GRAPH
     assert "gcTweenFromPrior(s, nodes, prior);" in CANVAS
+
+
+# A small pull on a node heats a small part of the map (INBOX 839).
+
+
+def test_a_small_pull_on_a_graph_node_heats_a_small_part_of_the_map():
+    """"small adjustments and graph nodes being pulled in slightly are glitchy
+    and jittery, not smooth" (INBOX 839). The worker raised the drag target to
+    0.3 the moment a node was pressed. Measured per worker tick on 34 notes, an
+    8px pull, two runs each: ticks above 1px 38 and 15, the last at tick 41 and
+    179, one run with a 28px step and 8 re-accelerations before; 5 and 3, the
+    last at tick 7 and 3, largest step 2.7px and 1 re-acceleration after. A
+    120px pull is unchanged (90 against 92 to 96 ticks above 1px, 12.3 against
+    12.6px). The target follows the distance carried from the press, easing from
+    `DRAG_ALPHA_MIN` to `DRAG_ALPHA`."""
+    worker = (JS / "graph-worker.js").read_text(encoding="utf-8")
+    assert "const DRAG_ALPHA_MIN = 0.04;" in worker and "const DRAG_FULL_DISTANCE = 90;" in worker
+    assert "simulation.alphaTarget(DRAG_ALPHA).alpha(Math.max(simulation.alpha(), DRAG_ALPHA));" not in worker
+    start = worker[worker.index('if (message.phase === "start") {') :]
+    assert "dragOrigin = { x: node.x, y: node.y };" in start.split('} else if (message.phase === "move")')[0]
+    move = start.split('} else if (message.phase === "move") {')[1].split("} else {")[0]
+    assert "dragHeat(message.x, message.y)" in move
+    assert "dragOrigin = null;" in start

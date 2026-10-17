@@ -91,3 +91,25 @@ def test_the_caret_line_is_washed_only_while_the_numbers_show():
     assert '"&.cm-focused .cm-activeLine": { backgroundColor: "color-mix(in srgb, var(--hover-veil) 50%, transparent)" }' in theme
     # Nowhere else adds the extension, so numbers off means no line carries the class.
     assert DOCS.count("CM.view.highlightActiveLine()") == 2
+
+
+# The capture box reserves the gutter column from first paint (INBOX 803).
+
+
+def _front_css(name: str) -> str:
+    return (Path(__file__).resolve().parents[1] / "frontend" / "css" / name).read_text(encoding="utf-8")
+
+
+def test_the_capture_box_holds_its_line_number_column_from_first_paint():
+    # INBOX 803: the gutter mounts with documents.js on the box's first focus,
+    # and the text jumped 38.8px right when it did.
+    css = _front_css("07-whiteboard-misc.css")
+    rule = ':root[data-note-gutter="on"] .note-composer > textarea#entry-content {'
+    block = css[css.index(rule):].split("}", 1)[0]
+    assert "margin-inline-start: calc(2.1ch + var(--space-4) + var(--space-3))" in block
+    assert "width: calc(100% - 2.1ch - var(--space-4) - var(--space-3))" in block
+    settings = (ROOT / "frontend" / "js" / "settings.js").read_text(encoding="utf-8")
+    assert 'root.dataset.noteGutter = prefs.get("doc-gutter", null) === "1"' in settings
+    documents = (ROOT / "frontend" / "js" / "documents.js").read_text(encoding="utf-8")
+    # Turning Line numbers on or off moves the reserve with it.
+    assert 'document.documentElement.dataset.noteGutter = on ? "on" : "off";' in documents

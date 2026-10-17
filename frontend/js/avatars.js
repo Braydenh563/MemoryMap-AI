@@ -5416,6 +5416,26 @@ function nameMarkBuddyWatch() {
     if (`${nmb.x},${nmb.y}` !== was) queueNameMarkBuddyCheck();
   }, 700) : 0;
 }
+//: **An area that only began to scroll after the perch** (B29's neighbour,
+//: INBOX 904 B35: "doesn't scroll with what it is perched on if the thing it
+//: is perched on is scrollable sometimes on the dashboard"). The area is
+//: chosen once, when the companion lands (`nameMarkBuddyGlue`), and the
+//: dashboard fills in after first paint: a perch made while it had nothing
+//: to scroll chose none, so the companion was carried by script, 71px off its
+//: panel mid-scroll and 2037px off once settled (companion1017-dash3.js).
+//: The first scroll of the area that is now the panel's nearest one adopts it
+//: and rides from where the panel is this frame.
+function nameMarkBuddyAdoptScroller(g, target) {
+  if (!(target instanceof Element) || nmb.ride?.el === target || nmb.visit) return false;
+  if (nameMarkBuddyScroller(g.el) !== target || !nameMarkBuddyScrollsWith(g.el, target)) return false;
+  const box = g.el.getBoundingClientRect();
+  const x = Math.round(box.left + g.dx);
+  const y = Math.round(box.top + g.dy);
+  g.scroller = target;
+  nameMarkBuddyGlueBand(g, y);
+  nameMarkBuddyRide(target, x, y);
+  return Boolean(nmb.ride);
+}
 document.addEventListener("scroll", (event) => {
   //: Any scroll, glued or not: the checks and its idle motion wait for the
   //: page to be still (`nameMarkBuddyCheck`, `nameMarkBuddyTempo`).
@@ -5431,6 +5451,7 @@ document.addEventListener("scroll", (event) => {
     nmb.y = nmb.ride.top + nmb.ly - target.scrollTop;
     return;
   }
+  if (nameMarkBuddyAdoptScroller(g, target)) return;
   //: In the scroll's own frame, so it rides with the panel rather than a
   //: frame behind it.
   nmbFollow.scrollAt = performance.now();

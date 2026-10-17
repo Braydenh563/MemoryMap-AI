@@ -111,7 +111,6 @@ def test_the_load_waits_for_the_app_to_go_quiet(fresh_warmup, monkeypatch):
     """A dashboard loading right after login must not share the CPU with the
     torch import: while requests keep arriving the warm-up holds off, and it
     goes once the app has been quiet for the idle window."""
-    import time
 
     monkeypatch.setattr(embeddings, "_notebook_has_notes", lambda _f: True)
     monkeypatch.setattr(embeddings, "WARMUP_IDLE_SECONDS", 0.3)
@@ -129,7 +128,6 @@ def test_the_load_waits_for_the_app_to_go_quiet(fresh_warmup, monkeypatch):
 
 
 def test_a_never_visited_app_still_warms_within_the_cap(fresh_warmup, monkeypatch):
-    import time
 
     monkeypatch.setattr(embeddings, "_notebook_has_notes", lambda _f: True)
     monkeypatch.setattr(embeddings, "WARMUP_IDLE_SECONDS", 5)

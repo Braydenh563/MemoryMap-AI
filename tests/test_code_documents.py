@@ -287,7 +287,6 @@ def test_with_needle_a_request_picks_one_of_the_panels_tools(ai_client, fake_oll
 
 def test_the_asks_that_need_a_model_say_so_and_fix_and_the_tools_do_not():
     index = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
-    import re
 
     asks = dict(re.findall(r'<button[^>]*data-assist="(\w+)"([^>]*)>', index))
     assert set(asks) == {"explain", "fix", "tests", "refactor"}

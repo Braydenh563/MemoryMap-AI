@@ -413,8 +413,6 @@ def test_the_last_run_survives_the_task_history_being_cleared(client):
 
 
 def test_every_last_run_line_in_the_page_names_a_known_kind():
-    import re
-    from pathlib import Path
 
     html = (Path(__file__).resolve().parent.parent / "frontend" / "index.html").read_text(encoding="utf-8")
     lines = set(re.findall(r'data-job-line="([a-z-]+)"', html))
@@ -429,8 +427,6 @@ def test_every_kind_in_the_overview_is_written_by_some_job():
     """A kind nothing writes shows "Not run yet" for ever, which reads as a
     job that never works. Each must be opened by `job_run`/`begin` somewhere
     in `src`, or be a `taskhistory` bridge."""
-    import re
-    from pathlib import Path
 
     src = Path(__file__).resolve().parent.parent / "src" / "tessellate"
     text = "\n".join(p.read_text(encoding="utf-8") for p in repo_files(src, suffixes=(".py",), exclude_names=("jobruns.py",)))

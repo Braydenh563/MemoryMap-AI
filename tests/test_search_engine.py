@@ -253,7 +253,6 @@ def test_every_kind_lands_in_one_index(session):
         Entry,
         Reminder,
     )
-    from datetime import datetime
 
     session.add(Entry(content="a note about beans"))
     session.add(Entry(content="a board", is_board=True))
@@ -301,7 +300,6 @@ def _note(session, content, **kwargs):
 
 
 def test_a_hit_from_every_kind_comes_back_from_one_query(session):
-    from datetime import datetime
 
     from tessellate.core.database import Bookmark, Document, Entry, Reminder
     from tessellate.search import engine

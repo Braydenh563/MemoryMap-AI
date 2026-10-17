@@ -291,7 +291,6 @@ def test_auto_stale_review_preference_was_silently_dropped_before_this_fix(clien
     (not just the GET echo, which the round-trip test above already covers)
     is what would have caught the original bug: the field simply never
     reached `body.model_dump()` to be saved at all."""
-    from tessellate.core import deps
 
     assert deps.get_config().get_preference("auto_stale_review_enabled", False) is False
     client.put("/preferences", json={"auto_stale_review_enabled": True})
@@ -315,7 +314,6 @@ def test_response_mode_was_silently_dropped_before_this_fix(client):
     save actually worked, so this was invisible until the next reload
     silently reverted to the default."""
     from tessellate.ai import presets
-    from tessellate.core import deps
 
     assert deps.get_config().get_preference("response_mode", presets.DEFAULT_MODE) == "normal"
     client.put("/preferences", json={"response_mode": "detailed"})

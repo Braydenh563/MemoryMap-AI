@@ -100,9 +100,9 @@ def test_the_flight_lands_in_the_same_place_at_60_and_144_hz() -> None:
             "const k = { ...NMB_THROW, bounce: 0.4, ground: 0.006, air: 0.0011, spin: 0 };",
             # Frame at `hz`, the way the loop does: dt capped at 32, stepped in pieces of at most 16.
             "function fly(hz, vx, vy) { let s = { x: 200, y: 400, vx, vy, rot: 0, t: 0, on: null, rest: false };"
-            " const frame = 1000 / hz; let guard = 0;"
-            " while (!s.rest && guard++ < 5000) { let dt = Math.min(32, frame); while (dt > 0 && !s.rest) { s = nameMarkBuddyFlightStep(s, Math.min(16, dt), W, k); dt -= 16; } }"
-            " return { x: s.x, y: s.y, t: s.t }; }",
+            + " const frame = 1000 / hz; let guard = 0;"
+            + " while (!s.rest && guard++ < 5000) { let dt = Math.min(32, frame); while (dt > 0 && !s.rest) { s = nameMarkBuddyFlightStep(s, Math.min(16, dt), W, k); dt -= 16; } }"
+            + " return { x: s.x, y: s.y, t: s.t }; }",
             "console.log(JSON.stringify([[1.2, -0.5], [2.5, -1.2], [-1.8, -0.2]].map(([vx, vy]) => [fly(60, vx, vy), fly(144, vx, vy), fly(30, vx, vy)])));",
         ]
     )

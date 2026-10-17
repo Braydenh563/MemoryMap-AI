@@ -164,3 +164,18 @@ def test_b61_the_dictation_size_menu_marks_installed_confirms_and_removes():
     assert "/voice/models/" in js and 'method: "DELETE"' in js
     html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
     assert 'id="voice-model-remove"' in html and 'id="voice-model-note"' in html
+
+
+# B75: help popovers ("tooltip dropdowns") drew their text at two sizes. A
+# `.help-body` popover reads 14.72px (--text-lg, inherited from the body) but a
+# Settings hint promoted into the same shell is a <small>, which the browser
+# shrinks: 12.27px (probe p/b75d.js, Models "muted setting-hint help-popover").
+# The shell sets the size itself, so what it holds cannot choose another.
+def test_b75_the_help_popover_shell_sets_one_text_size():
+    sized = [
+        body
+        for selectors, body in _rules(_css())
+        if ".help-popover" in selectors and "font-size" in body
+    ]
+    assert sized, "no .help-popover rule sets a font-size"
+    assert all("font-size: var(--text-lg)" in body for body in sized)

@@ -20,3 +20,33 @@
   right: var(--space-2);
   z-index: 1;
 }
+
+/* Models, Suggested downloads (INBOX 904 B67): the detected hardware reads as
+   a line with Edit at its end, not an Edit button wrapped under it, and the
+   correction form is two labelled numbers over their Save row. */
+#settings-modal .settings-section .suggested-hardware-row {
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+#settings-modal .settings-section .suggested-hardware-row > p {
+  flex: 1 1 14rem;
+  min-width: 0;
+  margin: 0;
+}
+#settings-modal .settings-section .suggested-hardware-row > button {
+  flex: 0 0 auto;
+}
+#suggested-hardware-form {
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+}
+#suggested-hardware-form label {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: var(--text-sm);
+}
+#suggested-hardware-form input {
+  width: 8rem;
+}

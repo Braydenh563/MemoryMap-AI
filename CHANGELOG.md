@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Canvas fixes from the owner's 2026-10-17 list: the whiteboard's Group and Ungroup follow the selection, W and H scale a multi-selection and x/y/w/h update live; the companion rides a scroll area that became scrollable after it perched; a middle-mouse drag pans the graph from its first pixel; file, bookmark and document nodes open from the mind map and graph (F2 sets a caption on a reference node); a document node can be pinned in the graph; a leash force keeps linked bridge notes nearer their category.
 - Emoji search reads everyday names as well as Unicode ones: the folded hands now answer to pray, thanks and high five (`ICON_EMOJI_ALIASES`).
 - The plain Ask and Chat prompts now carry the user's date and time like the agent's (`librarian.clock_hint`); Tessellate is a taxonomy topic, so Tidy no longer offers to rename "About Tessellate"; a failed agent step names what failed instead of "Failed due to error".
 - Composer, from the owner's 2026-10-17 list (INBOX 904): "What have I saved recently?" lists the newest notes again; key mashes ("asdkjhfgs") and test messages ("test", "testing 123") get their own replies instead of being taken for a nickname or searched; the assistant says it is Atlas's assistant and how to reach Atlas; the capability rundown is composed and sized to the request; "what do my notes cover?" is answered about the whole notebook. Plan mode keeps `make_plan` on a small model's toolbox.

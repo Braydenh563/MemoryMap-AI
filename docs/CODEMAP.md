@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5881, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5478, test files 1178, tests 10882, plan headings 956.
+Counts: frontend functions 5881, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5478, test files 1179, tests 10884, plan headings 956.
 
 ## Frontend functions (5881)
 
@@ -176,16 +176,16 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 |---|---|
 | `appendSelectionToNote` | frontend/js/selection.js:80 |
 | `bookmarkKind` | frontend/js/selection.js:414 |
-| `clampSelectionMenu` | frontend/js/selection.js:735 |
+| `clampSelectionMenu` | frontend/js/selection.js:739 |
 | `clippingMarkdown` | frontend/js/selection.js:20 |
 | `dialogHead` | frontend/js/selection.js:105 |
 | `fieldSelection` | frontend/js/selection.js:571 |
-| `hideSelectionPopup` | frontend/js/selection.js:726 |
-| `initSelectionPopup` | frontend/js/selection.js:900 |
+| `hideSelectionPopup` | frontend/js/selection.js:730 |
+| `initSelectionPopup` | frontend/js/selection.js:904 |
 | `libraryPickAbout` | frontend/js/selection.js:436 |
 | `libraryPickLabel` | frontend/js/selection.js:427 |
 | `noteFieldPickButton` | frontend/js/selection.js:328 |
-| `openSelectionMenuFromKeyboard` | frontend/js/selection.js:996 |
+| `openSelectionMenuFromKeyboard` | frontend/js/selection.js:1000 |
 | `pickEntryDialog` | frontend/js/selection.js:297 |
 | `pickMediaDialog` | frontend/js/selection.js:469 |
 | `pickerDialog` | frontend/js/selection.js:131 |
@@ -196,15 +196,15 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `pickerRememberedSource` | frontend/js/selection.js:455 |
 | `remindFromSelection` | frontend/js/selection.js:544 |
 | `saveSelectionAsNote` | frontend/js/selection.js:30 |
-| `selectionIsActionable` | frontend/js/selection.js:847 |
-| `selectionMenuItems` | frontend/js/selection.js:601 |
-| `selectionPointInRange` | frontend/js/selection.js:957 |
-| `selectionPopup` | frontend/js/selection.js:717 |
-| `selectionRestoreOnContextMenu` | frontend/js/selection.js:966 |
+| `selectionIsActionable` | frontend/js/selection.js:851 |
+| `selectionMenuItems` | frontend/js/selection.js:605 |
+| `selectionPointInRange` | frontend/js/selection.js:961 |
+| `selectionPopup` | frontend/js/selection.js:721 |
+| `selectionRestoreOnContextMenu` | frontend/js/selection.js:970 |
 | `selectionSource` | frontend/js/selection.js:10 |
-| `showSelectionPopupAt` | frontend/js/selection.js:771 |
-| `syncSelectionPopup` | frontend/js/selection.js:861 |
-| `wrapFieldSelection` | frontend/js/selection.js:593 |
+| `showSelectionPopupAt` | frontend/js/selection.js:775 |
+| `syncSelectionPopup` | frontend/js/selection.js:865 |
+| `wrapFieldSelection` | frontend/js/selection.js:597 |
 
 ### frontend/js/notes-list.js (112)
 
@@ -6133,12 +6133,12 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `wbApplyMapTemplate` | frontend/js/whiteboard-templates.js:574 |
+| `wbApplyMapTemplate` | frontend/js/whiteboard-templates.js:577 |
 | `wbBlankThumbSpec` | frontend/js/whiteboard-templates.js:302 |
 | `wbBoardThumbSpec` | frontend/js/whiteboard-templates.js:214 |
 | `wbMapThumbSpec` | frontend/js/whiteboard-templates.js:47 |
 | `wbOpenTemplateGallery` | frontend/js/whiteboard-templates.js:384 |
-| `wbRenderMapTemplates` | frontend/js/whiteboard-templates.js:541 |
+| `wbRenderMapTemplates` | frontend/js/whiteboard-templates.js:544 |
 | `wbTemplateChoices` | frontend/js/whiteboard-templates.js:340 |
 | `wbTemplateEntry` | frontend/js/whiteboard-templates.js:336 |
 | `wbTemplatePicture` | frontend/js/whiteboard-templates.js:356 |
@@ -17285,7 +17285,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10882)
+## Tests (10884)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -17977,6 +17977,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_needle_provider.py | 17 |
 | tests/test_nested_interactive.py | 11 |
 | tests/test_new_document_opens_new.py | 6 |
+| tests/test_new_untitled.py | 2 |
 | tests/test_night_card_grows.py | 1 |
 | tests/test_night_pairs.py | 12 |
 | tests/test_night_runs.py | 12 |

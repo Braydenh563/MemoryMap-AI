@@ -45,3 +45,17 @@ def test_b05_connect_a_model_is_a_split_button_with_a_hide_row():
     assert '"hideOfflineNotice"' in hide and "Show them again" in hide
     css = (ROOT / "frontend" / "css" / "offline-split-lazy.css").read_text(encoding="utf-8")
     assert ".ai-offline-split" in css
+
+
+def test_b76_the_drafting_spinner_is_on_the_atlas_side():
+    """The spinner and its words were the user's status line under their thoughts;
+    they are the Atlas column's head now, with the Thinking panel."""
+    body = INDEX[INDEX.index('<div class="draft-column">', INDEX.index('id="draft-status"')) :]
+    head = body[: body.index('id="draft-thinking"')]
+    assert 'id="draft-working"' in head
+    desk = (ROOT / "frontend" / "js" / "writing-desk.js").read_text(encoding="utf-8")
+    run = desk[desk.index("async function composeDraft(") : desk.index("async function streamDraft(")]
+    assert 'setDraftWorking(draft.trim() ? "ph:spin Revising…" : "ph:spin Drafting…")' in run
+    assert 'setLabel($("draft-status"), "ph:spin' not in desk
+    busy = desk[desk.index("function setDraftBusy(") :].split("\n}\n")[0]
+    assert "if (!busy) setDraftWorking();" in busy

@@ -1967,6 +1967,11 @@ Link to another note with [[its first few words]]."></textarea>
               <div class="row space-between draft-column-head">
                 <label for="draft-text" class="muted draft-head-label"><span class="msg-role msg-role-assistant"><span class="msg-avatar" data-assistant-head aria-hidden="true"></span><span>Atlas</span></span> The draft</label>
                 <span class="row draft-head-facts">
+                  <!-- The working state, on the side that is working (INBOX 904
+                       B76: it sat under the user's thoughts, away from the
+                       Thinking panel). Hidden unless a pass runs; in the head's
+                       row, so showing it moves nothing. -->
+                  <span id="draft-working" class="draft-working muted hidden" role="status"></span>
                   <!-- Which note this draft goes back to, when it came from
                        one. A fact about the draft, so a chip. -->
                   <span id="draft-target" class="chip hidden"></span>

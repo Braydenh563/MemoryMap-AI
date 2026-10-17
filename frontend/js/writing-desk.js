@@ -32,7 +32,7 @@ async function composeDraft() {
   }
   const instruction = $("draft-instruction").value.trim();
   setDraftStatus("");
-  setLabel($("draft-status"), draft.trim() ? "ph:spin Revising…" : "ph:spin Drafting…");
+  setDraftWorking(draft.trim() ? "ph:spin Revising…" : "ph:spin Drafting…");
   const thinkingHost = $("draft-thinking");
   const thinking = thinkingFoldIn(thinkingHost);
   const thinkingText = thinking.querySelector(".thinking");
@@ -173,17 +173,15 @@ async function streamDraft(body, signal, onEvent) {
 //: pressing this twice must not leave two of them.
 async function suggestDraftTitle() {
   const box = $("draft-text");
-  const status = $("draft-status");
   const button = $("draft-title");
   const draft = box.value.trim();
   if (!draft) {
-    status.classList.add("error");
-    status.textContent = "Write a draft first, then it has something to name.";
+    setDraftStatus("Write a draft first, then it has something to name.", true);
     return;
   }
   button.disabled = true;
-  status.classList.remove("error");
-  setLabel(status, "ph:spin Thinking of a title…");
+  setDraftStatus("");
+  setDraftWorking("ph:spin Thinking of a title…");
   try {
     const body = await apiJson("/drafts/title", {
       method: "POST",
@@ -195,20 +193,19 @@ async function suggestDraftTitle() {
     //: `drafter.suggest_title`). That is a real answer and it gets a real
     //: sentence, not a thrown error.
     if (!title) {
-      status.classList.add("error");
-      status.textContent = `Couldn't think of a title for this one. ${aiNameNow()} may not be running.`;
+      setDraftStatus(`Couldn't think of a title for this one. ${aiNameNow()} may not be running.`, true);
       return;
     }
     pushDraftUndo();
     box.value = draftWithHeading(box.value, title);
     updateDraftCount();
     saveDraftLocally();
-    status.textContent = `Titled "${title}". Undo puts it back.`;
+    setDraftStatus(`Titled "${title}". Undo puts it back.`);
   } catch (error) {
-    status.classList.add("error");
-    status.textContent = error.message;
+    setDraftStatus(error.message, true);
   } finally {
     button.disabled = false;
+    setDraftWorking();
   }
 }
 
@@ -293,6 +290,14 @@ async function saveDraftAsNote() {
   }
 }
 
+//: The spinner and its words while a pass runs, in the Atlas column's head
+//: (INBOX 904 B76); no argument clears it. The status line below the user's
+//: thoughts keeps what a pass said when it ended.
+function setDraftWorking(label = "") {
+  setLabel($("draft-working"), label);
+  $("draft-working").classList.toggle("hidden", !label);
+}
+
 function setDraftBusy(busy) {
   $("draft-compose").classList.toggle("hidden", busy);
   $("draft-cancel").classList.toggle("hidden", !busy);
@@ -300,6 +305,7 @@ function setDraftBusy(busy) {
   // The draft box is being written into while this runs, so editing it would
   // be editing something that is about to be overwritten by the next chunk.
   $("draft-text").readOnly = busy;
+  if (!busy) setDraftWorking();
   $("draft-refine").disabled = busy;
   $("writing-room").classList.toggle("draft-writing", busy);
 }

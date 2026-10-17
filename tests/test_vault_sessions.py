@@ -49,7 +49,6 @@ def _clean():
 def _devices_already_allowed(client):
     """These tests are about sessions and the vault, so the phone here is one
     this computer already allowed; holding a new device is test_lan.py's."""
-    from tessellate.core import deps
     from tessellate.core import lantrust
 
     lantrust.set_flag(deps.get_config().data_dir, "ask_new_devices", False)

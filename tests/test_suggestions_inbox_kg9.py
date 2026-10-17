@@ -261,7 +261,6 @@ def test_tension_decisions_are_corrections(client):
 
 
 def test_type_decisions_reweight_that_type(session):
-    from tessellate.ai import learning
 
     for i in range(6):
         learning.record(session, kind="dismiss_link_type", subject={"link_id": i, "signals": ["context"]})

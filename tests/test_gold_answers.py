@@ -186,7 +186,6 @@ def test_a_relative_time_is_pinned_to_the_day_it_meant(text, said):
     """CHAT_PLAN B3: "this week" written 17 July becomes "the week of 13 July",
     its Monday, as the Mentions chip's resolver (`when.span`) has it; "before
     next week" is before that Monday, a day (the owner, 2026-10-11)."""
-    from datetime import date
 
     assert composer_digest._tidy(text, date(2026, 7, 17)) == said
 

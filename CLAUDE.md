@@ -318,12 +318,13 @@ The levers, in order:
 - Independent checks on risky or UI changes: `reviewer` (the diff),
   `ux-auditor` (WCAG 2.2, CARP, DESIGN.md), `blind-tester` (the goal and
   URL only). The builder does not grade its own work.
-- The `lean-workflow` plugin (`tools/lean-workflow/`, README there) is
+- The `lean-workflow` plugin (its own MIT repo,
+  `github.com/Braydenh563/lean-workflow`, README there) is
   this workflow packaged for any repo: autopilot rules, the guards (huge
   whole-file reads, a third identical call, an agent with no model, an
   unrequested Fable agent), context and cold-cache warnings, `/spend`,
   `/dash` and `/prune`. Install once per machine:
-  `/plugin install lean-workflow --marketplace Braydenh563/Tessellate`.
+  `/plugin install lean-workflow --marketplace Braydenh563/lean-workflow`.
 - At session end run the `retro` skill: it measures the session, keeps the
   ledger and changes at most one rule, so the workflow improves across
   sessions on evidence.

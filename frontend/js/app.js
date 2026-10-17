@@ -2160,8 +2160,8 @@ const LAZY_ENTRY_POINTS = {
     "importMarkdown",
     "importDocument",
   ],
-  tagSuggest: ["openTagSuggest"],
-  writingDesk: ["composeDraft", "suggestDraftTitle", "saveDraftAsNote"],
+  tagSuggest: ["openTagSuggest", "renderReevaluateResult"],
+  writingDesk: ["composeDraft", "suggestDraftTitle", "saveDraftAsNote", "draftSaveMenuInit"],
   //: Each called for its effect when a figure mounts or moves; nothing reads a result.
   atlasMotion: ["atlasBlinkStart", "atlasRigAttach", "atlasRigWake"],
   companionMenu: ["nameMarkBuddyMenu", "openNameMarkViewer"],

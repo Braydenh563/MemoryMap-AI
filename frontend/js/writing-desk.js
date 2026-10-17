@@ -220,7 +220,7 @@ function draftWithHeading(draft, title) {
   return `# ${title}\n\n${rest.replace(/^\n+/, "")}`;
 }
 
-async function saveDraftAsNote() {
+async function saveDraftAsNote(asDraft = false) {
   const content = $("draft-text").value.trim();
   const status = $("draft-status");
   if (!content) {
@@ -257,14 +257,15 @@ async function saveDraftAsNote() {
         { content }
       );
     } else {
-      // Marked as a draft on the way in, same as the text-selection popup's
-      // "Save as draft note", asked for directly, so a note drafted here is
-      // just as findable in the Drafts filter (sidebar, Library) as one
-      // captured that way, not silently indistinguishable from a note typed
-      // straight into Notes.
+      // **A note by default, a draft when the caret says so** (owner,
+      // 2026-10-17: "the translated note I filed got filed as a draft"). The
+      // press says "Save as note" and now does it: filed in the background
+      // like any capture. "Save as draft" keeps the old behaviour, findable
+      // in the Drafts filter (sidebar, Library) like the text-selection
+      // popup's draft.
       entry = await apiJson("/entries", {
         method: "POST",
-        body: JSON.stringify({ content, tags, is_draft: true, defer_filing: true }),
+        body: JSON.stringify({ content, tags, is_draft: asDraft === true, defer_filing: true }),
       });
     }
     const wroteBack = draftNoteId !== null;
@@ -283,8 +284,9 @@ async function saveDraftAsNote() {
     renderDraftVersions();
     updateDraftCount();
     saveDraftLocally();
-    status.textContent = wroteBack ? "Saved back to the note." : "Saved as a note.";
-    toast(wroteBack ? "The note has been updated." : "Draft saved as a note.");
+    const kept = asDraft === true && !wroteBack;
+    status.textContent = wroteBack ? "Saved back to the note." : kept ? "Saved as a draft." : "Saved as a note.";
+    toast(wroteBack ? "The note has been updated." : kept ? "Saved as a draft, find it under Drafts." : "Saved as a note, Atlas is filing it.");
     await refreshEntries([entry.id]);
     flashEntry(entry.id); // show them where it landed
   } catch (error) {
@@ -302,4 +304,28 @@ function setDraftBusy(busy) {
   $("draft-text").readOnly = busy;
   $("draft-refine").disabled = busy;
   $("writing-room").classList.toggle("draft-writing", busy);
+}
+
+
+//: The caret half of the Save split button: one other way to save, as a draft
+//: (`kebabMenu`'s opener dressed as the split's second half, as the OCR
+//: workspace's Read does in `ocrSyncReadMenu`). Drawn when the writing room is
+//: first shown (`showNotesSection`), so the boot scripts do not carry it.
+function draftSaveMenuInit() {
+  const slot = $("draft-save-menu-slot");
+  if (!slot || slot.firstChild) return;
+  const wrap = kebabMenu(
+    [{ label: "ph:note-pencil Save as draft", title: "Keep it in Drafts to finish later, unfiled", run: () => saveDraftAsNote(true) }],
+    "More ways to save: as a draft"
+  );
+  const opener = wrap.querySelector(":scope > button");
+  if (opener) {
+    opener.id = "draft-save-menu";
+    opener.classList.remove("icon-only");
+    opener.classList.add("split-button-caret");
+    setLabel(opener, "ph:caret-down");
+    opener.title = "More ways to save";
+    opener.setAttribute("aria-label", "More ways to save: as a draft");
+  }
+  slot.replaceChildren(wrap);
 }

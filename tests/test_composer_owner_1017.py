@@ -167,3 +167,30 @@ def test_a_category_named_for_the_app_is_not_renamed_to_a_generic_topic(session)
     session.commit()
     rows = tidy._rows_category_names(session, "standard")
     assert not [r for r in rows if "About Tessellate" in r["title"]], rows
+
+
+def test_tag_with_atlas_also_offers_other_categories(client):
+    """B80: "Tag with Atlas" offered only links: no way to add a tag of one's
+    own and no other category to move to. The reply now carries the other
+    places the note could go, each with its reason."""
+    for text, category in (
+        ("Squats 5x5 and bench 3x8 today, legs sore", "Gym"),
+        ("Deadlifts and rows, then a long run", "Gym"),
+        ("Design assignment due Friday, wireframes first", "Uni"),
+        ("Lecture on wireframes and the design brief", "Uni"),
+    ):
+        client.post("/entries", json={"content": text, "category": category})
+    mine = client.post("/entries", json={"content": "Finish the wireframes for the design assignment", "category": "Gym"}).json()
+    out = client.post(f"/entries/{mine['id']}/reevaluate").json()
+    assert "suggested_categories" in out, sorted(out)
+    names = [c["name"] for c in out["suggested_categories"]]
+    assert "Uni" in names and mine["category"] not in names, names
+    assert all("why" in c for c in out["suggested_categories"])
+
+
+def test_the_tag_with_atlas_panel_draws_categories_and_an_own_tag_field():
+    from pathlib import Path
+
+    js = (Path(__file__).resolve().parent.parent / "frontend" / "js" / "tag-suggest.js").read_text(encoding="utf-8")
+    assert "data.suggested_categories" in js and "Could also go in:" in js
+    assert 'aria-label", "Add a tag of your own"' in js and "No tags to suggest for this one." in js

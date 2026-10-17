@@ -7,6 +7,8 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Writing room: Save as note now files a note (it saved a draft); the caret half offers Save as draft. The Tag with Atlas panel moved out of the boot scripts into the tag-suggest bundle.
+- Tag with Atlas: the panel offers the other categories the note could go in (one tap moves it), says plainly when it has no tags to suggest, and always has a field for a tag of your own.
 - Canvas fixes from the owner's 2026-10-17 list: the whiteboard's Group and Ungroup follow the selection, W and H scale a multi-selection and x/y/w/h update live; the companion rides a scroll area that became scrollable after it perched; a middle-mouse drag pans the graph from its first pixel; file, bookmark and document nodes open from the mind map and graph (F2 sets a caption on a reference node); a document node can be pinned in the graph; a leash force keeps linked bridge notes nearer their category.
 - Emoji search reads everyday names as well as Unicode ones: the folded hands now answer to pray, thanks and high five (`ICON_EMOJI_ALIASES`).
 - The plain Ask and Chat prompts now carry the user's date and time like the agent's (`librarian.clock_hint`); Tessellate is a taxonomy topic, so Tidy no longer offers to rename "About Tessellate"; a failed agent step names what failed instead of "Failed due to error".

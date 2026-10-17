@@ -2017,7 +2017,13 @@ Link to another note with [[its first few words]]."></textarea>
                   title="Copy the draft to the clipboard"><i class="ph ph-copy ph-lead" aria-hidden="true"></i> Copy</button>
                 <button id="draft-insert" class="ghost" type="button"
                   title="Add this draft to the end of a note you already have"><i class="ph ph-arrow-line-down ph-lead" aria-hidden="true"></i> Insert into a note</button>
-                <button id="draft-save"><i class="ph ph-floppy-disk ph-lead" aria-hidden="true"></i> Save as note</button>
+                <!-- A split button (DESIGN.md): the press files a note; the caret
+                     keeps it as a draft instead (owner, 2026-10-17: a note saved
+                     here arrived as a draft). Hidden while carrying a note on. -->
+                <div id="draft-save-split" class="split-button draft-save-split">
+                  <button id="draft-save" class="split-button-main" type="button"><i class="ph ph-floppy-disk ph-lead" aria-hidden="true"></i> Save as note</button>
+                  <span id="draft-save-menu-slot" class="split-button-slot"></span>
+                </div>
               </div>
             </div>
           </div>

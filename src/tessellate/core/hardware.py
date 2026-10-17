@@ -25,6 +25,8 @@ import subprocess
 import sys
 import time
 
+from tessellate.core.subproc import NO_WINDOW
+
 
 def total_memory_bytes() -> int | None:
     override = os.getenv("TESSELLATE_RAM_GB")
@@ -178,7 +180,7 @@ def detect_gpus() -> list[dict]:
     try:
         done = subprocess.run(
             ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader,nounits"],
-            capture_output=True, text=True, timeout=3, check=False,
+            capture_output=True, text=True, timeout=3, check=False, creationflags=NO_WINDOW,
         )
         if done.returncode == 0:
             cards = parse_nvidia_smi(done.stdout)

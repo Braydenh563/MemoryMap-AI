@@ -27,6 +27,7 @@ import re
 from dataclasses import dataclass
 from datetime import date
 
+from tessellate.ai import recognise
 from tessellate.search import query as query_understanding
 
 #: Words that say when a value holds, not what it is about.
@@ -36,12 +37,6 @@ _VALIDITY = frozenset(
 _SENTENCE = re.compile(r"(?<=[.!?])\s+|\n+")
 _COLON = re.compile(r"^([^:]{3,60}):\s*(\S.*)$")
 _COPULA = re.compile(r"^(.{3,60}?)\s+(?:is|are|was|were)\s+(?:now\s+|still\s+)?(\S.*)$", re.I)
-#: A question about the change or the past keeps every note.
-_HISTORY = re.compile(
-    r"\b(?:changed?|changes|used to|before|previous(?:ly)?|last (?:semester|term|year|time)|old|older|history|over time|"
-    r"compare|comparison|difference|ago|in the past|originally|first)\b",
-    re.I,
-)
 
 
 @dataclass(frozen=True)
@@ -90,7 +85,7 @@ def _same(a: frozenset, b: frozenset) -> bool:
 def current(question: str, notes: list[dict]) -> tuple[list[dict], list[Replaced]]:
     """`notes` with each note a newer one supersedes left out, and what was
     left out; unchanged for a question about the change or the past."""
-    if _HISTORY.search(question or "") or len(notes) < 2:
+    if recognise.says_past(question) or len(notes) < 2:
         return notes, []
     #: Only the subject asked about: an older note says other things too, and
     #: "what are my uni days" is no reason to set aside an old note on golf.

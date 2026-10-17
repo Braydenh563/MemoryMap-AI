@@ -142,7 +142,7 @@ function timelineCalAddKind(form, kind, byKey = false) {
     tab.tabIndex = on ? 0 : -1;
     if (on && byKey) tab.focus();
   }
-  if (!byKey) requestAnimationFrame(() => to.focus());
+  if (!byKey) setTimeout(() => to.focus(), 0);
 }
 
 async function timelineCalAddSave(form) {

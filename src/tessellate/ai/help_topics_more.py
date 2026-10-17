@@ -2546,9 +2546,9 @@ MORE_TOPICS.append({
 #: Slash commands (O6, `ai/slash.py`): written from the registry, so a command
 #: added there is in this topic, `/help` and the "/" menu at once.
 def _slash_commands_topic() -> dict:
-    from tessellate.ai import slash
+    from tessellate.ai.slash_table import TABLE
 
-    listed = " ".join(f"{c.usage}: {c.summary}" for c in slash.COMMANDS.values())
+    listed = " ".join(f"{usage}: {summary}" for _, usage, summary, _ in TABLE)
     return {
         "id": "slash-commands",
         "keywords": ("slash commands", "slash command", "commands", "exact answers", "chat commands", "type a command"),

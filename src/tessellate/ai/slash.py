@@ -23,7 +23,6 @@ says how to type it.
 
 from __future__ import annotations
 
-import json
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -33,10 +32,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from tessellate.ai import realise, slash_more
-
-#: How many rows a command shows; the sentence says how many there are.
-SHOWN = 8
-
+from tessellate.ai.slash_more import _more, _notes, _rows, _tags_of
+from tessellate.ai.slash_table import TABLE
 
 @dataclass(frozen=True)
 class Command:
@@ -45,32 +42,6 @@ class Command:
     summary: str
     example: str
     run: Callable[[Session, str, datetime], str]
-
-
-def _rows(session: Session, entries: list) -> str:
-    """The notes as `tool_say` draws a tool's notes: title linked, first
-    line, category and tags."""
-    from tessellate.ai import tool_say
-    from tessellate.core.database import Category
-
-    shown = entries[:SHOWN]
-    ids = {e.category_id for e in shown if e.category_id}
-    names = dict(session.execute(select(Category.id, Category.name).where(Category.id.in_(ids))).all()) if ids else {}
-    return "\n".join(
-        tool_say._note_row({"id": e.id, "content": e.content or "", "category": names.get(e.category_id), "tags": _tags_of(e.tags)})
-        for e in shown
-    )
-
-
-def _notes():  # noqa: ANN202
-    from tessellate.ai.tools._common import _visible
-    from tessellate.core.database import Entry
-
-    return Entry, _visible()
-
-
-def _more(total: int) -> str:
-    return f"\n\n{realise.count_word(total - SHOWN).capitalize()} more in Notes." if total > SHOWN else ""
 
 
 def _recent(session: Session, arg: str, now: datetime) -> str:
@@ -82,14 +53,6 @@ def _recent(session: Session, arg: str, now: datetime) -> str:
         return "You have no notes yet."
     lead = "Your newest note:" if len(rows) == 1 else f"Your {realise.count_word(len(rows))} newest notes:"
     return f"{lead}\n\n{_rows(session, rows)}"
-
-
-def _tags_of(raw: str) -> list[str]:
-    try:
-        parsed = json.loads(raw or "[]")
-    except (TypeError, ValueError):
-        return []
-    return [str(t).strip().lower() for t in parsed if str(t).strip()] if isinstance(parsed, list) else []
 
 
 def _count(session: Session, arg: str, now: datetime) -> str:
@@ -172,17 +135,26 @@ def _help(session: Session, arg: str, now: datetime) -> str:
     return f"{lead}Type one of these in the chat box; each answers from your notes with no AI:\n\n{lines}"
 
 
-COMMANDS: dict[str, Command] = {
-    c.name: c
-    for c in (
-        Command("recent", "/recent [n]", "your newest notes, five unless you say how many.", "/recent 10", _recent),
-        Command("count", "/count [tag, category or word]", "how many notes, or how many carry a tag, sit in a category or mention a word.", "/count golf", _count),
-        Command("made", "/made [day or span]", "the notes written on a day or over a span.", "/made last week", _made),
-        Command("untagged", "/untagged", "the notes with no tags yet.", "/untagged", _untagged),
-        *(Command(*row) for row in slash_more.MORE),
-        Command("help", "/help [command]", "these commands, or how to type one.", "/help made", _help),
-    )
+def _today(session: Session, arg: str, now: datetime) -> str:
+    return _made(session, "today", now)
+
+
+def _yesterday(session: Session, arg: str, now: datetime) -> str:
+    return _made(session, "yesterday", now)
+
+
+_RUN: dict[str, Callable[[Session, str, datetime], str]] = {
+    "recent": _recent,
+    "count": _count,
+    "made": _made,
+    "untagged": _untagged,
+    "today": _today,
+    "yesterday": _yesterday,
+    **slash_more.RUN,
+    "help": _help,
 }
+
+COMMANDS: dict[str, Command] = {row[0]: Command(*row, _RUN[row[0]]) for row in TABLE}
 
 _TYPED = re.compile(r"^\s*/([a-z]+)\b\s*(.*)$", re.I | re.S)
 

@@ -2,16 +2,17 @@
 and the composer": `/today`, `/due`, `/calc`, `/find`, `/stats`, `/orphans`,
 `/random`, `/tags`, `/categories`, `/pinned`, `/oldest`, `/todo`).
 
-Read by `slash.COMMANDS`, which builds the `Command` rows from `MORE`, so a
-command here reaches the route, `GET /chat/commands`, `/help` and the "/"
-menu with nothing else to touch. Each answers with no model, as a sentence
-and the rows `tool_say` draws for a tool's notes. The helpers (`_rows`,
-`_notes`) are `slash`'s, reached at run time (`_s`) because `slash` imports
-this module while it is still being defined.
+Read by `slash.COMMANDS`, which pairs each function in `RUN` with its words
+in `slash_table.TABLE`, so a command here reaches the route,
+`GET /chat/commands`, `/help` and the "/" menu. Each answers with no model,
+as a sentence and the rows `tool_say` draws for a tool's notes. The row
+helpers (`_rows`, `_notes`, `_more`, `_tags_of`) live here, below `slash`, so
+neither module imports the other.
 """
 
 from __future__ import annotations
 
+import json
 import re
 from collections import Counter
 from datetime import datetime, time, timedelta
@@ -21,15 +22,46 @@ from sqlalchemy.orm import Session
 
 from tessellate.ai import arithmetic, realise
 
+#: How many rows a command shows; the sentence says how many there are.
+SHOWN = 8
 
-def _s():  # noqa: ANN202
-    from tessellate.ai import slash
 
-    return slash
+def _rows(session: Session, entries: list) -> str:
+    """The notes as `tool_say` draws a tool's notes: title linked, first
+    line, category and tags."""
+    from tessellate.ai import tool_say
+    from tessellate.core.database import Category
+
+    shown = entries[:SHOWN]
+    ids = {e.category_id for e in shown if e.category_id}
+    names = dict(session.execute(select(Category.id, Category.name).where(Category.id.in_(ids))).all()) if ids else {}
+    return "\n".join(
+        tool_say._note_row({"id": e.id, "content": e.content or "", "category": names.get(e.category_id), "tags": _tags_of(e.tags)})
+        for e in shown
+    )
+
+
+def _notes():  # noqa: ANN202
+    from tessellate.ai.tools._common import _visible
+    from tessellate.core.database import Entry
+
+    return Entry, _visible()
+
+
+def _more(total: int) -> str:
+    return f"\n\n{realise.count_word(total - SHOWN).capitalize()} more in Notes." if total > SHOWN else ""
+
+
+def _tags_of(raw: str) -> list[str]:
+    try:
+        parsed = json.loads(raw or "[]")
+    except (TypeError, ValueError):
+        return []
+    return [str(t).strip().lower() for t in parsed if str(t).strip()] if isinstance(parsed, list) else []
 
 
 def _day(moment: datetime) -> str:
-    """"17 October" (no strftime flag: `%-d` is not Windows')."""
+    """A day as "17 October", with no platform-only strftime flag."""
     return f"{moment.day} {moment:%B}"
 
 
@@ -38,7 +70,7 @@ _OPEN_BOX = re.compile(r"^\s*[-*]\s+\[ \]\s+(\S.*)$", re.M)
 
 
 def _newest(session: Session, *conditions, order=None, limit: int = 200) -> list:  # noqa: ANN001
-    entry, visible = _s()._notes()
+    entry, visible = _notes()
     ordered = order if order is not None else entry.created_at.desc()
     return list(session.scalars(select(entry).where(*visible, *conditions).order_by(ordered, entry.id.desc()).limit(limit)))
 
@@ -47,22 +79,14 @@ def _listed(session: Session, rows: list, one: str, many: str) -> str:
     """`rows` under a lead line: `one` for a single note, `many` (with its
     `{n}` as "Three notes") otherwise."""
     lead = one if len(rows) == 1 else many.format(n=realise.count_noun(len(rows), "note").capitalize())
-    return f"{lead}\n\n{_s()._rows(session, rows)}{_s()._more(len(rows))}"
-
-
-def _today(session: Session, arg: str, now: datetime) -> str:
-    return _s().COMMANDS["made"].run(session, "today", now)
-
-
-def _yesterday(session: Session, arg: str, now: datetime) -> str:
-    return _s().COMMANDS["made"].run(session, "yesterday", now)
+    return f"{lead}\n\n{_rows(session, rows)}{_more(len(rows))}"
 
 
 def _find(session: Session, arg: str, now: datetime) -> str:
     words = [w for w in re.findall(r"[\w'-]+", arg.lower()) if len(w) > 1 or w.isdigit()]
     if not words:
         return "Say what to find: /find golf, or /find dentist tuesday for notes that hold both words."
-    entry, _ = _s()._notes()
+    entry, _ = _notes()
     said = " ".join(words)
     rows = _newest(session, *(func.lower(entry.content).contains(w) for w in words))
     if not rows:
@@ -71,7 +95,7 @@ def _find(session: Session, arg: str, now: datetime) -> str:
 
 
 def _pinned(session: Session, arg: str, now: datetime) -> str:
-    entry, _ = _s()._notes()
+    entry, _ = _notes()
     rows = _newest(session, entry.pinned.is_(True))
     if not rows:
         return "No note is pinned. Say “pin the … note” to pin one."
@@ -79,13 +103,13 @@ def _pinned(session: Session, arg: str, now: datetime) -> str:
 
 
 def _oldest(session: Session, arg: str, now: datetime) -> str:
-    entry, _ = _s()._notes()
+    entry, _ = _notes()
     n = max(1, min(int(arg) if arg.isdigit() else 5, 20))
     rows = _newest(session, order=entry.created_at.asc(), limit=n)
     if not rows:
         return "You have no notes yet."
     lead = "Your oldest note:" if len(rows) == 1 else f"Your {realise.count_word(len(rows))} oldest notes:"
-    return f"{lead}\n\n{_s()._rows(session, rows)}"
+    return f"{lead}\n\n{_rows(session, rows)}"
 
 
 def _random(session: Session, arg: str, now: datetime) -> str:
@@ -93,12 +117,12 @@ def _random(session: Session, arg: str, now: datetime) -> str:
     if not rows:
         return "You have no notes yet."
     pick = rows[int(now.timestamp() * 1000) % len(rows)]
-    return f"Here is one of your {len(rows)} notes, picked at random:\n\n{_s()._rows(session, [pick])}"
+    return f"Here is one of your {len(rows)} notes, picked at random:\n\n{_rows(session, [pick])}"
 
 
 def _tags(session: Session, arg: str, now: datetime) -> str:
-    entry, visible = _s()._notes()
-    counts = Counter(t for raw in session.scalars(select(entry.tags).where(*visible)) for t in _s()._tags_of(raw))
+    entry, visible = _notes()
+    counts = Counter(t for raw in session.scalars(select(entry.tags).where(*visible)) for t in _tags_of(raw))
     if not counts:
         return "No note has a tag yet."
     top = counts.most_common(15)
@@ -110,7 +134,7 @@ def _tags(session: Session, arg: str, now: datetime) -> str:
 def _categories(session: Session, arg: str, now: datetime) -> str:
     from tessellate.core.database import Category
 
-    entry, visible = _s()._notes()
+    entry, visible = _notes()
     count = func.count(entry.id)
     rows = session.execute(
         select(Category.name, count).join(entry, entry.category_id == Category.id).where(*visible).group_by(Category.id).order_by(count.desc(), Category.name)
@@ -125,14 +149,14 @@ def _categories(session: Session, arg: str, now: datetime) -> str:
 def _todo(session: Session, arg: str, now: datetime) -> str:
     from tessellate.ai import tool_say
 
-    entry, _ = _s()._notes()
+    entry, _ = _notes()
     notes = _newest(session, entry.content.contains("[ ]"))
     found = [(e, m.group(1).strip()) for e in notes for m in _OPEN_BOX.finditer(e.content or "")]
     if not found:
         return "No note has an open checkbox."
-    lines = [f"- {text} in {tool_say.link(tool_say._title(e.content), tool_say.note_at(e.id))}" for e, text in found[: _s().SHOWN]]
+    lines = [f"- {text} in {tool_say.link(tool_say._title(e.content), tool_say.note_at(e.id))}" for e, text in found[: SHOWN]]
     lead = "One open checkbox:" if len(found) == 1 else f"{realise.count_word(len(found)).capitalize()} open checkboxes:"
-    return f"{lead}\n\n" + "\n".join(lines) + _s()._more(len(found))
+    return f"{lead}\n\n" + "\n".join(lines) + _more(len(found))
 
 
 def _when(reminder, today) -> str:  # noqa: ANN001
@@ -151,9 +175,9 @@ def _due(session: Session, arg: str, now: datetime) -> str:
     span = "this week" if week else "today"
     if not rows:
         return f"No reminder is due {span} or overdue."
-    lines = "\n".join(f"- {r.text} ({_when(r, now.date())})" for r in rows[: _s().SHOWN])
+    lines = "\n".join(f"- {r.text} ({_when(r, now.date())})" for r in rows[: SHOWN])
     lead = f"One reminder is due {span} or overdue:" if len(rows) == 1 else f"{realise.count_noun(len(rows), 'reminder').capitalize()} are due {span} or overdue:"
-    return f"{lead}\n\n{lines}{_s()._more(len(rows))}"
+    return f"{lead}\n\n{lines}{_more(len(rows))}"
 
 
 def _calc(session: Session, arg: str, now: datetime) -> str:
@@ -176,13 +200,13 @@ def _streak(days: set, today) -> int:  # noqa: ANN001
 
 
 def _stats(session: Session, arg: str, now: datetime) -> str:
-    entry, visible = _s()._notes()
+    entry, visible = _notes()
     rows = session.execute(select(entry.content, entry.created_at, entry.tags).where(*visible)).all()
     if not rows:
         return "You have no notes yet."
     words = sum(len((c or "").split()) for c, _, _ in rows)
     days = {d.date() for _, d, _ in rows}
-    tags = {t for _, _, raw in rows for t in _s()._tags_of(raw)}
+    tags = {t for _, _, raw in rows for t in _tags_of(raw)}
     newest = max(d for _, d, _ in rows)
     run = _streak(days, now.date())
     said = f"You have {realise.count_noun(len(rows), 'note')} and {words:,} words, {realise.count_noun(len(tags), 'tag')}, written on {realise.count_noun(len(days), 'day')}. Your newest note is from {_day(newest)} {newest.year}"
@@ -192,7 +216,7 @@ def _stats(session: Session, arg: str, now: datetime) -> str:
 def _orphans(session: Session, arg: str, now: datetime) -> str:
     from tessellate.core.database import EntryLink
 
-    entry, _ = _s()._notes()
+    entry, _ = _notes()
     linked = set(session.scalars(select(EntryLink.source_entry_id))) | set(session.scalars(select(EntryLink.target_entry_id)))
     rows = _newest(session, entry.id.not_in(linked)) if linked else _newest(session)
     if not rows:
@@ -200,20 +224,18 @@ def _orphans(session: Session, arg: str, now: datetime) -> str:
     return _listed(session, rows, "One note links to nothing:", "{n} link to nothing:")
 
 
-#: (name, usage, summary, example, run), in the order `/help` lists them
-#: after the first five.
-MORE = (
-    ("today", "/today", "the notes you wrote today.", "/today", _today),
-    ("yesterday", "/yesterday", "the notes you wrote yesterday.", "/yesterday", _yesterday),
-    ("find", "/find <words>", "the notes that hold every word you give, newest first.", "/find dentist tuesday", _find),
-    ("pinned", "/pinned", "the notes you have pinned.", "/pinned", _pinned),
-    ("oldest", "/oldest [n]", "your oldest notes, five unless you say how many.", "/oldest 3", _oldest),
-    ("random", "/random", "one of your notes, picked at random.", "/random", _random),
-    ("tags", "/tags", "the tags you use, most used first, with how many notes each.", "/tags", _tags),
-    ("categories", "/categories", "your categories and how many notes sit in each.", "/categories", _categories),
-    ("todo", "/todo", "the open checkboxes in your notes.", "/todo", _todo),
-    ("due", "/due [week]", "the reminders due today or overdue, or due this week.", "/due week", _due),
-    ("calc", "/calc <sum>", "a sum worked out exactly, with + - * / % ^ and brackets.", "/calc 15 * 80 / 100", _calc),
-    ("stats", "/stats", "how many notes, words, tags and days of writing you have.", "/stats", _stats),
-    ("orphans", "/orphans", "the notes that link to no other note.", "/orphans", _orphans),
-)
+#: The functions that run each command here, by name (the words are in
+#: `slash_table.TABLE`; `today` and `yesterday` are `slash`'s, which owns `made`).
+RUN = {
+    "find": _find,
+    "pinned": _pinned,
+    "oldest": _oldest,
+    "random": _random,
+    "tags": _tags,
+    "categories": _categories,
+    "todo": _todo,
+    "due": _due,
+    "calc": _calc,
+    "stats": _stats,
+    "orphans": _orphans,
+}

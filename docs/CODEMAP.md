@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5947, frontend ids 2509, CSS sections 495, backend routes 607, backend modules 5636, test files 1220, tests 11085, plan headings 957.
+Counts: frontend functions 5947, frontend ids 2509, CSS sections 495, backend routes 607, backend modules 5635, test files 1220, tests 11085, plan headings 957.
 
 ## Frontend functions (5947)
 
@@ -10444,7 +10444,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/tessellate/api/routes_ask_history.py:164 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/tessellate/api/run_sandbox.py:1592 |
 
-## Backend modules (5636)
+## Backend modules (5635)
 
 Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -12443,50 +12443,49 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `stored` | src/tessellate/ai/skills.py:1795 |
 | `verify_spec` | src/tessellate/ai/skills.py:269 |
 
-### src/tessellate/ai/slash.py (16)
+### src/tessellate/ai/slash.py (14)
 
 | Name | File:line |
 |---|---|
-| `Command` | src/tessellate/ai/slash.py:42 |
-| `_count` | src/tessellate/ai/slash.py:95 |
-| `_help` | src/tessellate/ai/slash.py:165 |
-| `_inferred` | src/tessellate/ai/slash.py:216 |
-| `_made` | src/tessellate/ai/slash.py:131 |
-| `_more` | src/tessellate/ai/slash.py:72 |
-| `_notes` | src/tessellate/ai/slash.py:65 |
-| `_recent` | src/tessellate/ai/slash.py:76 |
-| `_rows` | src/tessellate/ai/slash.py:50 |
-| `_tags_of` | src/tessellate/ai/slash.py:87 |
-| `_untagged` | src/tessellate/ai/slash.py:155 |
-| `_window` | src/tessellate/ai/slash.py:120 |
-| `answer` | src/tessellate/ai/slash.py:236 |
-| `catalogue` | src/tessellate/ai/slash.py:249 |
-| `infer` | src/tessellate/ai/slash.py:224 |
-| `parse` | src/tessellate/ai/slash.py:190 |
+| `Command` | src/tessellate/ai/slash.py:39 |
+| `_count` | src/tessellate/ai/slash.py:58 |
+| `_help` | src/tessellate/ai/slash.py:128 |
+| `_inferred` | src/tessellate/ai/slash.py:188 |
+| `_made` | src/tessellate/ai/slash.py:94 |
+| `_recent` | src/tessellate/ai/slash.py:47 |
+| `_today` | src/tessellate/ai/slash.py:138 |
+| `_untagged` | src/tessellate/ai/slash.py:118 |
+| `_window` | src/tessellate/ai/slash.py:83 |
+| `_yesterday` | src/tessellate/ai/slash.py:142 |
+| `answer` | src/tessellate/ai/slash.py:208 |
+| `catalogue` | src/tessellate/ai/slash.py:221 |
+| `infer` | src/tessellate/ai/slash.py:196 |
+| `parse` | src/tessellate/ai/slash.py:162 |
 
-### src/tessellate/ai/slash_more.py (19)
+### src/tessellate/ai/slash_more.py (20)
 
 | Name | File:line |
 |---|---|
-| `_calc` | src/tessellate/ai/slash_more.py:159 |
-| `_categories` | src/tessellate/ai/slash_more.py:110 |
-| `_day` | src/tessellate/ai/slash_more.py:31 |
-| `_due` | src/tessellate/ai/slash_more.py:145 |
-| `_find` | src/tessellate/ai/slash_more.py:61 |
-| `_listed` | src/tessellate/ai/slash_more.py:46 |
-| `_newest` | src/tessellate/ai/slash_more.py:40 |
-| `_oldest` | src/tessellate/ai/slash_more.py:81 |
-| `_orphans` | src/tessellate/ai/slash_more.py:192 |
-| `_pinned` | src/tessellate/ai/slash_more.py:73 |
-| `_random` | src/tessellate/ai/slash_more.py:91 |
-| `_s` | src/tessellate/ai/slash_more.py:25 |
-| `_stats` | src/tessellate/ai/slash_more.py:178 |
-| `_streak` | src/tessellate/ai/slash_more.py:170 |
-| `_tags` | src/tessellate/ai/slash_more.py:99 |
-| `_today` | src/tessellate/ai/slash_more.py:53 |
-| `_todo` | src/tessellate/ai/slash_more.py:125 |
-| `_when` | src/tessellate/ai/slash_more.py:138 |
-| `_yesterday` | src/tessellate/ai/slash_more.py:57 |
+| `_calc` | src/tessellate/ai/slash_more.py:183 |
+| `_categories` | src/tessellate/ai/slash_more.py:134 |
+| `_day` | src/tessellate/ai/slash_more.py:63 |
+| `_due` | src/tessellate/ai/slash_more.py:169 |
+| `_find` | src/tessellate/ai/slash_more.py:85 |
+| `_listed` | src/tessellate/ai/slash_more.py:78 |
+| `_more` | src/tessellate/ai/slash_more.py:51 |
+| `_newest` | src/tessellate/ai/slash_more.py:72 |
+| `_notes` | src/tessellate/ai/slash_more.py:44 |
+| `_oldest` | src/tessellate/ai/slash_more.py:105 |
+| `_orphans` | src/tessellate/ai/slash_more.py:216 |
+| `_pinned` | src/tessellate/ai/slash_more.py:97 |
+| `_random` | src/tessellate/ai/slash_more.py:115 |
+| `_rows` | src/tessellate/ai/slash_more.py:29 |
+| `_stats` | src/tessellate/ai/slash_more.py:202 |
+| `_streak` | src/tessellate/ai/slash_more.py:194 |
+| `_tags` | src/tessellate/ai/slash_more.py:123 |
+| `_tags_of` | src/tessellate/ai/slash_more.py:55 |
+| `_todo` | src/tessellate/ai/slash_more.py:149 |
+| `_when` | src/tessellate/ai/slash_more.py:162 |
 
 ### src/tessellate/ai/source_check.py (5)
 

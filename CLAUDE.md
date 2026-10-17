@@ -320,7 +320,8 @@ The levers, in order:
   URL only). The builder does not grade its own work.
 - The `usage-guard` plugin (`tools/usage-guard/`) shows context per turn in
   the status line, warns on a cold cache and on images, answers `/spend`
-  with the cost split and the best next step, and denies whole-file reads
+  with the cost split and the best next step, opens `/dash` (running
+  agents with model, calls and tokens; task progress; cost by model), and denies whole-file reads
   of the code map and HISTORY, a third identical call in a row, an agent
   with no model (unless its type pins one) and a Fable agent the owner did
   not name. Install once per machine:

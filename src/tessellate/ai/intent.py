@@ -162,9 +162,9 @@ def classify(message: str) -> str:
 
     from datetime import datetime
 
-    from tessellate.ai import commands
+    from tessellate.ai import act_registry
 
-    act = commands.read_typed(message, datetime.now())
+    act = act_registry.typed_reader(message, datetime.now()) if act_registry.typed_reader else None
     if act and act["intent"] != "summarise":
         return ACT
 

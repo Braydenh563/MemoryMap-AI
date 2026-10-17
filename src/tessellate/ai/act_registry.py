@@ -26,6 +26,11 @@ proposer = None
 reader = None
 help_sentence = None
 
+#: `commands.read_typed`, set when `commands` is imported (the routes do), for
+#: `intent.classify`: intent sits below commands in the import graph, so it
+#: reads the typed commands through this leaf rather than importing them.
+typed_reader = None
+
 #: The question repair (`question_noise.repair`), set when that module is
 #: imported (intent, composer and the routes import it), for the Guide: the
 #: speller reads the help text, so the Guide importing it back was a cycle

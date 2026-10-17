@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5879, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5476, test files 1221, tests 10866, plan headings 955.
+Counts: frontend functions 5879, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5476, test files 1220, tests 10866, plan headings 955.
 
 ## Frontend functions (5879)
 
@@ -18111,7 +18111,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_plan_hygiene.py | 7 |
 | tests/test_popup_agent_persona_avatar.py | 3 |
 | tests/test_portable_strftime.py | 1 |
-| tests/test_preferences_api.py | 26 |
+| tests/test_preferences_api.py | 27 |
 | tests/test_preferences_roundtrip.py | 4 |
 | tests/test_prefs_module.py | 6 |
 | tests/test_prefs_pending_save_survives_pane_switch.py | 3 |
@@ -18230,8 +18230,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_search_recall.py | 3 |
 | tests/test_search_recordings.py | 8 |
 | tests/test_search_spaces.py | 2 |
-| tests/test_search_suggest_1011.py | 6 |
-| tests/test_search_suggest_lists.py | 2 |
+| tests/test_search_suggest_lists.py | 9 |
 | tests/test_search_surfaces.py | 10 |
 | tests/test_searxng_install.py | 42 |
 | tests/test_searxng_recovery.py | 33 |
@@ -18252,11 +18251,11 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_setting_label_toggles.py | 3 |
 | tests/test_settings_field_edge.py | 2 |
 | tests/test_settings_group_heads.py | 2 |
-| tests/test_settings_history_1011.py | 10 |
 | tests/test_settings_ia.py | 7 |
 | tests/test_settings_no_sideways.py | 4 |
 | tests/test_settings_pane_actions.py | 3 |
 | tests/test_settings_pane_intro.py | 2 |
+| tests/test_settings_recent_changes.py | 8 |
 | tests/test_settings_row_heads.py | 2 |
 | tests/test_settings_rows.py | 12 |
 | tests/test_settings_skeletons.py | 4 |

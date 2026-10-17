@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5879, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5483, test files 1176, tests 10881, plan headings 956.
+Counts: frontend functions 5879, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5484, test files 1177, tests 10884, plan headings 956.
 
 ## Frontend functions (5879)
 
@@ -596,34 +596,34 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `attachLibraryFile` | frontend/js/chat-attach.js:532 |
 | `attachSelectionContext` | frontend/js/chat-attach.js:695 |
 | `attachedNotes` | frontend/js/chat-attach.js:842 |
-| `buildFollowupStrip` | frontend/js/chat-attach.js:2769 |
-| `chatDeleteUndo` | frontend/js/chat-attach.js:3100 |
+| `buildFollowupStrip` | frontend/js/chat-attach.js:2776 |
+| `chatDeleteUndo` | frontend/js/chat-attach.js:3107 |
 | `chatDockMoreOpen` | frontend/js/chat-attach.js:1361 |
 | `chatTidyTyped` | frontend/js/chat-attach.js:1531 |
 | `chatTurnObjects` | frontend/js/chat-attach.js:850 |
-| `chatWriteRecord` | frontend/js/chat-attach.js:3118 |
+| `chatWriteRecord` | frontend/js/chat-attach.js:3125 |
 | `clearSelectionAttachment` | frontend/js/chat-attach.js:719 |
 | `closeChatDockMore` | frontend/js/chat-attach.js:1398 |
 | `closeExtractPreview` | frontend/js/chat-attach.js:164 |
 | `closeNotePicker` | frontend/js/chat-attach.js:1346 |
 | `commitExtractPreview` | frontend/js/chat-attach.js:169 |
 | `commitStagedImages` | frontend/js/chat-attach.js:346 |
-| `deleteChatTurn` | frontend/js/chat-attach.js:2875 |
-| `deleteCurrentChat` | frontend/js/chat-attach.js:3074 |
-| `exportChatMarkdown` | frontend/js/chat-attach.js:3123 |
+| `deleteChatTurn` | frontend/js/chat-attach.js:2882 |
+| `deleteCurrentChat` | frontend/js/chat-attach.js:3081 |
+| `exportChatMarkdown` | frontend/js/chat-attach.js:3130 |
 | `extractRefLabel` | frontend/js/chat-attach.js:53 |
 | `flattenNoteMarkdown` | frontend/js/chat-attach.js:879 |
-| `followupChain` | frontend/js/chat-attach.js:2798 |
-| `followupMatches` | frontend/js/chat-attach.js:2796 |
-| `followupParent` | frontend/js/chat-attach.js:2789 |
-| `followupTrail` | frontend/js/chat-attach.js:2815 |
+| `followupChain` | frontend/js/chat-attach.js:2805 |
+| `followupMatches` | frontend/js/chat-attach.js:2803 |
+| `followupParent` | frontend/js/chat-attach.js:2796 |
+| `followupTrail` | frontend/js/chat-attach.js:2822 |
 | `importChatDocuments` | frontend/js/chat-attach.js:436 |
 | `isImageFile` | frontend/js/chat-attach.js:387 |
-| `isStreamingConversation` | frontend/js/chat-attach.js:3002 |
+| `isStreamingConversation` | frontend/js/chat-attach.js:3009 |
 | `keepUnreadableChatFile` | frontend/js/chat-attach.js:407 |
-| `markFollowup` | frontend/js/chat-attach.js:2839 |
-| `mountChatTimer` | frontend/js/chat-attach.js:2928 |
-| `newChatConversation` | frontend/js/chat-attach.js:3022 |
+| `markFollowup` | frontend/js/chat-attach.js:2846 |
+| `mountChatTimer` | frontend/js/chat-attach.js:2935 |
+| `newChatConversation` | frontend/js/chat-attach.js:3029 |
 | `noteLabel` | frontend/js/chat-attach.js:856 |
 | `noteNamePlain` | frontend/js/chat-attach.js:915 |
 | `notePickerColumns` | frontend/js/chat-attach.js:1210 |
@@ -635,32 +635,32 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `notePickerRoving` | frontend/js/chat-attach.js:1200 |
 | `notePickerShape` | frontend/js/chat-attach.js:1030 |
 | `notePickerUsedIn` | frontend/js/chat-attach.js:1012 |
-| `offerFollowups` | frontend/js/chat-attach.js:2700 |
+| `offerFollowups` | frontend/js/chat-attach.js:2707 |
 | `openChatDockMore` | frontend/js/chat-attach.js:1374 |
 | `openExtractPreview` | frontend/js/chat-attach.js:22 |
 | `openNotePicker` | frontend/js/chat-attach.js:1311 |
-| `paintChatTimer` | frontend/js/chat-attach.js:2941 |
+| `paintChatTimer` | frontend/js/chat-attach.js:2948 |
 | `plainText` | frontend/js/chat-attach.js:893 |
-| `reattachStreamingTurn` | frontend/js/chat-attach.js:3013 |
-| `refreshFollowupVisibility` | frontend/js/chat-attach.js:2749 |
-| `releaseChatComposer` | frontend/js/chat-attach.js:2972 |
+| `reattachStreamingTurn` | frontend/js/chat-attach.js:3020 |
+| `refreshFollowupVisibility` | frontend/js/chat-attach.js:2756 |
+| `releaseChatComposer` | frontend/js/chat-attach.js:2979 |
 | `renderAttachments` | frontend/js/chat-attach.js:968 |
 | `renderBoardAttachments` | frontend/js/chat-attach.js:600 |
 | `renderDocumentAttachments` | frontend/js/chat-attach.js:653 |
 | `renderExtractPreview` | frontend/js/chat-attach.js:59 |
 | `renderFileAttachments` | frontend/js/chat-attach.js:541 |
-| `renderFollowups` | frontend/js/chat-attach.js:2735 |
+| `renderFollowups` | frontend/js/chat-attach.js:2742 |
 | `renderImageAttachments` | frontend/js/chat-attach.js:262 |
 | `renderSelectionAttachment` | frontend/js/chat-attach.js:724 |
 | `revalidateSelection` | frontend/js/chat-attach.js:771 |
-| `saveFollowups` | frontend/js/chat-attach.js:2858 |
+| `saveFollowups` | frontend/js/chat-attach.js:2865 |
 | `selectionContextBlock` | frontend/js/chat-attach.js:822 |
 | `sendChatMessage` | frontend/js/chat-attach.js:1536 |
 | `setActiveChoice` | frontend/js/chat-attach.js:901 |
 | `setNoteLabel` | frontend/js/chat-attach.js:925 |
 | `setNotePickerSource` | frontend/js/chat-attach.js:1284 |
-| `startChatTimer` | frontend/js/chat-attach.js:2953 |
-| `stopChatTimer` | frontend/js/chat-attach.js:2962 |
+| `startChatTimer` | frontend/js/chat-attach.js:2960 |
+| `stopChatTimer` | frontend/js/chat-attach.js:2969 |
 
 ### frontend/js/sheets-selects.js (53)
 
@@ -10341,7 +10341,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | `/{turn_id}/pin` | PUT | `pin_ask_turn` | src/tessellate/api/routes_ask_history.py:164 |
 | `PYODIDE_PATH + '{name}'` | GET | `pyodide_file` | src/tessellate/api/run_sandbox.py:1592 |
 
-## Backend modules (5483)
+## Backend modules (5484)
 
 Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excluding `vendor/`, grouped by file.
 
@@ -11542,42 +11542,43 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `tokens` | src/tessellate/ai/lexical_filing.py:95 |
 | `topic_overlap` | src/tessellate/ai/lexical_filing.py:640 |
 
-### src/tessellate/ai/librarian.py (33)
+### src/tessellate/ai/librarian.py (34)
 
 | Name | File:line |
 |---|---|
-| `_app_help` | src/tessellate/ai/librarian.py:593 |
+| `_app_help` | src/tessellate/ai/librarian.py:613 |
 | `_dates_hint` | src/tessellate/ai/librarian.py:486 |
 | `_match_info_hint` | src/tessellate/ai/librarian.py:515 |
 | `_pictures_hint` | src/tessellate/ai/librarian.py:474 |
 | `_tags_files_hint` | src/tessellate/ai/librarian.py:453 |
 | `_written_hint` | src/tessellate/ai/librarian.py:436 |
-| `answer` | src/tessellate/ai/librarian.py:720 |
+| `answer` | src/tessellate/ai/librarian.py:740 |
 | `build_conversational_messages` | src/tessellate/ai/librarian.py:392 |
-| `build_messages` | src/tessellate/ai/librarian.py:602 |
-| `converse` | src/tessellate/ai/librarian.py:820 |
-| `corrections_note` | src/tessellate/ai/librarian.py:1351 |
-| `draft_template` | src/tessellate/ai/librarian.py:1080 |
-| `evidence_note` | src/tessellate/ai/librarian.py:1400 |
-| `filing_corrections` | src/tessellate/ai/librarian.py:1310 |
-| `filing_prompt` | src/tessellate/ai/librarian.py:1432 |
-| `filing_style_note` | src/tessellate/ai/librarian.py:1388 |
+| `build_messages` | src/tessellate/ai/librarian.py:622 |
+| `clock_hint` | src/tessellate/ai/librarian.py:566 |
+| `converse` | src/tessellate/ai/librarian.py:840 |
+| `corrections_note` | src/tessellate/ai/librarian.py:1371 |
+| `draft_template` | src/tessellate/ai/librarian.py:1100 |
+| `evidence_note` | src/tessellate/ai/librarian.py:1420 |
+| `filing_corrections` | src/tessellate/ai/librarian.py:1330 |
+| `filing_prompt` | src/tessellate/ai/librarian.py:1452 |
+| `filing_style_note` | src/tessellate/ai/librarian.py:1408 |
 | `fill_ai_name` | src/tessellate/ai/librarian.py:194 |
-| `generate_link_reason` | src/tessellate/ai/librarian.py:960 |
-| `generate_title` | src/tessellate/ai/librarian.py:933 |
+| `generate_link_reason` | src/tessellate/ai/librarian.py:980 |
+| `generate_title` | src/tessellate/ai/librarian.py:953 |
 | `history_messages` | src/tessellate/ai/librarian.py:295 |
-| `improve_writing` | src/tessellate/ai/librarian.py:886 |
+| `improve_writing` | src/tessellate/ai/librarian.py:906 |
 | `length_hint` | src/tessellate/ai/librarian.py:265 |
 | `model_error_message` | src/tessellate/ai/librarian.py:30 |
 | `note_for_prompt` | src/tessellate/ai/librarian.py:355 |
-| `plan_budget` | src/tessellate/ai/librarian.py:566 |
+| `plan_budget` | src/tessellate/ai/librarian.py:586 |
 | `profile_context` | src/tessellate/ai/librarian.py:229 |
 | `profile_from_config` | src/tessellate/ai/librarian.py:250 |
-| `propose_map_outline` | src/tessellate/ai/librarian.py:1227 |
+| `propose_map_outline` | src/tessellate/ai/librarian.py:1247 |
 | `resolve_persona_prompt` | src/tessellate/ai/librarian.py:164 |
-| `suggest_tags` | src/tessellate/ai/librarian.py:1017 |
-| `suggest_thinking_words` | src/tessellate/ai/librarian.py:1124 |
-| `summarize_meeting` | src/tessellate/ai/librarian.py:1179 |
+| `suggest_tags` | src/tessellate/ai/librarian.py:1037 |
+| `suggest_thinking_words` | src/tessellate/ai/librarian.py:1144 |
+| `summarize_meeting` | src/tessellate/ai/librarian.py:1199 |
 | `system_content` | src/tessellate/ai/librarian.py:539 |
 
 ### src/tessellate/ai/links.py (3)
@@ -17288,7 +17289,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10881)
+## Tests (10884)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -17430,6 +17431,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_chat_attachments.py | 18 |
 | tests/test_chat_checkpoint_race.py | 2 |
 | tests/test_chat_dock.py | 11 |
+| tests/test_chat_failed_step.py | 1 |
 | tests/test_chat_followups.py | 14 |
 | tests/test_chat_intent.py | 13 |
 | tests/test_chat_live_citations.py | 2 |
@@ -17479,7 +17481,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_composer_eval_725.py | 6 |
 | tests/test_composer_eval_741.py | 6 |
 | tests/test_composer_overview_787.py | 18 |
-| tests/test_composer_owner_1017.py | 7 |
+| tests/test_composer_owner_1017.py | 9 |
 | tests/test_composer_route_688.py | 20 |
 | tests/test_composer_social.py | 15 |
 | tests/test_composer_tables.py | 32 |

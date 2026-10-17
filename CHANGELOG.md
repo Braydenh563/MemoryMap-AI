@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- The plain Ask and Chat prompts now carry the user's date and time like the agent's (`librarian.clock_hint`); Tessellate is a taxonomy topic, so Tidy no longer offers to rename "About Tessellate"; a failed agent step names what failed instead of "Failed due to error".
 - Composer, from the owner's 2026-10-17 list (INBOX 904): "What have I saved recently?" lists the newest notes again; key mashes ("asdkjhfgs") and test messages ("test", "testing 123") get their own replies instead of being taken for a nickname or searched; the assistant says it is Atlas's assistant and how to reach Atlas; the capability rundown is composed and sized to the request; "what do my notes cover?" is answered about the whole notebook. Plan mode keeps `make_plan` on a small model's toolbox.
 - Workflow: the `lean-workflow` plugin (1.1.0) moves to its own MIT repository, `Braydenh563/lean-workflow`; `tools/lean-workflow`, its marketplace file and its template test leave this repository, and the install line in CLAUDE.md section 8 changes.
 - Workflow: `lean-workflow` 1.1.0 adds a generic `scripts/codemap.py` (Python, JS/TS, Go definitions and test files, `--check` freshness), `orient.sh` and `gate.sh` (`--changed`, `--staged`, filled from the repo's CI) that `lean-setup` installs, an Inbox and a Decisions list in `now.md`, line-limit warnings for CLAUDE.md and `now.md`, and rules for remaining-work files, fixed test clocks and measured UI claims; `lean upgrade` adds them to a 1.0 repo.

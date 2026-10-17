@@ -126,3 +126,44 @@ def test_what_do_my_notes_cover_is_answered_about_the_notebook(ai_client, sessio
         assert "mention" not in text.lower() and "couldn't find" not in text.lower(), (question, text)
         assert "Gym" in text and "Uni" in text and "fitness" in text, (question, text)
         assert "3 notes" in text, (question, text)
+
+
+def test_the_plain_chat_models_know_the_users_clock(app_state, monkeypatch):
+    """B40: the agent prompt carried the date and time, the plain Ask and Chat
+    prompts did not, so a model answering "what day is it" or "is it too late
+    to call" had to guess. Last in the system message, as the agent's is
+    (`test_prompt_prefix_stability.py`)."""
+    import datetime as dt
+
+    from tessellate.ai import librarian
+    from tessellate.core import config
+
+    when = dt.datetime(2026, 10, 17, 21, 45, 30, tzinfo=dt.timezone.utc)
+    monkeypatch.setattr(config, "user_now", lambda cfg: when)
+    marker = " The current date and time is 2026-10-17T21:45:00"
+    for system in (
+        librarian.system_content(),
+        librarian.build_conversational_messages("how are you", "smalltalk")[0]["content"],
+    ):
+        assert "Today is Saturday" in system and marker in system, system[-200:]
+        assert system.index(marker) > len(system) * 0.5
+        assert system.rstrip().endswith(")."), system[-80:]
+
+
+def test_a_category_named_for_the_app_is_not_renamed_to_a_generic_topic(session):
+    """B31 (screenshot): Tidy offered "Rename About Tessellate to Knowledge
+    Management?" (67%). Tessellate is a topic of its own now, so a category
+    named for it keeps its name."""
+    from tessellate.entry import tidy
+
+    for text in (
+        "Tessellate keeps everything on this machine, notes, search, even the AI.",
+        "Linking notes together in Tessellate: type [[a note]] and it becomes a real link.",
+        "Try the composer in Tessellate: ask a question about your notes.",
+        "Tessellate delete these whenever, they only fill the graph.",
+        "Magic add in Tessellate turns a sentence into a reminder.",
+    ):
+        manager.create_entry(session, text, "About Tessellate", ["welcome"])
+    session.commit()
+    rows = tidy._rows_category_names(session, "standard")
+    assert not [r for r in rows if "About Tessellate" in r["title"]], rows

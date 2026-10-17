@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Workflow: sessions on this repo auto-compact at 400k tokens (`.claude/settings.json`) with compact instructions in CLAUDE.md section 8, so long sessions stay cheap per turn and keep their state.
 - Settings, from the owner's 2026-10-17 list: every Auto names what it chose, Default accent restores the palette, the dashboard mark follows the accent, Expand all / Collapse all on panes with folds, Use/Stop model follow what exists, dictation sizes show what is installed and can be removed, the gemma4:26b card says a4b, Settings hints share one size, a stale "running" job keeps its own start time, and the web menu offers SearXNG with the DuckDuckGo provider.
 - Documents and forms, from the owner's 2026-10-17 list: an md document opened after a code file starts in live view, the edit form's tag input sits under the chips, unticking a quick access row no longer scrolls the manager, Full view holds in a short window, a document's date row uses the app's own picker, new documents and boards open with their name selected, a redraw no longer sends the shape library to the top, the empty-board card is one row, a packaged build refuses to remove the desktop window, and clicking an autocorrected word opens Keep, Put back or Edit instead of reverting.
 - Writing room: Save as note now files a note (it saved a draft); the caret half offers Save as draft. The Tag with Atlas panel moved out of the boot scripts into the tag-suggest bundle.

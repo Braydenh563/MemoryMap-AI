@@ -1798,7 +1798,7 @@ def _prepare_turn(
         focus_names = [
             name
             for name in dict.fromkeys([*tools.CORE_TOOLS, *cued])
-            if name not in tools.ORCHESTRATION_TOOLS
+            if (name not in tools.ORCHESTRATION_TOOLS or (name == "make_plan" and tools.asks_for_plan(question)))
             and (keep_pref or name != "save_user_preference")
         ]
     if focus_names is not None and allowed_tools is None and _picture_in_hand(question, notes):
@@ -1873,8 +1873,9 @@ def _prepare_turn(
         if budget is not None and budget.window_tokens <= SMALL_WINDOW_TOKENS:
             every_tool = tools.compact_schemas(every_tool)
         keep = tools.keep_first_for(question)
-        every_tool, _ = tools.within_budget(every_tool, budget.tool_schema_chars, keep)
-        offered, dropped = tools.within_budget(offered, budget.tool_schema_chars, keep)
+        exempt = frozenset({"make_plan"}) if tools.asks_for_plan(question) else frozenset()
+        every_tool, _ = tools.within_budget(every_tool, budget.tool_schema_chars, keep, exempt)
+        offered, dropped = tools.within_budget(offered, budget.tool_schema_chars, keep, exempt)
         if dropped:
             # Visible in Settings → Logs, because "the AI didn't use the tool I
             # expected" is otherwise indistinguishable from the model choosing

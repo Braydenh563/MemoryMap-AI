@@ -4565,6 +4565,15 @@ def compact_schemas(offered: list[dict]) -> list[dict]:
     return out
 
 
+#: Plan mode's own sentence (`PLAN_PREFIX`, frontend/js/wiring.js): the request
+#: names the tool, so a small model must be handed it (owner, 2026-10-17).
+_PLAN_MODE_CUE = re.compile(r"\bcall make_plan\b", re.IGNORECASE)
+
+
+def asks_for_plan(question: str) -> bool:
+    return bool(_PLAN_MODE_CUE.search(question or ""))
+
+
 def keep_first_for(question: str) -> list[str] | None:
     """The tools a small window must not drop for this question: a turn that
     asks for the web outright keeps `web_search` and `read_url` at the head of
@@ -4575,11 +4584,16 @@ def keep_first_for(question: str) -> list[str] | None:
 
     if composer_digest.asks_web(question) and tool_enabled("web_search"):
         return ["web_search", "read_url", *CORE_TOOLS]
+    if asks_for_plan(question):
+        return ["make_plan", *CORE_TOOLS]
     return None
 
 
 def within_budget(
-    offered: list[dict], budget_chars: int, keep_first: list[str] | None = None
+    offered: list[dict],
+    budget_chars: int,
+    keep_first: list[str] | None = None,
+    exempt: frozenset[str] = frozenset(),
 ) -> tuple[list[dict], list[str]]:
     """(the tools that fit, the names dropped), most important kept.
 
@@ -4610,7 +4624,7 @@ def within_budget(
 
     for spec in ordered:
         name = spec["function"]["name"]
-        if small_window and name in ORCHESTRATION_TOOLS:
+        if small_window and name in ORCHESTRATION_TOOLS and name not in exempt:
             dropped.append(name)
             continue
         # Measured against the list as it will actually be serialised, rather

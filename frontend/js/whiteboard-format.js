@@ -175,16 +175,58 @@ async function wbFmtGeometry(axis, value) {
       }
       return;
     }
-    if (entries.length !== 1) return;
+    const target = Math.max(8, value);
+    //: Several items (a group): the set is sized as one box about its top
+    //: left, each member scaling with it (B29: "I cant widen objects on one
+    //: axis when grouped").
+    if (entries.length !== 1) {
+      await wbFmtScaleSelection(entries, box, axis, target);
+      wbScheduleRender();
+      wbAnnounce(`${axis === "w" ? "Width" : "Height"} ${Math.round(value)}.`);
+      wbFormatSyncSoon();
+      return;
+    }
     const [e] = entries;
     const dim = axis === "w" ? "width" : "height";
     const size = axis === "w" ? e.bbox.maxX - e.bbox.minX : e.bbox.maxY - e.bbox.minY;
-    const target = Math.max(8, value);
     if (size > 0 && Math.abs(size - target) >= 0.5) await wbSizeItemTo(e, dim, target, target / size);
   });
   wbScheduleRender();
   wbAnnounce(`${{ x: "X", y: "Y", w: "Width", h: "Height" }[axis]} ${Math.round(value)}.`);
   wbFormatSyncSoon();
+}
+
+//: One axis of a selection's box set to a number: every member's position
+//: on that axis and its size scale by the same factor about the box's top
+//: left, the arithmetic the group's own edge grips use. A connector follows
+//: its ends, so it is skipped.
+async function wbFmtScaleSelection(entries, box, axis, target) {
+  const horizontal = axis === "w";
+  const size = horizontal ? box.maxX - box.minX : box.maxY - box.minY;
+  if (!(size > 0) || Math.abs(size - target) < 0.5) return;
+  const f = target / size;
+  const ax = box.minX, ay = box.minY;
+  for (const e of entries) {
+    if (wbFmtKind(e) === "link" || !e.bbox) continue;
+    if (e.kind === "sketch") {
+      const parsed = wbSketchParsedData(e.item);
+      if (!parsed) continue;
+      await wbSaveSketchD(e.item, wbTransformPathD(parsed.d, {
+        sx: horizontal ? f : 1, sy: horizontal ? 1 : f, anchorX: ax, anchorY: ay,
+      }));
+      continue;
+    }
+    const item = e.item;
+    if (horizontal) {
+      item.x = Math.round(ax + ((item.x || 0) - ax) * f);
+      item.width = Math.round(Math.max(WB_OBJECT_MIN_SIZE, (e.bbox.maxX - e.bbox.minX) * f));
+    } else {
+      item.y = Math.round(ay + ((item.y || 0) - ay) * f);
+      item.height = Math.round(Math.max(WB_OBJECT_MIN_SIZE, (e.bbox.maxY - e.bbox.minY) * f));
+    }
+    if (e.kind === "node") await wbSaveNode(item);
+    else await wbSaveObject(item);
+  }
 }
 
 //: A card, text box or picture turns about its centre (`rotation`). A drawn
@@ -425,11 +467,30 @@ function wbFormatSync() {
   set("wb-fmt-y", Math.round(box.minY));
   set("wb-fmt-w", Math.round(box.maxX - box.minX));
   set("wb-fmt-h", Math.round(box.maxY - box.minY));
-  for (const id of ["wb-fmt-w", "wb-fmt-h"]) {
-    const el = document.getElementById(id);
-    if (el) el.disabled = entries.length !== 1;
-  }
   set("wb-fmt-angle", Math.round(first.item.rotation || 0));
+}
+
+//: **The numbers follow the hand** (B29: "resizing or moving objects doesn't
+//: update their xywh values in the format panel in real time"). The panel was
+//: read on selection and after a save, so x/y/w/h held the start of a drag
+//: until it was released. A held pointer over the board now re-reads just
+//: those four fields, once a frame, and only while the Arrange tab shows them.
+function wbFormatLiveSoon(event) {
+  if (wbFmtState.fmtLiveQueued || !(event.buttons & 1) || !wbFormatIsOpen() || wbFmtState.fmtTab !== "arrange") return;
+  wbFmtState.fmtLiveQueued = true;
+  requestAnimationFrame(() => {
+    wbFmtState.fmtLiveQueued = false;
+    const box = wbFmtBox(wbFmtEntries());
+    if (!box) return;
+    const set = (id, value) => {
+      const el = document.getElementById(id);
+      if (el && document.activeElement !== el) el.value = value;
+    };
+    set("wb-fmt-x", Math.round(box.minX));
+    set("wb-fmt-y", Math.round(box.minY));
+    set("wb-fmt-w", Math.round(box.maxX - box.minX));
+    set("wb-fmt-h", Math.round(box.maxY - box.minY));
+  });
 }
 
 //: --- Edit data (draw.io's custom properties; canvasdepth2) ----------------
@@ -569,6 +630,9 @@ onDomReady(() => {
   const panel = wbFormatPanel();
   if (!panel) return;
   wbFormatCommandButtons();
+  //: Capture phase: a drag's own handlers stop the event, and the read waits
+  //: for the next frame, after they have moved the item.
+  document.addEventListener("pointermove", wbFormatLiveSoon, true);
   //: The panel's two end lists are the bar's, groups and drawn examples
   //: included (the row label says which end).
   for (const which of ["start", "end"]) {

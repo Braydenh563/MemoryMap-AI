@@ -5156,7 +5156,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | Name | File:line |
 |---|---|
 | `buildModelCard` | frontend/js/settings-models.js:323 |
-| `checkCustomModel` | frontend/js/settings-models.js:754 |
+| `checkCustomModel` | frontend/js/settings-models.js:748 |
 | `modelBase` | frontend/js/settings-models.js:72 |
 | `modelBytes` | frontend/js/settings-models.js:304 |
 | `modelCancel` | frontend/js/settings-models.js:197 |
@@ -5181,12 +5181,12 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `modelUse` | frontend/js/settings-models.js:207 |
 | `openModelHardwareForm` | frontend/js/settings-models.js:668 |
 | `paintModelHardware` | frontend/js/settings-models.js:644 |
-| `putModelHardware` | frontend/js/settings-models.js:682 |
+| `putModelHardware` | frontend/js/settings-models.js:681 |
 | `refreshModelHardware` | frontend/js/settings-models.js:654 |
-| `renderCustomCards` | frontend/js/settings-models.js:726 |
+| `renderCustomCards` | frontend/js/settings-models.js:720 |
 | `renderInstalledModels` | frontend/js/settings-models.js:509 |
 | `renderSuggested` | frontend/js/settings-models.js:525 |
-| `saveModelHardware` | frontend/js/settings-models.js:688 |
+| `saveModelHardware` | frontend/js/settings-models.js:687 |
 | `updateModelProgress` | frontend/js/settings-models.js:443 |
 
 ### frontend/js/settings-packages.js (15)
@@ -9774,7 +9774,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/atlas-lazy.css | 52 |
 | frontend/css/captions-lazy.css | 95 |
 | frontend/css/dash-night-lazy.css | 29 |
-| frontend/css/dash-orphans-lazy.css | 62 |
+| frontend/css/dash-orphans-lazy.css | 57 |
 | frontend/css/file-drop-lazy.css | 51 |
 | frontend/css/first-run-lazy.css | 60 |
 | frontend/css/graph-lazy.css | 360 |

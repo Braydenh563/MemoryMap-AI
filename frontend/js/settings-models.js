@@ -677,8 +677,7 @@ function openModelHardwareForm(open) {
   $("hardware-ram").focus();
 }
 
-//: Save sends only what differs from nothing: blank memory means "as detected".
-//: One PUT, used by the save and by its Undo and Redo.
+//: Blank memory means "as detected"; Undo and Redo use the same PUT.
 async function putModelHardware(body) {
   modelHw.data = await apiJson("/models/hardware", { method: "PUT", body: JSON.stringify(body) });
   modelHardwareGb = modelHw.data.ram_gb || null;
@@ -694,12 +693,7 @@ async function saveModelHardware(body) {
     return;
   }
   openModelHardwareForm(false);
-  offerUndo(
-    "Memory correction",
-    Object.keys(body).length ? "Memory correction saved." : "Back to the detected memory.",
-    () => putModelHardware(before),
-    () => putModelHardware(body)
-  );
+  offerUndo("Memory correction", "Memory saved.", () => putModelHardware(before), () => putModelHardware(body));
 }
 
 $("suggested-hardware-edit")?.addEventListener("click", () => {

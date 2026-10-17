@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5897, frontend ids 2498, CSS sections 494, backend routes 604, backend modules 5484, test files 1187, tests 10911, plan headings 956.
+Counts: frontend functions 5897, frontend ids 2498, CSS sections 494, backend routes 604, backend modules 5484, test files 1188, tests 10915, plan headings 956.
 
 ## Frontend functions (5897)
 
@@ -4068,16 +4068,16 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `closeIconPicker` | frontend/js/icon-picker.js:365 |
-| `iconPickerEmojiGroups` | frontend/js/icon-picker.js:261 |
-| `iconPickerGlyph` | frontend/js/icon-picker.js:349 |
-| `iconPickerHay` | frontend/js/icon-picker.js:256 |
-| `iconPickerIconGroups` | frontend/js/icon-picker.js:308 |
-| `iconPickerPhosphorNames` | frontend/js/icon-picker.js:290 |
-| `iconPickerRecent` | frontend/js/icon-picker.js:325 |
-| `iconPickerRemember` | frontend/js/icon-picker.js:330 |
-| `iconPickerText` | frontend/js/icon-picker.js:344 |
-| `openIconPicker` | frontend/js/icon-picker.js:374 |
+| `closeIconPicker` | frontend/js/icon-picker.js:415 |
+| `iconPickerEmojiGroups` | frontend/js/icon-picker.js:305 |
+| `iconPickerGlyph` | frontend/js/icon-picker.js:399 |
+| `iconPickerHay` | frontend/js/icon-picker.js:300 |
+| `iconPickerIconGroups` | frontend/js/icon-picker.js:358 |
+| `iconPickerPhosphorNames` | frontend/js/icon-picker.js:340 |
+| `iconPickerRecent` | frontend/js/icon-picker.js:375 |
+| `iconPickerRemember` | frontend/js/icon-picker.js:380 |
+| `iconPickerText` | frontend/js/icon-picker.js:394 |
+| `openIconPicker` | frontend/js/icon-picker.js:424 |
 
 ### frontend/js/improve-panel.js (5)
 
@@ -9735,7 +9735,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/first-run-lazy.css | 60 |
 | frontend/css/graph-lazy.css | 360 |
 | frontend/css/help-chat-lazy.css | 32 |
-| frontend/css/icon-picker.css | 101 |
+| frontend/css/icon-picker.css | 121 |
 | frontend/css/improve-lazy.css | 110 |
 | frontend/css/inbox-lazy.css | 196 |
 | frontend/css/lan-lazy.css | 131 |
@@ -11419,7 +11419,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 
 | Name | File:line |
 |---|---|
-| `_act_topic` | src/tessellate/ai/help_topics_more.py:2429 |
+| `_act_topic` | src/tessellate/ai/help_topics_more.py:2431 |
 
 ### src/tessellate/ai/inbox.py (7)
 
@@ -17316,7 +17316,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10911)
+## Tests (10915)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -17819,6 +17819,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_icon_only_buttons.py | 2 |
 | tests/test_icon_picker.py | 5 |
 | tests/test_icon_picker_aliases.py | 3 |
+| tests/test_icon_picker_kaomoji.py | 4 |
 | tests/test_ics.py | 6 |
 | tests/test_ide_shell_b71.py | 16 |
 | tests/test_import_bin_clock.py | 1 |

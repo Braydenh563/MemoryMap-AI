@@ -1755,7 +1755,9 @@ MORE_TOPICS.extend(
             "body": (
                 "Emoji and icons. One picker holds every Phosphor icon the app ships "
                 "and about 470 emoji: Emoji or Icons in the tab strip under its title, "
-                "type to search, Recent first, arrows and Enter to choose, Escape to close. On a board or a "
+                "type to search, Recent first, arrows and Enter to choose, Escape to close. "
+                "The last Emoji group is Japanese emoticons (kaomoji such as a shrug or a table flip), "
+                "found by name or by words like happy, cry and angry. On a board or a "
                 "map, the smiley on the tool dock (Add on a board, Map on a map) or Insert, "
                 "Emoji and icons… keeps it open: press one to place it "
                 "in the middle of the view, or drag it where it goes. An emoji lands "

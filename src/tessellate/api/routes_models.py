@@ -408,6 +408,10 @@ def status(session: Session = Depends(get_session)) -> dict:
         "supports_pull": ollama.supports_pull(),
         "installed_models": installed,
         "chat_model": chat_model,
+        #: What "Small model mode: Auto" resolves to for this model (B56):
+        #: True / False, or None when the name carries no size ("no idea",
+        #: which the runner treats as off).
+        "chat_model_small": jobs.is_small_model(chat_model),
         # None = unknown because Ollama is off (don't warn about nothing)
         "chat_model_installed": _name_matches(chat_model, installed) if running else None,
         #: False on a fresh install that never chose one (the stored default

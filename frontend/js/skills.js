@@ -870,6 +870,7 @@ function renderSmallModelMode(current) {
   const select = $("small-model-mode");
   if (!select) return;
   select.value = current || "auto";
+  if (typeof renderSmallModelAuto === "function") renderSmallModelAuto();
 }
 
 //: **The run budget** (Brief 13), the same shape as the two controls above:

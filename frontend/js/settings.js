@@ -2227,6 +2227,7 @@ function effectiveDensity() {
 //: A window that crosses 700px tall changes Auto's answer.
 DENSITY_SHORT.addEventListener("change", () => {
   if (!prefs.get("density", null)) applyAppearance();
+  if (typeof renderAutoChoices === "function") renderAutoChoices();
 });
 
 //: **Where a label's icon sits: on its words' cap-height centre** (INBOX
@@ -2611,6 +2612,7 @@ function renderAppearance() {
   //: first row rather than on a blank.
   $("font-seg").value = appearancePref("font");
   $("density-seg").value = prefs.get("density", null) || "auto";
+  if (typeof renderAutoChoices === "function") renderAutoChoices();
 }
 
 // A frozen background with no explanation reads as a broken app, which is

@@ -2845,6 +2845,7 @@ function renderSettings() {
   //: settings, and a person with the server down still needs to see and clear
   //: an override (WORLD_CLASS_PLAN 20, "Still open").
   renderFeatureModels(status);
+  if (typeof renderSmallModelAuto === "function") renderSmallModelAuto();
   if (status.ollama_running) {
     renderChatModelPicker(status);
     renderUtilityModelPicker(status);

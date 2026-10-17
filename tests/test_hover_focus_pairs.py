@@ -103,3 +103,77 @@ def test_the_base_button_answers_focus_with_its_hover_ground():
         r"button:hover:not\(:disabled\),\s*button:is\(:focus-visible, :has\(:focus-visible\)\):not\(:disabled\) \{\s*--button-ground: var\(--accent-surface-hover\)",
         forms,
     )
+
+
+# A hover rule names its keyboard twin: the count of selectors without one may only fall.
+# Hover without a focus twin: a ratchet, not a fix. DESIGN.md "One hover for every button": the quiet
+# fill is "the same under :focus-visible". The 2026-10-11 sweep found 216 selectors whose hover rule
+# changes a fill, ink, edge or shadow with no :focus rule on the same selector (216, until Brief 57's
+# grammar pass wrote the twin beside each as `:is(:focus-visible, :has(:focus-visible))`, a form the
+# first normaliser could not read; it now can, and 7 remain: `:not(:hover)` rest states and the two
+# native pseudo-elements). The count may only fall: a new component's hover rule names its
+# :focus-visible beside it.
+HOVER_WITHOUT_FOCUS_BASELINE = 7
+
+
+def _strip(css: str) -> str:
+    return re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+
+
+def _baseline_split_top(selector: str) -> list[str]:
+    out, depth, cur = [], 0, ""
+    for ch in selector:
+        if ch in "([":
+            depth += 1
+        if ch in ")]":
+            depth -= 1
+        if ch == "," and depth == 0:
+            out.append(cur.strip())
+            cur = ""
+        else:
+            cur += ch
+    out.append(cur.strip())
+    return out
+
+
+def _hover_only_selectors() -> set[tuple[str, str]]:
+    from tests._css_paths import CSS_FILES
+
+    rules = []
+    for path in CSS_FILES:
+        text = _strip(path.read_text(encoding="utf-8"))
+        for m in re.finditer(r"([^{}@;]+)\{([^{}]*)\}", text):
+            rules.append((path.name, m.group(1).strip(), m.group(2)))
+
+    def norm(part: str) -> str:
+        part = re.sub(r":(hover|focus-visible|focus-within|focus|active)\b", "", part)
+        #: `:is(:focus-visible, :has(:focus-visible))` is the repo's focus twin (the keyboard
+        #: reaching a control's child); with the pseudo-classes gone it leaves `:has()` empty.
+        part = re.sub(r":has\(\s*\)", "", part)
+        part = re.sub(r":is\(\s*(,\s*)*\)", "", part)
+        part = re.sub(r":is\(([^(),]*)\)", r"\1", part)
+        return re.sub(r"\s+", " ", part).strip()
+
+    focus = {norm(p) for _, sel, _ in rules for p in _baseline_split_top(sel) if re.search(r":focus(-visible)?\b", p)}
+    looks = re.compile(r"background|color|border|box-shadow|outline|opacity|transform|filter|text-decoration")
+    found = set()
+    for name, sel, body in rules:
+        if not looks.search(body):
+            continue
+        for part in _baseline_split_top(sel):
+            if not re.search(r":hover\b", part) or re.search(r":focus", part):
+                continue
+            # `:hover .x` reveals something inside a container; that is not a control's feedback.
+            if re.search(r":hover\)?\s+[.#\[a-z>~+]", part):
+                continue
+            if norm(part) not in focus:
+                found.add((name, part))
+    return found
+
+
+def test_hover_without_a_focus_twin_does_not_grow():
+    found = _hover_only_selectors()
+    assert len(found) <= HOVER_WITHOUT_FOCUS_BASELINE, (
+        f"{len(found)} selectors have a hover rule and no :focus rule (baseline {HOVER_WITHOUT_FOCUS_BASELINE}): "
+        "write the :focus-visible beside the :hover, as `:is(:hover, :focus-visible)`"
+    )

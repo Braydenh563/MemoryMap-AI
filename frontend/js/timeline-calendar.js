@@ -659,6 +659,19 @@ function timelineCalendarToday() {
   paintTimelineCalendar();
 }
 
+//: A note offer's "Show on calendar" (INBOX 904 B72): this view on that day,
+//: every kind shown, the span the reader last chose kept. The read is dropped:
+//: the reminder was made after it, and the month's cached rows lack it.
+function timelineCalendarOn(key) {
+  timelineCal.url = "";
+  timelineCal.only = null;
+  timelineCal.focus = key;
+  $("timeline-calendar").dataset.refocus = "1";
+  prefs.set("timeline-view", "calendar");
+  syncTimelineViewSeg();
+  paintTimeline();
+}
+
 //: The reminders tab's Calendar button (decision 19): this view, reminders
 //: only, on today.
 function timelineCalendarReminders() {

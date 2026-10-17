@@ -1057,14 +1057,15 @@ MORE_TOPICS.extend(
         {
             "id": "editor-offers",
             "keywords": (
-                "offers under the note", "offers while i write", "remind me from a note",
+                "offers under the note", "offers while i write", "remind me from a note", "date in a note to calendar",
                 "sum checked", "check my sums", "wrong sum", "wrong total", "check the total", "link suggestion", "suggest a link",
                 "filing suggestion", "why this category", "chips under the note",
             ),
             "body": (
                 "While you write a note (Capture, or a note's Edit form), offers show as "
                 "chips under the box when you pause: a day in the text becomes Remind me "
-                "(press it to set the reminder, with Undo), a sum written with a wrong "
+                "(press it to set the reminder, with Undo; it goes on the Timeline and its "
+                "calendar, and the notice's Show on calendar opens that day), a sum written with a wrong "
                 "answer shows the right one (press it to put it in), and so does a Total: "
                 "line under a column of amounts that does not add up; a name another note "
                 "opens with becomes a [[link]], and File in names the category with its "

@@ -14,8 +14,12 @@ Found on arrival: Phase 5 steps 1 to 4 were built 2026-10-11 (HISTORY, "TIMELINE
 
 - The feed's days ahead are seven (today and the next seven always drawn on the day scale, any later day with rows as before); a fresh read lands on today (the dock's Today scroll), the future above it.
 
+- "Suggest magic add" is the note editor's existing Remind me offer (Capture and a note's Edit form), not a second chip: a reminder is already the timeline's row and the calendar's chip, so one press does all three; the offer says so and its notice opens the calendar on the day. The chat composer gets no offer (it asks; "Remind me to ..." there is already a command).
+
 ## Log
 
 - done 1c7182d: the add sheet (double click, head Add, N).
 - step 2: the feed's week ahead and the landing on today; row detail to timeline-detail.js (boot offset); timelineZoom const fix.
-- next: step 3, future dates in the note editor's offers: say the reminder is on the calendar and the timeline (ai/offers.py `_reminders` label, quickadd.js `noteOfferTake` toast), frontend/js/quickadd.js:706.
+- done f06de1e: step 2.
+- step 3: the offer's reason and notice name the timeline and the calendar; Show on calendar (`timelineCalendarOn`, drops the cached month read).
+- next: HISTORY Built block, TIMELINE_PLAN 12 row 6 pointer, bugs-1017 B72.

@@ -2,9 +2,9 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5941, frontend ids 2509, CSS sections 494, backend routes 607, backend modules 5578, test files 1215, tests 11035, plan headings 957.
+Counts: frontend functions 5943, frontend ids 2509, CSS sections 494, backend routes 607, backend modules 5578, test files 1216, tests 11038, plan headings 957.
 
-## Frontend functions (5941)
+## Frontend functions (5943)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -4804,14 +4804,15 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `scheduleNoteOutboxFlush` | frontend/js/quick-note.js:85 |
 | `writeNoteOutbox` | frontend/js/quick-note.js:42 |
 
-### frontend/js/quickadd.js (38)
+### frontend/js/quickadd.js (39)
 
 | Name | File:line |
 |---|---|
 | `magicAddReminder` | frontend/js/quickadd.js:436 |
+| `noteOfferCalendar` | frontend/js/quickadd.js:707 |
 | `noteOfferKey` | frontend/js/quickadd.js:602 |
 | `noteOfferReplace` | frontend/js/quickadd.js:684 |
-| `noteOfferTake` | frontend/js/quickadd.js:706 |
+| `noteOfferTake` | frontend/js/quickadd.js:712 |
 | `noteOffersAttach` | frontend/js/quickadd.js:609 |
 | `noteOffersDraw` | frontend/js/quickadd.js:665 |
 | `noteOffersFetch` | frontend/js/quickadd.js:636 |
@@ -5411,39 +5412,39 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `timelineCalAddSave` | frontend/js/timeline-cal-add.js:148 |
 | `timelineCalAddStart` | frontend/js/timeline-cal-add.js:15 |
 
-### frontend/js/timeline-calendar.js (44)
+### frontend/js/timeline-calendar.js (45)
 
 | Name | File:line |
 |---|---|
 | `paintTimelineCalendar` | frontend/js/timeline-calendar.js:156 |
-| `timelineCalAdd` | frontend/js/timeline-calendar.js:736 |
+| `timelineCalAdd` | frontend/js/timeline-calendar.js:749 |
 | `timelineCalCell` | frontend/js/timeline-calendar.js:375 |
 | `timelineCalCellHead` | frontend/js/timeline-calendar.js:467 |
 | `timelineCalDate` | frontend/js/timeline-calendar.js:64 |
 | `timelineCalDayLabel` | frontend/js/timeline-calendar.js:332 |
 | `timelineCalDays` | frontend/js/timeline-calendar.js:116 |
 | `timelineCalDots` | frontend/js/timeline-calendar.js:488 |
-| `timelineCalDragEnd` | frontend/js/timeline-calendar.js:772 |
-| `timelineCalDragOver` | frontend/js/timeline-calendar.js:760 |
-| `timelineCalDragStart` | frontend/js/timeline-calendar.js:751 |
+| `timelineCalDragEnd` | frontend/js/timeline-calendar.js:785 |
+| `timelineCalDragOver` | frontend/js/timeline-calendar.js:773 |
+| `timelineCalDragStart` | frontend/js/timeline-calendar.js:764 |
 | `timelineCalDraw` | frontend/js/timeline-calendar.js:194 |
-| `timelineCalDrop` | frontend/js/timeline-calendar.js:779 |
-| `timelineCalDropTarget` | frontend/js/timeline-calendar.js:747 |
+| `timelineCalDrop` | frontend/js/timeline-calendar.js:792 |
+| `timelineCalDropTarget` | frontend/js/timeline-calendar.js:760 |
 | `timelineCalFetch` | frontend/js/timeline-calendar.js:100 |
 | `timelineCalFill` | frontend/js/timeline-calendar.js:415 |
 | `timelineCalFit` | frontend/js/timeline-calendar.js:432 |
-| `timelineCalFocus` | frontend/js/timeline-calendar.js:717 |
+| `timelineCalFocus` | frontend/js/timeline-calendar.js:730 |
 | `timelineCalGlyph` | frontend/js/timeline-calendar.js:513 |
 | `timelineCalHead` | frontend/js/timeline-calendar.js:255 |
 | `timelineCalItem` | frontend/js/timeline-calendar.js:522 |
-| `timelineCalKeyMove` | frontend/js/timeline-calendar.js:701 |
-| `timelineCalKeys` | frontend/js/timeline-calendar.js:675 |
+| `timelineCalKeyMove` | frontend/js/timeline-calendar.js:714 |
+| `timelineCalKeys` | frontend/js/timeline-calendar.js:688 |
 | `timelineCalMonth` | frontend/js/timeline-calendar.js:340 |
 | `timelineCalMore` | frontend/js/timeline-calendar.js:403 |
 | `timelineCalMount` | frontend/js/timeline-calendar.js:249 |
 | `timelineCalMove` | frontend/js/timeline-calendar.js:642 |
-| `timelineCalMovePage` | frontend/js/timeline-calendar.js:821 |
-| `timelineCalMoveReminder` | frontend/js/timeline-calendar.js:794 |
+| `timelineCalMovePage` | frontend/js/timeline-calendar.js:834 |
+| `timelineCalMoveReminder` | frontend/js/timeline-calendar.js:807 |
 | `timelineCalOpenDay` | frontend/js/timeline-calendar.js:619 |
 | `timelineCalOpenRow` | frontend/js/timeline-calendar.js:596 |
 | `timelineCalPick` | frontend/js/timeline-calendar.js:610 |
@@ -5457,7 +5458,8 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `timelineCalUrl` | frontend/js/timeline-calendar.js:92 |
 | `timelineCalWeek` | frontend/js/timeline-calendar.js:541 |
 | `timelineCalWeekHead` | frontend/js/timeline-calendar.js:575 |
-| `timelineCalendarReminders` | frontend/js/timeline-calendar.js:664 |
+| `timelineCalendarOn` | frontend/js/timeline-calendar.js:665 |
+| `timelineCalendarReminders` | frontend/js/timeline-calendar.js:677 |
 | `timelineCalendarToday` | frontend/js/timeline-calendar.js:656 |
 
 ### frontend/js/timeline-detail.js (2)
@@ -11509,7 +11511,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 
 | Name | File:line |
 |---|---|
-| `_act_topic` | src/tessellate/ai/help_topics_more.py:2440 |
+| `_act_topic` | src/tessellate/ai/help_topics_more.py:2441 |
 
 ### src/tessellate/ai/inbox.py (7)
 
@@ -11878,17 +11880,17 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | Name | File:line |
 |---|---|
 | `_due` | src/tessellate/ai/offers.py:76 |
-| `_filing` | src/tessellate/ai/offers.py:205 |
+| `_filing` | src/tessellate/ai/offers.py:207 |
 | `_inside` | src/tessellate/ai/offers.py:58 |
-| `_links` | src/tessellate/ai/offers.py:184 |
-| `_names` | src/tessellate/ai/offers.py:164 |
+| `_links` | src/tessellate/ai/offers.py:186 |
+| `_names` | src/tessellate/ai/offers.py:166 |
 | `_reminder_words` | src/tessellate/ai/offers.py:68 |
 | `_reminders` | src/tessellate/ai/offers.py:91 |
 | `_sentence` | src/tessellate/ai/offers.py:62 |
-| `_sums` | src/tessellate/ai/offers.py:110 |
-| `_totals` | src/tessellate/ai/offers.py:134 |
-| `date_chip` | src/tessellate/ai/offers.py:238 |
-| `offers` | src/tessellate/ai/offers.py:216 |
+| `_sums` | src/tessellate/ai/offers.py:112 |
+| `_totals` | src/tessellate/ai/offers.py:136 |
+| `date_chip` | src/tessellate/ai/offers.py:240 |
+| `offers` | src/tessellate/ai/offers.py:218 |
 | `quoted_ranges` | src/tessellate/ai/offers.py:53 |
 
 ### src/tessellate/ai/offline.py (4)
@@ -17499,7 +17501,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (11035)
+## Tests (11038)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -18238,6 +18240,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_note_link_chips.py | 2 |
 | tests/test_note_making.py | 1 |
 | tests/test_note_meta_line.py | 5 |
+| tests/test_note_offer_calendar.py | 3 |
 | tests/test_note_offers.py | 10 |
 | tests/test_note_pick_preview.py | 6 |
 | tests/test_note_preview_groups.py | 5 |

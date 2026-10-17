@@ -7,6 +7,7 @@ below). Versioning is `0.x` while the app stabilises.
 
 ## [Unreleased]
 
+- Note offers, from the owner's 2026-10-17 list ("recognise future date and time mentions and suggest ... to add it to the timeline, calendar and as a reminder"): a future day or time in a note is still offered as Remind me, and now says the reminder goes on the timeline and the calendar; taking it ends on a notice with Show on calendar, which opens the calendar (or, below 768px, its agenda) on that day with the new reminder in it.
 - Timeline feed, from the owner's 2026-10-17 list ("scroll above today's date to see future dates"): the feed opens on today with the week ahead above it, each empty day ahead a head with an Add (the calendar's add sheet). An empty today no longer sits above later days that have rows. A row's detail moved to its own lazy file (boot JS 588,462 to 587,787 bytes), and a Ctrl+wheel zoom after a pause no longer throws.
 - Timeline calendar, from the owner's 2026-10-17 list ("double click on a date and be able to add an event and set a reminder"): a double click on a day or an hour, the calendar head's Add, or N opens one sheet with that day filled: a reminder, or an event (a meeting note at its time, with a reminder at its start). The words are read as quick add's chips, and a time alone keeps the day pressed. Undo takes either back.
 - Workflow: sessions on this repo auto-compact at 400k tokens (`.claude/settings.json`) with compact instructions in CLAUDE.md section 8, so long sessions stay cheap per turn and keep their state.

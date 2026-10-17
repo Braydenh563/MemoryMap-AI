@@ -2629,6 +2629,14 @@ def topics_for(question: str, tab: str | None = None) -> list[dict]:
         #: A greeting names no feature, so the open tab's topics are not its
         #: answer either (INBOX 787: "hey" was answered with the Dashboard).
         return []
+    #: What the words ask comes before what they share a keyword with (B11):
+    #: "how do I use the app" is the overview from any tab, "what is this
+    #: page for" the tab's own topic, never the board library's "page".
+    from tessellate.ai import guide_intent
+
+    read = guide_intent.topics(question, tab, {topic["id"]: topic for topic in HELP_TOPICS})
+    if read:
+        return read
     topics = _reading_topics(question)
     if not tab or topics:
         return topics
@@ -2918,6 +2926,16 @@ def offline_answer(
     if social:
         return social
     question, said = _read_as(question)
+    #: Read from the words, not the tab (B11, B86): asked for ideas, for help,
+    #: or what Atlas can change. Understood, so "Taking that as" is not said.
+    from tessellate.ai import guide_intent
+
+    read = guide_intent.reply(question, tab)
+    if read:
+        read["content"] = f"{read['content']}\n\n{OFFLINE_LEAD}" if not read.get("greeting") else read["content"]
+        return read
+    if guide_intent.read(question):
+        said = ""
     topics = topics_for(question, tab) if question else []
     if not topics:
         #: The app's help text for whatever is on screen, when there is any:

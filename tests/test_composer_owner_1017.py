@@ -169,6 +169,21 @@ def test_a_category_named_for_the_app_is_not_renamed_to_a_generic_topic(session)
     assert not [r for r in rows if "About Tessellate" in r["title"]], rows
 
 
+def test_a_time_with_no_note_in_it_is_said_as_that_with_where_the_notes_are(client, session):
+    """O1: "What did I write last month?" in a notebook begun this week was
+    answered "I couldn't find any saved notes matching that question" (the
+    Guide's own suggested asks, measured 2026-10-17)."""
+    _seed(session)
+    for body in ({"use_tools": False}, {"notes_only": True, "use_tools": False}):
+        text = _ask(client, "What did I write last month?", **body)["text"]
+        assert "couldn't find" not in text and "last month" in text.lower(), (body, text)
+        assert "All your notes are from" in text or "Every entry is dated" in text, text
+    for voice in ("natural", "professional"):
+        lines = {composer.empty_window("last month", None, None, voice=voice, seed=str(i)) for i in range(60)}
+        assert len(lines) >= 8, (voice, lines)
+        assert all("!" not in line and chr(0x2014) not in line and line[0].isupper() for line in lines), lines
+
+
 #: How-tos answered in Chat with no model, with words of the sentence that
 #: answers each (O1, BACKLOG "Composer quality outside Ask"): measured
 #: 2026-10-17, five of these led with a sentence about something else.

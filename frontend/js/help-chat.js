@@ -420,6 +420,7 @@ async function submitHelpChatQuestion(question) {
       signal.aborted ? null : result?.system || null
     );
     if (answerRow && result?.greeting && !signal.aborted) renderHelpChatGreeting(answerRow);
+    if (answerRow && result?.asks?.length && !signal.aborted) renderHelpChatAsks(answerRow, result.asks, result.asks_to);
     helpChatHistory.push({ role: "user", content: question });
     helpChatHistory.push({ role: "assistant", content });
   } catch (error) {
@@ -563,6 +564,8 @@ async function helpChatStreamTurn({ pending, signal, body, line = null }) {
     sources: done?.sources || [],
     system: done?.system || null,
     greeting: !!done?.greeting,
+    asks: done?.asks || [],
+    asks_to: done?.asks_to || "chat",
     shown: text,
   };
 }
@@ -717,6 +720,48 @@ function renderHelpChatGreeting(row) {
     host.appendChild(chip);
   }
   row.appendChild(host);
+}
+
+//: **Asked what to ask, the answer's asks are chips** (INBOX 904 B11, B86;
+//: BACKLOG "Guide answers what can I do in the chat"). Each fills the box it
+//: is for, Chat's or Notes' Ask, and leaves the caret there: the person reads
+//: it, edits a word and sends, rather than having a question sent for them.
+//: The greeting's chip recipe, so the two read as one row.
+function renderHelpChatAsks(row, asks, to) {
+  const host = document.createElement("div");
+  host.className = "help-chat-badges";
+  for (const ask of asks) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "ghost small atlas-starter";
+    chip.textContent = ask;
+    chip.title = to === "notes" ? `Put in Notes, Ask: ${ask}` : `Put in Chat: ${ask}`;
+    chip.addEventListener("click", () => fillAskBox(ask, to));
+    host.appendChild(chip);
+  }
+  row.appendChild(host);
+}
+
+async function fillAskBox(text, to) {
+  if (to === "notes") {
+    await switchTab("notes");
+    if (typeof showNotesSection === "function") showNotesSection("ask");
+  } else {
+    await switchTab("chat");
+  }
+  const box = $(to === "notes" ? "question" : "chat-input");
+  if (!box) return;
+  box.value = text;
+  //: The autogrow and the send button read the input event.
+  box.dispatchEvent(new Event("input", { bubbles: true }));
+  //: After the tab switch has placed its own focus (measured: a plain
+  //: focus() here left document.activeElement on the body).
+  requestAnimationFrame(() =>
+    setTimeout(() => {
+      box.focus();
+      box.setSelectionRange?.(text.length, text.length);
+    }, 120)
+  );
 }
 
 //: The one way in with a question already chosen: used by the starters, and

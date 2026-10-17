@@ -3983,6 +3983,68 @@ def _bare_title(out: _Answer, terms: list[str], views: list[NoteView]) -> NoteVi
     return None
 
 
+#: A window asked about that holds no note ("what did I write last month" in
+#: a notebook begun this week): said as that, with where the notes are, never
+#: "I couldn't find any saved notes matching that question" (O1, measured
+#: 2026-10-17 on the Guide's own suggested asks).
+_EMPTY_WINDOW = {
+    "natural": (
+        "You wrote nothing {when}.",
+        "Nothing went into your notes {when}.",
+        "No notes were written {when}.",
+        "I see no notes {when}.",
+        "{When}, you wrote nothing down.",
+        "There's nothing written {when}.",
+        "Your notebook has nothing {when}.",
+        "Nothing turns up {when}.",
+    ),
+    "professional": (
+        "No notes were recorded {when}.",
+        "There are no entries {when}.",
+        "The notebook holds nothing {when}.",
+        "Nothing was recorded {when}.",
+        "{When}, nothing was recorded.",
+        "No records exist {when}.",
+        "The notes contain nothing written {when}.",
+        "Nothing was entered {when}.",
+    ),
+}
+_EMPTY_WINDOW_SPAN = {
+    "natural": (
+        "Your notes run from {first} to {last}.",
+        "Your earliest note is from {first}.",
+        "Everything you have is from {first} on.",
+        "Your notebook starts on {first}.",
+    ),
+    "professional": (
+        "The notes span {first} to {last}.",
+        "The earliest entry is dated {first}.",
+        "Entries begin on {first}.",
+        "The notebook begins on {first}.",
+    ),
+}
+
+
+def empty_window(when: str, first: date | None, last: date | None, *, voice: str = "natural", seed: str = "",
+                 today: date | None = None) -> str:
+    """A time window with no note in it, said as that, and where the notes
+    are (`first` and `last` written days; None for an empty notebook)."""
+    voice = "professional" if composer_tables.voice_of(voice) == "professional" else "natural"
+    today = today or date.today()
+    lead = _pick(seed or when, "empty_window", list(_EMPTY_WINDOW[voice])).format(when=when, When=when[:1].upper() + when[1:])
+    if first is None or last is None:
+        return lead
+
+    def day(d: date) -> str:
+        return f"{d.day} {d:%B}" if d.year == today.year else f"{d.day} {d:%B %Y}"
+
+    if first == last:
+        span = ("All your notes are from {first}." if voice == "natural" else "Every entry is dated {first}.").format(first=day(first))
+    else:
+        span = _pick(seed or when, "empty_window_span", list(_EMPTY_WINDOW_SPAN[voice])).format(first=day(first), last=day(last))
+    return f"{lead} {span}"
+
+
 def _nothing(
     shape: str,
     unsure: list[dict] | None = None,

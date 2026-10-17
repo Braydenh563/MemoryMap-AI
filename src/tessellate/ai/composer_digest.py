@@ -41,6 +41,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from tessellate.ai import composer, composer_tables, glossary, realise, verdicts
+from tessellate.ai.toolwords import asks_web  # noqa: F401  # re-exported: the words live in the leaf module
 from tessellate.ai import recognise as recogniser
 from tessellate.ai import when as when_words
 
@@ -2085,19 +2086,6 @@ def _result(out: _Out, kind: str, question: str) -> dict:
 
 #: "search the web for X", "look up X": the words that ask, not the subject.
 _WEB_ASK = re.compile(r"^(?:(?:hey|hi|ok|okay),? )?(?:(?:can|could|will) (?:you|u) )?(?:(?:please|pls|plz) )?(?:search (?:the )?(?:web|internet|online) (?:for|about)|search up|look up|google|find (?:on|from) the web|web search(?: for)?)\s+", re.I)
-
-
-#: Asked for the web in so many words, anywhere in the turn: "hey can u pls
-#: search the web for ..." was answered from two unrelated notes (owner,
-#: 2026-10-12), because a note matched and the web was only the fallback.
-_ASKS_WEB = re.compile(
-    r"\b(?:search|look(?: it)? up|google|check)\b.{0,12}?\b(?:the )?(?:web|internet|online)\b|\bsearch up\b|\bweb search\b|\bon the (?:web|internet)\b",
-    re.I,
-)
-
-
-def asks_web(question: str) -> bool:
-    return bool(_ASKS_WEB.search(question or ""))
 
 
 def web_query(question: str) -> str:

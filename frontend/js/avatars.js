@@ -4742,9 +4742,8 @@ function nameMarkBuddyDrop(x, y) {
     }
   }
   if (fall) return fall;
-  //: Nothing under it: it floats where it was let go, stepped aside from a
-  //: control; one it cannot clear (a throw onto chat's foot floated over the
-  //: mode switch) is no place of its own, so the nearest good perch.
+  //: Nothing under it: it floats, stepped aside from a control; one it cannot
+  //: clear (chat's mode switch) gets the nearest good perch instead.
   const open = nameMarkBuddyStepAside({ kind: "yours", pose: "float", legs: "", x, y }, obstacles);
   return nameMarkBuddyHits(open.x, open.y, "float", obstacles) ? nameMarkBuddyChoose(tab, obstacles, [x, y], 4) || open : open;
 }
@@ -6515,10 +6514,8 @@ function nameMarkBuddyLockSync() {
   const lock = document.getElementById("lock-overlay");
   if (band) band.style.display = lock && !lock.classList.contains("hidden") && lock.dataset.mode !== "prompt" ? "none" : "";
 }
-//: **Out of the way of a modal or the lock screen**: `data-cover`, read by the
-//: CSS. It was `body:has(dialog[open]:modal, ...) #nm-buddy`, matched over
-//: the whole document on every restyle of the companion: 4.7 ms of each 16.7
-//: ms frame of a drag or throw. Checked once a frame at most, on a change.
+//: `data-cover` (read by the CSS) moves it off a modal or the lock screen. A
+//: document-wide `:has()` did this and cost 4.7 of each 16.7 ms drag frame.
 const NMB_COVER_SEL = "dialog, .modal-overlay, .lock-overlay";
 function nameMarkBuddyCoverCheck() {
   nmb.coverFrame = 0;
@@ -6701,7 +6698,7 @@ function nameMarkBuddyViewChanged() {
   queueNameMarkBuddyCheck();
   nameMarkBuddyQueuePlace();
 }
-if (typeof MutationObserver === "function") {
+if (globalThis.MutationObserver) {
   const views = new MutationObserver((records) => {
     for (const r of records) {
       const el = r.target;

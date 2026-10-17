@@ -63,7 +63,8 @@ def test_a_test_message_is_acknowledged_as_a_test(ai_client, session):
     for message in ("test", "testing", "Test 123", "testing testing", "is this thing on?", "hello world"):
         text = _ask(ai_client, message, notes_only=True, use_tools=False)["text"]
         assert "no mention" not in text.lower() and "nothing in your notes" not in text.lower(), (message, text)
-        assert text in composer.SOCIAL["test"] + composer.SOCIAL_PROFESSIONAL["test"], (message, text)
+        #: The family's line, and (O5) perhaps an ask about the newest note.
+        assert any(text.startswith(line) for line in composer.SOCIAL["test"] + composer.SOCIAL_PROFESSIONAL["test"]), (message, text)
 
 
 def test_the_capability_rundown_is_composed_and_sized_to_the_request():
@@ -194,3 +195,74 @@ def test_the_tag_with_atlas_panel_draws_categories_and_an_own_tag_field():
     js = (Path(__file__).resolve().parent.parent / "frontend" / "js" / "tag-suggest.js").read_text(encoding="utf-8")
     assert "data.suggested_categories" in js and "Could also go in:" in js
     assert 'aria-label", "Add a tag of your own"' in js and "No tags to suggest for this one." in js
+
+
+def test_a_time_with_no_note_in_it_is_said_as_that_with_where_the_notes_are(client, session):
+    """O1: "What did I write last month?" in a notebook begun this week was
+    answered "I couldn't find any saved notes matching that question" (the
+    Guide's own suggested asks, measured 2026-10-17)."""
+    _seed(session)
+    for body in ({"use_tools": False}, {"notes_only": True, "use_tools": False}):
+        text = _ask(client, "What did I write last month?", **body)["text"]
+        assert "couldn't find" not in text and "last month" in text.lower(), (body, text)
+        assert "All your notes are from" in text or "Every entry is dated" in text, text
+    for voice in ("natural", "professional"):
+        lines = {composer.empty_window("last month", None, None, voice=voice, seed=str(i)) for i in range(60)}
+        assert len(lines) >= 8, (voice, lines)
+        assert all("!" not in line and chr(0x2014) not in line and line[0].isupper() for line in lines), lines
+
+
+def test_a_hello_ends_on_an_ask_about_the_newest_note(client, session):
+    """O5 (B07: replies vary and feel alive): a stored opener, then an
+    invitation built on a word of the newest note, eight wordings a voice,
+    never after an opener that already asks or suggests."""
+    for voice in ("natural", "professional"):
+        lines = composer.INVITES[voice]
+        assert len(set(lines)) >= 8 and all("{subject}" in line and "!" not in line and chr(0x2014) not in line for line in lines)
+    said = {composer.social("good morning", invite="golf", seed=str(i)) for i in range(40)}
+    assert len(said) >= 6 and all("golf" in s or s.endswith("?") for s in said), said
+    assert sum("golf" in s for s in said) >= 4, said
+    assert "golf" not in composer.social("asdkjhfgs", invite="golf")
+    _seed(session)
+    texts = [_ask(client, hello, use_tools=False)["text"] for hello in ("hi", "hello", "good morning", "hey there", "morning")]
+    assert any("golf" in text for text in texts), texts
+    #: The ask it offers is one the notes answer.
+    assert "Golf practice" in _ask(client, "what did I write about golf", use_tools=False)["text"]
+
+
+#: How-tos answered in Chat with no model, with words of the sentence that
+#: answers each (O1, BACKLOG "Composer quality outside Ask"): measured
+#: 2026-10-17, five of these led with a sentence about something else.
+HOW_TOS = (
+    ("How do I add a reminder?", "Magic add"),
+    ("how do i make a reminder", "Magic add"),
+    ("how do I export my notes", "Export your data"),
+    ("how do I back up my notes", "Back up now"),
+    ("how do I connect a model", "Connect a model"),
+    ("how do I hide unlinked notes on the map of notes", "Hide unlinked"),
+    ("how do I link two notes together", "typing [["),
+)
+
+
+def test_a_how_to_in_chat_leads_with_the_sentence_that_answers_it(client, session):
+    """O1 (BACKLOG "Composer quality outside Ask"): "How do I add a reminder?"
+    in Chat answered "The Reminders tab groups items into Overdue / Today /
+    Upcoming / Done", and "how do I export my notes" led with Tidy up
+    duplicates. The verb asked counts in full even when the topic is named
+    for it, and a pair of words the sentence also says counts extra."""
+    from tessellate.ai import help_chat, reading
+
+    assert reading.__name__
+    for question, said in HOW_TOS:
+        line, _ = composer.help_line(question, help_chat.topics_for(question))
+        assert said in line, (question, line)
+    _seed(session)
+    for body in ({"use_tools": False}, {"use_tools": True}, {"notes_only": True, "use_tools": False}):
+        text = _ask(client, "How do I add a reminder?", **body)["text"]
+        assert "Magic add" in text, (body, text)
+        #: Read as a notes question (no app word the router knows), found in
+        #: no note, and plainly about the app: the help says it.
+        text = _ask(client, "how do I connect a model", **body)["text"]
+        assert text.startswith("Connect a model in Settings, Models"), (body, text)
+        text = _ask(client, "how do I learn python", **body)["text"]
+        assert "Settings" not in text and "python" in text.lower(), (body, text)

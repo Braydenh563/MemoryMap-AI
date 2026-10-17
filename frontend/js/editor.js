@@ -622,6 +622,9 @@ function chatCommands() {
     { id: "chat-web", primary: true, group: "This message", icon: "ph:globe", label: "Web search", hint: "toggle", keywords: ["web", "search", "online", "internet"], run: press("web-search-toggle") },
     { id: "chat-plan", primary: true, group: "This message", icon: "ph:compass", label: "Plan first", hint: "toggle", keywords: ["plan", "steps", "think"], run: press("chat-plan") },
     { id: "chat-skills", primary: true, group: "This message", icon: "ph:lightning", label: "Skills", hint: "run a saved skill", keywords: ["skill", "skills", "run", "workflow"], run: press("chat-skills-btn") },
+    //: O6: the exact answers (`ai/slash.py`); /help lists them from the one
+    //: registry, and tests/test_slash.py holds these words to it.
+    { id: "chat-commands", group: "This message", icon: "ph:terminal", label: "Commands", hint: "/recent, /count, /made, /untagged", keywords: ["command", "slash", "recent", "count", "made", "untagged", "help"], run: afterPress(() => sendChatMessage("/help")) },
     { id: "chat-mode-agent", group: "Mode", icon: "ph:strategy", label: "Agent mode", hint: "let it act on the notebook", keywords: ["agent", "mode", "tools", "act"], run: mode("agent") },
     { id: "chat-mode-chat", group: "Mode", icon: "ph:sparkle", label: "Ask mode", hint: "answer only", keywords: ["ask", "chat", "mode", "answer"], run: mode("chat") },
   ];

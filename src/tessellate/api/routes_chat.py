@@ -2315,7 +2315,31 @@ def _social_reply(req: _StreamRequest, prepared: dict) -> str:
         voice=_composer_voice(),
         recent=recent,
         seed=seed,
+        invite=_newest_word(req.session),
     )
+
+
+def _newest_word(session: Session) -> str:
+    """A word the newest note is about, for a hello's invitation (O5): its
+    first search term of four letters or more that is an everyday word, so
+    "what did I write about golf" finds the note it came from; "" when
+    there is none."""
+    from tessellate.ai import spelling
+    from tessellate.ai.tools._common import _visible
+    from tessellate.core.database import Entry
+    from tessellate.search import query as query_understanding
+
+    newest = session.query(Entry.content).filter(*_visible()).order_by(Entry.created_at.desc()).first()
+    if not newest:
+        return ""
+    for term in query_understanding.search_terms(str(newest[0] or "")[:400]):
+        if len(term) >= 4 and term.isalpha() and term not in _NOT_A_SUBJECT and spelling.is_word(term):
+            return term
+    return ""
+
+
+#: A note's kind, not what it is about ("Idea: build a bird feeder").
+_NOT_A_SUBJECT = frozenset("idea ideas note notes todo todos reminder thought thoughts list draft remember".split())
 
 
 def _call_events(req: _StreamRequest) -> list[dict]:
@@ -2378,6 +2402,52 @@ def _exact_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         if shown:
             return list(shown)
     return None
+
+
+def _no_notes_line(req: _StreamRequest, ollama_running: bool) -> str:
+    """A subject-less question about a time with no note in it ("what did I
+    write last month"), said as that with where the notes are; for any
+    other question, or when a model answers, the plain "nothing matched" (O1)."""
+    if ollama_running and not _composed(req, ollama_running):
+        return librarian.NO_RESULTS_MESSAGE
+    planned = composer.plan(req.question or "")
+    if not planned.window or planned.terms or not planned.window_phrase:
+        return librarian.NO_RESULTS_MESSAGE
+    from sqlalchemy import func
+
+    from tessellate.ai.tools._common import _visible
+    from tessellate.core.database import Entry
+
+    first, last = req.session.query(func.min(Entry.created_at), func.max(Entry.created_at)).filter(*_visible()).one()
+    return composer.empty_window(
+        planned.window_phrase,
+        first.date() if first else None,
+        last.date() if last else None,
+        voice=_composer_voice(),
+        seed=req.question or "",
+    )
+
+
+def _current_notes(req: _StreamRequest, notes: list[dict]) -> tuple[list[dict], list]:
+    """The notes with any a newer note on the asked subject supersedes left
+    out, and those left out (O11, `ai/supersede.py`)."""
+    from tessellate.ai import supersede
+
+    return supersede.current(req.question or "", notes)
+
+
+def _with_older(text: str, older: list, result: dict) -> str:
+    """The answer, and one line on what an older note said, when the answer
+    came from the notes and one was set aside (never silently dropped)."""
+    from tessellate.ai import supersede
+
+    if not older or not result.get("grounding"):
+        return text
+    line = supersede.older_line(older, voice=_composer_voice(), today=user_now(deps.get_config()).date(), seed=len(text))
+    #: "It's your only note on that so far" is not true with an older one.
+    only = {composer_digest._BASE["only_note"], *(v.get("only_note", "") for v in composer_digest.VOICES.values())}
+    kept = [part for part in text.split("\n\n") if part.strip() not in only]
+    return "\n\n".join([*kept, line])
 
 
 def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> Iterator[dict]:
@@ -2456,7 +2526,7 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         # retrieval never sees the image, so an empty search result
         # must not stand in for "there's nothing to look at" (same fix
         # as `librarian.answer`'s own guard).
-        yield {"type": "answer", "delta": librarian.NO_RESULTS_MESSAGE}
+        yield {"type": "answer", "delta": _no_notes_line(req, ollama_running)}
         # …but the notebook is more than its notes. See
         # `_related_elsewhere`: a question answered by a document, a saved
         # chat or a reminder used to end here regardless.
@@ -2509,10 +2579,12 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
         #: about me": what the notebook says of its writer (`ai/personal.py`),
         #: read from every note, not only the ones the search found.
         digest = None if follow else personal.answer(req.question, lambda: personal.notes_of(req.session), today)
+        #: O11: a newer note on the same thing is the current one.
+        current, older = _current_notes(req, prepared["notes"])
         if digest is None and (not follow or restated) and not str(prepared.get("search_mode") or "").endswith("recent"):
             try:
                 digest = composer_digest.answer(
-                follow.question if restated else req.question, prepared["notes"], today=user_now(deps.get_config()).date(),
+                follow.question if restated else req.question, current, today=user_now(deps.get_config()).date(),
                 voice=_answer_voice(), turn=len(req.history or []),
                 insight=_insight_level(), learned=_insight_memory(req.session), known=_verdicts(req.session),
             )
@@ -2520,7 +2592,7 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
                 logging.getLogger("tessellate.chat").exception("chat: the digest failed")
         result = digest or composer.compose(
             follow.question if follow else req.question,
-            prepared["notes"],
+            current,
             today=user_now(deps.get_config()).date(),
             recent=str(prepared.get("search_mode") or "").endswith("recent"),
             embed=_composer_embed(),
@@ -2553,6 +2625,7 @@ def _plain_events(req: _StreamRequest, prepared: dict, ollama_running: bool) -> 
             text = personal.general_reply(_web_allowed(req))
         if not result["grounding"] and prepared.get("meaning_loading"):
             text += "\n\n" + composer_digest.PHRASES["meaning_loading"]
+        text = _with_older(text, older, result)
         yield {"type": "answer", "delta": text}
         if result["grounding"]:
             yield {
@@ -3336,6 +3409,11 @@ def _address(question: str, session: Session, skill: dict | None) -> tuple:
     address = None if skill or intent.is_mash(question) or intent.is_test(question) else vocative.split(question, in_notes=_in_notes(session))
     if address is None or not address.names:
         return question, None
+    #: A slipped word at the end of a command is the command's, not a name:
+    #: "pin the dentist noe" lost "noe" as a nickname and pinned nothing (O3).
+    now = user_now(deps.get_config())
+    if acts.parse(question, now) is not None and acts.parse(address.question, now) is None:
+        return question, None
     return address.question, address
 
 
@@ -3419,7 +3497,7 @@ def chat_stream(body: ChatRequest, session: Session = Depends(get_session)):
     # X-Accel-Buffering: no tells reverse proxies (nginx) not to buffer the
     # stream, so tokens reach the browser as they're produced.
     return StreamingResponse(
-        _interactive_lines(req),
+        _answer_lines(req),
         media_type="application/x-ndjson",
         headers={"X-Accel-Buffering": "no", "Cache-Control": "no-cache"},
     )
@@ -3456,6 +3534,40 @@ def _run_title(req) -> str:  # noqa: ANN001
         return f"Running {name}" + (f": '{asked}'" if asked else "")
     agent = req.use_tools and not getattr(req.body, "notes_only", False)
     return f"{'Agent: ' if agent else 'Answering '}'{asked}'"
+
+
+def _answer_lines(req: _StreamRequest) -> Iterator[str]:
+    """The turn's stream: a slash command's exact lines, else the full turn."""
+    commanded = _slash_lines(req)
+    return iter(commanded) if commanded is not None else _interactive_lines(req)
+
+
+def _slash_lines(req: _StreamRequest) -> list[str] | None:
+    """**A slash command answers exactly, before any search** (O6,
+    `ai/slash.py`): the stream's lines for a typed `/command`, or for an
+    ordinary sentence that asks for one when no model answers ("which notes
+    have no tags"); None otherwise, and for a skill's run."""
+    from tessellate.ai import slash
+
+    if req.skill:
+        return None
+    typed_only = req.ollama.is_running() and not _composed(req, True)
+    said = slash.answer(req.session, req.body.question or "", user_now(deps.get_config()).replace(tzinfo=None), typed_only=typed_only)
+    if said is None:
+        return None
+    meta = {"type": "meta", "raw_results": [], "picture_alts": {}, "picture_sizes": {}, "search_mode": "command",
+            "connected_ids": [], "match_info": {}, "when_phrase": None, "as_of": None, "as_of_revisions": {},
+            "answered_by": None, "ollama_running": req.ollama.is_running(), "composed": True}
+    return [json.dumps(e) + "\n" for e in ({"type": "status", "stage": "searching"}, meta, {"type": "answer", "delta": said}, {"type": "done"})]
+
+
+@router.get("/commands")
+def list_commands() -> dict:
+    """The slash commands (`ai/slash.py`): what the Chat box's "/" menu
+    lists and `/help` says, from the one registry."""
+    from tessellate.ai import slash
+
+    return {"commands": slash.catalogue()}
 
 
 @router.get("/modes")

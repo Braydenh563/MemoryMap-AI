@@ -44,3 +44,21 @@ def test_cutting_the_whole_chat_answers_with_the_row_to_restore(client):
     back = client.post("/conversations/restore", json=cut["restore"])
     assert back.status_code == 201
     assert _texts(client, chat_id) == ["q0", "a0", "q1", "a1"]
+
+
+# === Undo for a deleted conversation (folded in from the undo-deletes tests; the undo_bin_* files are merged separately) ===
+
+
+def test_a_deleted_conversation_comes_back_whole(client):
+    made = client.post("/conversations", json={"question": "Where is the map?", "answer": "In the drawer."}).json()
+    client.post(f"/conversations/{made['id']}/turns", json={"question": "Which drawer?", "answer": "The top one."})
+    client.put(f"/conversations/{made['id']}/pin", json={"pinned": True})
+    before = client.get(f"/conversations/{made['id']}").json()
+    gone = client.delete(f"/conversations/{made['id']}").json()
+    assert gone["deleted"] is True and gone["restore"]["id"] == made["id"]
+    assert client.get(f"/conversations/{made['id']}").status_code == 404
+    back = client.post("/conversations/restore", json=gone["restore"])
+    assert back.status_code == 201, back.text
+    assert client.get(f"/conversations/{made['id']}").json() == before
+    # Twice is refused, not duplicated.
+    assert client.post("/conversations/restore", json=gone["restore"]).status_code == 409

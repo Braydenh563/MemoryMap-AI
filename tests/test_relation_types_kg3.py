@@ -139,3 +139,56 @@ def _alembic_head() -> str:
     config = Config(str(root / "alembic.ini"))
     config.set_main_option("script_location", str(root / "migrations"))
     return ScriptDirectory.from_config(config).get_current_head()
+
+
+# Undo for a deleted relation type: it comes back with its key and the links it was on
+
+
+def test_a_deleted_relation_type_comes_back_with_its_key_and_its_links(client):
+    a, b, c = (_note(client, f"Note {n}") for n in "abc")
+    client.post("/relation-types", json={"name": "Part of", "inverse": "Has part", "colour": "teal"})
+    # A rename keeps the key, so Undo has to send the key, not re-derive it.
+    client.patch("/relation-types/part_of", json={"name": "Piece of"})
+    first = client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"], "link_type": "part_of"})
+    second = client.post(f"/entries/{a['id']}/links", json={"target_id": c["id"], "link_type": "part_of"})
+    assert first.status_code in (200, 201), first.text
+    assert second.status_code in (200, 201), second.text
+    before = client.get("/relation-types").json()
+    gone = client.delete("/relation-types/part_of").json()
+    assert gone["links_untyped"] == 2
+    restore = gone["restore"]
+    assert restore["key"] == "part_of" and restore["name"] == "Piece of" and len(restore["link_ids"]) == 2
+    back = client.post("/relation-types", json={**restore, "restore": True})
+    assert back.status_code == 201, back.text
+    assert back.json()["key"] == "part_of" and back.json()["name"] == "Piece of"
+    assert client.get("/relation-types").json() == before
+    kinds = {link["entry_id"]: link.get("link_type") for link in client.get(f"/entries/{a['id']}").json()["links"]}
+    assert kinds[b["id"]] == "part_of" and kinds[c["id"]] == "part_of"
+
+
+def test_a_relation_type_restore_leaves_a_link_given_another_kind_since(client):
+    a, b = _note(client, "One"), _note(client, "Two")
+    client.post("/relation-types", json={"name": "Cites"})
+    link = client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"], "link_type": "cites"}).json()
+    restore = client.delete("/relation-types/cites").json()["restore"]
+    link_id = restore["link_ids"][0]
+    client.patch(f"/entries/{a['id']}/links/{link_id}", json={"link_type": "supports"})
+    client.post("/relation-types", json={**restore, "restore": True})
+    kinds = [x.get("link_type") for x in client.get(f"/entries/{a['id']}").json()["links"]]
+    assert kinds == ["supports"], (link, kinds)
+
+
+def test_a_relation_type_delete_and_restore_reach_every_space(client):
+    """A kind is the notebook's, not a space's: deleting it while one space
+    is open used to leave it on the other spaces' links."""
+    other = client.post("/spaces", json={"name": "Elsewhere"}).json()["id"]
+    hdr = {"X-Workspace-ID": other}
+    a = client.post("/entries", json={"content": "Away a"}, headers=hdr).json()
+    b = client.post("/entries", json={"content": "Away b"}, headers=hdr).json()
+    client.post("/relation-types", json={"name": "Answers"})
+    client.post(f"/entries/{a['id']}/links", json={"target_id": b["id"], "link_type": "answers"}, headers=hdr)
+    gone = client.delete("/relation-types/answers").json()
+    assert gone["links_untyped"] == 1
+    assert [x.get("link_type") for x in client.get(f"/entries/{a['id']}", headers=hdr).json()["links"]] == [None]
+    client.post("/relation-types", json={**gone["restore"], "restore": True})
+    assert [x.get("link_type") for x in client.get(f"/entries/{a['id']}", headers=hdr).json()["links"]] == ["answers"]

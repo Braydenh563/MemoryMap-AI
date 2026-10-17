@@ -738,7 +738,7 @@ function renderAgentActivityMode() {
 //: repeat guard let every other one through), each slid in on its own
 //: keyframe while the others slid by `translate`, so a card arriving at the
 //: corner crossed the one it pushed away for about 120 ms.
-//: The rules, each held by tests/test_toast_stack_1011.py and
+//: The rules, each held by tests/test_notification_actions.py and
 //: `scratchpad/ui-sweeps/toaststack.js`:
 //: - the same words of the same kind (and, with an action, the same action)
 //:   within `TOAST_MERGE_MS` are one card with a count ("×3"), its timer

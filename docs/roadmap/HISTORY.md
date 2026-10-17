@@ -490,6 +490,14 @@ the gesture guard moved onto the surface first; see HISTORY.md ("From OPEN.md,
 2026-09-23 (askcite agent): Phase 8c, the board's note card").
 
 
+## Moved from the plans, 2026-10-17 (New chat page, BACKLOG)
+
+From BACKLOG, as it stood:
+
+> New chat page: its content (the mark, "Explore your notebook with Atlas", the starter chips) appears a second or two late and all at once (owner, 2026-10-12). It waits for its starters (`renderChatEmptyState`, chat.js, `.chat-empty-waiting`); show the mark and heading at once, skeleton the chips, and fade each in.
+
+Built 2026-10-17 (ui-1017b): the card is drawn at once and `#chat-suggest` holds four skeleton pieces in its own box (`showSkeletons`, cleared by `loadChatSuggestions`, which settles the real chips in). Measured with `scratchpad/ui-sweeps/chatemptypaint.js` (NEW=1 DELAY=1200, 1440): heading visible at 854 ms before and 15 ms after; heading top moved 39px (350.7 to 389.7) before and 0 after; card height 222.5 to 300.6 before, constant 300.6 after. At 390 and 1024 the heading and card did not move. The boot CSS cap was paid for by moving sixteen pure OCR rules to library-lazy.css (boot CSS 178,971 to 178,865 gzipped with the skeleton rules in, boot JS 587,615 to 587,757; computed styles of the workspace identical at 1440, 1024 and 390).
+
 ## Moved from the plans, 2026-10-12 (Brief 34)
 
 The whole brief, closed with its last row (2026-10-12: the name-mark pairs under the 15% floor, 9 down to 2 on the default look (Jade/Maya 11.5%, You/Chloe 11.8%) and 0 on the feminine, by teal cloth in one colour pair and the hair style and garment joining the hair and cloth rolls; the masculine look keeps its one pair under the floor (Chloe/Quinn 9.6%, unchanged); 15% on all three looks was not reachable in this step). The idle-cost step is still in OPEN.md. The brief, as it stood:

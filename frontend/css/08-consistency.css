@@ -9744,13 +9744,44 @@ aside[data-resizable].sidebar-collapsed > :not(.sidebar-collapse-toggle):not(.si
   opacity: 0;
   visibility: hidden;
 }
-/* Chat's empty card waits unseen for its starters, then fades in whole
-   (`renderChatEmptyState`, chat.js): it used to grow round them in view. */
-.chat-empty {
-  transition: opacity var(--ui-base) var(--ease-out);
+/* Chat's empty card is drawn at once, the mark and the heading with it
+   (`renderChatEmptyState`, chat.js). The starters' room is held by skeleton
+   pills in `#chat-suggest` itself, so the box has its own padding, gap and
+   height and nothing moves when the real ones replace them (`clearSkeletons`
+   settles them in, staggered). The first piece stands for the "Try asking"
+   line, a full row of its own; a phone hides that line, so it hides too. */
+.chat-empty-waiting #chat-suggest > .skeleton {
+  flex: 0 0 auto;
+  width: 9rem;
+  height: var(--target-min);
+  margin: 0;
+  border-radius: var(--radius-md);
 }
-.chat-empty.chat-empty-waiting {
-  opacity: 0;
+.chat-empty-waiting #chat-suggest > .skeleton:nth-child(3) {
+  width: 11rem;
+}
+.chat-empty-waiting #chat-suggest > .skeleton::before,
+.chat-empty-waiting #chat-suggest > .skeleton::after {
+  display: none;
+}
+.chat-empty-waiting #chat-suggest > .skeleton:first-child {
+  flex: 1 0 100%;
+  height: 1.38rem;
+  border: 0;
+  background: none;
+  animation: none;
+}
+.chat-empty-waiting #chat-suggest > .skeleton:first-child::before {
+  display: block;
+  inset-inline-start: calc(50% - 3.5rem);
+  top: 0.35rem;
+  width: 7rem;
+  height: 0.7rem;
+}
+@media (max-width: 599.98px) {
+  .chat-empty-waiting #chat-suggest > .skeleton:first-child {
+    display: none;
+  }
 }
 /* --- motion: a popup arrives, and leaves the way it came (INBOX 580, 2026-10-05)
    Every dialog opened between two frames: Settings, the palette, Find

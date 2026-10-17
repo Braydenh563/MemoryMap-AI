@@ -82,3 +82,36 @@ def test_ocr_workspace_without_a_renderer_lists_the_file_and_links_to_packages()
     link = lib[lib.index("function ocrNoRendererLink(") :].split("\n}\n")[0]
     assert "Settings, Packages" in link and 'openSettingsModal("extras")' in link
     assert "ocrNoRendererLink();" in lib
+
+
+def test_the_new_chat_page_paints_at_once_with_skeleton_starters():
+    """The owner, 2026-10-12: the page "appears a second or two late and all at
+    once". The card is no longer hidden while the starters load: the mark and the
+    heading paint on the first frame and `#chat-suggest` holds four skeleton
+    pieces in its own box (so nothing moves), which `loadChatSuggestions` clears.
+    Measured by `scratchpad/ui-sweeps/chatemptypaint.js` (NEW=1 DELAY=1200):
+    heading visible at 854 ms before, 15 ms after; heading shift 39px to 0."""
+    chat = frontend_text("chat.js")
+    render = chat[chat.index("function renderChatEmptyState(") :].split("\n}\n")[0]
+    assert 'showSkeletons(suggest, 4, "span")' in render
+    assert "loadChatSuggestions.pending" in render and "chatEmptySettle(empty)" in render
+    css = (ROOT / "frontend" / "css" / "08-consistency.css").read_text(encoding="utf-8")
+    assert ".chat-empty.chat-empty-waiting {\n  opacity: 0;" not in css, "the card must not wait unseen"
+    assert ".chat-empty-waiting #chat-suggest > .skeleton" in css
+    load = frontend_text("sheets-selects.js")
+    load = load[load.index("async function loadChatSuggestions(") :].split("\n}\n")[0]
+    assert "clearSkeletons(box)" in load and "loadChatSuggestions.pending = false" in load
+    assert "clearSkeletons(suggest)" in chat[chat.index("function clearChatEmptyState(") :].split("\n}\n")[0]
+
+
+def test_the_ocr_workspace_base_rules_load_with_the_library_bundle():
+    """Boot CSS was at its cap: sixteen pure `.ocr-*` rules moved from
+    07-whiteboard-misc.css to library-lazy.css (the workspace opens from the
+    Library bundle). A class that a boot or later rule still names stays behind
+    (a boot override would lose to a rule that loads after it); the computed
+    styles of the workspace's 139 elements were identical at 1440, 1024 and
+    390 (`scratchpad/ui-sweeps/computeddump.js`)."""
+    boot = (ROOT / "frontend" / "css" / "07-whiteboard-misc.css").read_text(encoding="utf-8")
+    lazy = (ROOT / "frontend" / "css" / "library-lazy.css").read_text(encoding="utf-8")
+    assert "\n.ocr-head-right {" in lazy and "\n.ocr-head-right {" not in boot
+    assert "\n.ocr-head-top {" in boot, "shares an element with .dialog-head: moving it flipped the gap"

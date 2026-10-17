@@ -17005,6 +17005,9 @@ function docAutocorrectAt(box) {
   //: says. The dictionary is the reader's answer to this feature, and an
   //: autocorrect that ignored it would be the app overruling them mid-sentence.
   if (docDictionary().has(lower)) return false;
+  //: And a word put back from the underline's menu (autocorrect.js) is not
+  //: rewritten again this session, the same promise the note boxes keep.
+  if (typeof autocorrectRefused !== "undefined" && autocorrectRefused.has(lower)) return false;
   let better = DOC_AUTOCORRECT[lower] || docVariantLookup().get(lower);
   //: **The dictionary's own unambiguous answers, on the same terms as the
   //: table's.** The table is 42 strings that are not words in any English
@@ -17047,6 +17050,11 @@ function docAutocorrectAt(box) {
   //: names both words so a wrong correction is visible rather than found
   //: later.
   toast(`“${match[1]}” → “${replacement}”. Ctrl+Z undoes it.`);
+  //: **Highlighted, with a menu on hover or click** (INBOX 904 B04), the same
+  //: underline the note boxes get. autocorrect.js is lazy: the first
+  //: correction of a visit fetches it (cached, so a promise already settled).
+  const typedWord = match[1];
+  lazyScript("/js/autocorrect.js").then(() => autocorrectShow(box, start, typedWord, replacement));
   return true;
 }
 

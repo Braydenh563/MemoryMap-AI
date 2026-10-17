@@ -121,7 +121,6 @@
   display: none;
 }
 
-
 /* The thread, in the help popover's shell: the comments, then a quiet "New
    comment" that opens the box with its Post and Cancel (INBOX 570). */
 .help-popover.wb-comments {
@@ -357,7 +356,6 @@
 .wb-link-endpoint-handle:is(:focus-visible, :has(:focus-visible)) {
   fill: var(--accent);
 }
-
 
 .wb-resize-handle[data-handle="nw"] {
   top: -5px;
@@ -5288,13 +5286,7 @@ button.connection-row:is(:hover, :focus-visible) {
    to the viewport rather than to its content because the middle pane holds
    a photograph: content-sizing it makes the dialog jump between a postcard
    and a wall depending on which page you clicked. */
-.ocr-card {
-  width: min(96vw, 1500px);
-  height: min(92vh, 1000px);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
+
 .ocr-headline {
   display: flex;
   align-items: center;
@@ -5368,11 +5360,7 @@ button.connection-row:is(:hover, :focus-visible) {
   gap: var(--space-3);
   min-width: 0;
 }
-.ocr-head-right {
-  flex: none;
-  align-items: center;
-  gap: var(--space-2);
-}
+
 /* Which file you are reading. Four surfaces open this dialog, so a header that
    only said "Text on the page" was a header you had to close to understand. */
 .ocr-file {
@@ -5384,10 +5372,7 @@ button.connection-row:is(:hover, :focus-visible) {
   font-size: var(--text-sm);
 }
 /* Where you are in the document, beside the two controls that change it. */
-.ocr-pager {
-  align-items: center;
-  gap: var(--space-1);
-}
+
 .ocr-page-label {
   min-width: 7.5rem;
   text-align: center;
@@ -5396,17 +5381,7 @@ button.connection-row:is(:hover, :focus-visible) {
   color: var(--muted);
 }
 /* Continuous mode: every page stacked, in the order they are in the file. */
-.ocr-scroll {
-  display: flex;
-  flex-direction: column;
-  /* `safe` for the same reason `.ocr-page` needs it: centred content wider
-     than its scroll container overflows both ways, and the left overflow is
-     unreachable because a scroll container's origin is its left edge. */
-  align-items: safe center;
-  gap: var(--space-4);
-  width: 100%;
-  min-width: 0;
-}
+
 /* The reading's own actions, under the reading. `margin-top: auto` pins them
    to the bottom of the pane whatever the list above is doing, so they do not
    drift up the column when a page has three regions on it. */
@@ -5434,10 +5409,7 @@ button.connection-row:is(:hover, :focus-visible) {
   background: var(--inner);
   min-width: 0;
 }
-.ocr-find-icon {
-  flex: none;
-  color: var(--muted);
-}
+
 /* Same (0,1,1) rule as above, wanted this time, but spelled at the same
    specificity so it cannot be read as accidental. */
 .ocr-find .ocr-find-input {
@@ -5483,10 +5455,7 @@ button.connection-row:is(:hover, :focus-visible) {
 .ocr-find:focus-within {
   border-color: var(--accent);
 }
-.ocr-find-count {
-  flex: none;
-  font-variant-numeric: tabular-nums;
-}
+
 /* A row the filter kept, marked so the eye lands on it, not a colour change,
    which would collide with `.is-active`'s own meaning (this is the region you
    clicked), but a rule down the edge. */
@@ -5512,13 +5481,7 @@ button.connection-row:is(:hover, :focus-visible) {
 /* One page per row, thumbnail first, the same rail shape the Library's own
    rows view uses, so a page list is not a third thing to learn. Hidden
    entirely for a single page: an index of one is furniture. */
-.ocr-rail {
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding-right: var(--space-2);
-}
+
 .ocr-page {
   min-width: 0;
   min-height: 0;
@@ -5632,26 +5595,14 @@ button.connection-row:is(:hover, :focus-visible) {
 }
 /* A heading reads differently, so it is drawn differently, the one place
    the "kind" is more than a label. */
-.ocr-box-heading {
-  border-style: dashed;
-}
+
 .ocr-regions {
   min-height: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
 }
-.ocr-region-list {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
+
 .ocr-region:hover {
   border-color: var(--accent);
 }
@@ -5666,10 +5617,7 @@ button.connection-row:is(:hover, :focus-visible) {
   opacity: 0.5;
   cursor: not-allowed;
 }
-.ocr-region-kind-heading {
-  background: var(--accent-soft);
-  color: var(--accent-text);
-}
+
 .ocr-message:not(.hidden) {
   margin: 0;
 }
@@ -5678,12 +5626,7 @@ button.connection-row:is(:hover, :focus-visible) {
    (`chip item-label`, `is-ok` for ready and `is-warn` for not), one muted sentence, and the one control that fits the state:
    the language when it can read, Install when it cannot. It wraps rather than
    scrolls: unlike the toolbar above it, this line is words. */
-.ocr-engine:not([hidden]) {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  min-width: 0;
-}
+
 .ocr-engine-line {
   display: flex;
   align-items: center;
@@ -5706,13 +5649,7 @@ button.connection-row:is(:hover, :focus-visible) {
   align-items: center;
   gap: var(--space-2);
 }
-.ocr-engine-lang-label {
-  font-size: var(--text-sm);
-}
-.ocr-engine-progress {
-  width: 10rem;
-  margin: 0;
-}
+
 .ocr-engine-note {
   margin: 0;
   font-size: var(--text-sm);
@@ -5753,16 +5690,7 @@ button.connection-row:is(:hover, :focus-visible) {
   flex-direction: column;
   gap: var(--space-2);
 }
-.ocr-edit-box {
-  width: 100%;
-  min-height: 12rem;
-  resize: vertical;
-}
-.ocr-edit-actions {
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
+
 /* **The picture's other stored reading** (INBOX 421 e), under the message:
    the region row's own card (border, radius, padding) without its pointer,
    because it is not a section of the page and does not select a box. Its
@@ -5800,10 +5728,7 @@ button.connection-row:is(:hover, :focus-visible) {
 }
 /* What was outlined, in the page's own terms. Sits with the actions rather
    than above them: it is the subject of the two buttons, not a heading. */
-.ocr-region-size {
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
+
 /* Answers about outlined regions, above the page's own reading. Separated by
    tone and a rule rather than by a border round each card, the reading pane
    is already a list of bordered panels, and a second bordered list inside it
@@ -6344,8 +6269,6 @@ button.connection-row:is(:hover, :focus-visible) {
   margin: 0;
   font-size: var(--text-xs);
 }
-
-
 
 .wb-search-bar {
   position: absolute;
@@ -7390,7 +7313,6 @@ button.connection-row:is(:hover, :focus-visible) {
   line-height: 1.4;
   color: var(--ink);
 }
-
 
 .wb-help-row-keys {
   display: flex;
@@ -8676,7 +8598,6 @@ input[type="file"] {
   white-space: nowrap;
   font-size: var(--text-sm);
 }
-
 
 /* Chosen: the choice control's selected state (DESIGN.md: `--accent-surface`
    behind `--on-accent`, no shadow), on the previews and on the door's own
@@ -10697,8 +10618,6 @@ header#top-bar {
   transform-origin: 50% 28px;
   transform: scale(var(--wb-inv-zoom));
 }
-
-
 
 /* **A swept-up shape looks selected.** Reported: "shapes like circles and
    lines dont visibly select and show anchor points when I highlight select

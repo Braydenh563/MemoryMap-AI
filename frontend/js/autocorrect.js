@@ -55,6 +55,11 @@ const AUTOCORRECT_TYPOS = {
 };
 
 const AUTOCORRECT_SECONDS = 5;
+//: A pointer resting on the underline asks after this long, and not at all
+//: while keys are still going down (the menu takes the focus).
+const AUTOCORRECT_HOVER_MS = 350;
+const AUTOCORRECT_TYPING_MS = 900;
+const autocorrectState = { key: 0 };
 //: The keystrokes that finish a word: the only moment a correction is
 //: unambiguous. Mid-word it would rewrite "teh" on the way to "tehran".
 const AUTOCORRECT_ENDS = /^[\s.,;:!?)\]]$/;
@@ -129,6 +134,7 @@ function autocorrectUndo(entry = autocorrectLast) {
 function autocorrectForget(entry = autocorrectLast) {
   if (!entry) return false;
   clearTimeout(entry.timer);
+  clearTimeout(entry.hover);
   entry.mark?.remove();
   entry.mark = null;
   if (autocorrectLast === entry) autocorrectLast = null;
@@ -148,6 +154,20 @@ function autocorrectMark(entry) {
   mark.style.zIndex = autocorrectLayer(entry.box.el);
   mark.addEventListener("mousedown", (event) => event.preventDefault());
   mark.addEventListener("click", () => autocorrectMenu(entry));
+  //: **Hover asks too** (INBOX 904 B04: "hover over it and confirm it, edit it,
+  //: or rewind"). A mouse resting on the word opens the click's menu; leaving
+  //: first cancels it; a finger has no hover and keeps the click.
+  mark.addEventListener("pointerenter", (event) => {
+    if (event.pointerType !== "mouse") return;
+    clearTimeout(entry.hover);
+    const ask = () => {
+      if (!entry.mark || entry.asked) return;
+      if (Date.now() - autocorrectState.key < AUTOCORRECT_TYPING_MS) entry.hover = setTimeout(ask, AUTOCORRECT_HOVER_MS);
+      else autocorrectMenu(entry);
+    };
+    entry.hover = setTimeout(ask, AUTOCORRECT_HOVER_MS);
+  });
+  mark.addEventListener("pointerleave", () => clearTimeout(entry.hover));
   document.body.appendChild(mark);
   entry.mark = mark;
   entry.timer = setTimeout(() => autocorrectForget(entry), AUTOCORRECT_SECONDS * 1000);
@@ -163,6 +183,8 @@ function autocorrectMark(entry) {
 function autocorrectMenu(entry) {
   const rect = entry.mark?.getBoundingClientRect();
   if (!rect || typeof openMenuAtPoint !== "function") return;
+  entry.asked = true;
+  clearTimeout(entry.hover);
   clearTimeout(entry.timer);
   entry.timer = setTimeout(() => autocorrectForget(entry), 60 * 1000);
   openMenuAtPoint(
@@ -185,6 +207,23 @@ function autocorrectMenu(entry) {
     menu.style.bottom = "auto";
     menu.style.top = `${Math.max(8, rect.top - 4 - box.height)}px`;
   });
+}
+
+//: The document editor's own correction (documents.js `docAutocorrectAt`), shown
+//: with the same underline and menu. The document keeps the replacement, the
+//: toast and Ctrl+Z (its own history step), so the entry is `native`: the key
+//: handler below leaves it alone. Put back adds the word to the same refused
+//: set the document reads.
+function autocorrectShow(surface, start, typed, fixed) {
+  if (!surface?.view?.dom || typeof surface.coordsAt !== "function") return false;
+  //: The file may have been fetched since the keystroke: still the same word?
+  if (surface.text.slice(start, start + fixed.length) !== fixed) return false;
+  autocorrectForget();
+  const box = autocorrectSurface(surface);
+  const entry = { box, start, typed, fixed, sep: "", caret: surface.selection().from, text: box.text, native: true };
+  autocorrectLast = entry;
+  autocorrectMark(entry);
+  return true;
 }
 
 //: The corrected word selected in its box, for typing over it.
@@ -345,8 +384,15 @@ document.addEventListener("note-typed", (event) => {
 document.addEventListener(
   "keydown",
   (event) => {
+    autocorrectState.key = Date.now();
     const entry = autocorrectLast;
     if (!entry || event.altKey || event.isComposing) return;
+    //: The document's own correction keeps its own Ctrl+Z; only the underline
+    //: needs to hear that the text moved.
+    if (entry.native) {
+      setTimeout(() => autocorrectMoved(entry.box.el), 50);
+      return;
+    }
     const undo = (event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === "z";
     const back = event.key === "Backspace" && !event.ctrlKey && !event.metaKey;
     if (!(undo || back) || !autocorrectFresh(entry, event.target)) return;

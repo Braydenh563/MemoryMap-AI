@@ -2,9 +2,9 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5944, frontend ids 2509, CSS sections 494, backend routes 607, backend modules 5578, test files 1217, tests 11041, plan headings 957.
+Counts: frontend functions 5946, frontend ids 2509, CSS sections 495, backend routes 607, backend modules 5578, test files 1217, tests 11045, plan headings 957.
 
-## Frontend functions (5944)
+## Frontend functions (5946)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -420,92 +420,93 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `watchFiling` | frontend/js/capture-ask.js:48 |
 | `withTitle` | frontend/js/capture-ask.js:435 |
 
-### frontend/js/chat.js (82)
+### frontend/js/chat.js (83)
 
 | Name | File:line |
 |---|---|
-| `aiWritingTrace` | frontend/js/chat.js:2194 |
-| `applyCompression` | frontend/js/chat.js:2054 |
-| `askAboutPage` | frontend/js/chat.js:1443 |
+| `aiWritingTrace` | frontend/js/chat.js:2215 |
+| `applyCompression` | frontend/js/chat.js:2075 |
+| `askAboutPage` | frontend/js/chat.js:1464 |
 | `assistantLabel` | frontend/js/chat.js:52 |
 | `assistantMessageActions` | frontend/js/chat.js:162 |
 | `atlasSuggestion` | frontend/js/chat.js:674 |
-| `batteryModeOn` | frontend/js/chat.js:2096 |
-| `bookmarkWebResult` | frontend/js/chat.js:1246 |
-| `buildWebResultRow` | frontend/js/chat.js:1123 |
+| `batteryModeOn` | frontend/js/chat.js:2117 |
+| `bookmarkWebResult` | frontend/js/chat.js:1267 |
+| `buildWebResultRow` | frontend/js/chat.js:1144 |
+| `chatEmptySettle` | frontend/js/chat.js:695 |
 | `chatHistoryToSend` | frontend/js/chat.js:36 |
 | `chatMessageActions` | frontend/js/chat.js:65 |
-| `chatTranscriptText` | frontend/js/chat.js:1992 |
+| `chatTranscriptText` | frontend/js/chat.js:2013 |
 | `chatTurnTranscript` | frontend/js/chat.js:125 |
-| `citeWebPage` | frontend/js/chat.js:1500 |
-| `clearChatEmptyState` | frontend/js/chat.js:803 |
-| `clearWebSearchHistory` | frontend/js/chat.js:1314 |
-| `closeWebReader` | frontend/js/chat.js:872 |
+| `citeWebPage` | frontend/js/chat.js:1521 |
+| `clearChatEmptyState` | frontend/js/chat.js:823 |
+| `clearWebSearchHistory` | frontend/js/chat.js:1335 |
+| `closeWebReader` | frontend/js/chat.js:893 |
 | `compactTokens` | frontend/js/chat.js:490 |
-| `compressChatContext` | frontend/js/chat.js:2020 |
+| `compressChatContext` | frontend/js/chat.js:2041 |
 | `continueRunControls` | frontend/js/chat.js:226 |
 | `copyToClipboard` | frontend/js/chat.js:547 |
 | `copyViaTextarea` | frontend/js/chat.js:514 |
-| `copyWebLink` | frontend/js/chat.js:1238 |
-| `fillPersonaMark` | frontend/js/chat.js:1775 |
+| `copyWebLink` | frontend/js/chat.js:1259 |
+| `fillPersonaMark` | frontend/js/chat.js:1796 |
 | `flashCopied` | frontend/js/chat.js:536 |
 | `forkFromBubble` | frontend/js/chat.js:626 |
-| `livingInterval` | frontend/js/chat.js:2180 |
-| `loadResponseModes` | frontend/js/chat.js:1730 |
-| `loadWebSearchHistory` | frontend/js/chat.js:1289 |
+| `livingInterval` | frontend/js/chat.js:2201 |
+| `loadResponseModes` | frontend/js/chat.js:1751 |
+| `loadWebSearchHistory` | frontend/js/chat.js:1310 |
 | `manualPauseControls` | frontend/js/chat.js:272 |
 | `messageMetaLine` | frontend/js/chat.js:340 |
 | `metaItem` | frontend/js/chat.js:306 |
-| `mountChatActionsMenu` | frontend/js/chat.js:1916 |
-| `openWebPageExternally` | frontend/js/chat.js:1234 |
-| `openWebReader` | frontend/js/chat.js:1460 |
-| `personaOptions` | frontend/js/chat.js:1792 |
-| `progressLine` | frontend/js/chat.js:2522 |
-| `progressMotionWanted` | frontend/js/chat.js:2132 |
-| `progressPhaseText` | frontend/js/chat.js:2390 |
-| `pushWebSearchHistory` | frontend/js/chat.js:1298 |
+| `mountChatActionsMenu` | frontend/js/chat.js:1937 |
+| `openWebPageExternally` | frontend/js/chat.js:1255 |
+| `openWebReader` | frontend/js/chat.js:1481 |
+| `personaOptions` | frontend/js/chat.js:1813 |
+| `progressLine` | frontend/js/chat.js:2543 |
+| `progressMotionWanted` | frontend/js/chat.js:2153 |
+| `progressPhaseText` | frontend/js/chat.js:2411 |
+| `pushWebSearchHistory` | frontend/js/chat.js:1319 |
 | `questionForBubble` | frontend/js/chat.js:580 |
-| `reducedMotionWanted` | frontend/js/chat.js:2102 |
-| `refreshWebSearxngStrip` | frontend/js/chat.js:1043 |
+| `reducedMotionWanted` | frontend/js/chat.js:2123 |
+| `refreshWebSearxngStrip` | frontend/js/chat.js:1064 |
 | `regenerateFromBubble` | frontend/js/chat.js:598 |
 | `regenerateLastAnswer` | frontend/js/chat.js:653 |
 | `removeChatBubble` | frontend/js/chat.js:500 |
-| `renderChatContextMeter` | frontend/js/chat.js:1866 |
-| `renderChatEmptyState` | frontend/js/chat.js:694 |
-| `renderChatTurnCount` | frontend/js/chat.js:1896 |
-| `renderChatUsage` | frontend/js/chat.js:1849 |
-| `renderCompressionState` | frontend/js/chat.js:2067 |
-| `renderModelContextBox` | frontend/js/chat.js:1593 |
-| `renderModelHealthNote` | frontend/js/chat.js:1693 |
-| `renderModelSpec` | frontend/js/chat.js:1621 |
-| `renderWebPageAttachment` | frontend/js/chat.js:1527 |
-| `renderWebPanelMenu` | frontend/js/chat.js:977 |
-| `renderWebSearchHistory` | frontend/js/chat.js:1323 |
+| `renderChatContextMeter` | frontend/js/chat.js:1887 |
+| `renderChatEmptyState` | frontend/js/chat.js:705 |
+| `renderChatTurnCount` | frontend/js/chat.js:1917 |
+| `renderChatUsage` | frontend/js/chat.js:1870 |
+| `renderCompressionState` | frontend/js/chat.js:2088 |
+| `renderModelContextBox` | frontend/js/chat.js:1614 |
+| `renderModelHealthNote` | frontend/js/chat.js:1714 |
+| `renderModelSpec` | frontend/js/chat.js:1642 |
+| `renderWebPageAttachment` | frontend/js/chat.js:1548 |
+| `renderWebPanelMenu` | frontend/js/chat.js:998 |
+| `renderWebSearchHistory` | frontend/js/chat.js:1344 |
 | `rewriteAnswerWith` | frontend/js/chat.js:617 |
-| `runWebSearch` | frontend/js/chat.js:1358 |
-| `saveChatAsDocument` | frontend/js/chat.js:1968 |
-| `scheduleThinkingWordTick` | frontend/js/chat.js:2308 |
-| `setResponseMode` | frontend/js/chat.js:1753 |
-| `setWebEngineDot` | frontend/js/chat.js:963 |
-| `setWebSearxngRunning` | frontend/js/chat.js:1028 |
-| `showCompressReview` | frontend/js/chat.js:2042 |
-| `startThinkingWordRotation` | frontend/js/chat.js:2336 |
-| `stopThinkingWordRotation` | frontend/js/chat.js:2358 |
-| `stopWebRequest` | frontend/js/chat.js:857 |
-| `togglePersonaPrompt` | frontend/js/chat.js:1841 |
-| `toggleWebPanel` | frontend/js/chat.js:885 |
-| `toolPhaseVerb` | frontend/js/chat.js:2405 |
-| `typingDots` | frontend/js/chat.js:2419 |
-| `webEngineWords` | frontend/js/chat.js:946 |
-| `webPageContextBlock` | frontend/js/chat.js:1558 |
-| `webPageMarkdown` | frontend/js/chat.js:1467 |
-| `webQueryTerms` | frontend/js/chat.js:1110 |
-| `webReaderIsOpen` | frontend/js/chat.js:868 |
-| `webRequestEnd` | frontend/js/chat.js:847 |
-| `webRequestStart` | frontend/js/chat.js:838 |
-| `webResultMark` | frontend/js/chat.js:1089 |
-| `wheelScrollsHorizontally` | frontend/js/chat.js:2243 |
-| `wireHorizontalWheelScrolling` | frontend/js/chat.js:2276 |
+| `runWebSearch` | frontend/js/chat.js:1379 |
+| `saveChatAsDocument` | frontend/js/chat.js:1989 |
+| `scheduleThinkingWordTick` | frontend/js/chat.js:2329 |
+| `setResponseMode` | frontend/js/chat.js:1774 |
+| `setWebEngineDot` | frontend/js/chat.js:984 |
+| `setWebSearxngRunning` | frontend/js/chat.js:1049 |
+| `showCompressReview` | frontend/js/chat.js:2063 |
+| `startThinkingWordRotation` | frontend/js/chat.js:2357 |
+| `stopThinkingWordRotation` | frontend/js/chat.js:2379 |
+| `stopWebRequest` | frontend/js/chat.js:878 |
+| `togglePersonaPrompt` | frontend/js/chat.js:1862 |
+| `toggleWebPanel` | frontend/js/chat.js:906 |
+| `toolPhaseVerb` | frontend/js/chat.js:2426 |
+| `typingDots` | frontend/js/chat.js:2440 |
+| `webEngineWords` | frontend/js/chat.js:967 |
+| `webPageContextBlock` | frontend/js/chat.js:1579 |
+| `webPageMarkdown` | frontend/js/chat.js:1488 |
+| `webQueryTerms` | frontend/js/chat.js:1131 |
+| `webReaderIsOpen` | frontend/js/chat.js:889 |
+| `webRequestEnd` | frontend/js/chat.js:868 |
+| `webRequestStart` | frontend/js/chat.js:859 |
+| `webResultMark` | frontend/js/chat.js:1110 |
+| `wheelScrollsHorizontally` | frontend/js/chat.js:2264 |
+| `wireHorizontalWheelScrolling` | frontend/js/chat.js:2297 |
 
 ### frontend/js/chat-agent.js (71)
 
@@ -665,13 +666,13 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `aiNameNow` | frontend/js/sheets-selects.js:2303 |
+| `aiNameNow` | frontend/js/sheets-selects.js:2306 |
 | `annotateSliders` | frontend/js/sheets-selects.js:991 |
 | `applySidebarSheetMode` | frontend/js/sheets-selects.js:199 |
 | `applySidebarWidth` | frontend/js/sheets-selects.js:100 |
 | `applyWebPanelWidth` | frontend/js/sheets-selects.js:506 |
-| `builtinPersonas` | frontend/js/sheets-selects.js:2402 |
-| `builtinThinkingWords` | frontend/js/sheets-selects.js:2352 |
+| `builtinPersonas` | frontend/js/sheets-selects.js:2405 |
+| `builtinThinkingWords` | frontend/js/sheets-selects.js:2355 |
 | `clampToolbarMenu` | frontend/js/sheets-selects.js:1463 |
 | `dateFieldFace` | frontend/js/sheets-selects.js:1020 |
 | `eachSidebar` | frontend/js/sheets-selects.js:192 |
@@ -699,10 +700,10 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `openConversation` | frontend/js/sheets-selects.js:2007 |
 | `openKebabSheet` | frontend/js/sheets-selects.js:1141 |
 | `parseServerTime` | frontend/js/sheets-selects.js:1694 |
-| `personaDisplayName` | frontend/js/sheets-selects.js:2309 |
-| `personaNamesNow` | frontend/js/sheets-selects.js:2419 |
+| `personaDisplayName` | frontend/js/sheets-selects.js:2312 |
+| `personaNamesNow` | frontend/js/sheets-selects.js:2422 |
 | `relativeTime` | frontend/js/sheets-selects.js:1704 |
-| `renderDashboardPersonaSelect` | frontend/js/sheets-selects.js:2430 |
+| `renderDashboardPersonaSelect` | frontend/js/sheets-selects.js:2433 |
 | `replaceOpenToolbarMenus` | frontend/js/sheets-selects.js:1569 |
 | `resetWebPanelWidth` | frontend/js/sheets-selects.js:524 |
 | `rowActions` | frontend/js/sheets-selects.js:1202 |
@@ -711,9 +712,9 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `sidebarFittedWidth` | frontend/js/sheets-selects.js:86 |
 | `sidebarWidth` | frontend/js/sheets-selects.js:25 |
 | `sortConversations` | frontend/js/sheets-selects.js:1741 |
-| `thinkingWordsFor` | frontend/js/sheets-selects.js:2368 |
+| `thinkingWordsFor` | frontend/js/sheets-selects.js:2371 |
 | `trackSeparatorValue` | frontend/js/sheets-selects.js:297 |
-| `wantsThinkingWords` | frontend/js/sheets-selects.js:2389 |
+| `wantsThinkingWords` | frontend/js/sheets-selects.js:2392 |
 | `watchForSelects` | frontend/js/sheets-selects.js:1105 |
 | `webPanelIsNarrow` | frontend/js/sheets-selects.js:490 |
 | `webPanelMaxWidth` | frontend/js/sheets-selects.js:500 |
@@ -2479,24 +2480,25 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `attachmentPlayer` | frontend/js/attachment-actions.js:47 |
 | `attachmentUpload` | frontend/js/attachment-actions.js:17 |
 
-### frontend/js/autocorrect.js (14)
+### frontend/js/autocorrect.js (15)
 
 | Name | File:line |
 |---|---|
-| `autocorrectAt` | frontend/js/autocorrect.js:87 |
-| `autocorrectEdit` | frontend/js/autocorrect.js:191 |
-| `autocorrectField` | frontend/js/autocorrect.js:222 |
-| `autocorrectFieldRect` | frontend/js/autocorrect.js:277 |
-| `autocorrectFind` | frontend/js/autocorrect.js:68 |
-| `autocorrectForget` | frontend/js/autocorrect.js:129 |
-| `autocorrectFresh` | frontend/js/autocorrect.js:311 |
-| `autocorrectLayer` | frontend/js/autocorrect.js:211 |
-| `autocorrectMark` | frontend/js/autocorrect.js:141 |
-| `autocorrectMenu` | frontend/js/autocorrect.js:163 |
-| `autocorrectMoved` | frontend/js/autocorrect.js:304 |
-| `autocorrectPlace` | frontend/js/autocorrect.js:199 |
-| `autocorrectSurface` | frontend/js/autocorrect.js:245 |
-| `autocorrectUndo` | frontend/js/autocorrect.js:112 |
+| `autocorrectAt` | frontend/js/autocorrect.js:92 |
+| `autocorrectEdit` | frontend/js/autocorrect.js:230 |
+| `autocorrectField` | frontend/js/autocorrect.js:261 |
+| `autocorrectFieldRect` | frontend/js/autocorrect.js:316 |
+| `autocorrectFind` | frontend/js/autocorrect.js:73 |
+| `autocorrectForget` | frontend/js/autocorrect.js:134 |
+| `autocorrectFresh` | frontend/js/autocorrect.js:350 |
+| `autocorrectLayer` | frontend/js/autocorrect.js:250 |
+| `autocorrectMark` | frontend/js/autocorrect.js:147 |
+| `autocorrectMenu` | frontend/js/autocorrect.js:183 |
+| `autocorrectMoved` | frontend/js/autocorrect.js:343 |
+| `autocorrectPlace` | frontend/js/autocorrect.js:238 |
+| `autocorrectShow` | frontend/js/autocorrect.js:217 |
+| `autocorrectSurface` | frontend/js/autocorrect.js:284 |
+| `autocorrectUndo` | frontend/js/autocorrect.js:117 |
 
 ### frontend/js/batch-space.js (3)
 
@@ -3033,7 +3035,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `applyDocComplete` | frontend/js/documents.js:16919 |
 | `applyDocDim` | frontend/js/documents.js:13851 |
 | `applyDocGutter` | frontend/js/documents.js:14605 |
-| `applyDocProseDock` | frontend/js/documents.js:17846 |
+| `applyDocProseDock` | frontend/js/documents.js:17854 |
 | `applyDocSerif` | frontend/js/documents.js:13888 |
 | `applyDocToolbarCollapsed` | frontend/js/documents.js:14674 |
 | `applyDocToolbarLayoutButtons` | frontend/js/documents.js:14848 |
@@ -3044,25 +3046,25 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `archiveDocumentWithUndo` | frontend/js/documents.js:11175 |
 | `asSurface` | frontend/js/documents.js:653 |
 | `attachBookmarkToDocument` | frontend/js/documents.js:1469 |
-| `calloutMenuItems` | frontend/js/documents.js:21817 |
+| `calloutMenuItems` | frontend/js/documents.js:21825 |
 | `chooseDocTemplate` | frontend/js/documents.js:1889 |
 | `clearInlineFormatting` | frontend/js/documents.js:10400 |
 | `closeDocAiPanel` | frontend/js/documents.js:11524 |
 | `closeDocProsePanel` | frontend/js/documents.js:16295 |
-| `closeDocSuggest` | frontend/js/documents.js:18084 |
+| `closeDocSuggest` | frontend/js/documents.js:18092 |
 | `cmSurface` | frontend/js/documents.js:491 |
 | `createDocument` | frontend/js/documents.js:1861 |
 | `deleteCurrentDocument` | frontend/js/documents.js:11312 |
 | `deleteDocumentWithUndo` | frontend/js/documents.js:11129 |
 | `docActiveBox` | frontend/js/documents.js:15143 |
 | `docAfterFirstPaint` | frontend/js/documents.js:927 |
-| `docAiCheckStatus` | frontend/js/documents.js:18986 |
+| `docAiCheckStatus` | frontend/js/documents.js:18994 |
 | `docAiDiffTarget` | frontend/js/documents.js:11376 |
-| `docAiDiscussInChat` | frontend/js/documents.js:18827 |
-| `docAiDismiss` | frontend/js/documents.js:18898 |
-| `docAiFindings` | frontend/js/documents.js:18876 |
+| `docAiDiscussInChat` | frontend/js/documents.js:18835 |
+| `docAiDismiss` | frontend/js/documents.js:18906 |
+| `docAiFindings` | frontend/js/documents.js:18884 |
 | `docAiResultEdited` | frontend/js/documents.js:11439 |
-| `docAiReview` | frontend/js/documents.js:18903 |
+| `docAiReview` | frontend/js/documents.js:18911 |
 | `docAiVerb` | frontend/js/documents.js:11330 |
 | `docAiVerbChanged` | frontend/js/documents.js:11495 |
 | `docAiVerbIcon` | frontend/js/documents.js:11709 |
@@ -3073,20 +3075,20 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docAutocorrectAt` | frontend/js/documents.js:16993 |
 | `docAutocorrectEnabled` | frontend/js/documents.js:16984 |
 | `docBacklinkItem` | frontend/js/documents.js:1323 |
-| `docBlockBarClose` | frontend/js/documents.js:21460 |
-| `docBlockBarEl` | frontend/js/documents.js:21441 |
-| `docBlockBarShow` | frontend/js/documents.js:21489 |
-| `docBlockBarSoon` | frontend/js/documents.js:21455 |
+| `docBlockBarClose` | frontend/js/documents.js:21468 |
+| `docBlockBarEl` | frontend/js/documents.js:21449 |
+| `docBlockBarShow` | frontend/js/documents.js:21497 |
+| `docBlockBarSoon` | frontend/js/documents.js:21463 |
 | `docBlockBounds` | frontend/js/documents.js:6374 |
-| `docBlockDelete` | frontend/js/documents.js:21542 |
+| `docBlockDelete` | frontend/js/documents.js:21550 |
 | `docBlockDocumentText` | frontend/js/documents.js:6543 |
-| `docBlockEdit` | frontend/js/documents.js:21529 |
+| `docBlockEdit` | frontend/js/documents.js:21537 |
 | `docBlockEnsureIdEdits` | frontend/js/documents.js:6461 |
 | `docBlockFind` | frontend/js/documents.js:6489 |
 | `docBlockIdOf` | frontend/js/documents.js:6413 |
 | `docBlockIds` | frontend/js/documents.js:6426 |
 | `docBlockInFence` | frontend/js/documents.js:6360 |
-| `docBlockLines` | frontend/js/documents.js:21468 |
+| `docBlockLines` | frontend/js/documents.js:21476 |
 | `docBlockNewId` | frontend/js/documents.js:6441 |
 | `docBlockRefAtCaret` | frontend/js/documents.js:6553 |
 | `docBlockRefSplit` | frontend/js/documents.js:6345 |
@@ -3094,33 +3096,33 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docBookmarkWithUndo` | frontend/js/documents.js:11254 |
 | `docBoxEl` | frontend/js/documents.js:400 |
 | `docBuildVocabulary` | frontend/js/documents.js:16728 |
-| `docCalloutFold` | frontend/js/documents.js:21356 |
-| `docCalloutFoldRange` | frontend/js/documents.js:21345 |
-| `docCalloutFolded` | frontend/js/documents.js:21366 |
-| `docCalloutKindMenu` | frontend/js/documents.js:21585 |
+| `docCalloutFold` | frontend/js/documents.js:21364 |
+| `docCalloutFoldRange` | frontend/js/documents.js:21353 |
+| `docCalloutFolded` | frontend/js/documents.js:21374 |
+| `docCalloutKindMenu` | frontend/js/documents.js:21593 |
 | `docCanOutdent` | frontend/js/documents.js:4121 |
 | `docCaretLine` | frontend/js/documents.js:2479 |
 | `docCaretPoint` | frontend/js/documents.js:15216 |
 | `docCaretStats` | frontend/js/documents.js:15233 |
 | `docCaretVisibleLine` | frontend/js/documents.js:3371 |
-| `docCmApplySpellcheck` | frontend/js/documents.js:20883 |
-| `docCmDrawFor` | frontend/js/documents.js:21128 |
-| `docCmExtensions` | frontend/js/documents.js:20757 |
-| `docCmGutter` | frontend/js/documents.js:21228 |
-| `docCmHighlight` | frontend/js/documents.js:20578 |
-| `docCmIsolate` | frontend/js/documents.js:19226 |
-| `docCmKeymap` | frontend/js/documents.js:20635 |
-| `docCmLanguageFor` | frontend/js/documents.js:19376 |
+| `docCmApplySpellcheck` | frontend/js/documents.js:20891 |
+| `docCmDrawFor` | frontend/js/documents.js:21136 |
+| `docCmExtensions` | frontend/js/documents.js:20765 |
+| `docCmGutter` | frontend/js/documents.js:21236 |
+| `docCmHighlight` | frontend/js/documents.js:20586 |
+| `docCmIsolate` | frontend/js/documents.js:19234 |
+| `docCmKeymap` | frontend/js/documents.js:20643 |
+| `docCmLanguageFor` | frontend/js/documents.js:19384 |
 | `docCmPartIs` | frontend/js/documents.js:7310 |
-| `docCmRepaintFindings` | frontend/js/documents.js:21016 |
-| `docCmSpellcheck` | frontend/js/documents.js:20872 |
-| `docCmSyncFileType` | frontend/js/documents.js:21163 |
-| `docCmSyncGutter` | frontend/js/documents.js:21214 |
-| `docCmSyncLanguage` | frontend/js/documents.js:21197 |
-| `docCmTheme` | frontend/js/documents.js:19529 |
-| `docCmUpdate` | frontend/js/documents.js:20894 |
-| `docCmViewLanguage` | frontend/js/documents.js:21189 |
-| `docCmViewShown` | frontend/js/documents.js:21765 |
+| `docCmRepaintFindings` | frontend/js/documents.js:21024 |
+| `docCmSpellcheck` | frontend/js/documents.js:20880 |
+| `docCmSyncFileType` | frontend/js/documents.js:21171 |
+| `docCmSyncGutter` | frontend/js/documents.js:21222 |
+| `docCmSyncLanguage` | frontend/js/documents.js:21205 |
+| `docCmTheme` | frontend/js/documents.js:19537 |
+| `docCmUpdate` | frontend/js/documents.js:20902 |
+| `docCmViewLanguage` | frontend/js/documents.js:21197 |
+| `docCmViewShown` | frontend/js/documents.js:21773 |
 | `docCodeCommentAtCaret` | frontend/js/documents.js:4281 |
 | `docCodeCommentRun` | frontend/js/documents.js:4277 |
 | `docCodeProseMask` | frontend/js/documents.js:16073 |
@@ -3145,13 +3147,13 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docDefaultView` | frontend/js/documents.js:334 |
 | `docDesktopFs` | frontend/js/documents.js:14202 |
 | `docDesktopFullscreenToggle` | frontend/js/documents.js:14207 |
-| `docDictionary` | frontend/js/documents.js:18020 |
-| `docDictionaryAdd` | frontend/js/documents.js:18055 |
-| `docDictionaryAddTyped` | frontend/js/documents.js:19123 |
-| `docDictionaryExport` | frontend/js/documents.js:19153 |
-| `docDictionaryImport` | frontend/js/documents.js:19138 |
-| `docDictionaryWordOk` | frontend/js/documents.js:19119 |
-| `docDictionaryWrite` | frontend/js/documents.js:18034 |
+| `docDictionary` | frontend/js/documents.js:18028 |
+| `docDictionaryAdd` | frontend/js/documents.js:18063 |
+| `docDictionaryAddTyped` | frontend/js/documents.js:19131 |
+| `docDictionaryExport` | frontend/js/documents.js:19161 |
+| `docDictionaryImport` | frontend/js/documents.js:19146 |
+| `docDictionaryWordOk` | frontend/js/documents.js:19127 |
+| `docDictionaryWrite` | frontend/js/documents.js:18042 |
 | `docDiffApply` | frontend/js/documents.js:11960 |
 | `docDiffHunkHead` | frontend/js/documents.js:12106 |
 | `docDiffHunks` | frontend/js/documents.js:11941 |
@@ -3161,7 +3163,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docDiffSplit` | frontend/js/documents.js:11887 |
 | `docDiffSplitLayout` | frontend/js/documents.js:12055 |
 | `docDiffStat` | frontend/js/documents.js:11892 |
-| `docEditDistance` | frontend/js/documents.js:18138 |
+| `docEditDistance` | frontend/js/documents.js:18146 |
 | `docEditsOnce` | frontend/js/documents.js:15749 |
 | `docEmbedChip` | frontend/js/documents.js:9729 |
 | `docEmbedFill` | frontend/js/documents.js:9740 |
@@ -3174,25 +3176,25 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docExportInlineImages` | frontend/js/documents.js:10793 |
 | `docExportPromoteHeadings` | frontend/js/documents.js:10739 |
 | `docExportUnwrapControls` | frontend/js/documents.js:10715 |
-| `docFenceGutterOn` | frontend/js/documents.js:21210 |
+| `docFenceGutterOn` | frontend/js/documents.js:21218 |
 | `docFileType` | frontend/js/documents.js:101 |
 | `docFillAt` | frontend/js/documents.js:16793 |
 | `docFindMatches` | frontend/js/documents.js:2231 |
 | `docFindSelect` | frontend/js/documents.js:2248 |
 | `docFindStep` | frontend/js/documents.js:2262 |
-| `docFindingAnchor` | frontend/js/documents.js:17322 |
-| `docFindingAnswerRows` | frontend/js/documents.js:18351 |
-| `docFindingAtOffset` | frontend/js/documents.js:17222 |
-| `docFindingAtPoint` | frontend/js/documents.js:17387 |
-| `docFindingIsPassage` | frontend/js/documents.js:18339 |
-| `docFindingKeyBox` | frontend/js/documents.js:17594 |
+| `docFindingAnchor` | frontend/js/documents.js:17330 |
+| `docFindingAnswerRows` | frontend/js/documents.js:18359 |
+| `docFindingAtOffset` | frontend/js/documents.js:17230 |
+| `docFindingAtPoint` | frontend/js/documents.js:17395 |
+| `docFindingIsPassage` | frontend/js/documents.js:18347 |
+| `docFindingKeyBox` | frontend/js/documents.js:17602 |
 | `docFindingKind` | frontend/js/documents.js:16209 |
-| `docFindingLabel` | frontend/js/documents.js:18225 |
-| `docFindingLine` | frontend/js/documents.js:18307 |
-| `docFindingMarks` | frontend/js/documents.js:17260 |
-| `docFindingOfMark` | frontend/js/documents.js:17350 |
-| `docFindingStep` | frontend/js/documents.js:17607 |
-| `docFindingsPlugin` | frontend/js/documents.js:20965 |
+| `docFindingLabel` | frontend/js/documents.js:18233 |
+| `docFindingLine` | frontend/js/documents.js:18315 |
+| `docFindingMarks` | frontend/js/documents.js:17268 |
+| `docFindingOfMark` | frontend/js/documents.js:17358 |
+| `docFindingStep` | frontend/js/documents.js:17615 |
+| `docFindingsPlugin` | frontend/js/documents.js:20973 |
 | `docFmNeedsQuote` | frontend/js/documents.js:5509 |
 | `docFmRaw` | frontend/js/documents.js:5501 |
 | `docFmSpan` | frontend/js/documents.js:5479 |
@@ -3208,7 +3210,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docFocusToggleFullscreen` | frontend/js/documents.js:14229 |
 | `docFocusWake` | frontend/js/documents.js:14141 |
 | `docFocusWatch` | frontend/js/documents.js:14120 |
-| `docFoldMarkedCallouts` | frontend/js/documents.js:21621 |
+| `docFoldMarkedCallouts` | frontend/js/documents.js:21629 |
 | `docFrontmatterAddEdits` | frontend/js/documents.js:5715 |
 | `docFrontmatterCreateEdits` | frontend/js/documents.js:5736 |
 | `docFrontmatterEntry` | frontend/js/documents.js:5649 |
@@ -3219,47 +3221,47 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docFrontmatterStrip` | frontend/js/documents.js:5747 |
 | `docFrontmatterTypeFields` | frontend/js/documents.js:5760 |
 | `docGoToComment` | frontend/js/documents.js:6953 |
-| `docGoToFinding` | frontend/js/documents.js:17624 |
-| `docGoToFootnote` | frontend/js/documents.js:21638 |
-| `docGuardGlobalShortcuts` | frontend/js/documents.js:21095 |
+| `docGoToFinding` | frontend/js/documents.js:17632 |
+| `docGoToFootnote` | frontend/js/documents.js:21646 |
+| `docGuardGlobalShortcuts` | frontend/js/documents.js:21103 |
 | `docGutterPref` | frontend/js/documents.js:14570 |
 | `docGutterWanted` | frontend/js/documents.js:14578 |
 | `docGutters` | frontend/js/documents.js:3860 |
-| `docHeadingFold` | frontend/js/documents.js:21653 |
+| `docHeadingFold` | frontend/js/documents.js:21661 |
 | `docHeadingTrail` | frontend/js/documents.js:2370 |
 | `docHistoryDelta` | frontend/js/documents.js:12144 |
-| `docHistoryPersist` | frontend/js/documents.js:21750 |
-| `docHistoryRestore` | frontend/js/documents.js:21733 |
+| `docHistoryPersist` | frontend/js/documents.js:21758 |
+| `docHistoryRestore` | frontend/js/documents.js:21741 |
 | `docHistoryRow` | frontend/js/documents.js:12233 |
 | `docHistoryRowMenu` | frontend/js/documents.js:12335 |
-| `docHistoryStamp` | frontend/js/documents.js:19251 |
+| `docHistoryStamp` | frontend/js/documents.js:19259 |
 | `docHtmlToMarkdown` | frontend/js/documents.js:5123 |
 | `docImageAltWith` | frontend/js/documents.js:6291 |
 | `docImageOptions` | frontend/js/documents.js:6255 |
 | `docImageOptionsFromAlt` | frontend/js/documents.js:9703 |
 | `docInsertProperties` | frontend/js/documents.js:6120 |
 | `docInsertReferenceLink` | frontend/js/documents.js:1242 |
-| `docKnownWords` | frontend/js/documents.js:18168 |
+| `docKnownWords` | frontend/js/documents.js:18176 |
 | `docLayerImageOptions` | frontend/js/documents.js:9714 |
-| `docLiftToViewport` | frontend/js/documents.js:18596 |
-| `docLineClipboardEvent` | frontend/js/documents.js:21279 |
-| `docLineClipboardExtension` | frontend/js/documents.js:21306 |
-| `docLineClipboardRange` | frontend/js/documents.js:21267 |
+| `docLiftToViewport` | frontend/js/documents.js:18604 |
+| `docLineClipboardEvent` | frontend/js/documents.js:21287 |
+| `docLineClipboardExtension` | frontend/js/documents.js:21314 |
+| `docLineClipboardRange` | frontend/js/documents.js:21275 |
 | `docLineCount` | frontend/js/documents.js:15394 |
-| `docLineOffset` | frontend/js/documents.js:21483 |
-| `docLinePasteEvent` | frontend/js/documents.js:21292 |
+| `docLineOffset` | frontend/js/documents.js:21491 |
+| `docLinePasteEvent` | frontend/js/documents.js:21300 |
 | `docLinkBack` | frontend/js/documents.js:1253 |
 | `docLinkMention` | frontend/js/documents.js:1268 |
 | `docLinksTo` | frontend/js/documents.js:1215 |
-| `docListGuides` | frontend/js/documents.js:19512 |
+| `docListGuides` | frontend/js/documents.js:19520 |
 | `docLiveExtensions` | frontend/js/documents.js:8963 |
 | `docLivePlugin` | frontend/js/documents.js:7336 |
 | `docLoadNoteTypes` | frontend/js/documents.js:5940 |
 | `docLoadWordlist` | frontend/js/documents.js:15642 |
 | `docMapThroughAnchors` | frontend/js/documents.js:10026 |
-| `docMarkAnchor` | frontend/js/documents.js:17297 |
-| `docMarkRects` | frontend/js/documents.js:17285 |
-| `docMatchCase` | frontend/js/documents.js:18184 |
+| `docMarkAnchor` | frontend/js/documents.js:17305 |
+| `docMarkRects` | frontend/js/documents.js:17293 |
+| `docMatchCase` | frontend/js/documents.js:18192 |
 | `docMathArgument` | frontend/js/documents.js:7151 |
 | `docMathCommand` | frontend/js/documents.js:7176 |
 | `docMathElement` | frontend/js/documents.js:7288 |
@@ -3277,16 +3279,16 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docMirrorPoint` | frontend/js/documents.js:15180 |
 | `docNameCurrentVersion` | frontend/js/documents.js:12400 |
 | `docNameVersion` | frontend/js/documents.js:12376 |
-| `docNearestWords` | frontend/js/documents.js:18198 |
+| `docNearestWords` | frontend/js/documents.js:18206 |
 | `docNextFootnote` | frontend/js/documents.js:10376 |
 | `docNextName` | frontend/js/documents.js:1859 |
-| `docOffsetOf` | frontend/js/documents.js:17229 |
+| `docOffsetOf` | frontend/js/documents.js:17237 |
 | `docOpenBacklinkSource` | frontend/js/documents.js:1227 |
 | `docOpenLink` | frontend/js/documents.js:9883 |
 | `docOpenResolvedWikiTarget` | frontend/js/documents.js:9856 |
-| `docOpenSuggestAtCaret` | frontend/js/documents.js:17454 |
-| `docOpenSuggestAtPoint` | frontend/js/documents.js:17524 |
-| `docOpenSuggestFor` | frontend/js/documents.js:17422 |
+| `docOpenSuggestAtCaret` | frontend/js/documents.js:17462 |
+| `docOpenSuggestAtPoint` | frontend/js/documents.js:17532 |
+| `docOpenSuggestFor` | frontend/js/documents.js:17430 |
 | `docOpenWikiTarget` | frontend/js/documents.js:9875 |
 | `docOutlineClearDrop` | frontend/js/documents.js:2984 |
 | `docOutlineDropAfter` | frontend/js/documents.js:2979 |
@@ -3299,8 +3301,8 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docOutlineSetFolds` | frontend/js/documents.js:2538 |
 | `docOutlineVisibility` | frontend/js/documents.js:2566 |
 | `docPaletteCommands` | frontend/js/documents.js:2882 |
-| `docPlaceFixed` | frontend/js/documents.js:18620 |
-| `docPointerMenuOpen` | frontend/js/documents.js:17378 |
+| `docPlaceFixed` | frontend/js/documents.js:18628 |
+| `docPointerMenuOpen` | frontend/js/documents.js:17386 |
 | `docPositionsRead` | frontend/js/documents.js:1018 |
 | `docPositionsWrite` | frontend/js/documents.js:1027 |
 | `docPreviewShowing` | frontend/js/documents.js:348 |
@@ -3322,9 +3324,9 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docPropsShowing` | frontend/js/documents.js:5821 |
 | `docPropsTypeRows` | frontend/js/documents.js:5960 |
 | `docProseApply` | frontend/js/documents.js:16653 |
-| `docProseApplyWidth` | frontend/js/documents.js:17763 |
-| `docProseDockChoice` | frontend/js/documents.js:17748 |
-| `docProseDockSide` | frontend/js/documents.js:17757 |
+| `docProseApplyWidth` | frontend/js/documents.js:17771 |
+| `docProseDockChoice` | frontend/js/documents.js:17756 |
+| `docProseDockSide` | frontend/js/documents.js:17765 |
 | `docProseFindings` | frontend/js/documents.js:15922 |
 | `docProseFix` | frontend/js/documents.js:16657 |
 | `docProseFixAll` | frontend/js/documents.js:16677 |
@@ -3332,18 +3334,18 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docProseHeader` | frontend/js/documents.js:16226 |
 | `docProseIgnore` | frontend/js/documents.js:16515 |
 | `docProseJump` | frontend/js/documents.js:16621 |
-| `docProseKey` | frontend/js/documents.js:18070 |
-| `docProseResizeHandle` | frontend/js/documents.js:17795 |
+| `docProseKey` | frontend/js/documents.js:18078 |
+| `docProseResizeHandle` | frontend/js/documents.js:17803 |
 | `docProseRowAnswers` | frontend/js/documents.js:16438 |
 | `docProseRowCollapse` | frontend/js/documents.js:16429 |
 | `docProseRowKeys` | frontend/js/documents.js:16527 |
-| `docProseSavedWidth` | frontend/js/documents.js:17781 |
+| `docProseSavedWidth` | frontend/js/documents.js:17789 |
 | `docProseSkipMask` | frontend/js/documents.js:15899 |
 | `docPutFields` | frontend/js/documents.js:11159 |
 | `docReadingPlugin` | frontend/js/documents.js:13789 |
-| `docRectHolds` | frontend/js/documents.js:17290 |
-| `docRectUsable` | frontend/js/documents.js:17317 |
-| `docRedo` | frontend/js/documents.js:19280 |
+| `docRectHolds` | frontend/js/documents.js:17298 |
+| `docRectUsable` | frontend/js/documents.js:17325 |
+| `docRedo` | frontend/js/documents.js:19288 |
 | `docRememberPosition` | frontend/js/documents.js:1068 |
 | `docRememberPositionNow` | frontend/js/documents.js:1049 |
 | `docRememberReading` | frontend/js/documents.js:13897 |
@@ -3356,27 +3358,27 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docReplacePattern` | frontend/js/documents.js:12484 |
 | `docReplaceRange` | frontend/js/documents.js:4060 |
 | `docReplaceScan` | frontend/js/documents.js:12511 |
-| `docResetDocument` | frontend/js/documents.js:21691 |
+| `docResetDocument` | frontend/js/documents.js:21699 |
 | `docResolveComment` | frontend/js/documents.js:6987 |
 | `docResolveConflict` | frontend/js/documents.js:2102 |
 | `docResolveWikiTarget` | frontend/js/documents.js:9812 |
 | `docRestorePosition` | frontend/js/documents.js:1132 |
 | `docRestoreReading` | frontend/js/documents.js:13920 |
-| `docReturnFromViewport` | frontend/js/documents.js:18605 |
+| `docReturnFromViewport` | frontend/js/documents.js:18613 |
 | `docRevealBlock` | frontend/js/documents.js:6591 |
-| `docRevealForSuggest` | frontend/js/documents.js:17411 |
+| `docRevealForSuggest` | frontend/js/documents.js:17419 |
 | `docRevisionText` | frontend/js/documents.js:12191 |
 | `docRichPasteEvent` | frontend/js/documents.js:5251 |
 | `docRunControl` | frontend/js/documents.js:2695 |
-| `docSaveToolPref` | frontend/js/documents.js:17081 |
+| `docSaveToolPref` | frontend/js/documents.js:17089 |
 | `docScanHeadings` | frontend/js/documents.js:2597 |
-| `docScheduleSuggestFollow` | frontend/js/documents.js:18746 |
+| `docScheduleSuggestFollow` | frontend/js/documents.js:18754 |
 | `docScrollAnchors` | frontend/js/documents.js:9960 |
 | `docSectionCount` | frontend/js/documents.js:1206 |
 | `docSectionRange` | frontend/js/documents.js:2642 |
 | `docSelectedLines` | frontend/js/documents.js:4043 |
 | `docSetBookmark` | frontend/js/documents.js:11247 |
-| `docSetCalloutHead` | frontend/js/documents.js:21410 |
+| `docSetCalloutHead` | frontend/js/documents.js:21418 |
 | `docSetLiveDecorations` | frontend/js/documents.js:7315 |
 | `docSetNoteLink` | frontend/js/documents.js:11228 |
 | `docSetPlaceholder` | frontend/js/documents.js:409 |
@@ -3390,11 +3392,11 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docSpellLookup` | frontend/js/documents.js:15854 |
 | `docSpellRoot` | frontend/js/documents.js:15769 |
 | `docSpellable` | frontend/js/documents.js:15693 |
-| `docSpellingVariant` | frontend/js/documents.js:17977 |
-| `docSuggestAlternatives` | frontend/js/documents.js:18232 |
-| `docSuggestAnswers` | frontend/js/documents.js:18402 |
-| `docSuggestBand` | frontend/js/documents.js:18656 |
-| `docSuggestFollowAnchor` | frontend/js/documents.js:18724 |
+| `docSpellingVariant` | frontend/js/documents.js:17985 |
+| `docSuggestAlternatives` | frontend/js/documents.js:18240 |
+| `docSuggestAnswers` | frontend/js/documents.js:18410 |
+| `docSuggestBand` | frontend/js/documents.js:18664 |
+| `docSuggestFollowAnchor` | frontend/js/documents.js:18732 |
 | `docSurface` | frontend/js/documents.js:621 |
 | `docSurfaceById` | frontend/js/documents.js:635 |
 | `docSurfaceChanged` | frontend/js/documents.js:614 |
@@ -3407,7 +3409,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docTableApplyEdits` | frontend/js/documents.js:4704 |
 | `docTableCaretTo` | frontend/js/documents.js:4974 |
 | `docTableCellAt` | frontend/js/documents.js:4712 |
-| `docTableCellClick` | frontend/js/documents.js:20714 |
+| `docTableCellClick` | frontend/js/documents.js:20722 |
 | `docTableCellSpan` | frontend/js/documents.js:4532 |
 | `docTableColumnPad` | frontend/js/documents.js:4546 |
 | `docTableCommand` | frontend/js/documents.js:5385 |
@@ -3418,7 +3420,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docTableFromGrid` | frontend/js/documents.js:4793 |
 | `docTableGo` | frontend/js/documents.js:4923 |
 | `docTableGridFromText` | frontend/js/documents.js:4782 |
-| `docTableGridRules` | frontend/js/documents.js:19461 |
+| `docTableGridRules` | frontend/js/documents.js:19469 |
 | `docTableIsDelimiter` | frontend/js/documents.js:4441 |
 | `docTableJoinRow` | frontend/js/documents.js:4422 |
 | `docTableKeyMove` | frontend/js/documents.js:5008 |
@@ -3434,33 +3436,33 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docTableSplitRow` | frontend/js/documents.js:4383 |
 | `docTableStepCell` | frontend/js/documents.js:4729 |
 | `docTableStepRow` | frontend/js/documents.js:4759 |
-| `docTableTab` | frontend/js/documents.js:17171 |
+| `docTableTab` | frontend/js/documents.js:17179 |
 | `docTableTabStep` | frontend/js/documents.js:4960 |
 | `docTakeTabEscape` | frontend/js/documents.js:4103 |
 | `docTemplateFill` | frontend/js/documents.js:1817 |
 | `docTemplateListKeys` | frontend/js/documents.js:1912 |
 | `docText` | frontend/js/documents.js:627 |
-| `docTocJump` | frontend/js/documents.js:21385 |
-| `docToggleCalloutFold` | frontend/js/documents.js:21600 |
-| `docToggleCodeDraw` | frontend/js/documents.js:21137 |
-| `docToolPref` | frontend/js/documents.js:17072 |
+| `docTocJump` | frontend/js/documents.js:21393 |
+| `docToggleCalloutFold` | frontend/js/documents.js:21608 |
+| `docToggleCodeDraw` | frontend/js/documents.js:21145 |
+| `docToolPref` | frontend/js/documents.js:17080 |
 | `docToolbarCollapsed` | frontend/js/documents.js:14656 |
 | `docToolbarLayoutSignature` | frontend/js/documents.js:15066 |
 | `docToolbarMarksAt` | frontend/js/documents.js:15347 |
 | `docToolbarMode` | frontend/js/documents.js:14487 |
-| `docToolsBoxFor` | frontend/js/documents.js:17130 |
-| `docToolsOnInput` | frontend/js/documents.js:17094 |
+| `docToolsBoxFor` | frontend/js/documents.js:17138 |
+| `docToolsOnInput` | frontend/js/documents.js:17102 |
 | `docTopOffset` | frontend/js/documents.js:1042 |
-| `docTranslatePassage` | frontend/js/documents.js:18761 |
+| `docTranslatePassage` | frontend/js/documents.js:18769 |
 | `docTypewriterExtension` | frontend/js/documents.js:13836 |
-| `docUndo` | frontend/js/documents.js:19233 |
-| `docUndoBreak` | frontend/js/documents.js:19219 |
-| `docUndoDiffRange` | frontend/js/documents.js:19197 |
+| `docUndo` | frontend/js/documents.js:19241 |
+| `docUndoBreak` | frontend/js/documents.js:19227 |
+| `docUndoDiffRange` | frontend/js/documents.js:19205 |
 | `docUntitledName` | frontend/js/documents.js:1849 |
-| `docVariantLookup` | frontend/js/documents.js:17981 |
+| `docVariantLookup` | frontend/js/documents.js:17989 |
 | `docVisibleTopLine` | frontend/js/documents.js:3316 |
-| `docWatchAppearance` | frontend/js/documents.js:21112 |
-| `docWatchLock` | frontend/js/documents.js:21785 |
+| `docWatchAppearance` | frontend/js/documents.js:21120 |
+| `docWatchLock` | frontend/js/documents.js:21793 |
 | `docWhereLine` | frontend/js/documents.js:3404 |
 | `docWikiTargetLabel` | frontend/js/documents.js:9838 |
 | `docWireImageEdit` | frontend/js/documents.js:9581 |
@@ -3471,7 +3473,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `docWriteContents` | frontend/js/documents.js:12549 |
 | `docWriteOutsideHistory` | frontend/js/documents.js:11268 |
 | `downloadDocumentExport` | frontend/js/documents.js:10488 |
-| `ensureDocEditor` | frontend/js/documents.js:21054 |
+| `ensureDocEditor` | frontend/js/documents.js:21062 |
 | `ensureDocumentExists` | frontend/js/documents.js:2008 |
 | `expandNoteIntoDocument` | frontend/js/documents.js:2131 |
 | `exportDocumentBundle` | frontend/js/documents.js:10509 |
@@ -3494,7 +3496,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `keepDocEditLocally` | frontend/js/documents.js:1086 |
 | `keepOutlineRowInView` | frontend/js/documents.js:3415 |
 | `layerDocWikiLinks` | frontend/js/documents.js:3762 |
-| `loadCodeMirror` | frontend/js/documents.js:19317 |
+| `loadCodeMirror` | frontend/js/documents.js:19325 |
 | `loadDocFileTypes` | frontend/js/documents.js:79 |
 | `loadDocuments` | frontend/js/documents.js:759 |
 | `loadDocumentsNow` | frontend/js/documents.js:770 |
@@ -3508,7 +3510,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `mermaidFlowSummary` | frontend/js/documents.js:9327 |
 | `mermaidFlowSvgTree` | frontend/js/documents.js:9285 |
 | `mermaidFlowUnquote` | frontend/js/documents.js:9033 |
-| `mountDocEditor` | frontend/js/documents.js:21025 |
+| `mountDocEditor` | frontend/js/documents.js:21033 |
 | `mountDocToolbarControls` | frontend/js/documents.js:14827 |
 | `mountDocToolbarControlsFor` | frontend/js/documents.js:14753 |
 | `mountEditorToolbarExtras` | frontend/js/documents.js:12851 |
@@ -3517,7 +3519,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `noteSourceWanted` | frontend/js/documents.js:13315 |
 | `noteSurfaceExtensions` | frontend/js/documents.js:13155 |
 | `noteSurfaceFor` | frontend/js/documents.js:13128 |
-| `noteSurfaceGutter` | frontend/js/documents.js:21322 |
+| `noteSurfaceGutter` | frontend/js/documents.js:21330 |
 | `noteSurfaceKeymap` | frontend/js/documents.js:13240 |
 | `noteSurfaceMeta` | frontend/js/documents.js:13143 |
 | `noteSurfaceMirror` | frontend/js/documents.js:13361 |
@@ -3530,15 +3532,15 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `offerKeptDocEdit` | frontend/js/documents.js:1110 |
 | `openDocAiHistory` | frontend/js/documents.js:11713 |
 | `openDocAiPanel` | frontend/js/documents.js:11506 |
-| `openDocDictionary` | frontend/js/documents.js:19039 |
+| `openDocDictionary` | frontend/js/documents.js:19047 |
 | `openDocExtractPreview` | frontend/js/documents.js:11531 |
 | `openDocHistory` | frontend/js/documents.js:12149 |
 | `openDocPhoneInsert` | frontend/js/documents.js:13035 |
 | `openDocReplace` | frontend/js/documents.js:12496 |
-| `openDocSuggest` | frontend/js/documents.js:18529 |
+| `openDocSuggest` | frontend/js/documents.js:18537 |
 | `openDocTemplateDialog` | frontend/js/documents.js:1932 |
 | `openDocument` | frontend/js/documents.js:935 |
-| `placeDocSuggest` | frontend/js/documents.js:18669 |
+| `placeDocSuggest` | frontend/js/documents.js:18677 |
 | `promptDocWordGoal` | frontend/js/documents.js:2217 |
 | `pushDocAiUndo` | frontend/js/documents.js:11601 |
 | `recordDocAiEditLog` | frontend/js/documents.js:11625 |
@@ -3551,7 +3553,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `renderDocComplete` | frontend/js/documents.js:16814 |
 | `renderDocCounts` | frontend/js/documents.js:15402 |
 | `renderDocCrumbs` | frontend/js/documents.js:2422 |
-| `renderDocDictionary` | frontend/js/documents.js:19067 |
+| `renderDocDictionary` | frontend/js/documents.js:19075 |
 | `renderDocGutter` | frontend/js/documents.js:3953 |
 | `renderDocHistoryList` | frontend/js/documents.js:12199 |
 | `renderDocList` | frontend/js/documents.js:806 |
@@ -3567,7 +3569,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `renderDocStatusBar` | frontend/js/documents.js:15436 |
 | `renderDocStorage` | frontend/js/documents.js:3504 |
 | `renderDocToolbarState` | frontend/js/documents.js:15368 |
-| `renderDocTools` | frontend/js/documents.js:17904 |
+| `renderDocTools` | frontend/js/documents.js:17912 |
 | `restoreDocVersionWithUndo` | frontend/js/documents.js:11298 |
 | `runDocAiEdit` | frontend/js/documents.js:11539 |
 | `runDocReplace` | frontend/js/documents.js:12556 |
@@ -3602,7 +3604,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `toggleDocFindBar` | frontend/js/documents.js:2310 |
 | `toggleDocFocus` | frontend/js/documents.js:14034 |
 | `toggleDocHistoryDiff` | frontend/js/documents.js:12417 |
-| `toggleDocProseDock` | frontend/js/documents.js:17867 |
+| `toggleDocProseDock` | frontend/js/documents.js:17875 |
 | `toggleDocToolbar` | frontend/js/documents.js:14740 |
 | `toggleDocWidth` | frontend/js/documents.js:13755 |
 | `trimDocToolbarGroup` | frontend/js/documents.js:14949 |
@@ -9278,7 +9280,7 @@ Every `id="..."` in `frontend/index.html`, sorted by id.
 | `zoom-slider` | frontend/index.html:11024 |
 | `zoom-value` | frontend/index.html:11028 |
 
-## CSS sections (494)
+## CSS sections (495)
 
 Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 
@@ -9288,9 +9290,9 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | "how are these connected?" | frontend/css/02-chat-graph.css:4218 |
 | 08-consistency.css - one recipe per repeated shape | frontend/css/08-consistency.css:1 |
 | 1. One menu row | frontend/css/08-consistency.css:24 |
-| 1. touch targets, one step, one block | frontend/css/07-whiteboard-misc.css:9607 |
+| 1. touch targets, one step, one block | frontend/css/07-whiteboard-misc.css:9528 |
 | 2. A disclosure inside a card is a header, not a button | frontend/css/08-consistency.css:321 |
-| 2. the safe area | frontend/css/07-whiteboard-misc.css:9646 |
+| 2. the safe area | frontend/css/07-whiteboard-misc.css:9567 |
 | 3. A dock is one bar, and its controls belong to it | frontend/css/08-consistency.css:480 |
 | 4. One gap between an icon and the label it leads | frontend/css/08-consistency.css:915 |
 | 5. The Write-with-AI footers are one row, primary on the right | frontend/css/08-consistency.css:1202 |
@@ -9298,60 +9300,60 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | 7. Meta looks like meta | frontend/css/08-consistency.css:1048 |
 | 8. A panel head is identity, one fact, then the actions, and it does not | frontend/css/08-consistency.css:2395 |
 | A CALMER TOP, NOTHING TAKEN AWAY (Full view) | frontend/css/03-dashboard-widgets.css:4712 |
-| A card's date is in the same corner on every card (INBOX 719) | frontend/css/08-consistency.css:10393 |
+| A card's date is in the same corner on every card (INBOX 719) | frontend/css/08-consistency.css:10424 |
 | A chip's x: a round target inset evenly (INBOX 403) | frontend/css/08-consistency.css:4703 |
 | A dialog's head: title, its '?', icon-only actions, Close last | frontend/css/08-consistency.css:9015 |
 | A diff of two versions of the same text (DOCUMENTS_PLAN Phase 5 items 2, 3) | frontend/css/09-editor.css:556 |
 | A member of a group selection shows that it is selected, not how to | frontend/css/library-lazy.css:5021 |
-| A note card's text leads; its metadata steps back (INBOX 505) | frontend/css/08-consistency.css:9861 |
-| A note's buttons stay while its own menu is open (INBOX 679) | frontend/css/08-consistency.css:10264 |
+| A note card's text leads; its metadata steps back (INBOX 505) | frontend/css/08-consistency.css:9892 |
+| A note's buttons stay while its own menu is open (INBOX 679) | frontend/css/08-consistency.css:10295 |
 | A note's time: the same corner on every card | frontend/css/08-consistency.css:8394 |
 | A notification's two controls are a column of their own (INBOX 874) | frontend/css/06-timeline-dialogs.css:3458 |
-| A rail row's ⋮ overlays the row; it never reserves a column (INBOX 722) | frontend/css/08-consistency.css:10462 |
-| A row is a pointer target (INBOX 719) | frontend/css/08-consistency.css:10377 |
+| A rail row's ⋮ overlays the row; it never reserves a column (INBOX 722) | frontend/css/08-consistency.css:10493 |
+| A row is a pointer target (INBOX 719) | frontend/css/08-consistency.css:10408 |
 | Ask history: the personal-notes-browser panel (§ROADMAP item 6) | frontend/css/01-forms-settings.css:2855 |
 | Atlas's life: loops while the mark is on screen and motion is on | frontend/css/08-consistency.css:7987 |
 | Atlas, the app's guide (INBOX 224) | frontend/css/08-consistency.css:1803 |
 | Atlas, the assistant's own character (atlas.js) | frontend/css/08-consistency.css:6568 |
-| BOARD NAVIGATOR AND BOARD SEARCH | frontend/css/07-whiteboard-misc.css:6296 |
+| BOARD NAVIGATOR AND BOARD SEARCH | frontend/css/07-whiteboard-misc.css:6221 |
 | BREADCRUMBS: WHERE THE CARET IS | frontend/css/05-sidebars-themes.css:6012 |
 | Boards, 2026-10-10 (boardmap-1010): lazy with the board, off the boot | frontend/css/library-lazy.css:4192 |
 | Capture: the add tools as a quiet toolbar (INBOX 395) | frontend/css/08-consistency.css:4513 |
-| Capture: the two labelled rows under the note box | frontend/css/07-whiteboard-misc.css:2719 |
-| Capture: three families, three rows | frontend/css/07-whiteboard-misc.css:4714 |
+| Capture: the two labelled rows under the note box | frontend/css/07-whiteboard-misc.css:2717 |
+| Capture: three families, three rows | frontend/css/07-whiteboard-misc.css:4712 |
 | Carbon: near-monochrome, minimal colour, maximum text contrast. | frontend/css/05-sidebars-themes.css:3461 |
 | Chat sources: every card reads from the top | frontend/css/08-consistency.css:8361 |
 | Chat: the user's bubble as a quiet surface, not an accent slab | frontend/css/08-consistency.css:4825 |
 | Columns and image options (DOCUMENTS_PLAN Phase 3 item 5) | frontend/css/09-editor.css:338 |
 | Curated palettes (Settings → Appearance → Theme) | frontend/css/05-sidebars-themes.css:3218 |
-| Documents: focus mode | frontend/css/07-whiteboard-misc.css:5997 |
+| Documents: focus mode | frontend/css/07-whiteboard-misc.css:5922 |
 | Editorial paper: off-white paper, black type, one red-orange for what | frontend/css/05-sidebars-themes.css:3619 |
 | Ember: warm oranges over a dim ground. Best in the evening. | frontend/css/05-sidebars-themes.css:3391 |
 | Files as a reading list | frontend/css/library-lazy.css:1898 |
 | Files sub-tab: rows, not cards | frontend/css/library-lazy.css:1925 |
-| Find anything | frontend/css/07-whiteboard-misc.css:10733 |
+| Find anything | frontend/css/07-whiteboard-misc.css:10652 |
 | Find anything, de-vibecoded | frontend/css/search-lazy.css:121 |
 | Find anything: group heads read as heads | frontend/css/search-lazy.css:133 |
 | GLASS THAT DOES NOT COST WHAT IT USED TO | frontend/css/03-dashboard-widgets.css:592 |
-| GRIPS AT A CONSTANT SIZE ON SCREEN | frontend/css/07-whiteboard-misc.css:10664 |
+| GRIPS AT A CONSTANT SIZE ON SCREEN | frontend/css/07-whiteboard-misc.css:10585 |
 | Graph options: one section-head style | frontend/css/08-consistency.css:4398 |
 | Help & guide: the topics box and the "Ask the guide" box are two | frontend/css/08-consistency.css:1799 |
 | INBOX 68: the board and map previews | frontend/css/10-responsive.css:355 |
-| Icons | frontend/css/07-whiteboard-misc.css:2281 |
-| Inline AI (editor.js) | frontend/css/07-whiteboard-misc.css:6402 |
+| Icons | frontend/css/07-whiteboard-misc.css:2279 |
+| Inline AI (editor.js) | frontend/css/07-whiteboard-misc.css:6325 |
 | Lagoon: indigo and teal together | frontend/css/05-sidebars-themes.css:3339 |
 | Library -> Contents: an outline (INBOX 496) | frontend/css/01-forms-settings.css:2475 |
 | Library → Documents | frontend/css/03-dashboard-widgets.css:4200 |
 | Library → Whiteboards | frontend/css/03-dashboard-widgets.css:4225 |
 | Live preview | frontend/css/04-chat-dock-appearance.css:4545 |
-| MICRO-ANIMATIONS | frontend/css/07-whiteboard-misc.css:593 |
+| MICRO-ANIMATIONS | frontend/css/07-whiteboard-misc.css:591 |
 | Midnight: deep navy and gold (Brief 95, INBOX 858: "truly good themes"). | frontend/css/05-sidebars-themes.css:3496 |
 | Ocean: cool teal and deep blue. Crisp rather than cosy. | frontend/css/05-sidebars-themes.css:3304 |
 | On paper (DOCUMENTS_PLAN Phase 5 item 4, the print stylesheet) | frontend/css/09-editor.css:916 |
 | On this day | frontend/css/03-dashboard-widgets.css:4489 |
-| One sidebar row recipe for every rail (INBOX 702) | frontend/css/08-consistency.css:10346 |
-| One ⋯ opener, styled once (INBOX 722) | frontend/css/08-consistency.css:10422 |
-| PLAN.md D1: the documents dock's formatting strip hides entirely | frontend/css/07-whiteboard-misc.css:7916 |
+| One sidebar row recipe for every rail (INBOX 702) | frontend/css/08-consistency.css:10377 |
+| One ⋯ opener, styled once (INBOX 722) | frontend/css/08-consistency.css:10453 |
+| PLAN.md D1: the documents dock's formatting strip hides entirely | frontend/css/07-whiteboard-misc.css:7838 |
 | Parchment: paper, ink and a little gold. Made for long writing. | frontend/css/05-sidebars-themes.css:3231 |
 | Phase 10, INBOX 100: the scroll edge effect | frontend/css/10-responsive.css:159 |
 | Phase 10, INBOX 101: concentric corners | frontend/css/10-responsive.css:185 |
@@ -9370,47 +9372,47 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Phase 11 item 9: no hover-only affordance | frontend/css/10-responsive.css:1943 |
 | Phase 11 items 2 and 3: no rail on a phone, an opener in the head | frontend/css/10-responsive.css:1301 |
 | Phase 5: quick access + toasts | frontend/css/01-forms-settings.css:2836 |
-| Phase 5: the three things a map says about itself | frontend/css/07-whiteboard-misc.css:4350 |
+| Phase 5: the three things a map says about itself | frontend/css/07-whiteboard-misc.css:4348 |
 | Phones (roadmap §8: the layout had breakpoints but had never been driven at | frontend/css/05-sidebars-themes.css:3967 |
 | Placed at the end of this file on purpose. A panel keeps its original class | frontend/css/03-dashboard-widgets.css:4236 |
 | Plum: deep violet and magenta. The most saturated. | frontend/css/05-sidebars-themes.css:3426 |
 | Progress that keeps moving (INBOX 95) | frontend/css/08-consistency.css:2214 |
 | Quick access, and arranging it (INBOX 461) | frontend/css/03-dashboard-widgets.css:1838 |
 | Quiet utilitarian: the default look (UI_MODERNISATION_PLAN decisions, | frontend/css/05-sidebars-themes.css:3569 |
-| RESPONSIVE BY DEVICE (UI_MODERNISATION_PLAN.md: Phase 9) | frontend/css/07-whiteboard-misc.css:9529 |
+| RESPONSIVE BY DEVICE (UI_MODERNISATION_PLAN.md: Phase 9) | frontend/css/07-whiteboard-misc.css:9450 |
 | RESPONSIVE, CONTINUED, AND THE LIQUID GLASS ADOPTIONS | frontend/css/10-responsive.css:1 |
 | Reading and focus (DOCUMENTS_PLAN Phase 5 item 4, PLAN D9) | frontend/css/library-lazy.css:527 |
 | Reminders: the time at the row's end, actions over it on hover | frontend/css/08-consistency.css:4410 |
-| Ring room (INBOX 685, "a lot of borders get cut off on an edge") | frontend/css/08-consistency.css:10050 |
+| Ring room (INBOX 685, "a lot of borders get cut off on an edge") | frontend/css/08-consistency.css:10081 |
 | Rosewood: dusty rose and wine. Warm without being orange. | frontend/css/05-sidebars-themes.css:3534 |
 | Rows: the default way a list of notes is shown | frontend/css/01-forms-settings.css:1467 |
 | Rules that used to be inline style="" attributes. | frontend/css/06-timeline-dialogs.css:636 |
 | SETTINGS: one control height, one right edge | frontend/css/01-forms-settings.css:5113 |
 | SETTINGS: spacing, hierarchy and proximity | frontend/css/01-forms-settings.css:5261 |
-| SIDEBAR COLLAPSE & PEEK | frontend/css/07-whiteboard-misc.css:402 |
-| SKILLS TAB | frontend/css/07-whiteboard-misc.css:746 |
+| SIDEBAR COLLAPSE & PEEK | frontend/css/07-whiteboard-misc.css:400 |
+| SKILLS TAB | frontend/css/07-whiteboard-misc.css:744 |
 | Sage: quiet greens. The calmest of the set. | frontend/css/05-sidebars-themes.css:3269 |
 | Sans-serif system font override (macOS fix) | frontend/css/00-tokens-shell.css:1236 |
-| Settings at phone width: nothing scrolls sideways (Phase 5.1, 390px) | frontend/css/07-whiteboard-misc.css:8009 |
-| Settings form rows share a label column (Phase 5.1) | frontend/css/07-whiteboard-misc.css:7803 |
+| Settings at phone width: nothing scrolls sideways (Phase 5.1, 390px) | frontend/css/07-whiteboard-misc.css:7931 |
+| Settings form rows share a label column (Phase 5.1) | frontend/css/07-whiteboard-misc.css:7725 |
 | Settings headings sit at one left edge | frontend/css/08-consistency.css:1442 |
 | Settings rows that wrap their actions under the title (INBOX 82) | frontend/css/08-consistency.css:2227 |
 | Settings, About, Maintenance (settings-controls.js, renderMaintenance). | frontend/css/01-forms-settings.css:6216 |
 | Settings: a section's intro sits under its heading, not above it | frontend/css/08-consistency.css:4505 |
 | TENSIONS: THE DISAGREEMENT REVIEW | frontend/css/inbox-lazy.css:134 |
 | THE CHAT ON A PHONE, MEASURED | frontend/css/04-chat-dock-appearance.css:5552 |
-| THE OCR WORKSPACE | frontend/css/07-whiteboard-misc.css:5285 |
+| THE OCR WORKSPACE | frontend/css/07-whiteboard-misc.css:5283 |
 | THE QUIET SIDE OF THE BUTTON RAMP: A RUN OF ROW ACTIONS | frontend/css/08-consistency.css:2318 |
 | THE WRITE WITH AI ROW, ON A NARROW COLUMN | frontend/css/04-chat-dock-appearance.css:5599 |
 | THE WRITING PHASE: nodes, and an edge drawing itself | frontend/css/01-forms-settings.css:4980 |
 | Technical mono: a cool graphite ground, monospace for the numbers and | frontend/css/05-sidebars-themes.css:3657 |
 | Templates (INBOX 715) | frontend/css/library-lazy.css:3336 |
 | Text on accent-coloured surfaces (roadmap §7: colour contrast was listed as | frontend/css/05-sidebars-themes.css:4085 |
-| The Ask tab's records speak in the Notes list's voice (INBOX 510) | frontend/css/08-consistency.css:9912 |
+| The Ask tab's records speak in the Notes list's voice (INBOX 510) | frontend/css/08-consistency.css:9943 |
 | The Library's hover tick says what it is (INBOX 722) | frontend/css/library-lazy.css:4164 |
 | The OCR workspace tool row (INBOX 717). Here rather than in the boot | frontend/css/library-lazy.css:3669 |
 | The chat header stays one line (INBOX 91) | frontend/css/08-consistency.css:2261 |
-| The compact row: one line, one anchor, one chevron (INBOX 676) | frontend/css/08-consistency.css:10187 |
+| The compact row: one line, one anchor, one chevron (INBOX 676) | frontend/css/08-consistency.css:10218 |
 | The connection pill's menu button, concentric with the pill | frontend/css/08-consistency.css:8374 |
 | The documents editor: layout around the engine (DOCUMENTS_PLAN Phase 2) | frontend/css/09-editor.css:1 |
 | The five whiteboard menus (Insert, Edit, Arrange, View, Board) | frontend/css/08-consistency.css:1271 |
@@ -9431,7 +9433,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Timeline: the density strip (TIMELINE_PLAN.md Phase 3) | frontend/css/06-timeline-dialogs.css:300 |
 | Timeline: the feed (TIMELINE_PLAN.md Phase 1) | frontend/css/06-timeline-dialogs.css:1 |
 | Timeline: the table view (TIMELINE_PLAN.md Phase 2) | frontend/css/06-timeline-dialogs.css:346 |
-| Trace mode on the graph (§41) | frontend/css/07-whiteboard-misc.css:1995 |
+| Trace mode on the graph (§41) | frontend/css/07-whiteboard-misc.css:1993 |
 | Two floating buttons that sit over content: opaque, readable hover | frontend/css/08-consistency.css:4876 |
 | WCAG 2.5.8 target size | frontend/css/06-timeline-dialogs.css:3244 |
 | WHITEBOARD TAB | frontend/css/06-timeline-dialogs.css:2331 |
@@ -9452,7 +9454,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | Wave O: AI Tools toggles | frontend/css/03-dashboard-widgets.css:764 |
 | Wave O: brand logo + a more present background | frontend/css/03-dashboard-widgets.css:350 |
 | Wave O: expanded appearance (theme/size/density/glass) | frontend/css/03-dashboard-widgets.css:414 |
-| Whiteboard chrome, restructured: one top bar, a centred tool dock, a | frontend/css/07-whiteboard-misc.css:6696 |
+| Whiteboard chrome, restructured: one top bar, a centred tool dock, a | frontend/css/07-whiteboard-misc.css:6619 |
 | Writing pace | frontend/css/03-dashboard-widgets.css:4498 |
 | [[wiki links]] | frontend/css/05-sidebars-themes.css:755 |
 | `.seg-multi`'s word, and the width that decides it | frontend/css/10-responsive.css:545 |
@@ -9462,29 +9464,29 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | a board or a map as an object in a note (INBOX 309) | frontend/css/05-sidebars-themes.css:1586 |
 | a callout that folds (REDESIGN.md §R7.3 item 3) | frontend/css/05-sidebars-themes.css:1304 |
 | a card that opens does not inflate the six beside it | frontend/css/08-consistency.css:2517 |
-| a chip lane scrolls without drawing a scrollbar | frontend/css/07-whiteboard-misc.css:3799 |
+| a chip lane scrolls without drawing a scrollbar | frontend/css/07-whiteboard-misc.css:3797 |
 | a chosen radio option is outlined, not only tinted (INBOX 464) | frontend/css/08-consistency.css:9430 |
-| a disclosure arrow that matches the app's own carets | frontend/css/07-whiteboard-misc.css:3818 |
-| a disclosure is a control, so it answers the pointer | frontend/css/07-whiteboard-misc.css:3408 |
+| a disclosure arrow that matches the app's own carets | frontend/css/07-whiteboard-misc.css:3816 |
+| a disclosure is a control, so it answers the pointer | frontend/css/07-whiteboard-misc.css:3406 |
 | a face drawn once (avatars.js, `nameMarkCompose`) | frontend/css/08-consistency.css:5073 |
-| a file says what it is attached to | frontend/css/07-whiteboard-misc.css:4871 |
-| a file tile shows what it has, not what it lacks | frontend/css/07-whiteboard-misc.css:3373 |
+| a file says what it is attached to | frontend/css/07-whiteboard-misc.css:4869 |
+| a file tile shows what it has, not what it lacks | frontend/css/07-whiteboard-misc.css:3371 |
 | a fold head's '?', beside its <summary> (INBOX 433) | frontend/css/08-consistency.css:3419 |
 | a generated face that moves (the owner: "can they be animated as a | frontend/css/08-consistency.css:4921 |
 | a help popover opens over the surface that asked for it (INBOX 205) | frontend/css/08-consistency.css:2568 |
 | a label that lost its capitals keeps its rank | frontend/css/08-consistency.css:4346 |
-| a list of rows reads as a list | frontend/css/07-whiteboard-misc.css:4285 |
+| a list of rows reads as a list | frontend/css/07-whiteboard-misc.css:4283 |
 | a map's levels and a solid fill (MINDMAP_PLAN §14, decisions 38, 39) | frontend/css/library-lazy.css:3244 |
 | a menu is one column: rows, section labels and icons (INBOX 403) | frontend/css/08-consistency.css:8624 |
 | a model per feature (Settings → Models) | frontend/css/01-forms-settings.css:5633 |
 | a named item in a Settings list: title, label, facts | frontend/css/08-consistency.css:3471 |
-| a narrow measure for prose, wide chrome around it | frontend/css/07-whiteboard-misc.css:4946 |
+| a narrow measure for prose, wide chrome around it | frontend/css/07-whiteboard-misc.css:4944 |
 | a note's connections: one pill each, its menu inside it | frontend/css/08-consistency.css:3240 |
 | a notice: one line the app says about what is on screen | frontend/css/08-consistency.css:2615 |
 | a poke, a look, a large view and a companion (avatars.js) | frontend/css/08-consistency.css:5040 |
 | a segmented choice inside a dialog | frontend/css/06-timeline-dialogs.css:1048 |
-| a settings group that says what depends on what | frontend/css/07-whiteboard-misc.css:4305 |
-| a settings row where nothing squashes anything else | frontend/css/07-whiteboard-misc.css:4050 |
+| a settings group that says what depends on what | frontend/css/07-whiteboard-misc.css:4303 |
+| a settings row where nothing squashes anything else | frontend/css/07-whiteboard-misc.css:4048 |
 | a sheet (DESIGN.md's recipe index, "A sheet") | frontend/css/10-responsive.css:772 |
 | a sticker (MINDMAP_PLAN decision 44, INBOX 642) | frontend/css/library-lazy.css:3278 |
 | a stored file that is no longer stored | frontend/css/02-chat-graph.css:4611 |
@@ -9503,12 +9505,12 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | back / forward through pages | frontend/css/00-tokens-shell.css:4091 |
 | back-to-top button | frontend/css/04-chat-dock-appearance.css:2658 |
 | band 2 (820 to 1200): the tabs keep their names, set small | frontend/css/10-responsive.css:61 |
-| band 2: 820-1100, iPad landscape and small laptops | frontend/css/07-whiteboard-misc.css:9703 |
+| band 2: 820-1100, iPad landscape and small laptops | frontend/css/07-whiteboard-misc.css:9624 |
 | band 3 (600 to 820): the tab strip fits on its own row | frontend/css/10-responsive.css:20 |
-| band 3: 600-820, iPad portrait, and the sheet that band 4 inherits | frontend/css/07-whiteboard-misc.css:9790 |
+| band 3: 600-820, iPad portrait, and the sheet that band 4 inherits | frontend/css/07-whiteboard-misc.css:9711 |
 | band 4 (under 600): the editor's own targets (DOCUMENTS_PLAN Phase 6) | frontend/css/10-responsive.css:459 |
 | band 4: an icon-only chip is still a target (Phase 11) | frontend/css/10-responsive.css:509 |
-| band 4: below 600, the phone | frontend/css/07-whiteboard-misc.css:9973 |
+| band 4: below 600, the phone | frontend/css/07-whiteboard-misc.css:9894 |
 | band 4: five columns, and the fifth is a sheet | frontend/css/10-responsive.css:595 |
 | band 4: the settings sheet's head may wrap, but not be squashed | frontend/css/10-responsive.css:907 |
 | boot splash | frontend/css/00-tokens-shell.css:4113 |
@@ -9522,7 +9524,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | chat, de-vibecoded | frontend/css/08-consistency.css:3062 |
 | chat: an organised sidebar, readable code, correctable answers | frontend/css/05-sidebars-themes.css:2435 |
 | choice controls, the owner's 2026-09-24 pass (INBOX 409, 411) | frontend/css/08-consistency.css:8554 |
-| column-flex cards keep their full width | frontend/css/07-whiteboard-misc.css:3619 |
+| column-flex cards keep their full width | frontend/css/07-whiteboard-misc.css:3617 |
 | compressing a long conversation (§35I) | frontend/css/02-chat-graph.css:791 |
 | curated themes | frontend/css/01-forms-settings.css:3501 |
 | dark glass reads flatter, and here is which half of it does | frontend/css/10-responsive.css:299 |
@@ -9539,31 +9541,31 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | empty states that sit where they should | frontend/css/08-consistency.css:4282 |
 | entry actions + links (Phase 4) | frontend/css/01-forms-settings.css:2173 |
 | entry lists | frontend/css/01-forms-settings.css:1426 |
-| every control in a dock takes the touch floor | frontend/css/07-whiteboard-misc.css:10441 |
-| every menu scrolls down, never sideways, and never runs off the page | frontend/css/07-whiteboard-misc.css:7719 |
-| fields answer the pointer too | frontend/css/07-whiteboard-misc.css:3537 |
+| every control in a dock takes the touch floor | frontend/css/07-whiteboard-misc.css:10362 |
+| every menu scrolls down, never sideways, and never runs off the page | frontend/css/07-whiteboard-misc.css:7641 |
+| fields answer the pointer too | frontend/css/07-whiteboard-misc.css:3535 |
 | filter help (the list inside `#search-help-hint`, a `.help-body`) | frontend/css/05-sidebars-themes.css:643 |
 | finding a setting (§36B) | frontend/css/06-timeline-dialogs.css:1398 |
 | finding your way about inside Settings (INBOX 444) | frontend/css/01-forms-settings.css:5739 |
 | first-run onboarding tour | frontend/css/04-chat-dock-appearance.css:2306 |
 | forms | frontend/css/01-forms-settings.css:224 |
 | glass reaches the floating chrome that sat outside it | frontend/css/08-consistency.css:2661 |
-| glass restraint (UI_MODERNISATION_PLAN.md, Phase 3) | frontend/css/07-whiteboard-misc.css:7789 |
+| glass restraint (UI_MODERNISATION_PLAN.md, Phase 3) | frontend/css/07-whiteboard-misc.css:7711 |
 | graph minimap | frontend/css/02-chat-graph.css:4068 |
 | graph polish | frontend/css/03-dashboard-widgets.css:3655 |
 | graph: depth, halos and legible labels | frontend/css/04-chat-dock-appearance.css:1538 |
 | graph: physics sliders + node popup | frontend/css/04-chat-dock-appearance.css:1581 |
 | heading hierarchy (§35L) | frontend/css/01-forms-settings.css:1 |
-| held space pans, from any tool | frontend/css/07-whiteboard-misc.css:4794 |
+| held space pans, from any tool | frontend/css/07-whiteboard-misc.css:4792 |
 | help guide accordion | frontend/css/04-chat-dock-appearance.css:2365 |
 | help mini AI chat (item 40's second half) | frontend/css/04-chat-dock-appearance.css:2397 |
 | hovering a node | frontend/css/02-chat-graph.css:1300 |
-| icon-only buttons are square, everywhere | frontend/css/07-whiteboard-misc.css:3332 |
-| left-aligned button lists stay left-aligned | frontend/css/07-whiteboard-misc.css:3593 |
-| line numbers for any textarea (UI_MODERNISATION_PLAN Phase 7.2) | frontend/css/07-whiteboard-misc.css:7929 |
+| icon-only buttons are square, everywhere | frontend/css/07-whiteboard-misc.css:3330 |
+| left-aligned button lists stay left-aligned | frontend/css/07-whiteboard-misc.css:3591 |
+| line numbers for any textarea (UI_MODERNISATION_PLAN Phase 7.2) | frontend/css/07-whiteboard-misc.css:7851 |
 | live clock (reminders tab) | frontend/css/01-forms-settings.css:3687 |
 | lock screen (Phase 4) | frontend/css/01-forms-settings.css:2063 |
-| map nodes and their edges (MINDMAP_PLAN.md §5, Phase 2) | frontend/css/07-whiteboard-misc.css:8051 |
+| map nodes and their edges (MINDMAP_PLAN.md §5, Phase 2) | frontend/css/07-whiteboard-misc.css:7973 |
 | markdown tables | frontend/css/04-chat-dock-appearance.css:1902 |
 | meeting notes (§17) | frontend/css/02-chat-graph.css:1940 |
 | model cards: the Models screen's suggested downloads (INBOX 444) | frontend/css/01-forms-settings.css:5887 |
@@ -9573,20 +9575,21 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | motion: a list settles in where its skeleton was (2026-10-05) | frontend/css/08-consistency.css:9579 |
 | motion: a menu or popover grows from what opened it (INBOX 103, 2026-10-05) | frontend/css/10-responsive.css:230 |
 | motion: a page arrives (INBOX 459 (2), 580) | frontend/css/08-consistency.css:9680 |
-| motion: a popup arrives, and leaves the way it came (INBOX 580, 2026-10-05) | frontend/css/08-consistency.css:9755 |
+| motion: a popup arrives, and leaves the way it came (INBOX 580, 2026-10-05) | frontend/css/08-consistency.css:9786 |
 | motion: a sidebar's contents arrive from its edge (INBOX 459 (2)) | frontend/css/08-consistency.css:9609 |
 | motion: one sliding indicator for every strip (INBOX 459 (2), 2026-10-05) | frontend/css/08-consistency.css:9467 |
-| motion: the opening curtain lifts (INBOX 577) | frontend/css/08-consistency.css:9795 |
+| motion: the opening curtain lifts (INBOX 577) | frontend/css/08-consistency.css:9826 |
+| moved from 07-whiteboard-misc.css (boot CSS cap, 2026-10-17): the OCR workspace's own rules, whose selectors name only ocr-* classes and ids that no boot rule | frontend/css/library-lazy.css:6081 |
 | moved from 07-whiteboard-misc.css (canvasui, the boot CSS budget): board-only rules whose class names no boot file draws and no later boot rule competes with, in their old order | frontend/css/library-lazy.css:4845 |
 | moved from the boot sheets (Brief 101a, room under the boot CSS cap): rules whose selectors name only the Library | frontend/css/library-lazy.css:16 |
 | moved from the boot sheets (the boot CSS budget, test_boot_budget.py): rules only the Library | frontend/css/library-lazy.css:710 |
 | note card density (§36B) | frontend/css/06-timeline-dialogs.css:1579 |
 | note history | frontend/css/05-sidebars-themes.css:1708 |
 | notes page polish | frontend/css/03-dashboard-widgets.css:2175 |
-| nothing interactive is bare text | frontend/css/07-whiteboard-misc.css:3873 |
+| nothing interactive is bare text | frontend/css/07-whiteboard-misc.css:3871 |
 | notifications | frontend/css/08-consistency.css:3698 |
 | numbered citations inside an answer | frontend/css/02-chat-graph.css:4280 |
-| one control height per Library header row | frontend/css/07-whiteboard-misc.css:5246 |
+| one control height per Library header row | frontend/css/07-whiteboard-misc.css:5244 |
 | one gap under every card heading | frontend/css/01-forms-settings.css:4867 |
 | one line of facts: a note's meta row | frontend/css/08-consistency.css:2693 |
 | one popup, three tiers (INBOX 456, DESIGN.md "A popup window or panel") | frontend/css/08-consistency.css:9182 |
@@ -9594,22 +9597,22 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | one switch, everywhere a checkbox means "on or off" | frontend/css/06-timeline-dialogs.css:2112 |
 | one ⋯ button, everywhere (INBOX 722) | frontend/css/00-tokens-shell.css:4270 |
 | optional extras (Settings) | frontend/css/00-tokens-shell.css:1663 |
-| page margins (Appearance > Page Margins) | frontend/css/07-whiteboard-misc.css:2634 |
+| page margins (Appearance > Page Margins) | frontend/css/07-whiteboard-misc.css:2632 |
 | previews on the Library's document and board cards | frontend/css/library-lazy.css:1342 |
 | radio groups as choices, not as a list of dots (§35L) | frontend/css/06-timeline-dialogs.css:1265 |
 | reading a scan against its own pages | frontend/css/lightbox-lazy.css:82 |
 | rebindable shortcuts | frontend/css/05-sidebars-themes.css:697 |
 | reminders page polish | frontend/css/03-dashboard-widgets.css:2897 |
 | reminders, de-vibecoded | frontend/css/08-consistency.css:3130 |
-| reminders: "when" is one decision, so it is one group | frontend/css/07-whiteboard-misc.css:3553 |
+| reminders: "when" is one decision, so it is one group | frontend/css/07-whiteboard-misc.css:3551 |
 | resizable sidebars | frontend/css/05-sidebars-themes.css:1739 |
 | results: the list-row recipe | frontend/css/03-dashboard-widgets.css:1302 |
 | rich markdown blocks (tables, quotes, rules, task lists) | frontend/css/01-forms-settings.css:1260 |
 | rows instead of cards | frontend/css/00-tokens-shell.css:2291 |
-| rules recovered from inline style attributes (audit of §40) | frontend/css/07-whiteboard-misc.css:1023 |
+| rules recovered from inline style attributes (audit of §40) | frontend/css/07-whiteboard-misc.css:1021 |
 | saved filters | frontend/css/05-sidebars-themes.css:656 |
 | screen-reader-only announcements | frontend/css/04-chat-dock-appearance.css:2711 |
-| scrollbars | frontend/css/07-whiteboard-misc.css:3487 |
+| scrollbars | frontend/css/07-whiteboard-misc.css:3485 |
 | search match highlighting | frontend/css/05-sidebars-themes.css:351 |
 | settings / model manager | frontend/css/01-forms-settings.css:2019 |
 | settings modal + logs (Wave A) | frontend/css/01-forms-settings.css:3272 |
@@ -9618,49 +9621,49 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | settings: one column for every "?", and a pane title that is a title | frontend/css/08-consistency.css:3353 |
 | sidebar | frontend/css/01-forms-settings.css:111 |
 | sidebar heading rows | frontend/css/05-sidebars-themes.css:75 |
-| space dialogs | frontend/css/07-whiteboard-misc.css:2514 |
-| space switcher (top bar) | frontend/css/07-whiteboard-misc.css:2342 |
+| space dialogs | frontend/css/07-whiteboard-misc.css:2512 |
+| space switcher (top bar) | frontend/css/07-whiteboard-misc.css:2340 |
 | spacious density (third option alongside comfortable/compact) | frontend/css/04-chat-dock-appearance.css:1962 |
 | tab navigation (Wave A; pill style inside the top bar in Wave L) | frontend/css/00-tokens-shell.css:3511 |
 | text inputs (§36B) | frontend/css/01-forms-settings.css:225 |
 | the "/" menu and block frames | frontend/css/05-sidebars-themes.css:827 |
 | the "?" head row and its help body | frontend/css/01-forms-settings.css:5395 |
-| the 464 round: Settings groups, switch rows, the phone's chrome | frontend/css/08-consistency.css:9805 |
+| the 464 round: Settings groups, switch rows, the phone's chrome | frontend/css/08-consistency.css:9836 |
 | the AI skills dock: one row where it fits (INBOX 450, 599) | frontend/css/08-consistency.css:9389 |
 | the AI status dot | frontend/css/00-tokens-shell.css:1526 |
 | the Ask box explaining itself (§35A) | frontend/css/06-timeline-dialogs.css:1244 |
-| the Ask box reads as one composer | frontend/css/07-whiteboard-misc.css:2990 |
-| the Connections dialog (REDESIGN.md §R7.3) | frontend/css/07-whiteboard-misc.css:5062 |
+| the Ask box reads as one composer | frontend/css/07-whiteboard-misc.css:2988 |
+| the Connections dialog (REDESIGN.md §R7.3) | frontend/css/07-whiteboard-misc.css:5060 |
 | the Dashboard's dock on a phone (INBOX 436) | frontend/css/10-responsive.css:2398 |
 | the Documents editor on a phone (INBOX 430) | frontend/css/10-responsive.css:2205 |
 | the Documents editor on a small laptop (INBOX 430's re-scope) | frontend/css/10-responsive.css:2324 |
 | the Graph dock's second row, and the nine pixels that cause it | frontend/css/08-consistency.css:2370 |
-| the HUD: a momentary readout, not a notification | frontend/css/07-whiteboard-misc.css:7575 |
+| the HUD: a momentary readout, not a notification | frontend/css/07-whiteboard-misc.css:7497 |
 | the Library (§4, §36F) | frontend/css/00-tokens-shell.css:1811 |
-| the Library on a phone (BACKLOG §116.1 item 3) | frontend/css/07-whiteboard-misc.css:9119 |
-| the Library tab's floating action is not the whiteboard's | frontend/css/07-whiteboard-misc.css:10641 |
+| the Library on a phone (BACKLOG §116.1 item 3) | frontend/css/07-whiteboard-misc.css:9040 |
+| the Library tab's floating action is not the whiteboard's | frontend/css/07-whiteboard-misc.css:10562 |
 | the Library's Activity rows (library.js, `library-${item.kind}`) | frontend/css/library-lazy.css:3062 |
 | the Library, de-vibecoded (the owner: "devibecode all the ui") | frontend/css/08-consistency.css:2906 |
 | the Library, second pass: cards in reading order, one anatomy | frontend/css/library-lazy.css:263 |
-| the OCR rail's own switch | frontend/css/07-whiteboard-misc.css:6496 |
+| the OCR rail's own switch | frontend/css/07-whiteboard-misc.css:6419 |
 | the Skills dropdown | frontend/css/04-chat-dock-appearance.css:1163 |
 | the Sources panel | frontend/css/02-chat-graph.css:4794 |
 | the accessible card: the title opens it (INBOX 433) | frontend/css/08-consistency.css:2966 |
-| the agent activity panel: nothing scrolls sideways, nothing folds onto | frontend/css/07-whiteboard-misc.css:10489 |
+| the agent activity panel: nothing scrolls sideways, nothing folds onto | frontend/css/07-whiteboard-misc.css:10410 |
 | the agent's run, as a timeline | frontend/css/02-chat-graph.css:581 |
 | the app emblem, reused across the UI | frontend/css/03-dashboard-widgets.css:3133 |
 | the app's one help popover | frontend/css/03-dashboard-widgets.css:4245 |
-| the app's own dropdown | frontend/css/07-whiteboard-misc.css:3646 |
-| the arrange zone, once it is inside the overflow menu | frontend/css/07-whiteboard-misc.css:9721 |
+| the app's own dropdown | frontend/css/07-whiteboard-misc.css:3644 |
+| the arrange zone, once it is inside the overflow menu | frontend/css/07-whiteboard-misc.css:9642 |
 | the assistant's head and its three verbs (the owner, 2026-09-24: | frontend/css/04-chat-dock-appearance.css:4801 |
 | the assistant's three verbs (INBOX 192) | frontend/css/09-editor.css:693 |
 | the attachment card (INBOX 440 (2), DESIGN.md "A file attached to a | frontend/css/05-sidebars-themes.css:415 |
 | the bar's three zones | frontend/css/00-tokens-shell.css:3257 |
 | the block bar (INBOX 421 b) | frontend/css/09-editor.css:1005 |
-| the board panel, sorted into the questions it answers | frontend/css/07-whiteboard-misc.css:4843 |
+| the board panel, sorted into the questions it answers | frontend/css/07-whiteboard-misc.css:4841 |
 | the board's bar takes the floor of the whole touch band, not just 600 | frontend/css/10-responsive.css:2061 |
 | the boot splash: one progress indicator, not two | frontend/css/08-consistency.css:4269 |
-| the bottom docks | frontend/css/07-whiteboard-misc.css:9673 |
+| the bottom docks | frontend/css/07-whiteboard-misc.css:9594 |
 | the chat dock follows its own width (INBOX 694) | frontend/css/10-responsive.css:2490 |
 | the chat page fills its height (§36A) | frontend/css/06-timeline-dialogs.css:1354 |
 | the chat sidebar on a phone | frontend/css/02-chat-graph.css:5310 |
@@ -9671,21 +9674,21 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the composer dock (asked for directly) | frontend/css/04-chat-dock-appearance.css:907 |
 | the composer, as one surface | frontend/css/04-chat-dock-appearance.css:5179 |
 | the connections rail (WORLD_CLASS_PLAN D2; `renderNotesRail`) | frontend/css/04-chat-dock-appearance.css:290 |
-| the context bar (WHITEBOARD_PLAN.md Phase 2, decision 2) | frontend/css/07-whiteboard-misc.css:7020 |
+| the context bar (WHITEBOARD_PLAN.md Phase 2, decision 2) | frontend/css/07-whiteboard-misc.css:6943 |
 | the dashboard and the labels, de-vibecoded | frontend/css/08-consistency.css:3021 |
-| the dashboard's greeting banner, on a phone | frontend/css/07-whiteboard-misc.css:10384 |
-| the dashboard's quick actions stop wrapping | frontend/css/07-whiteboard-misc.css:10334 |
-| the dashboard's three densities | frontend/css/07-whiteboard-misc.css:11047 |
+| the dashboard's greeting banner, on a phone | frontend/css/07-whiteboard-misc.css:10305 |
+| the dashboard's quick actions stop wrapping | frontend/css/07-whiteboard-misc.css:10255 |
+| the dashboard's three densities | frontend/css/07-whiteboard-misc.css:10966 |
 | the day-one dashboard | frontend/css/05-sidebars-themes.css:3867 |
 | the desk's own rows (WORLD_CLASS_PLAN D16) | frontend/css/04-chat-dock-appearance.css:3474 |
-| the dock (UI_MODERNISATION_PLAN.md Phase 8) | frontend/css/07-whiteboard-misc.css:9167 |
+| the dock (UI_MODERNISATION_PLAN.md Phase 8) | frontend/css/07-whiteboard-misc.css:9088 |
 | the dock above the editor | frontend/css/04-chat-dock-appearance.css:4061 |
-| the dock row below 1100 | frontend/css/07-whiteboard-misc.css:9772 |
+| the dock row below 1100 | frontend/css/07-whiteboard-misc.css:9693 |
 | the document editor's instruments | frontend/css/05-sidebars-themes.css:4645 |
 | the document history, side by side (DOCUMENTS 24 row 4, Brief 76) | frontend/css/library-lazy.css:4603 |
-| the document toolbar's two folds | frontend/css/07-whiteboard-misc.css:5169 |
+| the document toolbar's two folds | frontend/css/07-whiteboard-misc.css:5167 |
 | the documents editor | frontend/css/library-lazy.css:3154 |
-| the documents sidebar's vertical budget (§41) | frontend/css/07-whiteboard-misc.css:2099 |
+| the documents sidebar's vertical budget (§41) | frontend/css/07-whiteboard-misc.css:2097 |
 | the documents sidebar, redrawn as one tree (the owner, 2026-10-10: | frontend/css/library-lazy.css:4650 |
 | the export dialog (WHITEBOARD_PLAN.md Phase 3, decision 4) | frontend/css/06-timeline-dialogs.css:2597 |
 | the faded notes card (WORLD_CLASS_PLAN 15, I4) | frontend/css/03-dashboard-widgets.css:4648 |
@@ -9695,7 +9698,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the flat looks: a selected tab is a place, not an action | frontend/css/08-consistency.css:2888 |
 | the formatting strip says what the caret is already in | frontend/css/09-editor.css:984 |
 | the glass card | frontend/css/00-tokens-shell.css:3784 |
-| the graph node panel becomes a sheet (GRAPH_PLAN Phase 6) | frontend/css/07-whiteboard-misc.css:9993 |
+| the graph node panel becomes a sheet (GRAPH_PLAN Phase 6) | frontend/css/07-whiteboard-misc.css:9914 |
 | the graph's floating controls clear its New note (INBOX 430) | frontend/css/10-responsive.css:2191 |
 | the graph's legend: one container, not a pill in a box | frontend/css/08-consistency.css:3100 |
 | the graph's options panel | frontend/css/08-consistency.css:3311 |
@@ -9709,14 +9712,14 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the log console (§1) | frontend/css/06-timeline-dialogs.css:732 |
 | the map is the tab, and its controls float over it | frontend/css/02-chat-graph.css:5334 |
 | the mind map's outline and markers (MINDMAP_PLAN decisions 33, 34) | frontend/css/library-lazy.css:2835 |
-| the node edit strip (MINDMAP_PLAN.md §12.1 item 2) | frontend/css/07-whiteboard-misc.css:8488 |
-| the node radial (MINDMAP_PLAN.md §12.1 item 3) | frontend/css/07-whiteboard-misc.css:8747 |
+| the node edit strip (MINDMAP_PLAN.md §12.1 item 2) | frontend/css/07-whiteboard-misc.css:8410 |
+| the node radial (MINDMAP_PLAN.md §12.1 item 3) | frontend/css/07-whiteboard-misc.css:8668 |
 | the note card's metadata, ordered (§36B) | frontend/css/06-timeline-dialogs.css:1517 |
 | the notifications centre (§36E) | frontend/css/06-timeline-dialogs.css:1676 |
 | the one control in a dock that was not the dock's height | frontend/css/10-responsive.css:340 |
 | the one generating animation | frontend/css/01-forms-settings.css:4770 |
 | the one map chip (MINDMAP_PLAN.md §5 item 12) | frontend/css/05-sidebars-themes.css:776 |
-| the one popover shell (UI_MODERNISATION_PLAN.md, Phase 2) | frontend/css/07-whiteboard-misc.css:7750 |
+| the one popover shell (UI_MODERNISATION_PLAN.md, Phase 2) | frontend/css/07-whiteboard-misc.css:7672 |
 | the orphan-row pattern, everywhere else it appears (§36B) | frontend/css/06-timeline-dialogs.css:1658 |
 | the overview strip | frontend/css/00-tokens-shell.css:1873 |
 | the page scrollers scroll on the compositor | frontend/css/08-consistency.css:4300 |
@@ -9724,60 +9727,60 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | the palette on a touch screen (INBOX 464) | frontend/css/10-responsive.css:2476 |
 | the phone header fits inside the phone | frontend/css/05-sidebars-themes.css:5867 |
 | the picker itself | frontend/css/05-sidebars-themes.css:3750 |
-| the primary action floats, where a dock has one | frontend/css/07-whiteboard-misc.css:10228 |
+| the primary action floats, where a dock has one | frontend/css/07-whiteboard-misc.css:10149 |
 | the quick-nav chord's guide | frontend/css/10-responsive.css:421 |
 | the reader: one scroller, the page set as prose | frontend/css/03-dashboard-widgets.css:1453 |
 | the reply head on Ask's answer, the draft and the guide (INBOX 471) | frontend/css/08-consistency.css:9447 |
 | the rich picker (rich-picker.js; DESIGN.md's recipe index) | frontend/css/05-sidebars-themes.css:864 |
-| the run list (AGENT_SKILLS_REFORM.md, Phase C) | frontend/css/07-whiteboard-misc.css:1400 |
+| the run list (AGENT_SKILLS_REFORM.md, Phase C) | frontend/css/07-whiteboard-misc.css:1398 |
 | the scroll container (§36A) | frontend/css/00-tokens-shell.css:1093 |
 | the selection tick in Rows (INBOX 426 z, image 91) | frontend/css/08-consistency.css:8976 |
-| the selection tick, in the app's own language | frontend/css/07-whiteboard-misc.css:4166 |
-| the settings jump list | frontend/css/07-whiteboard-misc.css:10403 |
+| the selection tick, in the app's own language | frontend/css/07-whiteboard-misc.css:4164 |
+| the settings jump list | frontend/css/07-whiteboard-misc.css:10324 |
 | the settings sheet takes the touch floor | frontend/css/01-forms-settings.css:5528 |
 | the sketch pad's bar: a dock (INBOX 839) | frontend/css/02-chat-graph.css:1615 |
 | the spine | frontend/css/00-tokens-shell.css:2241 |
-| the spine on the other edge (MINDMAP_PLAN.md §13e) | frontend/css/07-whiteboard-misc.css:8303 |
+| the spine on the other edge (MINDMAP_PLAN.md §13e) | frontend/css/07-whiteboard-misc.css:8225 |
 | the status bar (§36D) | frontend/css/00-tokens-shell.css:3175 |
 | the status bar from 820 to 959: one item fewer | frontend/css/10-responsive.css:1159 |
 | the status bar on a small phone | frontend/css/00-tokens-shell.css:3484 |
 | the status bar's Other devices icon and panel (INBOX 896) | frontend/css/lan-lazy.css:77 |
 | the status line and the recent searches | frontend/css/03-dashboard-widgets.css:1207 |
 | the step group (Perplexity's "Finished N steps") | frontend/css/02-chat-graph.css:4715 |
-| the strip's three doors (MINDMAP_PLAN.md §13b) | frontend/css/07-whiteboard-misc.css:8583 |
+| the strip's three doors (MINDMAP_PLAN.md §13b) | frontend/css/07-whiteboard-misc.css:8505 |
 | the strips that appear only when they apply | frontend/css/00-tokens-shell.css:1888 |
 | the structural blocks (INBOX 421 b) | frontend/css/05-sidebars-themes.css:1413 |
 | the suggestion menu, the dictionary, and the goal | frontend/css/05-sidebars-themes.css:5156 |
-| the switch's hit target (MODERNISATION_AUDIT.md Brief 8) | frontend/css/07-whiteboard-misc.css:7895 |
-| the tab strip is centred on the window, not on whatever is left of it | frontend/css/07-whiteboard-misc.css:7618 |
+| the switch's hit target (MODERNISATION_AUDIT.md Brief 8) | frontend/css/07-whiteboard-misc.css:7817 |
+| the tab strip is centred on the window, not on whatever is left of it | frontend/css/07-whiteboard-misc.css:7540 |
 | the timeline, de-vibecoded | frontend/css/08-consistency.css:3113 |
-| the tool rail (WHITEBOARD_PLAN.md Phase 1, decision 1) | frontend/css/07-whiteboard-misc.css:10559 |
+| the tool rail (WHITEBOARD_PLAN.md Phase 1, decision 1) | frontend/css/07-whiteboard-misc.css:10480 |
 | the tools panel, sorted into what each group of icons does | frontend/css/06-timeline-dialogs.css:2752 |
 | the touch floor, for the two surfaces the dock rule cannot reach | frontend/css/03-dashboard-widgets.css:4612 |
 | the trace strip | frontend/css/04-chat-dock-appearance.css:1 |
 | the two radio-backed segmented bars | frontend/css/03-dashboard-widgets.css:3737 |
-| the two whiteboard controls that never joined the strip | frontend/css/07-whiteboard-misc.css:3250 |
+| the two whiteboard controls that never joined the strip | frontend/css/07-whiteboard-misc.css:3248 |
 | the web-search engine picker | frontend/css/04-chat-dock-appearance.css:2526 |
-| the whiteboard top bar and the documents editor join the families | frontend/css/07-whiteboard-misc.css:7823 |
-| the whiteboard's panels are one surface each | frontend/css/07-whiteboard-misc.css:3450 |
-| the whiteboard's tools become a bottom strip | frontend/css/07-whiteboard-misc.css:10294 |
+| the whiteboard top bar and the documents editor join the families | frontend/css/07-whiteboard-misc.css:7745 |
+| the whiteboard's panels are one surface each | frontend/css/07-whiteboard-misc.css:3448 |
+| the whiteboard's tools become a bottom strip | frontend/css/07-whiteboard-misc.css:10215 |
 | the writing room | frontend/css/04-chat-dock-appearance.css:3327 |
 | tools & features browser | frontend/css/03-dashboard-widgets.css:1920 |
 | top bar polish | frontend/css/05-sidebars-themes.css:4366 |
 | transcluded notes (![[note]]) | frontend/css/05-sidebars-themes.css:1559 |
-| two-up cards in tablet portrait | frontend/css/07-whiteboard-misc.css:9934 |
-| type to filter a long list (row 1643, `listFilter` in sheets-selects.js) | frontend/css/08-consistency.css:10516 |
+| two-up cards in tablet portrait | frontend/css/07-whiteboard-misc.css:9855 |
+| type to filter a long list (row 1643, `listFilter` in sheets-selects.js) | frontend/css/08-consistency.css:10547 |
 | user-tunable corner rounding | frontend/css/04-chat-dock-appearance.css:1931 |
 | web panel (search + reader) | frontend/css/03-dashboard-widgets.css:1043 |
 | what a wide screen is for | frontend/css/00-tokens-shell.css:3611 |
 | what it learned (WORLD_CLASS_PLAN I9) | frontend/css/01-forms-settings.css:5586 |
-| what the AI remembers (ROADMAP §39B) | frontend/css/07-whiteboard-misc.css:1924 |
-| what the agent found, as things you can open | frontend/css/07-whiteboard-misc.css:5205 |
+| what the AI remembers (ROADMAP §39B) | frontend/css/07-whiteboard-misc.css:1922 |
+| what the agent found, as things you can open | frontend/css/07-whiteboard-misc.css:5203 |
 | what the answering model is | frontend/css/02-chat-graph.css:5142 |
-| what the phone block assumed, and the sheet undoes | frontend/css/07-whiteboard-misc.css:9947 |
-| whiteboard fixes (§41) | frontend/css/07-whiteboard-misc.css:2029 |
+| what the phone block assumed, and the sheet undoes | frontend/css/07-whiteboard-misc.css:9868 |
+| whiteboard fixes (§41) | frontend/css/07-whiteboard-misc.css:2027 |
 | whiteboard objects: images and text boxes, neither tied to a note | frontend/css/07-whiteboard-misc.css:1 |
-| widget picker modal (roadmap §26) | frontend/css/07-whiteboard-misc.css:3132 |
+| widget picker modal (roadmap §26) | frontend/css/07-whiteboard-misc.css:3130 |
 
 ### Lines per stylesheet
 
@@ -9790,8 +9793,8 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/04-chat-dock-appearance.css | 6476 |
 | frontend/css/05-sidebars-themes.css | 6230 |
 | frontend/css/06-timeline-dialogs.css | 3718 |
-| frontend/css/07-whiteboard-misc.css | 11898 |
-| frontend/css/08-consistency.css | 10550 |
+| frontend/css/07-whiteboard-misc.css | 11817 |
+| frontend/css/08-consistency.css | 10581 |
 | frontend/css/09-editor.css | 1116 |
 | frontend/css/10-responsive.css | 2661 |
 | frontend/css/ask-compose-lazy.css | 139 |
@@ -9807,7 +9810,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/improve-lazy.css | 110 |
 | frontend/css/inbox-lazy.css | 196 |
 | frontend/css/lan-lazy.css | 131 |
-| frontend/css/library-lazy.css | 6079 |
+| frontend/css/library-lazy.css | 6170 |
 | frontend/css/lightbox-lazy.css | 178 |
 | frontend/css/manual-lazy.css | 153 |
 | frontend/css/meetings-lazy.css | 501 |
@@ -17502,7 +17505,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (11041)
+## Tests (11045)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -17574,7 +17577,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_audio_section.py | 4 |
 | tests/test_audit_export.py | 9 |
 | tests/test_auth_headers_space.py | 4 |
-| tests/test_autocorrect.py | 11 |
+| tests/test_autocorrect.py | 13 |
 | tests/test_autonomous.py | 28 |
 | tests/test_autonomous_state_isolation.py | 4 |
 | tests/test_backend_switch_keeps_embeddings.py | 2 |
@@ -18601,7 +18604,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_translate_offline.py | 7 |
 | tests/test_tray.py | 18 |
 | tests/test_typo_routing.py | 4 |
-| tests/test_ui_1017b.py | 5 |
+| tests/test_ui_1017b.py | 7 |
 | tests/test_ui_batch_726.py | 13 |
 | tests/test_ui_recipes.py | 204 |
 | tests/test_ui_signatures.py | 2 |
@@ -19373,7 +19376,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Open items | docs/roadmap/INBOX.md:35 |
 | OpenJarvis (open-jarvis) | docs/roadmap/ANALYSIS.md:2894 |
 | Order and dependencies | docs/roadmap/WORLD_CLASS_PLAN.md:1360 |
-| Owner's list, 2026-10-13 (one batch, in one place) | docs/roadmap/BACKLOG.md:4391 |
+| Owner's list, 2026-10-13 (one batch, in one place) | docs/roadmap/BACKLOG.md:4390 |
 | PDF viewer and OCR workspace, against pdfcraft | docs/roadmap/ANALYSIS.md:3922 |
 | PR 144 is done when (the owner's checklist, 2026-09-09 05:30 UTC) | docs/roadmap/HANDOVER.md:88 |
 | Parity matrix, 2026-10-10 | docs/roadmap/ANALYSIS.md:3703 |
@@ -19436,7 +19439,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Placed from Brief 60, 2026-10-10 (the measured census) | docs/roadmap/MINDMAP_PLAN.md:1822 |
 | Placed from Brief 60, 2026-10-10 (the measured census) | docs/roadmap/WHITEBOARD_PLAN.md:1573 |
 | Placed from INBOX 561 (2026-10-17) | docs/roadmap/TIMELINE_PLAN.md:207 |
-| Placed from INBOX 904 (the owner, 2026-10-17) | docs/roadmap/BACKLOG.md:4406 |
+| Placed from INBOX 904 (the owner, 2026-10-17) | docs/roadmap/BACKLOG.md:4405 |
 | Placed from INBOX, 2026-09-09 | docs/roadmap/CHAT_PLAN.md:595 |
 | Placed from INBOX, 2026-09-09 | docs/roadmap/GRAPH_PLAN.md:206 |
 | Placed from INBOX, 2026-09-09 | docs/roadmap/MINDMAP_PLAN.md:1448 |
@@ -19577,7 +19580,7 @@ Every `##` and `###` heading in `docs/ROADMAP.md` and `docs/roadmap/*.md`, excep
 | Still open: the upload split, and what it collides with | docs/roadmap/BACKLOG.md:2783 |
 | Table | docs/roadmap/ANALYSIS.md:4430 |
 | Tables in notes and documents, against gridcraft | docs/roadmap/ANALYSIS.md:3891 |
-| The 2026-10-12 sweep: everything said and not done, so nothing is missed | docs/roadmap/BACKLOG.md:4358 |
+| The 2026-10-12 sweep: everything said and not done, so nothing is missed | docs/roadmap/BACKLOG.md:4357 |
 | The `pytesseract` vendoring question, measured | docs/roadmap/ANALYSIS.md:2102 |
 | The app's stack (outside boards and documents) | docs/roadmap/WHITEBOARD_PLAN.md:498 |
 | The assistant catalogue, 2026-10-10 | docs/roadmap/CHAT_PLAN.md:951 |

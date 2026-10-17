@@ -115,12 +115,14 @@ OFFLINE_MESSAGE = (
 HELP_TOPICS: list[dict] = [
     {
         "id": "capture",
-        "keywords": ("capture", "note", "template", "dictate", "sketch", "improve", "proofread", "draft", "tag", "category", "categorise", "write", "compose"),
+        "keywords": ("capture", "note", "template", "dictate", "sketch", "improve", "proofread", "generate title", "generate a title", "title from its words", "draft", "tag", "category", "categorise", "write", "compose"),
         "body": (
             "Notes tab: type into \"Capture a thought\" and Save. A local AI files "
             "it into a category and suggests tags; you can re-file or edit anytime. "
             "Use a template, dictate with the microphone icon, sketch with the "
-            "palette icon, or run \"Improve\" to proofread first. The Writing room has "
+            "palette icon, or run \"Improve\" to proofread first, which needs no model (rewording does). "
+            "A note's ... menu has Generate title, which with no model takes the title from the "
+            "note's first sentence and is named Title from its words. The Writing room has "
             "\"Split into notes\", which turns a block of pasted text into several "
             "AI-drafted, auto-linked notes."
         ),

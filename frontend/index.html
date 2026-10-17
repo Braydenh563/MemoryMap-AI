@@ -1361,6 +1361,9 @@
       <div class="dock-actions">
         <!-- The menu (`kebabMenu`, built by `renderDashMore`): grouped, an
              action sheet on a phone, keyboard from the recipe. -->
+        <!-- Get started (`renderGetStarted`, dashboard.js; INBOX 904 B01): the
+             first steps as a ticked menu, reachable after the card is hidden. -->
+        <span id="dash-start" class="dash-customise dash-start"></span>
         <span id="dash-customise" class="dash-customise"></span>
         <!-- The '?' every other tab's dock ends with (WORLD_CLASS_PLAN A8):
              the `data-help-for` recipe, markup only, before the menu. -->
@@ -1368,7 +1371,7 @@
           data-help-for="dash-help" aria-controls="dash-help" aria-expanded="false"
           title="About the dashboard" aria-label="About the dashboard"><i class="ph ph-question" aria-hidden="true"></i></button>
         <div class="help-body hidden" id="dash-help" role="dialog" aria-label="About the dashboard">
-          <p>Today at a glance: your recent notes, reminders and widgets. Search finds notes, documents, files and app actions, and Ctrl+K opens the command palette for commands and places. Customise, then Edit layout, lets you add, move, resize and remove widgets. In the Focused view the greeting card shows what is due today, your meetings, the notes to file and the note you were last in.</p>
+          <p>Today at a glance: your recent notes, reminders and widgets. Search finds notes, documents, files and app actions, and Ctrl+K opens the command palette for commands and places. Get started lists the first steps, ticked as you finish them. Customise, then Edit layout, lets you add, move, resize and remove widgets. In the Focused view the greeting card shows what is due today, your meetings, the notes to file and the note you were last in.</p>
         </div>
         <span id="dash-more" class="dock-more dash-more"></span>
       </div>

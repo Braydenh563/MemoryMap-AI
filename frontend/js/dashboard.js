@@ -1597,6 +1597,7 @@ function renderFeatures(query) {
 //: sample notebook. Above the grid rather than in it, so they stay past the
 //: first note; a notebook that hid them, or finished them, never loads it.
 function renderFirstStepsLazy() {
+  lazyScript("/js/first-run.js").then((ok) => ok && renderGetStarted());
   const host = $("dash-first-steps");
   if (!host || !entriesEverLoaded) return;
   if (dashEditMode || (allEntries.length && prefs.get("firstStepsHidden", null) === "1")) return void host.replaceChildren();

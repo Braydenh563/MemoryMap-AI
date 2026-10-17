@@ -32,7 +32,7 @@ from sqlalchemy import or_, select
 from sqlalchemy import text as sql_text
 from sqlalchemy.orm import Session
 
-from tessellate.ai import budget as run_budget, capability, composer, composer_digest, find_it, glossary, personal, phrasing, verdicts, vocative, why
+from tessellate.ai import budget as run_budget, capability, composer, composer_digest, find_it, glossary, personal, phrasing, verdicts, toolwords, vocative, why
 from tessellate.ai import (
     acts,
     agent,
@@ -2099,7 +2099,7 @@ WEB_PAGE_CHARS = 4000
 def _web_first(req: _StreamRequest, prepared: dict) -> bool:
     """The web before the notes: when no note matched, or when the turn asks
     for the web outright ("search the web for ...")."""
-    return not prepared["notes"] or composer_digest.asks_web(req.question)
+    return not prepared["notes"] or toolwords.asks_web(req.question)
 
 
 def _web_allowed(req: _StreamRequest) -> bool:

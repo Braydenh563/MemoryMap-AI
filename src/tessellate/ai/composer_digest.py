@@ -41,7 +41,6 @@ from functools import lru_cache
 from pathlib import Path
 
 from tessellate.ai import composer, composer_tables, glossary, realise, verdicts
-from tessellate.ai.toolwords import asks_web  # noqa: F401  # re-exported: the words live in the leaf module
 from tessellate.ai import recognise as recogniser
 from tessellate.ai import when as when_words
 

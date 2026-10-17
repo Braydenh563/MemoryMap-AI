@@ -2,9 +2,9 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5879, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5484, test files 1177, tests 10884, plan headings 956.
+Counts: frontend functions 5880, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5484, test files 1178, tests 10887, plan headings 956.
 
-## Frontend functions (5879)
+## Frontend functions (5880)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -4055,19 +4055,20 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `renderHelpChatMessage` | frontend/js/help-chat.js:166 |
 | `submitHelpChatQuestion` | frontend/js/help-chat.js:351 |
 
-### frontend/js/icon-picker.js (9)
+### frontend/js/icon-picker.js (10)
 
 | Name | File:line |
 |---|---|
-| `closeIconPicker` | frontend/js/icon-picker.js:316 |
-| `iconPickerEmojiGroups` | frontend/js/icon-picker.js:212 |
-| `iconPickerGlyph` | frontend/js/icon-picker.js:300 |
-| `iconPickerIconGroups` | frontend/js/icon-picker.js:259 |
-| `iconPickerPhosphorNames` | frontend/js/icon-picker.js:241 |
-| `iconPickerRecent` | frontend/js/icon-picker.js:276 |
-| `iconPickerRemember` | frontend/js/icon-picker.js:281 |
-| `iconPickerText` | frontend/js/icon-picker.js:295 |
-| `openIconPicker` | frontend/js/icon-picker.js:325 |
+| `closeIconPicker` | frontend/js/icon-picker.js:365 |
+| `iconPickerEmojiGroups` | frontend/js/icon-picker.js:261 |
+| `iconPickerGlyph` | frontend/js/icon-picker.js:349 |
+| `iconPickerHay` | frontend/js/icon-picker.js:256 |
+| `iconPickerIconGroups` | frontend/js/icon-picker.js:308 |
+| `iconPickerPhosphorNames` | frontend/js/icon-picker.js:290 |
+| `iconPickerRecent` | frontend/js/icon-picker.js:325 |
+| `iconPickerRemember` | frontend/js/icon-picker.js:330 |
+| `iconPickerText` | frontend/js/icon-picker.js:344 |
+| `openIconPicker` | frontend/js/icon-picker.js:374 |
 
 ### frontend/js/improve-panel.js (5)
 
@@ -17289,7 +17290,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10884)
+## Tests (10887)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -17785,6 +17786,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_icon_names.py | 2 |
 | tests/test_icon_only_buttons.py | 2 |
 | tests/test_icon_picker.py | 5 |
+| tests/test_icon_picker_aliases.py | 3 |
 | tests/test_ics.py | 6 |
 | tests/test_ide_shell_b71.py | 16 |
 | tests/test_import_bin_clock.py | 1 |

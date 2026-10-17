@@ -204,10 +204,59 @@ const ICON_EMOJI_SOURCE = [
     "triangular_flag_on_post=\u{1F6A9},chequered_flag=\u{1F3C1},"],
 ];
 
+//: **Everyday names for emoji** (owner, 2026-10-17: the folded hands "should
+//: be both high five and pray"). Search reads the Unicode name, which nobody
+//: types; these are the words people do, keyed by the name as the picker shows
+//: it. A key that is not a name in the lists above fails
+//: `tests/test_icon_picker_aliases.py`.
+const ICON_EMOJI_ALIASES = {
+  "person with folded hands": "pray prayer please thanks thank you high five namaste hope beg",
+  "handshake": "deal agree agreement shake hands partnership",
+  "flexed biceps": "strong strength muscle gym flex power",
+  "face with tears of joy": "lol laugh laughing funny haha crying laughing",
+  "rolling on the floor laughing": "rofl lmao lol laugh funny",
+  "loudly crying face": "sob sad cry crying tears upset",
+  "crying face": "sad cry tear tears upset",
+  "face screaming in fear": "scream scared shocked omg fear horror",
+  "smiling face with sunglasses": "cool chill sunglasses awesome",
+  "thinking face": "hmm think wondering ponder",
+  "winking face": "wink flirt joke",
+  "thumbs up sign": "like yes approve good ok agree",
+  "thumbs down sign": "dislike no bad disapprove",
+  "clapping hands sign": "applause clap bravo well done congrats",
+  "waving hand sign": "hello hi bye wave goodbye",
+  "ok hand sign": "okay perfect fine good",
+  "victory hand": "peace two fingers win",
+  "raised hand": "stop wait hand high five",
+  "party popper": "celebrate celebration congrats party tada",
+  "birthday cake": "birthday cake party dessert",
+  "fire": "hot flame lit burn trending",
+  "sparkles": "magic shiny new clean glitter",
+  "glowing star": "star shine favourite favorite",
+  "hundred points symbol": "100 perfect score full marks",
+  "electric light bulb": "idea lightbulb light bulb tip",
+  "pile of poo": "poop poo crap shit",
+  "skull": "dead death danger spooky",
+  "rocket": "launch ship fast startup",
+  "white heavy check mark": "done tick check complete yes correct",
+  "heavy check mark": "done tick check complete yes correct",
+  "cross mark": "no wrong x cancel delete",
+  "warning sign": "caution alert danger careful",
+  "collision symbol": "boom bang crash explosion",
+  "eyes": "look see watching looking",
+};
+
 //: This file's only mutable state, one object (the global-scope ratchet): the
 //: emoji groups, parsed once on first open as `[{key, label, items: [{name, glyph}]}]`,
 //: the icon groups likewise, and the open panel.
 const iconPickerState = { emojiGroups: null, phGroups: null, open: null };
+
+//: The text a search reads for one tile: its name, its everyday aliases and its
+//: group, lower case.
+function iconPickerHay(choice, groupLabel) {
+  const aliases = ICON_EMOJI_ALIASES[choice.name] || "";
+  return `${choice.name} ${aliases} ${groupLabel}`.toLowerCase();
+}
 
 function iconPickerEmojiGroups() {
   if (!iconPickerState.emojiGroups) {
@@ -496,7 +545,7 @@ function openIconPicker({ anchor = null, onPick = null, modes = ["emoji", "icon"
       const found = [];
       for (const group of groups) {
         for (const choice of group.items) {
-          const hay = `${choice.name} ${group.label}`.toLowerCase();
+          const hay = iconPickerHay(choice, group.label);
           if (words.every((w) => hay.includes(w))) found.push(choice);
         }
       }

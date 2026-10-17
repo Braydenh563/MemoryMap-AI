@@ -6,7 +6,7 @@
 // boxes carry `data-autocorrect` in index.html (Capture, quick note, the chat
 // and Ask composers, the graph's note boxes, Write with the AI, the titles)
 // and note-edit-panels.js sets it on the edit form's two fields; never a
-// search box, a link, a tag or code field (tests/test_autocorrect_1011.py).
+// search box, a link, a tag or code field (tests/test_autocorrect.py).
 // The document editor keeps its own per-document switch and table
 // (`DOC_AUTOCORRECT`, documents.js); this table holds all of it plus the
 // owner's own slips (Brief 90's fixtures).

@@ -63,7 +63,7 @@ def test_the_emblem_does_not_load_p5_before_the_scripts_have_run():
 # Settings, Data, "Clear and forget" (Brief 86 b): four rows, each saying what
 # it removes and how much, each undoable from its toast. The counts and clears
 # are driven in a real page by scratchpad/ui-sweeps/settingsclear86.js; the
-# server half is tests/test_dismissed_suggestions_1011.py.
+# server half is tests/test_suggestions_inbox_kg9.py.
 ROWS = {
     "clear-recents": "clear-recents-what",
     "clear-previews": "clear-previews-what",

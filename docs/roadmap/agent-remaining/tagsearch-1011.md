@@ -2,7 +2,7 @@
 
 id | status | evidence or commit
 
-1271 | built | clear/restore reach discarded_tags (routes_inbox.py), counted in GET /suggestions/dismissed, Settings line + Undo carry note_tags; tests/test_dismissed_suggestions_1011.py::test_tags_turned_down_on_notes_are_counted_cleared_and_restored
+1271 | built | clear/restore reach discarded_tags (routes_inbox.py), counted in GET /suggestions/dismissed, Settings line + Undo carry note_tags; tests/test_suggestions_inbox_kg9.py::test_tags_turned_down_on_notes_are_counted_cleared_and_restored
 1272 | left | whiteboard: a free line stores its path as the endpoints, so trimming the shaft at a hollow end would drift the line; needs the untrimmed endpoints stored beside the path (whiteboard.js wbShaftEnd/WB_HOLLOW_INSET). Not started: whiteboard owner
 1273 | closed-measured | tagging.py: tags from a note's own words for a notebook with no tags scored 4 of 12 (filing-1010.md), rejected on that number; nothing to build
 1274 | done-already | measured at 1440: .doc-backlink-action border 0, background transparent, 28px tall (05-sidebars-themes.css:5978, quiet row action); the tool-confirm pair belongs to the agent/Ask owner

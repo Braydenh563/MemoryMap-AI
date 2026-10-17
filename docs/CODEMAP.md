@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5881, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5478, test files 1179, tests 10884, plan headings 956.
+Counts: frontend functions 5881, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5478, test files 1180, tests 10885, plan headings 956.
 
 ## Frontend functions (5881)
 
@@ -5715,92 +5715,92 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | Name | File:line |
 |---|---|
 | `wbCloseSidebar` | frontend/js/whiteboard-library.js:115 |
-| `wbKeepOwnLayer` | frontend/js/whiteboard-library.js:1717 |
-| `wbLayerButton` | frontend/js/whiteboard-library.js:1605 |
-| `wbLayerEntry` | frontend/js/whiteboard-library.js:1947 |
-| `wbLayerEntryByKey` | frontend/js/whiteboard-library.js:1538 |
-| `wbLayerFocus` | frontend/js/whiteboard-library.js:1953 |
-| `wbLayerIcon` | frontend/js/whiteboard-library.js:1936 |
-| `wbLayerName` | frontend/js/whiteboard-library.js:1529 |
-| `wbLayerOwning` | frontend/js/whiteboard-library.js:1637 |
-| `wbLayerRename` | frontend/js/whiteboard-library.js:2022 |
-| `wbLayerRestack` | frontend/js/whiteboard-library.js:2050 |
-| `wbLayerRows` | frontend/js/whiteboard-library.js:1544 |
-| `wbLayerSaysOwner` | frontend/js/whiteboard-library.js:1642 |
-| `wbLayerSelect` | frontend/js/whiteboard-library.js:1961 |
-| `wbLayerToggleHidden` | frontend/js/whiteboard-library.js:1992 |
-| `wbLayerToggleLock` | frontend/js/whiteboard-library.js:2007 |
-| `wbLayersSelectedHead` | frontend/js/whiteboard-library.js:1929 |
-| `wbLibAnnounceCount` | frontend/js/whiteboard-library.js:516 |
-| `wbLibApplyPalette` | frontend/js/whiteboard-library.js:783 |
-| `wbLibApplyStyle` | frontend/js/whiteboard-library.js:768 |
-| `wbLibBranchOf` | frontend/js/whiteboard-library.js:1154 |
-| `wbLibCentre` | frontend/js/whiteboard-library.js:553 |
-| `wbLibContentBox` | frontend/js/whiteboard-library.js:571 |
-| `wbLibCreate` | frontend/js/whiteboard-library.js:1027 |
-| `wbLibDelete` | frontend/js/whiteboard-library.js:929 |
-| `wbLibDuplicate` | frontend/js/whiteboard-library.js:906 |
-| `wbLibEmptyYours` | frontend/js/whiteboard-library.js:507 |
+| `wbKeepOwnLayer` | frontend/js/whiteboard-library.js:1725 |
+| `wbLayerButton` | frontend/js/whiteboard-library.js:1613 |
+| `wbLayerEntry` | frontend/js/whiteboard-library.js:1955 |
+| `wbLayerEntryByKey` | frontend/js/whiteboard-library.js:1546 |
+| `wbLayerFocus` | frontend/js/whiteboard-library.js:1961 |
+| `wbLayerIcon` | frontend/js/whiteboard-library.js:1944 |
+| `wbLayerName` | frontend/js/whiteboard-library.js:1537 |
+| `wbLayerOwning` | frontend/js/whiteboard-library.js:1645 |
+| `wbLayerRename` | frontend/js/whiteboard-library.js:2030 |
+| `wbLayerRestack` | frontend/js/whiteboard-library.js:2058 |
+| `wbLayerRows` | frontend/js/whiteboard-library.js:1552 |
+| `wbLayerSaysOwner` | frontend/js/whiteboard-library.js:1650 |
+| `wbLayerSelect` | frontend/js/whiteboard-library.js:1969 |
+| `wbLayerToggleHidden` | frontend/js/whiteboard-library.js:2000 |
+| `wbLayerToggleLock` | frontend/js/whiteboard-library.js:2015 |
+| `wbLayersSelectedHead` | frontend/js/whiteboard-library.js:1937 |
+| `wbLibAnnounceCount` | frontend/js/whiteboard-library.js:524 |
+| `wbLibApplyPalette` | frontend/js/whiteboard-library.js:791 |
+| `wbLibApplyStyle` | frontend/js/whiteboard-library.js:776 |
+| `wbLibBranchOf` | frontend/js/whiteboard-library.js:1162 |
+| `wbLibCentre` | frontend/js/whiteboard-library.js:561 |
+| `wbLibContentBox` | frontend/js/whiteboard-library.js:579 |
+| `wbLibCreate` | frontend/js/whiteboard-library.js:1035 |
+| `wbLibDelete` | frontend/js/whiteboard-library.js:937 |
+| `wbLibDuplicate` | frontend/js/whiteboard-library.js:914 |
+| `wbLibEmptyYours` | frontend/js/whiteboard-library.js:515 |
 | `wbLibEntries` | frontend/js/whiteboard-library.js:222 |
-| `wbLibExport` | frontend/js/whiteboard-library.js:1218 |
+| `wbLibExport` | frontend/js/whiteboard-library.js:1226 |
 | `wbLibFits` | frontend/js/whiteboard-library.js:296 |
-| `wbLibGrabPoint` | frontend/js/whiteboard-library.js:601 |
+| `wbLibGrabPoint` | frontend/js/whiteboard-library.js:609 |
 | `wbLibGroup` | frontend/js/whiteboard-library.js:383 |
 | `wbLibIconEntry` | frontend/js/whiteboard-library.js:246 |
-| `wbLibImportFile` | frontend/js/whiteboard-library.js:1229 |
-| `wbLibInk` | frontend/js/whiteboard-library.js:542 |
-| `wbLibMenuItems` | frontend/js/whiteboard-library.js:816 |
-| `wbLibMove` | frontend/js/whiteboard-library.js:920 |
-| `wbLibNewBoardFrom` | frontend/js/whiteboard-library.js:751 |
-| `wbLibNewLibrary` | frontend/js/whiteboard-library.js:1249 |
-| `wbLibOpenMenu` | frontend/js/whiteboard-library.js:856 |
-| `wbLibPairStep` | frontend/js/whiteboard-library.js:738 |
-| `wbLibPanelMenu` | frontend/js/whiteboard-library.js:1257 |
-| `wbLibPlace` | frontend/js/whiteboard-library.js:633 |
-| `wbLibRefBody` | frontend/js/whiteboard-library.js:623 |
-| `wbLibRename` | frontend/js/whiteboard-library.js:883 |
-| `wbLibReplace` | frontend/js/whiteboard-library.js:945 |
-| `wbLibSelectionPayload` | frontend/js/whiteboard-library.js:963 |
-| `wbLibSetActive` | frontend/js/whiteboard-library.js:522 |
-| `wbLibTags` | frontend/js/whiteboard-library.js:894 |
+| `wbLibImportFile` | frontend/js/whiteboard-library.js:1237 |
+| `wbLibInk` | frontend/js/whiteboard-library.js:550 |
+| `wbLibMenuItems` | frontend/js/whiteboard-library.js:824 |
+| `wbLibMove` | frontend/js/whiteboard-library.js:928 |
+| `wbLibNewBoardFrom` | frontend/js/whiteboard-library.js:759 |
+| `wbLibNewLibrary` | frontend/js/whiteboard-library.js:1257 |
+| `wbLibOpenMenu` | frontend/js/whiteboard-library.js:864 |
+| `wbLibPairStep` | frontend/js/whiteboard-library.js:746 |
+| `wbLibPanelMenu` | frontend/js/whiteboard-library.js:1265 |
+| `wbLibPlace` | frontend/js/whiteboard-library.js:641 |
+| `wbLibRefBody` | frontend/js/whiteboard-library.js:631 |
+| `wbLibRename` | frontend/js/whiteboard-library.js:891 |
+| `wbLibReplace` | frontend/js/whiteboard-library.js:953 |
+| `wbLibSelectionPayload` | frontend/js/whiteboard-library.js:971 |
+| `wbLibSetActive` | frontend/js/whiteboard-library.js:530 |
+| `wbLibTags` | frontend/js/whiteboard-library.js:902 |
 | `wbLibThumb` | frontend/js/whiteboard-library.js:306 |
 | `wbLibTile` | frontend/js/whiteboard-library.js:353 |
-| `wbLibToggleFavourite` | frontend/js/whiteboard-library.js:863 |
-| `wbLibVisibleTiles` | frontend/js/whiteboard-library.js:536 |
+| `wbLibToggleFavourite` | frontend/js/whiteboard-library.js:871 |
+| `wbLibVisibleTiles` | frontend/js/whiteboard-library.js:544 |
 | `wbLoadIcons` | frontend/js/whiteboard-library.js:209 |
 | `wbLoadLibrary` | frontend/js/whiteboard-library.js:161 |
 | `wbLoadShapeSets` | frontend/js/whiteboard-library.js:195 |
-| `wbMoveSelectionToLayer` | frontend/js/whiteboard-library.js:1670 |
-| `wbNamedLayerItems` | frontend/js/whiteboard-library.js:1741 |
-| `wbNamedLayerMenu` | frontend/js/whiteboard-library.js:1749 |
-| `wbNamedLayerOf` | frontend/js/whiteboard-library.js:1627 |
-| `wbNamedLayerSet` | frontend/js/whiteboard-library.js:1737 |
-| `wbNewNamedLayer` | frontend/js/whiteboard-library.js:1703 |
+| `wbMoveSelectionToLayer` | frontend/js/whiteboard-library.js:1678 |
+| `wbNamedLayerItems` | frontend/js/whiteboard-library.js:1749 |
+| `wbNamedLayerMenu` | frontend/js/whiteboard-library.js:1757 |
+| `wbNamedLayerOf` | frontend/js/whiteboard-library.js:1635 |
+| `wbNamedLayerSet` | frontend/js/whiteboard-library.js:1745 |
+| `wbNewNamedLayer` | frontend/js/whiteboard-library.js:1711 |
 | `wbOpenSidebar` | frontend/js/whiteboard-library.js:63 |
 | `wbOpenStickerPicker` | frontend/js/whiteboard-library.js:285 |
-| `wbPageFocus` | frontend/js/whiteboard-library.js:2234 |
-| `wbPageGo` | frontend/js/whiteboard-library.js:2244 |
-| `wbPageMenu` | frontend/js/whiteboard-library.js:2297 |
-| `wbPageMove` | frontend/js/whiteboard-library.js:2256 |
-| `wbPagePresent` | frontend/js/whiteboard-library.js:2313 |
-| `wbPageRename` | frontend/js/whiteboard-library.js:2279 |
+| `wbPageFocus` | frontend/js/whiteboard-library.js:2242 |
+| `wbPageGo` | frontend/js/whiteboard-library.js:2252 |
+| `wbPageMenu` | frontend/js/whiteboard-library.js:2305 |
+| `wbPageMove` | frontend/js/whiteboard-library.js:2264 |
+| `wbPagePresent` | frontend/js/whiteboard-library.js:2321 |
+| `wbPageRename` | frontend/js/whiteboard-library.js:2287 |
 | `wbPlaceSticker` | frontend/js/whiteboard-library.js:263 |
-| `wbRenderLayers` | frontend/js/whiteboard-library.js:1837 |
+| `wbRenderLayers` | frontend/js/whiteboard-library.js:1845 |
 | `wbRenderLibrary` | frontend/js/whiteboard-library.js:416 |
-| `wbRenderNamedLayers` | frontend/js/whiteboard-library.js:1778 |
-| `wbRenderPages` | frontend/js/whiteboard-library.js:2194 |
+| `wbRenderNamedLayers` | frontend/js/whiteboard-library.js:1786 |
+| `wbRenderPages` | frontend/js/whiteboard-library.js:2202 |
 | `wbRenderSideMap` | frontend/js/whiteboard-library.js:153 |
-| `wbSaveBoardAsTemplate` | frontend/js/whiteboard-library.js:1182 |
-| `wbSaveBranchToLibrary` | frontend/js/whiteboard-library.js:1168 |
-| `wbSaveNamedLayers` | frontend/js/whiteboard-library.js:1647 |
-| `wbSavePaletteToLibrary` | frontend/js/whiteboard-library.js:1112 |
-| `wbSavePresetToLibrary` | frontend/js/whiteboard-library.js:1132 |
-| `wbSaveSelectionToLibrary` | frontend/js/whiteboard-library.js:1050 |
-| `wbSaveShapeToLibrary` | frontend/js/whiteboard-library.js:1064 |
+| `wbSaveBoardAsTemplate` | frontend/js/whiteboard-library.js:1190 |
+| `wbSaveBranchToLibrary` | frontend/js/whiteboard-library.js:1176 |
+| `wbSaveNamedLayers` | frontend/js/whiteboard-library.js:1655 |
+| `wbSavePaletteToLibrary` | frontend/js/whiteboard-library.js:1120 |
+| `wbSavePresetToLibrary` | frontend/js/whiteboard-library.js:1140 |
+| `wbSaveSelectionToLibrary` | frontend/js/whiteboard-library.js:1058 |
+| `wbSaveShapeToLibrary` | frontend/js/whiteboard-library.js:1072 |
 | `wbSaveSideState` | frontend/js/whiteboard-library.js:53 |
-| `wbSaveStyleToLibrary` | frontend/js/whiteboard-library.js:1090 |
-| `wbSetCurrentLayer` | frontend/js/whiteboard-library.js:1731 |
-| `wbSideRefreshSoon` | frontend/js/whiteboard-library.js:2411 |
+| `wbSaveStyleToLibrary` | frontend/js/whiteboard-library.js:1098 |
+| `wbSetCurrentLayer` | frontend/js/whiteboard-library.js:1739 |
+| `wbSideRefreshSoon` | frontend/js/whiteboard-library.js:2419 |
 | `wbSideState` | frontend/js/whiteboard-library.js:48 |
 | `wbSyncSidebarKind` | frontend/js/whiteboard-library.js:134 |
 
@@ -17285,7 +17285,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10884)
+## Tests (10885)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -18412,6 +18412,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_wb_interchange.py | 10 |
 | tests/test_wb_laser.py | 2 |
 | tests/test_wb_layer_and_hollow_ends.py | 3 |
+| tests/test_wb_library_scroll.py | 1 |
 | tests/test_wb_line_ends.py | 5 |
 | tests/test_wb_menu_rows_close.py | 4 |
 | tests/test_wb_mermaid_kinds.py | 6 |

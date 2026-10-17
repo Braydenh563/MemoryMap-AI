@@ -2871,16 +2871,80 @@ $("maintenance-uninstall")?.addEventListener("click", openUninstallSteps);
 //: whole app while the pointer or focus rests on its card, and "Surprise me"
 //: applies one you are not using. The preview is `settingsLook.themePreview` (settings.js),
 //: read ahead of the manual layer and never stored.
-function previewTheme(name) {
+//: Hover waits this long before it repaints the whole app, so crossing the grid
+//: previews nothing (B58: "slightly longer"); the eye and the keyboard do not wait.
+const THEME_HOVER_PREVIEW_MS = 450;
+function previewTheme(name, delay = name ? THEME_HOVER_PREVIEW_MS : 0) {
   clearTimeout(settingsControlState.themePreviewTimer);
+  if (!name && settingsControlState.themeHold) return;
   settingsControlState.themePreviewTimer = setTimeout(() => {
     if (settingsLook.themePreview === name) return;
     settingsLook.themePreview = name;
     applyAppearance();
     applyThemeChoice(appearancePref("theme"), false);
     applyPalette(appearancePref("palette"), false);
-  }, name ? 120 : 0);
+  }, delay);
 }
+//: The eye in each card's corner (B58). Hover or focus previews at once; a click
+//: holds the preview (the touch path) until the next click anywhere.
+function releaseThemeHold() {
+  settingsControlState.themeHold = "";
+  for (const b of document.querySelectorAll("#theme-presets .theme-eye")) {
+    b.setAttribute("aria-pressed", "false");
+    b.classList.remove("is-on");
+  }
+  previewTheme("", 0);
+}
+function themeEyeButton(name, label) {
+  const eye = document.createElement("button");
+  eye.type = "button";
+  eye.className = "theme-eye icon-only ghost small";
+  eye.dataset.preset = name;
+  eye.title = `Preview the ${label} theme`;
+  eye.setAttribute("aria-label", `Preview the ${label} theme`);
+  const held = settingsControlState.themeHold === name;
+  eye.setAttribute("aria-pressed", String(held));
+  eye.classList.toggle("is-on", held);
+  const icon = document.createElement("i");
+  icon.className = "ph ph-eye";
+  icon.setAttribute("aria-hidden", "true");
+  eye.appendChild(icon);
+  eye.addEventListener("pointerenter", () => previewTheme(name, 0));
+  eye.addEventListener("pointerleave", () => previewTheme(""));
+  eye.addEventListener("focus", () => eye.matches(":focus-visible") && previewTheme(name, 0));
+  eye.addEventListener("blur", () => previewTheme(""));
+  eye.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const wasHeld = settingsControlState.themeHold === name;
+    releaseThemeHold();
+    if (wasHeld) return;
+    settingsControlState.themeHold = name;
+    eye.setAttribute("aria-pressed", "true");
+    eye.classList.add("is-on");
+    previewTheme(name, 0);
+  });
+  return eye;
+}
+function decorateThemeCards() {
+  for (const card of document.querySelectorAll("#theme-presets > .theme-card")) {
+    const cell = document.createElement("span");
+    cell.className = "theme-card-cell";
+    card.before(cell);
+    cell.append(card, themeEyeButton(card.dataset.preset, card.querySelector(".theme-card-name")?.textContent || ""));
+  }
+}
+(() => {
+  //: The cards are redrawn by settings.js on every Appearance render.
+  const draw = renderThemePresets;
+  renderThemePresets = function renderThemePresetsWithEyes() {
+    draw();
+    decorateThemeCards();
+  };
+  decorateThemeCards();
+  document.addEventListener("click", (event) => {
+    if (settingsControlState.themeHold && !event.target.closest?.(".theme-eye")) releaseThemeHold();
+  }, true);
+})();
 (() => {
   const holder = $("theme-presets");
   if (!holder) return;

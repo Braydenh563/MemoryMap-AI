@@ -2,9 +2,9 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5901, frontend ids 2501, CSS sections 494, backend routes 605, backend modules 5498, test files 1196, tests 10946, plan headings 957.
+Counts: frontend functions 5904, frontend ids 2501, CSS sections 494, backend routes 605, backend modules 5498, test files 1197, tests 10949, plan headings 957.
 
-## Frontend functions (5901)
+## Frontend functions (5904)
 
 Top-level `function name(`, `async function name(` and `const name = (` in `frontend/js/` and `frontend/sw.js`, in index.html's script order; lazily loaded files after, by name. Rows sorted by name within each file.
 
@@ -4961,7 +4961,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `semanticOnboardingOffer` | frontend/js/semantic-notice.js:109 |
 | `semanticSetAutoInstall` | frontend/js/semantic-notice.js:29 |
 
-### frontend/js/settings-controls.js (61)
+### frontend/js/settings-controls.js (64)
 
 | Name | File:line |
 |---|---|
@@ -4976,8 +4976,9 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `applyVisionModel` | frontend/js/settings-controls.js:1468 |
 | `chosenSkillTools` | frontend/js/settings-controls.js:2000 |
 | `chosenSkillVerify` | frontend/js/settings-controls.js:1979 |
+| `decorateThemeCards` | frontend/js/settings-controls.js:2928 |
 | `deleteProfile` | frontend/js/settings-controls.js:1893 |
-| `ensureSettingsFoldAll` | frontend/js/settings-controls.js:2987 |
+| `ensureSettingsFoldAll` | frontend/js/settings-controls.js:3051 |
 | `exportFullBackup` | frontend/js/settings-controls.js:1881 |
 | `findDuplicates` | frontend/js/settings-controls.js:1647 |
 | `lanAllowHere` | frontend/js/settings-controls.js:2466 |
@@ -4993,12 +4994,13 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `mergeDuplicateGroup` | frontend/js/settings-controls.js:1783 |
 | `mergeNamedPrompts` | frontend/js/settings-controls.js:1906 |
 | `openMaintenanceFolder` | frontend/js/settings-controls.js:2778 |
-| `openTaskLog` | frontend/js/settings-controls.js:2916 |
+| `openTaskLog` | frontend/js/settings-controls.js:2980 |
 | `openUninstallSteps` | frontend/js/settings-controls.js:2798 |
 | `pickJsonFile` | frontend/js/settings-controls.js:2497 |
-| `previewTheme` | frontend/js/settings-controls.js:2874 |
+| `previewTheme` | frontend/js/settings-controls.js:2877 |
 | `refreshSearxngHost` | frontend/js/settings-controls.js:1114 |
-| `renderAutoChoices` | frontend/js/settings-controls.js:2941 |
+| `releaseThemeHold` | frontend/js/settings-controls.js:2890 |
+| `renderAutoChoices` | frontend/js/settings-controls.js:3005 |
 | `renderDuplicateGroups` | frontend/js/settings-controls.js:1725 |
 | `renderLanAccess` | frontend/js/settings-controls.js:2487 |
 | `renderLanAddresses` | frontend/js/settings-controls.js:2228 |
@@ -5008,7 +5010,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `renderMaintenance` | frontend/js/settings-controls.js:2694 |
 | `renderMcpSnippet` | frontend/js/settings-controls.js:2115 |
 | `renderMemorySettings` | frontend/js/settings-controls.js:2545 |
-| `renderSmallModelAuto` | frontend/js/settings-controls.js:2966 |
+| `renderSmallModelAuto` | frontend/js/settings-controls.js:3030 |
 | `renderStatusBarSettings` | frontend/js/settings-controls.js:2059 |
 | `resetAllFeatureModels` | frontend/js/settings-controls.js:1397 |
 | `restartMemoryMap` | frontend/js/settings-controls.js:1598 |
@@ -5025,6 +5027,7 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 | `showVoiceSample` | frontend/js/settings-controls.js:584 |
 | `textToInputs` | frontend/js/settings-controls.js:2519 |
 | `textToSteps` | frontend/js/settings-controls.js:2512 |
+| `themeEyeButton` | frontend/js/settings-controls.js:2898 |
 | `waitForRestart` | frontend/js/settings-controls.js:1624 |
 
 ### frontend/js/settings-data.js (49)
@@ -9752,6 +9755,7 @@ Banner comments (`/* ===` or `/* ---`) in `frontend/css/*.css`, sorted by title.
 | frontend/css/recovery-lazy.css | 115 |
 | frontend/css/reveal-lazy.css | 10 |
 | frontend/css/search-lazy.css | 153 |
+| frontend/css/settings-controls-lazy.css | 22 |
 | frontend/css/settings-data-lazy.css | 60 |
 | frontend/css/tidy-lazy.css | 333 |
 | frontend/css/timeline-calendar-lazy.css | 273 |
@@ -17332,7 +17336,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10946)
+## Tests (10949)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -18372,6 +18376,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_text_indent.py | 3 |
 | tests/test_text_utilities.py | 8 |
 | tests/test_theme_pins.py | 3 |
+| tests/test_theme_preview_eye.py | 3 |
 | tests/test_thinking_and_stream.py | 7 |
 | tests/test_thinking_budget.py | 8 |
 | tests/test_thinking_words.py | 10 |

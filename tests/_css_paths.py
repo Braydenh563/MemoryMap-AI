@@ -96,6 +96,8 @@ CSS_FILES = [
     CSS_DIR / "quick-access-lazy.css",
     #: Files dragged in from outside the window (settings-wiring.js's dragenter stub).
     CSS_DIR / "file-drop-lazy.css",
+    #: The Settings listeners' additions: the theme cards' eye (settings-controls.js).
+    CSS_DIR / "settings-controls-lazy.css",
 ]
 
 

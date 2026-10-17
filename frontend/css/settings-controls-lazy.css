@@ -1,0 +1,22 @@
+/* settings-controls-lazy.css: what the Settings listeners add to the page
+   (loaded with settings-controls.js through LAZY_MODULES.settingsControls, so
+   it costs the boot sheets nothing; they are at their cap).
+
+   Themes (INBOX 904 B58): an eye in each card's corner previews that theme at
+   once, because resting the pointer on a card waits 450 ms. The card is a
+   <button>, and a button cannot hold a button, so the eye is its sibling in a
+   cell that is the grid item. */
+.theme-card-cell {
+  position: relative;
+  display: flex;
+  min-width: 0;
+}
+.theme-card-cell > .theme-card {
+  flex: 1 1 auto;
+}
+.theme-eye {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: 1;
+}

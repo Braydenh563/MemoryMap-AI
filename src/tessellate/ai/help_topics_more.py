@@ -566,7 +566,7 @@ MORE_TOPICS: list[dict] = [
             "build a scheme", "border style", "shadow", "interface animations",
         ),
         "body": (
-            "Settings, Appearance. Themes: hover a theme to see it on the whole app, "
+            "Settings, Appearance. Themes: hover a theme, or press the eye in its corner, to see it on the whole app, "
             "press Surprise me for a random one, save and switch your own. Theme & "
             "colour: Palette, Mode (light, dark or system), Accent colour or a "
             "custom one (a colour a button's words cannot be read on is "

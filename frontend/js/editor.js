@@ -573,13 +573,13 @@ async function editorInsertBoardObject(textarea) {
 //: The list is fetched once, on the first "/"; until it arrives, or offline,
 //: one row sends `/help`. A command that takes words fills the box with its
 //: name and waits for them; one that takes none runs.
-let chatSlashList = null;
+const chatSlash = { list: null };
 function chatSlashRows(afterPress) {
-  if (chatSlashList === null) {
-    chatSlashList = [];
-    apiJson("/chat/commands").then((r) => { chatSlashList = r.commands || []; if (editorMenuState.trigger) editorRefreshMenu(); }).catch(() => { chatSlashList = null; });
+  if (chatSlash.list === null) {
+    chatSlash.list = [];
+    apiJson("/chat/commands").then((r) => { chatSlash.list = r.commands || []; if (editorMenuState.trigger) editorRefreshMenu(); }).catch(() => { chatSlash.list = null; });
   }
-  if (!chatSlashList.length) {
+  if (!chatSlash.list.length) {
     return [{ id: "chat-commands", group: "Commands", icon: "ph:terminal", label: "Commands", hint: "exact answers, no AI", keywords: ["command", "slash", "help"], run: afterPress(() => sendChatMessage("/help")) }];
   }
   const fill = (name) => {
@@ -587,7 +587,7 @@ function chatSlashRows(afterPress) {
     box.value = `/${name} `;
     box.focus();
   };
-  return chatSlashList.map((c) => ({
+  return chatSlash.list.map((c) => ({
     id: `chat-cmd-${c.name}`, group: "Commands", icon: "ph:terminal", label: c.usage, hint: c.summary.replace(/\.$/, ""), keywords: [c.name, "command", "slash"],
     run: afterPress(() => (/[[<]/.test(c.usage) ? fill(c.name) : sendChatMessage(`/${c.name}`))),
   }));

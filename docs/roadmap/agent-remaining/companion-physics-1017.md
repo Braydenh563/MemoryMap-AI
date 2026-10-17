@@ -7,3 +7,6 @@ Still to do: finish that fix; the perch-loss repro (resize, scroll, hide the per
 
 - done: step 1 (boot budget, Saved companions pane to companion-menu.js).
 - next: perch-loss repro in Chromium (resize, scroll, hide perch, switch surface, re-render), test first, avatars.js nameMarkBuddyRestore/Follow.
+
+- done: step 2 (perch loss: peek/lean supported only while the edge shows, bar watched, rate-limited loss retried; tests/test_companion_perch.py, scratchpad/ui-sweeps/perchloss.js).
+- next: frame times at 4x CPU (scratchpad/ui-sweeps/throwframes.js), top three app-wide frame costs.

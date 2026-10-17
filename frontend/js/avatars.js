@@ -4899,6 +4899,7 @@ function nameMarkBuddyGlue(spot, x, y) {
   if (!box || (!box.width && !box.height)) {
     nmb.glue = null;
     nameMarkBuddyRide(null, x, y);
+    nameMarkBuddyWatch();
     return;
   }
   const scroller = nameMarkBuddyScroller(el);
@@ -5097,7 +5098,7 @@ function nameMarkBuddyUnheld() {
 //: (one box read every 700ms; it was two seconds, in the air all that time,
 //: INBOX 521) catches only what changes with nothing announcing it
 //: (content arriving above the panel), eased rather than jumped.
-const nmbFollow = { frame: 0, until: 0, poll: 0, observer: null, scrollAt: 0, recheck: 0, support: 0 };
+const nmbFollow = { frame: 0, until: 0, poll: 0, observer: null, barObserver: null, scrollAt: 0, recheck: 0, support: 0 };
 function nameMarkBuddyKeepUp(ms = 1500) {
   if (!nmb.glue) return;
   nmbFollow.until = Math.max(nmbFollow.until, performance.now() + ms);
@@ -5288,6 +5289,13 @@ document.addEventListener("visibilitychange", () => {
 function nameMarkBuddyWatch() {
   const g = nmb.glue;
   if (typeof ResizeObserver === "function") {
+    //: A bar holds nothing to follow, but it can go (hidden, emptied, folded
+    //: away) with no scroll, resize or class change to say so: its going is a
+    //: look at the perch now. A resize observer costs nothing while it rests.
+    const bar = !g && ["bar", "hang"].includes(nmb.spot?.edge?.kind) ? nmb.spot.edge.el : null;
+    if (!nmbFollow.barObserver) nmbFollow.barObserver = new ResizeObserver(() => queueNameMarkBuddyCheck());
+    nmbFollow.barObserver.disconnect();
+    if (bar) nmbFollow.barObserver.observe(bar);
     if (!nmbFollow.observer) nmbFollow.observer = new ResizeObserver(() => nameMarkBuddyKeepUp());
     nmbFollow.observer.disconnect();
     if (g) {
@@ -6317,7 +6325,15 @@ function placeNameMarkBuddy(buddy = document.getElementById("nm-buddy"), instant
 //: what is drawn on a board, a map or the graph is never one.
 const NMB_CANVAS = "#whiteboard-container, #graph-canvas, #graph-svg, #graph-pane-canvas, canvas";
 function nameMarkBuddySupported() {
-  if (!["sit", "stand", "hang"].includes(nmb.pose) || nmb.legs === "peek" || nmb.spot?.side || nmb.pinned) return true;
+  if (nmb.pinned) return true;
+  //: Peeking over a bar or leaning on a side holds on to its edge, which
+  //: can still go (a status bar emptied on a phone is `visibility: hidden`):
+  //: then it is in the air, as any other perch lost.
+  if (nmb.legs === "peek" || nmb.spot?.side) {
+    const held = nmb.spot?.edge?.el;
+    return !held || Boolean(held.isConnected && nameMarkBuddyPerchShown(held));
+  }
+  if (!["sit", "stand", "hang"].includes(nmb.pose)) return true;
   const buddy = document.getElementById("nm-buddy");
   if (!buddy) return true;
   //: Where it is drawn: the host is not scaled (its face is, about this
@@ -6486,7 +6502,15 @@ function nameMarkBuddyCheck() {
   //: the way, not a perch.
   //: Once in three seconds at most, so a perch this cannot see from here is
   //: never a loop.
-  if (Date.now() - (nmb.unheldAt || 0) > 3000 && ![nmb.anim, nmb.hopAnim, nmb.glideAnim].some((a) => a?.playState === "running") && !nameMarkBuddySupported()) {
+  const wait = 3000 - (Date.now() - (nmb.unheldAt || 0));
+  if (![nmb.anim, nmb.hopAnim, nmb.glideAnim].some((a) => a?.playState === "running") && !nameMarkBuddySupported()) {
+    //: Lost inside the three seconds: looked at again when they are up, not
+    //: left in the air until the next idle look.
+    if (wait > 0) {
+      clearTimeout(nmbFollow.recheck);
+      nmbFollow.recheck = setTimeout(queueNameMarkBuddyCheck, wait + 50);
+      return;
+    }
     nmb.unheldAt = Date.now();
     nmb.moves = (nmb.moves || 0) + 1;
     nmb.moveWhy = "its perch went";

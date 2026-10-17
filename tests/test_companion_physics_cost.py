@@ -110,3 +110,16 @@ def test_the_flight_lands_in_the_same_place_at_60_and_144_hz() -> None:
     for a, b, c in out:
         assert abs(a["x"] - b["x"]) < 120 and abs(a["x"] - c["x"]) < 120, (a, b, c)
         assert abs(a["y"] - b["y"]) < 12 and abs(a["y"] - c["y"]) < 12, (a, b, c)
+
+
+def test_the_atlas_rig_reads_style_once_before_it_writes_any() -> None:
+    # A thrown Atlas ran at 29 fps at 1x CPU and 5 fps at 4x: each arm read its
+    # probe and then wrote its transform, so the next arm's read (and the
+    # head's) forced another restyle, on top of the flight's own writes.
+    motion = (ROOT / "frontend" / "js" / "atlas-motion.js").read_text(encoding="utf-8")
+    start = motion.index("function atlasRigFrame(")
+    body = motion[start : motion.index("\n}\n", start)]
+    first_write = min(i for i in (body.find("setProperty("), body.find("setAttribute("), body.find(".style.rotate =")) if i >= 0)
+    for read in ("atlasRigRead(", "getAnimations()", "getComputedStyle("):
+        assert body.count(read) == 1, f"{read} is read once"
+        assert body.index(read) < first_write, f"{read} comes after a write"

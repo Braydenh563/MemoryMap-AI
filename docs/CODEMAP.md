@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5924, frontend ids 2509, CSS sections 494, backend routes 606, backend modules 5512, test files 1204, tests 10986, plan headings 957.
+Counts: frontend functions 5924, frontend ids 2509, CSS sections 494, backend routes 606, backend modules 5512, test files 1204, tests 10987, plan headings 957.
 
 ## Frontend functions (5924)
 
@@ -17385,7 +17385,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10986)
+## Tests (10987)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -17563,7 +17563,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_command_row_shape.py | 3 |
 | tests/test_companion_body.py | 10 |
 | tests/test_companion_motion.py | 104 |
-| tests/test_companion_physics_cost.py | 6 |
+| tests/test_companion_physics_cost.py | 7 |
 | tests/test_companion_ride_late_scroller.py | 2 |
 | tests/test_companion_stacking.py | 4 |
 | tests/test_companion_throw.py | 7 |

@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5881, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5478, test files 1177, tests 10881, plan headings 956.
+Counts: frontend functions 5881, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5478, test files 1178, tests 10882, plan headings 956.
 
 ## Frontend functions (5881)
 
@@ -666,55 +666,55 @@ Top-level `function name(`, `async function name(` and `const name = (` in `fron
 
 | Name | File:line |
 |---|---|
-| `aiNameNow` | frontend/js/sheets-selects.js:2298 |
+| `aiNameNow` | frontend/js/sheets-selects.js:2303 |
 | `annotateSliders` | frontend/js/sheets-selects.js:991 |
 | `applySidebarSheetMode` | frontend/js/sheets-selects.js:199 |
 | `applySidebarWidth` | frontend/js/sheets-selects.js:100 |
 | `applyWebPanelWidth` | frontend/js/sheets-selects.js:506 |
-| `builtinPersonas` | frontend/js/sheets-selects.js:2397 |
-| `builtinThinkingWords` | frontend/js/sheets-selects.js:2347 |
-| `clampToolbarMenu` | frontend/js/sheets-selects.js:1458 |
+| `builtinPersonas` | frontend/js/sheets-selects.js:2402 |
+| `builtinThinkingWords` | frontend/js/sheets-selects.js:2352 |
+| `clampToolbarMenu` | frontend/js/sheets-selects.js:1463 |
 | `dateFieldFace` | frontend/js/sheets-selects.js:1020 |
 | `eachSidebar` | frontend/js/sheets-selects.js:192 |
-| `editChatAnswer` | frontend/js/sheets-selects.js:1927 |
-| `editedMarker` | frontend/js/sheets-selects.js:1916 |
+| `editChatAnswer` | frontend/js/sheets-selects.js:1932 |
+| `editedMarker` | frontend/js/sheets-selects.js:1921 |
 | `enhanceAllSelects` | frontend/js/sheets-selects.js:1002 |
 | `enhanceDateField` | frontend/js/sheets-selects.js:1030 |
 | `enhanceSelect` | frontend/js/sheets-selects.js:698 |
 | `focusSelect` | frontend/js/sheets-selects.js:1093 |
-| `formatTokens` | frontend/js/sheets-selects.js:1680 |
+| `formatTokens` | frontend/js/sheets-selects.js:1685 |
 | `initResizableSidebars` | frontend/js/sheets-selects.js:455 |
 | `initSidebarSheetDismissal` | frontend/js/sheets-selects.js:262 |
-| `kebabMenu` | frontend/js/sheets-selects.js:1310 |
+| `kebabMenu` | frontend/js/sheets-selects.js:1315 |
 | `labelledMenu` | frontend/js/sheets-selects.js:620 |
 | `layoutIsStacked` | frontend/js/sheets-selects.js:42 |
 | `layoutIsTablet` | frontend/js/sheets-selects.js:79 |
-| `lightboxReadingsFor` | frontend/js/sheets-selects.js:1651 |
-| `listFilter` | frontend/js/sheets-selects.js:1222 |
-| `loadChatSuggestions` | frontend/js/sheets-selects.js:2228 |
-| `loadConversationList` | frontend/js/sheets-selects.js:1749 |
+| `lightboxReadingsFor` | frontend/js/sheets-selects.js:1656 |
+| `listFilter` | frontend/js/sheets-selects.js:1227 |
+| `loadChatSuggestions` | frontend/js/sheets-selects.js:2233 |
+| `loadConversationList` | frontend/js/sheets-selects.js:1754 |
 | `makeMenuItem` | frontend/js/sheets-selects.js:600 |
 | `makeSidebarResizable` | frontend/js/sheets-selects.js:318 |
 | `makeWebPanelResizable` | frontend/js/sheets-selects.js:543 |
-| `menuRowFits` | frontend/js/sheets-selects.js:1289 |
-| `openConversation` | frontend/js/sheets-selects.js:2002 |
-| `openKebabSheet` | frontend/js/sheets-selects.js:1136 |
-| `parseServerTime` | frontend/js/sheets-selects.js:1689 |
-| `personaDisplayName` | frontend/js/sheets-selects.js:2304 |
-| `personaNamesNow` | frontend/js/sheets-selects.js:2414 |
-| `relativeTime` | frontend/js/sheets-selects.js:1699 |
-| `renderDashboardPersonaSelect` | frontend/js/sheets-selects.js:2425 |
-| `replaceOpenToolbarMenus` | frontend/js/sheets-selects.js:1564 |
+| `menuRowFits` | frontend/js/sheets-selects.js:1294 |
+| `openConversation` | frontend/js/sheets-selects.js:2007 |
+| `openKebabSheet` | frontend/js/sheets-selects.js:1141 |
+| `parseServerTime` | frontend/js/sheets-selects.js:1694 |
+| `personaDisplayName` | frontend/js/sheets-selects.js:2309 |
+| `personaNamesNow` | frontend/js/sheets-selects.js:2419 |
+| `relativeTime` | frontend/js/sheets-selects.js:1704 |
+| `renderDashboardPersonaSelect` | frontend/js/sheets-selects.js:2430 |
+| `replaceOpenToolbarMenus` | frontend/js/sheets-selects.js:1569 |
 | `resetWebPanelWidth` | frontend/js/sheets-selects.js:524 |
-| `rowActions` | frontend/js/sheets-selects.js:1197 |
-| `shortModelName` | frontend/js/sheets-selects.js:1606 |
+| `rowActions` | frontend/js/sheets-selects.js:1202 |
+| `shortModelName` | frontend/js/sheets-selects.js:1611 |
 | `sidebarDefault` | frontend/js/sheets-selects.js:23 |
 | `sidebarFittedWidth` | frontend/js/sheets-selects.js:86 |
 | `sidebarWidth` | frontend/js/sheets-selects.js:25 |
-| `sortConversations` | frontend/js/sheets-selects.js:1736 |
-| `thinkingWordsFor` | frontend/js/sheets-selects.js:2363 |
+| `sortConversations` | frontend/js/sheets-selects.js:1741 |
+| `thinkingWordsFor` | frontend/js/sheets-selects.js:2368 |
 | `trackSeparatorValue` | frontend/js/sheets-selects.js:297 |
-| `wantsThinkingWords` | frontend/js/sheets-selects.js:2384 |
+| `wantsThinkingWords` | frontend/js/sheets-selects.js:2389 |
 | `watchForSelects` | frontend/js/sheets-selects.js:1105 |
 | `webPanelIsNarrow` | frontend/js/sheets-selects.js:490 |
 | `webPanelMaxWidth` | frontend/js/sheets-selects.js:500 |
@@ -17285,7 +17285,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10881)
+## Tests (10882)
 
 `def test_` lines in each `tests/test_*.py`.
 
@@ -17517,6 +17517,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_dashboard_stats_memo.py | 2 |
 | tests/test_dashboard_streak.py | 2 |
 | tests/test_dashboard_widget_copy.py | 1 |
+| tests/test_date_field_dynamic.py | 1 |
 | tests/test_date_field_when.py | 2 |
 | tests/test_day_digest.py | 5 |
 | tests/test_db_pragmas_and_indexes.py | 13 |

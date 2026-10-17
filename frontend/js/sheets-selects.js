@@ -1112,6 +1112,11 @@ function watchForSelects() {
         if (node.nodeType !== 1) continue;
         if (node.tagName === "SELECT") enhanceSelect(node);
         else enhanceAllSelects(node);
+        //: A date or time field drawn after boot (the document properties
+        //: panel's typed rows, INBOX 904 B16) is the picker too, not the
+        //: browser's grey calendar.
+        if (node.tagName === "INPUT") enhanceDateField(node);
+        else for (const field of node.querySelectorAll('input:is([type="date"], [type="time"])')) enhanceDateField(field);
         if (node.tagName === "INPUT") annotateSliders(node.parentNode || document);
         else annotateSliders(node);
       }

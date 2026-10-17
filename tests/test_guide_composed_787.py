@@ -12,6 +12,8 @@ help text word for word is the other side of the answer's toggle.
 
 from __future__ import annotations
 
+import importlib
+import json
 import re
 from pathlib import Path
 
@@ -21,6 +23,9 @@ from tessellate.ai import help_chat, reading
 
 #: Importing `reading` wires the Guide's reader and the composer's help line.
 READER_LOADED = reading.__name__
+# The composer registers the help line; reading sets the act reader ("how do i pin a note").
+importlib.import_module("tessellate.ai.composer")
+importlib.import_module("tessellate.ai.reading")
 JS = Path(__file__).resolve().parents[1] / "frontend" / "js"
 
 
@@ -106,3 +111,72 @@ def test_the_client_draws_the_starters_under_a_greeting():
 def test_the_guide_topic_says_what_the_two_views_are():
     guide = next(t for t in help_chat.HELP_TOPICS if t["id"] == "guide")
     assert "From the help" in guide["body"]
+
+
+# The Guide's gold questions (fixtures/composer/guide_1011.json): first topic right and first line answering, switch topics, sentence ends
+
+GOLD = json.loads((Path(__file__).parent / "fixtures" / "composer" / "guide_1011.json").read_text(encoding="utf-8"))["questions"]
+FLOOR = 1.0
+
+
+def _lead(question: str) -> str:
+    paras = help_chat.offline_answer(question)["content"].split("\n\n")
+    return next(p for p in paras if not p.startswith(("My reading", "Reading that", "I read that"))).lower()
+
+
+def test_the_gold_questions_reach_their_topic():
+    wrong = [(q, help_chat.topics_for(help_chat._read_as(q)[0])[0]["id"]) for q, ids, _w in GOLD
+             if help_chat.topics_for(help_chat._read_as(q)[0])[0]["id"] not in ids]
+    assert len(GOLD) >= 25 and 1 - len(wrong) / len(GOLD) >= FLOOR, wrong
+
+
+def test_the_gold_questions_are_answered_in_the_first_line():
+    wrong = [(q, _lead(q)[:120]) for q, _ids, words in GOLD if not any(w in _lead(q) for w in words)]
+    assert 1 - len(wrong) / len(GOLD) >= FLOOR, wrong
+
+
+@pytest.mark.parametrize(
+    ("body", "want"),
+    [
+        ("Skills are requests above the chat box (e.g. \"Summarise my week\"). Add your own in Settings, Skills today.",
+         ["Skills are requests above the chat box (e.g. \"Summarise my week\").", "Add your own in Settings, Skills today."]),
+        ("Plays them at 0.5x or 2x speed in the player. Add to calendar (.ics) saves a file you can open.",
+         ["Plays them at 0.5x or 2x speed in the player.", "Add to calendar (.ics) saves a file you can open."]),
+        ("Manage categories (a category's ... menu) renames and merges them. Notes keys and controls.",
+         ["Manage categories (a category's ... menu) renames and merges them."]),
+    ],
+)
+def test_a_help_sentence_ends_where_a_sentence_ends(body, want):
+    assert help_chat.help_sentences(body) == want
+
+
+def test_a_switch_topic_says_how_the_switch_is_set_now(monkeypatch):
+    for on in (False, True):
+        monkeypatch.setattr(help_chat, "_preference", lambda _key, _default, on=on: on)
+        lead = help_chat.offline_answer("how do i turn on web search")["content"].split("\n\n")[0]
+        assert lead.startswith(f"Web search is {'on' if on else 'off'} now. Turn it on in Settings, Web search"), lead
+        assert "by default" not in lead
+
+
+def test_a_privacy_question_is_answered_yes_or_no_first():
+    assert _lead("is my data sent anywhere").startswith("no. your notes stay on this computer")
+    assert _lead("where did my deleted notes go").startswith("it's in the bin")
+
+
+def test_how_to_use_the_app_in_chat_is_the_guide_s_even_with_a_note_word():
+    """The Chromium after-run, 2026-10-11: in Chat "how do i export everything
+    to markdown" and "why is the chat so slow" were searched for in the notes."""
+    from tessellate.ai import intent
+
+    for asked in ("how do i export everything to markdown", "why is the chat so slow", "how do i export my notes", "How do I back up my notes?"):
+        assert intent.classify(asked) == intent.ABOUT_APP, asked
+    for asked in ("how do i make sourdough", "why is the train so slow", "what did i write about the export deal"):
+        assert intent.classify(asked) != intent.ABOUT_APP, asked
+
+
+def test_why_is_the_chat_so_slow_in_chat_is_answered_by_the_guide(client):
+    body = {"question": "why is the chat so slow", "use_tools": True, "history": []}
+    with client.stream("POST", "/chat/stream", json=body) as response:
+        events = [json.loads(line) for line in response.iter_lines() if line.strip()]
+    text = "".join(e.get("delta", "") for e in events if e.get("type") == "answer")
+    assert "Performance mode" in text, text

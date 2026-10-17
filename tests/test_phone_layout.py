@@ -1,4 +1,4 @@
-"""The iPhone sweep's fixes (phone-1011, step 2), held at the source.
+"""The iPhone sweep's fixes (safe areas, field size, dialogs), held at the source.
 
 `scratchpad/ui-sweeps/iphone1011.js` measures them in a browser with an
 iPhone's user agent, touch and the notch set through DevTools; these say the

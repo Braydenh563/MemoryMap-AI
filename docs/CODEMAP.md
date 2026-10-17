@@ -2,7 +2,7 @@
 
 Generated 2026-10-17 by `python scripts/codemap.py` from the repository. Every row is `name | file:line`: grep this file, then `sed -n 'A,Bp'` the lines you need. A stale map fails `tests/test_codemap_fresh.py`.
 
-Counts: frontend functions 5879, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5477, test files 1222, tests 10866, plan headings 955.
+Counts: frontend functions 5879, frontend ids 2495, CSS sections 494, backend routes 604, backend modules 5477, test files 1175, tests 10872, plan headings 955.
 
 ## Frontend functions (5879)
 
@@ -17282,13 +17282,13 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | `search_web` | src/tessellate/search/websearch.py:332 |
 | `settings_from` | src/tessellate/search/websearch.py:317 |
 
-## Tests (10866)
+## Tests (10872)
 
 `def test_` lines in each `tests/test_*.py`.
 
 | File | Tests |
 |---|---|
-| tests/test_a11y_wcag22.py | 16 |
+| tests/test_a11y_wcag22.py | 26 |
 | tests/test_accent_text.py | 3 |
 | tests/test_account.py | 16 |
 | tests/test_activity.py | 10 |
@@ -17352,9 +17352,8 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_attachment_rename_route.py | 4 |
 | tests/test_audio_section.py | 4 |
 | tests/test_audit_export.py | 9 |
-| tests/test_auth_hardening_1005.py | 16 |
 | tests/test_auth_headers_space.py | 4 |
-| tests/test_autocorrect_1011.py | 10 |
+| tests/test_autocorrect.py | 10 |
 | tests/test_autonomous.py | 28 |
 | tests/test_autonomous_state_isolation.py | 4 |
 | tests/test_backend_switch_keeps_embeddings.py | 2 |
@@ -17372,7 +17371,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_backup_roundtrip_full.py | 2 |
 | tests/test_backup_secrets.py | 3 |
 | tests/test_backups_api.py | 13 |
-| tests/test_badge_recipe.py | 14 |
+| tests/test_badge_recipe.py | 15 |
 | tests/test_bars_618.py | 7 |
 | tests/test_bench_spec.py | 7 |
 | tests/test_bg_art_styles.py | 24 |
@@ -17384,7 +17383,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_board_duplicate.py | 5 |
 | tests/test_board_history.py | 14 |
 | tests/test_board_kind_switch.py | 5 |
-| tests/test_board_library.py | 21 |
+| tests/test_board_library.py | 22 |
 | tests/test_board_modified_time.py | 8 |
 | tests/test_board_named_layers.py | 4 |
 | tests/test_board_pan_layers.py | 2 |
@@ -17403,15 +17402,13 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_brand_name.py | 9 |
 | tests/test_breakpoints.py | 3 |
 | tests/test_budgets.py | 6 |
-| tests/test_canvasui_1010.py | 9 |
-| tests/test_capability_1011.py | 8 |
 | tests/test_captioning.py | 16 |
 | tests/test_captions.py | 16 |
 | tests/test_captions_keep_audio.py | 6 |
 | tests/test_captions_live.py | 2 |
 | tests/test_captions_translate.py | 5 |
 | tests/test_capture_draft_blank.py | 2 |
-| tests/test_capture_strip_first_paint.py | 3 |
+| tests/test_capture_strip_first_paint.py | 4 |
 | tests/test_catalogue_reveal.py | 7 |
 | tests/test_categories_api.py | 9 |
 | tests/test_category_colour.py | 16 |
@@ -17438,20 +17435,19 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_chat_scroll_534.py | 4 |
 | tests/test_chat_stray_keys.py | 2 |
 | tests/test_chat_times.py | 8 |
-| tests/test_chat_transcript.py | 11 |
+| tests/test_chat_transcript.py | 28 |
 | tests/test_chat_vision.py | 9 |
-| tests/test_chatui_1010.py | 23 |
 | tests/test_cheap_animations.py | 6 |
 | tests/test_chip_target.py | 2 |
 | tests/test_chunk_vectors.py | 11 |
 | tests/test_citation_after_heading.py | 1 |
 | tests/test_claimed_work.py | 18 |
-| tests/test_clear_app_cache.py | 4 |
+| tests/test_clear_app_cache.py | 8 |
 | tests/test_client_key_idempotent.py | 2 |
 | tests/test_clip_text.py | 1 |
 | tests/test_clock_weekday.py | 5 |
 | tests/test_code_completion.py | 29 |
-| tests/test_code_documents.py | 19 |
+| tests/test_code_documents.py | 47 |
 | tests/test_code_editing.py | 24 |
 | tests/test_code_ide_b42.py | 9 |
 | tests/test_code_vscode.py | 23 |
@@ -17461,26 +17457,24 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_coerce_number_finite.py | 3 |
 | tests/test_command_row_shape.py | 3 |
 | tests/test_companion_body.py | 10 |
-| tests/test_companion_motion.py | 101 |
+| tests/test_companion_motion.py | 103 |
 | tests/test_companion_stacking.py | 4 |
 | tests/test_companion_throw.py | 7 |
 | tests/test_companion_toggle.py | 3 |
 | tests/test_companion_viewer_sleep.py | 6 |
 | tests/test_complexity.py | 4 |
 | tests/test_composer_688.py | 40 |
-| tests/test_composer_725.py | 23 |
+| tests/test_composer_725.py | 27 |
 | tests/test_composer_741.py | 5 |
-| tests/test_composer_asked_finds.py | 7 |
+| tests/test_composer_asked_finds.py | 10 |
 | tests/test_composer_bare_title.py | 2 |
 | tests/test_composer_brief.py | 13 |
-| tests/test_composer_commands.py | 3 |
+| tests/test_composer_commands.py | 14 |
 | tests/test_composer_eval_725.py | 6 |
 | tests/test_composer_eval_741.py | 6 |
-| tests/test_composer_missing_1012.py | 12 |
 | tests/test_composer_overview_787.py | 18 |
-| tests/test_composer_route_688.py | 11 |
-| tests/test_composer_rows_1011.py | 9 |
-| tests/test_composer_social.py | 5 |
+| tests/test_composer_route_688.py | 20 |
+| tests/test_composer_social.py | 15 |
 | tests/test_composer_tables.py | 32 |
 | tests/test_composer_voice.py | 6 |
 | tests/test_composer_voice_answers.py | 12 |
@@ -17492,7 +17486,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_connection_row_cues.py | 7 |
 | tests/test_connections_block.py | 9 |
 | tests/test_consistency_contract.py | 8 |
-| tests/test_constellation_glide_686.py | 8 |
+| tests/test_constellation_glide_686.py | 10 |
 | tests/test_contents_outline_496.py | 5 |
 | tests/test_context_budget.py | 22 |
 | tests/test_context_cjk_budget.py | 3 |
@@ -17537,7 +17531,6 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_dictation_options.py | 8 |
 | tests/test_digest_structure.py | 20 |
 | tests/test_disclosure_marker.py | 4 |
-| tests/test_dismissed_suggestions_1011.py | 4 |
 | tests/test_doc_ai_check.py | 8 |
 | tests/test_doc_assist_no_model.py | 5 |
 | tests/test_doc_backlinks.py | 18 |
@@ -17571,7 +17564,6 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_dock_menu_closed_hidden.py | 2 |
 | tests/test_docker_env.py | 7 |
 | tests/test_docker_files.py | 4 |
-| tests/test_docs_1011.py | 28 |
 | tests/test_docs_layout.py | 5 |
 | tests/test_docs_links.py | 2 |
 | tests/test_docs_site.py | 11 |
@@ -17617,18 +17609,17 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_embedding_switch.py | 12 |
 | tests/test_embedding_text.py | 5 |
 | tests/test_embedding_threads.py | 5 |
-| tests/test_embedding_warmup.py | 9 |
+| tests/test_embedding_warmup.py | 14 |
 | tests/test_embeddings_core.py | 4 |
 | tests/test_emblem_boot.py | 1 |
 | tests/test_emblem_slots.py | 1 |
 | tests/test_emblem_turns.py | 3 |
 | tests/test_engine_acts.py | 10 |
 | tests/test_engine_budgets.py | 2 |
-| tests/test_engine_dialogue.py | 6 |
-| tests/test_engine_evals_1010.py | 6 |
+| tests/test_engine_dialogue.py | 12 |
 | tests/test_engine_identity.py | 6 |
 | tests/test_engine_phase6_spec.py | 29 |
-| tests/test_engine_plan.py | 19 |
+| tests/test_engine_plan.py | 24 |
 | tests/test_engine_probe_step0.py | 12 |
 | tests/test_engine_sources.py | 6 |
 | tests/test_engine_web.py | 5 |
@@ -17639,7 +17630,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_entries_by_ids.py | 4 |
 | tests/test_entries_changes.py | 8 |
 | tests/test_entries_keyset_paging.py | 4 |
-| tests/test_entry_bookmarks.py | 6 |
+| tests/test_entry_bookmarks.py | 7 |
 | tests/test_entry_edited_at.py | 4 |
 | tests/test_entry_history.py | 15 |
 | tests/test_entry_indexes.py | 5 |
@@ -17655,8 +17646,8 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_export_backup_whole.py | 1 |
 | tests/test_export_folder.py | 6 |
 | tests/test_export_paint.py | 4 |
+| tests/test_export_spaces_private.py | 8 |
 | tests/test_exports_list.py | 5 |
-| tests/test_exports_spaces_private_1011.py | 8 |
 | tests/test_extract_notes.py | 21 |
 | tests/test_extractive_answer.py | 9 |
 | tests/test_extras.py | 47 |
@@ -17688,7 +17679,6 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_final_pass_bugs.py | 5 |
 | tests/test_find_it.py | 8 |
 | tests/test_finder_star_790.py | 3 |
-| tests/test_first_ask_1011.py | 5 |
 | tests/test_first_run_472.py | 13 |
 | tests/test_flaw_class_lints.py | 2 |
 | tests/test_focus_timer.py | 5 |
@@ -17720,7 +17710,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_gate_staged_once.py | 3 |
 | tests/test_global_scope_ratchet.py | 3 |
 | tests/test_glossary_b7.py | 7 |
-| tests/test_gold_answers.py | 24 |
+| tests/test_gold_answers.py | 32 |
 | tests/test_graph_api.py | 32 |
 | tests/test_graph_centrality_slot.py | 3 |
 | tests/test_graph_click_threshold.py | 2 |
@@ -17728,17 +17718,14 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_graph_empty_filtered.py | 4 |
 | tests/test_graph_encoded_off_loop.py | 2 |
 | tests/test_graph_feel_100.py | 14 |
-| tests/test_graph_feel_775.py | 13 |
+| tests/test_graph_feel_775.py | 14 |
 | tests/test_graph_first_frame.py | 5 |
 | tests/test_graph_fit_balance.py | 7 |
 | tests/test_graph_glide.py | 2 |
 | tests/test_graph_grouping.py | 2 |
 | tests/test_graph_help_does_not_refit.py | 2 |
 | tests/test_graph_hover_fade.py | 6 |
-| tests/test_graph_layout_692.py | 8 |
-| tests/test_graph_layout_chip.py | 3 |
-| tests/test_graph_layout_order.py | 4 |
-| tests/test_graph_layout_switch_fit.py | 2 |
+| tests/test_graph_layout.py | 17 |
 | tests/test_graph_ledger_words.py | 3 |
 | tests/test_graph_local_scaling.py | 4 |
 | tests/test_graph_look.py | 10 |
@@ -17752,14 +17739,13 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_graph_settles.py | 3 |
 | tests/test_graph_similarity.py | 7 |
 | tests/test_graph_slim.py | 3 |
-| tests/test_graph_topic_drag.py | 6 |
+| tests/test_graph_topic_drag.py | 7 |
 | tests/test_graph_view_positions.py | 6 |
 | tests/test_greeting_compose.py | 5 |
 | tests/test_greeting_name.py | 9 |
 | tests/test_grounding.py | 28 |
 | tests/test_grounding_fixtures.py | 10 |
-| tests/test_guide_1011.py | 7 |
-| tests/test_guide_composed_787.py | 11 |
+| tests/test_guide_composed_787.py | 18 |
 | tests/test_guide_gaps.py | 3 |
 | tests/test_harness_evals.py | 3 |
 | tests/test_harness_plan_card.py | 9 |
@@ -17774,7 +17760,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_help_controls.py | 19 |
 | tests/test_help_coverage.py | 6 |
 | tests/test_help_emphasis.py | 5 |
-| tests/test_help_popover_in_dialogs.py | 3 |
+| tests/test_help_popover_in_dialogs.py | 4 |
 | tests/test_help_retrieval.py | 8 |
 | tests/test_help_search.py | 3 |
 | tests/test_help_settings_paths.py | 8 |
@@ -17782,7 +17768,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_help_topic_routing.py | 5 |
 | tests/test_highlight_colours.py | 2 |
 | tests/test_highlights_collection.py | 7 |
-| tests/test_hover_focus_pairs.py | 3 |
+| tests/test_hover_focus_pairs.py | 4 |
 | tests/test_hover_grounds_have_a_radius.py | 1 |
 | tests/test_icon_conventions.py | 18 |
 | tests/test_icon_label_align.py | 7 |
@@ -17819,12 +17805,11 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_instance_lock.py | 27 |
 | tests/test_intent.py | 2 |
 | tests/test_intent_howto_app.py | 2 |
-| tests/test_iphone_1011.py | 5 |
 | tests/test_janitor_knn.py | 8 |
 | tests/test_janitor_short.py | 5 |
 | tests/test_janitor_warm.py | 2 |
 | tests/test_job_backpressure.py | 2 |
-| tests/test_job_runs.py | 46 |
+| tests/test_job_runs.py | 49 |
 | tests/test_jobruns_no_raw_exceptions.py | 1 |
 | tests/test_jobs_durable_kinds.py | 14 |
 | tests/test_jobs_pool.py | 10 |
@@ -17837,14 +17822,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_keyword_context.py | 8 |
 | tests/test_keyword_search.py | 22 |
 | tests/test_label_in_name_1345.py | 3 |
-| tests/test_lan_firewall_hint.py | 4 |
-| tests/test_lan_live.py | 20 |
-| tests/test_lan_mode.py | 22 |
-| tests/test_lan_networks_one_row.py | 7 |
-| tests/test_lan_restart_action.py | 5 |
-| tests/test_lan_serve.py | 11 |
-| tests/test_lan_tls.py | 24 |
-| tests/test_lan_trust.py | 27 |
+| tests/test_lan.py | 120 |
 | tests/test_launch_splash.py | 23 |
 | tests/test_launch_status.py | 25 |
 | tests/test_launcher_scripts.py | 92 |
@@ -17877,10 +17855,10 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_library_subtabs_hide_on_board.py | 2 |
 | tests/test_library_tab_leaves_board.py | 1 |
 | tests/test_library_visit_cost.py | 3 |
-| tests/test_lightbox.py | 17 |
+| tests/test_lightbox.py | 18 |
 | tests/test_like_escaping.py | 5 |
 | tests/test_line_clipboard.py | 5 |
-| tests/test_line_gutter_look.py | 6 |
+| tests/test_line_gutter_look.py | 7 |
 | tests/test_link_all_sure.py | 4 |
 | tests/test_link_reasons.py | 40 |
 | tests/test_link_suggestion_quality.py | 3 |
@@ -17919,7 +17897,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_map_layouts.py | 3 |
 | tests/test_map_levels.py | 8 |
 | tests/test_map_multi_select.py | 4 |
-| tests/test_map_node_controls.py | 11 |
+| tests/test_map_node_controls.py | 16 |
 | tests/test_map_palette.py | 4 |
 | tests/test_map_paste_outline.py | 5 |
 | tests/test_map_preview_measure.py | 2 |
@@ -17947,7 +17925,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_mcp_tool_parity.py | 2 |
 | tests/test_md_blocks.py | 12 |
 | tests/test_md_footnotes.py | 7 |
-| tests/test_meaning_1011.py | 11 |
+| tests/test_meaning.py | 11 |
 | tests/test_media_api.py | 54 |
 | tests/test_media_cookie.py | 14 |
 | tests/test_media_gc.py | 18 |
@@ -17988,9 +17966,8 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_move_notes_tool.py | 7 |
 | tests/test_name_mood.py | 40 |
 | tests/test_namemark_follow_cost.py | 2 |
-| tests/test_narrate_1011.py | 8 |
 | tests/test_native_imports.py | 12 |
-| tests/test_nav_history_rows.py | 7 |
+| tests/test_nav_history_rows.py | 10 |
 | tests/test_nav_history_seed.py | 2 |
 | tests/test_needle_provider.py | 17 |
 | tests/test_nested_interactive.py | 11 |
@@ -18015,7 +17992,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_note_editing_api.py | 10 |
 | tests/test_note_flow_0432.py | 27 |
 | tests/test_note_form_property_block.py | 3 |
-| tests/test_note_kinds_d5.py | 5 |
+| tests/test_note_kinds_d5.py | 7 |
 | tests/test_note_link_chips.py | 2 |
 | tests/test_note_making.py | 1 |
 | tests/test_note_meta_line.py | 5 |
@@ -18024,7 +18001,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_note_preview_groups.py | 5 |
 | tests/test_note_preview_lines.py | 5 |
 | tests/test_note_properties_kg4.py | 10 |
-| tests/test_note_surface.py | 6 |
+| tests/test_note_surface.py | 7 |
 | tests/test_note_surface_readonly.py | 2 |
 | tests/test_note_template_picker.py | 5 |
 | tests/test_note_types_graph_d5.py | 8 |
@@ -18035,9 +18012,9 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_notes_extras_api.py | 26 |
 | tests/test_notes_rail.py | 7 |
 | tests/test_notes_rows_719.py | 8 |
-| tests/test_notes_select_tick.py | 2 |
+| tests/test_notes_select_tick.py | 3 |
 | tests/test_notif_dismiss.py | 4 |
-| tests/test_notification_actions.py | 12 |
+| tests/test_notification_actions.py | 19 |
 | tests/test_notifications_centre.py | 8 |
 | tests/test_object_actions.py | 6 |
 | tests/test_ocr.py | 19 |
@@ -18049,10 +18026,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_ocr_find_marks.py | 3 |
 | tests/test_ocr_model.py | 17 |
 | tests/test_ocr_old_cache_hint.py | 3 |
-| tests/test_ocr_page_range.py | 7 |
-| tests/test_ocr_page_read.py | 4 |
-| tests/test_ocr_page_read_tasks.py | 4 |
-| tests/test_ocr_page_reads_persist.py | 9 |
+| tests/test_ocr_page.py | 24 |
 | tests/test_ocr_pdf_regions.py | 6 |
 | tests/test_ocr_rapidocr.py | 9 |
 | tests/test_ocr_reader_split.py | 4 |
@@ -18060,8 +18034,8 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_ocr_reading_bin.py | 5 |
 | tests/test_ocr_region_cache.py | 6 |
 | tests/test_ocr_regions.py | 17 |
-| tests/test_ocr_workspace_717.py | 18 |
-| tests/test_offline_hint.py | 6 |
+| tests/test_ocr_workspace_717.py | 20 |
+| tests/test_offline_hint.py | 7 |
 | tests/test_offline_promise.py | 5 |
 | tests/test_ollama_tools_reliability.py | 6 |
 | tests/test_one_download_helper.py | 3 |
@@ -18076,9 +18050,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_outbound_fetch_guard.py | 5 |
 | tests/test_outbound_inventory.py | 4 |
 | tests/test_output_forms.py | 7 |
-| tests/test_owner_typos.py | 15 |
-| tests/test_ownerfix2_1011.py | 4 |
-| tests/test_ownerfix_1011.py | 8 |
+| tests/test_owner_typos.py | 20 |
 | tests/test_package_check_steps.py | 6 |
 | tests/test_packaging_launchers.py | 3 |
 | tests/test_packaging_spec.py | 13 |
@@ -18086,7 +18058,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_palette_contract.py | 3 |
 | tests/test_palette_coverage.py | 7 |
 | tests/test_palette_head_gap.py | 2 |
-| tests/test_palette_synonyms.py | 4 |
+| tests/test_palette_synonyms.py | 5 |
 | tests/test_passes.py | 7 |
 | tests/test_passive_capture.py | 9 |
 | tests/test_password_floor.py | 6 |
@@ -18100,11 +18072,11 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_perf_hot_paths.py | 10 |
 | tests/test_perf_mode.py | 3 |
 | tests/test_persona_atlas.py | 6 |
-| tests/test_personal_1011.py | 8 |
-| tests/test_phone2_1011.py | 8 |
+| tests/test_phone_layout.py | 5 |
 | tests/test_phone_note_page_edit.py | 3 |
 | tests/test_phone_notes_audit.py | 6 |
 | tests/test_phone_select_mode_tap.py | 2 |
+| tests/test_phone_touch.py | 8 |
 | tests/test_phrase_filters.py | 4 |
 | tests/test_pin_unlock.py | 22 |
 | tests/test_placed_0909_row31.py | 6 |
@@ -18112,7 +18084,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_plan_hygiene.py | 7 |
 | tests/test_popup_agent_persona_avatar.py | 3 |
 | tests/test_portable_strftime.py | 1 |
-| tests/test_preferences_api.py | 26 |
+| tests/test_preferences_api.py | 27 |
 | tests/test_preferences_roundtrip.py | 4 |
 | tests/test_prefs_module.py | 6 |
 | tests/test_prefs_pending_save_survives_pane_switch.py | 3 |
@@ -18145,7 +18117,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_query_plans.py | 2 |
 | tests/test_query_rollups_kg7.py | 4 |
 | tests/test_query_understanding.py | 20 |
-| tests/test_question_noise.py | 27 |
+| tests/test_question_noise.py | 31 |
 | tests/test_questions_own.py | 8 |
 | tests/test_questions_spec.py | 9 |
 | tests/test_quick_access.py | 27 |
@@ -18155,16 +18127,15 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_reading.py | 13 |
 | tests/test_readings_f10.py | 4 |
 | tests/test_readme_freshness.py | 7 |
-| tests/test_realise.py | 11 |
+| tests/test_realise.py | 12 |
 | tests/test_realise_ui.py | 3 |
 | tests/test_recency_questions.py | 9 |
 | tests/test_recent_questions_surface.py | 7 |
-| tests/test_recognise.py | 7 |
+| tests/test_recognise.py | 18 |
 | tests/test_recordings.py | 16 |
 | tests/test_recordings_background.py | 4 |
 | tests/test_recordings_library.py | 22 |
 | tests/test_records_a3.py | 16 |
-| tests/test_recurrence_1010.py | 10 |
 | tests/test_recycle_bin.py | 18 |
 | tests/test_redate.py | 6 |
 | tests/test_reevaluate.py | 4 |
@@ -18174,7 +18145,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_region_read.py | 16 |
 | tests/test_related_elsewhere.py | 9 |
 | tests/test_related_notes.py | 39 |
-| tests/test_relation_types_kg3.py | 8 |
+| tests/test_relation_types_kg3.py | 11 |
 | tests/test_relations_kg2.py | 15 |
 | tests/test_release_smoke_step.py | 21 |
 | tests/test_reminder_audio_deferred.py | 2 |
@@ -18190,20 +18161,16 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_reminders_reschedule.py | 5 |
 | tests/test_reminders_with_model.py | 2 |
 | tests/test_reply_variety.py | 11 |
+| tests/test_repo_files_helper.py | 6 |
 | tests/test_restart_everywhere.py | 7 |
 | tests/test_restore_roundtrip.py | 2 |
 | tests/test_resurface_spec.py | 14 |
 | tests/test_review_queue_17.py | 6 |
-| tests/test_ring_room.py | 5 |
+| tests/test_ring_room.py | 6 |
 | tests/test_round2_sweep_fixes.py | 3 |
 | tests/test_router.py | 13 |
-| tests/test_routes_batch_documents.py | 5 |
-| tests/test_routes_batch_entries.py | 5 |
-| tests/test_routes_batch_housekeeping.py | 5 |
-| tests/test_routes_batch_library.py | 2 |
-| tests/test_routes_batch_misc.py | 8 |
+| tests/test_routes_batch.py | 25 |
 | tests/test_routes_named.py | 2 |
-| tests/test_routing_1011.py | 4 |
 | tests/test_row_enter.py | 3 |
 | tests/test_rows_676.py | 6 |
 | tests/test_run_caps.py | 7 |
@@ -18231,12 +18198,11 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_search_recall.py | 3 |
 | tests/test_search_recordings.py | 8 |
 | tests/test_search_spaces.py | 2 |
-| tests/test_search_suggest_1011.py | 6 |
-| tests/test_search_suggest_lists.py | 2 |
+| tests/test_search_suggest_lists.py | 9 |
 | tests/test_search_surfaces.py | 10 |
 | tests/test_searxng_install.py | 42 |
 | tests/test_searxng_recovery.py | 33 |
-| tests/test_security_boundaries.py | 43 |
+| tests/test_security_boundaries.py | 59 |
 | tests/test_security_hardening.py | 13 |
 | tests/test_seed_examples.py | 6 |
 | tests/test_select_focus.py | 2 |
@@ -18251,16 +18217,15 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_server_time_readers.py | 1 |
 | tests/test_session_navigation.py | 6 |
 | tests/test_setting_label_toggles.py | 3 |
-| tests/test_settings_clear_1011.py | 4 |
 | tests/test_settings_field_edge.py | 2 |
 | tests/test_settings_group_heads.py | 2 |
-| tests/test_settings_history_1011.py | 10 |
 | tests/test_settings_ia.py | 7 |
 | tests/test_settings_no_sideways.py | 4 |
 | tests/test_settings_pane_actions.py | 3 |
 | tests/test_settings_pane_intro.py | 2 |
+| tests/test_settings_recent_changes.py | 8 |
 | tests/test_settings_row_heads.py | 2 |
-| tests/test_settings_rows.py | 12 |
+| tests/test_settings_rows.py | 13 |
 | tests/test_settings_skeletons.py | 4 |
 | tests/test_settings_switch_divider.py | 2 |
 | tests/test_settings_weight.py | 3 |
@@ -18277,9 +18242,9 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_skills.py | 83 |
 | tests/test_skills_evals.py | 6 |
 | tests/test_smooth_boot.py | 16 |
-| tests/test_source_check.py | 7 |
+| tests/test_source_check.py | 8 |
 | tests/test_space_delete_cascades.py | 1 |
-| tests/test_spaces.py | 22 |
+| tests/test_spaces.py | 25 |
 | tests/test_speakers_81.py | 7 |
 | tests/test_speculative_retrieval.py | 4 |
 | tests/test_spelling_variants.py | 6 |
@@ -18303,10 +18268,10 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_strip_dead_embeds.py | 10 |
 | tests/test_style_scale.py | 31 |
 | tests/test_subprocess_no_window.py | 2 |
-| tests/test_subtab_strip_surface.py | 1 |
+| tests/test_subtab_strip_surface.py | 2 |
 | tests/test_suggest_category_draft.py | 4 |
 | tests/test_suggest_tags_no_model.py | 3 |
-| tests/test_suggestions_inbox_kg9.py | 16 |
+| tests/test_suggestions_inbox_kg9.py | 20 |
 | tests/test_suggestions_reads_ids.py | 1 |
 | tests/test_support_email.py | 5 |
 | tests/test_svg_paint_attributes.py | 2 |
@@ -18331,7 +18296,6 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_task_checkbox.py | 3 |
 | tests/test_task_progress.py | 7 |
 | tests/test_tasks.py | 28 |
-| tests/test_tasks_1011.py | 11 |
 | tests/test_taxonomy_pack.py | 64 |
 | tests/test_template_draft.py | 4 |
 | tests/test_tensions.py | 14 |
@@ -18351,7 +18315,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_tidy_ui.py | 13 |
 | tests/test_tie_chip_b9.py | 5 |
 | tests/test_time_travel_spec.py | 9 |
-| tests/test_timeline.py | 31 |
+| tests/test_timeline.py | 32 |
 | tests/test_timeline_auto_scale.py | 3 |
 | tests/test_timeline_cal_span_glide.py | 1 |
 | tests/test_timeline_calendar_window.py | 7 |
@@ -18360,7 +18324,6 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_timewords.py | 23 |
 | tests/test_timezone.py | 6 |
 | tests/test_toast_over_sheets.py | 2 |
-| tests/test_toast_stack_1011.py | 7 |
 | tests/test_tool_call_dialects.py | 15 |
 | tests/test_tool_cards.py | 20 |
 | tests/test_tool_catalog_groups.py | 3 |
@@ -18382,21 +18345,13 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_transcript_81.py | 6 |
 | tests/test_translate_offline.py | 7 |
 | tests/test_tray.py | 18 |
-| tests/test_ui_batch_726.py | 8 |
+| tests/test_ui_batch_726.py | 13 |
 | tests/test_ui_recipes.py | 204 |
 | tests/test_ui_signatures.py | 2 |
 | tests/test_ui_state.py | 6 |
-| tests/test_uiset_rows_1011.py | 10 |
-| tests/test_uisweep_1011.py | 11 |
-| tests/test_undo_bin_ask_history.py | 5 |
-| tests/test_undo_bin_chat.py | 3 |
-| tests/test_undo_bin_files.py | 7 |
-| tests/test_undo_bin_learned.py | 4 |
-| tests/test_undo_bin_memory.py | 1 |
-| tests/test_undo_bin_tensions.py | 3 |
+| tests/test_undo_bin.py | 24 |
 | tests/test_undo_contract.py | 3 |
 | tests/test_undo_coverage.py | 9 |
-| tests/test_undo_deletes_1005.py | 10 |
 | tests/test_undo_store.py | 5 |
 | tests/test_uninstall_frees.py | 2 |
 | tests/test_unlock_idempotent.py | 1 |
@@ -18411,8 +18366,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_upgrade_keeps_data_folder.py | 6 |
 | tests/test_usage_ledger.py | 8 |
 | tests/test_user_profile_context.py | 8 |
-| tests/test_utilities_1011.py | 5 |
-| tests/test_utilities_zones.py | 3 |
+| tests/test_utilities_zones.py | 4 |
 | tests/test_ux1005_copy.py | 6 |
 | tests/test_validate.py | 11 |
 | tests/test_validation_error_shape.py | 2 |
@@ -18425,7 +18379,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_version_agreement.py | 5 |
 | tests/test_vision_ocr.py | 26 |
 | tests/test_vision_rows_row11.py | 10 |
-| tests/test_vocatives.py | 11 |
+| tests/test_vocatives.py | 12 |
 | tests/test_voice_api.py | 16 |
 | tests/test_voice_tables.py | 5 |
 | tests/test_wb_anchor_hints_clear.py | 3 |
@@ -18443,7 +18397,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_wb_export_inline_images.py | 3 |
 | tests/test_wb_export_png.py | 4 |
 | tests/test_wb_find_replace.py | 2 |
-| tests/test_wb_format.py | 11 |
+| tests/test_wb_format.py | 13 |
 | tests/test_wb_frame_title_target.py | 2 |
 | tests/test_wb_guides.py | 5 |
 | tests/test_wb_hand_drawn.py | 3 |
@@ -18452,10 +18406,10 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_wb_laser.py | 2 |
 | tests/test_wb_layer_and_hollow_ends.py | 3 |
 | tests/test_wb_line_ends.py | 5 |
-| tests/test_wb_menu_rows_close.py | 2 |
+| tests/test_wb_menu_rows_close.py | 4 |
 | tests/test_wb_mermaid_kinds.py | 6 |
 | tests/test_wb_middle_pan.py | 4 |
-| tests/test_wb_more_shapes.py | 3 |
+| tests/test_wb_more_shapes.py | 4 |
 | tests/test_wb_navigator_cost.py | 6 |
 | tests/test_wb_navigator_drag.py | 5 |
 | tests/test_wb_node_menu_place.py | 7 |
@@ -18471,7 +18425,6 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_wb_resize_from_centre.py | 5 |
 | tests/test_wb_resize_guides.py | 9 |
 | tests/test_wb_rotate_links.py | 2 |
-| tests/test_wb_small_rows_1011.py | 6 |
 | tests/test_wb_table.py | 3 |
 | tests/test_wb_valign.py | 3 |
 | tests/test_wb_waypoints.py | 14 |
@@ -18481,7 +18434,7 @@ Module-level `def`, `async def` and `class` in `src/tessellate/**/*.py`, excludi
 | tests/test_web_result_highlight.py | 7 |
 | tests/test_web_tool_kept_on_small_windows.py | 3 |
 | tests/test_webclip.py | 20 |
-| tests/test_webclip_page.py | 9 |
+| tests/test_webclip_page.py | 10 |
 | tests/test_websearch_api.py | 9 |
 | tests/test_websearch_diagnosis.py | 23 |
 | tests/test_websearch_privacy.py | 24 |

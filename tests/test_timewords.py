@@ -20,6 +20,15 @@ from tessellate.entry import manager, timewords
 NOW = datetime(2026, 7, 28, 10, 30)
 
 
+@pytest.fixture(autouse=True)
+def _fixed_now(monkeypatch):
+    """The capture hook reads the writer's clock through `config.user_now`;
+    pin it to NOW so the saved-note tests do not depend on today's date."""
+    from tessellate.core import config
+
+    monkeypatch.setattr(config, "user_now", lambda _config: NOW)
+
+
 def _first(text: str):
     found = timewords.find(text, NOW)
     return found[0] if found else None
@@ -122,7 +131,7 @@ def test_saving_a_note_records_what_its_phrases_meant(client, session):
     created = client.post("/entries", json={"content": "call the vet tomorrow"}).json()
     assert len(created["dates"]) == 1
     assert created["dates"][0]["phrase"] == "tomorrow"
-    assert created["dates"][0]["at"] == str(date.today() + timedelta(days=1))
+    assert created["dates"][0]["at"] == str(NOW.date() + timedelta(days=1))
 
 
 def test_the_dates_come_back_with_the_note(client):

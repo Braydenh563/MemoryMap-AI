@@ -76,7 +76,8 @@ def test_the_ladder_has_four_steps():
 
 def test_the_route_serves_the_reading_signed_in(client):
     token = client.post("/auth/setup", json={"password": "first-pass"}).json()["token"]
-    got = client.get("/read", params={"q": "dentist 21st 9am", "surface": "reminder", "tz_offset_minutes": 0},
+    got = client.get("/read", params={"q": "dentist 21st 9am", "surface": "reminder", "tz_offset_minutes": 0,
+                                      "now": "2026-10-14T10:00:00+00:00"},
                      headers={"X-Auth-Token": token})
     assert got.status_code == 200, got.text
     body = got.json()

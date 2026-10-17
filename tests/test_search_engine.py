@@ -223,13 +223,15 @@ def test_a_bulk_delete_of_an_indexed_model_forgets_its_rows():
     import re
     from pathlib import Path
 
+    from tests._repo_files import repo_files
+
     indexed = "Entry|Document|Attachment|MediaUpload|Bookmark|Reminder"
     bulk = re.compile(
         rf"delete\((?:{indexed})\)|query\((?:{indexed})\)[^\n]*\.delete\("
     )
     src = Path(__file__).resolve().parents[1] / "src" / "tessellate"
     offenders = []
-    for path in src.rglob("*.py"):
+    for path in repo_files(src, suffixes=(".py",)):
         text = path.read_text(encoding="utf-8")
         if bulk.search(text) and "forget(" not in text:
             offenders.append(str(path.relative_to(src)))

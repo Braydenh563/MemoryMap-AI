@@ -13,6 +13,9 @@ Each test pins one finding as it was measured in Chromium:
 import re
 from pathlib import Path
 
+from tests._app_js import with_pieces
+from tests._css_paths import css_text
+
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND = ROOT / "frontend"
 CSS = FRONTEND / "css"
@@ -277,3 +280,112 @@ def test_an_icon_only_control_is_named_by_aria_label_not_title_alone():
     assert 'span.setAttribute("aria-label", span.title)' in helper
     cards = _read("note-cards.js")
     assert 'el.setAttribute("aria-label", el.title)' in cards[cards.index('el.classList.add("is-icon")'):][:400]
+
+
+# Sweep findings: focus rings, list semantics, state said to a screen reader, names and groups (INBOX 800).
+
+
+def _strip(css: str) -> str:
+    return re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+
+
+def test_a_solid_map_topic_keeps_its_progress_count_legible():
+    # "3/7" drew in --muted (1.00:1) on the branch colour of a solid topic:
+    # the `.wb-map-core` and `.wb-map-filled` rules named it, `.wb-map-solid`
+    # (a bold main branch, any topic filled Solid) did not.
+    css = _strip(css_text())
+    rule = re.search(r"\.wb-map-node\.wb-map-solid:not\(\[data-shape=\"none\"\]\) :is\(([^)]*)\)\s*\{[^}]*color:\s*var\(--wb-core-ink\)", css)
+    assert rule, "no ink rule for a solid topic's children"
+    assert ".wb-map-progress" in rule.group(1)
+
+
+def test_a_disabled_task_box_on_a_note_card_says_why():
+    from _app_js import app_js_text
+
+    js = app_js_text()
+    at = js.index('item.className = "entry-task"')
+    block = js[at : at + 1400]
+    assert "box.disabled = true" in block
+    assert 'box.title = "' in block
+
+
+def test_the_chosen_chat_mode_keeps_a_visible_focus_ring_in_the_ink_palettes():
+    # The ring was --on-accent (white) because a chosen segment was an accent
+    # fill. In Utilitarian, Paper and Mono the chosen segment is an 11% ink
+    # tint, so the white ring drew at 1.3:1 on it (focusring.js, 219 vs 255).
+    css = _strip(css_text())
+    rule = re.search(
+        r':root:is\(\[data-palette="utilitarian"\], \[data-palette="paper"\], \[data-palette="mono"\]\) '
+        r"\.chat-dock-controls \.seg > button:is\(\.active, \[aria-pressed=\"true\"\]\):focus-visible\s*\{([^}]*)\}",
+        css,
+    )
+    assert rule and "outline-color: var(--ink)" in rule.group(1)
+
+
+def test_a_dashboard_digest_line_is_a_list_item_holding_its_link():
+    # axe `list` (serious): the Dashboard's "today" digest set role="link" on
+    # each `li`, which stops it being a list item inside its `ul`.
+
+    js = with_pieces("dashboard.js")
+    at = js.index('li.className = line.kind === "quote"')
+    block = js[at : at + 1400]
+    assert 'li.setAttribute("role"' not in block
+    assert 'link.setAttribute("role", "link")' in block
+    assert "li.appendChild(link)" in block
+
+
+def test_a_scrolling_page_and_widget_body_leave_room_for_a_focus_ring():
+    # A Tab stop scrolled in flush with the bottom edge lost 3.8 to 4.1px of
+    # its ring to the clip (focus-ring sweep): the scroller keeps --ring-room.
+    css = _strip(css_text())
+    rule = re.search(r"\.tab-page,\s*\.dash-body,\s*\.library-view-section\s*\{([^}]*)\}", css)
+    assert rule and "scroll-padding-block: var(--ring-room)" in rule.group(1)
+
+
+def test_a_plain_activity_row_beside_button_rows_is_not_a_stray_list_item():
+
+    js = with_pieces("dashboard.js")
+    at = js.index("Something that is gone (a note deleted for good")
+    block = js[at : at + 900]
+    assert 'li.setAttribute("role", "presentation")' in block
+
+
+def _js(name: str) -> str:
+
+
+    return with_pieces(name)
+
+
+def test_a_reminders_priority_is_a_word_as_well_as_a_coloured_edge():
+    js = _js("shell-reminders.js")
+    assert '"High" : "Low"} priority' in js
+
+
+def test_a_toggle_says_it_is_on_to_a_screen_reader_as_well_as_to_the_eye():
+    assert "function setActiveChoice(" in _js("chat-attach.js")
+    #: shell-reminders.js's own list and month toggle went with the one calendar (TIMELINE_PLAN decision 19).
+    for name in ("wiring.js", "capture-ask.js", "skills.js"):
+        assert "setActiveChoice(" in _js(name), name
+    # The fill alone, set by hand on these, is the finding.
+    assert 'classList.toggle("active", b === button)' not in _js("wiring.js")
+    assert '$("select-btn").classList.add("active")' not in _js("skills.js")
+
+    html = (Path(__file__).resolve().parents[1] / "frontend" / "index.html").read_text(encoding="utf-8")
+    for fragment in ('id="select-btn" class="ghost small" aria-pressed="false"', 'data-filter="open"'):
+        assert fragment in html, fragment
+    assert re.search(r'data-view="list" class="active icon-only"[^>]*aria-pressed="true"', html)
+    assert re.search(r'aria-pressed="true" data-filter="open"', html)
+
+
+def test_the_dashboards_hold_or_right_click_mark_menu_names_itself():
+    assert 'holder.title = "Right-click or hold to change this mark"' in _js("dashboard.js")
+
+
+def test_a_worded_menu_draws_its_groups_and_the_document_adder_declares_them():
+    # menus.js: "Add this note to a document" was 7 rows with no groups because
+    # `labelledMenu` ignored the `group` an item carries (kebabMenu honours it).
+    sheets = _js("sheets-selects.js")
+    at = sheets.index("function labelledMenu(")
+    assert 'rule.className = "menu-sep"' in sheets[at : at + 2600]
+    capture = _js("capture-ask.js")
+    assert 'group: "Documents"' in capture and 'group: "New"' in capture

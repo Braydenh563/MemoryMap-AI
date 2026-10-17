@@ -592,7 +592,7 @@ let docNativeSnippetCache = null;
 //: defines `setup` or `draw` (run-core.js's test for a sketch) is offered the
 //: vendored p5.min.js's most used names with their arguments. Written here
 //: rather than read out of the 1 MB bundle while typing;
-//: tests/test_docs_1011.py checks every name is in that bundle.
+//: tests/test_code_documents.py checks every name is in that bundle.
 const DOC_P5_SKETCH = /\bfunction\s+(?:setup|draw)\s*\(/;
 const DOC_P5_NAMES = [
   ["createCanvas", "(w, h)"], ["resizeCanvas", "(w, h)"], ["background", "(colour)"], ["clear", "()"],

@@ -9,9 +9,13 @@ of answer it is, and no model is called for it.
 from __future__ import annotations
 
 import json
-from datetime import date
+import re
+from datetime import date, datetime
+from pathlib import Path
 
-from tessellate.ai import composer
+import pytest
+
+from tessellate.ai import composer, personal, question_noise, reading
 from tessellate.entry import manager
 
 
@@ -170,3 +174,145 @@ def test_a_notes_question_with_no_model_is_still_composed(client, session, monke
     out = _ask(client, "When is the dentist check-up?", use_tools=False)
     assert out["meta"][0]["composed"] is True
     assert "Check-up booked for the 21st," in out["text"]
+
+
+# Read requests reach their tool with no model, in people's words and the
+# owner's typos, and the answer carries the links (brief composer item 4: "30
+# phrasings, each answer offers the exact action row or nav link").
+
+ROUTING_GOLD = json.loads((Path(__file__).parent / "fixtures" / "composer" / "routing_1011.json").read_text(encoding="utf-8"))
+ROUTING_NOW = datetime(2026, 10, 11, 10, 0)
+#: Measured 2026-10-11: 12 of 30 read as typed before, 30 of 30 after.
+ROUTING_FLOOR = 1.0
+
+
+def _tool(typed: str) -> str | None:
+    return reading.read(question_noise.repair(question_noise.tidy(typed)), now=ROUTING_NOW).tool
+
+
+def test_the_gold_requests_reach_their_tool():
+    misses = [(typed, want, _tool(typed)) for typed, want in ROUTING_GOLD["routes"] if _tool(typed) != want]
+    assert len(ROUTING_GOLD["routes"]) >= 30
+    assert 1 - len(misses) / len(ROUTING_GOLD["routes"]) >= ROUTING_FLOOR, misses
+
+
+def test_a_question_about_one_note_is_not_the_whole_list():
+    listing = {"list_tags", "list_categories", "list_documents", "list_skills", "list_notes", "notebook_overview", "notebook_structure"}
+    wrong = [(typed, _tool(typed)) for typed in ROUTING_GOLD["not_tools"] if _tool(typed) in listing]
+    assert not wrong, wrong
+
+
+def _answer(client, question):
+    with client.stream("POST", "/chat/stream", json={"question": question, "use_tools": True}) as response:
+        events = [json.loads(line) for line in response.iter_lines() if line.strip()]
+    return "".join(e.get("delta", "") for e in events if e["type"] == "answer")
+
+
+def test_through_the_route_a_typed_request_lists_with_its_links(client, session):
+    manager.create_entry(session, "# Dentist\n\nCheck-up booked for the 21st.", tags=["health"])
+    manager.create_entry(session, "# Harbor launch\n\nShip the app on the 14th.", tags=["harbor"])
+    session.commit()
+    tags = _answer(client, "shwo me evry tag i hav plz")
+    assert "You have two tags" in tags and "[Open your notes](#/notes)" in tags, tags
+    notes = _answer(client, "shwo all my notes")
+    assert re.search(r"\]\(#/notes/\d+\)", notes), notes
+
+
+def test_a_listing_by_category_or_tag_lists_only_those(client, session):
+    """Row 442 (P12): "list my work notes" answered "I found two notes about
+    list my work"; it lists the Work notes, and a tag the same way."""
+    harbor = manager.create_entry(session, "# Harbor launch\n\nShip the app on the 14th.", tags=["harbor"], category_name="Work").id
+    standup = manager.create_entry(session, "# Standup\n\nSync rewrite is behind.", tags=["team"], category_name="Work").id
+    bread = manager.create_entry(session, "# Sourdough\n\nLoaf 6 was great.", tags=["baking"], category_name="Cooking").id
+    session.commit()
+    for typed in ("list my work notes", "shw me all my work notes plz", "notes in work"):
+        said, rows = _listed(client, typed)
+        assert said.startswith("Here are your two Work notes"), said
+        assert rows == {harbor, standup}, (typed, rows)
+    said, rows = _listed(client, "show my baking notes")
+    assert said.startswith("Here is your note tagged #baking") and rows == {bread}, (said, rows)
+
+
+def _listed(client, question):
+    """The answer's words, and the ids of the notes it lists: as rows under
+    an act's line, or as links in a read's answer."""
+    with client.stream("POST", "/chat/stream", json={"question": question, "use_tools": True}) as response:
+        events = [json.loads(line) for line in response.iter_lines() if line.strip()]
+    said = "".join(e.get("delta", "") for e in events if e["type"] == "answer")
+    rows = {item["id"] for e in events if e["type"] == "tool" for card in e.get("cards") or [] for item in card.get("items") or []}
+    return said, rows or {int(n) for n in re.findall(r"\]\(#/notes/(\d+)\)", said)}
+
+
+# Personal and random questions with no model (brief composer item 8; the
+# owner, 2026-10-11: "Can the composer answer personal questions or any other
+# random questions??"): about the person, from their notes; about the app or
+# the assistant, in its voice; small talk; and general knowledge the offline
+# app cannot know, said honestly, never invented.
+
+PERSONAL_GOLD = json.loads((Path(__file__).parent / "fixtures" / "composer" / "personal_1011.json").read_text(encoding="utf-8"))
+#: Measured 2026-10-11: 9 of 30 before `ai/personal.py`, 30 of 30 after.
+PERSONAL_FLOOR = 1.0
+
+
+def _ask_personal(client, question):
+    with client.stream("POST", "/chat/stream", json={"question": question, "use_tools": False}) as response:
+        events = [json.loads(line) for line in response.iter_lines() if line.strip()]
+    said = "".join(e.get("delta", "") for e in events if e["type"] == "answer")
+    #: How a misspelt question was read is said first, then the answer.
+    said = re.sub(r"^I read that as “[^”]*”\.\n\n", "", said)
+    return said, [e for e in events if e["type"] == "grounding"]
+
+
+def test_the_gold_personal_and_random_questions(client, session):
+    for note in PERSONAL_GOLD["notes"]:
+        manager.create_entry(session, note)
+    session.commit()
+    misses = []
+    for question, lead in PERSONAL_GOLD["questions"]:
+        said, _ = _ask_personal(client, question)
+        #: A list is a family whose line varies by chat and by day
+        #: (`routes_chat._reply_seed`): any of its openings is right.
+        if not said.startswith(tuple(lead) if isinstance(lead, list) else lead) or any(n in said for n in PERSONAL_GOLD["never"]) or not said.strip():
+            misses.append((question, said[:120]))
+    assert len(PERSONAL_GOLD["questions"]) >= 30
+    assert 1 - len(misses) / len(PERSONAL_GOLD["questions"]) >= PERSONAL_FLOOR, misses
+
+
+def test_a_fact_about_the_person_carries_its_note(client, session):
+    about = manager.create_entry(session, "# About me\n\nI live in Perth and I work part time at the cafe.").id
+    session.commit()
+    said, grounding = _ask_personal(client, "where do i live")
+    assert said.startswith("You live in Perth, going by your note of")
+    row = grounding[0]["sentences"][0]
+    assert row["note_id"] == about and row["source"].startswith("I live in Perth")
+
+
+@pytest.mark.parametrize(
+    ("note", "key", "said"),
+    [
+        ("I live in Perth and I work at the cafe.", "live", "you live in Perth"),
+        ("I work as a nurse at St John's.", "work", "you work as a nurse at St John's"),
+        ("my birthday is on 3 December", "birthday", "your birthday is 3 December"),
+        ("I was born in 1998.", "born", "you were born 1998"),
+        ("My dog Biscuit hates the vacuum.", "person", "your dog is Biscuit"),
+        ("Coffee with Priya, my boss, at 10.", "person", "your boss is Priya"),
+        ("Fav movie is Dune.", "favourite", "your favourite movie is Dune"),
+        ("I'm learning Japanese on Duolingo.", "learning", "you're learning Japanese"),
+    ],
+)
+def test_what_a_note_says_of_its_writer(note, key, said):
+    found = personal.facts([{"id": 1, "content": note, "created_at": "2026-10-01T10:00:00"}])
+    assert any(f.key == key and f.said == said for f in found), [(f.key, f.said) for f in found]
+
+
+def test_an_age_is_worked_out_from_a_birth_year():
+    notes = [{"id": 1, "content": "I was born in 1998.", "created_at": "2026-01-05T10:00:00"}]
+    assert personal.answer("how old am i", notes, date(2026, 10, 11))["text"].startswith("You're about 28: you were born in 1998")
+
+
+def test_a_question_about_someone_else_is_not_personal():
+    for question in ("where does sam live", "what did i say about the dentist", "who is jess", "what's the capital of my essay"):
+        assert personal.asked(question) is None, question
+    assert not personal.general("what did I write about france")
+    assert personal.general("whats the capital of france")
+    assert not personal.general("who is Sam") and personal.general("who is the president of france")

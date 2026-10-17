@@ -465,3 +465,11 @@ def test_a_written_row_keeps_its_instant(client):
     row = next(r for r in client.get("/timeline?scale=day").json()["rows"] if r["id"] == note["id"])
     assert not row.get("all_day")
     assert "T" in row["at"]
+
+
+def test_the_timeline_names_maps_with_boards():
+    """OPEN row 850: a map's row sits under the board kind; the kind says so."""
+    from pathlib import Path
+
+    timeline = (Path(__file__).resolve().parents[1] / "frontend" / "js" / "timeline.js").read_text(encoding="utf-8")
+    assert '{ key: "board", label: "Boards and maps"' in timeline

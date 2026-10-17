@@ -18,6 +18,8 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+from tests._repo_files import repo_files
+
 SRC = Path(__file__).resolve().parents[1] / "src" / "tessellate"
 
 #: The modules whose job is to start work.
@@ -83,9 +85,9 @@ core/lanserve.py::serve::task::2
 
 def sites() -> set[str]:
     found: set[str] = set()
-    for path in sorted(SRC.rglob("*.py")):
+    for path in repo_files(SRC, suffixes=(".py",), exclude_dirs=("vendor",)):
         rel_src = path.relative_to(SRC).as_posix()
-        if "vendor" in path.parts or rel_src in OWNERS:
+        if rel_src in OWNERS:
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"))
 

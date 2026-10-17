@@ -13,7 +13,7 @@ import json
 import re
 
 from tests._app_js import INDEX_HTML, JS_DIR
-from tests.test_docs_1011 import _fn, _node
+from tests.test_code_documents import _fn, _node
 
 HTML = INDEX_HTML.read_text(encoding="utf-8")
 KIT = (JS_DIR / "documents-codekit.js").read_text(encoding="utf-8")

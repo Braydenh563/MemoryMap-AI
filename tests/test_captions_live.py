@@ -16,6 +16,7 @@ from pathlib import Path
 import pytest
 
 from tessellate.ai import captions
+from tests._repo_files import repo_files
 
 URL = os.environ.get("TESSELLATE_CAPTIONS_URL", "").strip()
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,7 +39,7 @@ def test_the_captions_seam_is_the_only_thing_that_reaches_a_helper():
     assert "captions:" in (ROOT / "pytest.ini").read_text(encoding="utf-8")
     gate = (ROOT / "scripts" / "gate.sh").read_text(encoding="utf-8")
     assert "TESSELLATE_CAPTIONS" not in gate and "whisper-server" not in gate
-    for path in (ROOT / "tests").rglob("test_*.py"):
+    for path in repo_files(ROOT / "tests", patterns=("test_*.py",)):
         if path.name == Path(__file__).name:
             continue
         body = path.read_text(encoding="utf-8")

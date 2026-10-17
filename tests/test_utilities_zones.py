@@ -34,3 +34,13 @@ def test_a_named_region_keeps_its_one_zone():
     text = _text("what's the time in western australia")
     #: The one-zone wording since 7c07664ea: "It's 10:00 in Perth, Western Australia (AWST, UTC+8)."
     assert text.startswith("It's 10:00 in Perth") and "Sydney" not in text
+
+
+def test_the_clock_speaks_am_pm_and_follows_what_about():
+    now = datetime(2026, 10, 12, 18, 53, tzinfo=timezone.utc)
+
+    def said(q):
+        return "".join(t for _, t in utilities.answer(q, now) or [])
+    assert "6:53 pm" in said("what is the time in am/pm"), said("what is the time in am/pm")
+    assert "18:53" in said("what is the time")
+    assert "japan" in said("what about the time in japan").lower() or "Tokyo" in said("what about the time in japan")

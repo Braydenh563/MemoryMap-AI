@@ -15,6 +15,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from tests._app_js import frontend_text
+
 ROOT = Path(__file__).resolve().parents[1]
 CSS = ROOT / "frontend" / "css"
 JS = ROOT / "frontend" / "js"
@@ -127,3 +129,64 @@ def test_every_viewer_overlay_that_covers_the_window_sets_the_flag():
         text = path.read_text(encoding="utf-8")
         if 'overlay.className = "lightbox"' in text:
             assert "setFullscreenSurface(" in text, path.name
+
+
+# Owner findings: link-row hover underline and the snippets bar (INBOX 803).
+
+
+def test_a_link_row_underlines_its_words_not_its_icon():
+    # A button is inline-flex and a decoration on a flex container reaches the
+    # icon, so the hover underline lives on the words' own span.
+    questions = _css("questions-lazy.css")
+    assert ".question-group-link:hover .ph-text" in questions
+    hover = questions[questions.index(".question-group-link:hover,"):].split("}", 1)[0]
+    assert "text-decoration" not in hover
+    consistency = _css("08-consistency.css")
+    assert ".library-read-open:hover .ph-text" in consistency
+    #: The hover rule shares its block with the focus twin (the uisweep pass), so it ends in a comma.
+    plain = consistency[consistency.index(".library-read-open:hover,"):].split("}", 1)[0]
+    assert "text-decoration" not in plain
+    # An always-underlined link that holds an icon is not a flex row.
+    chat = _css("04-chat-dock-appearance.css")
+    assert ":is(.linklike, .link-button):has(> .ph) {\n  display: inline-block;" in chat
+
+
+def test_the_snippets_bar_is_one_height_and_its_label_one_line():
+    # INBOX 803: field 32px, button 42.8px with "Save selection" on two lines.
+    css = _css("library-lazy.css")
+    block = css[css.index(".doc-code-side-bar > button {"):].split("}", 1)[0]
+    assert "height: var(--control-h-lg)" in block and "white-space: nowrap" in block
+    html = (ROOT / "frontend" / "index.html").read_text(encoding="utf-8")
+    # A short label, with the full action in the tooltip and the accessible name.
+    start = html.index('<button id="doc-snippet-save"')
+    button = html[start:html.index("</button>", start)]
+    assert button.endswith("</i>Save")
+    assert 'title="Save the selected code as a snippet"' in button
+    assert 'aria-label="Save the selected code as a snippet"' in button
+    # Every help surface that named the old label now names the button.
+    assert "press Save to keep it" in html
+    assert "press Save selection" not in (ROOT / "frontend" / "js" / "documents-codekit.js").read_text(encoding="utf-8")
+
+
+# Small one-line fixes from the settings and UI system rows (OPEN ledger 1387 to 1490).
+
+def _fn(text: str, name: str) -> str:
+    start = text.index(f"function {name}(")
+    return text[start : text.index("\n}\n", start)]
+
+
+def test_1400_a_worded_small_button_is_named_by_its_words():
+    body = _fn(frontend_text("app.js"), "smallButton")
+    assert 'if (title && button.classList.contains("icon-only")) button.setAttribute("aria-label", title);' in body
+    assert 'if (title) button.setAttribute("aria-label", title);' not in body
+
+
+def test_1401_most_used_follows_a_write():
+    body = _fn(frontend_text("notes-list.js"), "refreshEntries")
+    assert 'if (typeof loadMostUsed === "function") loadMostUsed().catch(() => {});' in body
+
+
+def test_1461_an_empty_notebook_is_offered_its_notes_from_elsewhere():
+    body = _fn(frontend_text("onboarding.js"), "renderOnboardingActions")
+    assert '"ph:file-arrow-up Bring in your notes"' in body
+    assert 'closeOnboarding(false);\n        openSettingsModal("data", "import-md");' in body

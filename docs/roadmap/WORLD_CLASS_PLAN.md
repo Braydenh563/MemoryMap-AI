@@ -788,7 +788,7 @@ Mirrored in `agent-remaining/OPEN.md`, table B.
 | # | Row | What is left | Size | Where |
 | --- | --- | --- | --- | --- |
 | 1 | ~~F3, §16~~ | ~~`semantic_search` reads and parses every vector per request~~ built 2026-09-24: scores against the engine's matrix; 5,000 notes 19 to 74 ms before, 1.0 to 1.2 ms after (`tests/test_semantic_search_matrix.py`) | done | HISTORY |
-| 2 | ~~§12, Brief 15~~ | ~~S1, S2, S3, the rest of S5, S6, `/debug/health` paths~~ built 2026-09-24; ~~`tests/test_lan_mode.py`, the switch and its Settings toggle~~ built 2026-09-26; ~~LAN mode over IPv6~~ built 2026-10-04 (`netbind.listening_socket`, one dual-stack socket; the `[::1]` launcher test skips where the machine has no IPv6) | done | HISTORY |
+| 2 | ~~§12, Brief 15~~ | ~~S1, S2, S3, the rest of S5, S6, `/debug/health` paths~~ built 2026-09-24; ~~`tests/test_lan.py`, the switch and its Settings toggle~~ built 2026-09-26; ~~LAN mode over IPv6~~ built 2026-10-04 (`netbind.listening_socket`, one dual-stack socket; the `[::1]` launcher test skips where the machine has no IPv6) | done | HISTORY |
 | 3 | ~~B2~~ | ~~durable jobs: a table, leases, resume after a kill, `/jobs/stream`~~ built 2026-10-04 for the pool's six kinds (`core/jobstore.py`, `tests/test_jobstore.py`); the other kinds and the panel on the stream built 2026-10-11 (Brief 9, briefs-1011); left: the folder import (SESSION_BRIEFS Brief 9) | S | HISTORY; B2 |
 | 4 | ~~D2, 261~~ | ~~the connections rail always visible on desktop, which is also where `GET /resurface/near` would show~~ built 2026-09-27 (`#notes-rail` at 1280 and wider, the sheet below, by decision); re-measured 2026-10-04 with `notesrail.js` on the showcase notebook, 30/30 light and 30/30 dark at 1440, 1280, 1024 and 390 | done | HISTORY; D2 |
 | 5 | ~~I1, H1~~ | ~~the tension and answered-question passes~~ built 2026-10-04 (`facts._pair_passes`, `tests/test_night_pairs.py`); 2,000 notes, a first run 39 to 57 s with no model, 130 to 215 s with a fake judge (gate 5 min), card 39 to 84 ms; left: pass 2's kinds (dates, duplicates, entities) as derived facts | done | HISTORY |
@@ -916,7 +916,7 @@ was built 2026-09-26 with the receipt's API (HISTORY.md, "Moved from the
 plans, 2026-09-26"). What is left is the rest of Brief 15 below.
 
 **Brief 15 is built** (2026-09-24 and 2026-09-26, HISTORY.md): the
-hardening, `tests/test_lan_mode.py` against the real launcher on 0.0.0.0,
+hardening, `tests/test_lan.py` against the real launcher on 0.0.0.0,
 and the switch in Settings, Account and security. IPv6 built 2026-10-04
 (HISTORY.md, "row 2: LAN mode over IPv6"). Nothing is left of Brief 15.
 
@@ -4116,7 +4116,7 @@ Acrobat for highlights and comments on a PDF page.
 
 | # | Kind | Row | Measure | Rules |
 | --- | --- | --- | --- | --- |
-| 1 | fix | **Found built 2026-10-10 (Brief 79 checked; `tests/test_chatui_1010.py`)**: quick access, Find anything and the palette row "OCR workspace: read a document or image" | quick access present; palette 1 click; a search for "ocr" finds it | 2, 6, 10 |
+| 1 | fix | **Found built 2026-10-10 (Brief 79 checked; `tests/test_ocr_workspace_717.py`)**: quick access, Find anything and the palette row "OCR workspace: read a document or image" | quick access present; palette 1 click; a search for "ocr" finds it | 2, 6, 10 |
 | 2 | fix | **Built 2026-10-10 (Brief 79; HISTORY "WORLD_CLASS 28.4, Brief 79")**: undo for the five reading acts; a deleted reading goes to the bin (`BinnedReading`) | `ocr79.js` 0/5 to 5/5 at 1440 and 390 | 1, 3 |
 | 3 | fix | **Built 2026-10-10 (Brief 79; HISTORY "WORLD_CLASS 28.4, Brief 79")**: pinch zoom about the pointer, Ctrl+wheel and two fingers | `ocr79.js`: Ctrl+wheel Fit to 150%, drift 0; touch at 390 Fit to 176% (nothing before) | 8, 11 |
 | 4 | fix | **Built 2026-10-10 (Brief 79; HISTORY "WORLD_CLASS 28.4, Brief 79")**: the reader menu spans the window under 600; Read sheds its icon last | past the edge 3 to 0 at 390, 4 to 0 at 320 | 7, 8 |

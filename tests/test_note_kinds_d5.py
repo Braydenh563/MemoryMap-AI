@@ -59,3 +59,42 @@ def test_the_graph_offers_the_type_rule():
     assert '<option value="type">Note type</option>' in html
     assert '"type"' in graph.split("const GRAPH_COLOUR_RULES", 1)[1].split("\n", 1)[0]
     assert 'rule === "type"' in canvas
+
+
+# Undo for a deleted note type: it comes back with its id and fields
+
+
+def test_a_deleted_note_type_comes_back_with_its_id_and_fields(client):
+    #: The types panel lists before it makes, which seeds the five built-in
+    #: types (Person, Project, Meeting, Book, Place) once; seeding after the
+    #: delete would hand the deleted id to Person.
+    seeded = {t["id"] for t in client.get("/note-types").json()}
+    made = client.post(
+        "/note-types",
+        json={"name": "Standup", "icon": "ph-users", "colour": "teal", "fields": [{"name": "attendees", "kind": "list"}]},
+    ).json()
+    gone = client.delete(f"/note-types/{made['id']}").json()
+    assert gone["type"] == made
+    assert {t["id"] for t in client.get("/note-types").json()} == seeded
+    back = client.post("/note-types", json={**gone["type"], "restore": True})
+    assert back.status_code == 201, back.text
+    assert back.json() == made
+    # Without `restore` an id in the body is ignored, as before.
+    other = client.post("/note-types", json={"name": "Other", "id": 999}).json()
+    assert other["id"] != 999
+
+
+def test_a_note_type_made_before_the_list_was_read_keeps_its_id_through_delete_and_undo(client):
+    """A type made by POST /note-types before the types list was ever read
+    keeps its id through delete and Undo. The list's first read seeds the
+    built-in types, so the list holds them too; only the two made here are
+    pinned. Still open (integ-1005.md): when the deleted type was the only
+    one and the list is read before the Undo, the seed takes its id."""
+    first = client.post("/note-types", json={"name": "Meeting log"}).json()
+    second = client.post("/note-types", json={"name": "Reading list"}).json()
+    gone = client.delete(f"/note-types/{first['id']}").json()
+    back = client.post("/note-types", json={**gone["type"], "restore": True})
+    assert back.status_code == 201, back.text
+    assert back.json()["id"] == first["id"]
+    ids = {t["id"] for t in client.get("/note-types").json()}
+    assert {first["id"], second["id"]} <= ids

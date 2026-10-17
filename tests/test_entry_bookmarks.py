@@ -55,3 +55,28 @@ def test_a_note_with_no_bookmarks_returns_empty_list(client):
     entry = _make_entry(client)
     attached = client.get(f"/entries/{entry['id']}/bookmarks")
     assert attached.json() == []
+
+
+# Undo for a detached reference: the DELETE answers with what it removed and the create takes it back in place
+def _note(client, text, **extra):
+    return client.post("/entries", json={"content": text, **extra}).json()
+
+
+def test_a_detached_reference_comes_back_in_its_place(client):
+    note = _note(client, "References here")
+    first = client.post("/bookmarks", json={"url": "https://a.example", "title": "A"}).json()
+    second = client.post("/bookmarks", json={"url": "https://b.example", "title": "B"}).json()
+    for bm in (first, second):
+        client.post(f"/entries/{note['id']}/bookmarks", json={"bookmark_id": bm["id"]})
+    gone = client.delete(f"/entries/{note['id']}/bookmarks/{first['id']}")
+    assert gone.status_code == 200
+    body = gone.json()
+    assert body["detached"] is True and body["created_at"]
+    assert [b["id"] for b in client.get(f"/entries/{note['id']}/bookmarks").json()] == [second["id"]]
+    back = client.post(
+        f"/entries/{note['id']}/bookmarks",
+        json={"bookmark_id": first["id"], "created_at": body["created_at"]},
+    )
+    assert back.status_code == 201
+    # Back first, where it was, not appended after B.
+    assert [b["id"] for b in client.get(f"/entries/{note['id']}/bookmarks").json()] == [first["id"], second["id"]]

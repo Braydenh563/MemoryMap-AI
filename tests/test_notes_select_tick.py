@@ -13,6 +13,7 @@ proof; this pins the shape so a refactor cannot put the tick back in the flow.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 from tests._css_paths import css_text
 
@@ -37,3 +38,18 @@ def test_each_view_reserves_a_gutter_for_it():
     assert "padding-left: calc(var(--space-3) + var(--space-7) + var(--space-3))" in cards
     rows = _rule(css, "#entry-list.is-rows > li.selectable > .select-check")
     assert "grid-column: auto" in rows and "top: var(--row-anchor)" in rows
+
+
+# Select shrinks to a square icon button when its word is hidden (INBOX 803).
+
+
+def _front_css(name: str) -> str:
+    return (Path(__file__).resolve().parents[1] / "frontend" / "css" / name).read_text(encoding="utf-8")
+
+
+def test_notes_select_is_square_when_its_word_is_hidden():
+    css = _front_css("08-consistency.css")
+    rule = '[data-dock-name="notes"] .dock-actions > button:has(> .ph-lead + .dock-word)'
+    assert rule in css
+    block = css[css.index(rule):].split("}", 1)[0]
+    assert "width: var(--control-h)" in block and "padding-inline: 0" in block

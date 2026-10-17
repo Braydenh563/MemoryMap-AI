@@ -185,3 +185,49 @@ def test_the_owners_misspellings_are_not_in_the_word_list(typo):
 def test_a_misspelt_word_is_read_towards_the_notes_own_word():
     known = frozenset({"hotel", "lisbon", "balcony"})
     assert question_noise.repair("when did i book the hotle in lisbn", known=known) == "when did i book the hotel in lisbon"
+
+
+# Reading a word the notes hold despite a past form or a typo, and the
+# plain-language lines under an answer (owner, 2026-10-12): asked "when did I
+# buy that gamin mouse earlier this year??", the answer quoted "I just bought a
+# new gaming mouse" and then said "I couldn't find any reference to buy or
+# gamin". A past form and a typo of a word the note has are not missing.
+
+def _found_stems(*words):
+    from tessellate.ai import composer
+
+    return {composer._stem(w) for w in words}
+
+
+def test_a_past_form_counts_as_the_word():
+    from tessellate.ai import composer
+
+    assert composer._seen("buy", _found_stems("I", "just", "bought", "mouse"))
+
+
+def test_a_dropped_g_counts_as_the_word():
+    from tessellate.ai import composer
+
+    assert composer._seen("gamin", _found_stems("gaming", "mouse"))
+
+
+def test_one_letter_off_counts_as_the_word():
+    from tessellate.ai import composer
+
+    assert composer._seen("mouce", _found_stems("mouse"))
+
+
+def test_a_word_no_note_has_is_still_missing():
+    from tessellate.ai import composer
+
+    assert not composer._seen("hotel", _found_stems("gaming", "mouse"))
+
+
+def test_a_sentence_heading_is_not_wrapped_in_your_note():
+    """"Your the split follows this structure note has" (owner, 2026-10-12)."""
+    from datetime import date
+    from types import SimpleNamespace
+    from tessellate.ai import composer_digest as d
+    held = [SimpleNamespace(view=SimpleNamespace(written=date(2026, 7, 27)))]
+    line = d._prose("The split follows this structure", held, ["has Pull, Push and Legs"], 0, date(2026, 10, 12))
+    assert "Your the" not in line and "structure note" not in line, line

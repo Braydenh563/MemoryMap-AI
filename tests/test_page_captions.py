@@ -36,7 +36,7 @@ from tessellate.api import routes_files as files_service
 from tessellate.core import deps, pdfpages
 from tessellate.core.database import PageRead
 
-#: The same hand-written one-page PDF `test_ocr_page_reads_persist.py` uses: 
+#: The same hand-written one-page PDF `test_ocr_page.py` uses: 
 #: pdfium repairs the missing xref table, so this is a real, openable document
 #: without a binary fixture in the tree.
 ONE_PAGE_PDF = (

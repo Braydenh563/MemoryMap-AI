@@ -3702,7 +3702,7 @@ anything already built is named as such so nobody rebuilds it.
   reversed. Now a preference (`ai_first_filing`), so this is a *choice*
   rather than a cost, but it is worth measuring on a slow model before
   assuming the default suits everyone.
-- **Three places independently decide what markdown means**: built 2026-10-11, DOCUMENTS_PLAN decision 13 (`MD_INLINE_MARKS`, read back through `INLINE_MD` by `tests/test_docs_1011.py`).
+- **Three places independently decide what markdown means**: built 2026-10-11, DOCUMENTS_PLAN decision 13 (`MD_INLINE_MARKS`, read back through `INLINE_MD` by `tests/test_code_documents.py`).
 
 ### 111.2 Features worth building, ranked by value per unit of work
 

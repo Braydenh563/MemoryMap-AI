@@ -140,3 +140,47 @@ def test_interface_animations_off_and_reduced_motion_cross_fade():
     assert "reducedMotionWanted()" in sketch
     assert "fade = { snap" in sketch, "the still path is a cross-fade of the old picture"
     assert "(now - fade.start) / ART_FADE_MS" in SOURCE
+
+
+# The constellation has a light well, fades between themes and keeps its shape and height across a theme change (INBOX 803, 838).
+
+ROOT = Path(__file__).resolve().parents[1]
+JS = ROOT / "frontend" / "js"
+CSS = ROOT / "frontend" / "css"
+
+
+def _front_css(name: str) -> str:
+    return (CSS / name).read_text(encoding="utf-8")
+
+
+def test_the_constellation_has_a_light_well_and_fades_between_themes():
+    js = (ROOT / "frontend" / "js" / "dashboard.js").read_text(encoding="utf-8")
+    # HSL lightness 250 clamps to white, the card's own colour: no well.
+    assert "250 - (y / height) * 10" not in js
+    assert "95 - (y / height) * 4" in js
+    body = js[js.index("function refreshArtForTheme("):].split("\nfunction buildArtParticles", 1)[0]
+    assert 'className = "art-veil"' in body
+    # No veil, so an instant change, with reduced motion or animations off.
+    assert "reducedMotionWanted()" in body and 'uiMotion === "off"' in body
+    css = _front_css("02-chat-graph.css")
+    veil = css[css.index(".art-holder > .art-veil {"):].split("}", 1)[0]
+    assert "transition: opacity calc(var(--ui-slow)" in veil
+
+
+# A theme change keeps the constellation's shape and height (INBOX 838).
+
+
+def test_the_constellation_keeps_its_shape_and_its_height_across_a_theme_change():
+    """"swapping between light and dark mode collapses the notebook
+    constellation and joltingly redraws it without it staying the same shape"
+    (INBOX 838). Measured over a theme switch: the holder fell 220px to 0 for a
+    frame (the veil is absolute, so the canvas alone gave it height), and every
+    star's drift restarted from phase 0 (up to 6px)."""
+    css = (CSS / "02-chat-graph.css").read_text(encoding="utf-8")
+    holder = css[css.index(".art-holder {") :].split("}", 1)[0]
+    assert "min-height: 13.75rem;" in holder
+    js = (JS / "dashboard.js").read_text(encoding="utf-8")
+    # The drift is read off a page-lifetime clock, never a sketch's own.
+    assert "const artEpoch = performance.now();" in js
+    assert "p.millis() * 0.0003" not in js
+    assert js.count("artDriftMs() * 0.0003") == 2

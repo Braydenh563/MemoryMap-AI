@@ -211,29 +211,3 @@ def test_a_recent_change_row_is_text_beside_a_quiet_action_that_never_wraps() ->
     action = css[css.index(".entry-list .recent-change .row-actions {") :].split("}")[0]
     assert "flex: none" in action and "white-space: nowrap" in action
     assert "opacity: 1" in action, "the entry list hides row actions until hover; this one is there at rest"
-
-
-
-def test_the_suggestion_list_is_as_wide_as_its_box_and_never_narrower_than_its_default() -> None:
-    """INBOX 849: width = max(the box's width, the list's default 288px), left
-    on the box, inside the viewport with the 16px gutter."""
-    source = (JS / "search-suggest.js").read_text(encoding="utf-8")
-    place = source[source.index("function placeSearchSuggest") : source.index("function placeSearchSuggestSoon")]
-    assert "Math.max(field.width, 288)" in place
-    assert "window.innerWidth - 32" in place, "16px gutter either side"
-    assert "16" in place.split("box.style.left")[1].split("\n")[0]
-    css = (ROOT / "frontend" / "css" / "05-sidebars-themes.css").read_text(encoding="utf-8")
-    foot = css[css.index(".search-suggest-foot {") :].split("}")[0]
-    assert "white-space: nowrap" in foot
-    assert "flex: none" in css[css.index(".search-suggest-clear {") :].split("}")[0], "the Clear link keeps its one line"
-
-
-def test_put_preferences_can_unset_a_setting_back_to_its_default(client) -> None:
-    from tessellate.core import deps
-
-    assert client.put("/preferences", json={"recycle_bin_days": 9}).status_code == 200
-    assert deps.get_config().get_preference("recycle_bin_days", None) == 9
-    done = client.put("/preferences", json={"unset": ["recycle_bin_days"]})
-    assert done.status_code == 200, done.text
-    assert deps.get_config().get_preference("recycle_bin_days", None) is None
-    assert client.get("/preferences").json()["recycle_bin_days"] == 30

@@ -25,7 +25,7 @@ from __future__ import annotations
 import re
 
 from pathlib import Path
-from tests._app_js import app_js_text
+from tests._app_js import app_js_text, frontend_text
 
 JS = app_js_text()
 CSS = Path("frontend/css/lightbox-lazy.css").read_text(encoding="utf-8") + Path("frontend/css/02-chat-graph.css").read_text(encoding="utf-8")
@@ -234,3 +234,18 @@ def test_the_workspace_target_carries_the_url_its_pages_are_served_from():
     id asked for `/media/pdf-page//0` and got a 404, so "open the reader here"
     opened an empty stage."""
     assert "url: `/media/${name}`" in LIGHTBOX
+
+
+# The lightbox row is one height (owner 2026-10-10).
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_the_lightbox_row_is_one_height():
+    """"These elements in the lightbox aren't the same height" (Copy text,
+    Save, Find in document). Measured at 1440 on a PDF: Save 32, Find 28, the
+    ⋯ 28; after, all 32 (44 under touch, as before)."""
+    css = (ROOT / "frontend" / "css" / "02-chat-graph.css").read_text(encoding="utf-8")
+    rule = css[css.index(".lightbox .lightbox-find {") :]
+    assert "min-height: max(2rem, var(--target-min));" in rule[: rule.index("\n}")]
+    view = frontend_text("lightbox-view.js")
+    assert 'opener.style.minHeight = opener.style.minWidth = "max(2rem, var(--target-min))";' in view

@@ -11,6 +11,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from tests._repo_files import repo_files
+
 SRC = Path(__file__).resolve().parents[1] / "src" / "tessellate"
 _RAW = re.compile(r"\.fail\(\s*(?:str\()?(?:exc|error|err|e)\b")
 
@@ -24,7 +26,7 @@ ALLOWED = {
 
 def test_run_fail_is_not_given_a_raw_exception():
     found = {}
-    for path in sorted(SRC.rglob("*.py")):
+    for path in repo_files(SRC, suffixes=(".py",)):
         rel = path.relative_to(SRC).as_posix()
         if rel == "core/jobruns.py":
             continue

@@ -23,6 +23,8 @@ import pathlib
 
 import pytest
 
+from tests._repo_files import repo_files
+
 SRC = pathlib.Path(__file__).resolve().parent.parent / "src" / "tessellate"
 
 #: The calls that leave this machine. `session.get`/`session.post` are not
@@ -109,7 +111,7 @@ def _calls(tree: ast.AST) -> set[str]:
 
 def _fetchers() -> set[str]:
     found = set()
-    for path in sorted(SRC.rglob("*.py")):
+    for path in repo_files(SRC, suffixes=(".py",)):
         if _calls(ast.parse(path.read_text())) & OUTBOUND:
             found.add(str(path.relative_to(SRC)))
     return found

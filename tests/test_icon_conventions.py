@@ -21,6 +21,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+from tests._repo_files import repo_files
+
 ROOT = Path(__file__).resolve().parents[1]
 FRONT = ROOT / "frontend"
 HTML = (FRONT / "index.html").read_text(encoding="utf-8")
@@ -153,7 +155,7 @@ def test_design_md_has_the_row_and_names_this_lint() -> None:
 
 PY = {
     p.relative_to(ROOT / "src").as_posix(): p.read_text(encoding="utf-8")
-    for p in sorted((ROOT / "src" / "tessellate").rglob("*.py"))
+    for p in repo_files(ROOT / "src" / "tessellate", suffixes=(".py",))
 }
 
 AI_ICON = "sparkle"

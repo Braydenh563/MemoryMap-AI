@@ -279,3 +279,62 @@ def test_a_long_run_of_stray_keys_is_stripped_in_linear_time():
     assert strip_strays("gaming mouse?\\") == "gaming mouse?"
     assert strip_strays("why?/") == "why?"
     assert strip_strays("a :\\") == "a :\\"
+
+
+# --- ledger rows ----------------------------------------------------------------
+# Small and medium composer, engine and Ask rows, each pinned where it was
+# fixed; each row tries the owner's typed forms too (Brief 90).
+
+
+#: Row 543: "think", "plan" and "idea" are note words, so a one-line reply
+#: of agreement was searched for. Each is the person answering, not asking.
+AGREEMENT = [
+    "I think so", "i think so tbh", "i guess so", "i suppose so", "i hope so",
+    "good plan", "gud plan", "nice idea", "good idea", "great idea", "good call",
+    "good point", "sounds like a plan", "sure thing", "i think so too",
+]
+
+
+@pytest.mark.parametrize("message", AGREEMENT)
+def test_agreeing_is_small_talk_not_a_search(message):
+    assert question_noise.social_kind(message) in {"ack", "compliment"}, message
+    assert intent.classify(message) == intent.SMALLTALK, message
+
+
+@pytest.mark.parametrize("message", ["what did I plan for the trip", "my ideas for the garden", "what do I think about rust"])
+def test_the_same_words_in_a_question_still_search(message):
+    assert question_noise.social_kind(message) is None
+    assert intent.classify(message) != intent.SMALLTALK
+
+
+@pytest.mark.parametrize("asked, plain", [
+    ("hwo do i set a remnder", "how do I set a reminder"),
+    ("hwo do i turn on dark mdoe", "how do I turn on dark mode"),
+])
+def test_the_guide_with_no_model_says_how_it_read_a_typo(asked, plain):
+    """Row 404: the Guide's no-model answer said nothing of the repair, and
+    answered the misspelt question worse than the plain one (row 417: "The
+    Reminders tab groups items..." rather than the steps)."""
+    from tessellate.ai import composer_ack, help_chat
+
+    typed = help_chat.offline_answer(asked)["content"]
+    clean = help_chat.offline_answer(plain)["content"]
+    starts = composer_ack.STARTS["natural"]
+    assert any(typed.startswith(s) for s in starts), typed[:80]
+    assert typed.split(composer_ack.END, 1)[1] == clean
+    assert not any(clean.startswith(s) for s in starts)
+
+
+def test_a_real_word_no_note_holds_is_not_put_right_to_one_that_does():
+    """Found working row 409: "what do I know about rust" quoted the soup
+    recipe, because "rust" was fitted to the note word "rest" (one edit).
+    A dictionary word is what the person meant; only a non-word is a typo
+    of a note's word ("lisbn" is "lisbon")."""
+    import json
+    from datetime import date
+    from pathlib import Path
+
+    notes = json.loads((Path(__file__).parent / "fixtures" / "composer" / "showcase_725.json").read_text(encoding="utf-8"))["notes"]
+    said = composer.compose("what do I know about rust", notes, today=date(2026, 10, 1))
+    assert not said["grounding"], said["text"]
+    assert "rust" in said["text"]

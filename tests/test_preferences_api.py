@@ -395,3 +395,12 @@ def test_the_audit_log_does_not_copy_a_settings_personal_or_long_words(client):
     details = " | ".join(row["detail"] or "" for row in rows)
     assert "Marlowe" not in details and "Quentin" not in details
     assert "communication_style=concise" in details
+
+
+def test_put_preferences_can_unset_a_setting_back_to_its_default(client) -> None:
+    assert client.put("/preferences", json={"recycle_bin_days": 9}).status_code == 200
+    assert deps.get_config().get_preference("recycle_bin_days", None) == 9
+    done = client.put("/preferences", json={"unset": ["recycle_bin_days"]})
+    assert done.status_code == 200, done.text
+    assert deps.get_config().get_preference("recycle_bin_days", None) is None
+    assert client.get("/preferences").json()["recycle_bin_days"] == 30

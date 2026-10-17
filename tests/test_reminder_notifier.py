@@ -18,6 +18,7 @@ import pytest
 
 from tessellate.core import reminder_notifier as rn
 from tessellate.core.database import utcnow
+from tests._frozen_clock import FIXED_NOW, freeze_reminder_clock
 
 
 def _row(id_, due, *, done=False, alert=None, text="Dentist"):
@@ -147,6 +148,8 @@ def test_a_reminder_fires_once_with_no_window_and_done_from_it_marks_it_done(cli
     through the route's own code."""
     bin_dir, log = _fake_notify_send(tmp_path, "done")
     monkeypatch.setenv("PATH", f"{bin_dir}{os.pathsep}{os.environ['PATH']}")
+    # Deliberately the real clock: the notifier thread reads its own wall time
+    # and the test waits out a real 1.5 s, so a frozen "now" would never fire.
     due = utcnow() + timedelta(seconds=1.5)
     made = client.post("/reminders", json={"text": "Call the dentist", "due_at": due.isoformat()}).json()
     notifier = rn.ReminderNotifier(rn.FiredStore(tmp_path / rn.STORE_NAME), "notify-send").start()
@@ -165,14 +168,15 @@ def test_a_reminder_fires_once_with_no_window_and_done_from_it_marks_it_done(cli
     assert made["id"] == client.get("/reminders").json()[0]["id"]
 
 
-def test_ticks_after_the_first_announce_nothing_and_a_snooze_brings_it_back(client, tmp_path):
+def test_ticks_after_the_first_announce_nothing_and_a_snooze_brings_it_back(client, tmp_path, monkeypatch):
+    freeze_reminder_clock(monkeypatch, notifier=True)
     calls = []
     notifier = rn.ReminderNotifier(
         rn.FiredStore(tmp_path / rn.STORE_NAME),
         "osascript",
         run=lambda argv, **kw: calls.append(argv),
     )
-    due = utcnow() + timedelta(minutes=1)
+    due = FIXED_NOW + timedelta(minutes=1)
     rid = client.post("/reminders", json={"text": "Stretch", "due_at": due.isoformat()}).json()["id"]
     later = due.replace(tzinfo=None) + timedelta(seconds=1)
     assert notifier.tick(later - timedelta(seconds=61)) == pytest.approx(rn.MAX_SLEEP_S)
@@ -182,12 +186,13 @@ def test_ticks_after_the_first_announce_nothing_and_a_snooze_brings_it_back(clie
     assert [argv[-1] for argv in calls] == ["Stretch"]
     notifier.answer("snooze", rid)
     moved = datetime.fromisoformat(client.get("/reminders").json()[0]["due_at"]).replace(tzinfo=None)
-    assert timedelta(minutes=9) < moved - datetime.now(timezone.utc).replace(tzinfo=None) <= timedelta(minutes=10)
+    assert timedelta(minutes=9) < moved - FIXED_NOW.replace(tzinfo=None) <= timedelta(minutes=10)
     notifier.tick(moved + timedelta(seconds=1))
     assert len(calls) == 2
 
 
-def test_a_locked_notebook_shows_no_reminder_text(client, tmp_path):
+def test_a_locked_notebook_shows_no_reminder_text(client, tmp_path, monkeypatch):
+    freeze_reminder_clock(monkeypatch, notifier=True)
     calls = []
     notifier = rn.ReminderNotifier(
         rn.FiredStore(tmp_path / rn.STORE_NAME),
@@ -195,18 +200,19 @@ def test_a_locked_notebook_shows_no_reminder_text(client, tmp_path):
         notebook_open=lambda session: False,
         run=lambda argv, **kw: calls.append(argv),
     )
-    due = utcnow() + timedelta(minutes=1)
+    due = FIXED_NOW + timedelta(minutes=1)
     client.post("/reminders", json={"text": "Private", "due_at": due.isoformat()})
     notifier.tick(due.replace(tzinfo=None) + timedelta(seconds=1))
     assert calls == []
 
 
-def test_several_at_once_are_one_summary_without_buttons(client, tmp_path):
+def test_several_at_once_are_one_summary_without_buttons(client, tmp_path, monkeypatch):
+    freeze_reminder_clock(monkeypatch, notifier=True)
     calls = []
     notifier = rn.ReminderNotifier(
         rn.FiredStore(tmp_path / rn.STORE_NAME), "osascript", run=lambda argv, **kw: calls.append(argv)
     )
-    due = utcnow() + timedelta(minutes=1)
+    due = FIXED_NOW + timedelta(minutes=1)
     for text in ("One", "Two", "Three"):
         client.post("/reminders", json={"text": text, "due_at": due.isoformat()})
     notifier.tick(due.replace(tzinfo=None) + timedelta(seconds=1))
@@ -220,7 +226,10 @@ def test_the_session_check_is_signed_in_or_no_password(app_state, session, monke
     monkeypatch.setattr(routes_auth, "_password_set", lambda s: True)
     monkeypatch.setattr(routes_auth, "_active_tokens", {})
     assert routes_auth.notebook_open(session, app_state) is False
-    monkeypatch.setattr(routes_auth, "_active_tokens", {"t": [time.time(), time.time()]})
+    # routes_auth reads `time.time()` for idle expiry: give it the fixed clock.
+    epoch = FIXED_NOW.timestamp()
+    monkeypatch.setattr(routes_auth, "time", SimpleNamespace(time=lambda: epoch, monotonic=time.monotonic))
+    monkeypatch.setattr(routes_auth, "_active_tokens", {"t": [epoch, epoch]})
     assert routes_auth.notebook_open(session, app_state) is True
 
 

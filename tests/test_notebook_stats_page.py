@@ -34,13 +34,13 @@ NOW = datetime(2026, 10, 14, 15, 0, tzinfo=timezone.utc)
 
 def test_the_page_counts_the_notebook(client):
     with _session() as session:
-        a = _note(session, "one two three", ["work", "idea"])
-        b = _note(session, "four five", ["work"])
-        _note(session, "six", [])
+        a = _note(session, "one two three", ["work", "idea"], created=NOW)
+        b = _note(session, "four five", ["work"], created=NOW)
+        _note(session, "six", [], created=NOW)
         session.add(EntryLink(source_entry_id=a.id, target_entry_id=b.id))
         session.add(Category(name="Projects"))
         session.commit()
-        page = notebook_stats.page(session, datetime.now(timezone.utc), {"features": [], "unused_days": 90})
+        page = notebook_stats.page(session, NOW, {"features": [], "unused_days": 90})
     book = page["notebook"]
     assert (book["notes"], book["words"], book["tags"], book["links"], book["orphans"]) == (3, 6, 2, 1, 1)
     assert book["categories"] >= 1

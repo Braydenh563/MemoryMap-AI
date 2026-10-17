@@ -59,3 +59,23 @@ def test_a_drawn_one_is_the_library_s_custom_shape_and_takes_text():
 def test_the_palette_and_the_phone_sheet_read_the_same_table():
     assert "Object.entries(WB_MORE_SHAPES).map(([tool, shape])" in COMMANDS
     assert "keys: \"\"" in COMMANDS[COMMANDS.index("Object.entries(WB_MORE_SHAPES)") :][:300]
+
+
+# The Shapes flyout caret (OPEN row 847).
+WB = SOURCE
+
+
+def _css(name: str) -> str:
+    return (ROOT / "frontend" / "css" / name).read_text(encoding="utf-8")
+
+
+def test_the_shapes_caret_opens_the_list():
+    """OPEN row 847: `.wb-shape-caret` had `pointer-events: none`, so the
+    toggle's `closest(".wb-shape-caret")` never matched and the caret picked
+    the tool. The caret takes the press, and so does the toggle's right 14px."""
+    caret = re.search(r"\.wb-shape-caret\s*\{([^}]*)\}", _css("06-timeline-dialogs.css"))
+    assert caret and "pointer-events" not in caret.group(1)
+    start = WB.index("function wbToggleCaretHit(")
+    hit = WB[start : WB.index("\n  }\n", start)]
+    assert 'closest(".wb-shape-caret")' in hit and "right - 14" in hit and "e.detail > 0" in hit
+    assert "if (wbToggleCaretHit(toggle, e)) {" in WB

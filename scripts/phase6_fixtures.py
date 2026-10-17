@@ -4,7 +4,7 @@ Rows are built from fixed tables with a fixed seed; every expected value is
 worked out here from the row itself (dates, counts, which page holds the
 answer), never by running the engine. Run from anywhere:
 `python scripts/phase6_fixtures.py`; the floors are in
-`tests/test_engine_evals_1010.py`."""
+`tests/test_engine_dialogue.py`."""
 import json
 import random
 from datetime import date, timedelta

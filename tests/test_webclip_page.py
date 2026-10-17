@@ -16,6 +16,7 @@ import pytest
 from tessellate.ai import fence, librarian
 from tessellate.core.database import Entry
 from tessellate.entry import manager
+from tests._app_js import frontend_text
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -118,3 +119,40 @@ def test_the_bookmark_is_a_dragged_link_on_its_recipe():
     assert 'id="web-clip-bookmarklet"' in html and "javascript:" not in html.split('id="web-clip-bookmarklet"', 1)[1][:200]
     js = (ROOT / "frontend" / "js" / "web-clip.js").read_text(encoding="utf-8")
     assert "location.origin" in js and "preventDefault" in js
+
+
+# A follow-up about the page carries the page's text (owner 2026-10-10).
+
+
+def test_a_follow_up_about_the_page_carries_the_page():
+    """"I tried to ask for more info from the retrieved website in the
+    previous prompt and it just straight up ignored me". A turn kept only its
+    question and answer, so the page's text was gone. Measured on the running
+    app with the page routed: "tell me more about that page" was sent with
+    the page's text; "what is on my shopping list" was not; the bubble shows
+    only what was typed. The rule, run in node over the shipped regex:"""
+    import json
+    import re
+    import shutil
+    import subprocess
+
+
+    if not shutil.which("node"):
+        pytest.skip("needs node")
+    clip = frontend_text("web-clip.js")
+    rule = re.search(r"^const WEB_FOLLOW_UP = (/.*/i);$", clip, re.M).group(1)
+    asks = {
+        "tell me more about that page": True,
+        "can you give more info from the website": True,
+        "what else does the article say": True,
+        "more details please": True,
+        "what does it say about stripes on it": True,
+        "what is on my shopping list": False,
+        "summarise my notes about zebras": False,
+    }
+    script = f"const r = {rule}; console.log(JSON.stringify({json.dumps(list(asks))}.map((q) => r.test(q))));"
+    got = json.loads(subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout)
+    assert dict(zip(asks, got)) == asks
+    attach = frontend_text("chat-attach.js")
+    assert "const page = await webFollowUp(typed, chatWeb.lastUrl);" in attach
+    assert 'chatWeb.lastUrl = turnSources.find((source) => source.kind === "web" && source.url)?.url || null;' in attach

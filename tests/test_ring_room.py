@@ -141,3 +141,10 @@ def test_clipped_single_lines_keep_their_descenders():
             if lh and float(lh.group(1)) < 1.2:
                 tight.append(sel)
     assert tight in ([], [".tab-label"]) or all(".tab-label" in t for t in tight), tight
+
+
+# Library sections keep the focus ring room when scrolled to (OPEN ledger 1423).
+
+
+def test_1423_library_sections_keep_the_focus_ring_room():
+    assert re.search(r"\.dash-body,\s*\.library-view-section \{\s*scroll-padding-block: var\(--ring-room\);", (CSS_DIR / "08-consistency.css").read_text(encoding="utf-8"))

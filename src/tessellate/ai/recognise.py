@@ -1316,6 +1316,34 @@ def says_ahead(text: str) -> bool:
     return bool(_AHEAD.search(text or ""))
 
 
+#: A question about the change or the past ("what did I use to...", "a year
+#: ago"): `supersede.current` keeps every note for one. Read here, with the
+#: other date words (decision 46).
+_PAST = re.compile(
+    r"\b(?:changed?|changes|used to|before|previous(?:ly)?|last (?:semester|term|year|time)|old|older|history|over time|"
+    r"compare|comparison|difference|ago|in the past|originally|first)\b",
+    re.I,
+)
+
+
+def says_past(text: str) -> bool:
+    return bool(_PAST.search(text or ""))
+
+
+#: Day and month names that are always names. "march" and "may" are left out:
+#: they are as often a verb as a date.
+_CAPITAL_NAMES = re.compile(
+    r"(?<![\w'])(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|april|june|july|august|"
+    r"september|october|november|december)(?![\w'])"
+)
+
+
+def capitalise_names(text: str) -> str:
+    """`text` with its weekday and month names given capitals (the
+    proofreader's day names)."""
+    return _CAPITAL_NAMES.sub(lambda m: m.group(0).capitalize(), text)
+
+
 # --- date questions ("how many days until", "what date is it in 3 weeks") ----------
 #
 # The question's shape is read here, with the date words in it, so the

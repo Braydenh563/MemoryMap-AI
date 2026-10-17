@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import re
 
+from tessellate.ai import recognise
+
 
 _WORD = re.compile(r"[A-Za-z][A-Za-z']*")
 _SENTENCE_START = re.compile(r"(^|[.!?]\s+|\n\s*)([a-z])")
@@ -62,7 +64,7 @@ def _proofread_plain(text: str, known, changes: list) -> str:  # noqa: ANN001
             if replaced != text:
                 text = replaced
                 changes.append((typed, made))
-    named = _NAMED.sub(lambda m: m.group(0).capitalize(), text)
+    named = recognise.capitalise_names(text)
     if named != text:
         changes.append(("day names", "capitals"))
     fixed_i = _LONE_I.sub("I", named)
@@ -85,12 +87,6 @@ def _modal(typed: str, line: str) -> str:
         return ""
     near = [m for m in _MODALS if question_noise.distance(typed.lower(), m) <= 1.0]
     return near[0] if len(near) == 1 else ""
-
-
-_NAMED = re.compile(
-    r"(?<![\w'])(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|april|june|july|august|"
-    r"september|october|november|december)(?![\w'])"
-)
 
 
 def said(changes: list[tuple[str, str]]) -> str:

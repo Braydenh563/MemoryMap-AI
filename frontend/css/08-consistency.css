@@ -8846,7 +8846,7 @@ svg.atl-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 /* No companion while the app is locked (the owner: "the avatar shows even
    when the app is on the lock screen. it should only show when the app is
    unlocked"). */
-body:has(#lock-overlay:not(.hidden)) #nm-buddy {
+#nm-buddy[data-cover="lock"] {
   display: none;
 }
 /* The greeting persona's face beside its picker. */
@@ -9246,7 +9246,7 @@ h3.wb-sidebar-title {
    transitions drive its movement and must not be overridden. Not when the
    dialog is its own large view, which it has come into (INBOX 443,
    avatars.js `nameMarkBuddyVisit`). */
-body:has(dialog[open]:modal, .modal-overlay:not(.hidden), .lock-overlay:not(.hidden)) #nm-buddy:not(.nm-viewer-figure > *) {
+#nm-buddy[data-cover]:not(.nm-viewer-figure > *) {
   opacity: 0;
   pointer-events: none;
 }

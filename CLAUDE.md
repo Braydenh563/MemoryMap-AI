@@ -328,3 +328,11 @@ The levers, in order:
 - At session end run the `retro` skill: it measures the session, keeps the
   ledger and changes at most one rule, so the workflow improves across
   sessions on evidence.
+
+**Compact instructions.** When compacting, keep: the HANDOVER "Now" line,
+the current task and its acceptance check, failing tests with their
+commands, the file paths being edited, the branch and PR number, and any
+decision made this session. Drop tool output and exploration that led
+nowhere. Long unattended runs work best as one task per session or `/goal`,
+state in files (HANDOVER, INBOX, git), verbose work in subagents;
+compaction (`autoCompactWindow`, 400k here) is the safety net, not the plan.

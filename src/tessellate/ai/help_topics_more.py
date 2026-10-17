@@ -858,7 +858,7 @@ MORE_TOPICS: list[dict] = [
         "id": "first-steps",
         "keywords": (
             "first steps", "start in three steps", "sample notebook", "sample notes", "example notes",
-            "remove the sample notes", "demo notes", "try it out", "hide these steps",
+            "remove the sample notes", "demo notes", "try it out", "hide these steps", "get started", "setup popup", "closed the welcome", "checklist",
         ),
         "body": (
             "A new notebook's Dashboard shows Start in three steps: 1. Your name, "
@@ -870,7 +870,10 @@ MORE_TOPICS: list[dict] = [
             "linked notes in the Graph); it is offered until you write your own "
             "first note. Remove the sample notes moves them all to the bin, where "
             "Restore brings one back, and takes away the categories they made. The steps leave once all three are done and "
-            "the sample notes are gone, or with Hide these steps."
+            "the sample notes are gone, or with Hide these steps. They are never lost: the "
+            "dashboard's Get started menu (beside Customise) lists the same three, ticked as "
+            "they are done, with Take the tour and Replay the welcome, and the same checklist "
+            "is the first row of the notifications bell until all three are done."
         ),
         "badge": {"label": "Dashboard", "tab": "dashboard"},
     },
@@ -1758,7 +1761,9 @@ MORE_TOPICS.extend(
             "body": (
                 "Emoji and icons. One picker holds every Phosphor icon the app ships "
                 "and about 470 emoji: Emoji or Icons in the tab strip under its title, "
-                "type to search, Recent first, arrows and Enter to choose, Escape to close. On a board or a "
+                "type to search, Recent first, arrows and Enter to choose, Escape to close. "
+                "The last Emoji group is Japanese emoticons (kaomoji such as a shrug or a table flip), "
+                "found by name or by words like happy, cry and angry. On a board or a "
                 "map, the smiley on the tool dock (Add on a board, Map on a map) or Insert, "
                 "Emoji and icons… keeps it open: press one to place it "
                 "in the middle of the view, or drag it where it goes. An emoji lands "

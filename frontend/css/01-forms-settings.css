@@ -6285,8 +6285,13 @@ select {
   }
 }
 
-/* A finished job's Logs button sits at the row's right end, on the title line,
-   so it is at the same x on every row (the row-actions recipe). */
+/* A finished job's Logs button stays top right (BACKLOG "Start of the next PR":
+   it wrapped to a row of its own under a long line, 123px down at 390): the row
+   is the name and the button on one line, never wrapping, and the line of
+   when, how long and which model sits under it. */
+#task-history .entry-meta {
+  flex-wrap: nowrap;
+}
 #task-history .entry-meta > .row-actions {
   margin-inline-start: auto;
 }

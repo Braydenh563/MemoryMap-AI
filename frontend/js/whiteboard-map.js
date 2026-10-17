@@ -3098,7 +3098,7 @@ function wbMapOpenReference(d) {
         }
         window.open(href, "_blank", "noopener,noreferrer");
       })
-      .catch(() => toast("That bookmark could not be opened.", true));
+      .catch(() => toast("That bookmark could not be opened.", "info"));
     return;
   }
   toast(`This node points at a ${d.kind}, which has nothing to open here.`, "info");
